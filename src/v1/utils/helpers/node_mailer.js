@@ -21,7 +21,7 @@ module.exports = {
                 });
 
                 const mailOptions = {
-                    from: email_prefix ? `${email_prefix} ${mailer.user}` : `Presence360 ${mailer.user}`,
+                    from: email_prefix ? `${email_prefix} ${mailer.user}` : `Radiant Infonet ${mailer.user}`,
                     to: to,
                     cc: cc,
                     subject: subject,

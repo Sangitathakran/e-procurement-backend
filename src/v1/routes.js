@@ -1,12 +1,11 @@
-// Call Your Routes
-const { S3Router } = require("./services/aws/routes");
+const { handlePagination, handleRateLimit } = require("./middlewares/express_app");
 const { templateRoutes } = require("./services/templete/Routes");
-const { userRouter } = require("./services/auth/Routes");
-const { eventEmitter } = require("./utils/websocket/server");
-const { asyncErrorHandler } = require("./utils/helpers/asyncErrorHandler");
-const { _webSocketEvents } = require("./utils/constants");
+const { S3Router } = require("./services/aws/routes");
+const multer = require('multer');
 const { masterRoutes } = require("./services/master/Routes");
-const { handlePagination } = require("./middlewares/express_app");
+const { procurementRoutes } = require("./services/procurement/Routes");
+
+// Call Your Routes
 const ExpressApp = require("express")();
 /**
  * 
@@ -14,16 +13,12 @@ const ExpressApp = require("express")();
  */
 module.exports = (app) => {
     /* Define Your Routes */
+    app.use(handlePagination)
+    app.use(handleRateLimit)
+    app.use(multer().any())
 
-    app.use('/auth', userRouter)
     app.use('/aws', S3Router)
-
     app.use("/master", masterRoutes);
+    app.use("/procurement", procurementRoutes);
     app.use('/import-templete', templateRoutes)
-    app.post('/event', asyncErrorHandler(async (req, res, next) => {
-        const { message } = req.body;
-        eventEmitter.emit(_webSocketEvents.product, message);
-        return res.send('message product sent to all WebSocket clients');
-    }));
 }
-

@@ -1,7 +1,7 @@
 // getting-started.js
 const mongoose = require('mongoose');
 const connection = mongoose.connection
-const { connection_string, platform_org } = require('.');
+const { connection_string } = require('.');
 
 const options = {
     maxPoolSize: 10,  // Adjust the pool size according to your needs
@@ -11,7 +11,7 @@ const options = {
 main().catch(err => console.log(err));
 
 async function main() {
-    await mongoose.connect(`${connection_string}${platform_org}`, options);
+    await mongoose.connect(`${connection_string}`, options);
 }
 
 connection.on('error', console.error.bind(console, "Error unable to connect database...!"));

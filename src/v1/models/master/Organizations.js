@@ -1,15 +1,14 @@
 const mongoose = require('mongoose');
-const { _account_status, _collectionName } = require('@src/v1/utils/constants');
+const { _status, _collectionName } = require('@src/v1/utils/constants');
 
 const OrganizationSchema = new mongoose.Schema({
-    account_id: { type: mongoose.Schema.Types.ObjectId, ref: 'account', },
     name: { type: String, default: "" },
     alias: { type: String, default: "" },
     metaInfo: { type: Object, default: {}, },
-    status: { type: String, default: _account_status.Active, enum: Object.keys(_account_status) },
+    status: { type: String, default: _status.active, enum: Object.keys(_status) },
     deletedAt: { type: Date, default: null },
-    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'account', default: null },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'account', default: null },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, default: null },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, default: null },
 }, { timestamps: true })
 
 // Define Search Indexes

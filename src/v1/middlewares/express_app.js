@@ -1,49 +1,49 @@
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response")
-const { rateLimit } = require("express-rate-limit")
-const { asyncErrorHandler } = require("../utils/helpers/asyncErrorHandler")
+
+const { rateLimit } = require("express-rate-limit");
+const { serviceResponse } = require("../utils/helpers/api_response");
 
 module.exports = {
-    handleCatchError: (err, req, res, next) => {
+    handleRouteNotFound: (req, res) => {
         try {
-            let { status, error } = JSON.parse(err)
-            // Your Error Handling Here
-            return res.send(new serviceResponse({ status: status, errors: [{ message: error }] }))
+            return res.send(new serviceResponse({ status: 404, errors: [{ message: "Route not found." }] }))
         } catch (err) {
-            return res.send(new serviceResponse({ status: 500, errors: [{ message: err.message }] }))
+            return res.send(new serviceResponse({ status: 404, errors: [{ message: err.message }] }))
         }
-    },
-
-    handleRouteNotFound: (req, res, next) => {
-        return res.send(new serviceResponse({ status: 404, errors: "Route not found." }))
     },
 
     handleCors: (req, res, next) => {
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-        res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-Width, Content-Type, Accept, Authorization');
-        res.setHeader('Access-Control-Allow-Credentials', true);
-        next();
+        try {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+            res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-Width, Content-Type, Accept, Authorization');
+            res.setHeader('Access-Control-Allow-Credentials', true);
+            next();
+        } catch (err) {
+            return res.send(new serviceResponse({ status: 404, errors: err.message }))
+        }
     },
 
     handlePagination: (req, res, next) => {
-        let maxLimit = 100;
-        let { limit, page, paginate = 1, sortBy = "createdAt", sortOrder = "desc" } = req.query;
-
-        let offset = 0;
-        if (limit && page) {
-            limit = limit <= maxLimit ? limit : maxLimit
-            offset = (page - 1) * limit
+        try {
+            let maxLimit = 20;
+            let { limit, page, paginate = 1, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+            let skip = 0;
+            if (limit && page) {
+                limit = limit <= maxLimit ? limit : maxLimit
+                skip = (page - 1) * limit
+            }
+            req.query.limit = limit ? parseInt(limit) : 10;
+            req.query.page = page ? parseInt(page) : 1;
+            req.query.skip = skip ? parseInt(skip) : 0;
+            req.query.paginate = paginate == 0 ? 0 : 1;
+            req.query.sortBy = {
+                [sortBy]: sortOrder === 'desc' ? -1 : 1
+            }
+            /*  #swagger.parameters['skip'] = {in:'query', description: 'please do not add this field...',type: 'number'} */
+            next();
+        } catch (err) {
+            return res.send(new serviceResponse({ status: 404, errors: err.message }))
         }
-
-        req.query.limit = limit ? parseInt(limit) : 10;
-        req.query.page = page ? parseInt(page) : 1;
-        req.query.offset = offset ? parseInt(offset) : 0;
-        req.query.paginate = paginate == 0 ? 0 : 1;
-        req.query.sortBy = {
-            [sortBy]: sortOrder == "desc" ? -1 : 1
-        }
-
-        next();
     },
     handleRateLimit: rateLimit({
         windowMs: 1 * 60 * 1000, // 1 minutes
@@ -55,3 +55,4 @@ module.exports = {
         }
     })
 }
+

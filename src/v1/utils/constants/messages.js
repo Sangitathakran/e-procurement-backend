@@ -8,13 +8,13 @@ module.exports = {
         tokenExpired: "Token Expired, Please login again."
     },
     _middleware: {
-        dbNotInitDB: (name) => `DB not initialize for ${name}.`,
         require: (name) => `${name} is required.`
     },
     _query: {
         add: (key) => `${key || "Record"} add successfully.`,
         get: (key) => `${key || "Record"} fetched successfully.`,
         update: (key) => `${key || "Record"} update successfully.`,
+        delete: (key) => `${key || "Record"} deleted successfully.`,
         notFound: (key) => `${key || "Record"} not found.`,
         invalid: (key) => `Invalid ${key}.`,
         save: (key) => `${key || "Record"} saved successfully.`,
@@ -35,7 +35,8 @@ module.exports = {
         mailNotSent: (key) => `${key || "Record"} not sent.`,
         Unauthorized: (key) => `${key || "User"} Unauthorized`,
         allReadyUpdated: (key, value) => `${key || "Record"} already updated ${value ? "as " + value : ""}`,
-        ratingAdd: (key) => `You can give rating at the end of ${key}`,
-        subscribe: (key) => `Subscribed to event: ${key}`
+        uploaded: (name) => `${name || "Record"} uploaded successfully.`,
+        subscribe: (key) => `Subscribed to event: ${key}`,
+        invalid_delivery_date: (key) => `${key || "Date"} must be greater than Expiry date.`,
     }
 }

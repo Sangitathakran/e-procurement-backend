@@ -18,8 +18,8 @@ const swaggerAutogen = require('swagger-autogen')(options);
 const doc = {
     info: {
         version: 'v1.0.0',
-        title: 'E-com API DOC',
-        description: 'E-com (sync E-commerce orders) API Documentation',
+        title: 'API DOC',
+        description: 'API Documentation',
     },
     securityDefinitions: {
         bearerAuth: {
@@ -42,6 +42,7 @@ const doc = {
             }
         }
     },
+    // host: `192.168.1.147:${PORT}/v1`,
     host: `localhost:${PORT}/v1`,
 };
 

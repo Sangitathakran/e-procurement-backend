@@ -3,9 +3,8 @@ const { v4: uuidv4 } = require('uuid');
 const config = require("@config/index");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 require("aws-sdk/lib/maintenance_mode_message").suppress = true;
-
+ 
 // Initializing S3 bucket
 AWS.config.update({
     accessKeyId: config.s3Config.accessKey,
@@ -16,29 +15,34 @@ AWS.config.update({
 
 const S3 = new AWS.S3();
 
-const uploadToS3 = asyncErrorHandler(async (req, res) => {
-    // #swagger.tags = ['aws']
-    let { folder_name } = req.body
-    let { files } = req
+const uploadToS3 = async (req, res) => {
+    try {
+        // #swagger.tags = ['aws']
+        let { folder_name } = req.body
+        let { files } = req
 
-    if (files.length == 0) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Attachment file is required` }] }));
-    }
-    let paths = []
-    for (const file of files) {
-        let filename = uuidv4() + `_${file.originalname}`
-        const key = folder_name ? (folder_name + "/" + filename) : filename;
-        const uploadParams = {
-            Bucket: config.s3Config.bucketName,
-            Key: key,
-            Body: file.buffer || file,
-        };
-        let s3Resp = await S3.upload(uploadParams).promise();
+        if (files.length == 0) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Attachment file is required` }] }));
+        }
+        let paths = []
+        for (const file of files) {
+            let filename = uuidv4() + `_${file.originalname}`
+            const key = folder_name ? (folder_name + "/" + filename) : filename;
+            const uploadParams = {
+                Bucket: config.s3Config.bucketName,
+                Key: key,
+                Body: file.buffer || file,
+            };
+            let s3Resp = await S3.upload(uploadParams).promise();
 
-        paths.push(`/${s3Resp.Key}`)
+            paths.push(`/${s3Resp.Key}`)
+        }
+        return res.status(200).send(new serviceResponse({ status: 201, data: { count: paths.length, rows: paths }, message: _response_message.uploaded() }));
+    } catch (err) {
+        console.error("Error while upload_to_s3, reason >> ", err.message)
+        return res.status(200).send(new serviceResponse({ status: 500, errors: [{ message: `Error while upload to s3` }] }));
     }
-    return res.status(200).send(new serviceResponse({ status: 201, data: { count: paths.length, rows: paths }, message: _response_message.uploaded() }));
-})
+}
 
 const deleteFromS3 = async (req, res) => {
     try {

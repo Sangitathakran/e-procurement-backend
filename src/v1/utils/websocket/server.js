@@ -82,11 +82,11 @@ for (const event of Object.values(_webSocketEvents)) {
     eventEmitter.on(event, (message) => {
         clients.forEach((subscriptions, connection) => {
             if (subscriptions.includes(event)) {
-                connection.sendUTF(JSON.stringify(new serviceResponse({ status: 201, data: message, message: _query.get(event) })));
+                connection.sendUTF(JSON.stringify(new serviceResponse({ status: 201, data: message, message: _query.get(event), event: { method: message.method, event } })));
             }
         });
     });
 }
 
-
+// eventEmitter.emit(_webSocketEvents.product, message);
 module.exports = { wsServer, eventEmitter };

@@ -16,11 +16,11 @@ exports.validateErrors = (req, res, next) => {
     }
 
     /* deleting unaccessable fields */
-    delete req.body.created_at;
-    delete req.body.updated_at;
-    delete req.body.deleted_at;
-    delete req.body.created_by;
-    delete req.body.updated_by;
-    delete req.body.deleted_by;
+    // delete req.body.created_at;
+    // delete req.body.updated_at;
+    // delete req.body.deleted_at;
+    // delete req.body.created_by;
+    // delete req.body.updated_by;
+    // delete req.body.deleted_by;
     next();
 }
