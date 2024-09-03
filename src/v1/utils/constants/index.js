@@ -102,6 +102,12 @@ const _sellerOfferStatus = {
     pending: 'Pending'
 }
 
+const _procuredStatus = {
+    received: "Received",
+    pending: "Pending",
+    rejected: "Rejected",
+}
+
 const userType = {
     admin: "Admin",
     trader: "Trader",
@@ -227,5 +233,6 @@ module.exports = {
     _seedUsed,
     _yesNo,
     _seasons,
-    _education
+    _education,
+    _procuredStatus
 }

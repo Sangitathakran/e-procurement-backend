@@ -2,7 +2,7 @@ const { _handleCatchErrors, _generateOrderNumber, _addDays } = require("@src/v1/
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { ProcurementRequest } = require("@src/v1/models/app/procurement/ProcurementRequest");
-const { _procurementRequestStatus, _webSocketEvents } = require('@src/v1/utils/constants');
+const { _procurementRequestStatus, _webSocketEvents, _procuredStatus } = require('@src/v1/utils/constants');
 const { sellerOffers } = require("@src/v1/models/app/procurement/SellerOffers");
 const { contributedFarmers } = require("@src/v1/models/app/procurement/FarmerDetails");
 // const Farmer = require("../../../../../models/farmerModel");
@@ -178,6 +178,12 @@ module.exports.fpoOffered = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }));
         }
 
+        const existingRecord = await sellerOffers.findOne({ seller_id: user_id, req_id: req_id });
+
+        if (existingRecord) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("offer") }] }));
+        }
+
         const sumOfFarmerQty = farmer_data.reduce((acc, curr) => {
 
             acc = acc + parseInt(curr.qty);
@@ -204,7 +210,6 @@ module.exports.fpoOffered = async (req, res) => {
         for (let farmer of farmer_data) {
 
             const existingFarmer = await Farmer.findOne({ _id: farmer._id });
-            // console.log(existingFarmer);
 
             if (!existingFarmer) {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("farmer") }] }));
@@ -437,7 +442,7 @@ module.exports.getPendingOfferedList = async (req, res) => {
 module.exports.offeredFarmerList = async (req, res) => {
 
     try {
-        const { user_id = "66cc78b0364d77179d938996" } = req;
+        const { user_id } = req;
         const { page, limit, skip, sortBy, search = '', req_id } = req.query
 
         const offer = await sellerOffers.findOne({ req_id, seller_id: user_id });
@@ -562,6 +567,41 @@ module.exports.getAcceptedProcurement = async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("accepted procurement") }));
     } catch (error) {
         console.log(error.message);
+        _handleCatchErrors(error, res);
+    }
+}
+
+
+module.exports.editFarmerOffer = async (req, res) => {
+
+    try {
+
+        const { id, receving_date, qtyProcured, procurementCenter_id, weighbridge_name, weighbridge_no, tare_weight, gross_weight, net_weight, weight_slip, status = _procuredStatus.received } = req.body;
+        const { user_id } = req;
+
+        const record = await contributedFarmers.findOne({ _id: id });
+
+        if (!record) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }));
+        }
+
+        record.receving_date = receving_date;
+        record.qtyProcured = qtyProcured;
+        record.procurementCenter_id = procurementCenter_id;
+        record.weighbridge_name = weighbridge_name;
+        record.weighbridge_no = weighbridge_no;
+        record.tare_weight = tare_weight;
+        record.gross_weight = gross_weight;
+        record.net_weight = net_weight;
+        record.weight_slip = weight_slip;
+        record.status = status;
+        record.updatedBy = user_id;
+
+        await record.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("farmer") }));
+
+    } catch (error) {
         _handleCatchErrors(error, res);
     }
 }

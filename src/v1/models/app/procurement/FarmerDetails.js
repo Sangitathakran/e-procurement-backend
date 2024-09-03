@@ -1,4 +1,4 @@
-const { _collectionName } = require('@src/v1/utils/constants');
+const { _collectionName, _procuredStatus } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const mongoose = require('mongoose');
 
@@ -18,7 +18,7 @@ const contributedFarmersSchema = new mongoose.Schema({
     gross_weight: { type: Number },
     net_weight: { type: Number },
     weight_slip: { type: String },
-    status: { type: String, enum: ["Received", "Reject", "Pending"], default: "Pending" },
+    status: { type: String, enum: Object.values(_procuredStatus), default: _procuredStatus.pending },
     ..._commonKeys
 }, { timestamps: true });
 
