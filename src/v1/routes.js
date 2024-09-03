@@ -4,6 +4,7 @@ const { S3Router } = require("./services/aws/routes");
 const multer = require('multer');
 const { masterRoutes } = require("./services/master/Routes");
 const { procurementRoutes } = require("./services/procurement/Routes");
+const { userAuthRoutes } = require("./services/auth/Routes");
 
 // Call Your Routes
 const ExpressApp = require("express")();
@@ -21,4 +22,5 @@ module.exports = (app) => {
     app.use("/master", masterRoutes);
     app.use("/procurement", procurementRoutes);
     app.use('/helper', helperRoutes)
+    app.use("/auth", userAuthRoutes);
 }
