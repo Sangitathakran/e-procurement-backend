@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const otpSchema = new mongoose.Schema({ 
+const formerOTPSchema = new mongoose.Schema({ 
 
     phone: {
         type: String,
@@ -17,6 +17,10 @@ const otpSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
+    isMobileVerified:{
+        type:Boolean,
+        default:false
+    },
     createdAt: {
         type: Date,
         default: Date.now,
@@ -24,5 +28,8 @@ const otpSchema = new mongoose.Schema({
     },
 });
 
-module.exports = mongoose.model('OTP', otpSchema);
+// Create the TTL index on the createdAt field
+formerOTPSchema.index({ createdAt: 1 }, { expireAfterSeconds: 300 });
+
+module.exports = mongoose.model('FormerOTP', formerOTPSchema);
 
