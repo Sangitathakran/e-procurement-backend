@@ -2,6 +2,7 @@ const _collectionName = {
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",
+    individualFarmers:"individual_farmers",
     Users: "Users",
     Category: "Category",
     Variety: "variety",
