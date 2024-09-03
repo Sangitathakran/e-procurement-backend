@@ -19,7 +19,7 @@ requestRoutes.post("/", /*[
     body("product", _middleware.require("product")).notEmpty().trim(),
     body("address", _middleware.require("address")).notEmpty().trim()
 ],
-    validateErrors, */ verifyJwtToken, createProcurement);
+    validateErrors, */  verifyJwtToken, createProcurement);
 
 requestRoutes.put("/", /*[
     body("id", _middleware.require("id")).notEmpty().trim(),

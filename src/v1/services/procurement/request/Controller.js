@@ -14,8 +14,11 @@ const { eventEmitter } = require("@src/v1/utils/websocket/server");
 module.exports.createProcurement = async (req, res) => {
 
     try {
-        const { user_id } = req
+        const { user_id, user_type } = req
         const { organization_id, quotedPrice, deliveryDate, name, category, grade, variety, quantity, deliveryLocation, lat, long, quoteExpiry } = req.body;
+
+        if (user_type && user_type != userType.admin)
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }))
 
         const randomVal = _generateOrderNumber();
 
@@ -51,12 +54,15 @@ module.exports.getProcurement = async (req, res) => {
         const { organization_id, user_type } = req;
         const { id } = req.params;
 
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', status = "Open" } = req.query
+
         let query = search ? {
             $or: [
-                { reqNo: { $regex: search, $options: 'i' } },
-                { organization_id: { $regex: search, $options: 'i' } },
-                { status: { $regex: search, $options: 'i' } }
+                { "reqNo": { $regex: search, $options: 'i' } },
+                { "product.name": { $regex: search, $options: 'i' } },
+                { "product.grade": { $regex: search, $options: 'i' } },
+                { "product.variety": { $regex: search, $options: 'i' } },
+                { "product.category": { $regex: search, $options: 'i' } },
             ]
         } : {};
 
@@ -449,14 +455,14 @@ module.exports.getRejectOfferedList = async (req, res) => {
 
 
 module.exports.getAcceptedOfferList = async (req, res) => {
-   
+
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
         const { user_id } = req
         let query = {
             seller_id: user_id,
             status: _sellerOfferStatus.accepted,
-            ...(search ? { name: { $regex: search, $options: "i" } ,deletedAt: null} : { deletedAt: null })
+            ...(search ? { name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
         const records = { count: 0 };
         records.rows = paginate == 1 ? await sellerOffers.find(query)

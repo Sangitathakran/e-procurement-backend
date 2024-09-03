@@ -20,9 +20,13 @@ const _collectionName = {
     SellerOffers: "SellerOffers",
     ContributedFarmers: "ContributedFarmers",
     CollectionCenter: "CollectionCenter",
+<<<<<<< Updated upstream
     Lands: "Lands",
     Banks: "Banks",
     Crops: "Crops",
+=======
+    FarmerOrder: "FarmerOrder",
+>>>>>>> Stashed changes
 }
 const _status = {
     active: "active",

@@ -10,11 +10,11 @@ const tokenBlacklist = [];
  * @returns {Boolean}
  */
 exports.compareBcryptHash = (inputHash, savedHash) => {
-    try {
-        return compareSync(inputHash, savedHash);
-    } catch (error) {
-        return false
-    }
+  try {
+    return compareSync(inputHash, savedHash);
+  } catch (error) {
+    return false
+  }
 }
 
 /**
@@ -22,8 +22,8 @@ exports.compareBcryptHash = (inputHash, savedHash) => {
  * @returns {String}
  */
 exports.generateJwtToken = (data) => {
-    const token = jwt.sign({ ...data }, JWT_SECRET_KEY)
-    return token
+  const token = jwt.sign({ ...data }, JWT_SECRET_KEY)
+  return token
 }
 
 /**
@@ -33,60 +33,60 @@ exports.generateJwtToken = (data) => {
  * @returns {Object}
  */
 exports.decryptJwtToken = async (token) => {
-    return new Promise((resolve, reject) => {
-        jwt.verify(token, JWT_SECRET_KEY, (err, decoded) => {
-            let resp = {
-                hasToken: false,
-                data: {}
-            }
-            if (err) return resolve(resp)
-            else {
-                resp.hasToken = true
-                resp.data = decoded
-                return resolve(resp)
-            }
-        })
+  return new Promise((resolve, reject) => {
+    jwt.verify(token, JWT_SECRET_KEY, (err, decoded) => {
+      let resp = {
+        hasToken: false,
+        data: {}
+      }
+      if (err) return resolve(resp)
+      else {
+        resp.hasToken = true
+        resp.data = decoded
+        return resolve(resp)
+      }
     })
+  })
 }
 
 
 exports.generateAccountSecretKey = () => {
-    const id = crypto.randomBytes(16).toString("hex");
-    return id
+  const id = crypto.randomBytes(16).toString("hex");
+  return id
 }
 
 exports.verifyJwtToken = async (req, res, next) => {
-    try {
-      const { token } = req.headers;
-      if (!token) {
-        return res.status(403).json({ message: "Unauthorized", status: 403 });
-      }
-      if (tokenBlacklist.includes(token)) {
-        return res
-          .status(401)
-          .json({ message: "Token has been revoked", status: 401 });
-      }
-  
-      jwt.verify(token, JWT_SECRET, function (err, decodedToken) {
-        if (err) {
-          return res.status(401).send({ message: "Token is invalid", status: 401 });
-        }
-  
-        const currentTime = Math.floor(Date.now() / 1000);
-        if (decodedToken.exp < currentTime) {
-          return res.status(401).json({ message: "Token has expired" });
-        }
-        Object.entries(decodedToken).forEach(([key, value]) => {
-          req[key] = value
-        })
-        // req.headers = decodedToken;
-        next();
-      });
-    } catch (err) {
-      console.error(err);
-      return res.status(500).send({
-        msg: err.message,
-        status: 500,
-      });
+  try {
+    const { token } = req.headers;
+    if (!token) {
+      return res.status(403).json({ message: "Unauthorized", status: 403 });
     }
-  };
+    if (tokenBlacklist.includes(token)) {
+      return res
+        .status(401)
+        .json({ message: "Token has been revoked", status: 401 });
+    }
+
+    jwt.verify(token, JWT_SECRET_KEY, function (err, decodedToken) {
+      if (err) {
+        return res.status(401).send({ message: "Token is invalid", status: 401 });
+      }
+
+      const currentTime = Math.floor(Date.now() / 1000);
+      if (decodedToken.exp < currentTime) {
+        return res.status(401).json({ message: "Token has expired" });
+      }
+      Object.entries(decodedToken).forEach(([key, value]) => {
+        req[key] = value
+      })
+      // req.headers = decodedToken;
+      next();
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send({
+      msg: err.message,
+      status: 500,
+    });
+  }
+};
