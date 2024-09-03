@@ -4,7 +4,9 @@ const { _collectionName, _proofType, _titles, _gender, _religion, _maritalStatus
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const farmerSchema = new mongoose.Schema({
 
-
+    mobile_no:{type:String,required:true},
+    name:{type:String,required:true,default:null},
+    isVerifyOtp:{type:Boolean,default:false},
     basic_details: { 
         name: { type: String, required: true, trim: true, },
         email: { type: String, trim: false, },
@@ -60,12 +62,11 @@ const farmerSchema = new mongoose.Schema({
         screen_number: {type: String},
         isCompleted: {type: Boolean}
     }],
-    allStepsCompletedStatus : {type: Boolean, default: false}
-
-    // associate_id: { type: mongoose.Schema.Types.ObjectId,required: false,ref: _collectionName.Users},
+    allStepsCompletedStatus : {type: Boolean, default: false},
+    associate_id: { type: mongoose.Schema.Types.ObjectId,required: false,ref: _collectionName.Users,default:null},
     
 
 
 }, { timestamps: true, });
-const farmer = mongoose.model(_collectionName.individualFarmers, farmerSchema);
-module.exports = { farmer, };
+const IndividualFarmer = mongoose.model(_collectionName.individualFarmers, farmerSchema);
+module.exports = { IndividualFarmer };
