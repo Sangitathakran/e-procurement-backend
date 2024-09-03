@@ -1,5 +1,6 @@
 const {IndividualFarmer} = require("../../models/app/farmer/IndividualFarmer");
 const Joi=require('joi');
+//update
 module.exports.saveFarmerDetails = async (req, res) => {
     try{
         const { farmer_id, screenName } = req.query;
