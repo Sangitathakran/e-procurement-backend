@@ -23,6 +23,7 @@ const _collectionName = {
     Lands: "Lands",
     Banks: "Banks",
     Crops: "Crops",
+    FarmerOrder: "FarmerOrder",
 }
 const _status = {
     active: "active",
@@ -101,6 +102,12 @@ const _sellerOfferStatus = {
     pending: 'Pending'
 }
 
+const _procuredStatus = {
+    received: "Received",
+    pending: "Pending",
+    rejected: "Rejected",
+}
+
 const userType = {
     admin: "Admin",
     trader: "Trader",
@@ -156,38 +163,38 @@ const _category = {
     sc: "sc",
     st: "st",
 }
-const _areaUnit ={
+const _areaUnit = {
     hectares: "hectares",
     acres: "acres",
     bigha: "bigha",
 }
-const _soilType ={
+const _soilType = {
     sandy: "sandy",
     loamy: "loamy",
     clayey: "clayey",
-    red_soil:"red_soil",
+    red_soil: "red_soil",
     alkaline: "alkaline",
     other: "other",
 }
-const _distanceUnit ={
+const _distanceUnit = {
     km: "km",
     metre: "metre",
 }
-const _seedUsed ={
+const _seedUsed = {
     farmseved: "farmseved",
     company: "company",
 }
-const _yesNo ={
+const _yesNo = {
     yes: "yes",
     no: "no",
 }
-const _seasons ={
+const _seasons = {
     rabi: "rabi",
     kharif: "kharif",
     zaid: "zaid",
     others: "others",
 }
-const _education ={
+const _education = {
     nonmatric: "nonmatric",
     matric: "matric",
     intermidiate: "intermidiate",
@@ -226,5 +233,6 @@ module.exports = {
     _seedUsed,
     _yesNo,
     _seasons,
-    _education
+    _education,
+    _procuredStatus
 }
