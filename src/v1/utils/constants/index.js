@@ -20,13 +20,10 @@ const _collectionName = {
     SellerOffers: "SellerOffers",
     ContributedFarmers: "ContributedFarmers",
     CollectionCenter: "CollectionCenter",
-<<<<<<< Updated upstream
     Lands: "Lands",
     Banks: "Banks",
     Crops: "Crops",
-=======
     FarmerOrder: "FarmerOrder",
->>>>>>> Stashed changes
 }
 const _status = {
     active: "active",
@@ -160,38 +157,38 @@ const _category = {
     sc: "sc",
     st: "st",
 }
-const _areaUnit ={
+const _areaUnit = {
     hectares: "hectares",
     acres: "acres",
     bigha: "bigha",
 }
-const _soilType ={
+const _soilType = {
     sandy: "sandy",
     loamy: "loamy",
     clayey: "clayey",
-    red_soil:"red_soil",
+    red_soil: "red_soil",
     alkaline: "alkaline",
     other: "other",
 }
-const _distanceUnit ={
+const _distanceUnit = {
     km: "km",
     metre: "metre",
 }
-const _seedUsed ={
+const _seedUsed = {
     farmseved: "farmseved",
     company: "company",
 }
-const _yesNo ={
+const _yesNo = {
     yes: "yes",
     no: "no",
 }
-const _seasons ={
+const _seasons = {
     rabi: "rabi",
     kharif: "kharif",
     zaid: "zaid",
     others: "others",
 }
-const _education ={
+const _education = {
     nonmatric: "nonmatric",
     matric: "matric",
     intermidiate: "intermidiate",

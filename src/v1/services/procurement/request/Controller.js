@@ -10,6 +10,7 @@ const { contributedFarmers } = require("@src/v1/models/app/procurement/FarmerDet
 const { _sellerOfferStatus, userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
+const mongoose = require("mongoose");
 
 module.exports.createProcurement = async (req, res) => {
 
@@ -51,10 +52,10 @@ module.exports.createProcurement = async (req, res) => {
 module.exports.getProcurement = async (req, res) => {
 
     try {
-        const { organization_id, user_type } = req;
+        const { organization_id, user_type, user_id } = req;
         const { id } = req.params;
 
-        const { page, limit, skip, paginate = 1, sortBy, search = '', status = "Open" } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', status } = req.query
 
         let query = search ? {
             $or: [
@@ -68,8 +69,16 @@ module.exports.getProcurement = async (req, res) => {
 
         if (user_type == userType.ho || user_type == userType.bo) {
             query.organization_id = organization_id
+
         } else if (user_type == userType.trader) {
-            query.status = _procurementRequestStatus.open
+            if (status && Object.values(_sellerOfferStatus).includes(status)) {
+                const offerIds = (await sellerOffers.find({ seller_id: user_id, status })).map((offer) => offer.req_id);
+                query._id = { $in: offerIds };
+
+            } else {
+                query.status = _procurementRequestStatus.open
+
+            }
         }
 
         const records = { count: 0 };
@@ -91,6 +100,7 @@ module.exports.getProcurement = async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
 
     } catch (error) {
+        console.log(error.message);
         _handleCatchErrors(error, res);
     }
 }
