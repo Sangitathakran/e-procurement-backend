@@ -30,6 +30,18 @@ const _status = {
     inactive: "inactive",
 }
 
+const _individualStatus = {
+    active: "active",
+    inactive: "inactive",
+}
+
+const _farmerType = {
+    marginal: "marginal",
+    small: "small",
+    large: "large",
+    other: "other"
+}
+
 const _envMode = {
     local: 'local',
     development: "development",
@@ -197,7 +209,59 @@ const _education ={
     others: "others",
 }
 
+const _khaifCrops = { 
+    onion: "onion",
+    tur: "tur",
+    moong: "moong",
+    masoor: "masoor",
+    copra: "copra"
+
+}
+
+const _rabiCrops = { 
+    tur: "tur",
+    moong: "moong",
+    masoor: "masoor",
+
+}
+
+const _zaidCrops = { 
+    onion: "onion",
+    tur: "tur",
+    moong: "moong",
+}
+
+const individual_farmer_onboarding_steps = [ 
+    { 
+        screen_name: "basic_details",
+        screen_number: 1,
+        isCompleted: false
+    },
+    { 
+        screen_name: "address",
+        screen_number: 2,
+        isCompleted: false
+    },
+    { 
+        screen_name: "land_details",
+        screen_number: 3,
+        isCompleted: false
+    },
+    { 
+        screen_name: "documents",
+        screen_number: 4,
+        isCompleted: false
+    },
+    { 
+        screen_name: "bank_details",
+        screen_number: 5,
+        isCompleted: false
+    },
+
+]
+
 module.exports = {
+    _farmerType,
     _collectionName,
     _status,
     _envMode,
@@ -227,5 +291,9 @@ module.exports = {
     _seedUsed,
     _yesNo,
     _seasons,
-    _education
+    _education,
+    _khaifCrops,
+    _rabiCrops,
+    _zaidCrops,
+    individual_farmer_onboarding_steps
 }
