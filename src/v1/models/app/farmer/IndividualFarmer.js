@@ -1,42 +1,71 @@
 const mongoose = require('mongoose');
-const { _collectionName, _proofType, _titles, _gender, _religion, _maritalStatus, _status, _category } = require('@src/v1/utils/constants');
+const { _collectionName, _proofType, _titles, _gender, _religion, _maritalStatus, _status, _category, _farmerType , _areaUnit ,
+    _khaifCrops, _rabiCrops, _zaidCrops } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const farmerSchema = new mongoose.Schema({
-    farmer_code: { type: Number, trim: true,},
-    associate_id: { type: mongoose.Schema.Types.ObjectId,required: false,ref: _collectionName.Users},
-    title: { type: String, enum: Object.values(_titles), trim: false, },
-    name: { type: String, required: true, trim: true, },
-    parents: {
-        father_name: { type: String, trim: true, },
-        mother_name: { type: String, trim: false, }
-    },
-    dob: { type: Date, trim: false, },
-    gender: { type: String,enum: Object.values(_gender), trim: false, },
-    marital_status: { type: String, enum: Object.values(_maritalStatus), trim: false, },
-    religion: { type: String, enum: Object.values(_religion), trim: false, },
-    category: { type: String, enum: Object.values(_category), trim: false, },
-    education: {
-        highest_edu: { type: String, trim: false, },
-        edu_details: [{ type: String, trim: false, }],
-    },
-    proof: {
-        type: { type: String, enum: Object.values(_proofType), trim: false, },
-        doc: { type: String, trim: false, },
-        aadhar_no: { type: String, required: true, trim: true, },
+
+
+    basic_details: { 
+        name: { type: String, required: true, trim: true, },
+        email: { type: String, trim: false, },
+        father_husband_name: { type: String, trim: true, },
+        mobile_no: { type: String, trim: true, },
+        category: { type: String, enum: Object.values(_category), trim: false, },
+        dob: { type: Date, trim: false, },
+        farmer_type: { type: String, enum: Object.values(_farmerType), trim: false, },
+        gender: { type: String,enum: Object.values(_gender), trim: false, }
     },
     address: {
-        address_line: { type: String, trim: true, },
+        address_line_1: { type: String, trim: true, },
+        address_line_2: { type: String, trim: true, },
         country: { type: String, trim: true },
         state: { type: String,  trim: true },
         district: { type: String,trim: true },
-        block: { type: String, trim: false, },
+        block: { type: String, trim: false, }, // it is Taluka in frontend 
         village: { type: String, trim: false, },
         pinCode: { type: String, trim: true },
     },
-    mobile_no: { type: String, trim: true, },
-    email: { type: String, trim: false, },
-    status: { type: String, enum: Object.values(_status), default: _status.active },
-    ..._commonKeys
+    land_details: { 
+        area: { type: String, enum: Object.values(_areaUnit).slice(0, 2)},
+        pinCode: { type: String, trim: true },
+        state: { type: String,  trim: true },
+        district: { type: String,trim: true },
+        village: { type: String, trim: true, },
+        block: { type: String, trim: true, }, // it is Taluka in frontend
+        ghat_number: { type: String, trim: true, },  
+        khasra_number: { type: String, trim: true},
+
+
+
+    },  
+    documents: { 
+        aadhar_number: { type: String, trim: true },
+        pan_number: { type: String, trim: true },
+    },
+    bank_details: { 
+        bank_name: { type: String, required: true, trim: true },
+        branch_name: { type: String, required: true, trim: true },
+        account_holder_name: { type: String, required: true, trim: true },
+        ifsc_code: { type: String, required: true, trim: true },
+        account_no: { type: String, required: true, trim: true, unique: true },
+        pinCode: { type: String, trim: true },
+        proof_doc: { type: String ,trim: true},
+        kharif_crops: { type: String, enum: Object.values(_khaifCrops), trim: false, },
+        rabi_crops: { type: String, enum: Object.values(_rabiCrops), trim: false, },
+        zaid_crops: { type: String, enum: Object.values(_zaidCrops), trim: false, }
+        
+    },
+    steps: [{ 
+        screen_name: {type: String},
+        screen_number: {type: String},
+        isCompleted: {type: Boolean}
+    }],
+    allStepsCompletedStatus : {type: Boolean, default: false}
+
+    // associate_id: { type: mongoose.Schema.Types.ObjectId,required: false,ref: _collectionName.Users},
+    
+
+
 }, { timestamps: true, });
 const farmer = mongoose.model(_collectionName.individualFarmers, farmerSchema);
 module.exports = { farmer, };
