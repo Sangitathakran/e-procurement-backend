@@ -167,8 +167,11 @@ module.exports.fpoOffered = async (req, res) => {
     try {
 
         const { user_id } = req;
-        const { req_id, farmer_data, qtyOffered } = req.body;
+        const { req_id, farmer_data = [], qtyOffered } = req.body;
 
+        if (farmer_data.length == 0) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer data") }] }))
+        }
         const existingProcurementRecord = await ProcurementRequest.findOne({ _id: req_id });
 
         if (!existingProcurementRecord) {
@@ -430,6 +433,48 @@ module.exports.getPendingOfferedList = async (req, res) => {
 
 }
 
+
+module.exports.offeredFarmerList = async (req, res) => {
+
+    try {
+        const { user_id = "66cc78b0364d77179d938996" } = req;
+        const { page, limit, skip, sortBy, search = '', req_id } = req.query
+
+        const offer = await sellerOffers.findOne({ req_id, seller_id: user_id });
+
+        if (!offer) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
+        }
+
+        let query = search ? {
+            $or: [
+                { "metaData.name": { $regex: search, $options: 'i' } },
+                { "metaData.father_name": { $regex: search, $options: 'i' } },
+                { "metaData.mobile_no": { $regex: search, $options: 'i' } },
+            ]
+        } : {};
+
+        query.sellerOffers_id = offer._id;
+        const records = { count: 0 };
+
+        records.rows = await contributedFarmers.find(query)
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit))
+
+        records.count = await contributedFarmers.countDocuments(query);
+
+        records.page = page
+        records.limit = limit
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }));
+
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
 
 module.exports.getRejectOfferedList = async (req, res) => {
 
