@@ -20,6 +20,9 @@ const _collectionName = {
     SellerOffers: "SellerOffers",
     ContributedFarmers: "ContributedFarmers",
     CollectionCenter: "CollectionCenter",
+    Lands: "Lands",
+    Banks: "Banks",
+    Crops: "Crops",
 }
 const _status = {
     active: "active",
@@ -121,6 +124,77 @@ const _traderType = {
     BO: 'BO',
 
 }
+const _proofType = {
+    aadhar: "aadhar",
+    pancard: "pancard",
+    voterId: "voterId",
+}
+const _titles = {
+    mr: "mr",
+    mrs: "mrs",
+    miss: "miss",
+}
+const _gender = {
+    male: "male",
+    female: "female",
+    other: "other",
+}
+const _maritalStatus = {
+    married: "married",
+    unmarried: "unmarried",
+}
+const _religion = {
+    hindu: "hindu",
+    muslim: "muslim",
+    sikh: "sikh",
+    isai: "isai",
+    parsi: "parsi",
+}
+const _category = {
+    gen: "gen",
+    obc: "obc",
+    sc: "sc",
+    st: "st",
+}
+const _areaUnit ={
+    hectares: "hectares",
+    acres: "acres",
+    bigha: "bigha",
+}
+const _soilType ={
+    sandy: "sandy",
+    loamy: "loamy",
+    clayey: "clayey",
+    red_soil:"red_soil",
+    alkaline: "alkaline",
+    other: "other",
+}
+const _distanceUnit ={
+    km: "km",
+    metre: "metre",
+}
+const _seedUsed ={
+    farmseved: "farmseved",
+    company: "company",
+}
+const _yesNo ={
+    yes: "yes",
+    no: "no",
+}
+const _seasons ={
+    rabi: "rabi",
+    kharif: "kharif",
+    zaid: "zaid",
+    others: "others",
+}
+const _education ={
+    nonmatric: "nonmatric",
+    matric: "matric",
+    intermidiate: "intermidiate",
+    graduate: "graduate",
+    postgraduate: "postgraduate",
+    others: "others",
+}
 
 module.exports = {
     _collectionName,
@@ -139,5 +213,18 @@ module.exports = {
     _sellerOfferStatus,
     _webSocketEvents,
     userType,
-    _traderType
+    _traderType,
+    _proofType,
+    _titles,
+    _gender,
+    _maritalStatus,
+    _religion,
+    _category,
+    _areaUnit,
+    _soilType,
+    _distanceUnit,
+    _seedUsed,
+    _yesNo,
+    _seasons,
+    _education
 }
