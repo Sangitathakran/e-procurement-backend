@@ -38,5 +38,10 @@ module.exports = {
         uploaded: (name) => `${name || "Record"} uploaded successfully.`,
         subscribe: (key) => `Subscribed to event: ${key}`,
         invalid_delivery_date: (key) => `${key || "Date"} must be greater than Expiry date.`,
+        otpNotSent: (key) => `${key || "OTP"} not sent.`,
+        otpCreate: (key) => `${key || "OTP"} is sent to your Mobile Number.`,
+        otpNotCreate: (key) => `${key || "OTP"} has not sent.`,
+        otp_not_verified: (key) => `${key || "OTP"} doesn't match.`,
+        otp_verified: (key) => `${key || "Your mobile"} number is verified.`
     }
 }
