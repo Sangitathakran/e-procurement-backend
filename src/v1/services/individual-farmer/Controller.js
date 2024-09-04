@@ -6,17 +6,15 @@ const {IndividualFarmer} = require("../../models/app/farmer/IndividualFarmer");
 const Joi=require('joi');
 const axios = require("axios");
 const otpModel = require("@src/v1/models/app/auth/FormerOTP");
-const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { API_KEY, SENDER } = process.env
+const { generateJwtToken } = require("@src/v1/utils/helpers/jwt");
 
 
 
 module.exports.sendOTP = async (req, res) => {
    try{
     const { mobileNumber } = req.query;
-    
-    
     // Validate the mobile number
      const isValidMobile = await validateMobileNumber(mobileNumber);
      if (!isValidMobile) {
@@ -79,44 +77,29 @@ module.exports.verifyOTP = async (req, res) => {
         });
     
         if (inputOTP !== userOTP?.otp){
-            //return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otp_not_verified("OTP") }] }));
+
             return res.status(200).send({message:"OTP doesn't match."})
         }
           
-        // const data = await otpModel.findOneAndUpdate(
-        //   { phone: mobileNumber },
-        //   { isMobileVerified: true },
-        //   { new: true }
-        // );
-
-        const formerData = await IndividualFarmer.findOne({
+        const individualFormerData = await IndividualFarmer.findOne({
             mobile_no:mobileNumber,
             //name: registerName,
-            isMobileVerified: true
+            isVerifyOtp: true
         })
 
-        console.log("formerData==>",formerData)
-        let individualFormerExists = false;
-        if(formerData){
-            individualFormerExists = true
+      let resp;
+      if(individualFormerData)
+        {
+            resp = {
+            token: generateJwtToken({mobile_no:mobileNumber}),
+            mobileNumber:mobileNumber
         }
-
-
-      //let resp;
-      //if(data)
-        //{
-       let  resp = {
-            token: jwt.sign({mobileNumber: req.query.mobileNumber}, JWT_SECRET_KEY, {expiresIn: "1d"}),
-            mobileNumber:mobileNumber,
-            individualFormerExists
-        }
-     // }
+      }
        
         return res.status(200).send(new serviceResponse({ status: 200, data:resp, message: _response_message.otp_verified("your mobile") }));
-        //return res.status(200).send({data:resp, message: "Your mobile number is verified."})
+        
     }
     catch(err){
-       // _handleCatchErrors(error, res)
        return res.status(500).send({ message: err });
     }
 }
@@ -155,25 +138,28 @@ module.exports.registerName = async (req, res) => {
     }
   };
   
-  
-
+//updates
 module.exports.saveFarmerDetails = async (req, res) => {
     try{
-        const { farmer_id, screenName } = req.query;
-        if(!farmer_id)  return res.status(400).send({message:"Farmer id required"})
-        const { error } = await validateIndividualFarmer(req.body, screenName);
-        if(error) return res.status(400).send({error:error.message})
+        const {screenName } = req.query;
+        const {id:farmer_id}=req.params;
+        if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
+        const { error,message } = await validateIndividualFarmer(req.body, screenName);
+        if(error) return res.status(400).send({error:message})
         const farmerDetails = await IndividualFarmer.findById(farmer_id).select(
           `${screenName}`
         );
         if (farmerDetails) {
           farmerDetails[screenName] = req.body[screenName];
+
+          await farmerDetails.save();
+          return res.status(200).send(new serviceResponse({message:_response_message.updated(screenName)}))
         } else {
-          return res.status(400).send({ message: "Farmer not Found" });
+          return res.status(400).send(new serviceResponse({status:400,message:_response_message.notFound('Farmer')}));
         }
     }catch(err){
         console.log('error',err)
-        return res.status(500).send({ message: err });
+        _handleCatchErrors(error, res);
     }
  
 };
