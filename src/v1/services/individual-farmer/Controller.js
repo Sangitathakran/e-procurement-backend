@@ -1,14 +1,8 @@
 require('dotenv').config()
 const {_response_message } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-<<<<<<< HEAD
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
-const Joi=require('joi');
-const busboy = require("busboy")
-const { uploadToS3, downloadFromS3 } = require("@src/v1/utils/helpers/individual_farmer_helper")
-
-=======
-const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { _handleCatchErrors , _} = require("@src/v1/utils/helpers");
+const { _individual_farmer_onboarding_steps } = require("@src/v1/utils/constants");
 const {IndividualFarmer} = require("../../models/app/farmer/IndividualFarmer");
 const Joi=require('joi');
 const axios = require("axios");
@@ -133,7 +127,8 @@ module.exports.registerName = async (req, res) => {
         const dataSaved = await new IndividualFarmer({
           mobile_no: mobileNumber,
           name: registerName,
-          isVerifyOtp: true, // Ensure that this field is set as required
+          isVerifyOtp: true,
+          steps: _individual_farmer_onboarding_steps // Ensure that this field is set as required
         }).save();
   
         if (dataSaved) {
@@ -149,7 +144,6 @@ module.exports.registerName = async (req, res) => {
     }
   };
   
->>>>>>> c81ff489baeba0d3c18b9e6cac33c8499be2ecbd
 //updates
 module.exports.saveFarmerDetails = async (req, res) => {
     try{

@@ -231,7 +231,7 @@ const _zaidCrops = {
     moong: "moong",
 }
 
-const individual_farmer_onboarding_steps = [ 
+const _individual_farmer_onboarding_steps = [ 
     { 
         screen_name: "basic_details",
         screen_number: 1,
@@ -295,5 +295,5 @@ module.exports = {
     _khaifCrops,
     _rabiCrops,
     _zaidCrops,
-    individual_farmer_onboarding_steps
+    _individual_farmer_onboarding_steps
 }
