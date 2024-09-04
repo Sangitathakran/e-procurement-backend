@@ -6,6 +6,7 @@ function serviceResponse({ status, data, message, errors, errorCode, event }) {
     this.errorCode = errorCode || "";
     this.errors = errors ? errors : [];
     this.version = '1.0';
+    
 };
 
 module.exports = { serviceResponse };

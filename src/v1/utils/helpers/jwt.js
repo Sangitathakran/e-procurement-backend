@@ -66,8 +66,7 @@ exports.verifyJwtToken = async (req, res, next) => {
           .status(401)
           .json({ message: "Token has been revoked", status: 401 });
       }
-  
-      jwt.verify(token, JWT_SECRET, function (err, decodedToken) {
+      jwt.verify(token, JWT_SECRET_KEY, function (err, decodedToken) {
         if (err) {
           return res.status(401).send({ message: "Token is invalid", status: 401 });
         }
