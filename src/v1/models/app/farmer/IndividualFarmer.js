@@ -9,7 +9,7 @@ const farmerSchema = new mongoose.Schema({
     isVerifyOtp:{type:Boolean,default:false},
     
     basic_details: { 
-        name: { type: String, required: true, trim: true, },
+        name: { type: String, trim: true, },
         email: { type: String, trim: false, },
         father_husband_name: { type: String, trim: true, },
         mobile_no: { type: String, trim: true, },
