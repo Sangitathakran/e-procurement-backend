@@ -500,7 +500,47 @@ module.exports.editFarmerOffer = async (req, res) => {
 
         await record.save();
 
+        if (status == _sellerOfferStatus.received) {
+            const sellerOfferRecord = await sellerOffers.findOne({ _id: record?.sellerOffers_id });
+            sellerOfferRecord.procuredQty += qtyProcured;
+            await sellerOfferRecord.save();
+
+        }
+
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("farmer") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+
+module.exports.associateOrder = async (req, res) => {
+
+    try {
+
+        const { req_id } = req.body;
+        const { user_id } = req;
+
+        const record = await sellerOffers.findOne({ seller_id: user_id, req_id: req_id });
+
+        if (!record) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
+        }
+
+        const farmerRecords = await contributedFarmers.findOne({ status: { $ne: _procuredStatus.received }, sellerOffers_id: record?._id });
+
+        if (farmerRecords) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
+        }
+
+
+
+
+        record.status = _sellerOfferStatus.ordered;
+        await record.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: [], message: _response_message.created("order") }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
