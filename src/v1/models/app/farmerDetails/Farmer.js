@@ -3,7 +3,7 @@ const { _collectionName, _proofType, _titles, _gender, _religion, _maritalStatus
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const farmerSchema = new mongoose.Schema({
     associate_id: { type: mongoose.Schema.Types.ObjectId,required: true,ref: _collectionName.Users, trim: true, },
-    farmer_code: { type: Number, trim: true,},
+    farmer_code: { type: String, trim: true,},
     title: { type: String, enum: Object.values(_titles), trim: false, },
     name: { type: String, required: true, trim: true, },
     parents: {

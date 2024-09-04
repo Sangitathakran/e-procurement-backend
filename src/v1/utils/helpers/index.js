@@ -4,7 +4,8 @@ const fs = require('fs');
 const { Parser } = require('json2csv');
 const { v4: uuidv4 } = require('uuid');
 const xlsx = require('xlsx');
-const moment = require("moment")
+const moment = require("moment");
+const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 /**
  * 
  * @param {any} error 
@@ -97,4 +98,26 @@ exports._generateOrderNumber = () => {
 exports._addDays = (days) => {
     const today = moment()
     return today.add(days, 'days')
+}
+
+// farmerCodeGenerator.js
+
+exports._generateFarmerCode = async () => {
+    const prefix = 'FA';
+    let uniqueId;
+    let farmerCode;
+    let existingFarmer;
+
+    try {
+        do {
+            uniqueId = Math.floor(Math.random() * 900000) + 100000; // Generate a 6-digit random number
+            farmerCode = `${prefix}${uniqueId}`;
+            existingFarmer = await farmer.findOne({ farmer_code: farmerCode });
+        } while (existingFarmer); // Loop until a unique farmer code is found
+
+        return farmerCode;
+    } catch (error) {
+        console.error('Error generating Farmer Code:', error);
+        throw new Error('Could not generate a unique Farmer Code');
+    }
 }

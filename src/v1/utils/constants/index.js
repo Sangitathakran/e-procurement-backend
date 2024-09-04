@@ -125,75 +125,75 @@ const _traderType = {
 
 }
 const _proofType = {
-    aadhar: "aadhar",
-    pancard: "pancard",
-    voterId: "voterId",
+    Aadhar: "Aadhar",
+    Pancard: "Pancard",
+    VoterId: "VoterId",
 }
 const _titles = {
-    mr: "mr",
-    mrs: "mrs",
-    miss: "miss",
+    Mr: "Mr",
+    Mrs: "Mrs",
+    Miss: "Miss",
 }
 const _gender = {
-    male: "male",
-    female: "female",
-    other: "other",
+    Male: "Male",
+    Female: "Female",
+    Other: "Other",
 }
 const _maritalStatus = {
-    married: "married",
-    unmarried: "unmarried",
+    Married: "Married",
+    Unmarried: "Unmarried",
 }
 const _religion = {
-    hindu: "hindu",
-    muslim: "muslim",
-    sikh: "sikh",
-    isai: "isai",
-    parsi: "parsi",
+    Hindu: "Hindu",
+    Muslim: "Muslim",
+    Sikh: "Sikh",
+    Isai: "Isai",
+    Parsi: "Parsi",
 }
 const _category = {
-    gen: "gen",
-    obc: "obc",
-    sc: "sc",
-    st: "st",
+    GEN: "GEN",
+    OBC: "OBC",
+    SC: "SC",
+    ST: "ST",
 }
 const _areaUnit ={
-    hectares: "hectares",
-    acres: "acres",
-    bigha: "bigha",
+    Hectares: "Hectares",
+    Acres: "Acres",
+    Bigha: "Bigha",
 }
 const _soilType ={
-    sandy: "sandy",
-    loamy: "loamy",
-    clayey: "clayey",
-    red_soil:"red_soil",
-    alkaline: "alkaline",
-    other: "other",
+    Sandy: "Sandy",
+    Loamy: "Loamy",
+    Clayey: "Clayey",
+    Red_soil:"Red_soil",
+    Alkaline: "Alkaline",
+    Other: "Other",
 }
 const _distanceUnit ={
-    km: "km",
-    metre: "metre",
+    Km: "Km",
+    Metre: "Metre",
 }
 const _seedUsed ={
-    farmseved: "farmseved",
-    company: "company",
+    farmseved: "Farmseved",
+    Company: "Company",
 }
 const _yesNo ={
-    yes: "yes",
-    no: "no",
+    Yes: "Yes",
+    No: "No",
 }
 const _seasons ={
-    rabi: "rabi",
-    kharif: "kharif",
-    zaid: "zaid",
-    others: "others",
+    Rabi: "Rabi",
+    Kharif: "Kharif",
+    Zaid: "Zaid",
+    Others: "Others",
 }
 const _education ={
-    nonmatric: "nonmatric",
-    matric: "matric",
-    intermidiate: "intermidiate",
-    graduate: "graduate",
-    postgraduate: "postgraduate",
-    others: "others",
+    Nonmatric: "Nonmatric",
+    Matric: "Matric",
+    Intermidiate: "Intermidiate",
+    Graduate: "Graduate",
+    Postgraduate: "Postgraduate",
+    Others: "Others",
 }
 
 module.exports = {
