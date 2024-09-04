@@ -1,5 +1,5 @@
 const { handlePagination, handleRateLimit } = require("./middlewares/express_app");
-const { templateRoutes } = require("./services/templete/Routes");
+const { helperRoutes } = require("./services/api_helpers/Routes");
 const { S3Router } = require("./services/aws/routes");
 const multer = require('multer');
 const { masterRoutes } = require("./services/master/Routes");
@@ -21,6 +21,10 @@ module.exports = (app) => {
     app.use('/aws', S3Router)
     app.use("/master", masterRoutes);
     app.use("/procurement", procurementRoutes);
+<<<<<<< HEAD
     app.use('/import-templete', templateRoutes);
     app.use('/farmer', farmerRoutes);
+=======
+    app.use('/helper', helperRoutes)
+>>>>>>> b7cdf22e0c4352186de1538e71f0556410748e25
 }

@@ -23,6 +23,7 @@ const _collectionName = {
     Lands: "Lands",
     Banks: "Banks",
     Crops: "Crops",
+    FarmerOrder: "FarmerOrder",
 }
 const _status = {
     active: "active",
@@ -99,6 +100,12 @@ const _sellerOfferStatus = {
     accepted: 'Accepted',
     rejected: 'Rejected',
     pending: 'Pending'
+}
+
+const _procuredStatus = {
+    received: "Received",
+    pending: "Pending",
+    rejected: "Rejected",
 }
 
 const userType = {
@@ -226,5 +233,6 @@ module.exports = {
     _seedUsed,
     _yesNo,
     _seasons,
-    _education
+    _education,
+    _procuredStatus
 }
