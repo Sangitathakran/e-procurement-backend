@@ -49,7 +49,7 @@ const farmerSchema = new mongoose.Schema({
         branch_name: { type: String, trim: true },
         account_holder_name: { type: String, trim: true },
         ifsc_code: { type: String, trim: true },
-        account_no: { type: String, trim: true, unique: true },
+        account_no: { type: String, trim: true },
         pinCode: { type: String, trim: true },
         proof_doc: { type: String ,trim: true},
         kharif_crops: { type: String, enum: Object.values(_khaifCrops), trim: false, },
