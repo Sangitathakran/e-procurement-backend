@@ -1,5 +1,7 @@
 const Joi = require('joi');
 const { _trader_type } = require('@src/v1/utils/constants');
+const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const {  _response_message, _middleware, _auth_module } = require("@src/v1/utils/constants/messages");
 
 const basicDetailsSchema = Joi.object({
     associate_details: Joi.object({
@@ -66,6 +68,9 @@ const authorisedSchema = Joi.object({
 
 function validateForm(req, res, next) {
     const { formName } = req.body;
+    if (!formName) {
+        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.require('formName') }));
+    }
     let schema;
 
     switch (formName) {
@@ -82,12 +87,14 @@ function validateForm(req, res, next) {
             schema = authorisedSchema;
             break;
         default:
-            return res.status(400).json({ error: `Invalid form name: ${formName}` });
+            // return res.status(400).json({ error: `Invalid form name: ${formName}` });
+            return res.status(400).send(new serviceResponse({ status: 400, errors: `Invalid form name: ${formName}` }));
     }
 
     const { error, value } = schema.validate(req.body, { abortEarly: false, allowUnknown: true });
     if (error) {
-        return res.status(400).json({ error: error.details });
+        // return res.status(400).json({ error: error.details });
+        return res.status(400).send(new serviceResponse({ status: 400, errors: error.details }));
     }
 
     req.validatedData = value;

@@ -150,10 +150,53 @@ module.exports.loginOrRegister = async (req, res) => {
 
 
 module.exports.saveAssociateDetails = async (req, res) => {
-    const getToken = req.headers['token'];
-    const decode = await decryptJwtToken(getToken);
-    const userId = decode.data.user_id;
-    
-    
+    try {
+        const getToken = req.headers['token'];
+        const decode = await decryptJwtToken(getToken);
+        const userId = decode.data.user_id;
 
-}
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        }
+
+        const { formName, ...formData } = req.body;
+        console.log(req.body)
+        switch (formName) {
+            case 'basic_details':
+                user.basic_details = {
+                    ...user.basic_details,
+                    ...formData
+                };
+                break;
+            case 'address':
+                user.address = {
+                    ...user.address,
+                    ...formData
+                };
+                break;
+            case 'company_details':
+                user.company_details = {
+                    ...user.company_details,
+                    ...formData
+                };
+                break;
+            case 'authorised':
+                user.authorised = {
+                    ...user.authorised,
+                    ...formData
+                };
+                break;
+            default:
+                return res.status(400).send(new serviceResponse({ status: 400, message: `Invalid form name: ${formName}` }));
+        }
+
+        
+        await user.save();
+
+        return res.status(200).send(new serviceResponse({ message: _response_message.updated('User') }));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).send(new serviceResponse({ status: 500, message: 'Internal server error' }));
+    }
+};
