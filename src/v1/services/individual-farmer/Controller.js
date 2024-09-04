@@ -1,23 +1,29 @@
 const {IndividualFarmer} = require("../../models/app/farmer/IndividualFarmer");
+const { _response_message } = require("@src/v1/utils/constants/messages");
+const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const Joi=require('joi');
-//update
+//updates
 module.exports.saveFarmerDetails = async (req, res) => {
     try{
-        const { farmer_id, screenName } = req.query;
-        if(!farmer_id)  return res.status(400).send({message:"Farmer id required"})
-        const { error } = await validateIndividualFarmer(req.body, screenName);
-        if(error) return res.status(400).send({error:error.message})
+        const {screenName } = req.query;
+        const {id:farmer_id}=req.params;
+        if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
+        const { error,message } = await validateIndividualFarmer(req.body, screenName);
+        if(error) return res.status(400).send({error:message})
         const farmerDetails = await IndividualFarmer.findById(farmer_id).select(
           `${screenName}`
         );
         if (farmerDetails) {
           farmerDetails[screenName] = req.body[screenName];
+
+          await farmerDetails.save();
+          return res.status(200).send(new serviceResponse({message:_response_message.updated(screenName)}))
         } else {
-          return res.status(400).send({ message: "Farmer not Found" });
+          return res.status(400).send(new serviceResponse({status:400,message:_response_message.notFound('Farmer')}));
         }
     }catch(err){
         console.log('error',err)
-        return res.status(500).send({ message: err });
+        _handleCatchErrors(error, res);
     }
  
 };
