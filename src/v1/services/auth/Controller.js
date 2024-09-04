@@ -106,7 +106,9 @@ module.exports.loginOrRegister = async (req, res) => {
         }
 
         const isEmailInput = isEmail(userInput);
-        const query = isEmailInput ? { 'basic_details.email': userInput } : { 'basic_details.phone': userInput };
+        const query = isEmailInput 
+            ? { 'basic_details.associate_details.email': userInput } 
+            : { 'basic_details.associate_details.phone': userInput };
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
         if (!userOTP || inputOTP !== userOTP.otp) {
@@ -128,7 +130,9 @@ module.exports.loginOrRegister = async (req, res) => {
         } else {
             const newUser = {
                 client_id: isEmailInput ? '1243' : '9876',
-                basic_details: isEmailInput ? { email: userInput } : { phone: userInput },
+                basic_details: isEmailInput 
+                    ? { associate_details: { email: userInput } } 
+                    : { associate_details: { phone: userInput } },
                 term_condition: true
             };
 
@@ -143,8 +147,7 @@ module.exports.loginOrRegister = async (req, res) => {
         }
 
     } catch (err) {
-        console.error(err);
-        return res.status(500).json({ message: err.message, status: 500 });
+        _handleCatchErrors(error, res);
     }
 }
 
@@ -196,7 +199,6 @@ module.exports.saveAssociateDetails = async (req, res) => {
 
         return res.status(200).send(new serviceResponse({ message: _response_message.updated('User') }));
     } catch (error) {
-        console.error(error);
-        return res.status(500).send(new serviceResponse({ status: 500, message: 'Internal server error' }));
+        _handleCatchErrors(error, res);
     }
 };
