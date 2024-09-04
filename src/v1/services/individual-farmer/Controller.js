@@ -1,8 +1,9 @@
-<<<<<<< HEAD
 require('dotenv').config()
 const {_response_message } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const {IndividualFarmer} = require("../../models/app/farmer/IndividualFarmer");
+const Joi=require('joi');
 const axios = require("axios");
 const otpModel = require("@src/v1/models/app/auth/FormerOTP");
 const jwt = require("jsonwebtoken");
@@ -14,18 +15,25 @@ const { API_KEY, SENDER } = process.env
 module.exports.sendOTP = async (req, res) => {
    try{
     const { mobileNumber } = req.query;
+    
+    
+    // Validate the mobile number
+     const isValidMobile = await validateMobileNumber(mobileNumber);
+     if (!isValidMobile) {
+       return res.status(400).send({ message: "Invalid mobile number." });
+     }
 
-    let otp = Math.floor(100000 + Math.random() * 900000);
+    let otp = Math.floor(1000 + Math.random() * 9000);
 
     const apikey = encodeURIComponent(API_KEY);
     const number = mobileNumber;
     const sender = SENDER;
     let myMessage = `Your OTP is ${otp} - Radiant Infonet Pvt Ltd.`;
     const message = encodeURIComponent(myMessage);
-    console.log("inside sendOTP")
+    
     const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}`;
     const response = await axios.post(url);
-     console.log("response==>",response)
+    // console.log("response==>",response)
     if (!response){
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotSent("OTP") }] }));
     }
@@ -42,14 +50,17 @@ module.exports.sendOTP = async (req, res) => {
       };
       console.log("saveOTP==>",saveOTP)
       if (saveOTP) {
-        return res.status(200).send(new serviceResponse({ status: 200, data:[], message: _response_message.otpCreate("OTP") }))
+        //return res.status(200).send(new serviceResponse({ status: 200, data:[], message: _response_message.otpCreate("OTP") }))
+        return res.status(200).send({ message:"OTP is sent to your Mobile Number"})
       } else {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotCreate("OTP") }] }));
+        //return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotCreate("OTP") }] }));
+        return res.status(200).send({ message:"OTP has not sent"})
       }
     
    }
-   catch(error){
-    _handleCatchErrors(error, res)
+   catch(err){
+    //_handleCatchErrors(error, res)
+    return res.status(500).send({ message: err });
    }
 }
 
@@ -57,41 +68,95 @@ module.exports.verifyOTP = async (req, res) => {
     try {
         let { mobileNumber, inputOTP } = req.query;
     
+        const validateNo =  validateMobileNumber(mobileNumber);
+
+        if(!validateNo){
+            return res.status(400).send({message:"Invalid mobile number."})
+        }
+
         const userOTP = await otpModel.findOne({
           phone: mobileNumber,
         });
     
         if (inputOTP !== userOTP?.otp){
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otp_not_verified("OTP") }] }));
+            //return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otp_not_verified("OTP") }] }));
+            return res.status(200).send({message:"OTP doesn't match."})
         }
           
-    
-        const data = await otpModel.findOneAndUpdate(
-          { phone: mobileNumber },
-          { isMobileVerified: true },
-          { new: true }
-        );
-      
-      let resp;
-      if(data){
-         resp = {
-            token: jwt.sign({mobileNumber: req.query.mobileNumber}, JWT_SECRET_KEY, {expiresIn: "1d"}),
-            mobileNumber:mobileNumber
+        // const data = await otpModel.findOneAndUpdate(
+        //   { phone: mobileNumber },
+        //   { isMobileVerified: true },
+        //   { new: true }
+        // );
+
+        const formerData = await IndividualFarmer.findOne({
+            mobile_no:mobileNumber,
+            //name: registerName,
+            isMobileVerified: true
+        })
+
+        console.log("formerData==>",formerData)
+        let individualFormerExists = false;
+        if(formerData){
+            individualFormerExists = true
         }
-      }
+
+
+      //let resp;
+      //if(data)
+        //{
+       let  resp = {
+            token: jwt.sign({mobileNumber: req.query.mobileNumber}, JWT_SECRET_KEY, {expiresIn: "1d"}),
+            mobileNumber:mobileNumber,
+            individualFormerExists
+        }
+     // }
        
         return res.status(200).send(new serviceResponse({ status: 200, data:resp, message: _response_message.otp_verified("your mobile") }));
+        //return res.status(200).send({data:resp, message: "Your mobile number is verified."})
     }
-    catch(error){
-        _handleCatchErrors(error, res)
+    catch(err){
+       // _handleCatchErrors(error, res)
+       return res.status(500).send({ message: err });
     }
 }
 
+module.exports.registerName = async (req, res) => {
+    try {
+      const { mobileNumber, registerName } = req.query;
+  
+      // Validate input
+      const { error } = validateRegisterDetail(req.query);
+      if (error) return res.status(400).send({ error: error.message });
+  
+      // Check if the user already exists and is verified
+      const formerData = await IndividualFarmer.findOne({
+        mobile_no: mobileNumber,
+        isVerifyOtp: true,
+      });
+  
+      if (!formerData) {
+        // If user doesn't exist, create a new record with the provided mobile_no and name
+        const dataSaved = await new IndividualFarmer({
+          mobile_no: mobileNumber,
+          name: registerName,
+          isVerifyOtp: true, // Ensure that this field is set as required
+        }).save();
+  
+        if (dataSaved) {
+          return res.status(200).send({ message: "Data registered successfully" });
+        }
+      } else {
+        // If the user already exists
+        return res.status(400).send({ message: "User already registered" });
+      }
+    } catch (err) {
+      return res.status(500).send({ message: err.message });
+    }
+  };
+  
+  
 
-=======
-const {IndividualFarmer} = require("../../models/app/farmer/IndividualFarmer");
-const Joi=require('joi');
-//update
 module.exports.saveFarmerDetails = async (req, res) => {
     try{
         const { farmer_id, screenName } = req.query;
@@ -176,4 +241,20 @@ async function validateIndividualFarmer(data, screenName) {
   }
   return schema.validate(data[screenName]);
 }
->>>>>>> 3a35253d6ac5fd7477cd9c6140fbc393cf1fb699
+
+async function validateRegisterDetail(data) {
+  try{
+    const schema = Joi.object({
+        mobileNumber:Joi.string().min(10).max(10).required(),
+        registerName:Joi.string().required()
+    })
+    return schema.validate(data)
+  } catch (err){
+    console.log("err",err)
+  }
+}
+
+const validateMobileNumber =  async (mobile) => {
+    let pattern = /^[0-9]{10}$/;
+    return pattern.test(mobile);
+}
