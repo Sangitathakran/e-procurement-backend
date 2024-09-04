@@ -1,6 +1,6 @@
 const express = require("express");
 const individualFarmerRoutes = express.Router();
-const { body } = require("express-validator");
+
 const { saveFarmerDetails, sendOTP, verifyOTP, registerName} = require("./Controller");
 const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 
