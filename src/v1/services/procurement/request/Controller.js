@@ -406,39 +406,6 @@ module.exports.requestApprove = async (req, res) => {
 }
 
 
-module.exports.getPendingOfferedList = async (req, res) => {
-
-    try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
-        const { user_id } = req
-        let query = {
-            seller_id: user_id,
-            status: _sellerOfferStatus.pending,
-            ...(search ? { name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
-        };
-        const records = { count: 0 };
-        records.rows = paginate == 1 ? await sellerOffers.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await sellerOffers.find(query).sort(sortBy);
-
-        records.count = await sellerOffers.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-
-}
-
-
 module.exports.offeredFarmerList = async (req, res) => {
 
     try {
@@ -480,72 +447,6 @@ module.exports.offeredFarmerList = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
-module.exports.getRejectOfferedList = async (req, res) => {
-
-    try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
-        const { user_id } = req
-        let query = {
-            seller_id: user_id,
-            status: _sellerOfferStatus.rejected,
-            ...(search ? { name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
-        };
-        const records = { count: 0 };
-        records.rows = paginate == 1 ? await sellerOffers.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await sellerOffers.find(query).sort(sortBy);
-
-        records.count = await sellerOffers.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-
-}
-
-
-module.exports.getAcceptedOfferList = async (req, res) => {
-
-    try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
-        const { user_id } = req
-        let query = {
-            seller_id: user_id,
-            status: _sellerOfferStatus.accepted,
-            ...(search ? { name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
-        };
-        const records = { count: 0 };
-        records.rows = paginate == 1 ? await sellerOffers.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await sellerOffers.find(query).sort(sortBy);
-
-        records.count = await sellerOffers.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-
-}
-
 
 
 module.exports.getAcceptedProcurement = async (req, res) => {
