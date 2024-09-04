@@ -31,7 +31,6 @@ module.exports.sendOTP = async (req, res) => {
     
     const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}`;
     const response = await axios.post(url);
-    // console.log("response==>",response)
     if (!response){
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotSent("OTP") }] }));
     }
@@ -46,7 +45,7 @@ module.exports.sendOTP = async (req, res) => {
         msg: _response_message.otpCreate,
        
       };
-      console.log("saveOTP==>",saveOTP)
+      
       if (saveOTP) {
         //return res.status(200).send(new serviceResponse({ status: 200, data:[], message: _response_message.otpCreate("OTP") }))
         return res.status(200).send({ message:"OTP is sent to your Mobile Number"})
