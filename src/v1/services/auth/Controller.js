@@ -5,6 +5,9 @@ const { User } = require("@src/v1/models/app/auth/User");
 const  OTP  = require("@src/v1/models/app/auth/OTP");
 const SMSService = require('@src/v1/utils/third_party/SMSservices');
 const EmailService = require("@src/v1/utils/third_party/EmailServices");
+const jwt = require("jsonwebtoken");
+const { JWT_SECRET_KEY } = require('@config/index');
+const { verifyJwtToken, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 
 
 module.exports.userRegister = async (req, res) => {
@@ -56,7 +59,6 @@ const sendSmsOtp = async (phone) => {
 
 
 module.exports.sendOtp = async (req, res) => {
-
     try {
         const { input, term_condition } = req.body;
         
@@ -74,7 +76,7 @@ module.exports.sendOtp = async (req, res) => {
         } else if (isMobileNumber(input)) {
             inputType = 'mobile';
         } else {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid('inpInvalid input formatut') }));
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid('Invalid input formatut') }));
         }
 
         if (inputType === 'email') {
@@ -114,7 +116,15 @@ module.exports.loginOrRegister = async (req, res) => {
         let userExist = await User.findOne(query);
 
         if (userExist) {
-            return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account') }));
+            const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id }
+            const now = new Date();
+            const expiresIn = Math.floor(now.getTime() / 1000) + 3600;
+            const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+            const data = {
+                'token': token,
+            }
+
+            return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data:data }));
         } else {
             const newUser = {
                 client_id: isEmailInput ? '1243' : '9876',
@@ -136,5 +146,14 @@ module.exports.loginOrRegister = async (req, res) => {
         console.error(err);
         return res.status(500).json({ message: err.message, status: 500 });
     }
-};
+}
 
+
+module.exports.saveAssociateDetails = async (req, res) => {
+    const getToken = req.headers['token'];
+    const decode = await decryptJwtToken(getToken);
+    const userId = decode.data.user_id;
+    
+    
+
+}

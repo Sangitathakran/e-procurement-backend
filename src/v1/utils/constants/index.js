@@ -115,15 +115,11 @@ const _userType = {
 }
 
 const _trader_type = {
-    GOVERNMENT_ORGANISATION : 'Government Organisation',
-    EXPORTER : 'Exporter',
-    COMMISSION_AGENT : 'Commission Agent',
+    ORGANISATION : 'Organisation',
+    SOCIETY : 'Society',
+    TRUST : 'Trust',
     INDIVIDUAL : 'Individual',
-    FPO : 'FPO',
-    NON_PROFIT : 'Non-Profit',
-    PRIVATE_COMPANY : 'Private Company',
-    HO : 'HO',
-    BO : 'BO',
+    PROPRITER : 'Propriter',
 }
 
 const _webSocketEvents = {
