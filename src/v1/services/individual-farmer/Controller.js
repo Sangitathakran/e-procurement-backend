@@ -2,7 +2,7 @@ const {IndividualFarmer} = require("../../models/app/farmer/IndividualFarmer");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const Joi=require('joi');
-//update
+//updates
 module.exports.saveFarmerDetails = async (req, res) => {
     try{
         const {screenName } = req.query;
