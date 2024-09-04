@@ -47,16 +47,16 @@ module.exports.sendOTP = async (req, res) => {
       };
       
       if (saveOTP) {
-        //return res.status(200).send(new serviceResponse({ status: 200, data:[], message: _response_message.otpCreate("OTP") }))
-        return res.status(200).send({ message:"OTP is sent to your Mobile Number"})
+        return res.status(200).send(new serviceResponse({ status: 200, data:[], message: _response_message.otpCreate("OTP") }))
+        
       } else {
-        //return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotCreate("OTP") }] }));
-        return res.status(200).send({ message:"OTP has not sent"})
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotCreate("OTP") }] }));
+        
       }
     
    }
    catch(err){
-    //_handleCatchErrors(error, res)
+    //_handleCatchErrors(err, res)
     return res.status(500).send({ message: err });
    }
 }
@@ -105,18 +105,22 @@ module.exports.verifyOTP = async (req, res) => {
 
 module.exports.registerName = async (req, res) => {
     try {
-      const { mobileNumber, registerName } = req.query;
+      const { mobileNumber, registerName, acceptTermCondition=false } = req.query;
   
       // Validate input
       const { error } = validateRegisterDetail(req.query);
       if (error) return res.status(400).send({ error: error.message });
   
+      if (!acceptTermCondition){
+        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.Accept_term_condition() }));
+      }
       // Check if the user already exists and is verified
       const formerData = await IndividualFarmer.findOne({
         mobile_no: mobileNumber,
         isVerifyOtp: true,
       });
-  
+      
+
       if (!formerData) {
         // If user doesn't exist, create a new record with the provided mobile_no and name
         const dataSaved = await new IndividualFarmer({
@@ -126,11 +130,12 @@ module.exports.registerName = async (req, res) => {
         }).save();
   
         if (dataSaved) {
-          return res.status(200).send({ message: "Data registered successfully" });
+         
+         return res.status(200).send(new serviceResponse({ status: 200, data:dataSaved, message: _response_message.Data_registered("Data") }));
         }
       } else {
         // If the user already exists
-        return res.status(400).send({ message: "User already registered" });
+       return res.status(400).send(new serviceResponse({ status: 200, message: _response_message.Data_already_registered("Data") }));
       }
     } catch (err) {
       return res.status(500).send({ message: err.message });
