@@ -29,9 +29,11 @@ const associateOrdersSchema = new mongoose.Schema({
             vehicle_weight: { type: String, trim: true },
             loaded_weight: { type: String, trim: true },
         },
+        bill: {
+            qc_charges: { type: Number, trim: true }
+        },
         no_of_bags: { type: Number, trim: true },
         qty: { type: Number, trim: true },
-        bill: { type: String, trim: true },
     },
     delivered: {},
     status: { type: String, enum: ["pending", "dispatched", "in-transit", "delivered"], default: "pending" }
