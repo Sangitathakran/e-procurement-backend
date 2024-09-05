@@ -48,7 +48,6 @@ module.exports = {
         Data_already_registered: (key) => `${key || "Data"} already registered.`,
         Accept_term_condition: (key) => `${key || "Please"} accept our Terms and Conditions to continue.`,
         confirm_password_match: (key) => `${key} Password and confirm password should match.`,
-        not_found: (key) => `${key}.`,
         otpSend: () => `OTP send successfully.`,
     }
 }

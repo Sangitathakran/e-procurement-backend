@@ -32,11 +32,6 @@ const _status = {
     inactive: "inactive",
 }
 
-const _individualStatus = {
-    active: "active",
-    inactive: "inactive",
-}
-
 const _farmerType = {
     marginal: "marginal",
     small: "small",

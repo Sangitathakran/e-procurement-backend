@@ -193,7 +193,7 @@ const bankDetailsSchema = Joi.object({
 function validateForm(req, res, next) {
     const { formName } = req.body;
     if (!formName) {
-        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.require('formName') }));
+        return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.require('formName') }));
     }
     let schema;
 
@@ -217,12 +217,12 @@ function validateForm(req, res, next) {
             schema = bankDetailsSchema;
             break;
         default:
-            return res.status(400).send(new serviceResponse({ status: 400, errors: `Invalid form name: ${formName}` }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: `Invalid form name: ${formName}` }));
     }
 
     const { error, value } = schema.validate(req.body, { abortEarly: false, allowUnknown: true });
     if (error) {
-        return res.status(400).send(new serviceResponse({ status: 400, errors: error.details }));
+        return res.status(200).send(new serviceResponse({ status: 400, errors: error.details }));
     }
 
     req.validatedData = value;
