@@ -86,13 +86,14 @@ module.exports.verifyOTP = async (req, res) => {
             //name: registerName,
             isVerifyOtp: true
         })
-
+    
       let resp;
       if(individualFormerData)
         {
             resp = {
             token: generateJwtToken({mobile_no:mobileNumber}),
-            mobileNumber:mobileNumber
+            mobileNumber:mobileNumber,
+            _id:individualFormerData._id
         }
       }
        
