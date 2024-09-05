@@ -6,8 +6,7 @@ const { _individual_farmer_onboarding_steps } = require("@src/v1/utils/constants
 const {IndividualFarmer} = require("../../models/app/farmer/IndividualFarmer");
 const Joi=require('joi');
 const axios = require("axios");
-const otpModel = require("@src/v1/models/app/auth/FormerOTP");
-const { JWT_SECRET_KEY } = require('@config/index');
+const otpModel = require("@src/v1/models/app/auth/FarmerOTP");
 const { API_KEY, SENDER } = process.env
 const { generateJwtToken } = require("@src/v1/utils/helpers/jwt");
 
@@ -18,9 +17,9 @@ module.exports.sendOTP = async (req, res) => {
     const { mobileNumber } = req.query;
     // Validate the mobile number
      const isValidMobile = await validateMobileNumber(mobileNumber);
-     if (!isValidMobile) {
-       return res.status(400).send({ message: "Invalid mobile number." });
-     }
+     if(!isValidMobile){  
+      return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid("mobile Number") }));
+  }
 
     let otp = Math.floor(1000 + Math.random() * 9000);
 
@@ -41,11 +40,7 @@ module.exports.sendOTP = async (req, res) => {
         phone: mobileNumber,
         otp: otp,
       }).save();
-      const resp = {
-        url: url,
-        msg: _response_message.otpCreate,
-       
-      };
+      
       
       if (saveOTP) {
         return res.status(200).send(new serviceResponse({ status: 200, data:[], message: _response_message.otpCreate("OTP") }))
@@ -57,8 +52,8 @@ module.exports.sendOTP = async (req, res) => {
     
    }
    catch(err){
-    //_handleCatchErrors(err, res)
-    return res.status(500).send({ message: err });
+    console.log('error',err)
+    _handleCatchErrors(err, res);
    }
 }
 
@@ -66,10 +61,11 @@ module.exports.verifyOTP = async (req, res) => {
     try {
         let { mobileNumber, inputOTP } = req.query;
     
-        const validateNo =  validateMobileNumber(mobileNumber);
-
-        if(!validateNo){
-            return res.status(400).send({message:"Invalid mobile number."})
+        const isValidMobile =  await validateMobileNumber(mobileNumber);
+         
+        if(!isValidMobile){
+          
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid("mobile Number") }));
         }
 
         const userOTP = await otpModel.findOne({
@@ -78,12 +74,11 @@ module.exports.verifyOTP = async (req, res) => {
     
         if (inputOTP !== userOTP?.otp){
 
-            return res.status(200).send({message:"OTP doesn't match."})
+          return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.otp_not_verified("OTP") }));
         }
           
         const individualFormerData = await IndividualFarmer.findOne({
             mobile_no:mobileNumber,
-            //name: registerName,
             isVerifyOtp: true
         })
     
@@ -101,7 +96,8 @@ module.exports.verifyOTP = async (req, res) => {
         
     }
     catch(err){
-       return res.status(500).send({ message: err });
+      console.log('error',err)
+      _handleCatchErrors(err, res);
     }
 }
 
@@ -141,15 +137,14 @@ module.exports.registerName = async (req, res) => {
        return res.status(400).send(new serviceResponse({ status: 200, message: _response_message.Data_already_registered("Data") }));
       }
     } catch (err) {
-      return res.status(500).send({ message: err.message });
+      console.log('error',err)
+    _handleCatchErrors(err, res);
     }
   };
   
 //updates
 module.exports.saveFarmerDetails = async (req, res) => {
     try{
-
-
         const {screenName } = req.query;
         const {id:farmer_id}=req.params;
         if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
