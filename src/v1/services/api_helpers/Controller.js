@@ -1,5 +1,8 @@
 const exportTemplate = require("@src/v1/utils/constants/exportTemplate");
+const { _response_message } = require("@src/v1/utils/constants/messages");
 const { dumpJSONToCSV, _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
+const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { thirdPartyGetApi } = require("@src/v1/utils/helpers/third_party_Api");
 /**
  * 
  * @param {Request} req 
@@ -30,3 +33,21 @@ exports.getExcelTemplate = async (req, res) => {
         _handleCatchErrors(error, res)
     }
 }
+/**
+ * 
+ * @param {Request} req 
+ * @param {Response} res 
+ * @returns 
+ */
+exports.getAddressByPincode = async (req, res) => {
+    try {
+        const { pincode } = req.query
+        const url = `https://api.postalpincode.in/pincode/${pincode}`
+        const records = await thirdPartyGetApi(url, {})
+
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }))
+    } catch (error) {
+        _handleCatchErrors(error, res)
+    }
+}
+
