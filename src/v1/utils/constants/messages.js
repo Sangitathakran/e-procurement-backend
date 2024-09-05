@@ -31,6 +31,7 @@ module.exports = {
         deleted: (name) => `${name || "Record"} deleted successfully.`,
         allReadyDeleted: (key) => `${key || "Data"} already deleted.`,
         found: (key) => `${key || "Record"} found successfully.`,
+        pending: (key) => `${key || "Record"} should not be pending.`,
         mailSent: (key) => `${key || "Record"} sent successfully.`,
         mailNotSent: (key) => `${key || "Record"} not sent.`,
         Unauthorized: (key) => `${key || "User"} Unauthorized`,

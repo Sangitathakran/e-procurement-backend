@@ -24,6 +24,7 @@ const _collectionName = {
     Banks: "Banks",
     Crops: "Crops",
     FarmerOrder: "FarmerOrder",
+    AssociateOrder: "AssociateOrder",
 }
 const _status = {
     active: "active",
@@ -99,7 +100,8 @@ const _procurementRequestStatus = {
 const _sellerOfferStatus = {
     accepted: 'Accepted',
     rejected: 'Rejected',
-    pending: 'Pending'
+    pending: 'Pending',
+    ordered: "Ordered",
 }
 
 const _procuredStatus = {
