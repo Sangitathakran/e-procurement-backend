@@ -9,32 +9,6 @@ const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { verifyJwtToken, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 
-
-module.exports.userRegister = async (req, res) => {
-
-    try {
-        const { business_name, trader_type, client_id, email, password, confirm_password, phone } = req.body;
-        if (password !== confirm_password) {
-            return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.confirm_password_match("confirm_password_match") }));
-        }
-        const record = await User.create({
-            business_name,
-            trader_type,
-            client_id,
-            email,
-            password,
-            confirm_password,
-            phone
-        });
-
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("User") }));
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-
-}
-
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
 
@@ -170,7 +144,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
         }
 
         const { formName, ...formData } = req.body;
-        console.log(getToken)
+        
         switch (formName) {
             case 'organization':
                 user.basic_details.associate_details.organization_name = formData.organization_name;

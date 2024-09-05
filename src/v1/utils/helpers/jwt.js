@@ -58,43 +58,7 @@ exports.generateAccountSecretKey = () => {
 
 exports.verifyJwtToken = async (req, res, next) => {
   try {
-    const { token } = req.headers;
-    if (!token) {
-      return res.status(403).json({ message: "Unauthorized", status: 403 });
-    }
-    if (tokenBlacklist.includes(token)) {
-      return res
-        .status(401)
-        .json({ message: "Token has been revoked", status: 401 });
-    }
-
-    jwt.verify(token, JWT_SECRET_KEY, function (err, decodedToken) {
-      if (err) {
-        return res.status(401).send({ message: "Token is invalid", status: 401 });
-      }
-
-      const currentTime = Math.floor(Date.now() / 1000);
-      if (decodedToken.exp < currentTime) {
-        return res.status(401).json({ message: "Token has expired" });
-      }
-      Object.entries(decodedToken).forEach(([key, value]) => {
-        req[key] = value
-      })
-      // req.headers = decodedToken;
-      next();
-    });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).send({
-      msg: err.message,
-      status: 500,
-    });
-  }
-};
-
-exports.verifyJwtTokenViaCookie = async (req, res, next) => {
-  try {
-    const token  = req.cookies.token;
+    const  token  = req.headers.token || req.cookies.token;
     if (!token) {
       return res.status(403).json({ message: "Unauthorized", status: 403 });
     }
