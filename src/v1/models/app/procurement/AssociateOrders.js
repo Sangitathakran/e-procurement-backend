@@ -1,10 +1,11 @@
 const mongoose = require('mongoose');
 const { _collectionName } = require('@src/v1/utils/constants');
+const { _generateOrderNumber } = require('@src/v1/utils/helpers');
 
 
 const associateOrdersSchema = new mongoose.Schema({
-    associate_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
-    req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementRequest, required: true },
+    seller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
+    sellerOffer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.SellerOffers, required: true },
     batchId: { type: String, trim: true, },
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.CollectionCenter },
     dispatched_at: { type: Date },
@@ -43,18 +44,18 @@ associateOrdersSchema.pre('save', async function (next) {
     const order = this;
 
     if (order.isNew) {
-        let uniqueOrderNo;
+        let batchId;
         let isUnique = false;
 
         while (!isUnique) {
-            uniqueOrderNo = Math.floor(10000000 + Math.random() * 90000000).toString();
-            const existingOrder = await AssociateOrders.findOne({ orderNo: uniqueOrderNo });
+            batchId = _generateOrderNumber();
+            const existingOrder = await AssociateOrders.findOne({ batchId: batchId });
             if (!existingOrder) {
                 isUnique = true;
             }
         }
 
-        order.order_no = uniqueOrderNo;
+        order.batchId = batchId;
     }
 
     next();

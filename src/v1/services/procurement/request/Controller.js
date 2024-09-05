@@ -11,6 +11,7 @@ const { _sellerOfferStatus, userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const mongoose = require("mongoose");
+const { AssociateOrders } = require("@src/v1/models/app/procurement/AssociateOrders");
 
 module.exports.createProcurement = async (req, res) => {
 
@@ -534,13 +535,30 @@ module.exports.associateOrder = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
         }
 
+        const receivedRecords = await ContributedFarmers.find({ status: _procuredStatus.received, sellerOffers_id: record?._id });
 
 
+        if (receivedRecords.length == 0) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }));
+        }
+
+        const myMap = new Map();
+        receivedRecords.forEach((ele) => {
+
+            if (myMap.has(ele.procurementCenter_id)) {
+                const currElement = myMap.get(ele.procurementCenter_id);
+                currElement.dispatchedqty += ele.qtyProcured;
+            } else {
+                myMap.set(ele.procurementCenter_id, { seller_id: user_id, sellerOffer_id: record._id, dispatchedqty: ele.qtyProcured });
+            }
+        })
+
+        const associateRecords = await AssociateOrders.insertMany([...myMap.values()]);
 
         record.status = _sellerOfferStatus.ordered;
         await record.save();
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: [], message: _response_message.created("order") }))
+        return res.status(200).send(new serviceResponse({ status: 200, data: associateRecords, message: _response_message.created("order") }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
