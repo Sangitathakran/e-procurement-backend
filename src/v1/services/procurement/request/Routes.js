@@ -1,7 +1,7 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
-const { getProcurement, getProcurementById, createProcurement, updateProcurement, getFarmerListById, fpoOffered, requestApprove, getPendingOfferedList, getRejectOfferedList, getAcceptedProcurement, getAcceptedOfferList, offeredFarmerList, editFarmerOffer } = require("./Controller");
+const { getProcurement, getProcurementById, createProcurement, updateProcurement, getFarmerListById, fpoOffered, requestApprove, offeredFarmerList, editFarmerOffer } = require("./Controller");
 const { _sellerOfferStatus } = require("@src/v1/utils/constants");
 const { _status } = require("@src/v1/utils/constants/index");
 const express = require("express");
@@ -30,8 +30,5 @@ requestRoutes.put("/", /*[
         .withMessage(`Status must be one of the following: ${Object.values(_status).join(', ')}`)],
     validateErrors,  */ verifyJwtToken, updateProcurement);
 
-requestRoutes.get("/pending-offered", verifyJwtToken, getPendingOfferedList);
-requestRoutes.get("/reject-offered", verifyJwtToken, getRejectOfferedList);
-requestRoutes.get("/accepted-offered", verifyJwtToken, getAcceptedOfferList);
 
 module.exports = { requestRoutes }; 

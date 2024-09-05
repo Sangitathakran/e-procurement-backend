@@ -31,6 +31,7 @@ module.exports = {
         deleted: (name) => `${name || "Record"} deleted successfully.`,
         allReadyDeleted: (key) => `${key || "Data"} already deleted.`,
         found: (key) => `${key || "Record"} found successfully.`,
+        pending: (key) => `${key || "Record"} should not be pending.`,
         mailSent: (key) => `${key || "Record"} sent successfully.`,
         mailNotSent: (key) => `${key || "Record"} not sent.`,
         Unauthorized: (key) => `${key || "User"} Unauthorized`,
@@ -40,5 +41,8 @@ module.exports = {
         invalid_delivery_date: (key) => `${key || "Date"} must be greater than Expiry date.`,
         mobile_no_tendigits: (key) => `${key || "Mobile"} number must be exactly 10 digits long.`,
         aadhar_card_number_pattern: (key) => `${key || "Aadhaar"}  card number must be a 12-digit numeric value.`,
+        confirm_password_match: (key) => `${key} Password and confirm password should match.`,
+        not_found: (key) => `${key}.`,
+        otpSend: () => `OTP send successfully.`,
     }
 }

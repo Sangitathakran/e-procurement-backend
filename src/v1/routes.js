@@ -5,6 +5,7 @@ const multer = require('multer');
 const { masterRoutes } = require("./services/master/Routes");
 const { procurementRoutes } = require("./services/procurement/Routes");
 const { farmerRoutes } = require("./services/farmer/Routes");
+const { userAuthRoutes } = require("./services/auth/Routes");
 
 // Call Your Routes
 const ExpressApp = require("express")();
@@ -23,4 +24,5 @@ module.exports = (app) => {
     app.use("/procurement", procurementRoutes);
     app.use('/farmer', farmerRoutes);
     app.use('/helper', helperRoutes)
+    app.use("/auth", userAuthRoutes);
 }
