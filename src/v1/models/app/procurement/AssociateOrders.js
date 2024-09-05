@@ -39,6 +39,27 @@ const associateOrdersSchema = new mongoose.Schema({
     status: { type: String, enum: ["pending", "dispatched", "in-transit", "delivered"], default: "pending" }
 }, { timestamps: true });
 
+associateOrdersSchema.pre('save', async function (next) {
+    const order = this;
+
+    if (order.isNew) {
+        let uniqueOrderNo;
+        let isUnique = false;
+
+        while (!isUnique) {
+            uniqueOrderNo = Math.floor(10000000 + Math.random() * 90000000).toString();
+            const existingOrder = await AssociateOrders.findOne({ orderNo: uniqueOrderNo });
+            if (!existingOrder) {
+                isUnique = true;
+            }
+        }
+
+        order.order_no = uniqueOrderNo;
+    }
+
+    next();
+});
+
 const AssociateOrders = mongoose.model(_collectionName.AssociateOrders, associateOrdersSchema);
 
 module.exports = { AssociateOrders };
