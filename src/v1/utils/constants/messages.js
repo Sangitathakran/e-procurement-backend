@@ -31,6 +31,7 @@ module.exports = {
         deleted: (name) => `${name || "Record"} deleted successfully.`,
         allReadyDeleted: (key) => `${key || "Data"} already deleted.`,
         found: (key) => `${key || "Record"} found successfully.`,
+        pending: (key) => `${key || "Record"} should not be pending.`,
         mailSent: (key) => `${key || "Record"} sent successfully.`,
         mailNotSent: (key) => `${key || "Record"} not sent.`,
         Unauthorized: (key) => `${key || "User"} Unauthorized`,
@@ -38,5 +39,8 @@ module.exports = {
         uploaded: (name) => `${name || "Record"} uploaded successfully.`,
         subscribe: (key) => `Subscribed to event: ${key}`,
         invalid_delivery_date: (key) => `${key || "Date"} must be greater than Expiry date.`,
+        confirm_password_match: (key) => `${key} Password and confirm password should match.`,
+        not_found: (key) => `${key}.`,
+        otpSend: () => `OTP send successfully.`,
     }
 }

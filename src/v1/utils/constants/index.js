@@ -24,6 +24,7 @@ const _collectionName = {
     Banks: "Banks",
     Crops: "Crops",
     FarmerOrder: "FarmerOrder",
+    AssociateOrder: "AssociateOrder",
 }
 const _status = {
     active: "active",
@@ -99,7 +100,8 @@ const _procurementRequestStatus = {
 const _sellerOfferStatus = {
     accepted: 'Accepted',
     rejected: 'Rejected',
-    pending: 'Pending'
+    pending: 'Pending',
+    ordered: "Ordered",
 }
 
 const _procuredStatus = {
@@ -107,28 +109,30 @@ const _procuredStatus = {
     pending: "Pending",
     rejected: "Rejected",
 }
-
-const userType = {
+const _userType = {
     admin: "Admin",
     trader: "Trader",
     ho: "HO",
     bo: "BO",
 }
 
+const _trader_type = {
+    ORGANISATION : 'Organisation',
+    SOCIETY : 'Society',
+    TRUST : 'Trust',
+    INDIVIDUAL : 'Individual',
+    PROPRITER : 'Propriter',
+}
+
 const _webSocketEvents = {
     procurement: "procurement"
 }
 
-const _traderType = {
-    government_organisation: 'Government Organisation',
-    exporter: 'Exporter',
-    ocmmission_agent: 'Commission Agent',
-    individual: 'Individual',
-    FPO: 'FPO',
-    non_profit: 'Non-Profit',
-    private_company: 'Private Company',
-    HO: 'HO',
-    BO: 'BO',
+const _user_status = {
+    APPROVED : 'approved',
+    DISAPPROVED : 'disapproved',
+    PENDING : 'pending',
+    BANNED : 'banned',
 
 }
 const _proofType = {
@@ -203,6 +207,7 @@ const _education = {
     others: "others",
 }
 
+
 module.exports = {
     _collectionName,
     _status,
@@ -219,8 +224,6 @@ module.exports = {
     _procurementRequestStatus,
     _sellerOfferStatus,
     _webSocketEvents,
-    userType,
-    _traderType,
     _proofType,
     _titles,
     _gender,
@@ -234,5 +237,8 @@ module.exports = {
     _yesNo,
     _seasons,
     _education,
-    _procuredStatus
+    _procuredStatus,
+    _userType,
+    _trader_type,
+    _user_status,
 }
