@@ -19,7 +19,10 @@ const userSchema = new mongoose.Schema({
             mobile: { type: String,  trim: true },
             designation: { type: String, trim: true },
             aadhar_number: { type: String, trim: true },
-            aadhar_image: [{ type: String, trim: true }],
+            aadhar_image: {
+                front: { type: String, trim: true },
+                back: { type: String, trim: true },
+            }
         },
     },
     address : {
@@ -52,7 +55,10 @@ const userSchema = new mongoose.Schema({
         pan_card: {type: String, trim: true,},
         pan_image: { type: String, trim: true,},
         aadhar_number: {type: String, trim: true,},
-        aadhar_certificate: [{ type: String, trim: true,}],
+        aadhar_certificate: {
+            front: { type: String, trim: true },
+            back: { type: String, trim: true },
+        }
     },
     authorised:{
         name: {type: String, trim: true,},
@@ -60,7 +66,10 @@ const userSchema = new mongoose.Schema({
         phone: {type: String, trim: true,},
         email: {type: String, trim: true,},
         aadhar_number: {type: String, trim: true,},
-        aadhar_certificate: [{ type: String, trim: true,}],
+        aadhar_certificate: {
+            front: { type: String, trim: true },
+            back: { type: String, trim: true },
+        },
         pan_card: {type: String, trim: true,},
         pan_image: { type: String, trim: true,},
         
@@ -71,8 +80,7 @@ const userSchema = new mongoose.Schema({
         account_holder_name: {type: String, rim: true,},
         ifsc_code: {type: String, trim: true,},
         account_number: {type: String,trim: true,},
-        uplpoad_proof: { type: String, trim: true },
-        pinCode: { type: String, trim: true },
+        upload_proof: { type: String, trim: true },
     },
     user_status: { type: String, enum: Object.values(_user_status), default:_user_status.APPROVED },
     user_type: {type: String,trim: true ,},
