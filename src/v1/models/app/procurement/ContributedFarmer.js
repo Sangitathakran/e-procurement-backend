@@ -31,7 +31,7 @@ contributedFarmersSchema.pre('save', async function (next) {
 
         while (!isUnique) {
             uniqueOrderNo = Math.floor(10000000 + Math.random() * 90000000).toString();
-            const existingOrder = await Order.findOne({ orderNo: uniqueOrderNo });
+            const existingOrder = await ContributedFarmers.findOne({ orderNo: uniqueOrderNo });
             if (!existingOrder) {
                 isUnique = true;
             }
@@ -43,6 +43,6 @@ contributedFarmersSchema.pre('save', async function (next) {
     next();
 });
 
-const contributedFarmers = mongoose.model(_collectionName.ContributedFarmers, contributedFarmersSchema);
+const ContributedFarmers = mongoose.model(_collectionName.ContributedFarmers, contributedFarmersSchema);
 
-module.exports = { contributedFarmers };
+module.exports = { ContributedFarmers };
