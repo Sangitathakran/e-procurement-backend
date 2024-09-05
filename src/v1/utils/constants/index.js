@@ -244,29 +244,29 @@ const _zaidCrops = {
 
 const _individual_farmer_onboarding_steps = [ 
     { 
-        screen_name: "basic_details",
+        label: "basic_details",
         screen_number: 1,
-        isCompleted: false
+        status: "pending"
     },
     { 
-        screen_name: "address",
+        label: "address",
         screen_number: 2,
-        isCompleted: false
+        status: "pending"
     },
     { 
-        screen_name: "land_details",
+        label: "land_details",
         screen_number: 3,
-        isCompleted: false
+        status: "pending"
     },
     { 
-        screen_name: "documents",
+        label: "documents",
         screen_number: 4,
-        isCompleted: false
+        status: "pending"
     },
     { 
-        screen_name: "bank_details",
+        label: "bank_details",
         screen_number: 5,
-        isCompleted: false
+        status: "pending"
     },
 
 ]

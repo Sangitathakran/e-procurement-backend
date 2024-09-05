@@ -62,9 +62,9 @@ const farmerSchema = new mongoose.Schema({
         
     },
     steps: [{ 
-        screen_name: {type: String},
-        screen_number: {type: String},
-        isCompleted: {type: Boolean}
+        label: {type: String},
+        screen_number: {type: String, default: "1"},
+        status: {type: String , enum:  ['active', 'pending', 'completed'] , default: "pending"}
     }],
     allStepsCompletedStatus : {type: Boolean, default: false},
     associate_id: { type: mongoose.Schema.Types.ObjectId,required: false,ref: _collectionName.Users,default:null},

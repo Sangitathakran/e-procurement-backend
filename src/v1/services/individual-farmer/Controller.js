@@ -173,6 +173,30 @@ module.exports.saveFarmerDetails = async (req, res) => {
     } 
 };
 
+module.exports.getFarmerDetails = async (req, res) => {
+  try{
+
+      const {screenName } = req.query;
+      const {id:farmer_id}=req.params;
+      if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
+
+
+      const farmerDetails = await IndividualFarmer.findById(farmer_id).select(`${screenName} steps allStepsCompletedStatus` );
+      
+      if (farmerDetails) {
+        return res.status(200).send(new serviceResponse({data: farmerDetails, message:_response_message.found(screenName)}))
+      } else {
+        return res.status(400).send(new serviceResponse({status:400,message:_response_message.notFound('Farmer')}));
+      }
+
+  }catch(err){
+
+      console.log('error',err)
+      _handleCatchErrors(err, res);
+  } 
+};
+
+
 async function validateIndividualFarmer(data, screenName) {
   let schema = {};
   switch (screenName) {
