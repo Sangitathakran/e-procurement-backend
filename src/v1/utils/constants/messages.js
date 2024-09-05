@@ -38,5 +38,7 @@ module.exports = {
         uploaded: (name) => `${name || "Record"} uploaded successfully.`,
         subscribe: (key) => `Subscribed to event: ${key}`,
         invalid_delivery_date: (key) => `${key || "Date"} must be greater than Expiry date.`,
+        mobile_no_tendigits: (key) => `${key || "Mobile"} number must be exactly 10 digits long.`,
+        aadhar_card_number_pattern: (key) => `${key || "Aadhaar"}  card number must be a 12-digit numeric value.`,
     }
 }

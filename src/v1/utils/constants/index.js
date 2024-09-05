@@ -24,6 +24,7 @@ const _collectionName = {
     Banks: "Banks",
     Crops: "Crops",
     FarmerOrder: "FarmerOrder",
+    StateDistrictCity: "StateDistrictCity",
 }
 const _status = {
     active: "active",

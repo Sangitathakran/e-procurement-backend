@@ -6,6 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const xlsx = require('xlsx');
 const moment = require("moment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 /**
  * 
  * @param {any} error 
@@ -110,10 +111,10 @@ exports._generateFarmerCode = async () => {
 
     try {
         do {
-            uniqueId = Math.floor(Math.random() * 900000) + 100000; // Generate a 6-digit random number
+            uniqueId = Math.floor(Math.random() * 900000) + 100000; 
             farmerCode = `${prefix}${uniqueId}`;
             existingFarmer = await farmer.findOne({ farmer_code: farmerCode });
-        } while (existingFarmer); // Loop until a unique farmer code is found
+        } while (existingFarmer);
 
         return farmerCode;
     } catch (error) {
@@ -121,3 +122,43 @@ exports._generateFarmerCode = async () => {
         throw new Error('Could not generate a unique Farmer Code');
     }
 }
+
+exports.getStateId = async (stateName) => {
+    try {
+        const stateDoc = await StateDistrictCity.findOne({
+            'states.state_title': stateName
+        });
+        if (stateDoc) {
+            const state = stateDoc.states.find(state => state.state_title === stateName);
+            return state ? state._id : null;
+        } else {
+            return null;
+        }
+    } catch (error) {
+        throw new Error(`Error fetching state ID: ${error.message}`);
+    }
+};
+
+exports.getDistrictId = async (districtName) => {
+    try {
+        const stateDoc = await StateDistrictCity.findOne({
+            'states.districts.district_title': districtName
+        });
+
+        if (stateDoc) {
+            for (const state of stateDoc.states) {
+                const district = state.districts.find(district => district.district_title === districtName);
+                if (district) {
+                    return district._id;
+                }
+            }
+        }
+        return null;
+    } catch (error) {
+        throw new Error(`Error fetching district ID: ${error.message}`);
+    }
+};
+exports.parseDate = async (dateString) => {
+    return moment(dateString, 'DD-MM-YYYY').toDate();;
+};
+
