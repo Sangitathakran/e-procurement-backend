@@ -38,5 +38,8 @@ module.exports = {
         uploaded: (name) => `${name || "Record"} uploaded successfully.`,
         subscribe: (key) => `Subscribed to event: ${key}`,
         invalid_delivery_date: (key) => `${key || "Date"} must be greater than Expiry date.`,
+        confirm_password_match: (key) => `${key} Password and confirm password should match.`,
+        not_found: (key) => `${key}.`,
+        otpSend: () => `OTP send successfully.`,
     }
 }
