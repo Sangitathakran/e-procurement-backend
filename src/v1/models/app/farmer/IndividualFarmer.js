@@ -52,11 +52,11 @@ const farmerSchema = new mongoose.Schema({
         pan_doc_key: { type: String, trim: true },
     },
     bank_details: { 
-        bank_name: { type: String, required: true, trim: true },
-        branch_name: { type: String, required: true, trim: true },
-        account_holder_name: { type: String, required: true, trim: true },
-        ifsc_code: { type: String, required: true, trim: true },
-        account_no: { type: String, required: true, trim: true, unique: true },
+        bank_name: { type: String, trim: true },
+        branch_name: { type: String, trim: true },
+        account_holder_name: { type: String, trim: true },
+        ifsc_code: { type: String, trim: true },
+        account_no: { type: String, trim: true, unique: true },
         proof_doc_key: { type: String ,trim: true }
         
         
