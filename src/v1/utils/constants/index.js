@@ -24,7 +24,7 @@ const _collectionName = {
     Banks: "Banks",
     Crops: "Crops",
     FarmerOrder: "FarmerOrder",
-    AssociateOrder: "AssociateOrder",
+    AssociateOrders: "AssociateOrders",
 }
 const _status = {
     active: "active",
@@ -117,11 +117,11 @@ const _userType = {
 }
 
 const _trader_type = {
-    ORGANISATION : 'Organisation',
-    SOCIETY : 'Society',
-    TRUST : 'Trust',
-    INDIVIDUAL : 'Individual',
-    PROPRITER : 'Propriter',
+    ORGANISATION: 'Organisation',
+    SOCIETY: 'Society',
+    TRUST: 'Trust',
+    INDIVIDUAL: 'Individual',
+    PROPRITER: 'Propriter',
 }
 
 const _webSocketEvents = {
@@ -129,10 +129,10 @@ const _webSocketEvents = {
 }
 
 const _user_status = {
-    APPROVED : 'approved',
-    DISAPPROVED : 'disapproved',
-    PENDING : 'pending',
-    BANNED : 'banned',
+    APPROVED: 'approved',
+    DISAPPROVED: 'disapproved',
+    PENDING: 'pending',
+    BANNED: 'banned',
 
 }
 const _proofType = {
