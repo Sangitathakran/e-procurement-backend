@@ -2,7 +2,7 @@ const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { userRegister, sendOtp, loginOrRegister, saveAssociateDetails } = require("./Controller");
-const { verifyJwtToken, verifyJwtTokenViaCookie } = require("@src/v1/utils/helpers/jwt");
+const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { validateForm } = require("@src/v1/services/auth/Validation")
 
 const { _collectionName, _userType, _trader_type, _user_status } = require('@src/v1/utils/constants');
