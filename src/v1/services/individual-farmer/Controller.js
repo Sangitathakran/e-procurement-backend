@@ -298,25 +298,3 @@ const validateMobileNumber =  async (mobile) => {
 }
 
 
-//created generic function to send msz to user
-const sendMessage = async (number, otp) => {
-    try {
-        const apikey = encodeURIComponent(API_KEY); 
-        const sender = SENDER; 
-                
-        const myMessage = `Your OTP is ${otp} - Radiant Infonet Pvt Ltd.`;
-        const message = encodeURIComponent(myMessage);
-
-        const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}`;
-        
-        // Send the message using axios
-        const response = await axios.post(url);
-        
-        return response.data;
-    } catch (err) {
-        console.error("Error while sending the message:", err);
-        return res.status(500).send({ message: err });;
-    }
-
-};
-
