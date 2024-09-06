@@ -11,50 +11,46 @@ const { API_KEY, SENDER } = process.env
 const { generateJwtToken } = require("@src/v1/utils/helpers/jwt");
 
 
-
 module.exports.sendOTP = async (req, res) => {
-   try{
-    const { mobileNumber } = req.query;
-    // Validate the mobile number
-     const isValidMobile = await validateMobileNumber(mobileNumber);
-     if(!isValidMobile){  
-      return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid("mobile Number") }));
-  }
+  try{
+   const { mobileNumber } = req.query;
+   // Validate the mobile number
+    const isValidMobile = await validateMobileNumber(mobileNumber);
+    if(!isValidMobile){  
+     return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid("mobile Number") }));
+ }
+ 
+let otpEntry = await otpModel.findOne({ phone: mobileNumber });
 
-    let otp = Math.floor(1000 + Math.random() * 9000);
-
-    const apikey = encodeURIComponent(API_KEY);
-    const number = mobileNumber;
-    const sender = SENDER;
-    let myMessage = `Your OTP is ${otp} - Radiant Infonet Pvt Ltd.`;
-    const message = encodeURIComponent(myMessage);
-    
-    const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}`;
-    const response = await axios.post(url);
-    if (!response){
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotSent("OTP") }] }));
-    }
-        
-     
-      const saveOTP = await new otpModel({
+const otp = otpEntry ? otpEntry.otp : Math.floor(1000 + Math.random() * 9000);
+   
+   const apikey = encodeURIComponent(API_KEY);
+   const sender = SENDER;
+   const message = encodeURIComponent(`Your OTP is ${otp} - Radiant Infonet Pvt Ltd.`);
+   
+   const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${mobileNumber}&sender=${sender}&message=${message}`;
+   const response = await axios.post(url);
+   if (!response){
+       return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotSent("OTP") }] }));
+   }
+       
+    if(otpEntry) {
+      otpEntry.otp = otp;
+      await otpEntry.save();
+    } else {
+      await new otpModel({
         phone: mobileNumber,
         otp: otp,
       }).save();
+    }
+  
+    return res.status(200).send(new serviceResponse({ status: 200, data:[], message: _response_message.otpCreate("OTP") }))
       
-      
-      if (saveOTP) {
-        return res.status(200).send(new serviceResponse({ status: 200, data:[], message: _response_message.otpCreate("OTP") }))
-        
-      } else {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotCreate("OTP") }] }));
-        
-      }
-    
-   }
-   catch(err){
-    console.log('error',err)
-    _handleCatchErrors(err, res);
-   }
+  }
+  catch(err){
+   console.log('error',err)
+   _handleCatchErrors(err, res);
+  }
 }
 
 module.exports.verifyOTP = async (req, res) => {
@@ -70,8 +66,9 @@ module.exports.verifyOTP = async (req, res) => {
 
         const userOTP = await otpModel.findOne({
           phone: mobileNumber,
-        });
+        }).sort({ createdAt: -1 });
     
+        console.log("userOTP==>",userOTP)
         if (inputOTP !== userOTP?.otp){
 
           return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.otp_not_verified("OTP") }));
@@ -273,3 +270,27 @@ const validateMobileNumber =  async (mobile) => {
     let pattern = /^[0-9]{10}$/;
     return pattern.test(mobile);
 }
+
+
+//created generic function to send msz to user
+const sendMessage = async (number, otp) => {
+    try {
+        const apikey = encodeURIComponent(API_KEY); 
+        const sender = SENDER; 
+                
+        const myMessage = `Your OTP is ${otp} - Radiant Infonet Pvt Ltd.`;
+        const message = encodeURIComponent(myMessage);
+
+        const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}`;
+        
+        // Send the message using axios
+        const response = await axios.post(url);
+        
+        return response.data;
+    } catch (err) {
+        console.error("Error while sending the message:", err);
+        return res.status(500).send({ message: err });;
+    }
+
+};
+
