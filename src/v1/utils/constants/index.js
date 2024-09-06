@@ -24,6 +24,8 @@ const _collectionName = {
     Lands: "Lands",
     Banks: "Banks",
     Crops: "Crops",
+    FarmerOrder: "FarmerOrder",
+    AssociateOrders: "AssociateOrders",
 }
 const _status = {
     active: "active",
@@ -111,30 +113,39 @@ const _procurementRequestStatus = {
 const _sellerOfferStatus = {
     accepted: 'Accepted',
     rejected: 'Rejected',
-    pending: 'Pending'
+    pending: 'Pending',
+    ordered: "Ordered",
 }
 
-const userType = {
+const _procuredStatus = {
+    received: "Received",
+    pending: "Pending",
+    rejected: "Rejected",
+}
+const _userType = {
     admin: "Admin",
     trader: "Trader",
     ho: "HO",
     bo: "BO",
 }
 
+const _trader_type = {
+    ORGANISATION: 'Organisation',
+    SOCIETY: 'Society',
+    TRUST: 'Trust',
+    INDIVIDUAL: 'Individual',
+    PROPRITER: 'Propriter',
+}
+
 const _webSocketEvents = {
     procurement: "procurement"
 }
 
-const _traderType = {
-    government_organisation: 'Government Organisation',
-    exporter: 'Exporter',
-    ocmmission_agent: 'Commission Agent',
-    individual: 'Individual',
-    FPO: 'FPO',
-    non_profit: 'Non-Profit',
-    private_company: 'Private Company',
-    HO: 'HO',
-    BO: 'BO',
+const _user_status = {
+    APPROVED: 'approved',
+    DISAPPROVED: 'disapproved',
+    PENDING: 'pending',
+    BANNED: 'banned',
 
 }
 const _proofType = {
@@ -169,38 +180,38 @@ const _category = {
     sc: "sc",
     st: "st",
 }
-const _areaUnit ={
+const _areaUnit = {
     hectares: "hectares",
     acres: "acres",
     bigha: "bigha",
 }
-const _soilType ={
+const _soilType = {
     sandy: "sandy",
     loamy: "loamy",
     clayey: "clayey",
-    red_soil:"red_soil",
+    red_soil: "red_soil",
     alkaline: "alkaline",
     other: "other",
 }
-const _distanceUnit ={
+const _distanceUnit = {
     km: "km",
     metre: "metre",
 }
-const _seedUsed ={
+const _seedUsed = {
     farmseved: "farmseved",
     company: "company",
 }
-const _yesNo ={
+const _yesNo = {
     yes: "yes",
     no: "no",
 }
-const _seasons ={
+const _seasons = {
     rabi: "rabi",
     kharif: "kharif",
     zaid: "zaid",
     others: "others",
 }
-const _education ={
+const _education = {
     nonmatric: "nonmatric",
     matric: "matric",
     intermidiate: "intermidiate",
@@ -231,31 +242,31 @@ const _zaidCrops = {
     moong: "moong",
 }
 
-const individual_farmer_onboarding_steps = [ 
+const _individual_farmer_onboarding_steps = [ 
     { 
-        screen_name: "basic_details",
+        label: "basic_details",
         screen_number: 1,
-        isCompleted: false
+        status: "pending"
     },
     { 
-        screen_name: "address",
+        label: "address",
         screen_number: 2,
-        isCompleted: false
+        status: "pending"
     },
     { 
-        screen_name: "land_details",
+        label: "land_details",
         screen_number: 3,
-        isCompleted: false
+        status: "pending"
     },
     { 
-        screen_name: "documents",
+        label: "documents",
         screen_number: 4,
-        isCompleted: false
+        status: "pending"
     },
     { 
-        screen_name: "bank_details",
+        label: "bank_details",
         screen_number: 5,
-        isCompleted: false
+        status: "pending"
     },
 
 ]
@@ -277,8 +288,6 @@ module.exports = {
     _procurementRequestStatus,
     _sellerOfferStatus,
     _webSocketEvents,
-    userType,
-    _traderType,
     _proofType,
     _titles,
     _gender,
@@ -295,5 +304,9 @@ module.exports = {
     _khaifCrops,
     _rabiCrops,
     _zaidCrops,
-    individual_farmer_onboarding_steps
+    _individual_farmer_onboarding_steps,
+    _procuredStatus,
+    _userType,
+    _trader_type,
+    _user_status,
 }

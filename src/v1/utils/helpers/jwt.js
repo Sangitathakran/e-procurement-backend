@@ -10,11 +10,11 @@ const tokenBlacklist = [];
  * @returns {Boolean}
  */
 exports.compareBcryptHash = (inputHash, savedHash) => {
-    try {
-        return compareSync(inputHash, savedHash);
-    } catch (error) {
-        return false
-    }
+  try {
+    return compareSync(inputHash, savedHash);
+  } catch (error) {
+    return false
+  }
 }
 
 /**
@@ -22,8 +22,8 @@ exports.compareBcryptHash = (inputHash, savedHash) => {
  * @returns {String}
  */
 exports.generateJwtToken = (data) => {
-    const token = jwt.sign({ ...data }, JWT_SECRET_KEY)
-    return token
+  const token = jwt.sign({ ...data }, JWT_SECRET_KEY)
+  return token
 }
 
 /**
@@ -33,26 +33,27 @@ exports.generateJwtToken = (data) => {
  * @returns {Object}
  */
 exports.decryptJwtToken = async (token) => {
-    return new Promise((resolve, reject) => {
-        jwt.verify(token, JWT_SECRET_KEY, (err, decoded) => {
-            let resp = {
-                hasToken: false,
-                data: {}
-            }
-            if (err) return resolve(resp)
-            else {
-                resp.hasToken = true
-                resp.data = decoded
-                return resolve(resp)
-            }
-        })
+  return new Promise((resolve, reject) => {
+    jwt.verify(token, JWT_SECRET_KEY, (err, decoded) => {
+      let resp = {
+        hasToken: false,
+        data: {}
+      }
+      if (err) return resolve(resp)
+      else {
+        resp.hasToken = true
+        resp.data = decoded
+        return resolve(resp)
+      }
     })
+  })
 }
 
 
+
 exports.generateAccountSecretKey = () => {
-    const id = crypto.randomBytes(16).toString("hex");
-    return id
+  const id = crypto.randomBytes(16).toString("hex");
+  return id
 }
 
 exports.verifyJwtToken = async (req, res, next) => {
@@ -88,4 +89,5 @@ exports.verifyJwtToken = async (req, res, next) => {
         status: 500,
       });
     }
-  };
+    
+} 

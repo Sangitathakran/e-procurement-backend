@@ -31,6 +31,7 @@ module.exports = {
         deleted: (name) => `${name || "Record"} deleted successfully.`,
         allReadyDeleted: (key) => `${key || "Data"} already deleted.`,
         found: (key) => `${key || "Record"} found successfully.`,
+        pending: (key) => `${key || "Record"} should not be pending.`,
         mailSent: (key) => `${key || "Record"} sent successfully.`,
         mailNotSent: (key) => `${key || "Record"} not sent.`,
         Unauthorized: (key) => `${key || "User"} Unauthorized`,
@@ -42,6 +43,12 @@ module.exports = {
         otpCreate: (key) => `${key || "OTP"} is sent to your Mobile Number.`,
         otpNotCreate: (key) => `${key || "OTP"} has not sent.`,
         otp_not_verified: (key) => `${key || "OTP"} doesn't match.`,
-        otp_verified: (key) => `${key || "Your mobile"} number is verified.`
+        otp_verified: (key) => `${key || "Your mobile"} number is verified.`,
+        Data_registered: (key) => `${key || "Data"} registered successfully.`,
+        Data_already_registered: (key) => `${key || "Data"} already registered.`,
+        Accept_term_condition: (key) => `${key || "Please"} accept our Terms and Conditions to continue.`,
+        confirm_password_match: (key) => `${key} Password and confirm password should match.`,
+        not_found: (key) => `${key}.`,
+        otpSend: () => `OTP send successfully.`,
     }
 }

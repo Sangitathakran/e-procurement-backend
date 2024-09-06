@@ -7,6 +7,7 @@ const farmerSchema = new mongoose.Schema({
     mobile_no:{type:String,required:true},
     name:{type:String,required:true,default:null},
     isVerifyOtp:{type:Boolean,default:false},
+    
     basic_details: { 
         name: { type: String, trim: true, },
         email: { type: String, trim: false, },
@@ -36,13 +37,19 @@ const farmerSchema = new mongoose.Schema({
         block: { type: String, trim: true, }, // it is Taluka in frontend
         ghat_number: { type: String, trim: true, },  
         khasra_number: { type: String, trim: true},
-
+        Khasra_doc_key: { type:String, trim: true},
+        kharif_crops: { type: String, enum: Object.values(_khaifCrops), trim: false, },
+        rabi_crops: { type: String, enum: Object.values(_rabiCrops), trim: false, },
+        zaid_crops: { type: String, enum: Object.values(_zaidCrops), trim: false, }
 
 
     },  
     documents: { 
         aadhar_number: { type: String, trim: true },
+        aadhar_front_doc_key: { type: String, trim: true },
+        aadhar_back_doc_key: { type: String, trim: true },
         pan_number: { type: String, trim: true },
+        pan_doc_key: { type: String, trim: true },
     },
     bank_details: { 
         bank_name: { type: String, trim: true },
@@ -50,20 +57,19 @@ const farmerSchema = new mongoose.Schema({
         account_holder_name: { type: String, trim: true },
         ifsc_code: { type: String, trim: true },
         account_no: { type: String, trim: true, unique: true },
-        pinCode: { type: String, trim: true },
-        proof_doc: { type: String ,trim: true},
-        kharif_crops: { type: String, enum: Object.values(_khaifCrops), trim: false, },
-        rabi_crops: { type: String, enum: Object.values(_rabiCrops), trim: false, },
-        zaid_crops: { type: String, enum: Object.values(_zaidCrops), trim: false, }
+        proof_doc_key: { type: String ,trim: true }
+        
         
     },
     steps: [{ 
-        screen_name: {type: String},
-        screen_number: {type: String},
-        isCompleted: {type: Boolean}
+        label: {type: String},
+        screen_number: {type: String, default: "1"},
+        status: {type: String , enum:  ['active', 'pending', 'completed'] , default: "pending"}
     }],
     allStepsCompletedStatus : {type: Boolean, default: false},
     associate_id: { type: mongoose.Schema.Types.ObjectId,required: false,ref: _collectionName.Users,default:null},
+
+    ..._commonKeys,
     
 
 
