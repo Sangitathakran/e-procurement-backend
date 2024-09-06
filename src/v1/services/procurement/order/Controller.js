@@ -41,7 +41,7 @@ module.exports.associateOrder = async (req, res) => {
                 const currElement = myMap.get(ele.procurementCenter_id);
                 currElement.dispatchedqty += ele.qtyProcured;
             } else {
-                myMap.set(ele.procurementCenter_id, { seller_id: user_id, sellerOffer_id: record._id, dispatchedqty: ele.qtyProcured });
+                myMap.set(ele.procurementCenter_id, { req_id: req_id, seller_id: user_id, sellerOffer_id: record._id, dispatchedqty: ele.qtyProcured });
             }
         })
 
