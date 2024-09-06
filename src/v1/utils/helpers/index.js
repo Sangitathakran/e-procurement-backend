@@ -15,7 +15,7 @@ const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity")
  */
 exports._handleCatchErrors = async (error, res, next) => {
     // errorLogger.error({ message: error.message, stack: error.stack }) 
-    return res.status(200).send(new serviceResponse({ status: 500, errors: [{ message: error.message, stack: error.stack }] }))
+    return res.status(500).send(new serviceResponse({ status: 500, errors: [{ message: error.message, stack: error.stack }] }))
 }
 
 

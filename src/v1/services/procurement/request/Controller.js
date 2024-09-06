@@ -3,14 +3,15 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { ProcurementRequest } = require("@src/v1/models/app/procurement/ProcurementRequest");
 const { _procurementRequestStatus, _webSocketEvents, _procuredStatus } = require('@src/v1/utils/constants');
-const { sellerOffers } = require("@src/v1/models/app/procurement/SellerOffers");
-const { contributedFarmers } = require("@src/v1/models/app/procurement/ContributedFarmer");
+const { SellerOffers } = require("@src/v1/models/app/procurement/SellerOffers");
+const { ContributedFarmers } = require("@src/v1/models/app/procurement/ContributedFarmer");
 // const Farmer = require("../../../../../models/farmerModel");
 // const appStatus = require('../../../../../utils/appStatus');
 const { _sellerOfferStatus, userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const mongoose = require("mongoose");
+const { AssociateOrders } = require("@src/v1/models/app/procurement/AssociateOrders");
 
 module.exports.createProcurement = async (req, res) => {
 
@@ -72,7 +73,7 @@ module.exports.getProcurement = async (req, res) => {
 
         } else if (user_type == userType.trader) {
             if (status && Object.values(_sellerOfferStatus).includes(status)) {
-                const offerIds = (await sellerOffers.find({ seller_id: user_id, status })).map((offer) => offer.req_id);
+                const offerIds = (await SellerOffers.find({ seller_id: user_id, status })).map((offer) => offer.req_id);
                 query._id = { $in: offerIds };
 
             } else {
@@ -178,7 +179,7 @@ module.exports.fpoOffered = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }));
         }
 
-        const existingRecord = await sellerOffers.findOne({ seller_id: user_id, req_id: req_id });
+        const existingRecord = await SellerOffers.findOne({ seller_id: user_id, req_id: req_id });
 
         if (existingRecord) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("offer") }] }));
@@ -202,7 +203,7 @@ module.exports.fpoOffered = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "incorrect quantity of request" }] }));
         }
 
-        const sellerOfferRecord = await sellerOffers.create({ seller_id: user_id, req_id: req_id, offeredQty: sumOfFarmerQty, createdBy: user_id });
+        const sellerOfferRecord = await SellerOffers.create({ seller_id: user_id, req_id: req_id, offeredQty: sumOfFarmerQty, createdBy: user_id });
 
 
         const dataToBeInserted = [];
@@ -230,7 +231,7 @@ module.exports.fpoOffered = async (req, res) => {
             dataToBeInserted.push(contributedFarmerData);
         }
 
-        await contributedFarmers.insertMany(dataToBeInserted);
+        await ContributedFarmers.insertMany(dataToBeInserted);
 
         return res.status(200).send(new serviceResponse({ status: 200, data: sellerOfferRecord, message: "offer submitted" }));
 
@@ -366,7 +367,7 @@ module.exports.requestApprove = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
-        const sellerOffered = await sellerOffers.findOne({ _id: sellerOffers_id });
+        const sellerOffered = await SellerOffers.findOne({ _id: sellerOffers_id });
 
         if (!sellerOffered) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("seller offer") }] }));
@@ -412,7 +413,7 @@ module.exports.offeredFarmerList = async (req, res) => {
         const { user_id } = req;
         const { page, limit, skip, sortBy, search = '', req_id } = req.query
 
-        const offer = await sellerOffers.findOne({ req_id, seller_id: user_id });
+        const offer = await SellerOffers.findOne({ req_id, seller_id: user_id });
 
         if (!offer) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
@@ -429,12 +430,12 @@ module.exports.offeredFarmerList = async (req, res) => {
         query.sellerOffers_id = offer._id;
         const records = { count: 0 };
 
-        records.rows = await contributedFarmers.find(query)
+        records.rows = await ContributedFarmers.find(query)
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit))
 
-        records.count = await contributedFarmers.countDocuments(query);
+        records.count = await ContributedFarmers.countDocuments(query);
 
         records.page = page
         records.limit = limit
@@ -455,11 +456,11 @@ module.exports.getAcceptedProcurement = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
         let query = search ? {} : { status: _sellerOfferStatus.accepted, seller_id: user_id };
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await sellerOffers.find(query).populate({ path: 'req_id' })
+        records.rows = paginate == 1 ? await SellerOffers.find(query).populate({ path: 'req_id' })
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await sellerOffers.find(query).populate({ path: 'req_id' }).sort(sortBy);
-        records.count = await sellerOffers.countDocuments(query);
+            .limit(parseInt(limit)) : await SellerOffers.find(query).populate({ path: 'req_id' }).sort(sortBy);
+        records.count = await SellerOffers.countDocuments(query);
         if (paginate == 1) {
             records.page = page
             records.limit = limit
@@ -480,7 +481,7 @@ module.exports.editFarmerOffer = async (req, res) => {
         const { id, receving_date, qtyProcured, procurementCenter_id, weighbridge_name, weighbridge_no, tare_weight, gross_weight, net_weight, weight_slip, status = _procuredStatus.received } = req.body;
         const { user_id } = req;
 
-        const record = await contributedFarmers.findOne({ _id: id });
+        const record = await ContributedFarmers.findOne({ _id: id });
 
         if (!record) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }));
@@ -501,7 +502,7 @@ module.exports.editFarmerOffer = async (req, res) => {
         await record.save();
 
         if (status == _sellerOfferStatus.received) {
-            const sellerOfferRecord = await sellerOffers.findOne({ _id: record?.sellerOffers_id });
+            const sellerOfferRecord = await SellerOffers.findOne({ _id: record?.sellerOffers_id });
             sellerOfferRecord.procuredQty += qtyProcured;
             await sellerOfferRecord.save();
 
@@ -515,34 +516,5 @@ module.exports.editFarmerOffer = async (req, res) => {
 }
 
 
-module.exports.associateOrder = async (req, res) => {
-
-    try {
-
-        const { req_id } = req.body;
-        const { user_id } = req;
-
-        const record = await sellerOffers.findOne({ seller_id: user_id, req_id: req_id });
-
-        if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
-        }
-
-        const farmerRecords = await contributedFarmers.findOne({ status: { $ne: _procuredStatus.received }, sellerOffers_id: record?._id });
-
-        if (farmerRecords) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
-        }
 
 
-
-
-        record.status = _sellerOfferStatus.ordered;
-        await record.save();
-
-        return res.status(200).send(new serviceResponse({ status: 200, data: [], message: _response_message.created("order") }))
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-}

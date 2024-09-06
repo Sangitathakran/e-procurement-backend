@@ -2,6 +2,7 @@ const _collectionName = {
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",
+    individualFarmers:"individual_farmers",
     Users: "Users",
     Category: "Category",
     Variety: "variety",
@@ -25,11 +26,18 @@ const _collectionName = {
     Crops: "Crops",
     FarmerOrder: "FarmerOrder",
     StateDistrictCity: "StateDistrictCity",
-    AssociateOrder: "AssociateOrder",
+    AssociateOrders: "AssociateOrders",
 }
 const _status = {
     active: "active",
     inactive: "inactive",
+}
+
+const _farmerType = {
+    marginal: "marginal",
+    small: "small",
+    large: "large",
+    other: "other"
 }
 
 const _envMode = {
@@ -118,11 +126,11 @@ const _userType = {
 }
 
 const _trader_type = {
-    ORGANISATION : 'Organisation',
-    SOCIETY : 'Society',
-    TRUST : 'Trust',
-    INDIVIDUAL : 'Individual',
-    PROPRITER : 'Propriter',
+    ORGANISATION: 'Organisation',
+    SOCIETY: 'Society',
+    TRUST: 'Trust',
+    INDIVIDUAL: 'Individual',
+    PROPRITER: 'Propriter',
 }
 
 const _webSocketEvents = {
@@ -130,10 +138,10 @@ const _webSocketEvents = {
 }
 
 const _user_status = {
-    APPROVED : 'approved',
-    DISAPPROVED : 'disapproved',
-    PENDING : 'pending',
-    BANNED : 'banned',
+    APPROVED: 'approved',
+    DISAPPROVED: 'disapproved',
+    PENDING: 'pending',
+    BANNED: 'banned',
 
 }
 const _proofType = {
@@ -208,8 +216,59 @@ const _education ={
     Others: "Others",
 }
 
+const _khaifCrops = { 
+    onion: "onion",
+    tur: "tur",
+    moong: "moong",
+    masoor: "masoor",
+    copra: "copra"
+
+}
+
+const _rabiCrops = { 
+    tur: "tur",
+    moong: "moong",
+    masoor: "masoor",
+
+}
+
+const _zaidCrops = { 
+    onion: "onion",
+    tur: "tur",
+    moong: "moong",
+}
+
+const _individual_farmer_onboarding_steps = [ 
+    { 
+        label: "basic_details",
+        screen_number: 1,
+        status: "pending"
+    },
+    { 
+        label: "address",
+        screen_number: 2,
+        status: "pending"
+    },
+    { 
+        label: "land_details",
+        screen_number: 3,
+        status: "pending"
+    },
+    { 
+        label: "documents",
+        screen_number: 4,
+        status: "pending"
+    },
+    { 
+        label: "bank_details",
+        screen_number: 5,
+        status: "pending"
+    },
+
+]
 
 module.exports = {
+    _farmerType,
     _collectionName,
     _status,
     _envMode,
@@ -238,6 +297,10 @@ module.exports = {
     _yesNo,
     _seasons,
     _education,
+    _khaifCrops,
+    _rabiCrops,
+    _zaidCrops,
+    _individual_farmer_onboarding_steps,
     _procuredStatus,
     _userType,
     _trader_type,
