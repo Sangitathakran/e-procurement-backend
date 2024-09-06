@@ -1,12 +1,12 @@
 const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
-const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
+const { Land } = require("@src/v1/models/app/farmerDetails/Land");
+const { User } = require("@src/v1/models/app/auth/User");
 const {  _response_message } = require("@src/v1/utils/constants/messages");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const Readable = require('stream').Readable; 
-
 
 module.exports.createFarmer = async (req, res) => {
     try {
@@ -71,6 +71,37 @@ module.exports.createFarmer = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+module.exports.getFarmers = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, sortBy = 'name', search = '', paginate = 1 } = req.query;
+        const skip = (page - 1) * limit;
+
+        const query = search ? { name: { $regex: search, $options: 'i' } } : {};
+
+        const records = { count: 0 };
+        records.rows = paginate == 1 
+            ? await farmer.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy) 
+            : await farmer.find(query).sort(sortBy);
+
+        records.count = await farmer.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page;
+            records.limit = limit;
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        }
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: records,
+            message: _response_message.found("farmers")
+        }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
 
 module.exports.bulkUploadFarmers = async (req, res) => {
     try {
@@ -140,7 +171,22 @@ module.exports.bulkUploadFarmers = async (req, res) => {
             const pincode = rec["PINCODE"];
             const mobile_no = rec["MOBILE NO*"];
             const email_id = rec["EMAIL ID"];
-
+            const total_area = rec["TOTAL AREA"];
+            const area_unit = rec["AREA UNIT"];
+            const khasra_no = rec["KHASRA NUMBER"];
+            const khatauni = rec["KHATAUNI"];
+            const sow_area = rec["SOW AREA"];
+            const state = rec["STATE"];
+            const district = rec["DISTRICT"];
+            const sub_district = rec["SUB DISTRICT"];
+            const village = rec["VILLAGE"];
+            const pinCode = rec["PINCODE"];
+            const expected_production = rec["EXPECTED PRODUCTION"];
+            const soil_type = rec["SOIL TYPE"];
+            const soil_tested = rec["SOIL TESTED"];
+            const soil_health_card = rec["SOIL HEALTH CARD"];
+            const soil_testing_lab_name = rec["SOIL TESTING LAB NAME"];
+            const lab_distance_unit = rec["LAB DISTANCE UNIT"];
             let errors = [];
             if (!fpo_name || !name || !father_name || !date_of_birth || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no) {
                 errors.push({ record: rec, error: "Required fields missing" });
@@ -157,11 +203,17 @@ module.exports.bulkUploadFarmers = async (req, res) => {
             }
              const state_id = await getStateId(state_name);
              const district_id = await getDistrictId(district_name);
+             const land_state_id = await getStateId(state);
+            const land_district_id = await getDistrictId(district);
              const dob = await parseDate(date_of_birth);
+             const associate = await User.findOne({ 'basic_details.associate_details.organization_name': fpo_name });
+             const associateId = associate ? associate._id : null;
 
             try {
                 let farmerRecord = await farmer.findOne({ 'proof.aadhar_no': aadhar_no });
+                
                 if (farmerRecord) {
+                    farmerRecord.associate_id = associateId;
                     farmerRecord.title = title;
                     farmerRecord.name = name;
                     farmerRecord.parents.father_name = father_name;
@@ -184,21 +236,43 @@ module.exports.bulkUploadFarmers = async (req, res) => {
                     farmerRecord.mobile_no = mobile_no;
                     farmerRecord.email_id = email_id;
                     await farmerRecord.save();
+                    let landRecord = await Land.findOne({ farmer_id: farmerRecord.id });
+                    landRecord.farmer_id = farmerRecord._id;
+                    landRecord.associate_id = associateId;
+                    landRecord.total_area = total_area;
+                    landRecord.khasra_no = khasra_no;
+                    landRecord.area_unit = area_unit;
+                    landRecord.khatauni = khatauni;
+                    landRecord.sow_area = sow_area;
+                    landRecord.land_address = {
+                        state_id:state_id,
+                        district_id:district_id,
+                        sub_district,
+                        village,
+                        pinCode
+                    };
+                    landRecord.expected_production = expected_production;
+                    landRecord.soil_type = soil_type;
+                    landRecord.soil_tested = soil_tested;
+                    landRecord.soil_health_card = soil_health_card;
+                    landRecord.soil_testing_lab_name = soil_testing_lab_name;
+                    landRecord.lab_distance_unit = lab_distance_unit;
+                    await landRecord.save();
                 } else {
                     const farmerCode = await _generateFarmerCode();
                     farmerRecord = new farmer({
-                        associate_id: '64d2fa26b4a5b61c4e769b72', 
+                        associate_id: associateId, 
                         farmer_code: farmerCode, 
                         title,
                         name,
                         parents: { father_name, mother_name },
-                        dob: new Date(date_of_birth),
+                        dob,
                         gender,
                         marital_status,
                         religion,
                         category,
                         education: { highest_edu, edu_details },
-                        proof: { type: id_proof_type, doc: null, aadhar_no: aadhar_no },
+                        proof: { type: id_proof_type, aadhar_no: aadhar_no },
                         address: {
                             address_line,
                             state_id,
@@ -211,7 +285,24 @@ module.exports.bulkUploadFarmers = async (req, res) => {
                         email_id
                     });
                     await farmerRecord.save();
-                }
+                    const newLand = new Land({
+                        farmer_id: farmerRecord._id,
+                        associate_id:associateId,
+                        total_area,
+                        area_unit,
+                        khasra_no,
+                        khatauni,
+                        sow_area,
+                        land_address: { land_state_id, land_district_id, sub_district, village, pinCode },
+                        expected_production,
+                        soil_type,
+                        soil_tested,
+                        soil_health_card,
+                        soil_testing_lab_name,
+                        lab_distance_unit,
+                }); 
+                await newLand.save();
+            }
             } catch (error) {
                 errors.push({ record: rec, error: error.message });
             }
