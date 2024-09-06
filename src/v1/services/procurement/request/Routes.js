@@ -9,7 +9,6 @@ const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 const requestRoutes = express.Router();
 
 requestRoutes.get("/offered-farmer", verifyJwtToken, offeredFarmerList);
-requestRoutes.post("/associate-order", verifyJwtToken, associateOrder);
 requestRoutes.put("/offered-farmer", verifyJwtToken, editFarmerOffer);
 requestRoutes.get("/farmers", verifyJwtToken, getFarmerListById);
 requestRoutes.patch("/request", verifyJwtToken, requestApprove);
