@@ -227,35 +227,10 @@ const validationSchemas = {
 };
 
 const validateFarmer = async (req, res, next) => {
-  let schema;
-
   if (!req?.query?.screenName) {
     return res.status(400).json({ message: 'Please Provide Screen Name' });
   }
-
-  switch (req.query.screenName) {
-    case 'basic_details':
-      schema = validationSchemas.basic_details;
-      break;
-    case 'address':
-      schema = validationSchemas.address;
-      break;
-    case 'land_details':
-      schema = validationSchemas.land_details;
-      break;
-    case 'documents':
-      schema = validationSchemas.documents;
-      break;
-    case 'bank_details':
-      schema = validationSchemas.bank_details;
-      break;
-    default:
-      return res.status(400).json({ error: 'Invalid screenName' });
-  }
-
-  
-
-  await checkSchema(schema).run(req);
+               await checkSchema(validationSchemas[req?.query?.screenName]).run(req);
 
   next();
 };
