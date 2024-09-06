@@ -120,3 +120,38 @@ module.exports.viewTrackDelivery = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+module.exports.trackDeliveryByBatchId = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
+        const { batch_id } = req
+        let query = {
+            batch_id: batch_id,
+            ...(search ? { name: { $regex: search, $options: "i" } ,deletedAt: null} : { deletedAt: null })
+        };
+        const records = { count: 0 };
+        records.rows = paginate == 1 ? await AssociateOrders.find(query)
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await AssociateOrders.find(query)
+            .select('dispatched intransit status')
+            .populate({ 
+                path:'req_id', select:'product address'
+             })
+            .sort(sortBy);           
+
+        records.count = await AssociateOrders.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Track order") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
