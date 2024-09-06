@@ -1,7 +1,7 @@
 const { checkSchema } = require('express-validator');
 
 const validationSchemas = {
-  basic_details: checkSchema({
+  basic_details:  {
     'basic_details.name': {
       notEmpty: {
         errorMessage: 'Name is required',
@@ -53,9 +53,9 @@ const validationSchemas = {
         errorMessage: 'Gender is required',
       },
     },
-  }),
+  },
 
-  address: checkSchema({
+  address:  {
     'address.address_line_1': {
       notEmpty: {
         errorMessage: 'Address line 1 is required',
@@ -104,9 +104,9 @@ const validationSchemas = {
         errorMessage: 'Pin code must be 5-6 characters long',
       },
     },
-  }),
+  },
 
-  land_details: checkSchema({
+  land_details:  {
     'land_details.area': {
       notEmpty: {
         errorMessage: 'Area is required',
@@ -151,9 +151,9 @@ const validationSchemas = {
         errorMessage: 'Khasra number is required',
       },
     },
-  }),
+  },
 
-  documents: checkSchema({
+  documents:  {
     'documents.aadhar_number': {
       notEmpty: {
         errorMessage: 'Aadhar number is required',
@@ -172,9 +172,9 @@ const validationSchemas = {
         errorMessage: 'PAN number must be 10 characters long',
       },
     },
-  }),
+  },
 
-  bank_details: checkSchema({
+  bank_details:  {
     'bank_details.bank_name': {
       notEmpty: {
         errorMessage: 'Bank name is required',
@@ -223,7 +223,7 @@ const validationSchemas = {
         errorMessage: 'Kharif crops is required',
       },
     },
-  }),
+  },
 };
 
 const validateFarmer = async (req, res, next) => {
@@ -255,11 +255,11 @@ const validateFarmer = async (req, res, next) => {
 
   
 
-  await schema.run(req);
+  await checkSchema(schema).run(req);
 
   next();
 };
-const validateRegisterDetail = checkSchema({
+const validateRegisterDetail =  checkSchema({
   'mobileNumber': {
     in: ['body'],
     isLength: {
