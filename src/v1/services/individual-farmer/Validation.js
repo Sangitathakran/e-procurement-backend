@@ -225,7 +225,7 @@ const validationSchemas = {
     },
   },
 };
-
+//update
 const validateFarmer = async (req, res, next) => {
   if (!req?.query?.screenName) {
     return res.status(400).json({ message: 'Please Provide Screen Name' });
