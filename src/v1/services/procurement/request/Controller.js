@@ -6,12 +6,14 @@ const { _procurementRequestStatus, _webSocketEvents, _procuredStatus } = require
 const { SellerOffers } = require("@src/v1/models/app/procurement/SellerOffers");
 const { ContributedFarmers } = require("@src/v1/models/app/procurement/ContributedFarmer");
 // const Farmer = require("../../../../../models/farmerModel");
-// const appStatus = require('../../../../../utils/appStatus');
+// const appStatus = require('../../../../../utils/appStatus'); 
+const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { _sellerOfferStatus, userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const mongoose = require("mongoose");
 const { AssociateOrders } = require("@src/v1/models/app/procurement/AssociateOrders");
+const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 
 module.exports.createProcurement = async (req, res) => {
 
@@ -208,21 +210,24 @@ module.exports.fpoOffered = async (req, res) => {
 
         const dataToBeInserted = [];
 
-        for (let farmer of farmer_data) {
+        for (let harvester of farmer_data) {
 
-            const existingFarmer = await Farmer.findOne({ _id: farmer._id });
+            const existingFarmer = await farmer.findOne({ _id: harvester._id });
 
             if (!existingFarmer) {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("farmer") }] }));
             }
 
+            const farmerBankDetails = await Bank.findOne({ farmer_id: harvester._id });
+
+            const { account_no, ifsc_code, bank_name, account_holder_name } = farmerBankDetails;
             const { name, father_name, address_line, mobile_no } = existingFarmer;
 
-            const metaData = { name, father_name, address_line, mobile_no };
+            const metaData = { name, father_name, address_line, mobile_no, account_no, ifsc_code, bank_name, account_holder_name, bank_name };
 
             const contributedFarmerData = {
                 sellerOffers_id: sellerOfferRecord._id,
-                farmer_id: farmer._id,
+                farmer_id: harvester._id,
                 metaData,
                 offeredQty: qtyOffered,
                 createdBy: user_id,

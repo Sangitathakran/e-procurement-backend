@@ -2,8 +2,8 @@ const mongoose = require('mongoose');
 const { _collectionName, _proofType, _titles, _gender, _religion, _maritalStatus, _status, _category } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const farmerSchema = new mongoose.Schema({
-    associate_id: { type: mongoose.Schema.Types.ObjectId,required: true,ref: _collectionName.Users, trim: true, },
-    farmer_code: { type: String, trim: true,},
+    associate_id: { type: mongoose.Schema.Types.ObjectId, required: true, ref: _collectionName.Users, trim: true, },
+    farmer_code: { type: String, trim: true, },
     title: { type: String, enum: Object.values(_titles), default: null, trim: true, },
     name: { type: String, required: true, trim: true, },
     parents: {
@@ -11,7 +11,7 @@ const farmerSchema = new mongoose.Schema({
         mother_name: { type: String, trim: true, }
     },
     dob: { type: Date, trim: true, },
-    gender: { type: String,enum: Object.values(_gender), default: null, trim: true, },
+    gender: { type: String, enum: Object.values(_gender), default: null, trim: true, },
     marital_status: { type: String, enum: Object.values(_maritalStatus), default: null, trim: true, },
     religion: { type: String, enum: Object.values(_religion), default: null, trim: true, },
     category: { type: String, enum: Object.values(_category), default: null, trim: true, },
@@ -39,4 +39,4 @@ const farmerSchema = new mongoose.Schema({
     ..._commonKeys
 }, { timestamps: true, });
 const farmer = mongoose.model(_collectionName.farmers, farmerSchema);
-module.exports = { farmer, };
+module.exports = { farmer };

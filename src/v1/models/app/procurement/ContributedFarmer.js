@@ -18,6 +18,7 @@ const contributedFarmersSchema = new mongoose.Schema({
     gross_weight: { type: Number },
     net_weight: { type: Number },
     weight_slip: { type: String },
+    net_pay: { type: Number, default: 0 },
     status: { type: String, enum: Object.values(_procuredStatus), default: _procuredStatus.pending },
     ..._commonKeys
 }, { timestamps: true });
