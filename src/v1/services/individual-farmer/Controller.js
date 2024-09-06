@@ -13,48 +13,45 @@ const { body, validationResult, checkSchema } = require("express-validator");
 const { errorFormatter } = require("@src/v1/utils/helpers/express_validator");
 
 module.exports.sendOTP = async (req, res) => {
-   try{
-    const { mobileNumber } = req.query;
-    // Validate the mobile number
-     const isValidMobile = await validateMobileNumber(mobileNumber);
-     if(!isValidMobile){  
-      return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid("mobile Number") }));
-  }
+  try{
+   const { mobileNumber } = req.query;
+   // Validate the mobile number
+    const isValidMobile = await validateMobileNumber(mobileNumber);
+    if(!isValidMobile){  
+     return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid("mobile Number") }));
+ }
+ 
+let otpEntry = await otpModel.findOne({ phone: mobileNumber });
 
-    let otp = Math.floor(1000 + Math.random() * 9000);
-
-    const apikey = encodeURIComponent(API_KEY);
-    const number = mobileNumber;
-    const sender = SENDER;
-    let myMessage = `Your OTP is ${otp} - Radiant Infonet Pvt Ltd.`;
-    const message = encodeURIComponent(myMessage);
-    
-    const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}`;
-    const response = await axios.post(url);
-    if (!response){
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotSent("OTP") }] }));
-    }
-        
-     
-      const saveOTP = await new otpModel({
+const otp = otpEntry ? otpEntry.otp : Math.floor(1000 + Math.random() * 9000);
+   
+   const apikey = encodeURIComponent(API_KEY);
+   const sender = SENDER;
+   const message = encodeURIComponent(`Your OTP is ${otp} - Radiant Infonet Pvt Ltd.`);
+   
+   const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${mobileNumber}&sender=${sender}&message=${message}`;
+   const response = await axios.post(url);
+   if (!response){
+       return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotSent("OTP") }] }));
+   }
+       
+    if(otpEntry) {
+      otpEntry.otp = otp;
+      await otpEntry.save();
+    } else {
+      await new otpModel({
         phone: mobileNumber,
         otp: otp,
       }).save();
+    }
+  
+    return res.status(200).send(new serviceResponse({ status: 200, data:[], message: _response_message.otpCreate("OTP") }))
       
-      
-      if (saveOTP) {
-        return res.status(200).send(new serviceResponse({ status: 200, data:[], message: _response_message.otpCreate("OTP") }))
-        
-      } else {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotCreate("OTP") }] }));
-        
-      }
-    
-   }
-   catch(err){
-    console.log('error',err)
-    _handleCatchErrors(err, res);
-   }
+  }
+  catch(err){
+   console.log('error',err)
+   _handleCatchErrors(err, res);
+  }
 }
 
 module.exports.verifyOTP = async (req, res) => {
@@ -70,7 +67,7 @@ module.exports.verifyOTP = async (req, res) => {
 
         const userOTP = await otpModel.findOne({
           phone: mobileNumber,
-        });
+        })
     
         if (inputOTP !== userOTP?.otp){
 
@@ -103,9 +100,9 @@ module.exports.verifyOTP = async (req, res) => {
 
 module.exports.registerName = async (req, res) => {
     try {
-      const { mobileNumber, registerName, acceptTermCondition=false } = req.query;
-  
-  
+      const { mobileNumber, registerName, acceptTermCondition=false } = req.body;
+   
+      
       if (!acceptTermCondition){
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.Accept_term_condition() }));
       }
@@ -197,3 +194,5 @@ const validateMobileNumber =  async (mobile) => {
     let pattern = /^[0-9]{10}$/;
     return pattern.test(mobile);
 }
+
+
