@@ -66,9 +66,8 @@ module.exports.verifyOTP = async (req, res) => {
 
         const userOTP = await otpModel.findOne({
           phone: mobileNumber,
-        }).sort({ createdAt: -1 });
+        })
     
-        console.log("userOTP==>",userOTP)
         if (inputOTP !== userOTP?.otp){
 
           return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.otp_not_verified("OTP") }));
