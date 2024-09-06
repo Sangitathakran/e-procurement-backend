@@ -1,7 +1,7 @@
 const { checkSchema } = require('express-validator');
 
 const validationSchemas = {
-  basic_details: checkSchema({
+  basic_details:  {
     'basic_details.name': {
       notEmpty: {
         errorMessage: 'Name is required',
@@ -53,9 +53,9 @@ const validationSchemas = {
         errorMessage: 'Gender is required',
       },
     },
-  }),
+  },
 
-  address: checkSchema({
+  address:  {
     'address.address_line_1': {
       notEmpty: {
         errorMessage: 'Address line 1 is required',
@@ -104,9 +104,9 @@ const validationSchemas = {
         errorMessage: 'Pin code must be 5-6 characters long',
       },
     },
-  }),
+  },
 
-  land_details: checkSchema({
+  land_details:  {
     'land_details.area': {
       notEmpty: {
         errorMessage: 'Area is required',
@@ -151,9 +151,9 @@ const validationSchemas = {
         errorMessage: 'Khasra number is required',
       },
     },
-  }),
+  },
 
-  documents: checkSchema({
+  documents:  {
     'documents.aadhar_number': {
       notEmpty: {
         errorMessage: 'Aadhar number is required',
@@ -172,9 +172,9 @@ const validationSchemas = {
         errorMessage: 'PAN number must be 10 characters long',
       },
     },
-  }),
+  },
 
-  bank_details: checkSchema({
+  bank_details:  {
     'bank_details.bank_name': {
       notEmpty: {
         errorMessage: 'Bank name is required',
@@ -223,43 +223,18 @@ const validationSchemas = {
         errorMessage: 'Kharif crops is required',
       },
     },
-  }),
+  },
 };
-
+//update
 const validateFarmer = async (req, res, next) => {
-  let schema;
-
   if (!req?.query?.screenName) {
     return res.status(400).json({ message: 'Please Provide Screen Name' });
   }
-
-  switch (req.query.screenName) {
-    case 'basic_details':
-      schema = validationSchemas.basic_details;
-      break;
-    case 'address':
-      schema = validationSchemas.address;
-      break;
-    case 'land_details':
-      schema = validationSchemas.land_details;
-      break;
-    case 'documents':
-      schema = validationSchemas.documents;
-      break;
-    case 'bank_details':
-      schema = validationSchemas.bank_details;
-      break;
-    default:
-      return res.status(400).json({ error: 'Invalid screenName' });
-  }
-
-  
-
-  await schema.run(req);
+               await checkSchema(validationSchemas[req?.query?.screenName]).run(req);
 
   next();
 };
-const validateRegisterDetail = checkSchema({
+const validateRegisterDetail =  checkSchema({
   'mobileNumber': {
     in: ['body'],
     isLength: {
