@@ -100,9 +100,9 @@ module.exports.verifyOTP = async (req, res) => {
 
 module.exports.registerName = async (req, res) => {
     try {
-      const { mobileNumber, registerName, acceptTermCondition=false } = req.query;
-  
-  
+      const { mobileNumber, registerName, acceptTermCondition=false } = req.body;
+   
+      
       if (!acceptTermCondition){
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.Accept_term_condition() }));
       }
