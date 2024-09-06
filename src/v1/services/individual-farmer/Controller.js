@@ -154,9 +154,9 @@ module.exports.saveFarmerDetails = async (req, res) => {
         
         if (farmerDetails) {
           farmerDetails[screenName] = req.body[screenName];
-
-          await farmerDetails.save();
-          return res.status(200).send(new serviceResponse({message:_response_message.updated(screenName)}))
+          farmerDetails.steps = req.body?.steps
+          const farmerUpdatedDetails = await farmerDetails.save();
+          return res.status(200).send(new serviceResponse({data: farmerUpdatedDetails, message:_response_message.updated(screenName)}))
         } else {
           return res.status(400).send(new serviceResponse({status:400,message:_response_message.notFound('Farmer')}));
         }
@@ -169,13 +169,18 @@ module.exports.saveFarmerDetails = async (req, res) => {
 module.exports.getFarmerDetails = async (req, res) => {
   try{
 
-      const {screenName } = req.query;
-      const {id:farmer_id}=req.params;
-      if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
+      const {screenName} = req.query;
+      const { id }=req.params;
+      //if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
 
+      const selectFields = screenName ? `${screenName} allStepsCompletedStatus steps` : null;
 
-      const farmerDetails = await IndividualFarmer.findById(farmer_id).select(`${screenName} steps allStepsCompletedStatus` );
-      
+      if (selectFields) {
+        farmerDetails = await IndividualFarmer.findOne({ _id: id }).select(selectFields);
+      } else {
+        farmerDetails = await IndividualFarmer.findOne({ _id: id });
+      }
+
       if (farmerDetails) {
         return res.status(200).send(new serviceResponse({data: farmerDetails, message:_response_message.found(screenName)}))
       } else {
@@ -189,9 +194,10 @@ module.exports.getFarmerDetails = async (req, res) => {
   } 
 };
 
-
 async function validateIndividualFarmer(data, screenName) {
   let schema = {};
+  
+  // Define the schema for the screenName-specific data
   switch (screenName) {
     case "basic_details":
       schema = Joi.object({
@@ -205,7 +211,7 @@ async function validateIndividualFarmer(data, screenName) {
         gender: Joi.string().required(),
       });
       break;
-      case "address":
+    case "address":
       schema = Joi.object({
         address_line_1: Joi.string().required(),
         address_line_2: Joi.string().required(),
@@ -217,42 +223,63 @@ async function validateIndividualFarmer(data, screenName) {
         pinCode: Joi.string().required(),
       });
       break;
-      case "land_details":
-        schema = Joi.object({
-            area: Joi.string().required(),
-            pinCode: Joi.string().required(),
-            state: Joi.string().required(),
-            district: Joi.string().required(),
-            village: Joi.string().required(),
-            block: Joi.string().required(),
-            ghat_number: Joi.string().required(),
-            khasra_number: Joi.string().required(),
-        });
-        break;
-      case "documents":
+    case "land_details":
       schema = Joi.object({
-        aadhar_number: Joi.string().required(),
-        pan_number: Joi.string().required(),
+        area: Joi.string().required(),
+        pinCode: Joi.string().required(),
+        state: Joi.string().required(),
+        district: Joi.string().required(),
+        village: Joi.string().required(),
+        block: Joi.string().required(),
+        ghat_number: Joi.string().required(),
+        khasra_number: Joi.string().required(),
+        khasra_doc_key: Joi.string().required(),
+        kharif_crops: Joi.string().required(),
+        rabi_crops: Joi.string().required(),
+        zaid_crops: Joi.string().required(),
       });
       break;
-      case "bank_details":
-        schema = Joi.object({
-            bank_name: Joi.string().required(),
-            branch_name: Joi.string().required(),
-            account_holder_name: Joi.string().required(),
-            ifsc_code: Joi.string().required(),
-            account_no: Joi.string().required(),
-            pinCode: Joi.string().required(),
-            proof_doc: Joi.string().required(),
-            kharif_crops: Joi.string().required(),
-        });
-        break;
+    case "documents":
+      schema = Joi.object({
+        aadhar_number: Joi.string().required(),
+        aadhar_front_doc_key: Joi.string().required(),
+        aadhar_back_doc_key: Joi.string().required(),
+        pan_number: Joi.string().required(),
+        pan_doc_key: Joi.string().required(),
+      });
+      break;
+    case "bank_details":
+      schema = Joi.object({
+        bank_name: Joi.string().required(),
+        branch_name: Joi.string().required(),
+        account_holder_name: Joi.string().required(),
+        ifsc_code: Joi.string().required(),
+        account_no: Joi.string().required(),
+        proof_doc_key: Joi.string().required(),
+      });
+      break;
     default:
-      schema = {};
+      schema = Joi.object();
       break;
   }
-  return schema.validate(data[screenName]);
+
+  const stepsSchema = Joi.array().items(
+    Joi.object({
+      label: Joi.string().required(),
+      screen_number: Joi.number().required(),
+      status: Joi.string().valid('pending', 'completed', 'active').required(),
+    })
+  );
+
+
+  const combinedSchema = Joi.object({
+    [screenName]: schema.required(), 
+    steps: stepsSchema.required() 
+  });
+
+  return combinedSchema.validate(data);
 }
+
 
 async function validateRegisterDetail(data) {
   try{
