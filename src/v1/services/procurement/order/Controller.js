@@ -88,23 +88,21 @@ module.exports.editTrackDelivery = async (req, res) => {
 module.exports.viewTrackDelivery = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
-        const { req_id } = req
+        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
+        
         let query = {
-            req_id: req_id,
-            ...(search ? { name: { $regex: search, $options: "i" } ,deletedAt: null} : { deletedAt: null })
+            req_id,
+            ...(search ? { name: { $regex: search, $options: "i" } } : {})
         };
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await AssociateOrders.find(query)
+        records.rows = paginate == 1 ? await AssociateOrders.find(query).populate({
+            path: 'req_id', select: 'product address',
+            path: 'sellerOffer_id', select: 'procuredQty',
+            path: 'procurementCenter_id', select: 'point_of_contact address'
+        })
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await AssociateOrders.find(query)
-            .populate({ 
-                path:'req_id', select:'product address',
-                path: 'sellerOffer_id', select: 'procuredQty',
-                path: 'procurementCenter_id', select: 'point_of_contact address'
-             })
-            .sort(sortBy);           
+            .limit(parseInt(limit)) : await AssociateOrders.find(query).sort(sortBy);
 
         records.count = await AssociateOrders.countDocuments(query);
 

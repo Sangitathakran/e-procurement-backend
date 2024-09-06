@@ -5,7 +5,9 @@ const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 const orderRoutes = express.Router();
 
 orderRoutes.post("/associate-order", verifyJwtToken, associateOrder);
-orderRoutes.get("/view-trackDelivery", verifyJwtToken, viewTrackDelivery);
+orderRoutes.get("/track-order", verifyJwtToken, viewTrackDelivery);
 orderRoutes.get("/trackDelivery-by-batchId", verifyJwtToken, trackDeliveryByBatchId);
+
+
 
 module.exports = { orderRoutes }; 
