@@ -5,8 +5,8 @@ const { saveFarmerDetails, sendOTP, verifyOTP, registerName, getFarmerDetails} =
 const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 
 
-individualFarmerRoutes.post("/send-formerOTP",sendOTP)
-individualFarmerRoutes.post("/verify-formerOTP",verifyOTP);
+individualFarmerRoutes.post("/send-farmerOTP",sendOTP)
+individualFarmerRoutes.post("/verify-farmerOTP",verifyOTP);
 individualFarmerRoutes.post('/register-details',registerName)
 
 individualFarmerRoutes.put('/onboarding-details/:id',verifyJwtToken,saveFarmerDetails);
