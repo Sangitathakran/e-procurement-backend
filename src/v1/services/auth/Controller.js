@@ -101,7 +101,10 @@ module.exports.loginOrRegister = async (req, res) => {
                 secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
                 maxAge: 3600000 // 1 hour in milliseconds
             });
-            const data = { 'token': token }
+            const data = { 
+                token: token, 
+                organization_name: userExist.basic_details.associate_details.organization_name || null 
+            }
 
             return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data:data }));
         } else {
