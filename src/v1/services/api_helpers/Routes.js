@@ -5,7 +5,7 @@ const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { query } = require("express-validator");
 const { _middleware } = require("@src/v1/utils/constants/messages");
 
-helperRoutes.get('/templete', [
+helperRoutes.get('/template', [
     query('template_name', _middleware.require("template_name")).notEmpty().trim(),
 ], validateErrors, getExcelTemplate)
 helperRoutes.get('/address', [

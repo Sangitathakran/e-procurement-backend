@@ -3,6 +3,7 @@ const { helperRoutes } = require("./services/api_helpers/Routes");
 const { S3Router } = require("./services/aws/routes");
 const multer = require('multer');
 const { masterRoutes } = require("./services/master/Routes");
+const { individualFarmerRoutes } = require("./services/individual-farmer/Routes");
 const { procurementRoutes } = require("./services/procurement/Routes");
 const { userAuthRoutes } = require("./services/auth/Routes");
 
@@ -20,6 +21,8 @@ module.exports = (app) => {
 
     app.use('/aws', S3Router)
     app.use("/master", masterRoutes);
+    app.use('/ivd-farmer',individualFarmerRoutes);
+
     app.use("/procurement", procurementRoutes);
     app.use('/helper', helperRoutes)
     app.use("/auth", userAuthRoutes);

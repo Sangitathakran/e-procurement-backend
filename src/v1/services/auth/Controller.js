@@ -9,32 +9,6 @@ const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { verifyJwtToken, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 
-
-module.exports.userRegister = async (req, res) => {
-
-    try {
-        const { business_name, trader_type, client_id, email, password, confirm_password, phone } = req.body;
-        if (password !== confirm_password) {
-            return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.confirm_password_match("confirm_password_match") }));
-        }
-        const record = await User.create({
-            business_name,
-            trader_type,
-            client_id,
-            email,
-            password,
-            confirm_password,
-            phone
-        });
-
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("User") }));
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-
-}
-
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
 
@@ -63,10 +37,10 @@ module.exports.sendOtp = async (req, res) => {
         const { input, term_condition } = req.body;
         
         if (!input) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('input') }));
+            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('input') }));
         }
         if (!term_condition || term_condition == false) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('term_condition') }));
+            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('term_condition') }));
         }
 
         let inputType;
@@ -76,19 +50,19 @@ module.exports.sendOtp = async (req, res) => {
         } else if (isMobileNumber(input)) {
             inputType = 'mobile';
         } else {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid('Invalid input formatut') }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors:[{message:_response_message.invalid("Invalid input format")}] }));
         }
 
         if (inputType === 'email') {
             await sendEmailOtp(input);
-            return res.status(404).send(new serviceResponse({ status: 404, message: _response_message.otpSend("Input is an email and OTP has been sent.") }));
+            return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Email") }));
         
         } else if (inputType === 'mobile') {
             await sendSmsOtp(input);
-            return res.status(404).send(new serviceResponse({ status: 404, message: _response_message.otpSend("Input is a mobile number and OTP has been sent.") }));
+            return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Mobile") }));
         
         } else {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid("Invalid input format") }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors:[{message:_response_message.invalid("Invalid input format")}] }));
         }
 
     } catch (error) {
@@ -102,7 +76,7 @@ module.exports.loginOrRegister = async (req, res) => {
         const { userInput, inputOTP } = req.body;
 
         if (!userInput || !inputOTP) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('otp_required') }));
+            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('otp_required') }));
         }
 
         const isEmailInput = isEmail(userInput);
@@ -112,7 +86,7 @@ module.exports.loginOrRegister = async (req, res) => {
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
         if (!userOTP || inputOTP !== userOTP.otp) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid('OTP verification failed') }));
+            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.invalid('OTP verification failed') }));
         }
 
         let userExist = await User.findOne(query);
@@ -122,9 +96,12 @@ module.exports.loginOrRegister = async (req, res) => {
             const now = new Date();
             const expiresIn = Math.floor(now.getTime() / 1000) + 3600;
             const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
-            const data = {
-                'token': token,
-            }
+            res.cookie('token', token, { 
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
+                maxAge: 3600000 // 1 hour in milliseconds
+            });
+            const data = { 'token': token }
 
             return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data:data }));
         } else {
@@ -146,7 +123,7 @@ module.exports.loginOrRegister = async (req, res) => {
             return res.status(201).send(new serviceResponse({ status: 201, message: _auth_module.created('User'), data: userInsert }));
         }
 
-    } catch (err) {
+    } catch (error) {
         _handleCatchErrors(error, res);
     }
 }
@@ -154,7 +131,10 @@ module.exports.loginOrRegister = async (req, res) => {
 
 module.exports.saveAssociateDetails = async (req, res) => {
     try {
-        const getToken = req.headers['token'];
+        const getToken = req.cookies.token;
+        if (!getToken) {
+            return res.status(401).send(new serviceResponse({ status: 401, message: _response_message.require('token') }));
+        }
         const decode = await decryptJwtToken(getToken);
         const userId = decode.data.user_id;
 
@@ -164,12 +144,19 @@ module.exports.saveAssociateDetails = async (req, res) => {
         }
 
         const { formName, ...formData } = req.body;
-        console.log(req.body)
+        
         switch (formName) {
+            case 'organization':
+                user.basic_details.associate_details.organization_name = formData.organization_name;
+                break;
             case 'basic_details':
-                user.basic_details = {
-                    ...user.basic_details,
-                    ...formData
+                user.basic_details.associate_details = {
+                    ...user.basic_details.associate_details,
+                    ...formData.associate_details, 
+                };
+                user.basic_details.point_of_contact = {
+                    ...user.basic_details.point_of_contact,
+                    ...formData.point_of_contact,
                 };
                 break;
             case 'address':
@@ -190,14 +177,20 @@ module.exports.saveAssociateDetails = async (req, res) => {
                     ...formData
                 };
                 break;
+            case 'bank_details':
+                    user.bank_details = {
+                        ...user.bank_details,
+                        ...formData
+                    };
+                    break;
             default:
                 return res.status(400).send(new serviceResponse({ status: 400, message: `Invalid form name: ${formName}` }));
         }
 
-        
         await user.save();
 
-        return res.status(200).send(new serviceResponse({ message: _response_message.updated('User') }));
+        const response = { user_code: user.user_code, user_id:user._id };
+        return res.status(200).send(new serviceResponse({ message: _response_message.updated(formName), data:response }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }
