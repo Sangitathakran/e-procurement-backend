@@ -12,6 +12,6 @@ const sellerOffersSchema = new mongoose.Schema({
     ..._commonKeys
 }, { timestamps: true });
 
-const sellerOffers = mongoose.model(_collectionName.SellerOffers, sellerOffersSchema);
+const SellerOffers = mongoose.model(_collectionName.SellerOffers, sellerOffersSchema);
 
-module.exports = { sellerOffers };
+module.exports = { SellerOffers };

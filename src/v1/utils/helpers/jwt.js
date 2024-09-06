@@ -58,7 +58,7 @@ exports.generateAccountSecretKey = () => {
 
 exports.verifyJwtToken = async (req, res, next) => {
   try {
-    const { token } = req.headers;
+    const token = req.headers.token || req.cookies.token;
     if (!token) {
       return res.status(403).json({ message: "Unauthorized", status: 403 });
     }
@@ -72,10 +72,10 @@ exports.verifyJwtToken = async (req, res, next) => {
       if (err) {
         return res.status(401).send({ message: "Token is invalid", status: 401 });
       }
-
-      const currentTime = Math.floor(Date.now() / 1000);
-      if (decodedToken.exp < currentTime) {
-        return res.status(401).json({ message: "Token has expired" });
+      if (tokenBlacklist.includes(token)) {
+        return res
+          .status(401)
+          .json({ message: "Token has been revoked", status: 401 });
       }
       Object.entries(decodedToken).forEach(([key, value]) => {
         req[key] = value
