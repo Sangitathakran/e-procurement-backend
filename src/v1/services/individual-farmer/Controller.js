@@ -9,8 +9,8 @@ const axios = require("axios");
 const otpModel = require("@src/v1/models/app/auth/FarmerOTP");
 const { API_KEY, SENDER } = process.env
 const { generateJwtToken } = require("@src/v1/utils/helpers/jwt");
-
-
+const { body, validationResult, checkSchema } = require("express-validator");
+const { errorFormatter } = require("@src/v1/utils/helpers/express_validator");
 
 module.exports.sendOTP = async (req, res) => {
    try{
@@ -105,9 +105,6 @@ module.exports.registerName = async (req, res) => {
     try {
       const { mobileNumber, registerName, acceptTermCondition=false } = req.query;
   
-      // Validate input
-      const { error } = validateRegisterDetail(req.query);
-      if (error) return res.status(400).send({ error: error.message });
   
       if (!acceptTermCondition){
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.Accept_term_condition() }));
@@ -148,9 +145,6 @@ module.exports.saveFarmerDetails = async (req, res) => {
         const {screenName } = req.query;
         const {id:farmer_id}=req.params;
         if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
-        const { error } = await validateIndividualFarmer(req.body, screenName);
-        if(error) return res.status(400).send({error:error.message})
-
         const farmerDetails = await IndividualFarmer.findById(farmer_id).select(
           `${screenName}`
         );
@@ -197,104 +191,7 @@ module.exports.getFarmerDetails = async (req, res) => {
   } 
 };
 
-async function validateIndividualFarmer(data, screenName) {
-  let schema = {};
-  
-  // Define the schema for the screenName-specific data
-  switch (screenName) {
-    case "basic_details":
-      schema = Joi.object({
-        name: Joi.string().required(),
-        email: Joi.string().required(),
-        father_husband_name: Joi.string().required(),
-        mobile_no: Joi.string().required(),
-        category: Joi.string().required(),
-        dob: Joi.string().required(),
-        farmer_type: Joi.string().required(),
-        gender: Joi.string().required(),
-      });
-      break;
-    case "address":
-      schema = Joi.object({
-        address_line_1: Joi.string().required(),
-        address_line_2: Joi.string().required(),
-        country: Joi.string().required(),
-        state: Joi.string().required(),
-        district: Joi.string().required(),
-        block: Joi.string().required(),
-        village: Joi.string().required(),
-        pinCode: Joi.string().required(),
-      });
-      break;
-    case "land_details":
-      schema = Joi.object({
-        area: Joi.string().required(),
-        pinCode: Joi.string().required(),
-        state: Joi.string().required(),
-        district: Joi.string().required(),
-        village: Joi.string().required(),
-        block: Joi.string().required(),
-        ghat_number: Joi.string().required(),
-        khasra_number: Joi.string().required(),
-        khasra_doc_key: Joi.string().required(),
-        kharif_crops: Joi.string().required(),
-        rabi_crops: Joi.string().required(),
-        zaid_crops: Joi.string().required(),
-      });
-      break;
-    case "documents":
-      schema = Joi.object({
-        aadhar_number: Joi.string().required(),
-        aadhar_front_doc_key: Joi.string().required(),
-        aadhar_back_doc_key: Joi.string().required(),
-        pan_number: Joi.string().required(),
-        pan_doc_key: Joi.string().required(),
-      });
-      break;
-    case "bank_details":
-      schema = Joi.object({
-        bank_name: Joi.string().required(),
-        branch_name: Joi.string().required(),
-        account_holder_name: Joi.string().required(),
-        ifsc_code: Joi.string().required(),
-        account_no: Joi.string().required(),
-        proof_doc_key: Joi.string().required(),
-      });
-      break;
-    default:
-      schema = Joi.object();
-      break;
-  }
 
-  const stepsSchema = Joi.array().items(
-    Joi.object({
-      label: Joi.string().required(),
-      screen_number: Joi.number().required(),
-      status: Joi.string().valid('pending', 'completed', 'active').required(),
-    })
-  );
-
-
-  const combinedSchema = Joi.object({
-    [screenName]: schema.required(), 
-    steps: stepsSchema.required() 
-  });
-
-  return combinedSchema.validate(data);
-}
-
-
-async function validateRegisterDetail(data) {
-  try{
-    const schema = Joi.object({
-        mobileNumber:Joi.string().min(10).max(10).required(),
-        registerName:Joi.string().required()
-    })
-    return schema.validate(data)
-  } catch (err){
-    console.log("err",err)
-  }
-}
 
 const validateMobileNumber =  async (mobile) => {
     let pattern = /^[0-9]{10}$/;
