@@ -7,7 +7,7 @@ const { SellerOffers } = require("@src/v1/models/app/procurement/SellerOffers");
 const { ContributedFarmers } = require("@src/v1/models/app/procurement/ContributedFarmer");
 // const appStatus = require('../../../../../utils/appStatus'); 
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
-const { _sellerOfferStatus, userType } = require('@src/v1/utils/constants');
+const { _sellerOfferStatus, _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const mongoose = require("mongoose");
@@ -69,10 +69,10 @@ module.exports.getProcurement = async (req, res) => {
             ]
         } : {};
 
-        if (user_type == userType.ho || user_type == userType.bo) {
+        if (user_type == _userType.ho || user_type == _userType.bo) {
             query.organization_id = organization_id
 
-        } else if (user_type == userType.trader) {
+        } else if (user_type == _userType.trader) {
             if (status && Object.values(_sellerOfferStatus).includes(status)) {
                 const offerIds = (await SellerOffers.find({ seller_id: user_id, status })).map((offer) => offer.req_id);
                 query._id = { $in: offerIds };
