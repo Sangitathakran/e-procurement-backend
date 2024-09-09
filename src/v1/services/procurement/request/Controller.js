@@ -80,7 +80,8 @@ module.exports.getProcurement = async (req, res) => {
 
             } else {
                 query.status = _procurementRequestStatus.open
-
+                const offerIds = (await SellerOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
+                query._id = { $nin: offerIds };
             }
         }
 
