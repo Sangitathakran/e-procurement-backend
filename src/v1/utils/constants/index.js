@@ -27,6 +27,7 @@ const _collectionName = {
     FarmerOrder: "FarmerOrder",
     StateDistrictCity: "StateDistrictCity",
     AssociateOrders: "AssociateOrders",
+    Payment: "Payment",
 }
 const _status = {
     active: "active",
