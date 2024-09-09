@@ -8,7 +8,7 @@ const EmailService = require("@src/v1/utils/third_party/EmailServices");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { verifyJwtToken, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-
+const { _userType } = require('@src/v1/utils/constants');
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
 
@@ -91,12 +91,8 @@ module.exports.loginOrRegister = async (req, res) => {
 
         let userExist = await User.findOne(query);
 
-        console.log("userExist", userExist);
-
         if (userExist) {
             const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
-
-            console.log("payload", payload);
             const now = new Date();
             const expiresIn = Math.floor(now.getTime() / 1000) + 3600;
             const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
@@ -107,6 +103,7 @@ module.exports.loginOrRegister = async (req, res) => {
             });
             const data = {
                 token: token,
+                user_type: userExist.user_type,
                 organization_name: userExist.basic_details.associate_details.organization_name || null
             }
 
@@ -117,7 +114,8 @@ module.exports.loginOrRegister = async (req, res) => {
                 basic_details: isEmailInput
                     ? { associate_details: { email: userInput } }
                     : { associate_details: { phone: userInput } },
-                term_condition: true
+                term_condition: true,
+                user_type: _userType.associate,
             };
 
             if (isEmailInput) {

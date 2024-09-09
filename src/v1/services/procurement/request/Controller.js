@@ -69,8 +69,7 @@ module.exports.getProcurement = async (req, res) => {
             ]
         } : {};
 
-        console.log("user_type", user_type);
-        console.log("user_id", user_id);
+
         if (user_type == _userType.ho || user_type == _userType.bo) {
             query.organization_id = organization_id
 
@@ -166,7 +165,7 @@ module.exports.updateProcurement = async (req, res) => {
 }
 
 
-module.exports.fpoOffered = async (req, res) => {
+module.exports.associateOffer = async (req, res) => {
 
     try {
 
@@ -253,12 +252,12 @@ module.exports.getFarmerListById = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query;
 
         let query = {
-            // fpo_id: user_id,
+            // associate_id: user_id,
             ...(search && { name: { $regex: search, $options: 'i' } })
         };
 
-        if (trader_type != appStatus.traderType.FPO) {
-            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: 'This user is not FPO' }] }))
+        if (user_type != _userType.associate) {
+            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
 
@@ -266,15 +265,15 @@ module.exports.getFarmerListById = async (req, res) => {
             { $match: query },
             {
                 $lookup: {
-                    from: 'croprecords',
+                    from: 'crops',
                     localField: '_id',
-                    foreignField: 'farmer_detail_id',
+                    foreignField: 'farmer_id',
                     as: 'crops'
                 }
             },
             {
                 $lookup: {
-                    from: 'farmerbankdetails',
+                    from: 'banks',
                     localField: '_id',
                     foreignField: 'farmer_id',
                     as: 'bankDetails'
@@ -283,12 +282,12 @@ module.exports.getFarmerListById = async (req, res) => {
             {
                 $lookup: {
                     from: 'users',
-                    localField: 'fpo_id',
+                    localField: 'associate_id',
                     foreignField: '_id',
-                    as: 'fpoDetails',
+                    as: 'associateDetails',
                     pipeline: [{
                         $project: {
-                            fpo_name: '$fpo_name',
+                            organization_name: '$fpo_name',
                         }
                     }]
                 }
@@ -299,7 +298,7 @@ module.exports.getFarmerListById = async (req, res) => {
                     'bankDetails.0': { $exists: true },
                 }
             },
-            { $unwind: '$fpoDetails' },
+            { $unwind: '$associateDetails' },
             { $unwind: '$bankDetails' },
             {
                 $sort: sortBy ? { [sortBy]: 1 } : { name: 1 }
