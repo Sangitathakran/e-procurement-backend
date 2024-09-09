@@ -1,7 +1,7 @@
 const express = require("express");
 const individualFarmerRoutes = express.Router();
 
-const { saveFarmerDetails, sendOTP, verifyOTP, registerName, getFarmerDetails} = require("./Controller");
+const { saveFarmerDetails, sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm} = require("./Controller");
 const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 
 const {validateFarmer,validateRegisterDetail} =require("../individual-farmer/Validation");
@@ -18,6 +18,8 @@ individualFarmerRoutes.put('/onboarding-details/:id',
     saveFarmerDetails);
 
 individualFarmerRoutes.get('/getFarmerDetails/:id',verifyJwtToken, getFarmerDetails);
+
+individualFarmerRoutes.post('/submit-form/:id',verifyJwtToken, submitForm)
 
 
 module.exports = { individualFarmerRoutes };

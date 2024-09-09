@@ -7,6 +7,9 @@ const farmerSchema = new mongoose.Schema({
     mobile_no:{type:String,required:true},
     name:{type:String,default:null},
     isVerifyOtp:{type:Boolean,default:false},
+    farmer_id: {type: String, default: null},
+    isWelcomeMsgSend: {type: Boolean, default:false},
+
     userType: {
         type: Number,
         default: 3

@@ -5,6 +5,9 @@ const { _handleCatchErrors, _ } = require("@src/v1/utils/helpers");
 const { _individual_farmer_onboarding_steps } = require("@src/v1/utils/constants");
 const { IndividualFarmer } = require("../../models/app/farmer/IndividualFarmer");
 const { generateJwtToken } = require("@src/v1/utils/helpers/jwt");
+const stateList = require("../../utils/constants/stateList")
+
+
 const { body, validationResult, checkSchema } = require("express-validator");
 const { errorFormatter } = require("@src/v1/utils/helpers/express_validator");
 const SMSService = require('@src/v1/utils/third_party/SMSservices');
@@ -151,10 +154,60 @@ module.exports.getFarmerDetails = async (req, res) => {
 
   } catch (err) {
 
-    console.log('error', err)
-    _handleCatchErrors(err, res);
-  }
-};
+      console.log('error',err)
+      _handleCatchErrors(err, res);
+  } 
+}
+
+module.exports.submitForm = async (req, res) => {
+  try{
+      const {id}=req.params;
+
+      const farmerDetails = await IndividualFarmer.findById(id).select("address farmer_id basic_details")
+
+      const generateFarmerId = (farmer) =>{
+        const stateData = stateList.stateList.find(item=>item.state.toLowerCase() === farmer.address.state.toLowerCase())
+        //console.log("stateData--->", stateData)
+        const district = stateData.districts.find(item=>item.districtName.toLowerCase() === farmer.address.district.toLowerCase())
+
+        if(!district){
+          return res.status(400).send(new serviceResponse({status: 400, message: _response_message.notFound(`${farmer.address.district} district`)}))
+        }
+        // console.log("district--->", district)
+
+        const stateCode = stateData.stateCode 
+        const districtSerialNumber = district.serialNumber
+        const districtCode = district.districtCode
+        const randomNumber = Math.floor(100000 + Math.random() * 900000)
+
+        const farmerId = stateCode +  districtSerialNumber + districtCode + randomNumber
+        // console.log("farmerId-->", farmerId)
+        return farmerId
+      }
+
+      const farmer_id = await generateFarmerId(farmerDetails)
+
+
+      
+      if (farmerDetails && farmer_id) {
+          if(farmerDetails.farmer_id == null){
+            
+            farmerDetails.farmer_id = farmer_id
+            farmerDetails.allStepsCompletedStatus = true
+            const farmerUpdatedDetails = await farmerDetails.save();
+
+            return res.status(200).send(new serviceResponse({data: farmerUpdatedDetails}))
+          }
+          return res.status(200).send(new serviceResponse({data: farmerDetails, message: _response_message.submit('Farmer')}))
+      } else {
+        return res.status(400).send(new serviceResponse({status:400,message: _response_message.submit('Farmer')}));
+      }
+
+  }catch(err){
+      console.log('error',err)
+      _handleCatchErrors(err, res);
+  } 
+}
 
 
 
