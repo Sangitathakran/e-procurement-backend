@@ -111,7 +111,7 @@ exports._generateFarmerCode = async () => {
 
     try {
         do {
-            uniqueId = Math.floor(Math.random() * 900000) + 100000; 
+            uniqueId = Math.floor(Math.random() * 900000) + 100000;
             farmerCode = `${prefix}${uniqueId}`;
             existingFarmer = await farmer.findOne({ farmer_code: farmerCode });
         } while (existingFarmer);
@@ -122,14 +122,19 @@ exports._generateFarmerCode = async () => {
         throw new Error('Could not generate a unique Farmer Code');
     }
 }
-
+const myAddress = new Map()
 exports.getStateId = async (stateName) => {
     try {
+        if (myAddress.get(stateName)) {
+            return myAddress.get(stateName)
+        }
         const stateDoc = await StateDistrictCity.findOne({
             'states.state_title': stateName
         });
         if (stateDoc) {
             const state = stateDoc.states.find(state => state.state_title === stateName);
+            if (state)
+                myAddress.set(stateName, state._id)
             return state ? state._id : null;
         } else {
             return null;
@@ -141,6 +146,9 @@ exports.getStateId = async (stateName) => {
 
 exports.getDistrictId = async (districtName) => {
     try {
+        if (myAddress.get(districtName)) {
+            return myAddress.get(districtName)
+        }
         const stateDoc = await StateDistrictCity.findOne({
             'states.districts.district_title': districtName
         });
@@ -149,6 +157,7 @@ exports.getDistrictId = async (districtName) => {
             for (const state of stateDoc.states) {
                 const district = state.districts.find(district => district.district_title === districtName);
                 if (district) {
+                    myAddress.set(districtName, district._id)
                     return district._id;
                 }
             }
@@ -162,3 +171,7 @@ exports.parseDate = async (dateString) => {
     return moment(dateString, 'DD-MM-YYYY').toDate();;
 };
 
+exports.parseMonthyear = (dateString) => {
+    const [month, year] = dateString.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, 1));
+}
