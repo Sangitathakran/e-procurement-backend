@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName } = require('@src/v1/utils/constants');
+const { _collectionName, _associateOrderStatus } = require('@src/v1/utils/constants');
 const { _generateOrderNumber } = require('@src/v1/utils/helpers');
 
 
@@ -38,7 +38,7 @@ const associateOrdersSchema = new mongoose.Schema({
         qty: { type: Number, trim: true },
     },
     delivered: {},
-    status: { type: String, enum: ["pending", "dispatched", "in-transit", "delivered"], default: "pending" }
+    status: { type: String, enum: Object.values(_associateOrderStatus), default: _associateOrderStatus.pending }
 }, { timestamps: true });
 
 associateOrdersSchema.pre('save', async function (next) {

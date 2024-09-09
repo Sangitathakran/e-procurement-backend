@@ -2,7 +2,7 @@ const _collectionName = {
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",
-    individualFarmers:"individual_farmers",
+    individualFarmers: "individual_farmers",
     Users: "Users",
     Category: "Category",
     Variety: "variety",
@@ -216,7 +216,7 @@ const _education ={
     Others: "Others",
 }
 
-const _khaifCrops = { 
+const _khaifCrops = {
     onion: "onion",
     tur: "tur",
     moong: "moong",
@@ -225,47 +225,55 @@ const _khaifCrops = {
 
 }
 
-const _rabiCrops = { 
+const _rabiCrops = {
     tur: "tur",
     moong: "moong",
     masoor: "masoor",
 
 }
 
-const _zaidCrops = { 
+const _zaidCrops = {
     onion: "onion",
     tur: "tur",
     moong: "moong",
 }
 
-const _individual_farmer_onboarding_steps = [ 
-    { 
+const _individual_farmer_onboarding_steps = [
+    {
         label: "basic_details",
         screen_number: 1,
         status: "pending"
     },
-    { 
+    {
         label: "address",
         screen_number: 2,
         status: "pending"
     },
-    { 
+    {
         label: "land_details",
         screen_number: 3,
         status: "pending"
     },
-    { 
+    {
         label: "documents",
         screen_number: 4,
         status: "pending"
     },
-    { 
+    {
         label: "bank_details",
         screen_number: 5,
         status: "pending"
     },
 
 ]
+
+
+const _associateOrderStatus = {
+    pending: "Pending",
+    dispatched: "Dispatched",
+    intransit: "In-Transit",
+    delivered: "Delivered",
+}
 
 module.exports = {
     _farmerType,
@@ -305,4 +313,5 @@ module.exports = {
     _userType,
     _trader_type,
     _user_status,
+    _associateOrderStatus
 }
