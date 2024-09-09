@@ -9,6 +9,7 @@ const axios = require("axios");
 const otpModel = require("@src/v1/models/app/auth/FarmerOTP");
 const { API_KEY, SENDER } = process.env
 const { generateJwtToken } = require("@src/v1/utils/helpers/jwt");
+const stateList = require("../../utils/constants/stateList")
 
 
 
@@ -81,6 +82,8 @@ module.exports.verifyOTP = async (req, res) => {
             mobile_no:mobileNumber,
             isVerifyOtp: true
         })
+
+        const token = generateJwtToken({mobile_no:mobileNumber})
     
       let resp;
       if(individualFormerData)
@@ -152,7 +155,7 @@ module.exports.saveFarmerDetails = async (req, res) => {
         if(error) return res.status(400).send({error:error.message})
 
         const farmerDetails = await IndividualFarmer.findById(farmer_id).select(
-          `${screenName}`
+          `${screenName} steps`
         );
         
         if (farmerDetails) {
@@ -167,7 +170,7 @@ module.exports.saveFarmerDetails = async (req, res) => {
         console.log('error',err)
         _handleCatchErrors(err, res);
     } 
-};
+}
 
 module.exports.getFarmerDetails = async (req, res) => {
   try{
@@ -195,7 +198,57 @@ module.exports.getFarmerDetails = async (req, res) => {
       console.log('error',err)
       _handleCatchErrors(err, res);
   } 
-};
+}
+
+module.exports.submitForm = async (req, res) => {
+  try{
+      const {id}=req.params;
+
+      const farmerDetails = await IndividualFarmer.findById(id).select("address farmer_id basic_details")
+
+      const generateFarmerId = (farmer) =>{
+        const stateData = stateList.stateList.find(item=>item.state.toLowerCase() === farmer.address.state.toLowerCase())
+        //console.log("stateData--->", stateData)
+        const district = stateData.districts.find(item=>item.districtName.toLowerCase() === farmer.address.district.toLowerCase())
+
+        if(!district){
+          return res.status(400).send(new serviceResponse({status: 400, message: _response_message.notFound(`${farmer.address.district} district`)}))
+        }
+        // console.log("district--->", district)
+
+        const stateCode = stateData.stateCode 
+        const districtSerialNumber = district.serialNumber
+        const districtCode = district.districtCode
+        const randomNumber = Math.floor(100000 + Math.random() * 900000)
+
+        const farmerId = stateCode +  districtSerialNumber + districtCode + randomNumber
+        // console.log("farmerId-->", farmerId)
+        return farmerId
+      }
+
+      const farmer_id = await generateFarmerId(farmerDetails)
+
+
+      
+      if (farmerDetails && farmer_id) {
+          if(farmerDetails.farmer_id == null){
+            
+            farmerDetails.farmer_id = farmer_id
+            farmerDetails.allStepsCompletedStatus = true
+            const farmerUpdatedDetails = await farmerDetails.save();
+
+            return res.status(200).send(new serviceResponse({data: farmerUpdatedDetails}))
+          }
+          return res.status(200).send(new serviceResponse({data: farmerDetails, message: _response_message.submit('Farmer')}))
+      } else {
+        return res.status(400).send(new serviceResponse({status:400,message: _response_message.submit('Farmer')}));
+      }
+
+  }catch(err){
+      console.log('error',err)
+      _handleCatchErrors(err, res);
+  } 
+}
 
 async function validateIndividualFarmer(data, screenName) {
   let schema = {};
