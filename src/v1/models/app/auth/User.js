@@ -83,6 +83,7 @@ const userSchema = new mongoose.Schema({
         upload_proof: { type: String, trim: true },
     },
     user_code: { type: String, unique: true },
+    user_type: { type: String,trim: true },
     user_status: { type: String, enum: Object.values(_user_status), default:_user_status.APPROVED },
     user_type: {type: String,trim: true ,},
     is_mobile_verified:{type: String,default: false},

@@ -8,7 +8,7 @@ const EmailService = require("@src/v1/utils/third_party/EmailServices");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { verifyJwtToken, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-
+const {_userType} = require('@src/v1/utils/constants');
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
 
@@ -103,6 +103,7 @@ module.exports.loginOrRegister = async (req, res) => {
             });
             const data = {
                 token: token,
+                user_type: userExist.user_type,
                 organization_name: userExist.basic_details.associate_details.organization_name || null
             }
 
@@ -113,7 +114,8 @@ module.exports.loginOrRegister = async (req, res) => {
                 basic_details: isEmailInput
                     ? { associate_details: { email: userInput } }
                     : { associate_details: { phone: userInput } },
-                term_condition: true
+                term_condition: true,
+                user_type: _userType.associate,
             };
 
             if (isEmailInput) {
