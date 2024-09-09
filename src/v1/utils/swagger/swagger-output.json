@@ -2068,6 +2068,109 @@
         }
       }
     },
+    "/procurement/order/associate-order": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "skip",
+            "in": "query",
+            "description": "please do not add this field...",
+            "type": "number"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "paginate",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "req_id": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/procurement/order/track-order": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "skip",
+            "in": "query",
+            "description": "please do not add this field...",
+            "type": "number"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "paginate",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/helper/template": {
       "get": {
         "description": "",
@@ -2226,9 +2329,6 @@
           },
           "400": {
             "description": "Bad Request"
-          },
-          "404": {
-            "description": "Not Found"
           }
         }
       }
@@ -2290,9 +2390,6 @@
           },
           "201": {
             "description": "Created"
-          },
-          "400": {
-            "description": "Bad Request"
           }
         }
       }
@@ -2354,79 +2451,9 @@
           },
           "400": {
             "description": "Bad Request"
-          }
-        }
-      }
-    },
-    "/auth/": {
-      "post": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "skip",
-            "in": "query",
-            "description": "please do not add this field...",
-            "type": "number"
           },
-          {
-            "name": "limit",
-            "in": "query",
-            "type": "string"
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "type": "string"
-          },
-          {
-            "name": "paginate",
-            "in": "query",
-            "type": "string"
-          },
-          {
-            "name": "sortBy",
-            "in": "query",
-            "type": "string"
-          },
-          {
-            "name": "sortOrder",
-            "in": "query",
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "business_name": {
-                  "example": "any"
-                },
-                "trader_type": {
-                  "example": "any"
-                },
-                "client_id": {
-                  "example": "any"
-                },
-                "email": {
-                  "example": "any"
-                },
-                "password": {
-                  "example": "any"
-                },
-                "confirm_password": {
-                  "example": "any"
-                },
-                "phone": {
-                  "example": "any"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
+          "401": {
+            "description": "Unauthorized"
           }
         }
       }
