@@ -10,7 +10,7 @@ const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 
 individualFarmerRoutes.post("/send-farmerOTP",sendOTP)
 individualFarmerRoutes.post("/verify-farmerOTP",verifyOTP);
-individualFarmerRoutes.post('/register-details',[validateRegisterDetail,validateErrors],registerName)
+individualFarmerRoutes.post('/register-details',verifyJwtToken,[validateRegisterDetail,validateErrors],registerName)
 
 individualFarmerRoutes.put('/onboarding-details/:id',
     verifyJwtToken, 
