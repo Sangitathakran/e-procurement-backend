@@ -5,7 +5,6 @@ const { ProcurementRequest } = require("@src/v1/models/app/procurement/Procureme
 const { _procurementRequestStatus, _webSocketEvents, _procuredStatus } = require('@src/v1/utils/constants');
 const { SellerOffers } = require("@src/v1/models/app/procurement/SellerOffers");
 const { ContributedFarmers } = require("@src/v1/models/app/procurement/ContributedFarmer");
-// const Farmer = require("../../../../../models/farmerModel");
 // const appStatus = require('../../../../../utils/appStatus'); 
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { _sellerOfferStatus, userType } = require('@src/v1/utils/constants');
@@ -319,7 +318,7 @@ module.exports.getFarmerListById = async (req, res) => {
         };
 
 
-        records.count = await Farmer.aggregate([
+        records.count = await farmer.aggregate([
             { $match: query },
             {
                 $lookup: {
@@ -347,7 +346,7 @@ module.exports.getFarmerListById = async (req, res) => {
         ]);
         records.count = records.count[0] ? records.count[0].total : 0;
 
-        records.rows = await Farmer.aggregate(aggregationPipeline);
+        records.rows = await farmer.aggregate(aggregationPipeline);
 
         if (paginate == 1) {
             records.page = page;

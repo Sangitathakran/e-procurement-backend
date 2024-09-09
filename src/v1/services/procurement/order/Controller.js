@@ -3,9 +3,10 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { SellerOffers } = require("@src/v1/models/app/procurement/SellerOffers");
 const { ContributedFarmers } = require("@src/v1/models/app/procurement/ContributedFarmer");
-const { _sellerOfferStatus, _procuredStatus, _associateOrderStatus } = require('@src/v1/utils/constants');
+const { _sellerOfferStatus, _procuredStatus, _associateOrderStatus, _user_status } = require('@src/v1/utils/constants');
 const { AssociateOrders } = require("@src/v1/models/app/procurement/AssociateOrders");
-
+const { ProcurementRequest } = require("@src/v1/models/app/procurement/ProcurementRequest");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
 
 
 module.exports.associateOrder = async (req, res) => {
@@ -14,6 +15,12 @@ module.exports.associateOrder = async (req, res) => {
 
         const { req_id } = req.body;
         const { user_id } = req;
+
+        const procurementRecord = await ProcurementRequest.findOne({ _id: req_id });
+
+        if (!procurementRecord) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
+        }
 
         const record = await SellerOffers.findOne({ seller_id: user_id, req_id: req_id });
 
@@ -35,6 +42,8 @@ module.exports.associateOrder = async (req, res) => {
         }
 
         const myMap = new Map();
+        const payment = [];
+
         receivedRecords.forEach((ele) => {
 
             if (myMap.has(ele.procurementCenter_id)) {
@@ -43,9 +52,14 @@ module.exports.associateOrder = async (req, res) => {
             } else {
                 myMap.set(ele.procurementCenter_id, { req_id: req_id, seller_id: user_id, sellerOffer_id: record._id, dispatchedqty: ele.qtyProcured });
             }
+
+            payment.push({ whomToPay: ele.farmer_id, user_type: "farmer", reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
+
         })
 
         const associateRecords = await AssociateOrders.insertMany([...myMap.values()]);
+
+        await Payment.insertMany(payment);
 
         record.status = _sellerOfferStatus.ordered;
         await record.save();
