@@ -235,19 +235,6 @@ const validateFarmer = async (req, res, next) => {
   next();
 };
 const validateRegisterDetail =  checkSchema({
-  'mobileNumber': {
-    in: ['body'],
-    isLength: {
-      options: { min: 10, max: 10 },
-      errorMessage: 'Mobile number must be exactly 10 characters long'
-    },
-    isString: {
-      errorMessage: 'Mobile number must be a string'
-    },
-    notEmpty: {
-      errorMessage: 'Mobile number is required'
-    }
-  },
   'registerName': {
     in: ['body'],
     isString: {
