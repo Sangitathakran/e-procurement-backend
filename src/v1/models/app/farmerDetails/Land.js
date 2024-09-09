@@ -14,8 +14,6 @@ const landSchema = new mongoose.Schema({
         state_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity' },
         district_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity.districts' },
         sub_district: { type: String, trim: true, },
-        village: { type: String, trim: true, },
-        pinCode: { type: String, trim: true },
     },
     document: { type: String, required: false, },
     expected_production: { type: String, required: false, },
