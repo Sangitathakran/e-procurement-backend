@@ -91,8 +91,12 @@ module.exports.loginOrRegister = async (req, res) => {
 
         let userExist = await User.findOne(query);
 
+        console.log("userExist", userExist);
+
         if (userExist) {
-            const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id }
+            const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
+
+            console.log("payload", payload);
             const now = new Date();
             const expiresIn = Math.floor(now.getTime() / 1000) + 3600;
             const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });

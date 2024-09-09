@@ -69,10 +69,12 @@ module.exports.getProcurement = async (req, res) => {
             ]
         } : {};
 
+        console.log("user_type", user_type);
+        console.log("user_id", user_id);
         if (user_type == _userType.ho || user_type == _userType.bo) {
             query.organization_id = organization_id
 
-        } else if (user_type == _userType.trader) {
+        } else if (user_type == _userType.associate) {
             if (status && Object.values(_sellerOfferStatus).includes(status)) {
                 const offerIds = (await SellerOffers.find({ seller_id: user_id, status })).map((offer) => offer.req_id);
                 query._id = { $in: offerIds };
