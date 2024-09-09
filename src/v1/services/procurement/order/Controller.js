@@ -3,9 +3,10 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { SellerOffers } = require("@src/v1/models/app/procurement/SellerOffers");
 const { ContributedFarmers } = require("@src/v1/models/app/procurement/ContributedFarmer");
-const { _sellerOfferStatus } = require('@src/v1/utils/constants');
+const { _sellerOfferStatus, _procuredStatus, _associateOrderStatus, _user_status } = require('@src/v1/utils/constants');
 const { AssociateOrders } = require("@src/v1/models/app/procurement/AssociateOrders");
-
+const { ProcurementRequest } = require("@src/v1/models/app/procurement/ProcurementRequest");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
 
 
 module.exports.associateOrder = async (req, res) => {
@@ -14,6 +15,12 @@ module.exports.associateOrder = async (req, res) => {
 
         const { req_id } = req.body;
         const { user_id } = req;
+
+        const procurementRecord = await ProcurementRequest.findOne({ _id: req_id });
+
+        if (!procurementRecord) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
+        }
 
         const record = await SellerOffers.findOne({ seller_id: user_id, req_id: req_id });
 
@@ -35,6 +42,8 @@ module.exports.associateOrder = async (req, res) => {
         }
 
         const myMap = new Map();
+        const payment = [];
+
         receivedRecords.forEach((ele) => {
 
             if (myMap.has(ele.procurementCenter_id)) {
@@ -43,9 +52,14 @@ module.exports.associateOrder = async (req, res) => {
             } else {
                 myMap.set(ele.procurementCenter_id, { req_id: req_id, seller_id: user_id, sellerOffer_id: record._id, dispatchedqty: ele.qtyProcured });
             }
+
+            payment.push({ whomToPay: ele.farmer_id, user_type: "farmer", reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
+
         })
 
         const associateRecords = await AssociateOrders.insertMany([...myMap.values()]);
+
+        await Payment.insertMany(payment);
 
         record.status = _sellerOfferStatus.ordered;
         await record.save();
@@ -62,7 +76,7 @@ module.exports.editTrackDelivery = async (req, res) => {
 
     try {
 
-        const { id, material_img, weight_slip, qc_report, lab_report } = req.body;
+        const { id, material_img, weight_slip, qc_report, lab_report, name, contact, license, aadhar, service_name, vehicleNo, vehicle_weight, loaded_weight, qc_charges, no_of_bags, qty } = req.body;
 
         const record = await AssociateOrders.findOne({ _id: id });
 
@@ -70,10 +84,31 @@ module.exports.editTrackDelivery = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
         }
 
-        record.dispatched.material_img = material_img;
-        record.dispatched.weight_slip = weight_slip;
-        record.dispatched.qc_report = qc_report;
-        record.dispatched.lab_report = lab_report;
+        if (material_img && weight_slip && qc_report && lab_report) {
+            record.dispatched.material_img = material_img;
+            record.dispatched.weight_slip = weight_slip;
+            record.dispatched.qc_report = qc_report;
+            record.dispatched.lab_report = lab_report;
+
+            record.status = _associateOrderStatus.dispatched
+        }
+
+        if (name && contact && license && aadhar && service_name && vehicleNo && vehicle_weight && loaded_weight && qc_charges && no_of_bags && qty) {
+
+            record.intransit.driver.name = name;
+            record.intransit.driver.contact = contact;
+            record.intransit.driver.license = license;
+            record.intransit.driver.aadhar = aadhar;
+            record.intransit.transport.service_name = service_name;
+            record.intransit.transport.vehicleNo = vehicleNo;
+            record.intransit.transport.vehicle_weight = vehicle_weight;
+            record.intransit.transport.loaded_weight = loaded_weight;
+            record.intransit.bill.qc_charges = qc_charges;
+            record.intransit.no_of_bags = no_of_bags;
+            record.intransit.qty = qty;
+
+            record.status = _associateOrderStatus.intransit;
+        }
 
         await record.save();
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("order") }));
