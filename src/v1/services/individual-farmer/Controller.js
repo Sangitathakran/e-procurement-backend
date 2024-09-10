@@ -164,7 +164,7 @@ module.exports.submitForm = async (req, res) => {
       const {id}=req.params;
 
       const farmerDetails = await IndividualFarmer.findById(id).select("address farmer_id basic_details")
-
+      console.log("farmerDetails==>",farmerDetails)
       const generateFarmerId = (farmer) =>{
         const stateData = stateList.stateList.find(item=>item.state.toLowerCase() === farmer.address.state.toLowerCase())
         //console.log("stateData--->", stateData)
@@ -195,9 +195,29 @@ module.exports.submitForm = async (req, res) => {
             farmerDetails.farmer_id = farmer_id
             farmerDetails.allStepsCompletedStatus = true
             const farmerUpdatedDetails = await farmerDetails.save();
-
+            //welcome sms send functionality
+            const mobileNumber = req.mobile_no;
+            console.log("mobileNumber==1>",mobileNumber)
+            const farmerName = farmerDetails.basic_details.name;
+            const smsService = new SMSService();
+            const messagetoFarmer = await smsService.sendFarmerRegistrationSMS(mobileNumber, farmerName, farmer_id);
+            if (messagetoFarmer.response.status === 'failure') {
+              console.error('SMS sending failed:', messagetoFarmer.response.errors);
+          }
+            console.log("messagetoFarmer1==>",messagetoFarmer)
+            //await smsService.sendOTPSMS(mobileNumber);
             return res.status(200).send(new serviceResponse({data: farmerUpdatedDetails}))
           }
+           const mobileNumber = req.mobile_no;
+           console.log("mobileNumber==2>",mobileNumber)
+           let farmerName = "Nikhil";//farmerDetails?.basic_details?.name;
+           let farmId = "UP43KAN7";
+           const smsService = new SMSService();
+           const messagetoFarmer = await smsService.sendFarmerRegistrationSMS(mobileNumber, farmerName, farmId);
+           if (messagetoFarmer.response.status === 'failure') {
+            console.error('SMS sending failed2:', messagetoFarmer.response.errors);
+        }
+           console.log("messagetoFarmer2==>",messagetoFarmer)
           return res.status(200).send(new serviceResponse({data: farmerDetails, message: _response_message.submit('Farmer')}))
       } else {
         return res.status(400).send(new serviceResponse({status:400,message: _response_message.submit('Farmer')}));

@@ -36,6 +36,40 @@ class SMSService {
         return this.sendSMS(phoneNumber, otp, 'reset_password');
     }
 
+
+    // function to send farmer registration success SMS
+    async sendFarmerRegistrationSMS(phoneNumber, farmerName, farmer_id) {
+        try {
+            
+            console.log("farmerName===>",farmerName,"farmer_id==>",farmer_id)
+            //const messageTemplate = `प्रिय  #FirstName#, आपका किसान आईडी  #Custom1# के साथ NAVBAZAR पर पंजीकरण सफलतापूर्वक पूरा हो गया है। धन्यवाद!`;
+
+           // const messageTemplate = `प्रिय ${farmerName},आपका किसान आईडी ${farmer_id}के साथ NAVBAZAR पर पंजीकरण सफलतापूर्वक पूरा हो गया है। धन्यवाद!`
+           const messageTemplate = `प्रिय #FirstName#, आपका किसान आईडी #Custom1# के साथ NAVBAZAR पर पंजीकरण सफलतापूर्वक पूरा हो गया है। धन्यवाद!`
+            console.log("messageTemplate===>", messageTemplate);
+            const apikey = encodeURIComponent(SMS_API_KEY);
+            const number = phoneNumber;
+            const sender = this.sender;
+            const messageWithValues = messageTemplate
+            .replace('#FirstName#', farmerName)
+            .replace('#Custom1#', farmer_id);
+            console.log("messageWithValues==>",messageWithValues)
+        // URL encode the message
+            const encodedMessage = encodeURIComponent(messageWithValues);
+            //const message = encodeURIComponent(messageTemplate);
+            console.log("encodedMessage=>",encodedMessage)
+            const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${encodedMessage}`;
+            // console.log("url==>",url)
+            //const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}&unicode=true`;
+            console.log("url==>", url);
+            const response = await axios.post(url); 
+            console.log("response==>",response.data)
+            return { message: 'Registration SMS sent successfully', response: response.data };
+        } catch (error) {
+            return { error: error.message };
+        }
+    }
+
     async sendSMS(phoneNumber, otp, templateName = 'default') {
         try {
             const messageTemplate = this.getMessageTemplate(templateName, otp);
