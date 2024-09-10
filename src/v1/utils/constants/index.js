@@ -161,7 +161,8 @@ const _titles = {
 const _gender = {
     male: "male",
     female: "female",
-    other: "other",
+    transgender: "transgender", 
+    other: "others",
 }
 const _maritalStatus = {
     married: "married",
@@ -180,6 +181,7 @@ const _category = {
     sc: "sc",
     st: "st",
 }
+
 const _areaUnit = {
     hectares: "hectares",
     acres: "acres",
@@ -244,32 +246,41 @@ const _zaidCrops = {
 
 const _individual_farmer_onboarding_steps = [ 
     { 
-        label: "basic_details",
+        label: "Basic Details",
         screen_number: 0,
         status: "pending"
     },
     { 
-        label: "address",
+        label: "Address",
         screen_number: 1,
         status: "pending"
     },
     { 
-        label: "land_details",
+        label: "Land Details",
         screen_number: 2,
         status: "pending"
     },
     { 
-        label: "documents",
+        label: "Documents",
         screen_number: 3,
         status: "pending"
     },
     { 
-        label: "bank_details",
+        label: "Bank Details",
         screen_number: 4,
         status: "pending"
     },
 
 ]
+
+const _individual_category = {
+    gen: "general",
+    obc: "obc",
+    sc: "sc",
+    st: "st",
+    women: "women",
+    others: "others" 
+}
 
 module.exports = {
     _farmerType,
@@ -309,4 +320,5 @@ module.exports = {
     _userType,
     _trader_type,
     _user_status,
+    _individual_category
 }
