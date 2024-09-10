@@ -245,27 +245,27 @@ const _zaidCrops = {
 const _individual_farmer_onboarding_steps = [ 
     { 
         label: "basic_details",
-        screen_number: 1,
+        screen_number: 0,
         status: "pending"
     },
     { 
         label: "address",
-        screen_number: 2,
+        screen_number: 1,
         status: "pending"
     },
     { 
         label: "land_details",
-        screen_number: 3,
+        screen_number: 2,
         status: "pending"
     },
     { 
         label: "documents",
-        screen_number: 4,
+        screen_number: 3,
         status: "pending"
     },
     { 
         label: "bank_details",
-        screen_number: 5,
+        screen_number: 4,
         status: "pending"
     },
 

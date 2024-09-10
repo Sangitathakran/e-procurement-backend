@@ -21,5 +21,4 @@ individualFarmerRoutes.get('/getFarmerDetails/:id',verifyJwtToken, getFarmerDeta
 
 individualFarmerRoutes.post('/submit-form/:id',verifyJwtToken, submitForm)
 
-
 module.exports = { individualFarmerRoutes };
