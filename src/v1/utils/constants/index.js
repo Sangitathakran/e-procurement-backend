@@ -248,7 +248,7 @@ const _individual_farmer_onboarding_steps = [
     { 
         label: "Basic Details",
         screen_number: 0,
-        status: "pending"
+        status: "active"
     },
     { 
         label: "Address",
