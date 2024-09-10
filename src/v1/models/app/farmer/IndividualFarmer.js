@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { _collectionName, _proofType, _titles, _gender, _religion, _maritalStatus, _status, _category, _farmerType , _areaUnit ,
-    _khaifCrops, _rabiCrops, _zaidCrops } = require('@src/v1/utils/constants');
+    _khaifCrops, _rabiCrops, _zaidCrops, _individual_category } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const farmerSchema = new mongoose.Schema({
 
@@ -12,7 +12,7 @@ const farmerSchema = new mongoose.Schema({
 
     userType: {
         type: Number,
-        default: 3
+        default: 1
     },
     
     basic_details: { 
@@ -20,7 +20,7 @@ const farmerSchema = new mongoose.Schema({
         email: { type: String, trim: false, },
         father_husband_name: { type: String, trim: true, },
         mobile_no: { type: String, trim: true, },
-        category: { type: String, enum: Object.values(_category), trim: false, },
+        category: { type: String, enum: Object.values(_individual_category), trim: false, },
         dob: { type: Date, trim: false, },
         farmer_type: { type: String, enum: Object.values(_farmerType), trim: false, },
         gender: { type: String,enum: Object.values(_gender), trim: false, }

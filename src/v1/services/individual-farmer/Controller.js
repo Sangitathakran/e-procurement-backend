@@ -91,7 +91,7 @@ module.exports.registerName = async (req, res) => {
     // Check if the user already exists and is verified
     const farmerData = await IndividualFarmer.findOneAndUpdate(
       { mobile_no: req.mobile_no },
-      { $set: { name: registerName } },
+      { $set: { name: registerName , userType : 3} },
       { new: true }
     );
 
