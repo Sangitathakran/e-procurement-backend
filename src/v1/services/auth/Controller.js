@@ -1,6 +1,6 @@
 const { _handleCatchErrors } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { _response_message, _middleware, _auth_module } = require("@src/v1/utils/constants/messages");
+const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
 const { User } = require("@src/v1/models/app/auth/User");
 const OTP = require("@src/v1/models/app/auth/OTP");
 const SMSService = require('@src/v1/utils/third_party/SMSservices');
@@ -105,6 +105,8 @@ module.exports.loginOrRegister = async (req, res) => {
             const data = {
                 token: token,
                 user_type: userExist.user_type,
+                phone:userExist.basic_details.associate_details.phone,
+                associate_code: userExist.user_code,
                 organization_name: userExist.basic_details.associate_details.organization_name || null,
                 onboarding: (userExist?.basic_details?.associate_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details) ? true : false
             }
@@ -168,6 +170,10 @@ module.exports.saveAssociateDetails = async (req, res) => {
                     ...user.basic_details.point_of_contact,
                     ...formData.point_of_contact,
                 };
+                user.basic_details.company_owner_info = {
+                    ...user.basic_details.company_owner_info,
+                    ...formData.company_owner_info,
+                };
                 break;
             case 'address':
                 user.address = {
@@ -230,6 +236,29 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data, message: _response_message.found("status") }));
 })
 
+
+
+module.exports.formPreview = async (req, res) => {
+    
+    try {
+        const { user_id } = req;
+        
+        if (!user_id) {
+            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
+        }
+
+        const response = await User.findById({ _id: user_id });
+        
+        if (!response) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data:response }));
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
 
 // get all the seller offer acc to req_id
 // if usertype is associate then show that particulare seller offer related to that request else if he is admin show him all the seller offer 
