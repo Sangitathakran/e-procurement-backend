@@ -25,6 +25,16 @@ const userSchema = new mongoose.Schema({
                 back: { type: String, trim: true },
             }
         },
+        company_owner_info: {
+            name: { type: String,  trim: true },
+            aadhar_number: { type: String, trim: true },
+            aadhar_image: {
+                front: { type: String, trim: true },
+                back: { type: String, trim: true },
+            },
+            pan_card: {type: String, trim: true,},
+            pan_image: { type: String, trim: true,},
+        },
         implementation_agency: {type: String,trim: true,},
         cbbo_name: {type: String,trim: true,},
 

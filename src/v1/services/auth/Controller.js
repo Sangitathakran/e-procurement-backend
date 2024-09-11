@@ -170,6 +170,10 @@ module.exports.saveAssociateDetails = async (req, res) => {
                     ...user.basic_details.point_of_contact,
                     ...formData.point_of_contact,
                 };
+                user.basic_details.company_owner_info = {
+                    ...user.basic_details.company_owner_info,
+                    ...formData.company_owner_info,
+                };
                 break;
             case 'address':
                 user.address = {

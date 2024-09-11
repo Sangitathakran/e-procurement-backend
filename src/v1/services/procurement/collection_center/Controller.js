@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const {  _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { CollectionCenter } = require("@src/v1/models/app/procurement/CollectionCenter");
@@ -32,7 +32,7 @@ module.exports.createCollectionCenter = async (req, res) => {
 module.exports.getCollectionCenter = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
         const { user_id } = req
         let query = {
             user_id: user_id,
@@ -52,8 +52,36 @@ module.exports.getCollectionCenter = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
+        if (isExport == 1) {
 
+            const record = records.rows.map((item) => {
+                return {
+                    "Address Line 1": item?.address?.line1 || 'NA',
+                    "Address Line 2": item?.address?.line2 || 'NA',
+                    "Country": item?.address?.country || 'NA',
+                    "State": item?.address?.country || 'NA',
+                    "District": item?.address?.district || 'NA',
+                    "City": item?.address?.city || 'NA',
+                    "PIN Code": item?.address?.postalCode || 'NA',
+                    "Name": item?.point_of_contact?.name || 'NA',
+                    "Email": item?.point_of_contact?.email || 'NA',
+                    "Mobile": item?.point_of_contact?.mobile || 'NA',
+                    "Designation": item?.point_of_contact?.designation || 'NA',
+                    "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
+                }
+            })
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `collection-center.xlsx`,
+                    worksheetName: `collection-center}`
+                });
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
+        }
     } catch (error) {
         _handleCatchErrors(error, res);
     }
