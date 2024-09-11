@@ -21,7 +21,7 @@ const farmerSchema = new mongoose.Schema({
         father_husband_name: { type: String, trim: true, },
         mobile_no: { type: String, trim: true, },
         category: { type: String, enum: Object.values(_individual_category), trim: false, },
-        dob: { type: Date, trim: false, },
+        dob: { type: String, trim: true},
         farmer_type: { type: String, enum: Object.values(_farmerType), trim: false, },
         gender: { type: String,enum: Object.values(_gender), trim: false, }
     },
