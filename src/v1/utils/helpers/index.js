@@ -90,9 +90,10 @@ exports.dumpJSONToExcel = (req, res, config = {
 
 
 exports._generateOrderNumber = () => {
-    const uuid = uuidv4();
-    const shortOrderNumber = uuid.replace(/-/g, '').substring(0, 6); // Remove dashes and take the first 6 characters
-    return shortOrderNumber;
+    const min = 100000;
+    const max = 999999;
+    const orderNumber = Math.floor(Math.random() * (max - min + 1)) + min;
+    return orderNumber.toString(); // Convert it to a string if needed
 }
 
 

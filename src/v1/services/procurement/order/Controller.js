@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, _generateOrderNumber } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { SellerOffers } = require("@src/v1/models/app/procurement/SellerOffers");
@@ -41,21 +41,34 @@ module.exports.associateOrder = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }));
         }
 
+        const total_qty_procured = receivedRecords.reduce((acc, cur) => acc += cur.qtyProcured, 0)
+        if (total_qty_procured > record.offeredQty) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Quantity procured") }] }));
+        }
         const myMap = new Map();
         const payment = [];
 
-        receivedRecords.forEach((ele) => {
-
+        for (let ele of receivedRecords) {
             if (myMap.has(ele.procurementCenter_id)) {
                 const currElement = myMap.get(ele.procurementCenter_id);
                 currElement.dispatchedqty += ele.qtyProcured;
             } else {
-                myMap.set(ele.procurementCenter_id, { req_id: req_id, seller_id: user_id, sellerOffer_id: record._id, dispatchedqty: ele.qtyProcured });
+                let batchId;
+                let isUnique = false;
+
+                while (!isUnique) {
+                    batchId = _generateOrderNumber();
+                    const existingOrder = await AssociateOrders.findOne({ batchId: batchId });
+                    if (!existingOrder) {
+                        isUnique = true;
+                    }
+                }
+                myMap.set(ele.procurementCenter_id, { req_id: req_id, batchId, seller_id: user_id, sellerOffer_id: record._id, dispatchedqty: ele.qtyProcured });
             }
 
             payment.push({ whomToPay: ele.farmer_id, user_type: "farmer", reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
 
-        })
+        }
 
         const associateRecords = await AssociateOrders.insertMany([...myMap.values()]);
 
