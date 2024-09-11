@@ -24,7 +24,10 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 
 // application level middlewares
 app.use(helmet())
-app.use(cors());
+app.use(cors({
+    origin: "*",
+    methods: ['POST', 'GET', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
+}));
 // app.use(morgan('dev'));
 app.use(morgan('combined', { stream: combinedLogStream }));
 app.use(express.json());
