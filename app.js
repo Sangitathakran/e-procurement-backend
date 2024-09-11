@@ -3,7 +3,6 @@ require('module-alias/register')
 // import modules
 const express = require("express");
 const app = express();
-const apiRouterV1 = express.Router()
 const morgan = require("morgan");
 const cors = require('cors');
 const helmet = require("helmet");
@@ -21,7 +20,7 @@ require('./config/database')
 const { handleCatchError, handleRouteNotFound, handleCors, handlePagination } = require("@src/v1/middlewares/express_app");
 const { combinedLogger, combinedLogStream } = require("@config/logger");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
-
+const routes=require("./src/v1/routes")
 // application level middlewares
 app.use(helmet())
 app.use(cors({
@@ -38,15 +37,13 @@ app.use(handleCors)
 app.use(handlePagination)
 app.use(cookieParser());
 app.disable('x-powered-by')
-app.use(apiVersion, apiRouterV1)
+app.use(apiVersion, routes)
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 // server status
 app.get('/', asyncErrorHandler(async (req, res) => {
     res.send(`<div align="center" style=""><h1>Server Ready For Requests. <h1><div>`);
 }));
 
-// Routes permissions
-require("./src/v1/routes")(apiRouterV1)
 
 /* Handle errors */
 // app.use(handleCatchError)
