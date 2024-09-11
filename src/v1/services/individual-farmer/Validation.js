@@ -112,6 +112,11 @@ const validationSchemas = {
         errorMessage: 'Area is required',
       },
     },
+    'land_details.area_unit': {
+      notEmpty: {
+        errorMessage: 'area_unit is required',
+      },
+    },
     'land_details.pinCode': {
       notEmpty: {
         errorMessage: 'Pin code is required',
