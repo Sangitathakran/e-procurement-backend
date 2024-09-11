@@ -16,10 +16,10 @@ module.exports.sendOTP = async (req, res) => {
    try{
     const { mobileNumber } = req.query;
     // Validate the mobile number
-     const isValidMobile = await validateMobileNumber(mobileNumber);
-     if(!isValidMobile){  
-      return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid("mobile Number") }));
-  }
+  //    const isValidMobile = await validateMobileNumber(mobileNumber);
+  //    if(!isValidMobile){  
+  //     return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid("mobile Number") }));
+  // }
 
     let otp = Math.floor(1000 + Math.random() * 9000);
 
