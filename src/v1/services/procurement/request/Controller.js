@@ -231,7 +231,7 @@ module.exports.associateOffer = async (req, res) => {
                 sellerOffers_id: sellerOfferRecord._id,
                 farmer_id: harvester._id,
                 metaData,
-                offeredQty: qtyOffered,
+                offeredQty: harvester.qty,
                 createdBy: user_id,
             }
 
