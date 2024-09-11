@@ -178,7 +178,7 @@ module.exports.submitForm = async (req, res) => {
         const stateCode = stateData.stateCode 
         const districtSerialNumber = district.serialNumber
         const districtCode = district.districtCode
-        const randomNumber = Math.floor(100000 + Math.random() * 900000)
+        const randomNumber = Math.floor(100 + Math.random() * 900)
 
         const farmerId = stateCode +  districtSerialNumber + districtCode + randomNumber
         // console.log("farmerId-->", farmerId)
@@ -196,28 +196,25 @@ module.exports.submitForm = async (req, res) => {
             farmerDetails.allStepsCompletedStatus = true
             const farmerUpdatedDetails = await farmerDetails.save();
             //welcome sms send functionality
+            console.log("famerId not yet generated 1")
             const mobileNumber = req.mobile_no;
-            console.log("mobileNumber==1>",mobileNumber)
             const farmerName = farmerDetails.basic_details.name;
+            const farmerId = farmerDetails.farmer_id;
             const smsService = new SMSService();
-            const messagetoFarmer = await smsService.sendFarmerRegistrationSMS(mobileNumber, farmerName, farmer_id);
-            if (messagetoFarmer.response.status === 'failure') {
-              console.error('SMS sending failed:', messagetoFarmer.response.errors);
-          }
-            console.log("messagetoFarmer1==>",messagetoFarmer)
+            await smsService.sendFarmerRegistrationSMS(mobileNumber, farmerName, farmerId);
+            
+            //console.log("messagetoFarmer1==>",messagetoFarmer)
             //await smsService.sendOTPSMS(mobileNumber);
             return res.status(200).send(new serviceResponse({data: farmerUpdatedDetails}))
           }
+
+          console.log("famerId generated 2")
            const mobileNumber = req.mobile_no;
-           console.log("mobileNumber==2>",mobileNumber)
-           let farmerName = "Nikhil";//farmerDetails?.basic_details?.name;
-           let farmId = "UP43KAN7";
+           const farmerName = farmerDetails?.basic_details?.name;
+           console.log("farmer_id==>",farmerDetails?.farmer_id)
+           const farmerId = farmerDetails?.farmer_id;
            const smsService = new SMSService();
-           const messagetoFarmer = await smsService.sendFarmerRegistrationSMS(mobileNumber, farmerName, farmId);
-           if (messagetoFarmer.response.status === 'failure') {
-            console.error('SMS sending failed2:', messagetoFarmer.response.errors);
-        }
-           console.log("messagetoFarmer2==>",messagetoFarmer)
+           await smsService.sendFarmerRegistrationSMS(mobileNumber, farmerName, farmerId);
           return res.status(200).send(new serviceResponse({data: farmerDetails, message: _response_message.submit('Farmer')}))
       } else {
         return res.status(400).send(new serviceResponse({status:400,message: _response_message.submit('Farmer')}));
