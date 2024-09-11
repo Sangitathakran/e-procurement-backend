@@ -15,7 +15,7 @@ const OTPModel = require('@src/v1/models/app/auth/OTP');
 
 module.exports.sendOTP = async (req, res) => {
   try {
-    const { mobileNumber, acceptTermCondition } = req.query;
+    const { mobileNumber, acceptTermCondition } = req.body;
     // Validate the mobile number
     const isValidMobile = await validateMobileNumber(mobileNumber);
     if (!isValidMobile) {
@@ -42,7 +42,7 @@ module.exports.sendOTP = async (req, res) => {
 
 module.exports.verifyOTP = async (req, res) => {
   try {
-    const { mobileNumber, inputOTP } = req.query;
+    const { mobileNumber, inputOTP } = req.body;
 
     // Validate the mobile number
     const isValidMobile = await validateMobileNumber(mobileNumber);
