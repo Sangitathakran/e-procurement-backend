@@ -36,7 +36,8 @@ const farmerSchema = new mongoose.Schema({
         pinCode: { type: String, trim: true },
     },
     land_details: { 
-        area: { type: String, enum: Object.values(_areaUnit).slice(0, 2)},
+        area: { type: String, trim: true},
+        area_unit: { type: String, enum: Object.values(_areaUnit).slice(0, 2)},
         pinCode: { type: String, trim: true },
         state: { type: String,  trim: true },
         district: { type: String,trim: true },
