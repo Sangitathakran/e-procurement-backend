@@ -41,27 +41,6 @@ const associateOrdersSchema = new mongoose.Schema({
     status: { type: String, enum: Object.values(_associateOrderStatus), default: _associateOrderStatus.pending }
 }, { timestamps: true });
 
-associateOrdersSchema.pre('save', async function (next) {
-    const order = this;
-
-    if (order.isNew) {
-        let batchId;
-        let isUnique = false;
-
-        while (!isUnique) {
-            batchId = _generateOrderNumber();
-            const existingOrder = await AssociateOrders.findOne({ batchId: batchId });
-            if (!existingOrder) {
-                isUnique = true;
-            }
-        }
-
-        order.batchId = batchId;
-    }
-
-    next();
-});
-
 const AssociateOrders = mongoose.model(_collectionName.AssociateOrders, associateOrdersSchema);
 
 module.exports = { AssociateOrders };
