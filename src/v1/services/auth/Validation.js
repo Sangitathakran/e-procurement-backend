@@ -19,6 +19,7 @@ const basicDetailsSchema = Joi.object({
                 'string.empty': _middleware.require('phone'),
                 'string.pattern.base': _response_message.invalid('phone number'),
             }),
+            company_logo: Joi.string().trim().required(),
     }),
     point_of_contact: Joi.object({
         name: Joi.string().trim().required().messages({
@@ -48,6 +49,9 @@ const basicDetailsSchema = Joi.object({
             }),
         } 
     }),
+    implementation_agency: Joi.string().trim().min(2).max(50),
+    cbbo_name: Joi.string().trim().min(2).max(50),
+
 });
 
 const addressSchema = Joi.object({

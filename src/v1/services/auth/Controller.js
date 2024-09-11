@@ -106,6 +106,7 @@ module.exports.loginOrRegister = async (req, res) => {
                 token: token,
                 user_type: userExist.user_type,
                 phone:userExist.basic_details.associate_details.phone,
+                associate_code: userExist.user_code,
                 organization_name: userExist.basic_details.associate_details.organization_name || null,
                 onboarding: (userExist?.basic_details?.associate_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details) ? true : false
             }
