@@ -151,6 +151,26 @@ const validationSchemas = {
         errorMessage: 'Khasra number is required',
       },
     },
+    'land_details.Khasra_doc_key': {
+      notEmpty: {
+        errorMessage: 'Khasra_doc_key is required',
+      },
+    },
+    'land_details.kharif_crops': {
+      notEmpty: {
+        errorMessage: 'Kharif crops is required',
+      },
+    },
+    'land_details.rabi_crops': {
+      notEmpty: {
+        errorMessage: 'Rabi crops is required',
+      },
+    },
+    'land_details.zaid_crops': {
+      notEmpty: {
+        errorMessage: 'Zaid crops is required',
+      },
+    },
   },
 
   documents:  {
@@ -163,6 +183,16 @@ const validationSchemas = {
         errorMessage: 'Aadhar number must be 12 characters long',
       },
     },
+    'documents.aadhar_front_doc_key': {
+      notEmpty: {
+        errorMessage: 'aadhar_front_doc_key is required',
+      },
+    },
+    'documents.aadhar_back_doc_key': {
+      notEmpty: {
+        errorMessage: 'aadhar_back_doc_key is required',
+      },
+    },
     'documents.pan_number': {
       notEmpty: {
         errorMessage: 'PAN number is required',
@@ -170,6 +200,11 @@ const validationSchemas = {
       isLength: {
         options: { min: 10, max: 10 },
         errorMessage: 'PAN number must be 10 characters long',
+      },
+    },
+    'documents.pan_doc_key': {
+      notEmpty: {
+        errorMessage: 'pan_doc_key is required',
       },
     },
   },
@@ -204,23 +239,9 @@ const validationSchemas = {
         errorMessage: 'Account number is required',
       },
     },
-    'bank_details.pinCode': {
+    'bank_details.proof_doc_key': {
       notEmpty: {
-        errorMessage: 'Pin code is required',
-      },
-      isLength: {
-        options: { min: 5, max: 6 },
-        errorMessage: 'Pin code must be 5-6 characters long',
-      },
-    },
-    'bank_details.proof_doc': {
-      notEmpty: {
-        errorMessage: 'Proof document is required',
-      },
-    },
-    'bank_details.kharif_crops': {
-      notEmpty: {
-        errorMessage: 'Kharif crops is required',
+        errorMessage: 'Proof document key is required',
       },
     },
   },
@@ -235,19 +256,6 @@ const validateFarmer = async (req, res, next) => {
   next();
 };
 const validateRegisterDetail =  checkSchema({
-  'mobileNumber': {
-    in: ['body'],
-    isLength: {
-      options: { min: 10, max: 10 },
-      errorMessage: 'Mobile number must be exactly 10 characters long'
-    },
-    isString: {
-      errorMessage: 'Mobile number must be a string'
-    },
-    notEmpty: {
-      errorMessage: 'Mobile number is required'
-    }
-  },
   'registerName': {
     in: ['body'],
     isString: {
