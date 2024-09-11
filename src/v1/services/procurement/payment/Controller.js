@@ -1,89 +1,25 @@
 const { _handleCatchErrors } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
-const { _sellerOfferStatus, _procuredStatus, _associateOrderStatus, _user_status } = require('@src/v1/utils/constants');
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-
+const { _userType } = require('@src/v1/utils/constants');
 
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', userType } = req.query
      
-        let query = {
-            ...(search ? { name: { $regex: search, $options: "i" } } : {})
-        };
-        const records = { count: 0 };
-        records.rows = paginate == 1 ? await Payment.find(query)
-            .populate({
-                path: 'req_id', select: 'product address'
-            })
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
+        let query = search ? { reqNo: { $regex: search, $options: 'i' } }  : {};
 
-        records.count = await Payment.countDocuments(query);
+        if (userType == _userType.farmer) {
+            query.user_type = 'farmer';
 
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        } else if (userType == _userType.associate) {
+            query.user_type = 'associate';
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-}
-
-module.exports.farmentPayment = async (req, res) => {
-
-    try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
-        const {user_type } = req;
-        let query = {
-            user_type:'farmer',
-            ...(search ? { name: { $regex: search, $options: "i" } } : {})
-        };
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
-            .populate({
-                path: 'req_id', select: 'product address'
-            })
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
-
-        records.count = await Payment.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-}
-
-module.exports.associatePayment = async (req, res) => {
-
-    try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
-        const {user_type } = req;
-        let query = {
-            user_type:'associate',
-            ...(search ? { name: { $regex: search, $options: "i" } } : {})
-        };
-        const records = { count: 0 };
-        records.rows = paginate == 1 ? await Payment.find(query)
-            .populate({
-                path: 'req_id', select: 'product address'
-            })
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
