@@ -105,7 +105,7 @@ module.exports.loginOrRegister = async (req, res) => {
             const data = {
                 token: token,
                 user_type: userExist.user_type,
-                phone:userExist.basic_details.associate_details.phone,
+                phone: userExist.basic_details.associate_details.phone,
                 associate_code: userExist.user_code,
                 organization_name: userExist.basic_details.associate_details.organization_name || null,
                 onboarding: (userExist?.basic_details?.associate_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details) ? true : false
@@ -239,20 +239,20 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
 
 
 module.exports.formPreview = async (req, res) => {
-    
+
     try {
         const { user_id } = req;
-        
+
         if (!user_id) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
         }
 
         const response = await User.findById({ _id: user_id });
-        
+
         if (!response) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data:response }));
+            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
         }
 
     } catch (error) {
@@ -260,5 +260,3 @@ module.exports.formPreview = async (req, res) => {
     }
 }
 
-// get all the seller offer acc to req_id
-// if usertype is associate then show that particulare seller offer related to that request else if he is admin show him all the seller offer 
