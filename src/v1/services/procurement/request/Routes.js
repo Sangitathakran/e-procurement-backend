@@ -1,7 +1,7 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
-const { getProcurement, getProcurementById, createProcurement, updateProcurement, getFarmerListById, fpoOffered, requestApprove, offeredFarmerList, editFarmerOffer, associateOrder, associateOffer } = require("./Controller");
+const { getProcurement, getProcurementById, createProcurement, updateProcurement, getFarmerListById, fpoOffered, requestApprove, offeredFarmerList, editFarmerOffer, associateOrder, associateOffer, approveRejectOfferByAgent } = require("./Controller");
 const { _sellerOfferStatus } = require("@src/v1/utils/constants");
 const { _status } = require("@src/v1/utils/constants/index");
 const express = require("express");
@@ -15,6 +15,7 @@ requestRoutes.patch("/request", verifyJwtToken, requestApprove);
 requestRoutes.post("/associate-offered", verifyJwtToken, associateOffer);
 requestRoutes.get("/", verifyJwtToken, getProcurement);
 requestRoutes.get("/:id", verifyJwtToken, getProcurementById);
+requestRoutes.put("/offer-status", verifyJwtToken, approveRejectOfferByAgent);
 requestRoutes.post("/", /*[
     body("quoteExpiry", _middleware.require("quoteExpiry")).notEmpty().trim(),
     body("product", _middleware.require("product")).notEmpty().trim(),

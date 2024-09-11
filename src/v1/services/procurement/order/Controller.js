@@ -41,6 +41,10 @@ module.exports.associateOrder = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }));
         }
 
+        const total_qty_procured = receivedRecords.reduce((acc, cur) => acc += cur.qtyProcured, 0)
+        if (total_qty_procured > record.offeredQty) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Quantity procured") }] }));
+        }
         const myMap = new Map();
         const payment = [];
 

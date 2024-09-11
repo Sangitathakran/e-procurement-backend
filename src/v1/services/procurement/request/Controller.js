@@ -13,6 +13,7 @@ const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const mongoose = require("mongoose");
 const { AssociateOrders } = require("@src/v1/models/app/procurement/AssociateOrders");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
+const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 
 module.exports.createProcurement = async (req, res) => {
 
@@ -230,7 +231,7 @@ module.exports.associateOffer = async (req, res) => {
                 sellerOffers_id: sellerOfferRecord._id,
                 farmer_id: harvester._id,
                 metaData,
-                offeredQty: qtyOffered,
+                offeredQty: harvester.qty,
                 createdBy: user_id,
             }
 
@@ -498,12 +499,12 @@ module.exports.requestApprove = async (req, res) => {
 module.exports.offeredFarmerList = async (req, res) => {
 
     try {
-        const { user_id } = req;
+        const { user_id, user_type } = req;
         const { page, limit, skip, sortBy, search = '', req_id } = req.query
 
-        const offer = await SellerOffers.findOne({ req_id, seller_id: user_id });
+        const offerIds = (await SellerOffers.find({ req_id, ...(user_type == _userType.associate && { seller_id: user_id }) })).map((ele) => ele._id);
 
-        if (!offer) {
+        if (offerIds.length == 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
         }
 
@@ -515,7 +516,7 @@ module.exports.offeredFarmerList = async (req, res) => {
             ]
         } : {};
 
-        query.sellerOffers_id = offer._id;
+        query.sellerOffers_id = { $in: offerIds };
         const records = { count: 0 };
 
         records.rows = await ContributedFarmers.find(query)
@@ -604,5 +605,34 @@ module.exports.editFarmerOffer = async (req, res) => {
 }
 
 
+module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) => {
 
 
+    const { user_type, user_id } = req;
+
+    // if (user_type != _userType.admin) {
+    //     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }));
+    // }
+
+    const { sellerOffer_id, status, comment } = req.body;
+
+    const offer = await SellerOffers.findOne({ _id: sellerOffer_id });
+
+    if (!offer) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
+    }
+
+    if (!Object.values(_sellerOfferStatus).includes(status)) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("status") }] }));
+    }
+
+    if (status == _sellerOfferStatus.rejected && comment) {
+        offer.comments.push({ user_id: user_id, comment });
+    }
+
+    offer.status = status;
+    await offer.save();
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: offer, message: _response_message.found("offer") }));
+
+})

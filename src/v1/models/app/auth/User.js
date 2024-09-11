@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema({
             associate_name: {type: String,trim: true,},
             email: {type: String,trim: true,lowercase: true,},
             phone: {type: String,trim: true,},
+            company_logo: {type: String,trim: true,},
         },
         point_of_contact: {
             name: { type: String,  trim: true },
@@ -24,6 +25,19 @@ const userSchema = new mongoose.Schema({
                 back: { type: String, trim: true },
             }
         },
+        company_owner_info: {
+            name: { type: String,  trim: true },
+            aadhar_number: { type: String, trim: true },
+            aadhar_image: {
+                front: { type: String, trim: true },
+                back: { type: String, trim: true },
+            },
+            pan_card: {type: String, trim: true,},
+            pan_image: { type: String, trim: true,},
+        },
+        implementation_agency: {type: String,trim: true,},
+        cbbo_name: {type: String,trim: true,},
+
     },
     address : {
         registered:{
