@@ -8,7 +8,7 @@ const contributedFarmersSchema = new mongoose.Schema({
     farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
     metaData: { type: Object, required: true },
     offeredQty: { type: Number, required: true },
-    order_no: { type: String, required: true, trim: true },
+    order_no: { type: String, required: false, trim: true },
     receving_date: { type: Date },
     qtyProcured: { type: Number },
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.CollectionCenter },

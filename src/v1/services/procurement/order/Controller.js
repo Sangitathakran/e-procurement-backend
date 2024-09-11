@@ -124,7 +124,7 @@ module.exports.viewTrackDelivery = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
-        
+
         let query = {
             req_id,
             ...(search ? { name: { $regex: search, $options: "i" } } : {})
@@ -148,6 +148,29 @@ module.exports.viewTrackDelivery = async (req, res) => {
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Track order") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.trackDeliveryByBatchId = async (req, res) => {
+
+    try {
+
+        const { batchId } = req.query;
+
+        const record = await AssociateOrders.findOne({ batchId })
+            .select({ dispatched: 1, intransit: 1, status: 1 })
+            .populate({
+                path: 'req_id', select: 'product address'
+            });
+
+        if (!record) {
+            res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Track order") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
