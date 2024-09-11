@@ -1,6 +1,6 @@
 const { _handleCatchErrors } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { _response_message, _middleware, _auth_module } = require("@src/v1/utils/constants/messages");
+const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
 const { User } = require("@src/v1/models/app/auth/User");
 const OTP = require("@src/v1/models/app/auth/OTP");
 const SMSService = require('@src/v1/utils/third_party/SMSservices');
@@ -231,3 +231,25 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data, message: _response_message.found("status") }));
 })
+
+module.exports.formPreview = async (req, res) => {
+    
+    try {
+        const { user_id } = req;
+        
+        if (!user_id) {
+            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
+        }
+
+        const response = await User.findById({ _id: user_id });
+        
+        if (!response) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data:response }));
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
