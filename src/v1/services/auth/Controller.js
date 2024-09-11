@@ -105,6 +105,7 @@ module.exports.loginOrRegister = async (req, res) => {
             const data = {
                 token: token,
                 user_type: userExist.user_type,
+                phone:userExist.basic_details.associate_details.phone,
                 organization_name: userExist.basic_details.associate_details.organization_name || null,
                 onboarding: (userExist?.basic_details?.associate_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details) ? true : false
             }
