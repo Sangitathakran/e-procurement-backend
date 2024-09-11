@@ -229,3 +229,7 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data, message: _response_message.found("status") }));
 })
+
+
+// get all the seller offer acc to req_id
+// if usertype is associate then show that particulare seller offer related to that request else if he is admin show him all the seller offer 
