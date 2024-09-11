@@ -36,7 +36,8 @@ const farmerSchema = new mongoose.Schema({
         pinCode: { type: String, trim: true },
     },
     land_details: { 
-        area: { type: String, enum: Object.values(_areaUnit).slice(0, 2)},
+        area: { type: String, trim: true},
+        area_unit: { type: String, enum: Object.values(_areaUnit).slice(0, 2)},
         pinCode: { type: String, trim: true },
         state: { type: String,  trim: true },
         district: { type: String,trim: true },
@@ -45,9 +46,9 @@ const farmerSchema = new mongoose.Schema({
         ghat_number: { type: String, trim: true, },  
         khasra_number: { type: String, trim: true},
         Khasra_doc_key: { type:String, trim: true},
-        kharif_crops: { type: String, enum: Object.values(_khaifCrops), trim: false, },
-        rabi_crops: { type: String, enum: Object.values(_rabiCrops), trim: false, },
-        zaid_crops: { type: String, enum: Object.values(_zaidCrops), trim: false, }
+        kharif_crops: [{ type: String, enum: Object.values(_khaifCrops), trim: false, }],
+        rabi_crops: [{ type: String, enum: Object.values(_rabiCrops), trim: false, }],
+        zaid_crops: [{ type: String, enum: Object.values(_zaidCrops), trim: false, }]
 
 
     },  
