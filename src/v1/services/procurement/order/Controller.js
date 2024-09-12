@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, _generateOrderNumber } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { SellerOffers } = require("@src/v1/models/app/procurement/SellerOffers");
@@ -17,25 +17,24 @@ module.exports.associateOrder = async (req, res) => {
         const { user_id } = req;
 
         const procurementRecord = await ProcurementRequest.findOne({ _id: req_id });
-
+       
         if (!procurementRecord) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
         }
 
         const record = await SellerOffers.findOne({ seller_id: user_id, req_id: req_id });
-
+     
         if (!record) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
         }
 
         const farmerRecords = await ContributedFarmers.findOne({ status: { $ne: _procuredStatus.received }, sellerOffers_id: record?._id });
-
+       
         if (farmerRecords) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
         }
 
         const receivedRecords = await ContributedFarmers.find({ status: _procuredStatus.received, sellerOffers_id: record?._id });
-
 
         if (receivedRecords.length == 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }));
@@ -48,18 +47,27 @@ module.exports.associateOrder = async (req, res) => {
         const myMap = new Map();
         const payment = [];
 
-        receivedRecords.forEach((ele) => {
-
+        for (let ele of receivedRecords) {
             if (myMap.has(ele.procurementCenter_id)) {
                 const currElement = myMap.get(ele.procurementCenter_id);
                 currElement.dispatchedqty += ele.qtyProcured;
             } else {
-                myMap.set(ele.procurementCenter_id, { req_id: req_id, seller_id: user_id, sellerOffer_id: record._id, dispatchedqty: ele.qtyProcured });
-            }
+                let batchId;
+                let isUnique = false;
 
-            payment.push({ whomToPay: ele.farmer_id, user_type: "farmer", reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
+                while (!isUnique) {
+                    batchId = _generateOrderNumber();
+                    const existingOrder = await AssociateOrders.findOne({ batchId: batchId });
+                    if (!existingOrder) {
+                        isUnique = true;
+                    }
+                }
+                myMap.set(ele.procurementCenter_id, { req_id: req_id, batchId, seller_id: user_id, sellerOffer_id: record._id, dispatchedqty: ele.qtyProcured });
+            }          
 
-        })
+            payment.push({ whomToPay: ele.farmer_id, user_type: "farmer", qtyProcured:ele.offeredQty, reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
+
+        }
 
         const associateRecords = await AssociateOrders.insertMany([...myMap.values()]);
 
@@ -136,7 +144,7 @@ module.exports.viewTrackDelivery = async (req, res) => {
         const records = { count: 0 };
         records.rows = paginate == 1 ? await AssociateOrders.find(query).populate({
             path: 'req_id', select: 'product address',
-            path: 'sellerOffer_id', select: 'procuredQty',
+            path: 'sellerOffer_id', select: 'offeredQty procuredQty',
             path: 'procurementCenter_id', select: 'point_of_contact address'
         })
             .sort(sortBy)
