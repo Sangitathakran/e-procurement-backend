@@ -58,7 +58,7 @@ app.get(
 );
 
 /* Handle errors */
-// app.use(handleCatchError)
+ //app.use(handleCatchError)
 app.all("*", handleRouteNotFound);
 
 // Listner server
