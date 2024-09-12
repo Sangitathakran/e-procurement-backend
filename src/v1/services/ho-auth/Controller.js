@@ -34,7 +34,7 @@ module.exports.Login = async (req, res) => {
             //     office_id:'854',
             //     address:'Tower A Sector-62 Noida'
             //    }).save();
-            return res.status(400).send(new serviceResponse({ status: 400, message: _auth_module.unAuth('Head Office')}));
+            return res.status(400).send(new serviceResponse({ status: 400, message: _auth_module.unAuth}));
         }
 
     } catch (err) {
