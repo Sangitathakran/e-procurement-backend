@@ -19,6 +19,7 @@ const basicDetailsSchema = Joi.object({
                 'string.empty': _middleware.require('phone'),
                 'string.pattern.base': _response_message.invalid('phone number'),
             }),
+            company_logo: Joi.string().trim().required(),
     }),
     point_of_contact: Joi.object({
         name: Joi.string().trim().required().messages({
@@ -48,6 +49,27 @@ const basicDetailsSchema = Joi.object({
             }),
         } 
     }),
+    company_owner_info: Joi.object({
+        name: Joi.string().trim().min(2).max(50),
+        aadhar_number: Joi.string().trim().pattern(/^\d{12}$/).messages({
+            'string.pattern.base': _response_message.invalid('Aadhar number'),
+        }),
+        aadhar_image: {
+            front : Joi.string().required().messages({
+                'string.empty': _middleware.require('Aadhar Front Image'),
+            }),
+            back : Joi.string().required().messages({
+                'string.empty': _middleware.require('Aadhar back Image'),
+            }),
+        },
+        pan_card: Joi.string().trim().pattern(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/).messages({
+            'string.pattern.base': _response_message.invalid('PAN card format'),
+        }),
+        pan_image: Joi.string().trim().optional(), 
+    }),
+    implementation_agency: Joi.string().trim().min(2).max(50),
+    cbbo_name: Joi.string().trim().min(2).max(50),
+
 });
 
 const addressSchema = Joi.object({
@@ -108,8 +130,7 @@ const companyDetailsSchema = Joi.object({
     cin_image: Joi.string().trim().required().messages({
         'string.empty': _middleware.require('CIN image'),
     }),
-    tan_number: Joi.string().trim().required().pattern(/^[A-Z]{4}[0-9]{5}[A-Z]{1}$/).messages({
-        'string.empty': _middleware.require('TAN number'),
+    tan_number: Joi.string().trim().pattern(/^[A-Z]{4}[0-9]{5}[A-Z]{1}$/).messages({
         'string.pattern.base': _response_message.invalid('TAN number format'),
     }),
     tan_image: Joi.string().trim().required().messages({

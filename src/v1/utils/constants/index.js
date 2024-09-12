@@ -27,6 +27,7 @@ const _collectionName = {
     FarmerOrder: "FarmerOrder",
     StateDistrictCity: "StateDistrictCity",
     AssociateOrders: "AssociateOrders",
+    Payment: "Payment",
 }
 const _status = {
     active: "active",
@@ -123,6 +124,7 @@ const _userType = {
     trader: "Trader",
     ho: "HO",
     bo: "BO",
+    associate: "Associate",
 }
 
 const _trader_type = {
@@ -176,38 +178,38 @@ const _category = {
     SC: "SC",
     ST: "ST",
 }
-const _areaUnit ={
+const _areaUnit = {
     Hectares: "Hectares",
     Acres: "Acres",
     Bigha: "Bigha",
 }
-const _soilType ={
+const _soilType = {
     Sandy: "Sandy",
     Loamy: "Loamy",
     Clayey: "Clayey",
-    Red_soil:"Red_soil",
+    Red_soil: "Red_soil",
     Alkaline: "Alkaline",
     Other: "Other",
 }
-const _distanceUnit ={
+const _distanceUnit = {
     Km: "Km",
     Metre: "Metre",
 }
-const _seedUsed ={
+const _seedUsed = {
     farmseved: "Farmseved",
     Company: "Company",
 }
-const _yesNo ={
+const _yesNo = {
     Yes: "Yes",
     No: "No",
 }
-const _seasons ={
+const _seasons = {
     Rabi: "Rabi",
     Kharif: "Kharif",
     Zaid: "Zaid",
     Others: "Others",
 }
-const _education ={
+const _education = {
     Nonmatric: "Nonmatric",
     Matric: "Matric",
     Intermidiate: "Intermidiate",
@@ -275,6 +277,16 @@ const _associateOrderStatus = {
     delivered: "Delivered",
 }
 
+const _paymentmethod = {
+    bank_transfer: "Bank Transfer",
+    cheque: "Cheque",
+}
+
+const _paymentstatus = {
+    pending: "Pending",
+    completed: "Completed",
+}
+
 module.exports = {
     _farmerType,
     _collectionName,
@@ -313,5 +325,7 @@ module.exports = {
     _userType,
     _trader_type,
     _user_status,
-    _associateOrderStatus
+    _associateOrderStatus,
+    _paymentmethod,
+    _paymentstatus
 }

@@ -8,7 +8,7 @@ const contributedFarmersSchema = new mongoose.Schema({
     farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
     metaData: { type: Object, required: true },
     offeredQty: { type: Number, required: true },
-    order_no: { type: String, required: true, trim: true },
+    order_no: { type: String, required: false, trim: true },
     receving_date: { type: Date },
     qtyProcured: { type: Number },
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.CollectionCenter },
@@ -18,6 +18,9 @@ const contributedFarmersSchema = new mongoose.Schema({
     gross_weight: { type: Number },
     net_weight: { type: Number },
     weight_slip: { type: String },
+    payment_date: { type: Date },
+    payment_status: { type: String, enum: ["pending", "credited"], defualt: "pending" },
+    net_pay: { type: Number, default: 0 },
     status: { type: String, enum: Object.values(_procuredStatus), default: _procuredStatus.pending },
     ..._commonKeys
 }, { timestamps: true });

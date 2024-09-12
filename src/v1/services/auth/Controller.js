@@ -1,6 +1,6 @@
 const { _handleCatchErrors } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { _response_message, _middleware, _auth_module } = require("@src/v1/utils/constants/messages");
+const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
 const { User } = require("@src/v1/models/app/auth/User");
 const OTP = require("@src/v1/models/app/auth/OTP");
 const SMSService = require('@src/v1/utils/third_party/SMSservices');
@@ -8,7 +8,8 @@ const EmailService = require("@src/v1/utils/third_party/EmailServices");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { verifyJwtToken, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-
+const { _userType } = require('@src/v1/utils/constants');
+const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
 
@@ -89,10 +90,10 @@ module.exports.loginOrRegister = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.invalid('OTP verification failed') }));
         }
 
-        let userExist = await User.findOne(query);
+        let userExist = await User.findOne(query).lean();
 
         if (userExist) {
-            const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id }
+            const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
             const now = new Date();
             const expiresIn = Math.floor(now.getTime() / 1000) + 3600;
             const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
@@ -103,7 +104,11 @@ module.exports.loginOrRegister = async (req, res) => {
             });
             const data = {
                 token: token,
-                organization_name: userExist.basic_details.associate_details.organization_name || null
+                user_type: userExist.user_type,
+                phone:userExist.basic_details.associate_details.phone,
+                associate_code: userExist.user_code,
+                organization_name: userExist.basic_details.associate_details.organization_name || null,
+                onboarding: (userExist?.basic_details?.associate_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details) ? true : false
             }
 
             return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: data }));
@@ -113,7 +118,8 @@ module.exports.loginOrRegister = async (req, res) => {
                 basic_details: isEmailInput
                     ? { associate_details: { email: userInput } }
                     : { associate_details: { phone: userInput } },
-                term_condition: true
+                term_condition: true,
+                user_type: _userType.associate,
             };
 
             if (isEmailInput) {
@@ -153,6 +159,9 @@ module.exports.saveAssociateDetails = async (req, res) => {
                 user.basic_details.associate_details.organization_name = formData.organization_name;
                 break;
             case 'basic_details':
+                if (formData.associate_details && formData.associate_details.phone) {
+                    delete formData.associate_details.phone
+                }
                 user.basic_details.associate_details = {
                     ...user.basic_details.associate_details,
                     ...formData.associate_details,
@@ -160,6 +169,10 @@ module.exports.saveAssociateDetails = async (req, res) => {
                 user.basic_details.point_of_contact = {
                     ...user.basic_details.point_of_contact,
                     ...formData.point_of_contact,
+                };
+                user.basic_details.company_owner_info = {
+                    ...user.basic_details.company_owner_info,
+                    ...formData.company_owner_info,
                 };
                 break;
             case 'address':
@@ -198,3 +211,54 @@ module.exports.saveAssociateDetails = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+
+module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
+
+    const { user_id } = req;
+
+    let record = await User.findOne({ _id: user_id }).lean();
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }));
+    }
+    // record = { ...record }
+    console.log(record)
+    const data = [
+        { label: "organization", status: record?.basic_details?.associate_details?.organization_name ? "completed" : "pending" },
+        { label: "Basic Details", status: record?.basic_details?.point_of_contact ? "completed" : "pending" },
+        { label: "Address", status: record.address ? "completed" : "pending" },
+        { label: "Company Details", status: record.company_details ? "completed" : "pending" },
+        { label: "Authorised Person", status: record.authorised ? "completed" : "pending" },
+        { label: "Bank Details", status: record.bank_details ? "completed" : "pending" },
+    ];
+
+    return res.status(200).send(new serviceResponse({ status: 200, data, message: _response_message.found("status") }));
+})
+
+
+
+module.exports.formPreview = async (req, res) => {
+    
+    try {
+        const { user_id } = req;
+        
+        if (!user_id) {
+            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
+        }
+
+        const response = await User.findById({ _id: user_id });
+        
+        if (!response) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data:response }));
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+// get all the seller offer acc to req_id
+// if usertype is associate then show that particulare seller offer related to that request else if he is admin show him all the seller offer 
