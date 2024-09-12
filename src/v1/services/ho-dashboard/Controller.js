@@ -1,43 +1,60 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
-const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
+const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const {
+  asyncErrorHandler,
+} = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const {  _response_message, _middleware, _auth_module } = require("@src/v1/utils/constants/messages");
+const {
+  IndividualFarmer,
+} = require("@src/v1/models/app/farmer/IndividualFarmer");
+const { farmer } = require("@src/v1/models/app/farmer/Farmer");
 const { User } = require("@src/v1/models/app/auth/User");
-const EmailService = require("@src/v1/utils/third_party/EmailServices");
-const jwt = require("jsonwebtoken");
-const { JWT_SECRET_KEY } = require('@config/index');
-const { verifyJwtToken, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-//widget list
-module.exports.widgetList=asyncErrorHandler(async(req,res)=>{
-                    let widgetDetails = {
-                      branch: { total: 0, lastMonth: [] },
+const {
+  CollectionCenter,
+} = require("@src/v1/models/app/procurement/CollectionCenter");
+const { _query } = require("@src/v1/utils/constants/messages");
 
-                      associate: { total: 0, lastMonth: [] },
-                      procCenter: { total: 0, lastMonth: [] },
-                      farmer: { total: 0, lastMonth: [] },
-                    };
-                
+//widget list
+module.exports.widgetList = asyncErrorHandler(async (req, res) => {
+  let widgetDetails = {
+    branch: { total: 0, lastMonth: [] },
+
+    associate: { total: 0, lastMonth: [] },
+    procCenter: { total: 0, lastMonth: [] },
+    farmer: { total: 0, lastMonth: [] },
+  };
+  let individualFCount = (await IndividualFarmer.countDocuments({})) ?? 0;
+  let associateFCount = (await farmer.countDocuments({})) ?? 0;
+  widgetDetails.farmer.total = individualFCount + associateFCount;
+  widgetDetails.associate.total = await User.countDocuments({});
+  widgetDetails.procCenter.total = await CollectionCenter.countDocuments({});
+  return res
+    .status(200)
+    .send(
+      new serviceResponse({
+        status: 200,
+        message: _query.get("Account"),
+        data: widgetDetails,
+      })
+    );
 });
 
 //payment quantity list
-module.exports.paymentQuantityList=asyncErrorHandler(async(req,res)=>{
-    let widgetDetails = {
-      branch: { total: 0, lastMonth: [] },
+module.exports.paymentQuantityList = asyncErrorHandler(async (req, res) => {
+  let widgetDetails = {
+    branch: { total: 0, lastMonth: [] },
 
-      associate: { total: 0, lastMonth: [] },
-      procCenter: { total: 0, lastMonth: [] },
-      farmer: { total: 0, lastMonth: [] },
-    };
-
+    associate: { total: 0, lastMonth: [] },
+    procCenter: { total: 0, lastMonth: [] },
+    farmer: { total: 0, lastMonth: [] },
+  };
 });
-//locationWareHouseChart 
-module.exports.locationWareHouseChart=asyncErrorHandler(async(req,res)=>{
-    let widgetDetails = {
-      branch: { total: 0, lastMonth: [] },
+//locationWareHouseChart
+module.exports.locationWareHouseChart = asyncErrorHandler(async (req, res) => {
+  let widgetDetails = {
+    branch: { total: 0, lastMonth: [] },
 
-      associate: { total: 0, lastMonth: [] },
-      procCenter: { total: 0, lastMonth: [] },
-      farmer: { total: 0, lastMonth: [] },
-    };
-
+    associate: { total: 0, lastMonth: [] },
+    procCenter: { total: 0, lastMonth: [] },
+    farmer: { total: 0, lastMonth: [] },
+  };
 });
