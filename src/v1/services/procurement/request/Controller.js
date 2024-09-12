@@ -636,3 +636,39 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
     return res.status(200).send(new serviceResponse({ status: 200, data: offer, message: _response_message.found("offer") }));
 
 })
+
+
+module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
+
+    const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
+
+    const { user_type, user_id } = req;
+
+    let query = search ? {
+        $or: []
+    } : {};
+
+    if (user_type == _userType.associate) {
+        query.seller_id = user_id;
+    }
+
+    query.req_id = req_id;
+
+    const records = { count: 0 };
+
+    records.rows = paginate == 1 ? await SellerOffers.find(query)
+        .sort(sortBy)
+        .skip(skip)
+        .limit(parseInt(limit)) : await SellerOffers.find(query).sort(sortBy);
+
+    records.count = await SellerOffers.countDocuments(query);
+
+
+    if (paginate == 1) {
+        records.page = page
+        records.limit = limit
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("seller offer") }));
+})
