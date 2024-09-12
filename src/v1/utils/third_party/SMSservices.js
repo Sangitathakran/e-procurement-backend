@@ -95,7 +95,9 @@ class SMSService {
     }
 }
 
+const  smsService=new SMSService();
 
 
-
-module.exports = SMSService;
+module.exports = {
+    smsService
+};
