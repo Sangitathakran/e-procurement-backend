@@ -10,7 +10,7 @@ const stateList = require("../../utils/constants/stateList")
 
 const { body, validationResult, checkSchema } = require("express-validator");
 const { errorFormatter } = require("@src/v1/utils/helpers/express_validator");
-const SMSService = require('@src/v1/utils/third_party/SMSservices');
+const {smsService} = require('@src/v1/utils/third_party/SMSservices');
 const OTPModel = require('@src/v1/models/app/auth/OTP');
 
 module.exports.sendOTP = async (req, res) => {
@@ -26,7 +26,6 @@ module.exports.sendOTP = async (req, res) => {
       return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.Accept_term_condition() }));
     }
 
-    const smsService = new SMSService();
     await smsService.sendOTPSMS(mobileNumber);
 
 
