@@ -2,9 +2,11 @@ const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const {  _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { CollectionCenter } = require("@src/v1/models/app/procurement/CollectionCenter");
+const { User } = require("@src/v1/models/app/auth/User");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
+const { _userType, _center_type } = require("@src/v1/utils/constants");
 const Readable = require('stream').Readable;
 
 module.exports.createCollectionCenter = async (req, res) => {
@@ -13,9 +15,19 @@ module.exports.createCollectionCenter = async (req, res) => {
         const { user_id, user_type, trader_type } = req
         const { agencyId, line1, line2, country, state, district, city, name, email, mobile, designation,aadhar_number, aadhar_image, postalCode, lat, long, addressType } = req.body;
 
+        let center_type;
+        if(user_type == 'Associate'){
+            center_type = _center_type.associate;
+        } else if(user_type == 'head_office') {
+            center_type = _center_type.head_office;
+        } else {
+            center_type = _center_type.agent;
+        }
+        
         const record = await CollectionCenter.create({
             agencyId,
             user_id:user_id,
+            center_type : center_type,
             address: { line1, line2, country, state, district, city, postalCode, lat, long },
             point_of_contact: { name, email, mobile, designation, aadhar_number, aadhar_image, },
             addressType
@@ -39,10 +51,22 @@ module.exports.getCollectionCenter = async (req, res) => {
             ...(search ? { name: { $regex: search, $options: "i" } ,deletedAt: null} : { deletedAt: null })
         };
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await CollectionCenter.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await CollectionCenter.find(query).sort(sortBy);
+        records.rows = paginate == 1 
+            ? await CollectionCenter.find(query)
+                .populate({
+                    path: 'user_id',
+                    select: 'basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code'
+                })
+                .sort(sortBy)
+                .skip(skip)
+                .limit(parseInt(limit)) 
+            
+            : await CollectionCenter.find(query)
+                .populate({
+                    path: 'user_id',
+                    select: 'basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code'
+                })
+                .sort(sortBy);
 
         records.count = await CollectionCenter.countDocuments(query);
 
