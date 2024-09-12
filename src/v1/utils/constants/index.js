@@ -235,6 +235,8 @@ const _rabiCrops = {
     tur: "tur",
     moong: "moong",
     masoor: "masoor",
+    sunflower: "sunflower",
+    wheat: "wheat"
 
 }
 
