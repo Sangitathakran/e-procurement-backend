@@ -1,24 +1,25 @@
 const { _handleCatchErrors } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
-const { _sellerOfferStatus, _procuredStatus, _associateOrderStatus, _user_status } = require('@src/v1/utils/constants');
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-
+const { _userType } = require('@src/v1/utils/constants');
 
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', userType } = req.query
+     
+        let query = search ? { reqNo: { $regex: search, $options: 'i' } }  : {};
 
-        let query = {
-            req_id,
-            ...(search ? { name: { $regex: search, $options: "i" } } : {})
-        };
+        if (userType == _userType.farmer) {
+            query.user_type = 'farmer';
+
+        } else if (userType == _userType.associate) {
+            query.user_type = 'associate';
+        }
+
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
-            .populate({
-                path: 'req_id', select: 'product address'
-            })
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
