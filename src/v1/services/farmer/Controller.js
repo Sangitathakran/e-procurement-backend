@@ -4,6 +4,7 @@ const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertN
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
+const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { User } = require("@src/v1/models/app/auth/User");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const xlsx = require('xlsx');
@@ -12,23 +13,7 @@ const Readable = require('stream').Readable;
 
 module.exports.createFarmer = async (req, res) => {
     try {
-        const {
-            associate_id,
-            title,
-            name,
-            parents,
-            dob,
-            gender,
-            marital_status,
-            religion,
-            category,
-            education,
-            proof,
-            address,
-            mobile_no,
-            email,
-            status
-        } = req.body;
+        const {associate_id,title,name,parents,dob,gender,marital_status,religion,category,education,proof,address,mobile_no,email,status } = req.body;
         const { father_name, mother_name } = parents || {};
         const existingFarmer = await farmer.findOne({ 'mobile_no': mobile_no });
 
@@ -40,27 +25,7 @@ module.exports.createFarmer = async (req, res) => {
         }
         const farmerCode = await _generateFarmerCode();
 
-        const newFarmer = new farmer({
-            associate_id,
-            farmer_code: farmerCode,
-            title,
-            name,
-            parents: {
-                father_name: father_name || '',
-                mother_name: mother_name || ''
-            },
-            dob,
-            gender,
-            marital_status,
-            religion,
-            category,
-            education,
-            proof,
-            address,
-            mobile_no,
-            email,
-            status
-        });
+        const newFarmer = new farmer({associate_id,farmer_code: farmerCode,title,name,parents: {    father_name: father_name || '',    mother_name: mother_name || ''},dob,gender,marital_status,religion,category,education,proof,address,mobile_no,email,status });
         const savedFarmer = await newFarmer.save();
 
         return res.status(201).send(new serviceResponse({
@@ -102,6 +67,491 @@ module.exports.getFarmers = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+};
+module.exports.editFarmer = async (req, res) => {
+    try {
+      const { id } = req.params; 
+      const {
+        associate_id, title, name, parents, dob, gender,
+        marital_status, religion, category, education,
+        proof, address, mobile_no, email, status
+      } = req.body;
+  
+      const { father_name, mother_name } = parents || {};
+  
+      const existingFarmer = await farmer.findById(id);
+      if (!existingFarmer) {
+        return res.status(404).send(new serviceResponse({
+          status: 404,
+          errors: [{ message: _response_message.notFound("farmer") }]
+        }));
+      }
+  
+      existingFarmer.associate_id = associate_id || existingFarmer.associate_id;
+      existingFarmer.title = title || existingFarmer.title;
+      existingFarmer.name = name || existingFarmer.name;
+      existingFarmer.parents.father_name = father_name || existingFarmer.parents.father_name;
+      existingFarmer.parents.mother_name = mother_name || existingFarmer.parents.mother_name;
+      existingFarmer.dob = dob || existingFarmer.dob;
+      existingFarmer.gender = gender || existingFarmer.gender;
+      existingFarmer.marital_status = marital_status || existingFarmer.marital_status;
+      existingFarmer.religion = religion || existingFarmer.religion;
+      existingFarmer.category = category || existingFarmer.category;
+      existingFarmer.education = education || existingFarmer.education;
+      existingFarmer.proof = proof || existingFarmer.proof;
+      existingFarmer.address = address || existingFarmer.address;
+      existingFarmer.mobile_no = mobile_no || existingFarmer.mobile_no;
+      existingFarmer.email = email || existingFarmer.email;
+      existingFarmer.status = status || existingFarmer.status;
+  
+      const updatedFarmer = await existingFarmer.save();
+  
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: updatedFarmer,
+        message: _response_message.updated("Farmer")
+      }));
+  
+    } catch (error) {
+      _handleCatchErrors(error, res);
+    }
+  };
+  
+module.exports.deletefarmer = async (req, res) => {
+    try {
+      const { id } = req.query;
+      if (!id) {
+        return res.status(400).send({ message: 'Please provide an ID to delete.' });
+      }
+      const response = await farmer.deleteOne({ _id: id });
+      
+      if (response.deletedCount > 0) {
+        return res.status(200).send(new serviceResponse({
+          status: 200,
+          data: response,
+          message: _response_message.deleted("farmer"),
+        }));
+      } else {
+        return res.status(404).send(new serviceResponse({
+          status: 404,
+          data: response,
+          message: _response_message.notFound("farmer"),
+        }));
+      }
+    } catch (error) {
+      _handleCatchErrors(error, res);
+    }
+  };
+  
+  module.exports.createLand = async (req, res) => {
+    try {
+      const {
+        farmer_id, associate_id, total_area, khasra_no, area_unit, khatauni, sow_area, state_name,
+        district_name, sub_district, expected_production, soil_type, soil_tested,
+        soil_health_card, soil_testing_lab_name, lab_distance_unit
+      } = req.body;
+  
+      const existingLand = await Land.findOne({ 'khasra_no': khasra_no });
+  
+      if (existingLand) {
+        return res.status(400).send(new serviceResponse({
+          status: 400,
+          errors: [{ message: _response_message.allReadyExist("Land") }]
+        }));
+      }
+      const state_id = await getStateId(state_name);
+      const district_id = await getDistrictId(district_name);
+      const newLand = new Land({
+        farmer_id, associate_id, total_area, khasra_no, area_unit, khatauni, sow_area,
+        land_address:{
+            state_id, 
+            district_id, 
+            sub_district
+          },
+        expected_production, soil_type, soil_tested,
+        soil_health_card, soil_testing_lab_name, lab_distance_unit
+      });
+      const savedLand = await newLand.save();
+  
+      return res.status(201).send(new serviceResponse({
+        status: 201,
+        data: savedLand,
+        message: _response_message.created("Land")
+      }));
+  
+    } catch (error) {
+      _handleCatchErrors(error, res);
+    }
+  };
+
+  module.exports.updateLand = async (req, res) => {
+    try {
+      const { land_id } = req.params;
+      const {
+        total_area, khasra_no, area_unit, khatauni, sow_area, state_name,
+        district_name, sub_district, expected_production, soil_type, soil_tested,
+        soil_health_card, soil_testing_lab_name, lab_distance_unit
+      } = req.body;
+  
+      const state_id = await getStateId(state_name);
+      const district_id = await getDistrictId(district_name);
+  
+      const updatedLand = await Land.findByIdAndUpdate(
+        land_id,
+        {
+          total_area, khasra_no, area_unit, khatauni, sow_area, state_id,
+          district_id, sub_district, expected_production, soil_type, soil_tested,
+          soil_health_card, soil_testing_lab_name, lab_distance_unit
+        },
+        { new: true }
+      );
+  
+      if (!updatedLand) {
+        return res.status(404).send(new serviceResponse({
+          status: 404,
+          message: _response_message.notFound("Land")
+        }));
+      }
+  
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: updatedLand,
+        message: _response_message.updated("Land")
+      }));
+  
+    } catch (error) {
+      _handleCatchErrors(error, res);
+    }
+  };
+  
+  module.exports.updateLand = async (req, res) => {
+    try {
+        
+      const { land_id } = req.params;
+      
+      const {
+        total_area, khasra_no, area_unit, khatauni, sow_area, state_name,
+        district_name, sub_district, expected_production, soil_type, soil_tested,
+        soil_health_card, soil_testing_lab_name, lab_distance_unit
+      } = req.body;
+  
+      const state_id = await getStateId(state_name);
+      const district_id = await getDistrictId(district_name);
+  
+      const updatedLand = await Land.findByIdAndUpdate(
+        land_id,
+        {
+          total_area,
+          khasra_no,
+          area_unit,
+          khatauni,
+          sow_area,
+          land_address: {
+            state_id,
+            district_id,
+            sub_district
+          },
+          expected_production,
+          soil_type,
+          soil_tested,
+          soil_health_card,
+          soil_testing_lab_name,
+          lab_distance_unit
+        },
+        { new: true }
+      );
+  
+      if (!updatedLand) {
+        return res.status(404).send(new serviceResponse({
+          status: 404,
+          message: _response_message.notFound("Land")
+        }));
+      }
+  
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: updatedLand,
+        message: _response_message.updated("Land")
+      }));
+  
+    } catch (error) {
+      _handleCatchErrors(error, res);
+    }
+  };
+  module.exports.deleteLand = async (req, res) => {
+    try {
+        const { id } = req.query;
+        if (!id) {
+          return res.status(400).send({ message: 'Please provide an ID to delete.' });
+        }
+        const response = await Land.deleteOne({ _id: id });
+        
+        if (response.deletedCount > 0) {
+          return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: response,
+            message: _response_message.deleted("Land"),
+          }));
+        } else {
+          return res.status(404).send(new serviceResponse({
+            status: 404,
+            data: response,
+            message: _response_message.notFound("Land"),
+          }));
+        }
+      } catch (error) {
+        _handleCatchErrors(error, res);
+      }
+  };
+
+  module.exports.createCrop = async (req, res) =>{
+    try {
+        const {
+          associate_id, farmer_id, sowing_date, harvesting_date, crops_name, production_quantity,
+          area_unit, total_area, productivity, selling_price, market_price, yield, seed_used,
+          fertilizer_used, fertilizer_name, fertilizer_dose, pesticide_used, pesticide_name,
+          pesticide_dose, insecticide_used, insecticide_name, insecticide_dose, crop_insurance,
+          insurance_company, insurance_worth, crop_seasons
+        } = req.body;
+    
+        const sowingdate = parseMonthyear(sowing_date);
+        const harvestingdate = parseMonthyear(harvesting_date);
+        const newCrop = new Crop({
+          associate_id, farmer_id, sowing_date:sowingdate, harvesting_date:harvestingdate, crops_name, production_quantity,
+          area_unit, total_area, productivity, selling_price, market_price, yield, seed_used,
+          fertilizer_used, fertilizer_name, fertilizer_dose, pesticide_used, pesticide_name,
+          pesticide_dose, insecticide_used, insecticide_name, insecticide_dose, crop_insurance,
+          insurance_company, insurance_worth, crop_seasons
+        });
+    
+        const savedCrop = await newCrop.save();
+    
+        return res.status(201).send(new serviceResponse({
+            status: 201,
+            data: savedCrop,
+            message: _response_message.created("Crop")
+          }));
+    
+        } catch (error) {
+            _handleCatchErrors(error, res);
+          }
+  };
+  module.exports.updateCrop = async (req, res) => {
+    try {
+        const { crop_id } = req.params;
+        const {
+            associate_id, farmer_id, sowing_date, harvesting_date, crops_name,
+            production_quantity, area_unit, total_area, productivity, selling_price,
+            market_price, yield, seed_used, fertilizer_used, fertilizer_name, fertilizer_dose,
+            pesticide_used, pesticide_name, pesticide_dose, insecticide_used, insecticide_name,
+            insecticide_dose, crop_insurance, insurance_company, insurance_worth, crop_seasons
+        } = req.body;
+
+        const sowingdate = parseMonthyear(sowing_date);
+        const harvestingdate = parseMonthyear(harvesting_date);
+        const updatedCrop = await Crop.findByIdAndUpdate(
+            crop_id,
+            {
+                associate_id, farmer_id, sowing_date:sowingdate, harvesting_date:harvestingdate, crops_name,
+                production_quantity, area_unit, total_area, productivity, selling_price,
+                market_price, yield, seed_used, fertilizer_used, fertilizer_name, fertilizer_dose,
+                pesticide_used, pesticide_name, pesticide_dose, insecticide_used, insecticide_name,
+                insecticide_dose, crop_insurance, insurance_company, insurance_worth, crop_seasons
+            },
+            { new: true }
+        );
+
+        if (!updatedCrop) {
+            return res.status(404).send(new serviceResponse({
+                status: 404,
+                message: _response_message.notFound("Crop")
+            }));
+        }
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: updatedCrop,
+            message: _response_message.updated("Crop")
+        }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+      }
+};
+  
+module.exports.deleteCrop = async (req, res) => {
+    try {
+        const { id } = req.query;
+        if (!id) {
+          return res.status(400).send({ message: 'Please provide an ID to delete.' });
+        }
+        const response = await Crop.deleteOne({ _id: id });
+        
+        if (response.deletedCount > 0) {
+          return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: response,
+            message: _response_message.deleted("Crop"),
+          }));
+        } else {
+          return res.status(404).send(new serviceResponse({
+            status: 404,
+            data: response,
+            message: _response_message.notFound("Crop"),
+          }));
+        }
+      } catch (error) {
+        _handleCatchErrors(error, res);
+      }
+};
+module.exports.createBank = async (req, res) => {
+    console.log(req.body);
+    try {
+        const {
+            farmer_id, 
+            associate_id, 
+            bank_name, 
+            account_no, 
+            ifsc_code, 
+            account_holder_name,
+            branch_address: {
+                state_name, 
+                district_name, 
+                city,
+                block, 
+                pincode
+            },
+        } = req.body;
+
+        const state_id = await getStateId(state_name); 
+        const district_id = await getDistrictId(district_name); 
+
+        if (!state_id || !district_id) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: "Invalid state or district provided"
+            }));
+        }
+
+        const newBank = new Bank({
+            farmer_id, 
+            associate_id, 
+            bank_name, 
+            account_no, 
+            ifsc_code, 
+            account_holder_name,
+            branch_address: {
+                bank_state_id: state_id,
+                bank_district_id: district_id,
+                city,
+                bank_block: block,
+                bank_pincode: pincode,
+            }
+        });
+
+        const savedBank = await newBank.save();
+        
+        return res.status(201).send(new serviceResponse({
+            status: 201,
+            data: savedBank,
+            message: _response_message.created("Bank")
+        }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.updateBank = async (req, res) => {
+    try {
+        const { bank_id } = req.params;
+        const {
+            farmer_id, 
+            associate_id, 
+            bank_name, 
+            account_no, 
+            ifsc_code, 
+            account_holder_name,
+            branch_address: {
+                state_name, 
+                district_name, 
+                city,
+                block, 
+                pincode
+            },
+        } = req.body;
+
+        const state_id = await getStateId(state_name);
+        const district_id = await getDistrictId(district_name);
+
+        if (!state_id || !district_id) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: "Invalid state or district provided"
+            }));
+        }
+
+        const updatedBank = await Bank.findByIdAndUpdate(
+            bank_id,
+            {
+                farmer_id, 
+                associate_id, 
+                bank_name, 
+                account_no, 
+                ifsc_code, 
+                account_holder_name,
+                branch_address: {
+                    bank_state_id: state_id,
+                    bank_district_id: district_id,
+                    city,
+                    bank_block: block,
+                    bank_pincode: pincode,
+                }
+            },
+            { new: true }
+        );
+
+        if (!updatedBank) {
+            return res.status(404).send(new serviceResponse({
+                status: 404,
+                message: "Bank not found"
+            }));
+        }
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: updatedBank,
+            message: _response_message.updated("Bank")
+        }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+module.exports.deleteBank = async (req, res) => {
+    try {
+        const { id } = req.query;
+        if (!id) {
+          return res.status(400).send({ message: 'Please provide an ID to delete.' });
+        }
+        const response = await Bank.deleteOne({ _id: id });
+        
+        if (response.deletedCount > 0) {
+          return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: response,
+            message: _response_message.deleted("Bank"),
+          }));
+        } else {
+          return res.status(404).send(new serviceResponse({
+            status: 404,
+            data: response,
+            message: _response_message.notFound("Bank"),
+          }));
+        }
+      } catch (error) {
+        _handleCatchErrors(error, res);
+      }
 };
 
 module.exports.bulkUploadFarmers = async (req, res) => {
@@ -225,7 +675,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 
             let errors = [];
 
-            if (!fpo_name || !name || !father_name || !date_of_birth || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no) {
+            if (!fpo_name || !name || !father_name || !date_of_birth || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no || account_no) {
                 errors.push({ record: rec, error: "Required fields missing" });
             }
             if (!/^\d{12}$/.test(aadhar_no)) {
