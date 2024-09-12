@@ -6,6 +6,9 @@ const { masterRoutes } = require("./services/master/Routes");
 const { individualFarmerRoutes } = require("./services/individual-farmer/Routes");
 const { procurementRoutes } = require("./services/procurement/Routes");
 const { userAuthRoutes } = require("./services/auth/Routes");
+const {hoDashboardRoutes}=require("./services/ho-dashboard/Routes")
+const {requireMentRoutes}=require("./services/requirement/Routes")
+const {hoAuthRoutes}=require("./services/ho-auth/Routes")
 const express = require("express");
 const router = express.Router();
 
@@ -17,9 +20,10 @@ const router = express.Router();
  router.use('/aws', S3Router)
  router.use("/master", masterRoutes);
  router.use('/ivd-farmer',individualFarmerRoutes);
-
+ router.use('/ho-dashboard',hoDashboardRoutes);
+ router.use('/requirement',requireMentRoutes)
  router.use("/procurement", procurementRoutes);
  router.use('/helper', helperRoutes)
  router.use("/auth", userAuthRoutes);
-
+ router.use("/ho-auth",hoAuthRoutes)
 module.exports = router;
