@@ -1,37 +1,54 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
-const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
+const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const {
+  asyncErrorHandler,
+} = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const {  _response_message, _middleware, _auth_module } = require("@src/v1/utils/constants/messages");
-const { User } = require("@src/v1/models/app/auth/User");
-const EmailService = require("@src/v1/utils/third_party/EmailServices");
-const jwt = require("jsonwebtoken");
-const { JWT_SECRET_KEY } = require('@config/index');
-const { verifyJwtToken, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
+const {
+  _response_message,
+  _middleware,
+  _auth_module,
+} = require("@src/v1/utils/constants/messages");
+const {
+  ProcurementRequest,
+} = require("@src/v1/models/app/procurement/ProcurementRequest");
+
 //widget list
-module.exports.requireMentList=asyncErrorHandler(async(req,res)=>{
-                    
-                
+module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
+  try {
+    const { page, limit, skip = 0, paginate, sortBy, search = "" } = req.query;
+
+    const query = search
+      ? { name: { $regex: search, $options: "i" } }
+      : { deletedAt: null };
+
+    const records = { count: 0 };
+
+    records.rows =
+      (await ProcurementRequest.find(query)
+        .select("associatOrder_id head_office_id status reqNo createdAt")
+        .skip(skip)
+        .limit(parseInt(limit))
+        .sort(sortBy)) ?? [];
+
+    records.count = await ProcurementRequest.countDocuments();
+
+    if (paginate == 1) {
+      records.page = page;
+      records.limit = limit;
+      records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
+    }
+
+    return res
+      .status(200)
+      .send(
+        new serviceResponse({
+          status: 200,
+          data: records,
+          message: _response_message.found("requirement"),
+        })
+      );
+  } catch (error) {
+    console.log("error", error);
+    _handleCatchErrors(error, res);
+  }
 });
-
-// //payment quantity list
-// module.exports.paymentQuantityList=asyncErrorHandler(async(req,res)=>{
-//     let widgetDetails = {
-//       branch: { total: 0, lastMonth: [] },
-
-//       associate: { total: 0, lastMonth: [] },
-//       procCenter: { total: 0, lastMonth: [] },
-//       farmer: { total: 0, lastMonth: [] },
-//     };
-
-// });
-// //locationWareHouseChart 
-// module.exports.locationWareHouseChart=asyncErrorHandler(async(req,res)=>{
-//     let widgetDetails = {
-//       branch: { total: 0, lastMonth: [] },
-
-//       associate: { total: 0, lastMonth: [] },
-//       procCenter: { total: 0, lastMonth: [] },
-//       farmer: { total: 0, lastMonth: [] },
-//     };
-
-// });
