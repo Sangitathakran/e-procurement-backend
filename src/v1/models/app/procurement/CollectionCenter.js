@@ -5,7 +5,7 @@ const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 
 const CollectionCenterSchema = new mongoose.Schema({
-    agencyId: {type: String, default: null},
+    center_name: {type: String, required: true,trim: true},
     center_code: { type: String, unique: true },
     user_id : { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
     center_type : { type: String, enum: Object.values(_center_type), default: _center_type.associate },
@@ -28,6 +28,7 @@ const CollectionCenterSchema = new mongoose.Schema({
         aadhar_number: { type: String, required: true, trim: true },
         aadhar_image: { type: String, required: true, trim: true },
     },
+    location_url: {type: String, required: true, trim: true},
     addressType: { type: String, enum: Object.values(_address_type), default: _address_type.Residential },
     isPrimary: {type: Boolean, default: false },
     active: {type: Boolean,default: true},

@@ -13,7 +13,7 @@ module.exports.createCollectionCenter = async (req, res) => {
 
     try {
         const { user_id, user_type, trader_type } = req
-        const { agencyId, line1, line2, country, state, district, city, name, email, mobile, designation,aadhar_number, aadhar_image, postalCode, lat, long, addressType } = req.body;
+        const { center_name, line1, line2, country, state, district, city, name, email, mobile, designation,aadhar_number, aadhar_image, postalCode, lat, long, addressType, location_url } = req.body;
 
         let center_type;
         if(user_type == 'Associate'){
@@ -25,12 +25,13 @@ module.exports.createCollectionCenter = async (req, res) => {
         }
         
         const record = await CollectionCenter.create({
-            agencyId,
+            center_name:center_name,
             user_id:user_id,
             center_type : center_type,
             address: { line1, line2, country, state, district, city, postalCode, lat, long },
             point_of_contact: { name, email, mobile, designation, aadhar_number, aadhar_image, },
-            addressType
+            addressType,
+            location_url:location_url
         });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("Collection Center") }));

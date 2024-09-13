@@ -9,7 +9,7 @@ const centerRoutes = express.Router();
 centerRoutes.get("/", verifyJwtToken, getCollectionCenter);
 centerRoutes.post("/import-centers",  ImportCollectionCenter);
 centerRoutes.post("/", validateErrors, verifyJwtToken, createCollectionCenter, [
-    body("agencyId").optional().trim(),
+    body("center_name", _middleware.require("center_name")).notEmpty().trim(),
     body("line1", _middleware.require("line1")).notEmpty().trim(),
     body("line2").optional().trim(),
     body("country", _middleware.require("country")).notEmpty().trim(),
@@ -23,8 +23,7 @@ centerRoutes.post("/", validateErrors, verifyJwtToken, createCollectionCenter, [
     body("designation", _middleware.require("designation")).notEmpty().trim(),
     body("aadhar_number", _middleware.require("aadhar_number")).notEmpty().trim(),
     body("aadhar_image", _middleware.require("aadhar_image")).notEmpty().trim(),
-    body("lat").optional().trim(), 
-    body("long").optional().trim(),
+    body("location_url", _middleware.require("location_url")).notEmpty().trim(),
     body("addressType", _middleware.require("addressType")).isIn(['Residential', 'Business', 'Billing', 'Shipping']),
     body("isPrimary").optional().isBoolean()
 ]);
