@@ -39,4 +39,4 @@ const farmerSchema = new mongoose.Schema({
     ..._commonKeys
 }, { timestamps: true, });
 const farmer = mongoose.model(_collectionName.farmers, farmerSchema);
-module.exports = { farmer, };
+module.exports = { farmer};
