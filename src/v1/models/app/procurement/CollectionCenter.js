@@ -35,26 +35,26 @@ const CollectionCenterSchema = new mongoose.Schema({
     ..._commonKeys
 }, { timestamps: true });
 
-CollectionCenterSchema.pre('save', async function (next) {
-    if (!this.isNew) return next();
+// CollectionCenterSchema.pre('save', async function (next) {
+//     if (!this.isNew) return next();
 
-    const CollectionCenter = mongoose.model(_collectionName.CollectionCenter, CollectionCenterSchema);
+//     const CollectionCenter = mongoose.model(_collectionName.CollectionCenter, CollectionCenterSchema);
 
-    try {
-        const lastCenter = await CollectionCenter.findOne().sort({ createdAt: -1 });
-        let nextCenterCode = 'CC00001';
+//     try {
+//         const lastCenter = await CollectionCenter.findOne().sort({ createdAt: -1 });
+//         let nextCenterCode = 'CC00001';
 
-        if (lastCenter && lastCenter.center_code) {
-            const lastCodeNumber = parseInt(lastCenter.center_code.slice(2), 10); 
-            nextCenterCode = 'CC' + String(lastCodeNumber + 1).padStart(5, '0');
-        }
+//         if (lastCenter && lastCenter.center_code) {
+//             const lastCodeNumber = parseInt(lastCenter.center_code.slice(2), 10); 
+//             nextCenterCode = 'CC' + String(lastCodeNumber + 1).padStart(5, '0');
+//         }
 
-        this.center_code = nextCenterCode;
-        next();
-    } catch (err) {
-        next(err);
-    }
-});
+//         this.center_code = nextCenterCode;
+//         next();
+//     } catch (err) {
+//         next(err);
+//     }
+// });
 
 const CollectionCenter = mongoose.model(_collectionName.CollectionCenter, CollectionCenterSchema);
 

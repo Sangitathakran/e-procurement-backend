@@ -13,7 +13,7 @@ module.exports.createCollectionCenter = async (req, res) => {
 
     try {
         const { user_id, user_type, trader_type } = req
-        const { center_name, line1, line2, country, state, district, city, name, email, mobile, designation,aadhar_number, aadhar_image, postalCode, lat, long, addressType, location_url } = req.body;
+        const { center_name,center_code, line1, line2, state, district, city, name, email, mobile, designation,aadhar_number, aadhar_image, postalCode, lat, long, addressType, location_url } = req.body;
 
         let center_type;
         if(user_type == 'Associate'){
@@ -26,9 +26,10 @@ module.exports.createCollectionCenter = async (req, res) => {
         
         const record = await CollectionCenter.create({
             center_name:center_name,
+            center_code:center_code,
             user_id:user_id,
             center_type : center_type,
-            address: { line1, line2, country, state, district, city, postalCode, lat, long },
+            address: { line1, line2, country:'India', state, district, city, postalCode, lat, long },
             point_of_contact: { name, email, mobile, designation, aadhar_number, aadhar_image, },
             addressType,
             location_url:location_url
@@ -224,3 +225,23 @@ module.exports.ImportCollectionCenter = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.generateCenterCode = async (req, res) => {
+    try {
+        const lastCenter = await CollectionCenter.findOne({ center_code: { $exists: true } }).sort({ center_code: -1 });
+
+        let CenterCode = '';
+
+        if (lastCenter && lastCenter.center_code) {
+            const lastCodeNumber = parseInt(lastCenter.center_code.slice(2), 10); 
+            CenterCode = 'CC' + String(lastCodeNumber + 1).padStart(5, '0');
+        } else {
+            CenterCode = 'CC00001';
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: { CenterCode }, message: _response_message.found("next center code") }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
