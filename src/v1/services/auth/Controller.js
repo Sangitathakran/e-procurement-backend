@@ -2,8 +2,8 @@ const { _handleCatchErrors } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
 const { User } = require("@src/v1/models/app/auth/User");
-const OTP = require("@src/v1/models/app/auth/OTP");
-const SMSService = require('@src/v1/utils/third_party/SMSservices');
+const  OTP  = require("@src/v1/models/app/auth/OTP");
+const {smsService} = require('@src/v1/utils/third_party/SMSservices');
 const EmailService = require("@src/v1/utils/third_party/EmailServices");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
@@ -26,7 +26,6 @@ const sendEmailOtp = async (email) => {
 };
 
 const sendSmsOtp = async (phone) => {
-    const smsService = new SMSService();
     await smsService.sendOTPSMS(phone);
 };
 
@@ -77,7 +76,7 @@ module.exports.loginOrRegister = async (req, res) => {
         const { userInput, inputOTP } = req.body;
 
         if (!userInput || !inputOTP) {
-            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('otp_required') }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors:[{message: _middleware.require('otp_required')}] }));
         }
 
         const isEmailInput = isEmail(userInput);
@@ -87,7 +86,7 @@ module.exports.loginOrRegister = async (req, res) => {
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
         if (!userOTP || inputOTP !== userOTP.otp) {
-            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.invalid('OTP verification failed') }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors:[{message: _response_message.invalid('OTP verification failed')}] }));
         }
 
         let userExist = await User.findOne(query).lean();
