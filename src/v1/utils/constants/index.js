@@ -125,6 +125,7 @@ const _userType = {
     ho: "HO",
     bo: "BO",
     associate: "Associate",
+    farmer: "farmer",
 }
 
 const _trader_type = {
