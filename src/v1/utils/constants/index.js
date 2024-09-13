@@ -136,6 +136,19 @@ const _trader_type = {
     PROPRITER: 'Propriter',
 }
 
+const _center_type = {
+    associate: 'associate',
+    agent: 'agent',
+    head_office: 'head_office',
+}
+
+const _address_type = {
+    Residential: 'Residential',
+    Business: 'Business',
+    Billing: 'Billing',
+    Shipping: 'Shipping'
+}
+
 const _webSocketEvents = {
     procurement: "procurement"
 }
@@ -328,5 +341,7 @@ module.exports = {
     _user_status,
     _associateOrderStatus,
     _paymentmethod,
-    _paymentstatus
+    _paymentstatus,
+    _center_type,
+    _address_type
 }
