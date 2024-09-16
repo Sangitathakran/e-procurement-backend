@@ -24,8 +24,9 @@ const router = express.Router();
  router.use('/ho-dashboard',hoDashboardRoutes);
  router.use('/requirement',requireMentRoutes)
  router.use("/procurement", procurementRoutes);
- app.use('/farmer', farmerRoutes);
+ router.use('/farmer', farmerRoutes);
  router.use('/helper', helperRoutes)
  router.use("/auth", userAuthRoutes);
  router.use("/ho-auth",hoAuthRoutes)
+ 
 module.exports = router;
