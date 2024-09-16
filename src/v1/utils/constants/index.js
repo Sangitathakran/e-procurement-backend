@@ -6,7 +6,7 @@ const _collectionName = {
     farmers: "farmers",
     individualFarmers:"individual_farmers",
     Users: "Users",
-    HeadOffice:"Headoffices",
+    HeadOffice:"headoffices",
     Category: "Category",
     Variety: "variety",
     Unit: "unit",

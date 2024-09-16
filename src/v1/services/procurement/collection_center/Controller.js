@@ -17,7 +17,7 @@ module.exports.createCollectionCenter = async (req, res) => {
             addressType
         });
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("Collection Center") }));
+        return new serviceResponse({res, status: 200, data: record, message: _response_message.created("Collection Center") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -48,7 +48,7 @@ module.exports.getCollectionCenter = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
+        return new serviceResponse({ res,status: 200, data: records, message: _response_message.found("collection center") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -77,7 +77,7 @@ module.exports.getHoProcurementCenter = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement center") }));
+        return new serviceResponse({res, status: 200, data: records, message: _response_message.found("procurement center") });
 
     } catch (error) {
         _handleCatchErrors(error, res);

@@ -27,15 +27,12 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   widgetDetails.farmer.total = individualFCount + associateFCount;
   widgetDetails.associate.total = await User.countDocuments({});
   widgetDetails.procCenter.total = await CollectionCenter.countDocuments({});
-  return res
-    .status(200)
-    .send(
-      new serviceResponse({
-        status: 200,
-        message: _query.get("Account"),
-        data: widgetDetails,
-      })
-    );
+  return  new serviceResponse({
+    res,
+    status: 200,
+    message: _query.get("Account"),
+    data: widgetDetails,
+  })
 });
 
 //payment quantity list
