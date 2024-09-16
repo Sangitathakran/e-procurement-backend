@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const {  _collectionName } = require('@src/v1/utils/constants'); 
+const {_status, _collectionName } = require('@src/v1/utils/constants'); 
 
 
 const branchSchema = new mongoose.Schema({
@@ -14,16 +14,18 @@ const branchSchema = new mongoose.Schema({
         lowercase: true,
     },
     pointOfContact: {
-        type: String,
-        required: true,
+        name: { type: String, required: true },
+        phone: { type: String, required: true },
+        email: { type: String, required: true, lowercase: true }
     },
     address: {
         type: String,
         required: true,
     },
     status: {
-        type: Boolean,
-        default: false,
+        type: String,
+        default: _status.inactive, // Default value as inactive
+        enum: Object.keys(_status)
     },
     headOfficeId: {
         type: mongoose.Schema.Types.ObjectId,

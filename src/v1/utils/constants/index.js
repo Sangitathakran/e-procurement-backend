@@ -27,7 +27,7 @@ const _collectionName = {
     CollectionCenter: "CollectionCenter",
     Lands: "Lands",
     Banks: "Banks",
-    Branch:"Branchs",
+    Branch:"Branches",
     Crops: "Crops",
     FarmerOrder: "FarmerOrder",
     AssociateOrders: "AssociateOrders",
