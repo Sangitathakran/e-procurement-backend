@@ -14,7 +14,7 @@ const {
   decryptJwtToken,
 } = require("@src/v1/utils/helpers/jwt");
 const bcrypt = require("bcryptjs")
-//update login
+//updates login
 module.exports.Login = async (req, res) => {
   try {
     const { email, password } = req.body;
