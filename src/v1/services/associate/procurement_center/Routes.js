@@ -1,7 +1,7 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
-const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode } = require("./Controller");
+const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode, getHoProcurementCenter } = require("./Controller");
 const express = require("express");
 const { verifyAssociate } = require("../utils/verifyAssociate");
 const centerRoutes = express.Router();
@@ -29,6 +29,6 @@ centerRoutes.post("/", validateErrors, verifyAssociate, createProcurementCenter,
     body("addressType", _middleware.require("addressType")).isIn(['Residential', 'Business', 'Billing', 'Shipping']),
     body("isPrimary").optional().isBoolean()
 ]);
-centerRoutes.get("/ho-list", verifyJwtToken, getHoProcurementCenter);
+centerRoutes.get("/ho-list", verifyAssociate, getHoProcurementCenter);
 
 module.exports = { centerRoutes }; 

@@ -1,7 +1,7 @@
 
 const express = require("express");
 const { requestRoutes } = require("./request/Routes");
-const { centerRoutes } = require("./collection_center/Routes");
+const { centerRoutes } = require("./procurement_center/Routes");
 const { orderRoutes } = require("./order/Routes");
 const { paymentRoutes } = require("./payment/Routes");
 const { userAuthRoutes } = require("./auth/Routes");
