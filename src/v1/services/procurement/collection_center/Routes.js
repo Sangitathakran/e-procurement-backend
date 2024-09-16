@@ -1,7 +1,7 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
-const { getCollectionCenter, createCollectionCenter } = require("./Controller");
+const { getCollectionCenter, createCollectionCenter, getHoProcurementCenter } = require("./Controller");
 const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 const express = require("express");
 const centerRoutes = express.Router();
@@ -27,7 +27,6 @@ centerRoutes.post("/", validateErrors, verifyJwtToken, createCollectionCenter, [
     body("addressType", _middleware.require("addressType")).isIn(['Residential', 'Business', 'Billing', 'Shipping']),
     body("isPrimary").optional().isBoolean()
 ]);
-
-
+centerRoutes.get("/ho-list", verifyJwtToken, getHoProcurementCenter);
 
 module.exports = { centerRoutes }; 

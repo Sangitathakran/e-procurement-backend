@@ -54,3 +54,35 @@ module.exports.getCollectionCenter = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+
+module.exports.getHoProcurementCenter = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
+        //const { user_id } = req
+        let query = {
+            //user_id: user_id,
+            ...(search ? { center_name: { $regex: search, $options: "i" } ,deletedAt: null} : { deletedAt: null })
+        };
+        console.log("query==>",query)
+        const records = { count: 0 };
+        records.rows = paginate == 1 ? await CollectionCenter.find(query)
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await CollectionCenter.find(query).sort(sortBy);
+
+        records.count = await CollectionCenter.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page 
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
