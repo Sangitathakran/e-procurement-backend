@@ -1,14 +1,12 @@
 const mongoose = require('mongoose');
-const { _collectionName, _associateOrderStatus } = require('@src/v1/utils/constants');
-const { _generateOrderNumber } = require('@src/v1/utils/helpers');
+const { _collectionName, _batchStatus } = require('@src/v1/utils/constants');
 
-
-const associateOrdersSchema = new mongoose.Schema({
+const batchsSchema = new mongoose.Schema({
     seller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
-    req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementRequest, required: true },
-    sellerOffer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.SellerOffers, required: true },
+    req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true },
+    associateOffer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, required: true },
     batchId: { type: String, trim: true, },
-    procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.CollectionCenter },
+    procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
     dispatched_at: { type: Date },
     delivery_at: { type: Date },
     dispatchedqty: { type: Number },
@@ -38,10 +36,10 @@ const associateOrdersSchema = new mongoose.Schema({
         qty: { type: Number, trim: true },
     },
     delivered: {},
-    status: { type: String, enum: Object.values(_associateOrderStatus), default: _associateOrderStatus.pending }
+    status: { type: String, enum: Object.values(_batchStatus), default: _batchStatus.pending }
 }, { timestamps: true });
 
-const AssociateOrders = mongoose.model(_collectionName.AssociateOrders, associateOrdersSchema);
+const Batch = mongoose.model(_collectionName.Batch, batchsSchema);
 
-module.exports = { AssociateOrders };
+module.exports = { Batch };
 

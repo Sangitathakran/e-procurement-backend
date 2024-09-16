@@ -1,15 +1,6 @@
 
 // templates to export 
 const templates = {
-    eMandiOrder_template: {
-        "Farmer Name": '',
-        "Aadhar Number": '',
-        "Procured Quantity": '',
-        "Order Value": '',
-        "Bank Name": '',
-        "Bank Account Number": '',
-        "IFSC Code": '',
-    },
     farmer_details_template: {
         "FPO NAME*": '',
         "TITLE": '',
@@ -37,11 +28,11 @@ const templates = {
         "TOTAL AREA*": '',
         "AREA UNIT*": '',
         "KHASRA NUMBER*": '',
-        "SUB dISTRICT":  '',
+        "SUB dISTRICT": '',
         "KHATAUNI": '',
-        "VILLAGE":  '',
-        "SOW AREA":  '',
-        "EXPECTED PRODUCTION(MT)":'',
+        "VILLAGE": '',
+        "SOW AREA": '',
+        "EXPECTED PRODUCTION(MT)": '',
         "LAND STATE NAME*": '',
         "LAND DISTRICT NAME*": '',
         "SOIL TYPE*": '',
@@ -82,7 +73,7 @@ const templates = {
         "BANK DISTRICT NAME*": '',
         "CITY": ''
     },
-    
+
     fpo_registration_template: {
         "IA NAME*": '',
         "CBBO NAME": '',
@@ -114,8 +105,6 @@ const templates = {
 
 function exportTemplate(tableName) {
     switch (tableName) {
-        case "emandi-orders":
-            return templates.eMandiOrder_template;
         case "farmer-detail":
             return templates.farmer_details_template;
         case "fpo_registration":

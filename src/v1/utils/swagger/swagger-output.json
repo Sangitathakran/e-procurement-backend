@@ -1800,7 +1800,7 @@
             "schema": {
               "type": "object",
               "properties": {
-                "sellerOffers_id": {
+                "associateOffers_id": {
                   "example": "any"
                 },
                 "status": {

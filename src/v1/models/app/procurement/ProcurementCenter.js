@@ -4,7 +4,7 @@ const { _collectionName } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 
-const CollectionCenterSchema = new mongoose.Schema({
+const ProcurementCenterSchema = new mongoose.Schema({
     center_name: {type: String, required: true,trim: true},
     center_code: { type: String, unique: true },
     user_id : { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
@@ -35,28 +35,7 @@ const CollectionCenterSchema = new mongoose.Schema({
     ..._commonKeys
 }, { timestamps: true });
 
-// CollectionCenterSchema.pre('save', async function (next) {
-//     if (!this.isNew) return next();
+const ProcurementCenter = mongoose.model(_collectionName.ProcurementCenter, ProcurementCenterSchema);
 
-//     const CollectionCenter = mongoose.model(_collectionName.CollectionCenter, CollectionCenterSchema);
-
-//     try {
-//         const lastCenter = await CollectionCenter.findOne().sort({ createdAt: -1 });
-//         let nextCenterCode = 'CC00001';
-
-//         if (lastCenter && lastCenter.center_code) {
-//             const lastCodeNumber = parseInt(lastCenter.center_code.slice(2), 10); 
-//             nextCenterCode = 'CC' + String(lastCodeNumber + 1).padStart(5, '0');
-//         }
-
-//         this.center_code = nextCenterCode;
-//         next();
-//     } catch (err) {
-//         next(err);
-//     }
-// });
-
-const CollectionCenter = mongoose.model(_collectionName.CollectionCenter, CollectionCenterSchema);
-
-module.exports = { CollectionCenter };
+module.exports = { ProcurementCenter };
 

@@ -1,15 +1,15 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
-const { getCollectionCenter, createCollectionCenter, ImportCollectionCenter, generateCenterCode } = require("./Controller");
-const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
+const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode, getHoProcurementCenter } = require("./Controller");
 const express = require("express");
+const { verifyAssociate } = require("../utils/verifyAssociate");
 const centerRoutes = express.Router();
 
-centerRoutes.get("/", verifyJwtToken, getCollectionCenter);
-centerRoutes.post("/import-centers",  ImportCollectionCenter);
-centerRoutes.post("/generateCenterCode",  generateCenterCode);
-centerRoutes.post("/", validateErrors, verifyJwtToken, createCollectionCenter, [
+centerRoutes.get("/", verifyAssociate, getProcurementCenter);
+centerRoutes.post("/import-centers", ImportProcurementCenter);
+centerRoutes.post("/generateCenterCode", generateCenterCode);
+centerRoutes.post("/", validateErrors, verifyAssociate, createProcurementCenter, [
     body("center_name", _middleware.require("center_name")).notEmpty().trim(),
     body("center_code", _middleware.require("center_code")).notEmpty().trim(),
     body("line1", _middleware.require("line1")).notEmpty().trim(),
@@ -29,6 +29,6 @@ centerRoutes.post("/", validateErrors, verifyJwtToken, createCollectionCenter, [
     body("addressType", _middleware.require("addressType")).isIn(['Residential', 'Business', 'Billing', 'Shipping']),
     body("isPrimary").optional().isBoolean()
 ]);
-centerRoutes.get("/ho-list", verifyJwtToken, getHoProcurementCenter);
+centerRoutes.get("/ho-list", verifyAssociate, getHoProcurementCenter);
 
 module.exports = { centerRoutes }; 
