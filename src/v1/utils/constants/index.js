@@ -17,6 +17,7 @@ const _collectionName = {
     ShippingDocument: "ref_shippingDocument",
     Account: "account",
     Organization: "organization",
+    Branch: "Branch",
     ProcurementRequest: "ProcurementRequest",
     SellerOffers: "SellerOffers",
     ContributedFarmers: "ContributedFarmers",

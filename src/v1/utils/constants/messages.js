@@ -51,5 +51,6 @@ module.exports = {
         confirm_password_match: (key) => `${key} Password and confirm password should match.`,
         not_found: (key) => `${key}.`,
         otpSend: () => `OTP send successfully.`,
+        importSuccess:() => "Branches created successfully"
     }
 }
