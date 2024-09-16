@@ -1,9 +1,12 @@
+
+
 const _collectionName = {
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",
     individualFarmers:"individual_farmers",
     Users: "Users",
+    HeadOffice:"Headoffices",
     Category: "Category",
     Variety: "variety",
     Unit: "unit",
@@ -24,6 +27,7 @@ const _collectionName = {
     CollectionCenter: "CollectionCenter",
     Lands: "Lands",
     Banks: "Banks",
+    Branch:"Branchs",
     Crops: "Crops",
     FarmerOrder: "FarmerOrder",
     AssociateOrders: "AssociateOrders",
