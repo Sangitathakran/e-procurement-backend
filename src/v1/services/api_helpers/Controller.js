@@ -47,7 +47,7 @@ exports.getAddressByPincode = async (req, res) => {
         const url = `https://api.postalpincode.in/pincode/${pincode}`
         const records = await thirdPartyGetApi(url, {})
 
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }))
+        return new serviceResponse({res, status: 200, data: records, message: _response_message.found() })
     } catch (error) {
         _handleCatchErrors(error, res)
     }

@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const { _collectionName, _userType, _trader_type, _user_status } = require('@src/v1/utils/constants');
+const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const headOfficeSchema = new mongoose.Schema({
    
@@ -32,9 +34,16 @@ const headOfficeSchema = new mongoose.Schema({
         type:Boolean,
         default:false
     },
+    userType:{
+            type:String,
+            default:"5"
+    },
     address:{
         type: String,
         required: false,
+    },
+    activity:{
+        ..._commonKeys
     },
     registered_time: {
         type: Date,
@@ -50,4 +59,4 @@ const headOfficeSchema = new mongoose.Schema({
 
 
 
-module.exports = mongoose.model('headOffice', headOfficeSchema);
+module.exports = mongoose.model(_collectionName.HeadOffice, headOfficeSchema);

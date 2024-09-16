@@ -29,7 +29,6 @@ centerRoutes.post("/", validateErrors, verifyAssociate, createProcurementCenter,
     body("addressType", _middleware.require("addressType")).isIn(['Residential', 'Business', 'Billing', 'Shipping']),
     body("isPrimary").optional().isBoolean()
 ]);
-
-
+centerRoutes.get("/ho-list", verifyJwtToken, getHoProcurementCenter);
 
 module.exports = { centerRoutes }; 

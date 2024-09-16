@@ -44,7 +44,7 @@ exports.dumpJSONToCSV = (req, res, config = {
 
 
     } catch (error) {
-        return res.status(200).send(new serviceResponse({ status: 500, errors: [{ message: `${error.message}` }] }));
+        return new serviceResponse({res, status: 500, errors: [{ message: `${error.message}` }] });
     }
 };
 
