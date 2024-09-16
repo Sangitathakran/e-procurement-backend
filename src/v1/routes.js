@@ -5,6 +5,7 @@ const multer = require('multer');
 const { masterRoutes } = require("./services/master/Routes");
 const { individualFarmerRoutes } = require("./services/individual-farmer/Routes");
 const { procurementRoutes } = require("./services/procurement/Routes");
+const { farmerRoutes } = require("./services/farmer/Routes");
 const { userAuthRoutes } = require("./services/auth/Routes");
 const {hoDashboardRoutes}=require("./services/ho-dashboard/Routes")
 const {requireMentRoutes}=require("./services/requirement/Routes")
@@ -23,7 +24,9 @@ const router = express.Router();
  router.use('/ho-dashboard',hoDashboardRoutes);
  router.use('/requirement',requireMentRoutes)
  router.use("/procurement", procurementRoutes);
+ router.use('/farmer', farmerRoutes);
  router.use('/helper', helperRoutes)
  router.use("/auth", userAuthRoutes);
  router.use("/ho-auth",hoAuthRoutes)
+ 
 module.exports = router;

@@ -97,7 +97,6 @@ class SMSService {
 
 const  smsService=new SMSService();
 
-
 module.exports = {
     smsService
 };

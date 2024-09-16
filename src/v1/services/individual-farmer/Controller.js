@@ -7,7 +7,7 @@ const {
 } = require("@src/v1/utils/constants");
 const {
   IndividualFarmer,
-} = require("../../models/app/farmer/IndividualFarmer");
+} = require("../../models/app/farmerDetails/IndividualFarmer");
 const { generateJwtToken } = require("@src/v1/utils/helpers/jwt");
 const stateList = require("../../utils/constants/stateList");
 

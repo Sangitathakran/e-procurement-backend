@@ -1,14 +1,11 @@
 const mongoose = require('mongoose');
-const appStatus = require('../utils/appStatus');
-const { _collectionName} = require('@src/v1/utils/constants');
 const { _collectionName, _status, _areaUnit, _seasons, _seedUsed, _yesNo } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const cropSchema = new mongoose.Schema({
     associate_id: { type: mongoose.Schema.Types.ObjectId,required: true,ref: _collectionName.Users, trim: true, },
     farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true, },
-    land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Landsands, required: true, },
-    sowing_date: { type: Date, required: true, },
-    harvesting_date: { type: Date, required: true, },
+    sowing_date: { type: Date, required: false, trim: true, },
+    harvesting_date: { type: Date, required: false,trim: true, },
     crops_name: { type: String, required: true, trim: true, },
     production_quantity: { type: Number, required: false, },
     area_unit: { type: String, enum: Object.values(_areaUnit), trim: true, },

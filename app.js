@@ -52,7 +52,7 @@ app.get(
   "/",
   asyncErrorHandler(async (req, res) => {
     res.send(
-      `<div align="center" style=""><h1>Server Ready For Requests. <h1><div>`
+      `<div align="center" style=""><h1>E-Procurement Server Ready For Requests. <h1><div>`
     );
   })
 );
@@ -63,5 +63,5 @@ app.all("*", handleRouteNotFound);
 
 // Listner server
 app.listen(PORT, async () => {
-  console.log("Server is running on PORT:", PORT);
+  console.log("E-procurement server is running on PORT:", PORT);
 });
