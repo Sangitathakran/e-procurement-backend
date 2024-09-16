@@ -11,18 +11,15 @@ const {
 const {
   ProcurementRequest,
 } = require("@src/v1/models/app/procurement/ProcurementRequest");
-
+const {getFilter}=require("@src/v1/utils/helpers/customFilter")
 //widget list
 module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
   try {
     const { page, limit, skip = 0, paginate, sortBy, search = "" } = req.query;
-
-    const query = search
-      ? { name: { $regex: search, $options: "i" } }
-      : { deletedAt: null };
-
+    const filter=await getFilter(req,["status", "reqNo"]);
+    console.log('filter',filter)
+    const query = filter;
     const records = { count: 0 };
-
     records.rows =
       (await ProcurementRequest.find(query)
         .select("associatOrder_id head_office_id status reqNo createdAt")
