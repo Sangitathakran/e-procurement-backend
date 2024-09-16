@@ -22,38 +22,26 @@ module.exports.sendOTP = async (req, res) => {
     // Validate the mobile number
     const isValidMobile = await validateMobileNumber(mobileNumber);
     if (!isValidMobile) {
-      return res
-        .status(400)
-        .send(
-          new serviceResponse({
-            status: 400,
-            message: _response_message.invalid("mobile Number"),
-          })
-        );
+      return  new serviceResponse({res,
+        status: 400,
+        message: _response_message.invalid("mobile Number"),
+      })
     }
 
     if (!acceptTermCondition) {
-      return res
-        .status(400)
-        .send(
-          new serviceResponse({
-            status: 400,
-            message: _response_message.Accept_term_condition(),
-          })
-        );
+      return   new serviceResponse({res,
+        status: 400,
+        message: _response_message.Accept_term_condition(),
+      })
     }
 
     await smsService.sendOTPSMS(mobileNumber);
 
-    return res
-      .status(200)
-      .send(
-        new serviceResponse({
-          status: 200,
-          data: [],
-          message: _response_message.otpCreate("OTP"),
-        })
-      );
+    return new serviceResponse({res,
+      status: 200,
+      data: [],
+      message: _response_message.otpCreate("OTP"),
+    })
   } catch (err) {
     console.log("error", err);
     _handleCatchErrors(err, res);
@@ -67,28 +55,20 @@ module.exports.verifyOTP = async (req, res) => {
     // Validate the mobile number
     const isValidMobile = await validateMobileNumber(mobileNumber);
     if (!isValidMobile) {
-      return res
-        .status(400)
-        .send(
-          new serviceResponse({
-            status: 400,
-            message: _response_message.invalid("mobile Number"),
-          })
-        );
+      return  new serviceResponse({res,
+        status: 400,
+        message: _response_message.invalid("mobile Number"),
+      })
     }
 
     // Find the OTP for the provided mobile number
     const userOTP = await OTPModel.findOne({ phone: mobileNumber });
     // Verify the OTP
     if (inputOTP !== userOTP?.otp) {
-      return res
-        .status(400)
-        .send(
-          new serviceResponse({
-            status: 400,
-            message: _response_message.otp_not_verified("OTP"),
-          })
-        );
+      return new serviceResponse({res,
+        status: 400,
+        message: _response_message.otp_not_verified("OTP"),
+      })
     }
 
     // Find the farmer data and verify OTP
@@ -113,15 +93,13 @@ module.exports.verifyOTP = async (req, res) => {
     };
 
     // Send the response
-    return res
-      .status(200)
-      .send(
-        new serviceResponse({
-          status: 200,
-          data: resp,
-          message: _response_message.otp_verified("your mobile"),
-        })
-      );
+    return new serviceResponse({
+      res,
+      status: 200,
+      data: resp,
+      message: _response_message.otp_verified("your mobile"),
+    })
+      
   } catch (err) {
     console.log("error", err);
     _handleCatchErrors(err, res);
@@ -140,24 +118,18 @@ module.exports.registerName = async (req, res) => {
     );
 
     if (farmerData) {
-      return res
-        .status(200)
-        .send(
-          new serviceResponse({
-            status: 200,
-            data: farmerData,
-            message: _response_message.Data_registered("Data"),
-          })
-        );
+      return new serviceResponse({
+        res,
+        status: 200,
+        data: farmerData,
+        message: _response_message.Data_registered("Data"),
+      })
     } else {
-      return res
-        .status(400)
-        .send(
-          new serviceResponse({
-            status: 200,
-            message: _response_message.Data_already_registered("Data"),
-          })
-        );
+      return new serviceResponse({
+        res,
+        status: 200,
+        message: _response_message.Data_already_registered("Data"),
+      })
     }
   } catch (err) {
     console.log("error", err);
@@ -180,23 +152,17 @@ module.exports.saveFarmerDetails = async (req, res) => {
       farmerDetails[screenName] = req.body[screenName];
       farmerDetails.steps = req.body?.steps;
       const farmerUpdatedDetails = await farmerDetails.save();
-      return res
-        .status(200)
-        .send(
-          new serviceResponse({
-            data: farmerUpdatedDetails,
-            message: _response_message.updated(screenName),
-          })
-        );
+      return new serviceResponse({res,
+        status:200,
+        data: farmerUpdatedDetails,
+        message: _response_message.updated(screenName),
+      })
     } else {
-      return res
-        .status(400)
-        .send(
-          new serviceResponse({
-            status: 400,
-            message: _response_message.notFound("Farmer"),
-          })
-        );
+      return new serviceResponse({
+        res,
+        status: 400,
+        message: _response_message.notFound("Farmer"),
+      })
     }
   } catch (err) {
     console.log("error", err);
@@ -223,23 +189,18 @@ module.exports.getFarmerDetails = async (req, res) => {
     }
 
     if (farmerDetails) {
-      return res
-        .status(200)
-        .send(
-          new serviceResponse({
-            data: farmerDetails,
-            message: _response_message.found(screenName),
-          })
-        );
+      return new serviceResponse({
+        res,
+        data: farmerDetails,
+        message: _response_message.found(screenName)
+      })
+       
     } else {
-      return res
-        .status(400)
-        .send(
-          new serviceResponse({
-            status: 400,
-            message: _response_message.notFound("Farmer"),
-          })
-        );
+      return new serviceResponse({
+        res,
+        status: 400,
+        message: _response_message.notFound("Farmer"),
+      })
     }
   } catch (err) {
     console.log("error", err);
@@ -267,16 +228,13 @@ module.exports.submitForm = async (req, res) => {
       );
 
       if (!district) {
-        return res
-          .status(400)
-          .send(
-            new serviceResponse({
-              status: 400,
-              message: _response_message.notFound(
-                `${farmer.address.district} district`
-              ),
-            })
-          );
+        return  new serviceResponse({
+          res,
+          status: 400,
+          message: _response_message.notFound(
+            `${farmer.address.district} district`
+          ),
+        })
       }
       // console.log("district--->", district)
       const stateCode = stateData.stateCode;
@@ -307,28 +265,21 @@ module.exports.submitForm = async (req, res) => {
           farmerId
         );
 
-        return res
-          .status(200)
-          .send(new serviceResponse({ data: farmerUpdatedDetails }));
+        return new serviceResponse({res,status:200, data: farmerUpdatedDetails })
       }
 
-      return res
-        .status(200)
-        .send(
-          new serviceResponse({
-            data: farmerDetails,
-            message: _response_message.submit("Farmer"),
-          })
-        );
+      return  new serviceResponse({
+        res,
+        status:200,
+        data: farmerDetails,
+        message: _response_message.submit("Farmer"),
+      })
     } else {
-      return res
-        .status(400)
-        .send(
-          new serviceResponse({
-            status: 400,
-            message: _response_message.submit("Farmer"),
-          })
-        );
+      return new serviceResponse({
+        res,
+        status: 400,
+        message: _response_message.submit("Farmer"),
+      })
     }
   } catch (err) {
     console.log("error", err);

@@ -13,7 +13,7 @@ exports.validateErrors = (req, res, next) => {
     const errors = validationResult(req).formatWith(errorFormatter);
    // console.log('errors',errors)
     if (!errors.isEmpty()) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: errors.array({ onlyFirstError: true }) }))
+        return new serviceResponse({res, status: 400, errors: errors.array({ onlyFirstError: true }) })
     }
 
     /* deleting unaccessable fields */

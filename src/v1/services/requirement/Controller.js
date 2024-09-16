@@ -38,15 +38,12 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
       records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
     }
 
-    return res
-      .status(200)
-      .send(
-        new serviceResponse({
-          status: 200,
-          data: records,
-          message: _response_message.found("requirement"),
-        })
-      );
+    return new serviceResponse({
+      res,
+      status: 200,
+      data: records,
+      message: _response_message.found("requirement"),
+    })
   } catch (error) {
     console.log("error", error);
     _handleCatchErrors(error, res);
