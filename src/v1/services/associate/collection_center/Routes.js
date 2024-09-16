@@ -2,14 +2,14 @@ const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode } = require("./Controller");
-const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 const express = require("express");
+const { verifyAssociate } = require("../utils/verifyAssociate");
 const centerRoutes = express.Router();
 
-centerRoutes.get("/", verifyJwtToken, getProcurementCenter);
-centerRoutes.post("/import-centers",  ImportProcurementCenter);
-centerRoutes.post("/generateCenterCode",  generateCenterCode);
-centerRoutes.post("/", validateErrors, verifyJwtToken, createProcurementCenter, [
+centerRoutes.get("/", verifyAssociate, getProcurementCenter);
+centerRoutes.post("/import-centers", ImportProcurementCenter);
+centerRoutes.post("/generateCenterCode", generateCenterCode);
+centerRoutes.post("/", validateErrors, verifyAssociate, createProcurementCenter, [
     body("center_name", _middleware.require("center_name")).notEmpty().trim(),
     body("center_code", _middleware.require("center_code")).notEmpty().trim(),
     body("line1", _middleware.require("line1")).notEmpty().trim(),
