@@ -40,8 +40,10 @@ module.exports = {
         uploaded: (name) => `${name || "Record"} uploaded successfully.`,
         subscribe: (key) => `Subscribed to event: ${key}`,
         invalid_delivery_date: (key) => `${key || "Date"} must be greater than Expiry date.`,
+        mobile_no_tendigits: (key) => `${key || "Mobile"} number must be exactly 10 digits long.`,
+        aadhar_card_number_pattern: (key) => `${key || "Aadhaar"}  card number must be a 12-digit numeric value.`,
         otpNotSent: (key) => `${key || "OTP"} not sent.`,
-        otpCreate: (key) => `${key || "OTP"} is sent to your Mobile Number.`,
+        otpCreate: (key) => `OTP is sent to your ${key || ""}.`,
         otpNotCreate: (key) => `${key || "OTP"} has not sent.`,
         otp_not_verified: (key) => `${key || "OTP"} doesn't match.`,
         otp_verified: (key) => `${key || "Your mobile"} number is verified.`,
@@ -49,7 +51,6 @@ module.exports = {
         Data_already_registered: (key) => `${key || "Data"} already registered.`,
         Accept_term_condition: (key) => `${key || "Please"} accept our Terms and Conditions to continue.`,
         confirm_password_match: (key) => `${key} Password and confirm password should match.`,
-        not_found: (key) => `${key}.`,
         otpSend: () => `OTP send successfully.`,
     }
 }

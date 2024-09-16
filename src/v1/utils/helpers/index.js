@@ -4,7 +4,9 @@ const fs = require('fs');
 const { Parser } = require('json2csv');
 const { v4: uuidv4 } = require('uuid');
 const xlsx = require('xlsx');
-const moment = require("moment")
+const moment = require("moment");
+const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 /**
  * 
  * @param {any} error 
@@ -88,13 +90,89 @@ exports.dumpJSONToExcel = (req, res, config = {
 
 
 exports._generateOrderNumber = () => {
-    const uuid = uuidv4();
-    const shortOrderNumber = uuid.replace(/-/g, '').substring(0, 6); // Remove dashes and take the first 6 characters
-    return shortOrderNumber;
+    const min = 100000;
+    const max = 999999;
+    const orderNumber = Math.floor(Math.random() * (max - min + 1)) + min;
+    return orderNumber.toString(); // Convert it to a string if needed
 }
 
 
 exports._addDays = (days) => {
     const today = moment()
     return today.add(days, 'days')
+}
+
+// farmerCodeGenerator.js
+
+exports._generateFarmerCode = async () => {
+    const prefix = 'FA';
+    let uniqueId;
+    let farmerCode;
+    let existingFarmer;
+
+    try {
+        do {
+            uniqueId = Math.floor(Math.random() * 900000) + 100000;
+            farmerCode = `${prefix}${uniqueId}`;
+            existingFarmer = await farmer.findOne({ farmer_code: farmerCode });
+        } while (existingFarmer);
+
+        return farmerCode;
+    } catch (error) {
+        console.error('Error generating Farmer Code:', error);
+        throw new Error('Could not generate a unique Farmer Code');
+    }
+}
+const myAddress = new Map()
+exports.getStateId = async (stateName) => {
+    try {
+        if (myAddress.get(stateName)) {
+            return myAddress.get(stateName)
+        }
+        const stateDoc = await StateDistrictCity.findOne({
+            'states.state_title': stateName
+        });
+        if (stateDoc) {
+            const state = stateDoc.states.find(state => state.state_title === stateName);
+            if (state)
+                myAddress.set(stateName, state._id)
+            return state ? state._id : null;
+        } else {
+            return null;
+        }
+    } catch (error) {
+        throw new Error(`Error fetching state ID: ${error.message}`);
+    }
+};
+
+exports.getDistrictId = async (districtName) => {
+    try {
+        if (myAddress.get(districtName)) {
+            return myAddress.get(districtName)
+        }
+        const stateDoc = await StateDistrictCity.findOne({
+            'states.districts.district_title': districtName
+        });
+
+        if (stateDoc) {
+            for (const state of stateDoc.states) {
+                const district = state.districts.find(district => district.district_title === districtName);
+                if (district) {
+                    myAddress.set(districtName, district._id)
+                    return district._id;
+                }
+            }
+        }
+        return null;
+    } catch (error) {
+        throw new Error(`Error fetching district ID: ${error.message}`);
+    }
+};
+exports.parseDate = async (dateString) => {
+    return moment(dateString, 'DD-MM-YYYY').toDate();;
+};
+
+exports.parseMonthyear = (dateString) => {
+    const [month, year] = dateString.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, 1));
 }
