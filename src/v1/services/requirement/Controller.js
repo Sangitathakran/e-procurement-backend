@@ -11,26 +11,24 @@ const {
 const {
   ProcurementRequest,
 } = require("@src/v1/models/app/procurement/ProcurementRequest");
-
+const {getFilter}=require("@src/v1/utils/helpers/customFilter")
 //widget list
 module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
   try {
     const { page, limit, skip = 0, paginate, sortBy, search = "" } = req.query;
-
-    const query = search
-      ? { name: { $regex: search, $options: "i" } }
-      : { deletedAt: null };
-
+    const filter=await getFilter(req,["status", "reqNo"]);
+    console.log('filter',filter)
+    const query = filter;
     const records = { count: 0 };
-
     records.rows =
       (await ProcurementRequest.find(query)
         .select("associatOrder_id head_office_id status reqNo createdAt")
+        .populate({path:'head_office_id',select:'head_office_name office_id'})
         .skip(skip)
         .limit(parseInt(limit))
         .sort(sortBy)) ?? [];
 
-    records.count = await ProcurementRequest.countDocuments();
+    records.count = await ProcurementRequest.countDocuments(query);
 
     if (paginate == 1) {
       records.page = page;
@@ -38,15 +36,12 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
       records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
     }
 
-    return res
-      .status(200)
-      .send(
-        new serviceResponse({
-          status: 200,
-          data: records,
-          message: _response_message.found("requirement"),
-        })
-      );
+    return new serviceResponse({
+      res,
+      status: 200,
+      data: records,
+      message: _response_message.found("requirement"),
+    })
   } catch (error) {
     console.log("error", error);
     _handleCatchErrors(error, res);

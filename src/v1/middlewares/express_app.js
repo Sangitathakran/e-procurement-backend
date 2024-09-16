@@ -5,9 +5,9 @@ const { serviceResponse } = require("../utils/helpers/api_response");
 module.exports = {
     handleRouteNotFound: (req, res) => {
         try {
-            return res.send(new serviceResponse({ status: 404, errors: [{ message: "Route not found." }] }))
+            return new serviceResponse({res, status: 404, errors: [{ message: "Route not found." }] })
         } catch (err) {
-            return res.send(new serviceResponse({ status: 404, errors: [{ message: err.message }] }))
+            return new serviceResponse({res, status: 404, errors: [{ message: err.message }] })
         }
     },
 
@@ -19,7 +19,7 @@ module.exports = {
             res.setHeader('Access-Control-Allow-Credentials', true);
             next();
         } catch (err) {
-            return res.send(new serviceResponse({ status: 404, errors: err.message }))
+            return new serviceResponse({res, status: 404, errors: err.message })
         }
     },
 
@@ -42,7 +42,7 @@ module.exports = {
             /*  #swagger.parameters['skip'] = {in:'query', description: 'please do not add this field...',type: 'number'} */
             next();
         } catch (err) {
-            return res.send(new serviceResponse({ status: 404, errors: err.message }))
+            return new serviceResponse({res, status: 404, errors: err.message })
         }
     },
     handleRateLimit: rateLimit({
@@ -51,7 +51,7 @@ module.exports = {
         standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
         legacyHeaders: false, // Disable the `X-RateLimit-*` headers
         handler: (req, res, next, options) => {
-            return res.send(new serviceResponse({ status: options.statusCode, errors: [{ message: options.message }] }))
+            return new serviceResponse({ res,status: options.statusCode, errors: [{ message: options.message }] })
         }
     })
 }

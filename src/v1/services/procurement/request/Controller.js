@@ -5,12 +5,15 @@ const { ProcurementRequest } = require("@src/v1/models/app/procurement/Procureme
 const { _procurementRequestStatus, _webSocketEvents, _procuredStatus } = require('@src/v1/utils/constants');
 const { SellerOffers } = require("@src/v1/models/app/procurement/SellerOffers");
 const { ContributedFarmers } = require("@src/v1/models/app/procurement/ContributedFarmer");
-// const Farmer = require("../../../../../models/farmerModel");
-// const appStatus = require('../../../../../utils/appStatus');
-const { _sellerOfferStatus, userType } = require('@src/v1/utils/constants');
+// const appStatus = require('../../../../../utils/appStatus'); 
+const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const { _sellerOfferStatus, _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const mongoose = require("mongoose");
+const { AssociateOrders } = require("@src/v1/models/app/procurement/AssociateOrders");
+const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
+const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 
 module.exports.createProcurement = async (req, res) => {
 
@@ -18,7 +21,7 @@ module.exports.createProcurement = async (req, res) => {
         const { user_id, user_type } = req
         const { organization_id, quotedPrice, deliveryDate, name, category, grade, variety, quantity, deliveryLocation, lat, long, quoteExpiry } = req.body;
 
-        if (user_type && user_type != userType.admin)
+        if (user_type && user_type != _userType.admin)
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }))
 
         const randomVal = _generateOrderNumber();
@@ -67,17 +70,19 @@ module.exports.getProcurement = async (req, res) => {
             ]
         } : {};
 
-        if (user_type == userType.ho || user_type == userType.bo) {
+
+        if (user_type == _userType.ho || user_type == _userType.bo) {
             query.organization_id = organization_id
 
-        } else if (user_type == userType.trader) {
+        } else if (user_type == _userType.associate) {
             if (status && Object.values(_sellerOfferStatus).includes(status)) {
                 const offerIds = (await SellerOffers.find({ seller_id: user_id, status })).map((offer) => offer.req_id);
                 query._id = { $in: offerIds };
 
             } else {
                 query.status = _procurementRequestStatus.open
-
+                const offerIds = (await SellerOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
+                query._id = { $nin: offerIds };
             }
         }
 
@@ -162,7 +167,7 @@ module.exports.updateProcurement = async (req, res) => {
 }
 
 
-module.exports.fpoOffered = async (req, res) => {
+module.exports.associateOffer = async (req, res) => {
 
     try {
 
@@ -207,23 +212,26 @@ module.exports.fpoOffered = async (req, res) => {
 
         const dataToBeInserted = [];
 
-        for (let farmer of farmer_data) {
+        for (let harvester of farmer_data) {
 
-            const existingFarmer = await Farmer.findOne({ _id: farmer._id });
+            const existingFarmer = await farmer.findOne({ _id: harvester._id });
 
             if (!existingFarmer) {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("farmer") }] }));
             }
 
+            const farmerBankDetails = await Bank.findOne({ farmer_id: harvester._id });
+
+            const { account_no, ifsc_code, bank_name, account_holder_name } = farmerBankDetails;
             const { name, father_name, address_line, mobile_no } = existingFarmer;
 
-            const metaData = { name, father_name, address_line, mobile_no };
+            const metaData = { name, father_name, address_line, mobile_no, account_no, ifsc_code, bank_name, account_holder_name, bank_name };
 
             const contributedFarmerData = {
                 sellerOffers_id: sellerOfferRecord._id,
-                farmer_id: farmer._id,
+                farmer_id: harvester._id,
                 metaData,
-                offeredQty: qtyOffered,
+                offeredQty: harvester.qty,
                 createdBy: user_id,
             }
 
@@ -242,90 +250,157 @@ module.exports.fpoOffered = async (req, res) => {
 module.exports.getFarmerListById = async (req, res) => {
 
     try {
-        const { user_id, user_type, trader_type } = req
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query;
+        const { user_id, user_type } = req; // Retrieve user_id and user_type from request
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = 'name', search = '' } = req.query;
 
-        let query = {
-            // fpo_id: user_id,
-            ...(search && { name: { $regex: search, $options: 'i' } })
-        };
-
-        if (trader_type != appStatus.traderType.FPO) {
-            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: 'This user is not FPO' }] }))
+        // Ensure only `associate` users can access this API
+        if (user_type !== _userType.associate) {
+            return res.status(401).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
+        // Build query to find farmers associated with the current user (associate)
+        let query = {
+            associate_id: new mongoose.Types.ObjectId(user_id), // Match farmers under current associate
+            ...(search && { name: { $regex: search, $options: 'i' } }) // Search functionality
+        };
 
+        // Build aggregation pipeline
         let aggregationPipeline = [
-            { $match: query },
+            { $match: query }, // Match by associate_id and optional search
             {
                 $lookup: {
-                    from: 'croprecords',
+                    from: 'crops',
                     localField: '_id',
-                    foreignField: 'farmer_detail_id',
-                    as: 'crops'
+                    foreignField: 'farmer_id',
+                    as: 'crops',
+                    pipeline: [{
+                        $project: {
+                            _id: 1,
+                            associate_id: 1,
+                            farmer_id: 1,
+                            sowing_date: 1,
+                            harvesting_date: 1,
+                            crops_name: 1,
+                            production_quantity: 1,
+                            yield: 1,
+                            insurance_worth: 1,
+                            status: 1
+                        }
+                    }]
                 }
             },
             {
                 $lookup: {
-                    from: 'farmerbankdetails',
+                    from: 'lands',
                     localField: '_id',
                     foreignField: 'farmer_id',
-                    as: 'bankDetails'
+                    as: 'lands',
+                    pipeline: [{
+                        $project: {
+                            _id: 1,
+                            farmer_id: 1,
+                            associate_id: 1,
+                            total_area: 1,
+                            area_unit: 1,
+                            khasra_no: 1,
+                            khatauni: 1,
+                            sow_area: 1,
+                            land_address: 1,
+                            soil_type: 1,
+                            soil_tested: 1,
+                            soil_health_card: 1,
+                            lab_distance_unit: 1,
+                            status: 1,
+                        }
+                    }]
+                }
+
+            },
+            {
+                $lookup: {
+                    from: 'banks',
+                    localField: '_id',
+                    foreignField: 'farmer_id',
+                    as: 'bankDetails',
+                    pipeline: [{
+                        $project: {
+                            _id: 1,
+                            farmer_id: 1,
+                            associate_id: 1,
+                            bank_name: 1,
+                            account_no: 1,
+                            ifsc_code: 1,
+                            account_holder_name: 1,
+                            branch_address: 1,
+                            status: 1,
+                        }
+                    }]
                 }
             },
             {
                 $lookup: {
                     from: 'users',
-                    localField: 'fpo_id',
+                    localField: 'associate_id',
                     foreignField: '_id',
-                    as: 'fpoDetails',
+                    as: 'associateDetails',
                     pipeline: [{
                         $project: {
-                            fpo_name: '$fpo_name',
+                            organization_name: '$basic_details.associate_details.organization_name', // Project only the required fields
                         }
                     }]
                 }
             },
             {
                 $match: {
-                    'crops.0': { $exists: true },
-                    'bankDetails.0': { $exists: true },
+                    'crops.0': { $exists: true }, // Ensure farmers have at least one crop
+                    'bankDetails.0': { $exists: true } // Ensure farmers have bank details
                 }
             },
-            { $unwind: '$fpoDetails' },
-            { $unwind: '$bankDetails' },
+            { $unwind: '$associateDetails' }, // Unwind to merge associate details
+            { $unwind: '$bankDetails' }, // Unwind to merge bank details
             {
-                $sort: sortBy ? { [sortBy]: 1 } : { name: 1 }
+                $project: {
+                    farmer_code: 1,
+                    title: 1,
+                    mobile_no: 1,
+                    name: 1,
+                    parents: 1,
+                    dob: 1,
+                    gender: 1,
+                    address: 1,
+                    crops: 1,
+                    bankDetails: 1,
+                    lands: 1
+                }
             },
+            {
+                $sort: { [sortBy]: 1 } // Sort by the `sortBy` field, default to `name`
+            }
         ];
 
+        // Apply pagination if `paginate` is enabled
         if (paginate == 1) {
             aggregationPipeline.push({
-                $skip: parseInt(skip) || 0
+                $skip: parseInt(skip) || (parseInt(page) - 1) * parseInt(limit)
             }, {
-                $limit: parseInt(limit) || 10
-            })
+                $limit: parseInt(limit)
+            });
         }
 
-        const records = {
-            count: 0,
-            rows: []
-        };
-
-
-        records.count = await Farmer.aggregate([
+        // Fetch count of farmers
+        const countPipeline = [
             { $match: query },
             {
                 $lookup: {
-                    from: 'croprecords',
+                    from: 'crops',
                     localField: '_id',
-                    foreignField: 'farmer_detail_id',
+                    foreignField: 'farmer_id',
                     as: 'crops'
                 }
             },
             {
                 $lookup: {
-                    from: 'farmerbankdetails',
+                    from: 'banks',
                     localField: '_id',
                     foreignField: 'farmer_id',
                     as: 'bankDetails'
@@ -333,27 +408,42 @@ module.exports.getFarmerListById = async (req, res) => {
             },
             {
                 $match: {
-                    'crops.0': { $exists: true },
-                    'bankDetails.0': { $exists: true }
+                    'crops.0': { $exists: true }, // Farmers with crops
+                    'bankDetails.0': { $exists: true } // Farmers with bank details
                 }
             },
-            { $count: 'total' }
-        ]);
-        records.count = records.count[0] ? records.count[0].total : 0;
+            { $count: 'total' } // Count total records matching the criteria
+        ];
 
-        records.rows = await Farmer.aggregate(aggregationPipeline);
+        // Execute the count query
+        const countResult = await farmer.aggregate(countPipeline);
+        const totalRecords = countResult[0] ? countResult[0].total : 0;
 
+        // Execute the main aggregation query
+        const rows = await farmer.aggregate(aggregationPipeline);
+
+        const records = {
+            count: totalRecords,
+            rows: rows
+        };
+
+        // If pagination is enabled, add pagination metadata
         if (paginate == 1) {
-            records.page = page;
-            records.limit = limit;
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+            records.page = parseInt(page);
+            records.limit = parseInt(limit);
+            records.pages = limit != 0 ? Math.ceil(totalRecords / limit) : 0;
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('farmer') }));
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: records,
+            message: _query.get('farmer')
+        }));
     } catch (error) {
-        _handleCatchErrors(error, res)
+        _handleCatchErrors(error, res);
     }
-}
+};
+
 
 module.exports.requestApprove = async (req, res) => {
 
@@ -362,7 +452,7 @@ module.exports.requestApprove = async (req, res) => {
         const { sellerOffers_id, status } = req.body;
         const { user_type } = req;
 
-        if (user_type != userType.admin) {
+        if (user_type != _userType.admin) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
@@ -409,12 +499,12 @@ module.exports.requestApprove = async (req, res) => {
 module.exports.offeredFarmerList = async (req, res) => {
 
     try {
-        const { user_id } = req;
+        const { user_id, user_type } = req;
         const { page, limit, skip, sortBy, search = '', req_id } = req.query
 
-        const offer = await SellerOffers.findOne({ req_id, seller_id: user_id });
+        const offerIds = (await SellerOffers.find({ req_id, ...(user_type == _userType.associate && { seller_id: user_id }) })).map((ele) => ele._id);
 
-        if (!offer) {
+        if (offerIds.length == 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
         }
 
@@ -426,7 +516,7 @@ module.exports.offeredFarmerList = async (req, res) => {
             ]
         } : {};
 
-        query.sellerOffers_id = offer._id;
+        query.sellerOffers_id = { $in: offerIds };
         const records = { count: 0 };
 
         records.rows = await ContributedFarmers.find(query)
@@ -515,34 +605,70 @@ module.exports.editFarmerOffer = async (req, res) => {
 }
 
 
-module.exports.associateOrder = async (req, res) => {
-
-    try {
-
-        const { req_id } = req.body;
-        const { user_id } = req;
-
-        const record = await SellerOffers.findOne({ seller_id: user_id, req_id: req_id });
-
-        if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
-        }
-
-        const farmerRecords = await ContributedFarmers.findOne({ status: { $ne: _procuredStatus.received }, sellerOffers_id: record?._id });
-
-        if (farmerRecords) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
-        }
+module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) => {
 
 
+    const { user_type, user_id } = req;
 
+    // if (user_type != _userType.admin) {
+    //     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }));
+    // }
 
-        record.status = _sellerOfferStatus.ordered;
-        await record.save();
+    const { sellerOffer_id, status, comment } = req.body;
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: [], message: _response_message.created("order") }))
+    const offer = await SellerOffers.findOne({ _id: sellerOffer_id });
 
-    } catch (error) {
-        _handleCatchErrors(error, res);
+    if (!offer) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
     }
-}
+
+    if (!Object.values(_sellerOfferStatus).includes(status)) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("status") }] }));
+    }
+
+    if (status == _sellerOfferStatus.rejected && comment) {
+        offer.comments.push({ user_id: user_id, comment });
+    }
+
+    offer.status = status;
+    await offer.save();
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: offer, message: _response_message.found("offer") }));
+
+})
+
+
+module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
+
+    const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
+
+    const { user_type, user_id } = req;
+
+    let query = search ? {
+        $or: []
+    } : {};
+
+    if (user_type == _userType.associate) {
+        query.seller_id = user_id;
+    }
+
+    query.req_id = req_id;
+
+    const records = { count: 0 };
+
+    records.rows = paginate == 1 ? await SellerOffers.find(query)
+        .sort(sortBy)
+        .skip(skip)
+        .limit(parseInt(limit)) : await SellerOffers.find(query).sort(sortBy);
+
+    records.count = await SellerOffers.countDocuments(query);
+
+
+    if (paginate == 1) {
+        records.page = page
+        records.limit = limit
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("seller offer") }));
+})
