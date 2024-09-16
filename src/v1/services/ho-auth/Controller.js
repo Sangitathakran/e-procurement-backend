@@ -19,6 +19,7 @@ module.exports.Login = async (req, res) => {
   try {
     const { email, password } = req.body;
    let hoExist = await HeadOffice.findOne({ email});
+  
     if (hoExist) {
      bcrypt.compare(password, hoExist.password,async(err,result)=>{
            if(err){
@@ -29,7 +30,6 @@ module.exports.Login = async (req, res) => {
               new serviceResponse({ status: 400, message: _auth_module.unAuth })
             ); 
            } 
-           console.log('result',result)
            if(result){
              
             const payload = { email: hoExist.email,_id:hoExist._id };
@@ -59,6 +59,7 @@ module.exports.Login = async (req, res) => {
           });
    
     } else {
+      
       return res
         .status(400)
         .send(
