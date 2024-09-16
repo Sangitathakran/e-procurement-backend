@@ -23,11 +23,12 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     records.rows =
       (await ProcurementRequest.find(query)
         .select("associatOrder_id head_office_id status reqNo createdAt")
+        .populate({path:'head_office_id',select:'head_office_name office_id'})
         .skip(skip)
         .limit(parseInt(limit))
         .sort(sortBy)) ?? [];
 
-    records.count = await ProcurementRequest.countDocuments();
+    records.count = await ProcurementRequest.countDocuments(query);
 
     if (paginate == 1) {
       records.page = page;
