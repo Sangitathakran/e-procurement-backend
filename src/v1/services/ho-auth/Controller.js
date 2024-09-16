@@ -13,58 +13,52 @@ const {
   verifyJwtToken,
   decryptJwtToken,
 } = require("@src/v1/utils/helpers/jwt");
-const bcrypt = require("bcryptjs")
+const bcrypt = require("bcryptjs");
 //updates login
 module.exports.Login = async (req, res) => {
   try {
     const { email, password } = req.body;
-   let hoExist = await HeadOffice.findOne({ email});
-  
+    let hoExist = await HeadOffice.findOne({ email });
+
     if (hoExist) {
-     bcrypt.compare(password, hoExist.password,async(err,result)=>{
-           if(err){
-            
-            return res
-            .status(400)
-            .send(
-              new serviceResponse({ status: 400, message: _auth_module.unAuth })
-            ); 
-           } 
-           if(result){
-             
-            const payload = { email: hoExist.email,_id:hoExist._id };
-            const now = new Date();
-            const expiresIn = Math.floor(now.getTime() / 1000) + 3600;
-            const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
-            const data = {
-              token: token,
-              details:hoExist
-            };
-      
-            return res.status(200).send(
-                new serviceResponse({
-                  status: 200,
-                  message: _auth_module.login("Account"),
-                  data: data,
-                })
-              );
-           
-           }else{
-            return res
-            .status(400)
-            .send(
-              new serviceResponse({ status: 400, message: _auth_module.unAuth })
-            ); 
-           }  
+      bcrypt.compare(password, hoExist.password, async (err, result) => {
+        if (err) {
+          return new serviceResponse({
+            res,
+            status: 400,
+            message: _auth_module.unAuth,
           });
-   
+        }
+        if (result) {
+          const payload = { email: hoExist.email, _id: hoExist._id };
+          const now = new Date();
+          const expiresIn = Math.floor(now.getTime() / 1000) + 3600;
+          const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+          const data = {
+            token: token,
+            details: hoExist,
+          };
+
+          return new serviceResponse({
+            res,
+            status: 200,
+            message: _auth_module.login("Account"),
+            data: data,
+          });
+        } else {
+          return new serviceResponse({
+            res,
+            status: 400,
+            message: _auth_module.unAuth,
+          });
+        }
+      });
     } else {
-      
-      return res
-        .status(400)
-        .send(
-          new serviceResponse({ status: 400, message: _auth_module.unAuth })
-        );
+      return new serviceResponse({
+        res,
+        status: 400,
+        message: _auth_module.unAuth,
+      });
     }
   } catch (err) {
     _handleCatchErrors(err, res);

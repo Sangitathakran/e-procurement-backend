@@ -15,7 +15,7 @@ module.exports.userRegister = async (req, res) => {
     try {
         const { business_name, trader_type, client_id, email, password, confirm_password, phone } = req.body;
         if (password !== confirm_password) {
-            return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.confirm_password_match("confirm_password_match") }));
+            return new serviceResponse({res, status: 200, message: _response_message.confirm_password_match("confirm_password_match") });
         }
         const record = await User.create({
             business_name,
@@ -27,7 +27,7 @@ module.exports.userRegister = async (req, res) => {
             phone
         });
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("User") }));
+        return new serviceResponse({res, status: 200, data: record, message: _response_message.created("User") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -63,10 +63,10 @@ module.exports.sendOtp = async (req, res) => {
         const { input, term_condition } = req.body;
         
         if (!input) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('input') }));
+            return new serviceResponse({res, status: 400, message: _middleware.require('input') });
         }
         if (!term_condition || term_condition == false) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('term_condition') }));
+            return new serviceResponse({res,status: 400, message: _middleware.require('term_condition') });
         }
 
         let inputType;
@@ -76,19 +76,19 @@ module.exports.sendOtp = async (req, res) => {
         } else if (isMobileNumber(input)) {
             inputType = 'mobile';
         } else {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid('Invalid input formatut') }));
+            return new serviceResponse({res, status: 400, message: _response_message.invalid('Invalid input formatut') });
         }
 
         if (inputType === 'email') {
             await sendEmailOtp(input);
-            return res.status(404).send(new serviceResponse({ status: 404, message: _response_message.otpSend("Input is an email and OTP has been sent.") }));
+            return new serviceResponse({res, status: 404, message: _response_message.otpSend("Input is an email and OTP has been sent.") });
         
         } else if (inputType === 'mobile') {
             await sendSmsOtp(input);
-            return res.status(404).send(new serviceResponse({ status: 404, message: _response_message.otpSend("Input is a mobile number and OTP has been sent.") }));
+            return new serviceResponse({ res,status: 404, message: _response_message.otpSend("Input is a mobile number and OTP has been sent.") });
         
         } else {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid("Invalid input format") }));
+            return new serviceResponse({res, status: 400, message: _response_message.invalid("Invalid input format") });
         }
 
     } catch (error) {
@@ -102,7 +102,7 @@ module.exports.loginOrRegister = async (req, res) => {
         const { userInput, inputOTP } = req.body;
 
         if (!userInput || !inputOTP) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('otp_required') }));
+            return new serviceResponse({res, status: 400, message: _middleware.require('otp_required') });
         }
 
         const isEmailInput = isEmail(userInput);
@@ -112,7 +112,7 @@ module.exports.loginOrRegister = async (req, res) => {
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
         if (!userOTP || inputOTP !== userOTP.otp) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid('OTP verification failed') }));
+            return new serviceResponse({res, status: 400, message: _response_message.invalid('OTP verification failed') });
         }
 
         let userExist = await User.findOne(query);
@@ -126,7 +126,7 @@ module.exports.loginOrRegister = async (req, res) => {
                 'token': token,
             }
 
-            return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data:data }));
+            return new serviceResponse({res, status: 200, message: _auth_module.login('Account'), data:data });
         } else {
             const newUser = {
                 client_id: isEmailInput ? '1243' : '9876',
@@ -143,7 +143,7 @@ module.exports.loginOrRegister = async (req, res) => {
             }
 
             const userInsert = await User.create(newUser);
-            return res.status(201).send(new serviceResponse({ status: 201, message: _auth_module.created('User'), data: userInsert }));
+            return new serviceResponse({res, status: 201, message: _auth_module.created('User'), data: userInsert });
         }
 
     } catch (err) {
@@ -160,7 +160,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
 
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+            return new serviceResponse({res, status: 400, message: _response_message.notFound('User') });
         }
 
         const { formName, ...formData } = req.body;
@@ -191,13 +191,13 @@ module.exports.saveAssociateDetails = async (req, res) => {
                 };
                 break;
             default:
-                return res.status(400).send(new serviceResponse({ status: 400, message: `Invalid form name: ${formName}` }));
+                return new serviceResponse({res, status: 400, message: `Invalid form name: ${formName}` });
         }
 
         
         await user.save();
 
-        return res.status(200).send(new serviceResponse({ message: _response_message.updated('User') }));
+        return new serviceResponse({res,status:200, message: _response_message.updated('User') });
     } catch (error) {
         _handleCatchErrors(error, res);
     }
