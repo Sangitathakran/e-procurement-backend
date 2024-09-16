@@ -7,25 +7,25 @@ const { individualFarmerRoutes } = require("./services/individual-farmer/Routes"
 const { procurementRoutes } = require("./services/procurement/Routes");
 const { farmerRoutes } = require("./services/farmer/Routes");
 const { userAuthRoutes } = require("./services/auth/Routes");
+const {hoDashboardRoutes}=require("./services/ho-dashboard/Routes")
+const {requireMentRoutes}=require("./services/requirement/Routes")
+const {hoAuthRoutes}=require("./services/ho-auth/Routes")
+const express = require("express");
+const router = express.Router();
 
-// Call Your Routes
-const ExpressApp = require("express")();
-/**
- * 
- * @param {ExpressApp} app 
- */
-module.exports = (app) => {
-    /* Define Your Routes */
-    app.use(handlePagination)
-    app.use(handleRateLimit)
-    app.use(multer().any())
+ /* Define Your Routes */
+ router.use(handlePagination)
+ router.use(handleRateLimit)
+ router.use(multer().any())
 
-    app.use('/aws', S3Router)
-    app.use("/master", masterRoutes);
-    app.use('/ivd-farmer',individualFarmerRoutes);
-
-    app.use("/procurement", procurementRoutes);
-    app.use('/farmer', farmerRoutes);
-    app.use('/helper', helperRoutes)
-    app.use("/auth", userAuthRoutes);
-}
+ router.use('/aws', S3Router)
+ router.use("/master", masterRoutes);
+ router.use('/ivd-farmer',individualFarmerRoutes);
+ router.use('/ho-dashboard',hoDashboardRoutes);
+ router.use('/requirement',requireMentRoutes)
+ router.use("/procurement", procurementRoutes);
+ app.use('/farmer', farmerRoutes);
+ router.use('/helper', helperRoutes)
+ router.use("/auth", userAuthRoutes);
+ router.use("/ho-auth",hoAuthRoutes)
+module.exports = router;

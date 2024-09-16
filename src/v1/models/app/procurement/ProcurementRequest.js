@@ -2,8 +2,9 @@ const mongoose = require('mongoose');
 const { _collectionName, _procurementRequestStatus } = require('@src/v1/utils/constants');
 
 const ProcurementReqSchema = new mongoose.Schema({
-    buyer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
-    organization_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Organization, required: true },
+    head_office_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice },
+    associatOrder_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOrders }],
+    branch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
     reqNo: { type: String, required: true },
     quoteExpiry: { type: Date, required: true, },
     status: { type: String, enum: Object.values(_procurementRequestStatus), default: _procurementRequestStatus.open },

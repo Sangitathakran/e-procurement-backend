@@ -21,6 +21,7 @@ module.exports = {
     },
     _response_message: {
         invalid: (key) => `Invalid ${key}.`,
+        submit: (key) => `${key || 'Data'} details submitted successfully`,
         windowNAvailable: () => `Currently window not available.`,
         emailSend: () => `mail send successfully.`,
         allReadyExist: (key) => `${key || "Data"} already exist.`,

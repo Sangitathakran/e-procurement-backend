@@ -1,9 +1,12 @@
+
+
 const _collectionName = {
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",
     individualFarmers: "individual_farmers",
     Users: "Users",
+    HeadOffice: "Headoffices",
     Category: "Category",
     Variety: "variety",
     Unit: "unit",
@@ -23,6 +26,7 @@ const _collectionName = {
     CollectionCenter: "CollectionCenter",
     Lands: "Lands",
     Banks: "Banks",
+    Branch: "Branchs",
     Crops: "Crops",
     FarmerOrder: "FarmerOrder",
     StateDistrictCity: "StateDistrictCity",
@@ -171,9 +175,10 @@ const _titles = {
     Miss: "Miss",
 }
 const _gender = {
-    Male: "Male",
-    Female: "Female",
-    Other: "Other",
+    male: "male",
+    female: "female",
+    transgender: "transgender",
+    other: "others",
 }
 const _maritalStatus = {
     Married: "Married",
@@ -192,6 +197,7 @@ const _category = {
     SC: "SC",
     ST: "ST",
 }
+
 const _areaUnit = {
     Hectares: "Hectares",
     Acres: "Acres",
@@ -245,6 +251,8 @@ const _rabiCrops = {
     tur: "tur",
     moong: "moong",
     masoor: "masoor",
+    sunflower: "sunflower",
+    wheat: "wheat"
 
 }
 
@@ -253,35 +261,6 @@ const _zaidCrops = {
     tur: "tur",
     moong: "moong",
 }
-
-const _individual_farmer_onboarding_steps = [
-    {
-        label: "basic_details",
-        screen_number: 1,
-        status: "pending"
-    },
-    {
-        label: "address",
-        screen_number: 2,
-        status: "pending"
-    },
-    {
-        label: "land_details",
-        screen_number: 3,
-        status: "pending"
-    },
-    {
-        label: "documents",
-        screen_number: 4,
-        status: "pending"
-    },
-    {
-        label: "bank_details",
-        screen_number: 5,
-        status: "pending"
-    },
-
-]
 
 
 const _associateOrderStatus = {
@@ -299,6 +278,44 @@ const _paymentmethod = {
 const _paymentstatus = {
     pending: "Pending",
     completed: "Completed",
+}
+
+const _individual_farmer_onboarding_steps = [
+    {
+        label: "Basic Details",
+        screen_number: 0,
+        status: "active"
+    },
+    {
+        label: "Address",
+        screen_number: 1,
+        status: "pending"
+    },
+    {
+        label: "Land Details",
+        screen_number: 2,
+        status: "pending"
+    },
+    {
+        label: "Documents",
+        screen_number: 3,
+        status: "pending"
+    },
+    {
+        label: "Bank Details",
+        screen_number: 4,
+        status: "pending"
+    },
+
+]
+
+const _individual_category = {
+    gen: "general",
+    obc: "obc",
+    sc: "sc",
+    st: "st",
+    women: "women",
+    others: "others"
 }
 
 module.exports = {
@@ -343,5 +360,6 @@ module.exports = {
     _paymentmethod,
     _paymentstatus,
     _center_type,
-    _address_type
+    _address_type,
+    _individual_category
 }

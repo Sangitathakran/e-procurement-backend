@@ -36,6 +36,25 @@ class SMSService {
         return this.sendSMS(phoneNumber, otp, 'reset_password');
     }
 
+
+    async sendFarmerRegistrationSMS(phoneNumber, farmerName, farmerId) {
+        try {
+            const message = encodeURIComponent(`प्रिय ${farmerName} आपका किसान आईडी ${farmerId} के साथ NAVBAZAR \nपर पंजीकरण सफलतापूर्वक पूरा हो गया है। धन्यवाद!\n\n-Radiant Infonet Private Limited`);
+            // Prepare the URL for the SMS API request
+            const apikey = encodeURIComponent(SMS_API_KEY);
+            const number = phoneNumber;
+            const sender = this.sender;
+            const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}&unicode=true`;
+            // Send the SMS using axios
+            const response = await axios.post(url);
+            return { message: 'Registration SMS sent successfully', response: response.data };
+        }   catch (error) {
+            return { error: error.message };
+        }
+    }
+    
+    
+
     async sendSMS(phoneNumber, otp, templateName = 'default') {
         try {
             const messageTemplate = this.getMessageTemplate(templateName, otp);
@@ -76,7 +95,9 @@ class SMSService {
     }
 }
 
+const  smsService=new SMSService();
 
 
-
-module.exports = SMSService;
+module.exports = {
+    smsService
+};

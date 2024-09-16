@@ -1,279 +1,342 @@
-require('dotenv').config()
-const {_response_message } = require("@src/v1/utils/constants/messages");
+require("dotenv").config();
+const { _response_message } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { _handleCatchErrors , _} = require("@src/v1/utils/helpers");
-const { _individual_farmer_onboarding_steps } = require("@src/v1/utils/constants");
-const {IndividualFarmer} = require("../../models/app/farmerDetails/IndividualFarmer");
-const Joi=require('joi');
-const axios = require("axios");
-const otpModel = require("@src/v1/models/app/auth/FormerOTP");
-const { JWT_SECRET_KEY } = require('@config/index');
-const { API_KEY, SENDER } = process.env
+const { _handleCatchErrors, _ } = require("@src/v1/utils/helpers");
+const {
+  _individual_farmer_onboarding_steps,
+} = require("@src/v1/utils/constants");
+const {
+  IndividualFarmer,
+} = require("../../models/app/farmer/IndividualFarmer");
 const { generateJwtToken } = require("@src/v1/utils/helpers/jwt");
+const stateList = require("../../utils/constants/stateList");
 
-
+const { body, validationResult, checkSchema } = require("express-validator");
+const { errorFormatter } = require("@src/v1/utils/helpers/express_validator");
+const { smsService } = require("@src/v1/utils/third_party/SMSservices");
+const OTPModel = require("@src/v1/models/app/auth/OTP");
 
 module.exports.sendOTP = async (req, res) => {
-   try{
-    const { mobileNumber } = req.query;
+  try {
+    const { mobileNumber, acceptTermCondition } = req.body;
     // Validate the mobile number
-     const isValidMobile = await validateMobileNumber(mobileNumber);
-     if (!isValidMobile) {
-       return res.status(400).send({ message: "Invalid mobile number." });
-     }
-
-    let otp = Math.floor(1000 + Math.random() * 9000);
-
-    const apikey = encodeURIComponent(API_KEY);
-    const number = mobileNumber;
-    const sender = SENDER;
-    let myMessage = `Your OTP is ${otp} - Radiant Infonet Pvt Ltd.`;
-    const message = encodeURIComponent(myMessage);
-    
-    const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}`;
-    const response = await axios.post(url);
-    if (!response){
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotSent("OTP") }] }));
+    const isValidMobile = await validateMobileNumber(mobileNumber);
+    if (!isValidMobile) {
+      return res
+        .status(400)
+        .send(
+          new serviceResponse({
+            status: 400,
+            message: _response_message.invalid("mobile Number"),
+          })
+        );
     }
-        
-     
-      const saveOTP = await new otpModel({
-        phone: mobileNumber,
-        otp: otp,
-      }).save();
-      const resp = {
-        url: url,
-        msg: _response_message.otpCreate,
-       
-      };
-      
-      if (saveOTP) {
-        return res.status(200).send(new serviceResponse({ status: 200, data:[], message: _response_message.otpCreate("OTP") }))
-        
-      } else {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.otpNotCreate("OTP") }] }));
-        
-      }
-    
-   }
-   catch(err){
-    //_handleCatchErrors(err, res)
-    return res.status(500).send({ message: err });
-   }
-}
+
+    if (!acceptTermCondition) {
+      return res
+        .status(400)
+        .send(
+          new serviceResponse({
+            status: 400,
+            message: _response_message.Accept_term_condition(),
+          })
+        );
+    }
+
+    await smsService.sendOTPSMS(mobileNumber);
+
+    return res
+      .status(200)
+      .send(
+        new serviceResponse({
+          status: 200,
+          data: [],
+          message: _response_message.otpCreate("OTP"),
+        })
+      );
+  } catch (err) {
+    console.log("error", err);
+    _handleCatchErrors(err, res);
+  }
+};
 
 module.exports.verifyOTP = async (req, res) => {
-    try {
-        let { mobileNumber, inputOTP } = req.query;
-    
-        const validateNo =  validateMobileNumber(mobileNumber);
+  try {
+    const { mobileNumber, inputOTP } = req.body;
 
-        if(!validateNo){
-            return res.status(400).send({message:"Invalid mobile number."})
-        }
-
-        const userOTP = await otpModel.findOne({
-          phone: mobileNumber,
-        });
-    
-        if (inputOTP !== userOTP?.otp){
-
-            return res.status(200).send({message:"OTP doesn't match."})
-        }
-          
-        const individualFormerData = await IndividualFarmer.findOne({
-            mobile_no:mobileNumber,
-            //name: registerName,
-            isVerifyOtp: true
-        })
-
-      let resp;
-      if(individualFormerData)
-        {
-            resp = {
-            token: generateJwtToken({mobile_no:mobileNumber}),
-            mobileNumber:mobileNumber
-        }
-      }
-       
-        return res.status(200).send(new serviceResponse({ status: 200, data:resp, message: _response_message.otp_verified("your mobile") }));
-        
+    // Validate the mobile number
+    const isValidMobile = await validateMobileNumber(mobileNumber);
+    if (!isValidMobile) {
+      return res
+        .status(400)
+        .send(
+          new serviceResponse({
+            status: 400,
+            message: _response_message.invalid("mobile Number"),
+          })
+        );
     }
-    catch(err){
-       return res.status(500).send({ message: err });
-    }
-}
 
-module.exports.registerName = async (req, res) => {
-    try {
-      const { mobileNumber, registerName, acceptTermCondition=false } = req.query;
-  
-      // Validate input
-      const { error } = validateRegisterDetail(req.query);
-      if (error) return res.status(400).send({ error: error.message });
-  
-      if (!acceptTermCondition){
-        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.Accept_term_condition() }));
-      }
-      // Check if the user already exists and is verified
-      const formerData = await IndividualFarmer.findOne({
+    // Find the OTP for the provided mobile number
+    const userOTP = await OTPModel.findOne({ phone: mobileNumber });
+    // Verify the OTP
+    if (inputOTP !== userOTP?.otp) {
+      return res
+        .status(400)
+        .send(
+          new serviceResponse({
+            status: 400,
+            message: _response_message.otp_not_verified("OTP"),
+          })
+        );
+    }
+
+    // Find the farmer data and verify OTP
+    let individualFormerData = await IndividualFarmer.findOne({
+      mobile_no: mobileNumber,
+      isVerifyOtp: true,
+    });
+
+    // If farmer data does not exist, create a new one
+    if (!individualFormerData) {
+      individualFormerData = await new IndividualFarmer({
         mobile_no: mobileNumber,
         isVerifyOtp: true,
-      });
-      
-
-      if (!formerData) {
-        // If user doesn't exist, create a new record with the provided mobile_no and name
-        const dataSaved = await new IndividualFarmer({
-          mobile_no: mobileNumber,
-          name: registerName,
-          isVerifyOtp: true,
-          steps: _individual_farmer_onboarding_steps // Ensure that this field is set as required
-        }).save();
-  
-        if (dataSaved) {
-         
-         return res.status(200).send(new serviceResponse({ status: 200, data:dataSaved, message: _response_message.Data_registered("Data") }));
-        }
-      } else {
-        // If the user already exists
-       return res.status(400).send(new serviceResponse({ status: 200, message: _response_message.Data_already_registered("Data") }));
-      }
-    } catch (err) {
-      return res.status(500).send({ message: err.message });
+        steps: _individual_farmer_onboarding_steps, // Ensure that this field is set as required
+      }).save();
     }
-  };
-  
+
+    // Prepare the response data
+    const resp = {
+      token: generateJwtToken({ mobile_no: mobileNumber }),
+      ...JSON.parse(JSON.stringify(individualFormerData)), // Use individualFormerData (existing or newly saved)
+    };
+
+    // Send the response
+    return res
+      .status(200)
+      .send(
+        new serviceResponse({
+          status: 200,
+          data: resp,
+          message: _response_message.otp_verified("your mobile"),
+        })
+      );
+  } catch (err) {
+    console.log("error", err);
+    _handleCatchErrors(err, res);
+  }
+};
+
+module.exports.registerName = async (req, res) => {
+  try {
+    const { registerName } = req.body;
+
+    // Check if the user already exists and is verified
+    const farmerData = await IndividualFarmer.findOneAndUpdate(
+      { mobile_no: req.mobile_no },
+      { $set: { name: registerName, userType: 3 } },
+      { new: true }
+    );
+
+    if (farmerData) {
+      return res
+        .status(200)
+        .send(
+          new serviceResponse({
+            status: 200,
+            data: farmerData,
+            message: _response_message.Data_registered("Data"),
+          })
+        );
+    } else {
+      return res
+        .status(400)
+        .send(
+          new serviceResponse({
+            status: 200,
+            message: _response_message.Data_already_registered("Data"),
+          })
+        );
+    }
+  } catch (err) {
+    console.log("error", err);
+    _handleCatchErrors(err, res);
+  }
+};
+
 //updates
 module.exports.saveFarmerDetails = async (req, res) => {
-    try{
+  try {
+    const { screenName } = req.query;
+    const { id: farmer_id } = req.params;
+    if (!screenName)
+      return res.status(400).send({ message: "Please Provide Screen Name" });
+    const farmerDetails = await IndividualFarmer.findById(farmer_id).select(
+      `${screenName}`
+    );
 
-
-        const {screenName } = req.query;
-        const {id:farmer_id}=req.params;
-        if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
-        const { error } = await validateIndividualFarmer(req.body, screenName);
-        if(error) return res.status(400).send({error:error.message})
-
-        const farmerDetails = await IndividualFarmer.findById(farmer_id).select(
-          `${screenName}`
+    if (farmerDetails) {
+      farmerDetails[screenName] = req.body[screenName];
+      farmerDetails.steps = req.body?.steps;
+      const farmerUpdatedDetails = await farmerDetails.save();
+      return res
+        .status(200)
+        .send(
+          new serviceResponse({
+            data: farmerUpdatedDetails,
+            message: _response_message.updated(screenName),
+          })
         );
-        
-        if (farmerDetails) {
-          farmerDetails[screenName] = req.body[screenName];
-
-          await farmerDetails.save();
-          return res.status(200).send(new serviceResponse({message:_response_message.updated(screenName)}))
-        } else {
-          return res.status(400).send(new serviceResponse({status:400,message:_response_message.notFound('Farmer')}));
-        }
-    }catch(err){
-        console.log('error',err)
-        _handleCatchErrors(err, res);
-    } 
+    } else {
+      return res
+        .status(400)
+        .send(
+          new serviceResponse({
+            status: 400,
+            message: _response_message.notFound("Farmer"),
+          })
+        );
+    }
+  } catch (err) {
+    console.log("error", err);
+    _handleCatchErrors(err, res);
+  }
 };
 
 module.exports.getFarmerDetails = async (req, res) => {
-  try{
+  try {
+    const { screenName } = req.query;
+    const { id } = req.params;
+    //if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
 
-      const {screenName } = req.query;
-      const {id:farmer_id}=req.params;
-      if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
+    const selectFields = screenName
+      ? `${screenName} allStepsCompletedStatus steps`
+      : null;
 
+    if (selectFields) {
+      farmerDetails = await IndividualFarmer.findOne({ _id: id }).select(
+        selectFields
+      );
+    } else {
+      farmerDetails = await IndividualFarmer.findOne({ _id: id });
+    }
 
-      const farmerDetails = await IndividualFarmer.findById(farmer_id).select(`${screenName} steps allStepsCompletedStatus` );
-      
-      if (farmerDetails) {
-        return res.status(200).send(new serviceResponse({data: farmerDetails, message:_response_message.found(screenName)}))
-      } else {
-        return res.status(400).send(new serviceResponse({status:400,message:_response_message.notFound('Farmer')}));
-      }
-
-  }catch(err){
-
-      console.log('error',err)
-      _handleCatchErrors(err, res);
-  } 
+    if (farmerDetails) {
+      return res
+        .status(200)
+        .send(
+          new serviceResponse({
+            data: farmerDetails,
+            message: _response_message.found(screenName),
+          })
+        );
+    } else {
+      return res
+        .status(400)
+        .send(
+          new serviceResponse({
+            status: 400,
+            message: _response_message.notFound("Farmer"),
+          })
+        );
+    }
+  } catch (err) {
+    console.log("error", err);
+    _handleCatchErrors(err, res);
+  }
 };
 
+module.exports.submitForm = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-async function validateIndividualFarmer(data, screenName) {
-  let schema = {};
-  switch (screenName) {
-    case "basic_details":
-      schema = Joi.object({
-        name: Joi.string().required(),
-        email: Joi.string().required(),
-        father_husband_name: Joi.string().required(),
-        mobile_no: Joi.string().required(),
-        category: Joi.string().required(),
-        dob: Joi.string().required(),
-        farmer_type: Joi.string().required(),
-        gender: Joi.string().required(),
-      });
-      break;
-      case "address":
-      schema = Joi.object({
-        address_line_1: Joi.string().required(),
-        address_line_2: Joi.string().required(),
-        country: Joi.string().required(),
-        state: Joi.string().required(),
-        district: Joi.string().required(),
-        block: Joi.string().required(),
-        village: Joi.string().required(),
-        pinCode: Joi.string().required(),
-      });
-      break;
-      case "land_details":
-        schema = Joi.object({
-            area: Joi.string().required(),
-            pinCode: Joi.string().required(),
-            state: Joi.string().required(),
-            district: Joi.string().required(),
-            village: Joi.string().required(),
-            block: Joi.string().required(),
-            ghat_number: Joi.string().required(),
-            khasra_number: Joi.string().required(),
-        });
-        break;
-      case "documents":
-      schema = Joi.object({
-        aadhar_number: Joi.string().required(),
-        pan_number: Joi.string().required(),
-      });
-      break;
-      case "bank_details":
-        schema = Joi.object({
-            bank_name: Joi.string().required(),
-            branch_name: Joi.string().required(),
-            account_holder_name: Joi.string().required(),
-            ifsc_code: Joi.string().required(),
-            account_no: Joi.string().required(),
-            pinCode: Joi.string().required(),
-            proof_doc: Joi.string().required(),
-            kharif_crops: Joi.string().required(),
-        });
-        break;
-    default:
-      schema = {};
-      break;
+    const farmerDetails = await IndividualFarmer.findById(id).select(
+      "address farmer_id basic_details"
+    );
+    const generateFarmerId = (farmer) => {
+      const stateData = stateList.stateList.find(
+        (item) =>
+          item.state.toLowerCase() === farmer.address.state.toLowerCase()
+      );
+      //console.log("stateData--->", stateData)
+      const district = stateData.districts.find(
+        (item) =>
+          item.districtName.toLowerCase() ===
+          farmer.address.district.toLowerCase()
+      );
+
+      if (!district) {
+        return res
+          .status(400)
+          .send(
+            new serviceResponse({
+              status: 400,
+              message: _response_message.notFound(
+                `${farmer.address.district} district`
+              ),
+            })
+          );
+      }
+      // console.log("district--->", district)
+      const stateCode = stateData.stateCode;
+      const districtSerialNumber = district.serialNumber;
+      const districtCode = district.districtCode;
+      const randomNumber = Math.floor(100 + Math.random() * 900);
+
+      const farmerId =
+        stateCode + districtSerialNumber + districtCode + randomNumber;
+      // console.log("farmerId-->", farmerId)
+      return farmerId;
+    };
+    const farmer_id = await generateFarmerId(farmerDetails);
+
+    if (farmerDetails && farmer_id) {
+      if (farmerDetails.farmer_id == null) {
+        farmerDetails.farmer_id = farmer_id;
+        farmerDetails.allStepsCompletedStatus = true;
+        const farmerUpdatedDetails = await farmerDetails.save();
+        //welcome sms send functionality
+        const mobileNumber = req.mobile_no;
+        const farmerName = farmerDetails.basic_details.name;
+        const farmerId = farmerDetails.farmer_id;
+        const smsService = new SMSService();
+        await smsService.sendFarmerRegistrationSMS(
+          mobileNumber,
+          farmerName,
+          farmerId
+        );
+
+        return res
+          .status(200)
+          .send(new serviceResponse({ data: farmerUpdatedDetails }));
+      }
+
+      return res
+        .status(200)
+        .send(
+          new serviceResponse({
+            data: farmerDetails,
+            message: _response_message.submit("Farmer"),
+          })
+        );
+    } else {
+      return res
+        .status(400)
+        .send(
+          new serviceResponse({
+            status: 400,
+            message: _response_message.submit("Farmer"),
+          })
+        );
+    }
+  } catch (err) {
+    console.log("error", err);
+    _handleCatchErrors(err, res);
   }
-  return schema.validate(data[screenName]);
-}
+};
 
-async function validateRegisterDetail(data) {
-  try{
-    const schema = Joi.object({
-        mobileNumber:Joi.string().min(10).max(10).required(),
-        registerName:Joi.string().required()
-    })
-    return schema.validate(data)
-  } catch (err){
-    console.log("err",err)
-  }
-}
-
-const validateMobileNumber =  async (mobile) => {
-    let pattern = /^[0-9]{10}$/;
-    return pattern.test(mobile);
-}
+const validateMobileNumber = async (mobile) => {
+  let pattern = /^[0-9]{10}$/;
+  return pattern.test(mobile);
+};
