@@ -1,8 +1,8 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
-const { getProcurement, getProcurementById, createProcurement, updateProcurement, getFarmerListById, fpoOffered, requestApprove, offeredFarmerList, editFarmerOffer, associateOrder, associateOffer, approveRejectOfferByAgent, getAssociateOffers } = require("./Controller");
-const { _sellerOfferStatus } = require("@src/v1/utils/constants");
+const { getProcurement, getProcurementById, createProcurement, updateProcurement, getFarmerListById, fpoOffered, requestApprove, offeredFarmerList, editFarmerOffer, batch, associateOffer, approveRejectOfferByAgent, getAssociateOffers } = require("./Controller");
+const { _associateOfferStatus } = require("@src/v1/utils/constants");
 const { _status } = require("@src/v1/utils/constants/index");
 const express = require("express");
 const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");

@@ -1,7 +1,7 @@
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const {  _response_message, _middleware } = require("@src/v1/utils/constants/messages");
-const { CollectionCenter } = require("@src/v1/models/app/procurement/CollectionCenter");
+const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { User } = require("@src/v1/models/app/auth/User");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const xlsx = require('xlsx');
@@ -9,7 +9,7 @@ const csv = require("csv-parser");
 const { _userType, _center_type } = require("@src/v1/utils/constants");
 const Readable = require('stream').Readable;
 
-module.exports.createCollectionCenter = async (req, res) => {
+module.exports.createProcurementCenter = async (req, res) => {
 
     try {
         const { user_id, user_type, trader_type } = req
@@ -24,7 +24,7 @@ module.exports.createCollectionCenter = async (req, res) => {
             center_type = _center_type.agent;
         }
         
-        const record = await CollectionCenter.create({
+        const record = await ProcurementCenter.create({
             center_name:center_name,
             center_code:center_code,
             user_id:user_id,
@@ -43,7 +43,7 @@ module.exports.createCollectionCenter = async (req, res) => {
 
 }
 
-module.exports.getCollectionCenter = async (req, res) => {
+module.exports.getProcurementCenter = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
@@ -54,7 +54,7 @@ module.exports.getCollectionCenter = async (req, res) => {
         };
         const records = { count: 0 };
         records.rows = paginate == 1 
-            ? await CollectionCenter.find(query)
+            ? await ProcurementCenter.find(query)
                 .populate({
                     path: 'user_id',
                     select: 'basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code'
@@ -63,14 +63,14 @@ module.exports.getCollectionCenter = async (req, res) => {
                 .skip(skip)
                 .limit(parseInt(limit)) 
             
-            : await CollectionCenter.find(query)
+            : await ProcurementCenter.find(query)
                 .populate({
                     path: 'user_id',
                     select: 'basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code'
                 })
                 .sort(sortBy);
 
-        records.count = await CollectionCenter.countDocuments(query);
+        records.count = await ProcurementCenter.countDocuments(query);
 
         if (paginate == 1) {
             records.page = page
@@ -113,7 +113,7 @@ module.exports.getCollectionCenter = async (req, res) => {
     }
 }
 
-module.exports.ImportCollectionCenter = async (req, res) => {
+module.exports.ImportProcurementCenter = async (req, res) => {
     try {
         const { isxlsx = 1 } = req.body;
         const [file] = req.files;
@@ -191,7 +191,7 @@ module.exports.ImportCollectionCenter = async (req, res) => {
             if (errors.length > 0) return { success: false, errors };
 
             try {
-                await CollectionCenter.create({
+                await ProcurementCenter.create({
                     agencyId: 1223,
                     user_id: userId,
                     address: {
@@ -228,7 +228,7 @@ module.exports.ImportCollectionCenter = async (req, res) => {
 
 module.exports.generateCenterCode = async (req, res) => {
     try {
-        const lastCenter = await CollectionCenter.findOne({ center_code: { $exists: true } }).sort({ center_code: -1 });
+        const lastCenter = await ProcurementCenter.findOne({ center_code: { $exists: true } }).sort({ center_code: -1 });
 
         let CenterCode = '';
 

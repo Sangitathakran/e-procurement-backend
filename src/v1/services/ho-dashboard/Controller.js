@@ -9,8 +9,8 @@ const {
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { User } = require("@src/v1/models/app/auth/User");
 const {
-  CollectionCenter,
-} = require("@src/v1/models/app/procurement/CollectionCenter");
+  ProcurementCenter,
+} = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { _query } = require("@src/v1/utils/constants/messages");
 
 //widget list
@@ -26,7 +26,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   let associateFCount = (await farmer.countDocuments({})) ?? 0;
   widgetDetails.farmer.total = individualFCount + associateFCount;
   widgetDetails.associate.total = await User.countDocuments({});
-  widgetDetails.procCenter.total = await CollectionCenter.countDocuments({});
+  widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
   return res
     .status(200)
     .send(

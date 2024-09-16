@@ -3,7 +3,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { _userType } = require('@src/v1/utils/constants');
-const { ContributedFarmers } = require("@src/v1/models/app/procurement/ContributedFarmer");
+const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
 
 module.exports.payment = async (req, res) => {
 
@@ -78,12 +78,12 @@ module.exports.farmerOrders = async (req, res) => {
         query.farmer_id = farmer_id;
 
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await ContributedFarmers.find(query)
+        records.rows = paginate == 1 ? await FarmerOffers.find(query)
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await ContributedFarmers.find(query).sort(sortBy);
+            .limit(parseInt(limit)) : await FarmerOffers.find(query).sort(sortBy);
 
-        records.count = await ContributedFarmers.countDocuments(query);
+        records.count = await FarmerOffers.countDocuments(query);
 
         if (paginate == 1) {
             records.page = page
@@ -126,7 +126,7 @@ module.exports.farmerOrders = async (req, res) => {
     }
 }
 
-module.exports.associateOrders = async (req, res) => {
+module.exports.batch = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0  } = req.query

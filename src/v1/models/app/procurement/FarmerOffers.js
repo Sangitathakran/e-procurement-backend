@@ -3,15 +3,15 @@ const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const mongoose = require('mongoose');
 
 
-const contributedFarmersSchema = new mongoose.Schema({
-    sellerOffers_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.SellerOffers, required: true },
+const farmerOffersSchema = new mongoose.Schema({
+    associateOffers_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, required: true },
     farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
     metaData: { type: Object, required: true },
     offeredQty: { type: Number, required: true },
     order_no: { type: String, required: false, trim: true },
     receving_date: { type: Date },
     qtyProcured: { type: Number },
-    procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.CollectionCenter },
+    procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
     weighbridge_name: { type: String, trim: true },
     weighbridge_no: { type: Number },
     tare_weight: { type: Number },
@@ -25,7 +25,7 @@ const contributedFarmersSchema = new mongoose.Schema({
     ..._commonKeys
 }, { timestamps: true });
 
-contributedFarmersSchema.pre('save', async function (next) {
+farmerOffersSchema.pre('save', async function (next) {
     const order = this;
 
     if (order.isNew) {
@@ -34,7 +34,7 @@ contributedFarmersSchema.pre('save', async function (next) {
 
         while (!isUnique) {
             uniqueOrderNo = Math.floor(10000000 + Math.random() * 90000000).toString();
-            const existingOrder = await ContributedFarmers.findOne({ orderNo: uniqueOrderNo });
+            const existingOrder = await FarmerOffers.findOne({ orderNo: uniqueOrderNo });
             if (!existingOrder) {
                 isUnique = true;
             }
@@ -46,6 +46,6 @@ contributedFarmersSchema.pre('save', async function (next) {
     next();
 });
 
-const ContributedFarmers = mongoose.model(_collectionName.ContributedFarmers, contributedFarmersSchema);
+const FarmerOffers = mongoose.model(_collectionName.FarmerOffers, farmerOffersSchema);
 
-module.exports = { ContributedFarmers };
+module.exports = { FarmerOffers };
