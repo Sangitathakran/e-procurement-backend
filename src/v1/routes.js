@@ -1,16 +1,16 @@
 const { handlePagination, handleRateLimit } = require("./middlewares/express_app");
-const { helperRoutes } = require("./services/api_helpers/Routes");
-const { S3Router } = require("./services/aws/routes");
+const { helperRoutes } = require("./modules/api_helpers/Routes");
+const { S3Router } = require("./modules/aws/routes");
 const multer = require('multer');
-const { masterRoutes } = require("./services/master/Routes");
-const { individualFarmerRoutes } = require("./services/individual-farmer/Routes");
-const { farmerRoutes } = require("./services/farmer/Routes");
-const { userAuthRoutes } = require("./services/associate/auth/Routes");
-const { hoDashboardRoutes } = require("./services/ho-dashboard/Routes")
-const { requireMentRoutes } = require("./services/requirement/Routes")
-const { hoAuthRoutes } = require("./services/ho-auth/Routes")
+const { masterRoutes } = require("./modules/master/Routes");
+const { individualFarmerRoutes } = require("./modules/individual-farmer/Routes");
+const { farmerRoutes } = require("./modules/farmer/Routes");
+const { userAuthRoutes } = require("./modules/associate/auth/Routes");
+const { hoDashboardRoutes } = require("./modules/ho-dashboard/Routes")
+const { requireMentRoutes } = require("./modules/requirement/Routes")
+const { hoAuthRoutes } = require("./modules/ho-auth/Routes")
 const express = require("express");
-const { associateRoutes } = require("./services/associate/Routes");
+const { associateRoutes } = require("./modules/associate/Routes");
 const router = express.Router();
 
 /* Define Your Routes */
