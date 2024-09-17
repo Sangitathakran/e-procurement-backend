@@ -52,5 +52,6 @@ module.exports = {
         Accept_term_condition: (key) => `${key || "Please"} accept our Terms and Conditions to continue.`,
         confirm_password_match: (key) => `${key} Password and confirm password should match.`,
         otpSend: () => `OTP send successfully.`,
+        importSuccess:() => "Branches created successfully"
     }
 }

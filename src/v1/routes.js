@@ -10,6 +10,7 @@ const { userAuthRoutes } = require("./services/auth/Routes");
 const {hoDashboardRoutes}=require("./services/ho-dashboard/Routes")
 const {requireMentRoutes}=require("./services/requirement/Routes")
 const {hoAuthRoutes}=require("./services/ho-auth/Routes")
+const {hoBranchRoutes}=require("./services/ho-branch-management/Routes")
 const express = require("express");
 const router = express.Router();
 
@@ -28,5 +29,6 @@ const router = express.Router();
  router.use('/helper', helperRoutes)
  router.use("/auth", userAuthRoutes);
  router.use("/ho-auth",hoAuthRoutes)
+ router.use("/ho-branch",hoBranchRoutes)
  
 module.exports = router;
