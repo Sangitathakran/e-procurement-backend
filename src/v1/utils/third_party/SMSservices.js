@@ -17,7 +17,6 @@ class SMSService {
             }
             const newOTPRecord = new OTPModel({ phone, otp, term_condition:true });
             await newOTPRecord.save();
-    
             return this.sendSMS(phone, otp, 'default');
         } catch (error) {
             return { error: error.message };
@@ -39,7 +38,9 @@ class SMSService {
 
     async sendFarmerRegistrationSMS(phoneNumber, farmerName, farmerId) {
         try {
+           
             const message = encodeURIComponent(`प्रिय ${farmerName} आपका किसान आईडी ${farmerId} के साथ NAVBAZAR \nपर पंजीकरण सफलतापूर्वक पूरा हो गया है। धन्यवाद!\n\n-Radiant Infonet Private Limited`);
+           //const message = encodeURIComponent(`प्रिय ${farmerName} आपका किसान आईडी ${farmerId} के साथ NAVBAZAR \nपर पंजीकरण सफलतापूर्वक पूरा हो गया है। धन्यवाद!\n\n-Navankur`);
             // Prepare the URL for the SMS API request
             const apikey = encodeURIComponent(SMS_API_KEY);
             const number = phoneNumber;
@@ -47,6 +48,7 @@ class SMSService {
             const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}&unicode=true`;
             // Send the SMS using axios
             const response = await axios.post(url);
+            //console.log("SMS API Response==>", JSON.stringify(response.data, null, 2));
             return { message: 'Registration SMS sent successfully', response: response.data };
         }   catch (error) {
             return { error: error.message };

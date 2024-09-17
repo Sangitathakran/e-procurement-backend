@@ -40,7 +40,7 @@ module.exports.sendOTP = async (req, res) => {
     return new serviceResponse({res,
       status: 200,
       data: [],
-      message: _response_message.otpCreate("OTP"),
+      message: _response_message.otpCreate("Mobile"),
     })
   } catch (err) {
     console.log("error", err);
@@ -258,16 +258,14 @@ module.exports.submitForm = async (req, res) => {
         const mobileNumber = req.mobile_no;
         const farmerName = farmerDetails.basic_details.name;
         const farmerId = farmerDetails.farmer_id;
-        const smsService = new SMSService();
-        await smsService.sendFarmerRegistrationSMS(
+        await smsService.sendFarmerRegistrationSMS(//sendFarmerRegistrationSMS(
           mobileNumber,
           farmerName,
           farmerId
         );
-
         return new serviceResponse({res,status:200, data: farmerUpdatedDetails })
       }
-
+  
       return  new serviceResponse({
         res,
         status:200,
