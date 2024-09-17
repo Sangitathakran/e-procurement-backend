@@ -9,8 +9,8 @@ const {
   _auth_module,
 } = require("@src/v1/utils/constants/messages");
 const {
-  ProcurementRequest,
-} = require("@src/v1/models/app/procurement/ProcurementRequest");
+  RequestModel,
+} = require("@src/v1/models/app/procurement/Request");
 const Branches = require("@src/v1/models/master/Branches");
 const {getFilter}=require("@src/v1/utils/helpers/customFilter")
 //widget list
@@ -21,7 +21,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     const query = filter;
     const records = { count: 0 };
     records.rows =
-      (await ProcurementRequest.find()
+      (await RequestModel.find()
         .select("associatOrder_id head_office_id status reqNo createdAt")
         .populate({path:'branch_id',select:'branchName',match:query})
         .skip(skip)
@@ -42,7 +42,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
           });
           records.count=records.rows.length;
         }else{
-          records.count = await ProcurementRequest.countDocuments(query);
+          records.count = await RequestModel.countDocuments(query);
         }
         
     

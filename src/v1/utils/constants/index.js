@@ -26,6 +26,7 @@ const _collectionName = {
     StateDistrictCity: "StateDistrictCity",
     Batch: "Batch",
     Payment: "Payment",
+    Branch: "Branch"
 }
 const _status = {
     active: "active",

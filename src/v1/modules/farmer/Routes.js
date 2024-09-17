@@ -1,12 +1,12 @@
 const express = require("express")
 const farmerRoutes = express.Router()
 
-const associate_farmer_routes = require("./associate-farmer/Routes")
-const individual_farmer_routes = require("./individual-farmer/Routes")
+const {associateFarmerRoutes} = require("./associate-farmer/Routes")
+const {individualFarmerRoutes} = require("./individual-farmer/Routes")
 
 
 
-farmerRoutes.use("/associate", associate_farmer_routes)
-farmerRoutes.use("/ivd", individual_farmer_routes)
+farmerRoutes.use("/associate", associateFarmerRoutes)
+farmerRoutes.use("/ivd", individualFarmerRoutes)
 
-module.exports = farmerRoutes 
+module.exports = { farmerRoutes } 
