@@ -13,7 +13,7 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
 
-
+//add
 const findUser = async (input, type) => {
     return type === 'email'
         ? await User.findOne({ email: input })
