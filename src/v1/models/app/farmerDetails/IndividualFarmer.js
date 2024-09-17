@@ -83,4 +83,4 @@ const farmerSchema = new mongoose.Schema({
 
 }, { timestamps: true, });
 const IndividualFarmer = mongoose.model(_collectionName.individualFarmers, farmerSchema);
-module.exports = { IndividualFarmer };
+module.exports =  IndividualFarmer 

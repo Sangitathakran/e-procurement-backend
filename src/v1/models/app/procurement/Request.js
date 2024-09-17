@@ -35,6 +35,6 @@ const RequestSchema = new mongoose.Schema({
     createdBy: { type: mongoose.Schema.Types.ObjectId, default: null },
 }, { timestamps: true });
 
-const Request = mongoose.model(_collectionName.Request, RequestSchema);
+const RequestModel = mongoose.model(_collectionName.Request, RequestSchema);
 
-module.exports = { Request };
+module.exports = { RequestModel };

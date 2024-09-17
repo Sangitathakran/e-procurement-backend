@@ -21,12 +21,12 @@ const _collectionName = {
     ProcurementCenter: "ProcurementCenter",
     Lands: "Lands",
     Banks: "Banks",
-    Branch: "Branchs",
     Crops: "Crops",
     FarmerOrder: "FarmerOrder",
     StateDistrictCity: "StateDistrictCity",
     Batch: "Batch",
     Payment: "Payment",
+    Branch: "Branch"
 }
 const _status = {
     active: "active",
