@@ -9,8 +9,8 @@ const { hoDashboardRoutes } = require("./modules/ho-dashboard/Routes")
 const { requireMentRoutes } = require("./modules/requirement/Routes")
 const { hoAuthRoutes } = require("./modules/ho-auth/Routes")
 const express = require("express");
-const { associateRoutes } = require("./services/associate/Routes");
-const { agentRoutes } = require("./services/agent/Routes");
+const { associateRoutes } = require("./modules/associate/Routes");
+const { agentRoutes } = require("./modules/agent/Routes");
 const router = express.Router();
 
 /* Define Your Routes */
