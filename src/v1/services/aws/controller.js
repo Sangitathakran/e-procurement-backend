@@ -2,7 +2,7 @@ const AWS = require("aws-sdk");
 const { v4: uuidv4 } = require('uuid');
 const config = require("@config/index");
 const { _response_message } = require("@src/v1/utils/constants/messages");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 require("aws-sdk/lib/maintenance_mode_message").suppress = true;
  
 // Initializing S3 bucket
@@ -22,7 +22,7 @@ const uploadToS3 = async (req, res) => {
         let { files } = req
 
         if (files.length == 0) {
-            return new serviceResponse({res, status: 400, errors: [{ message: `Attachment file is required` }] });
+            return sendResponse({res, status: 400, errors: [{ message: `Attachment file is required` }] });
         }
         let paths = []
         for (const file of files) {
@@ -37,10 +37,10 @@ const uploadToS3 = async (req, res) => {
 
             paths.push(`/${s3Resp.Key}`)
         }
-        return new serviceResponse({ res,status: 201, data: { count: paths.length, rows: paths }, message: _response_message.uploaded() });
+        return sendResponse({ res,status: 201, data: { count: paths.length, rows: paths }, message: _response_message.uploaded() });
     } catch (err) {
         console.error("Error while upload_to_s3, reason >> ", err.message)
-        return new serviceResponse({res, status: 500, errors: [{ message: `Error while upload to s3` }] });
+        return sendResponse({res, status: 500, errors: [{ message: `Error while upload to s3` }] });
     }
 }
 
@@ -62,17 +62,17 @@ const deleteFromS3 = async (req, res) => {
         S3.deleteObjects(deleteParam, function (err, data) {
             if (err) {
                 console.log(err, err.stack);
-                return new serviceResponse({res, status: 400, errors: [{ message: `Error while delete from s3` }] });
+                return sendResponse({res, status: 400, errors: [{ message: `Error while delete from s3` }] });
             }
             else {
-                return new serviceResponse({res, status: 200, data: data, message: _response_message.deleted() }) /* Return response */
+                return sendResponse({res, status: 200, data: data, message: _response_message.deleted() }) /* Return response */
 
             }
         });
     } catch (err) {
 
         console.error("Error while delete_from_s3, reason >> ", err.message)
-        return new serviceResponse({res, status: 500, errors: [{ message: `${err}` }] });
+        return sendResponse({res, status: 500, errors: [{ message: `${err}` }] });
     }
 }
 module.exports = {

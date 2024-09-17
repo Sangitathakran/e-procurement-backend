@@ -2,7 +2,7 @@ const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const {
   IndividualFarmer,
 } = require("@src/v1/models/app/farmerDetails/IndividualFarmer");
@@ -27,7 +27,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   widgetDetails.farmer.total = individualFCount + associateFCount;
   widgetDetails.associate.total = await User.countDocuments({});
   widgetDetails.procCenter.total = await CollectionCenter.countDocuments({});
-  return  new serviceResponse({
+  return  sendResponse({
     res,
     status: 200,
     message: _query.get("Account"),

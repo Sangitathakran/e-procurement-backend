@@ -1,6 +1,6 @@
 require("dotenv").config();
 const { _response_message } = require("@src/v1/utils/constants/messages");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _handleCatchErrors, _ } = require("@src/v1/utils/helpers");
 const {
   _individual_farmer_onboarding_steps,
@@ -22,14 +22,14 @@ module.exports.sendOTP = async (req, res) => {
     // Validate the mobile number
     const isValidMobile = await validateMobileNumber(mobileNumber);
     if (!isValidMobile) {
-      return  new serviceResponse({res,
+      return  sendResponse({res,
         status: 400,
         message: _response_message.invalid("mobile Number"),
       })
     }
 
     if (!acceptTermCondition) {
-      return   new serviceResponse({res,
+      return   sendResponse({res,
         status: 400,
         message: _response_message.Accept_term_condition(),
       })
@@ -37,7 +37,7 @@ module.exports.sendOTP = async (req, res) => {
 
     await smsService.sendOTPSMS(mobileNumber);
 
-    return new serviceResponse({res,
+    return sendResponse({res,
       status: 200,
       data: [],
       message: _response_message.otpCreate("OTP"),
@@ -55,7 +55,7 @@ module.exports.verifyOTP = async (req, res) => {
     // Validate the mobile number
     const isValidMobile = await validateMobileNumber(mobileNumber);
     if (!isValidMobile) {
-      return  new serviceResponse({res,
+      return  sendResponse({res,
         status: 400,
         message: _response_message.invalid("mobile Number"),
       })
@@ -65,7 +65,7 @@ module.exports.verifyOTP = async (req, res) => {
     const userOTP = await OTPModel.findOne({ phone: mobileNumber });
     // Verify the OTP
     if (inputOTP !== userOTP?.otp) {
-      return new serviceResponse({res,
+      return sendResponse({res,
         status: 400,
         message: _response_message.otp_not_verified("OTP"),
       })
@@ -93,7 +93,7 @@ module.exports.verifyOTP = async (req, res) => {
     };
 
     // Send the response
-    return new serviceResponse({
+    return sendResponse({
       res,
       status: 200,
       data: resp,
@@ -118,14 +118,14 @@ module.exports.registerName = async (req, res) => {
     );
 
     if (farmerData) {
-      return new serviceResponse({
+      return sendResponse({
         res,
         status: 200,
         data: farmerData,
         message: _response_message.Data_registered("Data"),
       })
     } else {
-      return new serviceResponse({
+      return sendResponse({
         res,
         status: 200,
         message: _response_message.Data_already_registered("Data"),
@@ -152,13 +152,13 @@ module.exports.saveFarmerDetails = async (req, res) => {
       farmerDetails[screenName] = req.body[screenName];
       farmerDetails.steps = req.body?.steps;
       const farmerUpdatedDetails = await farmerDetails.save();
-      return new serviceResponse({res,
+      return sendResponse({res,
         status:200,
         data: farmerUpdatedDetails,
         message: _response_message.updated(screenName),
       })
     } else {
-      return new serviceResponse({
+      return sendResponse({
         res,
         status: 400,
         message: _response_message.notFound("Farmer"),
@@ -189,14 +189,14 @@ module.exports.getFarmerDetails = async (req, res) => {
     }
 
     if (farmerDetails) {
-      return new serviceResponse({
+      return sendResponse({
         res,
         data: farmerDetails,
         message: _response_message.found(screenName)
       })
        
     } else {
-      return new serviceResponse({
+      return sendResponse({
         res,
         status: 400,
         message: _response_message.notFound("Farmer"),
@@ -228,7 +228,7 @@ module.exports.submitForm = async (req, res) => {
       );
 
       if (!district) {
-        return  new serviceResponse({
+        return  sendResponse({
           res,
           status: 400,
           message: _response_message.notFound(
@@ -265,17 +265,17 @@ module.exports.submitForm = async (req, res) => {
           farmerId
         );
 
-        return new serviceResponse({res,status:200, data: farmerUpdatedDetails })
+        return sendResponse({res,status:200, data: farmerUpdatedDetails })
       }
 
-      return  new serviceResponse({
+      return  sendResponse({
         res,
         status:200,
         data: farmerDetails,
         message: _response_message.submit("Farmer"),
       })
     } else {
-      return new serviceResponse({
+      return sendResponse({
         res,
         status: 400,
         message: _response_message.submit("Farmer"),

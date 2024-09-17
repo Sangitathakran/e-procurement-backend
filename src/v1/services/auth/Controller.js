@@ -1,5 +1,5 @@
 const { _handleCatchErrors } = require("@src/v1/utils/helpers")
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
 const { User } = require("@src/v1/models/app/auth/User");
 const  OTP  = require("@src/v1/models/app/auth/OTP");
@@ -37,10 +37,10 @@ module.exports.sendOtp = async (req, res) => {
         const { input, term_condition } = req.body;
 
         if (!input) {
-            return new serviceResponse({res, status: 400, message: _middleware.require('input') });
+            return sendResponse({res, status: 400, message: _middleware.require('input') });
         }
         if (!term_condition || term_condition == false) {
-            return new serviceResponse({res,status: 400, message: _middleware.require('term_condition') });
+            return sendResponse({res,status: 400, message: _middleware.require('term_condition') });
         }
 
         let inputType;
@@ -50,19 +50,19 @@ module.exports.sendOtp = async (req, res) => {
         } else if (isMobileNumber(input)) {
             inputType = 'mobile';
         } else {
-            return new serviceResponse({res, status: 400, message: _response_message.invalid('Invalid input formatut') });
+            return sendResponse({res, status: 400, message: _response_message.invalid('Invalid input formatut') });
         }
 
         if (inputType === 'email') {
             await sendEmailOtp(input);
-            return new serviceResponse({res, status: 404, message: _response_message.otpSend("Input is an email and OTP has been sent.") });
+            return sendResponse({res, status: 404, message: _response_message.otpSend("Input is an email and OTP has been sent.") });
         
         } else if (inputType === 'mobile') {
             await sendSmsOtp(input);
-            return new serviceResponse({ res,status: 404, message: _response_message.otpSend("Input is a mobile number and OTP has been sent.") });
+            return sendResponse({ res,status: 404, message: _response_message.otpSend("Input is a mobile number and OTP has been sent.") });
         
         } else {
-            return new serviceResponse({res, status: 400, message: _response_message.invalid("Invalid input format") });
+            return sendResponse({res, status: 400, message: _response_message.invalid("Invalid input format") });
         }
 
     } catch (error) {
@@ -76,7 +76,7 @@ module.exports.loginOrRegister = async (req, res) => {
         const { userInput, inputOTP } = req.body;
 
         if (!userInput || !inputOTP) {
-            return new serviceResponse({res, status: 400, message: _middleware.require('otp_required') });
+            return sendResponse({res, status: 400, message: _middleware.require('otp_required') });
         }
 
         const isEmailInput = isEmail(userInput);
@@ -86,7 +86,7 @@ module.exports.loginOrRegister = async (req, res) => {
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
         if (!userOTP || inputOTP !== userOTP.otp) {
-            return new serviceResponse({res, status: 400, message: _response_message.invalid('OTP verification failed') });
+            return sendResponse({res, status: 400, message: _response_message.invalid('OTP verification failed') });
         }
 
         let userExist = await User.findOne(query).lean();
@@ -110,7 +110,7 @@ module.exports.loginOrRegister = async (req, res) => {
                 onboarding: (userExist?.basic_details?.associate_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details) ? true : false
             }
 
-            return new serviceResponse({res, status: 200, message: _auth_module.login('Account'), data:data });
+            return sendResponse({res, status: 200, message: _auth_module.login('Account'), data:data });
         } else {
             const newUser = {
                 client_id: isEmailInput ? '1243' : '9876',
@@ -128,7 +128,7 @@ module.exports.loginOrRegister = async (req, res) => {
             }
 
             const userInsert = await User.create(newUser);
-            return new serviceResponse({res, status: 201, message: _auth_module.created('User'), data: userInsert });
+            return sendResponse({res, status: 201, message: _auth_module.created('User'), data: userInsert });
         }
 
     } catch (error) {
@@ -141,14 +141,14 @@ module.exports.saveAssociateDetails = async (req, res) => {
     try {
         const getToken = req.headers.token || req.cookies.token;
         if (!getToken) {
-            return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+            return res.status(401).send(sendResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
         const userId = decode.data.user_id;
 
         const user = await User.findById(userId);
         if (!user) {
-            return new serviceResponse({res, status: 400, message: _response_message.notFound('User') });
+            return sendResponse({res, status: 400, message: _response_message.notFound('User') });
         }
 
         const { formName, ...formData } = req.body;
@@ -199,12 +199,12 @@ module.exports.saveAssociateDetails = async (req, res) => {
                 };
                 break;
             default:
-                return new serviceResponse({res, status: 400, message: `Invalid form name: ${formName}` });
+                return sendResponse({res, status: 400, message: `Invalid form name: ${formName}` });
         }
 
         await user.save();
 
-        return new serviceResponse({res,status:200, message: _response_message.updated('User') });
+        return sendResponse({res,status:200, message: _response_message.updated('User') });
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -218,7 +218,7 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
     let record = await User.findOne({ _id: user_id }).lean();
 
     if (!record) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }));
+        return sendResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] });
     }
     // record = { ...record }
     console.log(record)
@@ -231,7 +231,7 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
         { label: "Bank Details", status: record.bank_details ? "completed" : "pending" },
     ];
 
-    return res.status(200).send(new serviceResponse({ status: 200, data, message: _response_message.found("status") }));
+    return sendResponse({ status: 200, data, message: _response_message.found("status") });
 })
 
 
@@ -242,15 +242,15 @@ module.exports.formPreview = async (req, res) => {
         const { user_id } = req;
 
         if (!user_id) {
-            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
+            return sendResponse({ status: 400, message: _middleware.require('user_id') });
         }
 
         const response = await User.findById({ _id: user_id });
 
         if (!response) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+            return res.status(400).send(sendResponse({ status: 400, message: _response_message.notFound('User') }));
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
+            return sendResponse({ status: 200, message: _query.get("data"), data: response });
         }
 
     } catch (error) {
