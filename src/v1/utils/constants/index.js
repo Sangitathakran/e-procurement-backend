@@ -120,9 +120,8 @@ const _procuredStatus = {
 }
 const _userType = {
     admin: "1",
-    trader: "2",
-    ho: "3",
-    bo: "6",
+    ho: "2",
+    bo: "3",
     associate: "4",
     farmer: "5",
 }
