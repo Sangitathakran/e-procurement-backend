@@ -10,7 +10,7 @@ const { associateRoutes } = require("./modules/associate/Routes");
 
 const { agentRoutes } = require("./modules/agent/Routes");
 const { headOfficeRoutes}  = require("./modules/head-office/routes")
-const { farmerRoutes} = require("./modules/farmer/routes")
+const { farmerRoutes} = require("./modules/farmer/Routes")
 
 /* Define Your Routes */
 router.use(handlePagination)
