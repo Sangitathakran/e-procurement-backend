@@ -60,7 +60,6 @@ module.exports.importBranches = async (req, res) => {
       if (missingHeaders.length > 0) {
         return res.status(400).send(
           new serviceResponse({
-            res,
             status: 400,
             message: `Missing required headers: ${missingHeaders.join(', ')}`,
           })
@@ -92,7 +91,6 @@ module.exports.importBranches = async (req, res) => {
           if (!row[field]) {
             return res.status(400).send(
               new serviceResponse({
-                res,
                 status: 400,
                 message: `Row ${index + 1}: The field "${field}" is required and cannot be empty.`,
               })
@@ -104,7 +102,6 @@ module.exports.importBranches = async (req, res) => {
         if (row.pointOfContactPhone && row.pointOfContactPhone.toString().length !== 10) {
           return res.status(400).send(
             new serviceResponse({
-              res,
               status: 400,
               message: `Row ${index + 1}: The phone number must be exactly 10 digits.`,
             })
@@ -115,7 +112,6 @@ module.exports.importBranches = async (req, res) => {
         if (!emailRegex.test(row.emailAddress)) {
           return res.status(400).send(
             new serviceResponse({
-              res,
               status: 400,
               message: `Row ${index + 1}: The email address "${row.emailAddress}" is invalid.`,
             })
@@ -126,7 +122,6 @@ module.exports.importBranches = async (req, res) => {
         if (!emailRegex.test(row.pointOfContactEmail)) {
           return res.status(400).send(
             new serviceResponse({
-              res,
               status: 400,
               message: `Row ${index + 1}: The point of contact email "${row.pointOfContactEmail}" is invalid.`,
             })
