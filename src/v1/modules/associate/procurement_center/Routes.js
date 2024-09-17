@@ -4,12 +4,12 @@ const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode, getHoProcurementCenter } = require("./Controller");
 const express = require("express");
 const { verifyAssociate } = require("../utils/verifyAssociate");
-const centerRoutes = express.Router();
+const procurementCenterRoutes = express.Router();
 
-centerRoutes.get("/", verifyAssociate, getProcurementCenter);
-centerRoutes.post("/import-centers", ImportProcurementCenter);
-centerRoutes.post("/generateCenterCode", generateCenterCode);
-centerRoutes.post("/", validateErrors, verifyAssociate, createProcurementCenter, [
+procurementCenterRoutes.get("/", verifyAssociate, getProcurementCenter);
+procurementCenterRoutes.post("/import-centers", ImportProcurementCenter);
+procurementCenterRoutes.post("/generateCenterCode", generateCenterCode);
+procurementCenterRoutes.post("/", validateErrors, verifyAssociate, createProcurementCenter, [
     body("center_name", _middleware.require("center_name")).notEmpty().trim(),
     body("center_code", _middleware.require("center_code")).notEmpty().trim(),
     body("line1", _middleware.require("line1")).notEmpty().trim(),
@@ -29,6 +29,6 @@ centerRoutes.post("/", validateErrors, verifyAssociate, createProcurementCenter,
     body("addressType", _middleware.require("addressType")).isIn(['Residential', 'Business', 'Billing', 'Shipping']),
     body("isPrimary").optional().isBoolean()
 ]);
-centerRoutes.get("/ho-list", verifyAssociate, getHoProcurementCenter);
+procurementCenterRoutes.get("/ho-list", verifyAssociate, getHoProcurementCenter);
 
-module.exports = { centerRoutes }; 
+module.exports = { procurementCenterRoutes }; 
