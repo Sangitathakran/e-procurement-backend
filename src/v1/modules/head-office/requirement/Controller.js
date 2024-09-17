@@ -9,26 +9,43 @@ const {
   _auth_module,
 } = require("@src/v1/utils/constants/messages");
 const {
-  Request,
-} = require("@src/v1/models/app/procurement/Request");
-
+  ProcurementRequest,
+} = require("@src/v1/models/app/procurement/ProcurementRequest");
+const Branches = require("@src/v1/models/master/Branches");
+const {getFilter}=require("@src/v1/utils/helpers/customFilter")
 //widget list
 module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
   try {
     const { page, limit, skip = 0, paginate, sortBy, search = "" } = req.query;
-    const filter=await getFilter(req,["status", "reqNo"]);
-    console.log('filter',filter)
+    const filter=await getFilter(req,["status", "reqNo","branchName"]);
     const query = filter;
     const records = { count: 0 };
     records.rows =
-      (await Request.find(query)
+      (await ProcurementRequest.find()
         .select("associatOrder_id head_office_id status reqNo createdAt")
-        .populate({path:'head_office_id',select:'head_office_name office_id'})
+        .populate({path:'branch_id',select:'branchName',match:query})
         .skip(skip)
         .limit(parseInt(limit))
         .sort(sortBy)) ?? [];
-
-    records.count = await Request.countDocuments();
+        if(req.query.search){
+          
+          const pattern = new RegExp(req.query.search, 'i'); 
+          records.rows=records.rows.filter(item=>{
+            if(item.branch_id){
+              return true;
+            }else if(pattern.test(item.reqNo)||pattern.test(item.status)){
+              return true;
+            }else{
+              return false;
+            }
+            
+          });
+          records.count=records.rows.length;
+        }else{
+          records.count = await ProcurementRequest.countDocuments(query);
+        }
+        
+    
 
     if (paginate == 1) {
       records.page = page;
