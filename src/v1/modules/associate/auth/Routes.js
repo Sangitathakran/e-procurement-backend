@@ -1,5 +1,5 @@
 const { sendOtp, loginOrRegister, saveAssociateDetails, onboardingStatus, formPreview } = require("./Controller");
-const { validateForm } = require("@src/v1/services/associate/auth/Validation")
+const { validateForm } = require("@src/v1/modules/associate/auth/Validation")
 const express = require("express");
 const { verifyAssociate } = require("../utils/verifyAssociate");
 const userAuthRoutes = express.Router();
