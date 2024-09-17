@@ -1,32 +1,32 @@
-const { handlePagination, handleRateLimit } = require("./middlewares/express_app");
-const { helperRoutes } = require("./services/api_helpers/Routes");
-const { S3Router } = require("./services/aws/routes");
-const multer = require('multer');
-const { masterRoutes } = require("./services/master/Routes");
-const { individualFarmerRoutes } = require("./services/individual-farmer/Routes");
-const { procurementRoutes } = require("./services/procurement/Routes");
-const { farmerRoutes } = require("./services/farmer/Routes");
-const { userAuthRoutes } = require("./services/auth/Routes");
-const {hoDashboardRoutes}=require("./services/ho-dashboard/Routes")
-const {requireMentRoutes}=require("./services/requirement/Routes")
-const {hoAuthRoutes}=require("./services/ho-auth/Routes")
 const express = require("express");
 const router = express.Router();
 
- /* Define Your Routes */
- router.use(handlePagination)
- router.use(handleRateLimit)
- router.use(multer().any())
+const { handlePagination, handleRateLimit } = require("./middlewares/express_app");
+const { helperRoutes } = require("./modules/api_helpers/Routes");
+const { S3Router } = require("./modules/aws/routes");
+const multer = require('multer');
+const { masterRoutes } = require("./modules/master/Routes");
+const { associateRoutes } = require("./modules/associate/Routes");
 
- router.use('/aws', S3Router)
- router.use("/master", masterRoutes);
- router.use('/ivd-farmer',individualFarmerRoutes);
- router.use('/ho-dashboard',hoDashboardRoutes);
- router.use('/requirement',requireMentRoutes)
- router.use("/procurement", procurementRoutes);
- router.use('/farmer', farmerRoutes);
- router.use('/helper', helperRoutes)
- router.use("/auth", userAuthRoutes);
- router.use("/ho-auth",hoAuthRoutes)
+const { agentRoutes } = require("./modules/agent/Routes");
+const { headOfficeRoutes}  = require("./modules/head-office/routes")
+const { farmerRoutes} = require("./modules/farmer/routes")
+
+/* Define Your Routes */
+router.use(handlePagination)
+router.use(handleRateLimit)
+router.use(multer().any())
+
+router.use('/aws', S3Router)
+router.use("/master", masterRoutes);
+
+
+router.use("/agent", agentRoutes);
+router.use('/helper', helperRoutes)
+
  
-module.exports = router;
+router.use("/associate", associateRoutes);
+router.use("/farmer", farmerRoutes)
+router.use("/ho", headOfficeRoutes)
+ 
+module.exports = { router };

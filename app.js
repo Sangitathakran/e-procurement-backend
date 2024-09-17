@@ -26,7 +26,7 @@ const { combinedLogger, combinedLogStream } = require("@config/logger");
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
-const routes = require("./src/v1/routes");
+const { router } = require("./src/v1/routes");
 // application level middlewares
 app.use(helmet());
 app.use(
@@ -35,7 +35,7 @@ app.use(
     methods: ["POST", "GET", "PUT", "DELETE", "OPTIONS", "PATCH"],
   })
 );
-// app.use(morgan('dev'));
+app.use(morgan('dev'));
 app.use(morgan("combined", { stream: combinedLogStream }));
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -45,7 +45,7 @@ app.use(handleCors);
 app.use(handlePagination);
 app.use(cookieParser());
 app.disable("x-powered-by");
-app.use(apiVersion, routes);
+app.use(apiVersion, router);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 // server status
 app.get(
@@ -58,7 +58,7 @@ app.get(
 );
 
 /* Handle errors */
- //app.use(handleCatchError)
+//app.use(handleCatchError)
 app.all("*", handleRouteNotFound);
 
 // Listner server
