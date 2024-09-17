@@ -9,7 +9,7 @@ function serviceResponse({ status, data, message, errors, errorCode, event }) {
 };
 function sendResponse({ res,status, data, message, errors, errorCode, event }) {
    
-    return res.status(status).json({data, message, errors, errorCode, event})
+    return res.status(status).json({status, data, message, errors, errorCode, event})
     
 };
 module.exports = { serviceResponse,sendResponse };
