@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const { _collectionName, _userType, _trader_type, _user_status } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
-
 const userSchema = new mongoose.Schema({
     
     client_id: {type: String,required: true,trim: true,},
@@ -37,7 +36,6 @@ const userSchema = new mongoose.Schema({
         },
         implementation_agency: {type: String,trim: true,},
         cbbo_name: {type: String,trim: true,},
-
     },
     address : {
         registered:{
@@ -101,33 +99,28 @@ const userSchema = new mongoose.Schema({
     user_status: { type: String, enum: Object.values(_user_status), default:_user_status.APPROVED },
     user_type: {type: String,trim: true ,},
     is_mobile_verified:{type: String,default: false},
+    is_approved:{type: Boolean,default: false},
     is_email_verified:{type: String,default: false},
+    is_welcome_email_send:{type: Boolean,default: false},
     term_condition:{type: String,default: false},
     active: {type: Boolean,default: true},
     ..._commonKeys
 },{ timestamps: true });
-
 userSchema.pre('save', async function (next) {
     if (!this.isNew) return next();
-
     const User = mongoose.model(_collectionName.Users, userSchema);
-
     try {
         const lastUser = await User.findOne().sort({ createdAt: -1 });
         let nextUserCode = 'AS00001';
-
         if (lastUser && lastUser.user_code) {
             const lastCodeNumber = parseInt(lastUser.user_code.slice(2));
             nextUserCode = 'AS' + String(lastCodeNumber + 1).padStart(5, '0');
         }
-
         this.user_code = nextUserCode;
         next();
     } catch (err) {
         next(err);
     }
 });
-
 const User = mongoose.model(_collectionName.Users, userSchema);
-
 module.exports = { User }
