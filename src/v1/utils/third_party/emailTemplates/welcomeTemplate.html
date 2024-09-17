@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Our Platform</title>
+    <title>Welcome to Navbazar</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
-            background: #f5f5f5; /* Set your desired background color */
+            background: #f5f5f5;
         }
         .container {
             max-width: 600px;
@@ -32,18 +32,27 @@
             text-align: center;
             padding-top: 20px;
         }
+        a {
+            text-decoration: none;
+            display: inline-block;
+            cursor: pointer;
+        }
         .cta-button {
             display: inline-block;
             padding: 12px 24px;
             background: linear-gradient(135deg, #007bff, #00bfff);
+            background-color: rgb(76, 147, 76);
             color: #ffffff;
-            text-decoration: none;
-            border-radius: 5px;
-            margin-top: 20px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
             transition: background 0.3s ease-in-out;
         }
         .cta-button:hover {
             background: linear-gradient(135deg, #0056b3, #00a2e8);
+            background-color: rgb(60, 130, 60);
+            cursor: pointer;
         }
         .footer {
             text-align: center;
@@ -55,22 +64,18 @@
 <body>
     <div class="container">
         <div class="header">
-            <img src="{{logo_url}}" alt="Company Logo" class="logo">
+            <img src="{{logo_url}}" alt="Navbazar Logo" class="logo">
         </div>
         <div class="content">
-            <h2 style="margin-bottom: 20px;">Welcome to Our Platform!</h2>
-            <p>Hello,</p>
-            <p>We are thrilled to have you onboard our platform. Get ready to embark on an exciting journey filled with innovation and possibilities.</p>
-            <p>Explore our cutting-edge features and services:</p>
-            <ul>
-                <li>Feature 1</li>
-                <li>Feature 2</li>
-                <li>Feature 3</li>
-                <!-- Add more features as needed -->
-            </ul>
-            <a href="{{app_url}}" class="cta-button">Get Started</a>
-            <p>If you have any questions or need assistance, feel free to reach out to our support team.</p>
-            <p>Let's create something amazing together!</p>
+            <h2 style="margin-bottom: 20px;">Welcome to Navbazar!</h2>
+            <p>Dear <strong>{{user_name}}, </strong></p>
+            <p>You have been successfully registered with Navbazar.</p>
+            <p>Your Associate ID is <strong>{{user_code}}</strong>.</p>
+            <p>To begin your procurement journey, please visit the following link:</p>
+            <a href="{{app_url}}">
+                <button class="cta-button">Start Your Journey</button> <!-- Green button -->
+            </a>
+            <p>We're excited to collaborate with you!</p>
         </div>
         <div class="footer">
             <p>Best regards,<br>Team</p>

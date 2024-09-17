@@ -6,7 +6,7 @@ const OTPModel = require('@src/v1/models/app/auth/OTP');
 process.env.SMS_SEND_API_KEY;
 APP_URL = process.env.APP_URL;
 LOGO_URL = process.env.LOGO_URL;
-
+FRONTEND_URL = process.env.FRONTEND_URL;
 
 class EmailService {
     constructor() {
@@ -80,10 +80,19 @@ class EmailService {
 
     async sendWelcomeEmail(newUserEmail, APP_URL, LOGO_URL) {
         try {
+            const email = userDetails.basic_details.associate_details.email;
+            const userName = userDetails.basic_details.associate_details.organization_name;
+            const userCode = userDetails.user_code;
+
             const template = await this.loadTemplate("welcomeTemplate");
-            const html = template.replace("{{app_url}}", APP_URL).replace("{{logo_url}}", LOGO_URL);
-            // await this.sendEmail(newUserEmail, "Welcome to Our Platform", html);
-            await sendMail(newUserEmail,'','Reset Your Password',html);
+            const html = template
+                    .replace("{{app_url}}", FRONTEND_URL)
+                    .replace("{{logo_url}}", LOGO_URL)
+                    .replace("{{user_name}}", userName)
+                    .replace("{{user_code}}", userCode);
+            
+            await sendMail(email,'','Registration done successfully || Navbazar || ',html);
+
         } catch (error) {
             console.error("Error sending welcome email:", error);
             throw error;
@@ -104,6 +113,7 @@ class EmailService {
     
 }
 
+const emailService = new EmailService;
+module.exports = { emailService };
 
 
-module.exports = EmailService;
