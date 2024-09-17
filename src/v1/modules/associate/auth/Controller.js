@@ -39,7 +39,7 @@ module.exports.sendOtp = async (req, res) => {
         } else if (isMobileNumber(input)) {
             inputType = 'mobile';
         } else {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Invalid input format") }] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Invalid input format") }] }));
         }
         if (inputType === 'email') {
             await sendEmailOtp(input);
@@ -48,7 +48,7 @@ module.exports.sendOtp = async (req, res) => {
             await sendSmsOtp(input);
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Mobile") }));
         } else {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Invalid input format") }] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Invalid input format") }] }));
         }
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -58,7 +58,7 @@ module.exports.loginOrRegister = async (req, res) => {
     try {
         const { userInput, inputOTP } = req.body;
         if (!userInput || !inputOTP) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors:[{message: _middleware.require('otp_required')}] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors:[{message: _middleware.require('otp_required')}] }));
         }
         const isEmailInput = isEmail(userInput);
         const query = isEmailInput
@@ -66,7 +66,7 @@ module.exports.loginOrRegister = async (req, res) => {
             : { 'basic_details.associate_details.phone': userInput };
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
         if (!userOTP || inputOTP !== userOTP.otp) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors:[{message: _response_message.invalid('OTP verification failed')}] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors:[{message: _response_message.invalid('OTP verification failed')}] }));
         }
         let userExist = await User.findOne(query).lean();
         
@@ -105,7 +105,7 @@ module.exports.loginOrRegister = async (req, res) => {
                 newUser.is_mobile_verified = true;
             }
             const userInsert = await User.create(newUser);
-            return res.status(201).send(new serviceResponse({ status: 201, message: _auth_module.created('User'), data: userInsert }));
+            return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('User'), data: userInsert }));
         }
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -115,13 +115,13 @@ module.exports.saveAssociateDetails = async (req, res) => {
     try {
         const getToken = req.headers.token || req.cookies.token;
         if (!getToken) {
-            return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+            return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
         const userId = decode.data.user_id;
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         }
         const { formName, ...formData } = req.body;
         switch (formName) {
@@ -170,7 +170,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
                 };
                 break;
             default:
-                return res.status(400).send(new serviceResponse({ status: 400, message: `Invalid form name: ${formName}` }));
+                return res.status(200).send(new serviceResponse({ status: 400, message: `Invalid form name: ${formName}` }));
         }
         await user.save();
         const allDetailsFilled = (
@@ -220,7 +220,7 @@ module.exports.formPreview = async (req, res) => {
         }
         const response = await User.findById({ _id: user_id });
         if (!response) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
         }
@@ -232,14 +232,14 @@ module.exports.useStatusUpdate = async (req, res) => {
     try {
         const { userId } = req.body;
         if ( !userId ) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors:[{message: _middleware.require('user id')}] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors:[{message: _middleware.require('user id')}] }));
         }
         if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors:[{message: _response_message.invalid('user id')}] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors:[{message: _response_message.invalid('user id')}] }));
         }
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(404).send(new serviceResponse({ status: 404, errors:[{message: _response_message.notFound('User')}] }));
+            return res.status(200).send(new serviceResponse({ status: 404, errors:[{message: _response_message.notFound('User')}] }));
         }
         if (user.is_approved) {
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.allReadyApproved('User') }));
