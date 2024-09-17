@@ -150,7 +150,7 @@ module.exports.ImportCollectionCenter = async (req, res) => {
         const [file] = req.files;
 
         if (!file) {
-            return res.status(400).send(sendResponse({ status: 400, message: _response_message.notFound('file') }));
+            return sendResponse({ status: 400, message: _response_message.notFound('file') });
         }
 
         let centers = [];
@@ -163,7 +163,7 @@ module.exports.ImportCollectionCenter = async (req, res) => {
             centers = xlsx.utils.sheet_to_json(worksheet);
 
             if (!centers.length) {
-                return res.status(400).send(sendResponse({ status: 400, message: _response_message.notFound('No data found in the file') }));
+                return sendResponse({ status: 400, message: _response_message.notFound('No data found in the file') });
             }
 
             headers = Object.keys(centers[0]);
@@ -194,7 +194,7 @@ module.exports.ImportCollectionCenter = async (req, res) => {
 
         const getToken = req.headers.token || req.cookies.token;
         if (!getToken) {
-            return res.status(401).send(sendResponse({ status: 401, message: _middleware.require('token') }));
+            return sendResponse({ status: 401, message: _middleware.require('token') });
         }
 
         const decode = await decryptJwtToken(getToken);

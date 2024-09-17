@@ -18,21 +18,21 @@ module.exports.createFarmer = async (req, res) => {
         const existingFarmer = await farmer.findOne({ 'mobile_no': mobile_no });
 
         if (existingFarmer) {
-            return res.status(400).send(sendResponse({
+            return sendResponse({
                 status: 400,
                 errors: [{ message: _response_message.allReadyExist("farmer") }]
-            }));
+            });
         }
         const farmerCode = await _generateFarmerCode();
 
         const newFarmer = new farmer({associate_id,farmer_code: farmerCode,title,name,parents: {    father_name: father_name || '',    mother_name: mother_name || ''},dob,gender,marital_status,religion,category,education,proof,address,mobile_no,email,status });
         const savedFarmer = await newFarmer.save();
 
-        return res.status(201).send(sendResponse({
+        return sendResponse({
             status: 201,
             data: savedFarmer,
             message: _response_message.created("Farmer")
-        }));
+        });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -81,10 +81,10 @@ module.exports.editFarmer = async (req, res) => {
   
       const existingFarmer = await farmer.findById(id);
       if (!existingFarmer) {
-        return res.status(404).send(sendResponse({
+        return sendResponse({
           status: 404,
           errors: [{ message: _response_message.notFound("farmer") }]
-        }));
+        });
       }
   
       existingFarmer.associate_id = associate_id || existingFarmer.associate_id;
@@ -132,11 +132,11 @@ module.exports.deletefarmer = async (req, res) => {
           message: _response_message.deleted("farmer"),
         });
       } else {
-        return res.status(404).send(sendResponse({
+        return sendResponse({
           status: 404,
           data: response,
           message: _response_message.notFound("farmer"),
-        }));
+        });
       }
     } catch (error) {
       _handleCatchErrors(error, res);
@@ -154,10 +154,10 @@ module.exports.deletefarmer = async (req, res) => {
       const existingLand = await Land.findOne({ 'khasra_no': khasra_no });
   
       if (existingLand) {
-        return res.status(400).send(sendResponse({
+        return sendResponse({
           status: 400,
           errors: [{ message: _response_message.allReadyExist("Land") }]
-        }));
+        });
       }
       const state_id = await getStateId(state_name);
       const district_id = await getDistrictId(district_name);
@@ -173,11 +173,11 @@ module.exports.deletefarmer = async (req, res) => {
       });
       const savedLand = await newLand.save();
   
-      return res.status(201).send(sendResponse({
+      return sendResponse({
         status: 201,
         data: savedLand,
         message: _response_message.created("Land")
-      }));
+      });
   
     } catch (error) {
       _handleCatchErrors(error, res);
@@ -207,10 +207,10 @@ module.exports.deletefarmer = async (req, res) => {
       );
   
       if (!updatedLand) {
-        return res.status(404).send(sendResponse({
+        return sendResponse({
           status: 404,
           message: _response_message.notFound("Land")
-        }));
+        });
       }
   
       return sendResponse({
@@ -262,10 +262,10 @@ module.exports.deletefarmer = async (req, res) => {
       );
   
       if (!updatedLand) {
-        return res.status(404).send(sendResponse({
+        return sendResponse({
           status: 404,
           message: _response_message.notFound("Land")
-        }));
+        });
       }
   
       return sendResponse({
@@ -293,11 +293,11 @@ module.exports.deletefarmer = async (req, res) => {
             message: _response_message.deleted("Land"),
           });
         } else {
-          return res.status(404).send(sendResponse({
+          return sendResponse({
             status: 404,
             data: response,
             message: _response_message.notFound("Land"),
-          }));
+          });
         }
       } catch (error) {
         _handleCatchErrors(error, res);
@@ -326,11 +326,11 @@ module.exports.deletefarmer = async (req, res) => {
     
         const savedCrop = await newCrop.save();
     
-        return res.status(201).send(sendResponse({
+        return sendResponse({
             status: 201,
             data: savedCrop,
             message: _response_message.created("Crop")
-          }));
+          });
     
         } catch (error) {
             _handleCatchErrors(error, res);
@@ -362,10 +362,10 @@ module.exports.deletefarmer = async (req, res) => {
         );
 
         if (!updatedCrop) {
-            return res.status(404).send(sendResponse({
+            return sendResponse({
                 status: 404,
                 message: _response_message.notFound("Crop")
-            }));
+            });
         }
 
         return sendResponse({
@@ -394,11 +394,11 @@ module.exports.deleteCrop = async (req, res) => {
             message: _response_message.deleted("Crop"),
           });
         } else {
-          return res.status(404).send(sendResponse({
+          return sendResponse({
             status: 404,
             data: response,
             message: _response_message.notFound("Crop"),
-          }));
+          });
         }
       } catch (error) {
         _handleCatchErrors(error, res);
@@ -427,10 +427,10 @@ module.exports.createBank = async (req, res) => {
         const district_id = await getDistrictId(district_name); 
 
         if (!state_id || !district_id) {
-            return res.status(400).send(sendResponse({
+            return sendResponse({
                 status: 400,
                 message: "Invalid state or district provided"
-            }));
+            });
         }
 
         const newBank = new Bank({
@@ -451,11 +451,11 @@ module.exports.createBank = async (req, res) => {
 
         const savedBank = await newBank.save();
         
-        return res.status(201).send(sendResponse({
+        return sendResponse({
             status: 201,
             data: savedBank,
             message: _response_message.created("Bank")
-        }));
+        });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -485,10 +485,10 @@ module.exports.updateBank = async (req, res) => {
         const district_id = await getDistrictId(district_name);
 
         if (!state_id || !district_id) {
-            return res.status(400).send(sendResponse({
+            return sendResponse({
                 status: 400,
                 message: "Invalid state or district provided"
-            }));
+            });
         }
 
         const updatedBank = await Bank.findByIdAndUpdate(
@@ -512,10 +512,10 @@ module.exports.updateBank = async (req, res) => {
         );
 
         if (!updatedBank) {
-            return res.status(404).send(sendResponse({
+            return sendResponse({
                 status: 404,
                 message: "Bank not found"
-            }));
+            });
         }
 
         return sendResponse({
@@ -543,11 +543,11 @@ module.exports.deleteBank = async (req, res) => {
             message: _response_message.deleted("Bank"),
           });
         } else {
-          return res.status(404).send(sendResponse({
+          return sendResponse({
             status: 404,
             data: response,
             message: _response_message.notFound("Bank"),
-          }));
+          });
         }
       } catch (error) {
         _handleCatchErrors(error, res);

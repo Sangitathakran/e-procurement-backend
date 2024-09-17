@@ -141,7 +141,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
     try {
         const getToken = req.headers.token || req.cookies.token;
         if (!getToken) {
-            return res.status(401).send(sendResponse({ status: 401, message: _middleware.require('token') }));
+            return sendResponse({ status: 401, message: _middleware.require('token') });
         }
         const decode = await decryptJwtToken(getToken);
         const userId = decode.data.user_id;
@@ -248,7 +248,7 @@ module.exports.formPreview = async (req, res) => {
         const response = await User.findById({ _id: user_id });
 
         if (!response) {
-            return res.status(400).send(sendResponse({ status: 400, message: _response_message.notFound('User') }));
+            return sendResponse({ status: 400, message: _response_message.notFound('User') });
         } else {
             return sendResponse({ status: 200, message: _query.get("data"), data: response });
         }

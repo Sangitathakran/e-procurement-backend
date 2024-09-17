@@ -255,7 +255,7 @@ module.exports.getFarmerListById = async (req, res) => {
 
         // Ensure only `associate` users can access this API
         if (user_type !== _userType.associate) {
-            return res.status(401).send(sendResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
+            return sendResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] });
         }
 
         // Build query to find farmers associated with the current user (associate)
