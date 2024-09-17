@@ -8,5 +8,9 @@ function serviceResponse({ res,status, data, message, errors, errorCode, event }
     this.version = '1.0';
     res.status(status).json(this)
 };
-
-module.exports = { serviceResponse };
+function sendResponse({ res,status, data, message, errors, errorCode, event }) {
+   
+    return res.status(status).json({data, message, errors, errorCode, event})
+    
+};
+module.exports = { serviceResponse,sendResponse };

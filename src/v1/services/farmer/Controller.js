@@ -1,5 +1,5 @@
 const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, } = require("@src/v1/utils/helpers")
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
@@ -18,21 +18,21 @@ module.exports.createFarmer = async (req, res) => {
         const existingFarmer = await farmer.findOne({ 'mobile_no': mobile_no });
 
         if (existingFarmer) {
-            return res.status(400).send(new serviceResponse({
+            return sendResponse({
                 status: 400,
                 errors: [{ message: _response_message.allReadyExist("farmer") }]
-            }));
+            });
         }
         const farmerCode = await _generateFarmerCode();
 
         const newFarmer = new farmer({associate_id,farmer_code: farmerCode,title,name,parents: {    father_name: father_name || '',    mother_name: mother_name || ''},dob,gender,marital_status,religion,category,education,proof,address,mobile_no,email,status });
         const savedFarmer = await newFarmer.save();
 
-        return res.status(201).send(new serviceResponse({
+        return sendResponse({
             status: 201,
             data: savedFarmer,
             message: _response_message.created("Farmer")
-        }));
+        });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -58,11 +58,11 @@ module.exports.getFarmers = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
         }
 
-        return res.status(200).send(new serviceResponse({
+        return sendResponse({
             status: 200,
             data: records,
             message: _response_message.found("farmers")
-        }));
+        });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -81,10 +81,10 @@ module.exports.editFarmer = async (req, res) => {
   
       const existingFarmer = await farmer.findById(id);
       if (!existingFarmer) {
-        return res.status(404).send(new serviceResponse({
+        return sendResponse({
           status: 404,
           errors: [{ message: _response_message.notFound("farmer") }]
-        }));
+        });
       }
   
       existingFarmer.associate_id = associate_id || existingFarmer.associate_id;
@@ -106,11 +106,11 @@ module.exports.editFarmer = async (req, res) => {
   
       const updatedFarmer = await existingFarmer.save();
   
-      return res.status(200).send(new serviceResponse({
+      return sendResponse({
         status: 200,
         data: updatedFarmer,
         message: _response_message.updated("Farmer")
-      }));
+      });
   
     } catch (error) {
       _handleCatchErrors(error, res);
@@ -126,17 +126,17 @@ module.exports.deletefarmer = async (req, res) => {
       const response = await farmer.deleteOne({ _id: id });
       
       if (response.deletedCount > 0) {
-        return res.status(200).send(new serviceResponse({
+        return sendResponse({
           status: 200,
           data: response,
           message: _response_message.deleted("farmer"),
-        }));
+        });
       } else {
-        return res.status(404).send(new serviceResponse({
+        return sendResponse({
           status: 404,
           data: response,
           message: _response_message.notFound("farmer"),
-        }));
+        });
       }
     } catch (error) {
       _handleCatchErrors(error, res);
@@ -154,10 +154,10 @@ module.exports.deletefarmer = async (req, res) => {
       const existingLand = await Land.findOne({ 'khasra_no': khasra_no });
   
       if (existingLand) {
-        return res.status(400).send(new serviceResponse({
+        return sendResponse({
           status: 400,
           errors: [{ message: _response_message.allReadyExist("Land") }]
-        }));
+        });
       }
       const state_id = await getStateId(state_name);
       const district_id = await getDistrictId(district_name);
@@ -173,11 +173,11 @@ module.exports.deletefarmer = async (req, res) => {
       });
       const savedLand = await newLand.save();
   
-      return res.status(201).send(new serviceResponse({
+      return sendResponse({
         status: 201,
         data: savedLand,
         message: _response_message.created("Land")
-      }));
+      });
   
     } catch (error) {
       _handleCatchErrors(error, res);
@@ -207,17 +207,17 @@ module.exports.deletefarmer = async (req, res) => {
       );
   
       if (!updatedLand) {
-        return res.status(404).send(new serviceResponse({
+        return sendResponse({
           status: 404,
           message: _response_message.notFound("Land")
-        }));
+        });
       }
   
-      return res.status(200).send(new serviceResponse({
+      return sendResponse({
         status: 200,
         data: updatedLand,
         message: _response_message.updated("Land")
-      }));
+      });
   
     } catch (error) {
       _handleCatchErrors(error, res);
@@ -262,17 +262,17 @@ module.exports.deletefarmer = async (req, res) => {
       );
   
       if (!updatedLand) {
-        return res.status(404).send(new serviceResponse({
+        return sendResponse({
           status: 404,
           message: _response_message.notFound("Land")
-        }));
+        });
       }
   
-      return res.status(200).send(new serviceResponse({
+      return sendResponse({
         status: 200,
         data: updatedLand,
         message: _response_message.updated("Land")
-      }));
+      });
   
     } catch (error) {
       _handleCatchErrors(error, res);
@@ -287,17 +287,17 @@ module.exports.deletefarmer = async (req, res) => {
         const response = await Land.deleteOne({ _id: id });
         
         if (response.deletedCount > 0) {
-          return res.status(200).send(new serviceResponse({
+          return sendResponse({
             status: 200,
             data: response,
             message: _response_message.deleted("Land"),
-          }));
+          });
         } else {
-          return res.status(404).send(new serviceResponse({
+          return sendResponse({
             status: 404,
             data: response,
             message: _response_message.notFound("Land"),
-          }));
+          });
         }
       } catch (error) {
         _handleCatchErrors(error, res);
@@ -326,11 +326,11 @@ module.exports.deletefarmer = async (req, res) => {
     
         const savedCrop = await newCrop.save();
     
-        return res.status(201).send(new serviceResponse({
+        return sendResponse({
             status: 201,
             data: savedCrop,
             message: _response_message.created("Crop")
-          }));
+          });
     
         } catch (error) {
             _handleCatchErrors(error, res);
@@ -362,17 +362,17 @@ module.exports.deletefarmer = async (req, res) => {
         );
 
         if (!updatedCrop) {
-            return res.status(404).send(new serviceResponse({
+            return sendResponse({
                 status: 404,
                 message: _response_message.notFound("Crop")
-            }));
+            });
         }
 
-        return res.status(200).send(new serviceResponse({
+        return sendResponse({
             status: 200,
             data: updatedCrop,
             message: _response_message.updated("Crop")
-        }));
+        });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -388,17 +388,17 @@ module.exports.deleteCrop = async (req, res) => {
         const response = await Crop.deleteOne({ _id: id });
         
         if (response.deletedCount > 0) {
-          return res.status(200).send(new serviceResponse({
+          return sendResponse({
             status: 200,
             data: response,
             message: _response_message.deleted("Crop"),
-          }));
+          });
         } else {
-          return res.status(404).send(new serviceResponse({
+          return sendResponse({
             status: 404,
             data: response,
             message: _response_message.notFound("Crop"),
-          }));
+          });
         }
       } catch (error) {
         _handleCatchErrors(error, res);
@@ -427,10 +427,10 @@ module.exports.createBank = async (req, res) => {
         const district_id = await getDistrictId(district_name); 
 
         if (!state_id || !district_id) {
-            return res.status(400).send(new serviceResponse({
+            return sendResponse({
                 status: 400,
                 message: "Invalid state or district provided"
-            }));
+            });
         }
 
         const newBank = new Bank({
@@ -451,11 +451,11 @@ module.exports.createBank = async (req, res) => {
 
         const savedBank = await newBank.save();
         
-        return res.status(201).send(new serviceResponse({
+        return sendResponse({
             status: 201,
             data: savedBank,
             message: _response_message.created("Bank")
-        }));
+        });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -485,10 +485,10 @@ module.exports.updateBank = async (req, res) => {
         const district_id = await getDistrictId(district_name);
 
         if (!state_id || !district_id) {
-            return res.status(400).send(new serviceResponse({
+            return sendResponse({
                 status: 400,
                 message: "Invalid state or district provided"
-            }));
+            });
         }
 
         const updatedBank = await Bank.findByIdAndUpdate(
@@ -512,17 +512,17 @@ module.exports.updateBank = async (req, res) => {
         );
 
         if (!updatedBank) {
-            return res.status(404).send(new serviceResponse({
+            return sendResponse({
                 status: 404,
                 message: "Bank not found"
-            }));
+            });
         }
 
-        return res.status(200).send(new serviceResponse({
+        return sendResponse({
             status: 200,
             data: updatedBank,
             message: _response_message.updated("Bank")
-        }));
+        });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -537,17 +537,17 @@ module.exports.deleteBank = async (req, res) => {
         const response = await Bank.deleteOne({ _id: id });
         
         if (response.deletedCount > 0) {
-          return res.status(200).send(new serviceResponse({
+          return sendResponse({
             status: 200,
             data: response,
             message: _response_message.deleted("Bank"),
-          }));
+          });
         } else {
-          return res.status(404).send(new serviceResponse({
+          return sendResponse({
             status: 404,
             data: response,
             message: _response_message.notFound("Bank"),
-          }));
+          });
         }
       } catch (error) {
         _handleCatchErrors(error, res);
