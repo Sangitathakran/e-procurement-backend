@@ -39,7 +39,7 @@ module.exports.createProcurement = async (req, res) => {
         if (moment(expectedProcurement_date).isBefore(quote_expiry_date)) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid_delivery_date("Expected date") }] }))
         }
-        
+
         const record = await Request.create({
             organization_id,
             reqNo: randomVal,
@@ -79,7 +79,6 @@ module.exports.getProcurement = async (req, res) => {
             ]
         } : {};
 
-
         if (user_type == _userType.ho || user_type == _userType.bo) {
             query.organization_id = organization_id
 
@@ -93,8 +92,8 @@ module.exports.getProcurement = async (req, res) => {
                 const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
                 query._id = { $nin: offerIds };
             }
-        }
-
+        }        
+        
         const records = { count: 0 };
 
         records.rows = paginate == 1 ? await Request.find(query)

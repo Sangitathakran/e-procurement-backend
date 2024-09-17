@@ -13,11 +13,16 @@ module.exports.payment = async (req, res) => {
         let query = search ? { reqNo: { $regex: search, $options: 'i' } }  : {};
 
         if (userType == _userType.farmer) {
-            query.user_type = 'farmer';
+            query.user_type = _userType.farmer;
 
         } else if (userType == _userType.associate) {
-            query.user_type = 'associate';
+            query.user_type = _userType.associate;
         }
+        else if (userType == _userType.agent) {
+            query.user_type = _userType.agent;
+        }
+
+        // query.status = _paymentstatus.completed;
 
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)

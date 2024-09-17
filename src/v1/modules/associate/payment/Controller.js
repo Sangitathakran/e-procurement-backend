@@ -13,10 +13,10 @@ module.exports.payment = async (req, res) => {
         let query = search ? { reqNo: { $regex: search, $options: 'i' } }  : {};
 
         if (userType == _userType.farmer) {
-            query.user_type = 'farmer';
+            query.user_type = _userType.farmer;
 
         } else if (userType == _userType.associate) {
-            query.user_type = 'associate';
+            query.user_type = _userType.associate;
         }
 
         const records = { count: 0 };
