@@ -18,6 +18,11 @@ module.exports.payment = async (req, res) => {
         } else if (userType == _userType.associate) {
             query.user_type = _userType.associate;
         }
+        else if (userType == _userType.agent) {
+            query.user_type = _userType.agent;
+        }
+
+        // query.status = _paymentstatus.completed;
 
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
