@@ -119,11 +119,12 @@ const _procuredStatus = {
     rejected: "Rejected",
 }
 const _userType = {
-    ho: "HO",
-    bo: "BO",
-    associate: "Associate",
-    agent: "Agent",
-    farmer: "farmer",
+    admin: "1",
+    trader: "2",
+    ho: "3",
+    bo: "6",
+    associate: "4",
+    farmer: "5",
 }
 
 const _trader_type = {

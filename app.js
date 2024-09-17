@@ -35,7 +35,7 @@ app.use(
     methods: ["POST", "GET", "PUT", "DELETE", "OPTIONS", "PATCH"],
   })
 );
-// app.use(morgan('dev'));
+app.use(morgan('dev'));
 app.use(morgan("combined", { stream: combinedLogStream }));
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));

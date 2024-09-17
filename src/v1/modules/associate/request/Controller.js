@@ -33,7 +33,7 @@ module.exports.createProcurement = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid_delivery_date("Delivery date") }] }))
         }
 
-        const record = await Request.create({
+        const record = await RequestModel.create({
             organization_id,
             reqNo: randomVal,
             quotedPrice, deliveryDate: delivery_date,
@@ -88,12 +88,12 @@ module.exports.getProcurement = async (req, res) => {
 
         const records = { count: 0 };
 
-        records.rows = paginate == 1 ? await Request.find(query)
+        records.rows = paginate == 1 ? await RequestModel.find(query)
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await Request.find(query).sort(sortBy);
+            .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
-        records.count = await Request.countDocuments(query);
+        records.count = await RequestModel.countDocuments(query);
 
 
         if (paginate == 1) {
@@ -116,7 +116,7 @@ module.exports.getProcurementById = async (req, res) => {
 
         const { id } = req.params;
 
-        const record = await Request.findOne({ _id: id });
+        const record = await RequestModel.findOne({ _id: id });
 
         if (!record) {
             res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
@@ -135,7 +135,7 @@ module.exports.updateProcurement = async (req, res) => {
         const { user_id } = req;
         const { id, quotedPrice, deliveryDate, name, category, grade, variety, quantity, deliveryLocation, lat, long } = req.body;
 
-        const existingRecord = await Request.findOne({ _id: id });
+        const existingRecord = await RequestModel.findOne({ _id: id });
 
         if (!existingRecord) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
@@ -155,7 +155,7 @@ module.exports.updateProcurement = async (req, res) => {
             updated_by: user_id
         }
 
-        const updatedProcurement = await Request.findOneAndUpdate({ _id: id }, update, { new: true });
+        const updatedProcurement = await RequestModel.findOneAndUpdate({ _id: id }, update, { new: true });
 
         eventEmitter.emit(_webSocketEvents.procurement, { ...updatedProcurement, method: "updated" })
 
@@ -177,7 +177,7 @@ module.exports.associateOffer = async (req, res) => {
         if (farmer_data.length == 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer data") }] }))
         }
-        const existingProcurementRecord = await Request.findOne({ _id: req_id });
+        const existingProcurementRecord = await RequestModel.findOne({ _id: req_id });
 
         if (!existingProcurementRecord) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }));
@@ -255,7 +255,7 @@ module.exports.getFarmerListById = async (req, res) => {
 
         // Ensure only `associate` users can access this API
         if (user_type !== _userType.associate) {
-            return res.status(401).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
+            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
         // Build query to find farmers associated with the current user (associate)
@@ -467,7 +467,7 @@ module.exports.requestApprove = async (req, res) => {
         }
         else if (status == _associateOfferStatus.accepted) {
 
-            const existingRequest = await Request.findOne({ _id: associateOffered.req_id });
+            const existingRequest = await RequestModel.findOne({ _id: associateOffered.req_id });
 
             if (!existingRequest) {
                 return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }));

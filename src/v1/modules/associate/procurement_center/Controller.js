@@ -35,7 +35,7 @@ module.exports.createProcurementCenter = async (req, res) => {
             location_url:location_url
         });
 
-        return new serviceResponse({res, status: 200, data: record, message: _response_message.created("Collection Center") });
+        return res.send(new serviceResponse({ status: 200, data: record, message: _response_message.created("Collection Center") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -108,7 +108,7 @@ module.exports.getProcurementCenter = async (req, res) => {
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
         }
-        return new serviceResponse({ res,status: 200, data: records, message: _response_message.found("collection center") });
+       return res.send(new serviceResponse({status: 200, data: records, message: _response_message.found("collection center") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -137,7 +137,7 @@ module.exports.getHoProcurementCenter = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        return new serviceResponse({res, status: 200, data: records, message: _response_message.found("procurement center") });
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement center") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -150,7 +150,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
         const [file] = req.files;
 
         if (!file) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('file') }));
+            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('file') }));
         }
 
         let centers = [];
@@ -163,7 +163,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
             centers = xlsx.utils.sheet_to_json(worksheet);
 
             if (!centers.length) {
-                return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('No data found in the file') }));
+                return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('No data found in the file') }));
             }
 
             headers = Object.keys(centers[0]);
@@ -194,7 +194,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
 
         const getToken = req.headers.token || req.cookies.token;
         if (!getToken) {
-            return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+            return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
 
         const decode = await decryptJwtToken(getToken);
