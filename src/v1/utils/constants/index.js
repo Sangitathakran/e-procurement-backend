@@ -13,24 +13,18 @@ const _collectionName = {
     Grade: "grade",
     Commodity: "Commodity",
     product: "Product",
-    ProductRequest: "ref_productRequest",
-    TraderQuote: "ref_traderQuote",
-    Order: "ref_order",
-    PaymentTransaction: "ref_paymentTransaction",
-    ShippingDocument: "ref_shippingDocument",
     Account: "account",
     Organization: "organization",
-    Branch: "Branch",
-    ProcurementRequest: "ProcurementRequest",
-    SellerOffers: "SellerOffers",
-    ContributedFarmers: "ContributedFarmers",
-    CollectionCenter: "CollectionCenter",
+    Request: "Request",
+    AssociateOffers: "AssociateOffers",
+    FarmerOffers: "FarmerOffers",
+    ProcurementCenter: "ProcurementCenter",
     Lands: "Lands",
     Banks: "Banks",
     Crops: "Crops",
     FarmerOrder: "FarmerOrder",
     StateDistrictCity: "StateDistrictCity",
-    AssociateOrders: "AssociateOrders",
+    Batch: "Batch",
     Payment: "Payment",
 }
 const _status = {
@@ -104,14 +98,14 @@ const _sellerQuoteStatus = {
     pending: 'Pending'
 }
 
-const _procurementRequestStatus = {
+const _requestStatus = {
     open: 'Open',
     partially_fulfulled: 'Partially Fulfilled',
     fulfilled: 'Fulfilled',
     closed: 'Closed'
 }
 
-const _sellerOfferStatus = {
+const _associateOfferStatus = {
     accepted: 'Accepted',
     rejected: 'Rejected',
     pending: 'Pending',
@@ -263,7 +257,7 @@ const _zaidCrops = {
 }
 
 
-const _associateOrderStatus = {
+const _batchStatus = {
     pending: "Pending",
     dispatched: "Dispatched",
     intransit: "In-Transit",
@@ -332,8 +326,8 @@ module.exports = {
     _sellerQuoteAdminStatus,
     _quotesStatus,
     _sellerQuoteStatus,
-    _procurementRequestStatus,
-    _sellerOfferStatus,
+    _requestStatus,
+    _associateOfferStatus,
     _webSocketEvents,
     _proofType,
     _titles,
@@ -356,7 +350,7 @@ module.exports = {
     _userType,
     _trader_type,
     _user_status,
-    _associateOrderStatus,
+    _batchStatus,
     _paymentmethod,
     _paymentstatus,
     _center_type,

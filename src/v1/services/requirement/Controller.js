@@ -9,9 +9,9 @@ const {
   _auth_module,
 } = require("@src/v1/utils/constants/messages");
 const {
-  ProcurementRequest,
-} = require("@src/v1/models/app/procurement/ProcurementRequest");
-const {getFilter}=require("@src/v1/utils/helpers/customFilter")
+  Request,
+} = require("@src/v1/models/app/procurement/Request");
+
 //widget list
 module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
   try {
@@ -21,14 +21,14 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     const query = filter;
     const records = { count: 0 };
     records.rows =
-      (await ProcurementRequest.find(query)
+      (await Request.find(query)
         .select("associatOrder_id head_office_id status reqNo createdAt")
         .populate({path:'head_office_id',select:'head_office_name office_id'})
         .skip(skip)
         .limit(parseInt(limit))
         .sort(sortBy)) ?? [];
 
-    records.count = await ProcurementRequest.countDocuments(query);
+    records.count = await Request.countDocuments();
 
     if (paginate == 1) {
       records.page = page;
