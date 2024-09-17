@@ -2,7 +2,7 @@ const http = require('http');
 const WebSocketServer = require('websocket').server;
 const EventEmitter = require('events');
 const { webSocketPort } = require('@config/index');
-const { serviceResponse } = require('../helpers/api_response');
+const { sendResponse } = require('../helpers/api_response');
 const { _query, _response_message } = require('../constants/messages');
 const { _webSocketEvents } = require('../constants');
 
@@ -51,13 +51,13 @@ wsServer.on('request', (request) => {
                     const subscriptions = clients.get(connection);
                     subscriptions.push(parsedMessage.subscribe);
                     clients.set(connection, subscriptions);
-                    connection.sendUTF(JSON.stringify(new serviceResponse({ status: 200, message: _response_message.subscribe(parsedMessage.subscribe) })));
+                    connection.sendUTF(JSON.stringify(sendResponse({ status: 200, message: _response_message.subscribe(parsedMessage.subscribe) })));
                 } else {
-                    connection.sendUTF(JSON.stringify(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("event") }] })));
+                    connection.sendUTF(JSON.stringify(sendResponse({ status: 400, errors: [{ message: _response_message.invalid("event") }] })));
                 }
             } else {
                 // console.log(`Received message: ${message.utf8Data}`);
-                connection.sendUTF(JSON.stringify(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("key") }] })));
+                connection.sendUTF(JSON.stringify(sendResponse({ status: 400, errors: [{ message: _response_message.invalid("key") }] })));
             }
         } else if (message.type === 'binary') {
             console.log(`Received binary data of length ${message.binaryData.length}`);
@@ -82,7 +82,7 @@ for (const event of Object.values(_webSocketEvents)) {
     eventEmitter.on(event, (message) => {
         clients.forEach((subscriptions, connection) => {
             if (subscriptions.includes(event)) {
-                connection.sendUTF(JSON.stringify(new serviceResponse({ status: 201, data: message, message: _query.get(event), event: { method: message.method, event } })));
+                connection.sendUTF(JSON.stringify(sendResponse({ status: 201, data: message, message: _query.get(event), event: { method: message.method, event } })));
             }
         });
     });

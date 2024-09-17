@@ -2,7 +2,7 @@ const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const {
   IndividualFarmer,
 } = require("@src/v1/models/app/farmerDetails/IndividualFarmer");
@@ -26,6 +26,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   let associateFCount = (await farmer.countDocuments({})) ?? 0;
   widgetDetails.farmer.total = individualFCount + associateFCount;
   widgetDetails.associate.total = await User.countDocuments({});
+<<<<<<< HEAD:src/v1/modules/head-office/ho-dashboard/Controller.js
   widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
   return res
     .status(200)
@@ -36,6 +37,15 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
         data: widgetDetails,
       })
     );
+=======
+  widgetDetails.procCenter.total = await CollectionCenter.countDocuments({});
+  return  sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Account"),
+    data: widgetDetails,
+  })
+>>>>>>> 67531eb0121236041a082ee569c80ae21c29b103:src/v1/services/ho-dashboard/Controller.js
 });
 
 //payment quantity list

@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { serviceResponse } = require('@src/v1/utils/helpers/api_response');
+const { sendResponse } = require('@src/v1/utils/helpers/api_response');
 const { _auth_module } = require('@src/v1/utils/constants/messages');
 const { JWT_SECRET_KEY } = require('@config/index');
 const { redisClient } = require('@config/redis');
@@ -17,7 +17,7 @@ const verifyJwtToken = function (req, res, next) {
 
         jwt.verify(token, JWT_SECRET_KEY, async function (err, decoded) {
             if (err) {
-                return new serviceResponse({res, status: 403, errors: _auth_module.unAuth });
+                return sendResponse({res, status: 403, errors: _auth_module.unAuth });
             }
             else {
                 if (await redisClient.get(decoded._id)) {
@@ -27,13 +27,13 @@ const verifyJwtToken = function (req, res, next) {
                     })
                     next();
                 } else {
-                    return new serviceResponse({res, status: 403, errors: _auth_module.tokenExpired });
+                    return sendResponse({res, status: 403, errors: _auth_module.tokenExpired });
                 }
             }
         });
     }
     else {
-        return new serviceResponse({res, status: 403, errors: _auth_module.tokenMissing });
+        return sendResponse({res, status: 403, errors: _auth_module.tokenMissing });
     }
 };
 
@@ -43,7 +43,7 @@ const verifyBasicAuth = async function (req, res, next) {
 
         if (!authheader) {
             res.setHeader('WWW-Authenticate', 'Basic');
-            return new serviceResponse({res, status: 401, errors: _auth_module.unAuth });
+            return sendResponse({res, status: 401, errors: _auth_module.unAuth });
         }
 
         const auth = new Buffer.from(authheader.split(' ')[1], 'base64').toString().split(':');
@@ -55,10 +55,10 @@ const verifyBasicAuth = async function (req, res, next) {
             next();
         } else {
             res.setHeader('WWW-Authenticate', 'Basic');
-            return new serviceResponse({res, status: 401, errors: _auth_module.unAuth });
+            return sendResponse({res, status: 401, errors: _auth_module.unAuth });
         }
     } catch (error) {
-        return new serviceResponse({res, status: 500, errors: error.message });
+        return sendResponse({res, status: 500, errors: error.message });
     }
 }
 
