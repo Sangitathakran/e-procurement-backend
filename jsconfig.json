@@ -13,8 +13,8 @@
             "@models/*": [
                 "./src/v1/models/*"
             ],
-            "@services/*": [
-                "./src/v1/services/*"
+            "@modules/*": [
+                "./src/v1/modules/*"
             ],
             "@utils/*": [
                 "./src/v1/utils/*"
