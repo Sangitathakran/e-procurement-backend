@@ -3,7 +3,7 @@ const { _collectionName, _requestStatus } = require('@src/v1/utils/constants');
 
 const RequestSchema = new mongoose.Schema({
     head_office_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice },
-    associatOrder_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch }],
+    associatOrder_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers }],
     branch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
     reqNo: { type: String, required: true },
     quoteExpiry: { type: Date, required: true, },
