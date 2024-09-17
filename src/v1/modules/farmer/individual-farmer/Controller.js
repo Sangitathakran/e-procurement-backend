@@ -5,11 +5,9 @@ const { _handleCatchErrors, _ } = require("@src/v1/utils/helpers");
 const {
   _individual_farmer_onboarding_steps,
 } = require("@src/v1/utils/constants");
-const {
-  IndividualFarmer,
-} = require("../../models/app/farmerDetails/IndividualFarmer");
+const  IndividualFarmer  = require("@src/v1/models/app/farmerDetails/IndividualFarmer");
 const { generateJwtToken } = require("@src/v1/utils/helpers/jwt");
-const stateList = require("../../utils/constants/stateList");
+const stateList = require("@src/v1/utils/constants/stateList");
 
 const { body, validationResult, checkSchema } = require("express-validator");
 const { errorFormatter } = require("@src/v1/utils/helpers/express_validator");
