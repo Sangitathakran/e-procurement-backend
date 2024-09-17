@@ -5,12 +5,12 @@ const multer = require('multer');
 const { masterRoutes } = require("./modules/master/Routes");
 const { individualFarmerRoutes } = require("./modules/individual-farmer/Routes");
 const { farmerRoutes } = require("./modules/farmer/Routes");
-const { userAuthRoutes } = require("./modules/associate/auth/Routes");
 const { hoDashboardRoutes } = require("./modules/ho-dashboard/Routes")
 const { requireMentRoutes } = require("./modules/requirement/Routes")
 const { hoAuthRoutes } = require("./modules/ho-auth/Routes")
 const express = require("express");
 const { associateRoutes } = require("./modules/associate/Routes");
+const { agentRoutes } = require("./modules/agent/Routes");
 const router = express.Router();
 
 /* Define Your Routes */
@@ -27,5 +27,6 @@ router.use('/farmer', farmerRoutes);
 router.use('/helper', helperRoutes)
 router.use("/ho-auth", hoAuthRoutes)
 router.use("/associate", associateRoutes);
+router.use("/agent", agentRoutes);
 
 module.exports = { router };
