@@ -11,6 +11,9 @@ const {
 const {
   ProcurementRequest,
 } = require("@src/v1/models/app/procurement/ProcurementRequest");
+const {
+  ProcurementRequest,
+} = require("@src/v1/models/app/procurement");
 const {getFilter}=require("@src/v1/utils/helpers/customFilter")
 //widget list
 module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
@@ -23,7 +26,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     records.rows =
       (await ProcurementRequest.find(query)
         .select("associatOrder_id head_office_id status reqNo createdAt")
-        .populate({path:'head_office_id',select:'head_office_name office_id'})
+        .populate({path:'branch_id',select:''})
         .skip(skip)
         .limit(parseInt(limit))
         .sort(sortBy)) ?? [];

@@ -1,7 +1,7 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
-const { getCollectionCenter, createCollectionCenter, ImportCollectionCenter, generateCenterCode } = require("./Controller");
+const { getCollectionCenter, createCollectionCenter, ImportCollectionCenter, generateCenterCode,getHoProcurementCenter } = require("./Controller");
 const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 const express = require("express");
 const centerRoutes = express.Router();
