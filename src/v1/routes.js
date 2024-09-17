@@ -11,6 +11,7 @@ const { requireMentRoutes } = require("./services/requirement/Routes")
 const { hoAuthRoutes } = require("./services/ho-auth/Routes")
 const express = require("express");
 const { associateRoutes } = require("./services/associate/Routes");
+const { agentRoutes } = require("./services/agent/Routes");
 const router = express.Router();
 
 /* Define Your Routes */
@@ -27,5 +28,6 @@ router.use('/farmer', farmerRoutes);
 router.use('/helper', helperRoutes)
 router.use("/ho-auth", hoAuthRoutes)
 router.use("/associate", associateRoutes);
+router.use("/agent", agentRoutes);
 
 module.exports = { router };
