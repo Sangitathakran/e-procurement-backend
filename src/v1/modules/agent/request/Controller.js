@@ -10,7 +10,7 @@ const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 
 module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req
-    const { organization_id, quotedPrice, deliveryDate, name, category, grade, variety, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id } = req.body;
+    const { organization_id, quotedPrice, deliveryDate, name, commodityImage, grade, variety, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate } = req.body;
 
     if (user_type && user_type != _userType.agent)
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }))
@@ -29,8 +29,9 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
         head_office_id,
         branch_id,
         reqNo: randomVal,
+        expectedProcurementDate,
         quotedPrice, deliveryDate: delivery_date,
-        product: { name, category, grade, variety, quantity },
+        product: { name, commodityImage, grade, variety, quantity },
         address: { deliveryLocation, lat, long },
         quoteExpiry: _addDays(quoteExpiry),
         createdBy: user_id
