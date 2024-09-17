@@ -6,7 +6,7 @@ const _collectionName = {
     farmers: "farmers",
     individualFarmers: "individual_farmers",
     Users: "Users",
-    HeadOffice:"headoffices",
+    HeadOffice: "headoffices",
     Category: "Category",
     Variety: "variety",
     Unit: "unit",
@@ -118,11 +118,10 @@ const _procuredStatus = {
     rejected: "Rejected",
 }
 const _userType = {
-    admin: "Admin",
-    trader: "Trader",
     ho: "HO",
     bo: "BO",
     associate: "Associate",
+    agent: "Agent",
     farmer: "farmer",
 }
 

@@ -21,7 +21,7 @@ module.exports.createProcurement = async (req, res) => {
         const { user_id, user_type } = req
         const { organization_id, quotedPrice, deliveryDate, name, category, grade, variety, quantity, deliveryLocation, lat, long, quoteExpiry } = req.body;
 
-        if (user_type && user_type != _userType.admin)
+        if (user_type && user_type != _userType.agent)
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }))
 
         const randomVal = _generateOrderNumber();
@@ -452,7 +452,7 @@ module.exports.requestApprove = async (req, res) => {
         const { associateOffers_id, status } = req.body;
         const { user_type } = req;
 
-        if (user_type != _userType.admin) {
+        if (user_type != _userType.agent) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
@@ -610,7 +610,7 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
 
     const { user_type, user_id } = req;
 
-    // if (user_type != _userType.admin) {
+    // if (user_type != _userType.agent) {
     //     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }));
     // }
 

@@ -14,7 +14,7 @@ const {requireMentRoutes}=require("./services/requirement/Routes")
 
 const { associateRoutes } = require("./modules/associate/Routes");
 
-
+const { agentRoutes } = require("./modules/agent/Routes");
 const  headOfficeRoutes  = require("./modules/head-office/routes")
 const  farmerRoutes = require("./modules/farmer/routes")
 
@@ -28,7 +28,7 @@ router.use(multer().any())
 
  router.use('/requirement',requireMentRoutes)
  router.use("/procurement", procurementRoutes);
-
+ router.use("/agent", agentRoutes);
  router.use('/helper', helperRoutes)
  router.use("/auth", userAuthRoutes);
  
