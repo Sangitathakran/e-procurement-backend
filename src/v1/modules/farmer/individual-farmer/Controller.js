@@ -189,6 +189,7 @@ module.exports.getFarmerDetails = async (req, res) => {
     if (farmerDetails) {
       return sendResponse({
         res,
+        status: 200,
         data: farmerDetails,
         message: _response_message.found(screenName)
       })
@@ -256,7 +257,7 @@ module.exports.submitForm = async (req, res) => {
         const mobileNumber = req.mobile_no;
         const farmerName = farmerDetails.basic_details.name;
         const farmerId = farmerDetails.farmer_id;
-        const smsService = new SMSService();
+        //const smsService = new SMSService();
         await smsService.sendFarmerRegistrationSMS(
           mobileNumber,
           farmerName,
