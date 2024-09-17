@@ -26,18 +26,6 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   let associateFCount = (await farmer.countDocuments({})) ?? 0;
   widgetDetails.farmer.total = individualFCount + associateFCount;
   widgetDetails.associate.total = await User.countDocuments({});
-<<<<<<< HEAD:src/v1/modules/head-office/ho-dashboard/Controller.js
-  widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
-  return res
-    .status(200)
-    .send(
-      new serviceResponse({
-        status: 200,
-        message: _query.get("Account"),
-        data: widgetDetails,
-      })
-    );
-=======
   widgetDetails.procCenter.total = await CollectionCenter.countDocuments({});
   return  sendResponse({
     res,
@@ -45,7 +33,6 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
     message: _query.get("Account"),
     data: widgetDetails,
   })
->>>>>>> 67531eb0121236041a082ee569c80ae21c29b103:src/v1/services/ho-dashboard/Controller.js
 });
 
 //payment quantity list

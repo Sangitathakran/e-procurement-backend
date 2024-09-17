@@ -9,16 +9,11 @@ const {
   _auth_module,
 } = require("@src/v1/utils/constants/messages");
 const {
-<<<<<<< HEAD:src/v1/modules/head-office/requirement/Controller.js
   RequestModel,
 } = require("@src/v1/models/app/procurement/Request");
-=======
-  ProcurementRequest,
-} = require("@src/v1/models/app/procurement/ProcurementRequest");
 const {
-  AssociateOrders,
-} = require("@src/v1/models/app/procurement/AssociateOrders");
->>>>>>> 67531eb0121236041a082ee569c80ae21c29b103:src/v1/services/requirement/Controller.js
+  Batch,
+} = require("@src/v1/models/app/procurement/Batch");
 const Branches = require("@src/v1/models/master/Branches");
 const {getFilter}=require("@src/v1/utils/helpers/customFilter")
 //widget list
@@ -80,7 +75,7 @@ module.exports.orderListByRequestId = asyncErrorHandler(async (req, res) => {
     const query = filter;
     const records = { count: 0 };
     records.rows =
-      (await AssociateOrders.find({req_id:id})
+      (await Batch.find({req_id:id})
         .select(" ")
         .populate({path:'procurementCenter_id',select:'',match:query})
         .skip(skip)
@@ -101,7 +96,7 @@ module.exports.orderListByRequestId = asyncErrorHandler(async (req, res) => {
           });
           records.count=records.rows.length;
         }else{
-          records.count = await AssociateOrders.countDocuments(query);
+          records.count = await Batch.countDocuments(query);
         }
         
     

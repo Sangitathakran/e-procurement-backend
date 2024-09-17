@@ -21,13 +21,8 @@ module.exports.createProcurement = async (req, res) => {
         const { user_id, user_type } = req
         const { organization_id, quotedPrice, deliveryDate, name, category, grade, variety, quantity, deliveryLocation, lat, long, quoteExpiry } = req.body;
 
-<<<<<<< HEAD:src/v1/modules/associate/request/Controller.js
-        if (user_type && user_type != _userType.agent)
-            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }))
-=======
         if (user_type && user_type != _userType.admin)
             return sendResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] })
->>>>>>> 67531eb0121236041a082ee569c80ae21c29b103:src/v1/services/procurement/request/Controller.js
 
         const randomVal = _generateOrderNumber();
 
@@ -245,11 +240,7 @@ module.exports.associateOffer = async (req, res) => {
 
         await FarmerOffers.insertMany(dataToBeInserted);
 
-<<<<<<< HEAD:src/v1/modules/associate/request/Controller.js
-        return res.status(200).send(new serviceResponse({ status: 200, data: associateOfferRecord, message: "offer submitted" }));
-=======
         return sendResponse({ status: 200, data: sellerOfferRecord, message: "offer submitted" });
->>>>>>> 67531eb0121236041a082ee569c80ae21c29b103:src/v1/services/procurement/request/Controller.js
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -461,24 +452,14 @@ module.exports.requestApprove = async (req, res) => {
         const { associateOffers_id, status } = req.body;
         const { user_type } = req;
 
-<<<<<<< HEAD:src/v1/modules/associate/request/Controller.js
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-=======
         if (user_type != _userType.admin) {
             return sendResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] })
->>>>>>> 67531eb0121236041a082ee569c80ae21c29b103:src/v1/services/procurement/request/Controller.js
         }
 
         const associateOffered = await AssociateOffers.findOne({ _id: associateOffers_id });
 
-<<<<<<< HEAD:src/v1/modules/associate/request/Controller.js
-        if (!associateOffered) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("seller offer") }] }));
-=======
         if (!sellerOffered) {
             return sendResponse({ status: 400, errors: [{ message: _response_message.notFound("seller offer") }] });
->>>>>>> 67531eb0121236041a082ee569c80ae21c29b103:src/v1/services/procurement/request/Controller.js
         }
 
         if (status == _associateOfferStatus.rejected) {
@@ -629,13 +610,8 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
 
     const { user_type, user_id } = req;
 
-<<<<<<< HEAD:src/v1/modules/associate/request/Controller.js
-    // if (user_type != _userType.agent) {
-    //     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }));
-=======
     // if (user_type != _userType.admin) {
     //     return sendResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }));
->>>>>>> 67531eb0121236041a082ee569c80ae21c29b103:src/v1/services/procurement/request/Controller.js
     // }
 
     const { associateOffer_id, status, comment } = req.body;
@@ -646,13 +622,8 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
         return sendResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] });
     }
 
-<<<<<<< HEAD:src/v1/modules/associate/request/Controller.js
-    if (!Object.values(_associateOfferStatus).includes(status)) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("status") }] }));
-=======
     if (!Object.values(_sellerOfferStatus).includes(status)) {
         return sendResponse({ status: 400, errors: [{ message: _response_message.invalid("status") }] });
->>>>>>> 67531eb0121236041a082ee569c80ae21c29b103:src/v1/services/procurement/request/Controller.js
     }
 
     if (status == _associateOfferStatus.rejected && comment) {
