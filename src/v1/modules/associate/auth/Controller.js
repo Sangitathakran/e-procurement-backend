@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { _handleCatchErrors } = require("@src/v1/utils/helpers")
-const { sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse,serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
 const { User } = require("@src/v1/models/app/auth/User");
 const  OTP  = require("@src/v1/models/app/auth/OTP");
