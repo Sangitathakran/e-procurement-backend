@@ -1,7 +1,7 @@
 const Joi = require('joi');
 const { _trader_type } = require('@src/v1/utils/constants');
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const {  _response_message, _middleware, _auth_module } = require("@src/v1/utils/constants/messages");
+const { _response_message, _middleware, _auth_module } = require("@src/v1/utils/constants/messages");
 
 const organizationSchema = Joi.object({
     organization_name: Joi.string().trim().min(2).max(50).required().messages({
@@ -19,7 +19,7 @@ const basicDetailsSchema = Joi.object({
                 'string.empty': _middleware.require('phone'),
                 'string.pattern.base': _response_message.invalid('phone number'),
             }),
-            company_logo: Joi.string().trim().required(),
+        company_logo: Joi.string().trim().required(),
     }),
     point_of_contact: Joi.object({
         name: Joi.string().trim().required().messages({
@@ -35,19 +35,19 @@ const basicDetailsSchema = Joi.object({
         designation: Joi.string().trim().required().messages({
             'string.empty': _middleware.require('designation'),
         }),
-        
+
         aadhar_number: Joi.string().trim().pattern(/^\d{12}$/).required().messages({
-            'string.empty':_middleware.require('aadhar_number'),
+            'string.empty': _middleware.require('aadhar_number'),
             'string.pattern.base': _response_message.invalid('Aadhar number'),
         }),
         aadhar_image: {
-            front : Joi.string().required().messages({
+            front: Joi.string().required().messages({
                 'string.empty': _middleware.require('Aadhar Front Image'),
             }),
-            back : Joi.string().required().messages({
+            back: Joi.string().required().messages({
                 'string.empty': _middleware.require('Aadhar back Image'),
             }),
-        } 
+        }
     }),
     company_owner_info: Joi.object({
         name: Joi.string().trim().min(2).max(50),
@@ -55,17 +55,17 @@ const basicDetailsSchema = Joi.object({
             'string.pattern.base': _response_message.invalid('Aadhar number'),
         }),
         aadhar_image: {
-            front : Joi.string().required().messages({
+            front: Joi.string().required().messages({
                 'string.empty': _middleware.require('Aadhar Front Image'),
             }),
-            back : Joi.string().required().messages({
+            back: Joi.string().required().messages({
                 'string.empty': _middleware.require('Aadhar back Image'),
             }),
         },
         pan_card: Joi.string().trim().pattern(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/).messages({
             'string.pattern.base': _response_message.invalid('PAN card format'),
         }),
-        pan_image: Joi.string().trim().optional(), 
+        pan_image: Joi.string().trim().optional(),
     }),
     implementation_agency: Joi.string().trim().min(2).max(50),
     cbbo_name: Joi.string().trim().min(2).max(50),
@@ -96,7 +96,7 @@ const addressSchema = Joi.object({
             'string.empty': _middleware.require('village'),
         }),
     }),
-    
+
     operational: Joi.object({
         line1: Joi.string().trim().required().messages({
             'string.empty': _middleware.require('address line1'),
@@ -146,10 +146,10 @@ const companyDetailsSchema = Joi.object({
         'string.pattern.base': _response_message.invalid('Aadhar number format'),
     }),
     aadhar_certificate: {
-        front : Joi.string().required().messages({
+        front: Joi.string().required().messages({
             'string.empty': _middleware.require('Aadhar Front Image'),
         }),
-        back : Joi.string().required().messages({
+        back: Joi.string().required().messages({
             'string.empty': _middleware.require('Aadhar back Image'),
         }),
     }
@@ -174,13 +174,13 @@ const authorisedSchema = Joi.object({
         'string.pattern.base': _response_message.invalid('Aadhar number'),
     }),
     aadhar_certificate: {
-        front : Joi.string().required().messages({
+        front: Joi.string().required().messages({
             'string.empty': _middleware.require('Aadhar Front Image'),
         }),
-        back : Joi.string().required().messages({
+        back: Joi.string().required().messages({
             'string.empty': _middleware.require('Aadhar back Image'),
         }),
-    }, 
+    },
     pan_card: Joi.string().trim().pattern(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/).optional().messages({
         'string.pattern.base': _response_message.invalid('PAN card'),
     }),

@@ -21,12 +21,12 @@ const _collectionName = {
     ProcurementCenter: "ProcurementCenter",
     Lands: "Lands",
     Banks: "Banks",
-    Branch: "Branchs",
     Crops: "Crops",
     FarmerOrder: "FarmerOrder",
     StateDistrictCity: "StateDistrictCity",
     Batch: "Batch",
     Payment: "Payment",
+    Branch: "Branch"
 }
 const _status = {
     active: "active",
@@ -119,12 +119,11 @@ const _procuredStatus = {
     rejected: "Rejected",
 }
 const _userType = {
-    admin: "1",
-    trader: "2",
-    ho: "3",
-    bo: "6",
+    ho: "2",
+    bo: "3",
     associate: "4",
     farmer: "5",
+    agent: "6",
 }
 
 const _trader_type = {

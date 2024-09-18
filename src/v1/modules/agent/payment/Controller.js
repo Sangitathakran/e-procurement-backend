@@ -8,9 +8,9 @@ const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0 } = req.query
-
-        let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
+        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0  } = req.query
+     
+        let query = search ? { reqNo: { $regex: search, $options: 'i' } }  : {};
 
         if (userType == _userType.farmer) {
             query.user_type = _userType.farmer;
@@ -18,11 +18,16 @@ module.exports.payment = async (req, res) => {
         } else if (userType == _userType.associate) {
             query.user_type = _userType.associate;
         }
+        else if (userType == _userType.agent) {
+            query.user_type = _userType.agent;
+        }
+
+        // query.status = _paymentstatus.completed;
 
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
-            .populate({
-                path: 'whomToPay', select: '_id associate_id farmer_code name'
+            .populate({ 
+                path: 'whomToPay', select:'_id associate_id farmer_code name'
             })
             .sort(sortBy)
             .skip(skip)
@@ -36,7 +41,7 @@ module.exports.payment = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") })));
+        // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
 
         if (isExport == 1) {
 
@@ -50,7 +55,7 @@ module.exports.payment = async (req, res) => {
             })
 
             if (record.length > 0) {
-
+              
                 dumpJSONToExcel(req, res, {
                     data: record,
                     fileName: `Payment-${userType}.xlsx`,
@@ -71,9 +76,9 @@ module.exports.payment = async (req, res) => {
 module.exports.farmerOrders = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', farmer_id, isExport = 0 } = req.query;
-
-        let query = search ? { order_no: { $regex: search, $options: 'i' } } : {};
+        const { page, limit, skip, paginate = 1, sortBy, search = '', farmer_id, isExport = 0  } = req.query;
+       
+        let query = search ? { order_no: { $regex: search, $options: 'i' } }  : {};
 
         query.farmer_id = farmer_id;
 
@@ -108,7 +113,7 @@ module.exports.farmerOrders = async (req, res) => {
             })
 
             if (record.length > 0) {
-
+              
                 dumpJSONToExcel(req, res, {
                     data: record,
                     fileName: `FarmerOrder-${'Farmer'}.xlsx`,
@@ -129,9 +134,9 @@ module.exports.farmerOrders = async (req, res) => {
 module.exports.batch = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0 } = req.query
-
-        let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
+        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0  } = req.query
+     
+        let query = search ? { reqNo: { $regex: search, $options: 'i' } }  : {};
 
         if (userType == _userType.farmer) {
             query.user_type = 'farmer';
@@ -142,8 +147,8 @@ module.exports.batch = async (req, res) => {
 
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
-            .populate({
-                path: 'whomToPay', select: '_id associate_id farmer_code name'
+            .populate({ 
+                path: 'whomToPay', select:'_id associate_id farmer_code name'
             })
             .sort(sortBy)
             .skip(skip)
@@ -169,7 +174,7 @@ module.exports.batch = async (req, res) => {
             })
 
             if (record.length > 0) {
-
+              
                 dumpJSONToExcel(req, res, {
                     data: record,
                     fileName: `Payment-${userType}.xlsx`,

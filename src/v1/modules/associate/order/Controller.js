@@ -5,7 +5,7 @@ const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOff
 const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
 const { _associateOfferStatus, _procuredStatus, _batchStatus, _user_status } = require('@src/v1/utils/constants');
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
-const { Request } = require("@src/v1/models/app/procurement/Request");
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 
 
@@ -16,20 +16,20 @@ module.exports.batch = async (req, res) => {
         const { req_id } = req.body;
         const { user_id } = req;
 
-        const procurementRecord = await Request.findOne({ _id: req_id });
-       
+        const procurementRecord = await RequestModel.findOne({ _id: req_id });
+
         if (!procurementRecord) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
         }
 
         const record = await AssociateOffers.findOne({ seller_id: user_id, req_id: req_id });
-     
+
         if (!record) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
         }
 
         const farmerRecords = await FarmerOffers.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id });
-       
+
         if (farmerRecords) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
         }
@@ -63,9 +63,9 @@ module.exports.batch = async (req, res) => {
                     }
                 }
                 myMap.set(ele.procurementCenter_id, { req_id: req_id, batchId, seller_id: user_id, associateOffer_id: record._id, dispatchedqty: ele.qtyProcured });
-            }          
+            }
 
-            payment.push({ whomToPay: ele.farmer_id, user_type: "farmer", qtyProcured:ele.offeredQty, reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
+            payment.push({ whomToPay: ele.farmer_id, user_type: "farmer", qtyProcured: ele.offeredQty, reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
 
         }
 
@@ -74,7 +74,9 @@ module.exports.batch = async (req, res) => {
         await Payment.insertMany(payment);
 
         record.status = _associateOfferStatus.ordered;
+        procurementRecord.associatOrder_id.push(_associateOfferStatus._id)
         await record.save();
+        await procurementRecord.save()
 
         return res.status(200).send(new serviceResponse({ status: 200, data: associateRecords, message: _response_message.created("order") }))
 
@@ -179,7 +181,7 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
             });
 
         if (!record) {
-            res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Track order") }));

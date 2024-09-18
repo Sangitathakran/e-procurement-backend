@@ -3,9 +3,9 @@ const { _handleCatchErrors } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
 const { User } = require("@src/v1/models/app/auth/User");
-const  OTP  = require("@src/v1/models/app/auth/OTP");
-const {smsService} = require('@src/v1/utils/third_party/SMSservices');
-const {emailService} = require("@src/v1/utils/third_party/EmailServices");
+const OTP = require("@src/v1/models/app/auth/OTP");
+const { smsService } = require('@src/v1/utils/third_party/SMSservices');
+const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { verifyJwtToken, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
@@ -58,7 +58,7 @@ module.exports.loginOrRegister = async (req, res) => {
     try {
         const { userInput, inputOTP } = req.body;
         if (!userInput || !inputOTP) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors:[{message: _middleware.require('otp_required')}] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('otp_required') }] }));
         }
         const isEmailInput = isEmail(userInput);
         const query = isEmailInput
@@ -66,10 +66,10 @@ module.exports.loginOrRegister = async (req, res) => {
             : { 'basic_details.associate_details.phone': userInput };
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
         if (!userOTP || inputOTP !== userOTP.otp) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors:[{message: _response_message.invalid('OTP verification failed')}] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
         }
         let userExist = await User.findOne(query).lean();
-        
+
         if (userExist) {
             const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
             const now = new Date();
@@ -83,7 +83,7 @@ module.exports.loginOrRegister = async (req, res) => {
             const data = {
                 token: token,
                 user_type: userExist.user_type,
-                is_approved:userExist.is_approved,
+                is_approved: userExist.is_approved,
                 phone: userExist.basic_details.associate_details.phone,
                 associate_code: userExist.user_code,
                 organization_name: userExist.basic_details.associate_details.organization_name || null,
@@ -176,18 +176,18 @@ module.exports.saveAssociateDetails = async (req, res) => {
         const allDetailsFilled = (
             user?.basic_details?.associate_details?.organization_name &&
             user?.basic_details?.point_of_contact?.name &&
-            user?.address?.registered?.line1 && 
-            user?.company_details?.cin_number && 
-            user?.authorised?.name && 
-            user?.bank_details?.account_number 
+            user?.address?.registered?.line1 &&
+            user?.company_details?.cin_number &&
+            user?.authorised?.name &&
+            user?.bank_details?.account_number
         );
-        
+
         if (user.is_welcome_email_send === false && allDetailsFilled) {
             await emailService.sendWelcomeEmail(user);
             user.is_welcome_email_send = true;
             await user.save();
         }
-        
+
         const response = { user_code: user.user_code, user_id: user._id };
         return res.status(200).send(new serviceResponse({ message: _response_message.updated(formName), data: response }));
     } catch (error) {
@@ -231,27 +231,27 @@ module.exports.formPreview = async (req, res) => {
 module.exports.useStatusUpdate = async (req, res) => {
     try {
         const { userId } = req.body;
-        if ( !userId ) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors:[{message: _middleware.require('user id')}] }));
+        if (!userId) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('user id') }] }));
         }
         if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors:[{message: _response_message.invalid('user id')}] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('user id') }] }));
         }
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(200).send(new serviceResponse({ status: 404, errors:[{message: _response_message.notFound('User')}] }));
+            return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound('User') }] }));
         }
         if (user.is_approved) {
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.allReadyApproved('User') }));
         }
         user.is_approved = true;
-        
+
         if (!user.is_welcome_email_send) {
             await emailService.sendWelcomeEmail(user);
             user.is_welcome_email_send = true;
         }
         await user.save();
-        
+
         return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.updated('User approval status'), data: { userId } }));
     } catch (error) {
         _handleCatchErrors(error, res);
