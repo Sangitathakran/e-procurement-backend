@@ -40,3 +40,36 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     eventEmitter.emit(_webSocketEvents.procurement, { ...record, method: "created" })
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("procurement") }));
 })
+
+
+module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) => {
+
+
+    const { user_type, user_id } = req;
+
+    // if (user_type != _userType.admin) {
+    //     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] })))
+    // }
+
+    const { associateOffer_id, status, comment } = req.body;
+
+    const offer = await AssociateOffers.findOne({ _id: associateOffer_id });
+
+    if (!offer) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
+    }
+
+    if (!Object.values(_sellerOfferStatus).includes(status)) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("status") }] }))
+    }
+
+    if (status == _associateOfferStatus.rejected && comment) {
+        offer.comments.push({ user_id: user_id, comment });
+    }
+
+    offer.status = status;
+    await offer.save();
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: offer, message: _response_message.found("offer") }))
+
+})
