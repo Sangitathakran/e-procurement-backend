@@ -1,6 +1,6 @@
 const { _handleCatchErrors } = require("@src/v1/utils/helpers")
 const { Variety } = require("@src/v1/models/master/Variety");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Unit } = require("@src/v1/models/master/Unit");
 const { Grade } = require("@src/v1/models/master/Grade");
@@ -17,13 +17,13 @@ module.exports.createVariety = async (req, res) => {
         const findVariety = await Variety.findOne({ name });
 
         if (findVariety) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.allReadyExist("Variety") }] });
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.allReadyExist("Variety") }] });
         }
 
         const record = await Variety.create({ name });
 
 
-        return new serviceResponse({ res,status: 200, data: record, message: _response_message.created("Variety") });
+        return sendResponse({ res,status: 200, data: record, message: _response_message.created("Variety") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -52,7 +52,7 @@ module.exports.getVariety = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
         }
 
-        return new serviceResponse({res, status: 200, data: records, message: _response_message.found("variety") });
+        return sendResponse({res, status: 200, data: records, message: _response_message.found("variety") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -69,10 +69,10 @@ module.exports.getVarietyById = async (req, res) => {
         const record = await Variety.findOne({ _id: id, deletedAt: null });
 
         if (!record) {
-            new serviceResponse({res, status: 200, errors: [{ message: _response_message.notFound("variety") }] })
+            sendResponse({res, status: 200, errors: [{ message: _response_message.notFound("variety") }] })
         }
 
-        return new serviceResponse({res, status: 200, data: record, message: _response_message.found("variety") });
+        return sendResponse({res, status: 200, data: record, message: _response_message.found("variety") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -89,19 +89,19 @@ module.exports.updateVariety = async (req, res) => {
         const existingRecord = await Variety.findOne({ _id: id, deletedAt: null });
 
         if (!existingRecord) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.notFound("variety") }] })
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.notFound("variety") }] })
         }
 
 
         const existingName = await Variety.findOne({ name });
 
         if (existingName && existingName._id != id) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.allReadyExist("variety") }] })
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.allReadyExist("variety") }] })
         }
 
         const updatedVariety = await Variety.findOneAndUpdate({ _id: id }, { name, status }, { new: true });
 
-        return new serviceResponse({res, status: 200, data: updatedVariety, message: _response_message.updated("variety") })
+        return sendResponse({res, status: 200, data: updatedVariety, message: _response_message.updated("variety") })
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -117,12 +117,12 @@ module.exports.deleteVariety = async (req, res) => {
         const existingRecord = await Variety.findOne({ _id: id });
 
         if (!existingRecord) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.notFound("variety") }] })
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.notFound("variety") }] })
         }
 
         const record = await Variety.findOneAndUpdate({ _id: id }, { deletedAt: new Date() }, { new: true });
 
-        return new serviceResponse({res, status: 200, data: record, message: _response_message.deleted("variety") })
+        return sendResponse({res, status: 200, data: record, message: _response_message.deleted("variety") })
 
     } catch (error) {
 
@@ -140,12 +140,12 @@ module.exports.createUnit = async (req, res) => {
         const findUnit = await Unit.findOne({ name });
 
         if (findUnit) {
-            return new serviceResponse({ res,status: 200, errors: [{ message: _response_message.allReadyExist("Unit") }] })
+            return sendResponse({ res,status: 200, errors: [{ message: _response_message.allReadyExist("Unit") }] })
         }
 
         const record = await Unit.create({ name });
 
-        return new serviceResponse({res, status: 200, data: record, message: _response_message.created("Unit") });
+        return sendResponse({res, status: 200, data: record, message: _response_message.created("Unit") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -174,7 +174,7 @@ module.exports.getUnit = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
         }
 
-        return new serviceResponse({res, status: 200, data: records, messsage: _response_message.found("unit") });
+        return sendResponse({res, status: 200, data: records, messsage: _response_message.found("unit") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -190,10 +190,10 @@ module.exports.getUnitById = async (req, res) => {
         const record = await Unit.findOne({ _id: id });
 
         if (!record) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.notFound("unit") }] });
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.notFound("unit") }] });
         }
 
-        return new serviceResponse({ res,status: 200, data: record, message: _response_message.found("unit") });
+        return sendResponse({ res,status: 200, data: record, message: _response_message.found("unit") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -209,17 +209,17 @@ module.exports.updateUnit = async (req, res) => {
         const existingRecord = await Unit.findOne({ _id: id, deletedAt: null });
 
         if (!existingRecord) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.notFound("unit") }] });
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.notFound("unit") }] });
         }
 
         const existingName = await Unit.findOne({ name, deletedAt: null });
 
         if (existingName && existingName._id != id) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.allReadyExist("unit") }] });
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.allReadyExist("unit") }] });
         }
 
         const record = await Unit.findOneAndUpdate({ _id: id }, { name, status }, { new: true });
-        return new serviceResponse({res, status: 200, data: record, message: _response_message.updated("unit") });
+        return sendResponse({res, status: 200, data: record, message: _response_message.updated("unit") });
 
 
     } catch (error) {
@@ -235,12 +235,12 @@ module.exports.deleteUnit = async (req, res) => {
         const existingRecord = await Unit.findOne({ _id: id });
 
         if (!existingRecord) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.notFound("Unit") }] })
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.notFound("Unit") }] })
         }
 
         const record = await Unit.findOneAndUpdate({ _id: id }, { deletedAt: new Date() }, { new: true });
 
-        return res.status(200).send({ status: 200, data: record, message: _response_message.deleted("Grade") });
+        return { status: 200, data: record, message: _response_message.deleted("Grade") };
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -257,12 +257,12 @@ module.exports.createGrade = async (req, res) => {
         const existingRecord = await Grade.findOne({ name });
 
         if (existingRecord) {
-            return new serviceResponse({res, status: 200, errors: [{ message: _response_message.allReadyExist("Grade") }] });
+            return sendResponse({res, status: 200, errors: [{ message: _response_message.allReadyExist("Grade") }] });
         }
 
         const record = await Grade.create({ name });
 
-        return new serviceResponse({res,status: 200, data: record, message: _response_message.created("Grade") });
+        return sendResponse({res,status: 200, data: record, message: _response_message.created("Grade") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -291,7 +291,7 @@ module.exports.getGrade = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
         }
 
-        return new serviceResponse({res, status: 200, data: records, message: _response_message.found("Grade") });
+        return sendResponse({res, status: 200, data: records, message: _response_message.found("Grade") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -308,10 +308,10 @@ module.exports.getGradeById = async (req, res) => {
         const record = await Grade.findOne({ _id: id });
 
         if (!record) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.notFound("Grade") }] });
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.notFound("Grade") }] });
         }
 
-        return new serviceResponse({res,status: 200, data: record, message: _response_message.found("Grade") });
+        return sendResponse({res,status: 200, data: record, message: _response_message.found("Grade") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -328,17 +328,17 @@ module.exports.updateGrade = async (req, res) => {
         const existingRecord = await Grade.findOne({ _id: id, deletedAt: null });
 
         if (!existingRecord) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.notFound("Grade") }] });
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.notFound("Grade") }] });
         }
 
         const existingName = await Grade.findOne({ name, deletedAt: null });
 
         if (existingName && existingName._id != id) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.allReadyExist("Grade") }] });
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.allReadyExist("Grade") }] });
         }
 
         const record = await Grade.findOneAndUpdate({ _id: id }, { name, status }, { new: true });
-        return new serviceResponse({ res,status: 200, data: record, message: _response_message.updated("Grade") });
+        return sendResponse({ res,status: 200, data: record, message: _response_message.updated("Grade") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -354,7 +354,7 @@ module.exports.deleteGrade = async (req, res) => {
 
         const record = await Grade.findOneAndUpdate({ _id: id }, { deletedAt: new Date() }, { new: true });
 
-        return new serviceResponse({res, status: 200, data: record, message: _response_message.deleted("Grade") });
+        return sendResponse({res, status: 200, data: record, message: _response_message.deleted("Grade") });
 
 
     } catch (error) {
@@ -376,12 +376,12 @@ module.exports.createOrganization = async (req, res) => {
         const existingData = await Organizations.findOne({ $or: [{ name }, { alias }] });
 
         if (existingData) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.allReadyExist("organization") }] });
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.allReadyExist("organization") }] });
         }
 
         const record = await Organizations.create({ name, alias, metaInfo });
 
-        return new serviceResponse({res, status: 200, data: record, message: _response_message.created("organization") });
+        return sendResponse({res, status: 200, data: record, message: _response_message.created("organization") });
 
 
     } catch (error) {
@@ -412,7 +412,7 @@ module.exports.getOrganizations = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
         }
 
-        return new serviceResponse({res, status: 200, data: records, message: _response_message.found("organization") });
+        return sendResponse({res, status: 200, data: records, message: _response_message.found("organization") });
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -429,18 +429,18 @@ module.exports.updateOrganization = async (req, res) => {
         const findExisting = await Organizations.findOne({ _id: id, deletedAt: null });
 
         if (!findExisting) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.notFound("organization") }] });
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.notFound("organization") }] });
         }
 
         const existingName = await Organizations.findOne({ name });
 
         if (existingName && existingName._id != id) {
-            return new serviceResponse({res, status: 400, errors: [{ message: _response_message.allReadyExist("organization") }] });
+            return sendResponse({res, status: 400, errors: [{ message: _response_message.allReadyExist("organization") }] });
         }
 
         const record = await Organizations.findOneAndUpdate({ _id: id }, { name, metaInfo, status }, { new: true });
 
-        return new serviceResponse({res, status: 200, data: record, message: _response_message.updated("organization") });
+        return sendResponse({res, status: 200, data: record, message: _response_message.updated("organization") });
 
     } catch (error) {
         _handleCatchErrors(error, res);

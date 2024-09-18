@@ -3,7 +3,6 @@ const { _collectionName, _status, _areaUnit, _soilType, _distanceUnit, _yesNo } 
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const landSchema = new mongoose.Schema({
     farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true, },
-    associate_id: { type: mongoose.Schema.Types.ObjectId,required: true,ref: _collectionName.Users, trim: true, },
     total_area: { type: Number, required: false, },
     area_unit: { type: String, enum: Object.values(_areaUnit), default: null, trim: true, },
     khasra_no: { type: String, trim: true, },

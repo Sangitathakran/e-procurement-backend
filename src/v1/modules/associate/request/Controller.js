@@ -5,7 +5,6 @@ const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { _requestStatus, _webSocketEvents, _procuredStatus } = require('@src/v1/utils/constants');
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
-// const appStatus = require('../../../../../utils/appStatus'); 
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { _associateOfferStatus, _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
@@ -13,7 +12,6 @@ const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const mongoose = require("mongoose");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
-
 
 module.exports.getProcurement = async (req, res) => {
 
@@ -65,7 +63,7 @@ module.exports.getProcurement = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
 
     } catch (error) {
         console.log(error.message);
@@ -82,10 +80,10 @@ module.exports.getProcurementById = async (req, res) => {
         const record = await RequestModel.findOne({ _id: id });
 
         if (!record) {
-            res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("procurement") }));
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("procurement") }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -143,13 +141,13 @@ module.exports.associateOffer = async (req, res) => {
         const existingProcurementRecord = await RequestModel.findOne({ _id: req_id });
 
         if (!existingProcurementRecord) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
         }
 
         const existingRecord = await AssociateOffers.findOne({ seller_id: user_id, req_id: req_id });
 
         if (existingRecord) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("offer") }] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("offer") }] }))
         }
 
         const sumOfFarmerQty = farmer_data.reduce((acc, curr) => {
@@ -161,13 +159,13 @@ module.exports.associateOffer = async (req, res) => {
         }, 0);
 
         if (sumOfFarmerQty != parseInt(qtyOffered)) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "please check details! quantity mismatched" }] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "please check details! quantity mismatched" }] }))
         }
 
         const { fulfilledQty, product } = existingProcurementRecord;
 
         if (qtyOffered > (product?.quantity - fulfilledQty)) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "incorrect quantity of request" }] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "incorrect quantity of request" }] }))
         }
 
         const associateOfferRecord = await AssociateOffers.create({ seller_id: user_id, req_id: req_id, offeredQty: sumOfFarmerQty, createdBy: user_id });
@@ -180,7 +178,7 @@ module.exports.associateOffer = async (req, res) => {
             const existingFarmer = await farmer.findOne({ _id: harvester._id });
 
             if (!existingFarmer) {
-                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("farmer") }] }));
+                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("farmer") }] }))
             }
 
             const farmerBankDetails = await Bank.findOne({ farmer_id: harvester._id });
@@ -203,7 +201,7 @@ module.exports.associateOffer = async (req, res) => {
 
         await FarmerOffers.insertMany(dataToBeInserted);
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: associateOfferRecord, message: "offer submitted" }));
+        return res.status(200).send(new serviceResponse({ status: 200, data: sellerOfferRecord, message: "offer submitted" }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -397,11 +395,7 @@ module.exports.getFarmerListById = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(totalRecords / limit) : 0;
         }
 
-        return res.status(200).send(new serviceResponse({
-            status: 200,
-            data: records,
-            message: _query.get('farmer')
-        }));
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('farmer') }))
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -415,14 +409,14 @@ module.exports.requestApprove = async (req, res) => {
         const { associateOffers_id, status } = req.body;
         const { user_type } = req;
 
-        if (user_type != _userType.agent) {
+        if (user_type != _userType.admin) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         const associateOffered = await AssociateOffers.findOne({ _id: associateOffers_id });
 
-        if (!associateOffered) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("seller offer") }] }));
+        if (!sellerOffered) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("seller offer") }] }))
         }
 
         if (status == _associateOfferStatus.rejected) {
@@ -433,7 +427,7 @@ module.exports.requestApprove = async (req, res) => {
             const existingRequest = await RequestModel.findOne({ _id: associateOffered.req_id });
 
             if (!existingRequest) {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }));
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
             }
 
             existingRequest.fulfilledQty += associateOffered.offeredQty;
@@ -443,13 +437,13 @@ module.exports.requestApprove = async (req, res) => {
             } else if (existingRequest.fulfilledQty < existingRequest?.product?.quantity) {
                 existingRequest.status = _requestStatus.partially_fulfulled;
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }));
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }))
             }
 
             await associateOffered.save();
             await existingRequest.save();
 
-            return res.status(200).send(new serviceResponse({ status: 200, data: existingRequest, message: "order accepted by admin" }));
+            return res.status(200).send(new serviceResponse({ status: 200, data: existingRequest, message: "order accepted by admin" }))
         }
 
     } catch (error) {
@@ -468,7 +462,7 @@ module.exports.offeredFarmerList = async (req, res) => {
         const offerIds = (await AssociateOffers.find({ req_id, ...(user_type == _userType.associate && { seller_id: user_id }) })).map((ele) => ele._id);
 
         if (offerIds.length == 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
         }
 
         let query = search ? {
@@ -493,7 +487,7 @@ module.exports.offeredFarmerList = async (req, res) => {
         records.limit = limit
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }));
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }))
 
 
     } catch (error) {
@@ -518,7 +512,7 @@ module.exports.getAcceptedProcurement = async (req, res) => {
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("accepted procurement") }));
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("accepted procurement") }))
     } catch (error) {
         console.log(error.message);
         _handleCatchErrors(error, res);
@@ -536,7 +530,7 @@ module.exports.editFarmerOffer = async (req, res) => {
         const record = await FarmerOffers.findOne({ _id: id });
 
         if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }))
         }
 
         record.receving_date = receving_date;
@@ -560,7 +554,7 @@ module.exports.editFarmerOffer = async (req, res) => {
 
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("farmer") }));
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("farmer") }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -573,8 +567,8 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
 
     const { user_type, user_id } = req;
 
-    // if (user_type != _userType.agent) {
-    //     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }));
+    // if (user_type != _userType.admin) {
+    //     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] })))
     // }
 
     const { associateOffer_id, status, comment } = req.body;
@@ -582,11 +576,11 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
     const offer = await AssociateOffers.findOne({ _id: associateOffer_id });
 
     if (!offer) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
     }
 
-    if (!Object.values(_associateOfferStatus).includes(status)) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("status") }] }));
+    if (!Object.values(_sellerOfferStatus).includes(status)) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("status") }] }))
     }
 
     if (status == _associateOfferStatus.rejected && comment) {
@@ -596,7 +590,7 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
     offer.status = status;
     await offer.save();
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: offer, message: _response_message.found("offer") }));
+    return res.status(200).send(new serviceResponse({ status: 200, data: offer, message: _response_message.found("offer") }))
 
 })
 
@@ -633,5 +627,5 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
     }
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("seller offer") }));
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("seller offer") }))
 })

@@ -1,5 +1,5 @@
 const { errorLogger } = require("@config/logger")
-const { serviceResponse } = require("./api_response")
+const { sendResponse } = require("./api_response")
 const fs = require('fs');
 const { Parser } = require('json2csv');
 const { v4: uuidv4 } = require('uuid');
@@ -15,7 +15,7 @@ const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity")
  */
 exports._handleCatchErrors = async (error, res, next) => {
     // errorLogger.error({ message: error.message, stack: error.stack }) 
-    return res.status(500).send(new serviceResponse({ status: 500, errors: [{ message: error.message, stack: error.stack }] }))
+    return sendResponse({ res, status: 500, errors: [{ message: error.message, stack: error.stack }] })
 }
 
 
@@ -44,7 +44,7 @@ exports.dumpJSONToCSV = (req, res, config = {
 
 
     } catch (error) {
-        return new serviceResponse({res, status: 500, errors: [{ message: `${error.message}` }] });
+        return sendResponse({res, status: 500, errors: [{ message: `${error.message}` }] });
     }
 };
 

@@ -19,7 +19,7 @@ module.exports.createFarmer = async (req, res) => {
         const existingFarmer = await farmer.findOne({ 'mobile_no': mobile_no });
 
         if (existingFarmer) {
-            return res.status(400).send(new serviceResponse({
+            return res.status(200).send(new serviceResponse({
                 status: 400,
                 errors: [{ message: _response_message.allReadyExist("farmer") }]
             }));
@@ -29,7 +29,7 @@ module.exports.createFarmer = async (req, res) => {
         const newFarmer = new farmer({associate_id,farmer_code: farmerCode,title,name,parents: {    father_name: father_name || '',    mother_name: mother_name || ''},dob,gender,marital_status,religion,category,education,proof,address,mobile_no,email,status });
         const savedFarmer = await newFarmer.save();
 
-        return res.status(201).send(new serviceResponse({
+        return res.status(200).send(new serviceResponse({
             status: 201,
             data: savedFarmer,
             message: _response_message.created("Farmer")
@@ -41,13 +41,19 @@ module.exports.createFarmer = async (req, res) => {
 };
 module.exports.getFarmers = async (req, res) => {
     try {
-        const { page = 1, limit = 10, sortBy = 'name', search = '', paginate = 1 } = req.query;
+        const { page = 1, limit = 10, sortBy = 'name', search = '', paginate = 1, associate_id } = req.query;
         const skip = (page - 1) * limit;
 
-        const query = search ? { name: { $regex: search, $options: 'i' } } : {};
-
+        // const query = search ? { name: { $regex: search, $options: 'i' } } : {};
+        let query = {};
         const records = { count: 0 };
-        records.rows = paginate == 1
+        if (associate_id) {
+            query.associate_id = associate_id;
+        }
+        if (search) {
+          query.name = { $regex: search, $options: 'i' };
+      }
+      records.rows = paginate == 1
             ? await farmer.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy)
             : await farmer.find(query).sort(sortBy);
 
@@ -82,7 +88,7 @@ module.exports.editFarmer = async (req, res) => {
   
       const existingFarmer = await farmer.findById(id);
       if (!existingFarmer) {
-        return res.status(404).send(new serviceResponse({
+        return res.status(200).send(new serviceResponse({
           status: 404,
           errors: [{ message: _response_message.notFound("farmer") }]
         }));
@@ -133,7 +139,7 @@ module.exports.deletefarmer = async (req, res) => {
           message: _response_message.deleted("farmer"),
         }));
       } else {
-        return res.status(404).send(new serviceResponse({
+        return res.status(200).send(new serviceResponse({
           status: 404,
           data: response,
           message: _response_message.notFound("farmer"),
@@ -147,7 +153,7 @@ module.exports.deletefarmer = async (req, res) => {
   module.exports.createLand = async (req, res) => {
     try {
       const {
-        farmer_id, associate_id, total_area, khasra_no, area_unit, khatauni, sow_area, state_name,
+        farmer_id, total_area, khasra_no, area_unit, khatauni, sow_area, state_name,
         district_name, sub_district, expected_production, soil_type, soil_tested,
         soil_health_card, soil_testing_lab_name, lab_distance_unit
       } = req.body;
@@ -155,7 +161,7 @@ module.exports.deletefarmer = async (req, res) => {
       const existingLand = await Land.findOne({ 'khasra_no': khasra_no });
   
       if (existingLand) {
-        return res.status(400).send(new serviceResponse({
+        return res.status(200).send(new serviceResponse({
           status: 400,
           errors: [{ message: _response_message.allReadyExist("Land") }]
         }));
@@ -163,7 +169,7 @@ module.exports.deletefarmer = async (req, res) => {
       const state_id = await getStateId(state_name);
       const district_id = await getDistrictId(district_name);
       const newLand = new Land({
-        farmer_id, associate_id, total_area, khasra_no, area_unit, khatauni, sow_area,
+        farmer_id, total_area, khasra_no, area_unit, khatauni, sow_area,
         land_address:{
             state_id, 
             district_id, 
@@ -174,7 +180,7 @@ module.exports.deletefarmer = async (req, res) => {
       });
       const savedLand = await newLand.save();
   
-      return res.status(201).send(new serviceResponse({
+      return res.status(200).send(new serviceResponse({
         status: 201,
         data: savedLand,
         message: _response_message.created("Land")
@@ -208,7 +214,7 @@ module.exports.deletefarmer = async (req, res) => {
       );
   
       if (!updatedLand) {
-        return res.status(404).send(new serviceResponse({
+        return res.status(200).send(new serviceResponse({
           status: 404,
           message: _response_message.notFound("Land")
         }));
@@ -225,60 +231,7 @@ module.exports.deletefarmer = async (req, res) => {
     }
   };
   
-  module.exports.updateLand = async (req, res) => {
-    try {
-        
-      const { land_id } = req.params;
-      
-      const {
-        total_area, khasra_no, area_unit, khatauni, sow_area, state_name,
-        district_name, sub_district, expected_production, soil_type, soil_tested,
-        soil_health_card, soil_testing_lab_name, lab_distance_unit
-      } = req.body;
-  
-      const state_id = await getStateId(state_name);
-      const district_id = await getDistrictId(district_name);
-  
-      const updatedLand = await Land.findByIdAndUpdate(
-        land_id,
-        {
-          total_area,
-          khasra_no,
-          area_unit,
-          khatauni,
-          sow_area,
-          land_address: {
-            state_id,
-            district_id,
-            sub_district
-          },
-          expected_production,
-          soil_type,
-          soil_tested,
-          soil_health_card,
-          soil_testing_lab_name,
-          lab_distance_unit
-        },
-        { new: true }
-      );
-  
-      if (!updatedLand) {
-        return res.status(404).send(new serviceResponse({
-          status: 404,
-          message: _response_message.notFound("Land")
-        }));
-      }
-  
-      return res.status(200).send(new serviceResponse({
-        status: 200,
-        data: updatedLand,
-        message: _response_message.updated("Land")
-      }));
-  
-    } catch (error) {
-      _handleCatchErrors(error, res);
-    }
-  };
+
   module.exports.deleteLand = async (req, res) => {
     try {
         const { id } = req.query;
@@ -294,7 +247,7 @@ module.exports.deletefarmer = async (req, res) => {
             message: _response_message.deleted("Land"),
           }));
         } else {
-          return res.status(404).send(new serviceResponse({
+          return res.status(200).send(new serviceResponse({
             status: 404,
             data: response,
             message: _response_message.notFound("Land"),
@@ -308,7 +261,7 @@ module.exports.deletefarmer = async (req, res) => {
   module.exports.createCrop = async (req, res) =>{
     try {
         const {
-          associate_id, farmer_id, sowing_date, harvesting_date, crops_name, production_quantity,
+          farmer_id, sowing_date, harvesting_date, crops_name, production_quantity,
           area_unit, total_area, productivity, selling_price, market_price, yield, seed_used,
           fertilizer_used, fertilizer_name, fertilizer_dose, pesticide_used, pesticide_name,
           pesticide_dose, insecticide_used, insecticide_name, insecticide_dose, crop_insurance,
@@ -318,7 +271,7 @@ module.exports.deletefarmer = async (req, res) => {
         const sowingdate = parseMonthyear(sowing_date);
         const harvestingdate = parseMonthyear(harvesting_date);
         const newCrop = new Crop({
-          associate_id, farmer_id, sowing_date:sowingdate, harvesting_date:harvestingdate, crops_name, production_quantity,
+          farmer_id, sowing_date:sowingdate, harvesting_date:harvestingdate, crops_name, production_quantity,
           area_unit, total_area, productivity, selling_price, market_price, yield, seed_used,
           fertilizer_used, fertilizer_name, fertilizer_dose, pesticide_used, pesticide_name,
           pesticide_dose, insecticide_used, insecticide_name, insecticide_dose, crop_insurance,
@@ -327,7 +280,7 @@ module.exports.deletefarmer = async (req, res) => {
     
         const savedCrop = await newCrop.save();
     
-        return res.status(201).send(new serviceResponse({
+        return res.status(200).send(new serviceResponse({
             status: 201,
             data: savedCrop,
             message: _response_message.created("Crop")
@@ -341,7 +294,7 @@ module.exports.deletefarmer = async (req, res) => {
     try {
         const { crop_id } = req.params;
         const {
-            associate_id, farmer_id, sowing_date, harvesting_date, crops_name,
+            farmer_id, sowing_date, harvesting_date, crops_name,
             production_quantity, area_unit, total_area, productivity, selling_price,
             market_price, yield, seed_used, fertilizer_used, fertilizer_name, fertilizer_dose,
             pesticide_used, pesticide_name, pesticide_dose, insecticide_used, insecticide_name,
@@ -353,7 +306,7 @@ module.exports.deletefarmer = async (req, res) => {
         const updatedCrop = await Crop.findByIdAndUpdate(
             crop_id,
             {
-                associate_id, farmer_id, sowing_date:sowingdate, harvesting_date:harvestingdate, crops_name,
+                farmer_id, sowing_date:sowingdate, harvesting_date:harvestingdate, crops_name,
                 production_quantity, area_unit, total_area, productivity, selling_price,
                 market_price, yield, seed_used, fertilizer_used, fertilizer_name, fertilizer_dose,
                 pesticide_used, pesticide_name, pesticide_dose, insecticide_used, insecticide_name,
@@ -363,7 +316,7 @@ module.exports.deletefarmer = async (req, res) => {
         );
 
         if (!updatedCrop) {
-            return res.status(404).send(new serviceResponse({
+            return res.status(200).send(new serviceResponse({
                 status: 404,
                 message: _response_message.notFound("Crop")
             }));
@@ -395,7 +348,7 @@ module.exports.deleteCrop = async (req, res) => {
             message: _response_message.deleted("Crop"),
           }));
         } else {
-          return res.status(404).send(new serviceResponse({
+          return res.status(200).send(new serviceResponse({
             status: 404,
             data: response,
             message: _response_message.notFound("Crop"),
@@ -409,7 +362,6 @@ module.exports.createBank = async (req, res) => {
     try {
         const {
             farmer_id, 
-            associate_id, 
             bank_name, 
             account_no, 
             ifsc_code, 
@@ -427,15 +379,14 @@ module.exports.createBank = async (req, res) => {
         const district_id = await getDistrictId(district_name); 
 
         if (!state_id || !district_id) {
-            return res.status(400).send(new serviceResponse({
+            return res.status(200).send(new serviceResponse({
                 status: 400,
                 message: "Invalid state or district provided"
             }));
         }
 
         const newBank = new Bank({
-            farmer_id, 
-            associate_id, 
+            farmer_id,  
             bank_name, 
             account_no, 
             ifsc_code, 
@@ -451,7 +402,7 @@ module.exports.createBank = async (req, res) => {
 
         const savedBank = await newBank.save();
         
-        return res.status(201).send(new serviceResponse({
+        return res.status(200).send(new serviceResponse({
             status: 201,
             data: savedBank,
             message: _response_message.created("Bank")
@@ -467,7 +418,6 @@ module.exports.updateBank = async (req, res) => {
         const { bank_id } = req.params;
         const {
             farmer_id, 
-            associate_id, 
             bank_name, 
             account_no, 
             ifsc_code, 
@@ -485,7 +435,7 @@ module.exports.updateBank = async (req, res) => {
         const district_id = await getDistrictId(district_name);
 
         if (!state_id || !district_id) {
-            return res.status(400).send(new serviceResponse({
+            return res.status(200).send(new serviceResponse({
                 status: 400,
                 message: "Invalid state or district provided"
             }));
@@ -494,8 +444,7 @@ module.exports.updateBank = async (req, res) => {
         const updatedBank = await Bank.findByIdAndUpdate(
             bank_id,
             {
-                farmer_id, 
-                associate_id, 
+                farmer_id,  
                 bank_name, 
                 account_no, 
                 ifsc_code, 
@@ -512,7 +461,7 @@ module.exports.updateBank = async (req, res) => {
         );
 
         if (!updatedBank) {
-            return res.status(404).send(new serviceResponse({
+            return res.status(200).send(new serviceResponse({
                 status: 404,
                 message: "Bank not found"
             }));
@@ -543,7 +492,7 @@ module.exports.deleteBank = async (req, res) => {
             message: _response_message.deleted("Bank"),
           }));
         } else {
-          return res.status(404).send(new serviceResponse({
+          return res.status(200).send(new serviceResponse({
             status: 404,
             data: response,
             message: _response_message.notFound("Bank"),

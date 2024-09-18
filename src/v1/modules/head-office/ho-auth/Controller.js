@@ -1,5 +1,5 @@
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const {
   _response_message,
   _middleware,
@@ -23,7 +23,7 @@ module.exports.Login = async (req, res) => {
     if (hoExist) {
       bcrypt.compare(password, hoExist.password, async (err, result) => {
         if (err) {
-          return new serviceResponse({
+          return sendResponse({
             res,
             status: 400,
             message: _auth_module.unAuth,
@@ -39,14 +39,14 @@ module.exports.Login = async (req, res) => {
             details: hoExist,
           };
 
-          return new serviceResponse({
+          return sendResponse({
             res,
             status: 200,
             message: _auth_module.login("Account"),
             data: data,
           });
         } else {
-          return new serviceResponse({
+          return sendResponse({
             res,
             status: 400,
             message: _auth_module.unAuth,
@@ -54,7 +54,7 @@ module.exports.Login = async (req, res) => {
         }
       });
     } else {
-      return new serviceResponse({
+      return sendResponse({
         res,
         status: 400,
         message: _auth_module.unAuth,

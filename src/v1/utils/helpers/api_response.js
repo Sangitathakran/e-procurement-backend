@@ -7,5 +7,9 @@ function serviceResponse({ status, data, message, errors, errorCode, event }) {
     this.errors = errors ? errors : [];
     this.version = '1.0';
 };
-
-module.exports = { serviceResponse };
+function sendResponse({ res, status = 200 , data, message, errors, errorCode, event }) {
+   
+    return res.status(status).json({status, data, message, errors, errorCode, event})
+    
+};
+module.exports = { serviceResponse,sendResponse };
