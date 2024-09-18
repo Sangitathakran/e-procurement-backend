@@ -1,6 +1,6 @@
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
-const { sendResponse, serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const {  _response_message, _middleware } = require("@src/v1/utils/constants/messages");
+const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { User } = require("@src/v1/models/app/auth/User");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
@@ -13,26 +13,26 @@ module.exports.createProcurementCenter = async (req, res) => {
 
     try {
         const { user_id, user_type, trader_type } = req
-        const { center_name,center_code, line1, line2, state, district, city, name, email, mobile, designation,aadhar_number, aadhar_image, postalCode, lat, long, addressType, location_url } = req.body;
+        const { center_name, center_code, line1, line2, state, district, city, name, email, mobile, designation, aadhar_number, aadhar_image, postalCode, lat, long, addressType, location_url } = req.body;
 
         let center_type;
-        if(user_type == 'Associate'){
+        if (user_type == 'Associate') {
             center_type = _center_type.associate;
-        } else if(user_type == 'head_office') {
+        } else if (user_type == 'head_office') {
             center_type = _center_type.head_office;
         } else {
             center_type = _center_type.agent;
         }
-        
+
         const record = await ProcurementCenter.create({
-            center_name:center_name,
-            center_code:center_code,
-            user_id:user_id,
-            center_type : center_type,
-            address: { line1, line2, country:'India', state, district, city, postalCode, lat, long },
+            center_name: center_name,
+            center_code: center_code,
+            user_id: user_id,
+            center_type: center_type,
+            address: { line1, line2, country: 'India', state, district, city, postalCode, lat, long },
             point_of_contact: { name, email, mobile, designation, aadhar_number, aadhar_image, },
             addressType,
-            location_url:location_url
+            location_url: location_url
         });
 
         return res.send(new serviceResponse({ status: 200, data: record, message: _response_message.created("Collection Center") }));
@@ -50,10 +50,10 @@ module.exports.getProcurementCenter = async (req, res) => {
         const { user_id } = req
         let query = {
             user_id: user_id,
-            ...(search ? { name: { $regex: search, $options: "i" } ,deletedAt: null} : { deletedAt: null })
+            ...(search ? { name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
         const records = { count: 0 };
-        records.rows = paginate == 1 
+        records.rows = paginate == 1
             ? await ProcurementCenter.find(query)
                 .populate({
                     path: 'user_id',
@@ -61,8 +61,8 @@ module.exports.getProcurementCenter = async (req, res) => {
                 })
                 .sort(sortBy)
                 .skip(skip)
-                .limit(parseInt(limit)) 
-            
+                .limit(parseInt(limit))
+
             : await ProcurementCenter.find(query)
                 .populate({
                     path: 'user_id',
@@ -103,12 +103,12 @@ module.exports.getProcurementCenter = async (req, res) => {
                     worksheetName: `collection-center}`
                 });
             } else {
-                return sendResponse({ status: 400, data: records, message: _query.notFound() })
+                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
             }
         } else {
-            return sendResponse({ status: 200, data: records, message: _response_message.found("collection center") });
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
         }
-       return res.send(new serviceResponse({status: 200, data: records, message: _response_message.found("collection center") }));
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -121,7 +121,7 @@ module.exports.getHoProcurementCenter = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
         let query = {
-            ...(search ? { center_name: { $regex: search, $options: "i" } ,deletedAt: null} : { deletedAt: null })
+            ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
         const records = { count: 0 };
         records.rows = paginate == 1 ? await CollectionCenter.find(query)
@@ -132,7 +132,7 @@ module.exports.getHoProcurementCenter = async (req, res) => {
         records.count = await CollectionCenter.countDocuments(query);
 
         if (paginate == 1) {
-            records.page = page 
+            records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
@@ -247,11 +247,11 @@ module.exports.ImportProcurementCenter = async (req, res) => {
         }
 
         if (errorArray.length > 0) {
-            return sendResponse({ status: 400, data: { records: errorArray }, errors: [{ message: "Partial upload successfull ! Please export to view the uploaded data." }] })
+            return res.status(200).send(new serviceResponse({ status: 400, data: { records: errorArray }, errors: [{ message: "Partial upload successfull ! Please export to view the uploaded data." }] }))
         } else {
-            return sendResponse({ status: 200, data: {}, message: 'Centers successfully uploaded.' })
+            return res.status(200).send(new serviceResponse({ status: 200, data: {}, message: 'Centers successfully uploaded.' }))
         }
-        
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -264,13 +264,13 @@ module.exports.generateCenterCode = async (req, res) => {
         let CenterCode = '';
 
         if (lastCenter && lastCenter.center_code) {
-            const lastCodeNumber = parseInt(lastCenter.center_code.slice(2), 10); 
+            const lastCodeNumber = parseInt(lastCenter.center_code.slice(2), 10);
             CenterCode = 'CC' + String(lastCodeNumber + 1).padStart(5, '0');
         } else {
             CenterCode = 'CC00001';
         }
 
-        return sendResponse({ status: 200, data: { CenterCode }, message: _response_message.found("next center code") });
+        return res.status(200).send(new serviceResponse({ status: 200, data: { CenterCode }, message: _response_message.found("next center code") }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }

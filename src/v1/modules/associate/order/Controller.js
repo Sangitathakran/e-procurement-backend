@@ -1,5 +1,5 @@
 const { _handleCatchErrors, _generateOrderNumber } = require("@src/v1/utils/helpers")
-const { sendResponse, serviceResponse} = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
@@ -19,30 +19,30 @@ module.exports.batch = async (req, res) => {
         const procurementRecord = await RequestModel.findOne({ _id: req_id });
 
         if (!procurementRecord) {
-            return sendResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] })
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
         }
 
         const record = await AssociateOffers.findOne({ seller_id: user_id, req_id: req_id });
 
         if (!record) {
-            return sendResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] });
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
         }
 
         const farmerRecords = await FarmerOffers.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id });
 
         if (farmerRecords) {
-            return sendResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] });
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
         }
 
         const receivedRecords = await FarmerOffers.find({ status: _procuredStatus.received, associateOffers_id: record?._id });
 
         if (receivedRecords.length == 0) {
-            return sendResponse({ status: 400, errors: [{ message: _response_message.notFound() }] });
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }));
         }
 
         const total_qty_procured = receivedRecords.reduce((acc, cur) => acc += cur.qtyProcured, 0)
         if (total_qty_procured > record.offeredQty) {
-            return sendResponse({ status: 400, errors: [{ message: _response_message.invalid("Quantity procured") }] });
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Quantity procured") }] }));
         }
         const myMap = new Map();
         const payment = [];
@@ -78,7 +78,7 @@ module.exports.batch = async (req, res) => {
         await record.save();
         await procurementRecord.save()
 
-        return sendResponse({ status: 200, data: associateRecords, message: _response_message.created("order") })
+        return res.status(200).send(new serviceResponse({ status: 200, data: associateRecords, message: _response_message.created("order") }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -95,7 +95,7 @@ module.exports.editTrackDelivery = async (req, res) => {
         const record = await Batch.findOne({ _id: id });
 
         if (!record) {
-            return sendResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] })
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
         }
 
         if (material_img && weight_slip && qc_report && lab_report) {
@@ -125,7 +125,7 @@ module.exports.editTrackDelivery = async (req, res) => {
         }
 
         await record.save();
-        return sendResponse({ status: 200, data: record, message: _response_message.updated("order") });
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("order") }));
 
 
     } catch (error) {
@@ -161,7 +161,7 @@ module.exports.viewTrackDelivery = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        return sendResponse({ status: 200, data: records, message: _response_message.found("Track order") });
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Track order") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -181,10 +181,10 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
             });
 
         if (!record) {
-            sendResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] })
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
         }
 
-        return sendResponse({ status: 200, data: record, message: _response_message.found("Track order") });
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Track order") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
