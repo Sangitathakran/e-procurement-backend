@@ -1,17 +1,16 @@
+const express = require("express");
+const router = express.Router();
+
 const { handlePagination, handleRateLimit } = require("./middlewares/express_app");
 const { helperRoutes } = require("./modules/api_helpers/Routes");
 const { S3Router } = require("./modules/aws/routes");
 const multer = require('multer');
 const { masterRoutes } = require("./modules/master/Routes");
-const { individualFarmerRoutes } = require("./modules/individual-farmer/Routes");
-const { farmerRoutes } = require("./modules/farmer/Routes");
-const { hoDashboardRoutes } = require("./modules/ho-dashboard/Routes")
-const { requireMentRoutes } = require("./modules/requirement/Routes")
-const { hoAuthRoutes } = require("./modules/ho-auth/Routes")
-const express = require("express");
 const { associateRoutes } = require("./modules/associate/Routes");
+
 const { agentRoutes } = require("./modules/agent/Routes");
-const router = express.Router();
+const { headOfficeRoutes}  = require("./modules/head-office/routes")
+const { farmerRoutes} = require("./modules/farmer/Routes")
 
 /* Define Your Routes */
 router.use(handlePagination)
@@ -20,13 +19,14 @@ router.use(multer().any())
 
 router.use('/aws', S3Router)
 router.use("/master", masterRoutes);
-router.use('/ivd-farmer', individualFarmerRoutes);
-router.use('/ho-dashboard', hoDashboardRoutes);
-router.use('/requirement', requireMentRoutes)
-router.use('/farmer', farmerRoutes);
-router.use('/helper', helperRoutes)
-router.use("/ho-auth", hoAuthRoutes)
-router.use("/associate", associateRoutes);
-router.use("/agent", agentRoutes);
 
+
+router.use("/agent", agentRoutes);
+router.use('/helper', helperRoutes)
+
+ 
+router.use("/associate", associateRoutes);
+router.use("/farmer", farmerRoutes)
+router.use("/ho", headOfficeRoutes)
+ 
 module.exports = { router };

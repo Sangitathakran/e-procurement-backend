@@ -1,0 +1,20 @@
+const express = require("express");
+const { createFarmer, bulkUploadFarmers, getFarmers, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank} = require("./Controller");
+const associateFarmerRoutes = express.Router();
+const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
+const multer = require('multer');
+
+associateFarmerRoutes.post("/", verifyJwtToken, createFarmer);
+associateFarmerRoutes.get("/", verifyJwtToken, getFarmers);
+associateFarmerRoutes.delete("/", verifyJwtToken, deletefarmer);
+associateFarmerRoutes.post("/createLand", verifyJwtToken,  createLand);
+associateFarmerRoutes.put("/updateLand/:land_id", verifyJwtToken,  updateLand);
+associateFarmerRoutes.delete("/deleteLand", verifyJwtToken,  deleteLand);
+associateFarmerRoutes.post("/createCrop", verifyJwtToken,  createCrop);
+associateFarmerRoutes.put("/updateCrop/:crop_id", verifyJwtToken,  updateCrop);
+associateFarmerRoutes.delete("/deleteCrop", verifyJwtToken, deleteCrop);
+associateFarmerRoutes.post("/createBank", verifyJwtToken,  createBank);
+associateFarmerRoutes.put("/updateBank/:bank_id", verifyJwtToken,  updateBank);
+associateFarmerRoutes.delete("/deleteBank", verifyJwtToken, deleteBank);
+associateFarmerRoutes.post("/bulk-upload", verifyJwtToken,  bulkUploadFarmers);
+module.exports = { associateFarmerRoutes}; 
