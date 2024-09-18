@@ -56,15 +56,16 @@ class SMSService {
     
     async sendWelcomeSMSForAssociate(phoneNumber, associateName, associateId) {
         try {
-            const encodedMessage = `Dear RSJ, You have been successfully registered with Navbazar. Here is your Associate ID: qw1213. Begin your procurement journey by clicking the following link: www.a.com. Team Navankur\n\n-Radiant Infonet Pvt. Ltd`;
+            const encodedMessage  = `प्रिय ${associateName} आपका किसान आईडी ${associateId} के साथ NAVBAZAR \nपर पंजीकरण सफलतापूर्वक पूरा हो गया है। धन्यवाद!\n\n-Radiant Infonet Private Limited`;
 
             const message = encodeURIComponent(encodedMessage);
             const apikey = encodeURIComponent(SMS_API_KEY);
             const number = 7417999581;
-            const sender = this.sender;
+            const sender = this.sender; 
             const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}&unicode=true`;
-            
+            console.log('URL', url)
             const response = await axios.post(url);
+            console.log('response', response.data);
             return { message: 'Registration SMS sent successfully', response: response.data };
         }   catch (error) {
             return { error: error.message };
