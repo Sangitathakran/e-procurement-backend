@@ -184,20 +184,17 @@ module.exports.saveAssociateDetails = async (req, res) => {
 
         
         
-        if (user.is_welcome_email_send === false && allDetailsFilled) {
+        if (!user.is_welcome_email_send && allDetailsFilled) {
             await emailService.sendWelcomeEmail(user);
             user.is_welcome_email_send = true;
             await user.save();
         }
 
-        if (user.is_sms_send === false && allDetailsFilled) {
-            const phone = user.basic_details.associate_details.phone;
-            const organization_name = user.basic_details.associate_details.organization_name;
-            const associateId = user.user_code;
+        if (!user.is_sms_send && allDetailsFilled) {
+            const { phone, organization_name } = user.basic_details.associate_details;
             
-            await smsService.sendWelcomeSMSForAssociate(phone, organization_name, associateId);
-            user.is_sms_send = true;
-            await user.save();
+            await smsService.sendWelcomeSMSForAssociate(phone, organization_name, user.user_code);
+            await user.updateOne({ is_sms_send: true });
         }
         
         const response = { user_code: user.user_code, user_id: user._id };
