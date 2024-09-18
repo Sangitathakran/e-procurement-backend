@@ -136,7 +136,7 @@ module.exports.getHoProcurementCenter = async (req, res) => {
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-        //
+        
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement center") }));
 
     } catch (error) {
