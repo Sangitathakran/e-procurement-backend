@@ -103,10 +103,10 @@ module.exports.getProcurementCenter = async (req, res) => {
                     worksheetName: `collection-center}`
                 });
             } else {
-                return sendResponse({ status: 400, data: records, message: _query.notFound() })
+                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
             }
         } else {
-            return sendResponse({ status: 200, data: records, message: _response_message.found("collection center") });
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
         }
        return res.send(new serviceResponse({status: 200, data: records, message: _response_message.found("collection center") }));
 
@@ -247,9 +247,9 @@ module.exports.ImportProcurementCenter = async (req, res) => {
         }
 
         if (errorArray.length > 0) {
-            return sendResponse({ status: 400, data: { records: errorArray }, errors: [{ message: "Partial upload successfull ! Please export to view the uploaded data." }] })
+            return res.status(200).send(new serviceResponse({ status: 400, data: { records: errorArray }, errors: [{ message: "Partial upload successfull ! Please export to view the uploaded data." }] }))
         } else {
-            return sendResponse({ status: 200, data: {}, message: 'Centers successfully uploaded.' })
+            return res.status(200).send(new serviceResponse({ status: 200, data: {}, message: 'Centers successfully uploaded.' }))
         }
         
     } catch (error) {
@@ -270,7 +270,7 @@ module.exports.generateCenterCode = async (req, res) => {
             CenterCode = 'CC00001';
         }
 
-        return sendResponse({ status: 200, data: { CenterCode }, message: _response_message.found("next center code") });
+        return res.status(200).send(new serviceResponse({ status: 200, data: { CenterCode }, message: _response_message.found("next center code") }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }
