@@ -97,7 +97,6 @@ const userSchema = new mongoose.Schema({
     user_code: { type: String, unique: true },
     user_type: { type: String,trim: true },
     user_status: { type: String, enum: Object.values(_user_status), default:_user_status.APPROVED },
-    user_type: {type: String,trim: true ,},
     is_mobile_verified:{type: String,default: false},
     is_approved:{type: Boolean,default: false},
     is_email_verified:{type: String,default: false},

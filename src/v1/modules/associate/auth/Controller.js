@@ -190,13 +190,15 @@ module.exports.saveAssociateDetails = async (req, res) => {
             await user.save();
         }
 
-        // if (user.is_sms_send === tru && allDetailsFilled) {
-            const { phone, organization_name: name } = user.basic_details.associate_details;
+        if (user.is_sms_send === false && allDetailsFilled) {
+            const phone = user.basic_details.associate_details.phone;
+            const organization_name = user.basic_details.associate_details.organization_name;
             const associateId = user.user_code;
-            await smsService.sendWelcomeSMSForAssociate(phone, name, associateId);
+            
+            await smsService.sendWelcomeSMSForAssociate(phone, organization_name, associateId);
             user.is_sms_send = true;
             await user.save();
-        // }
+        }
         
         const response = { user_code: user.user_code, user_id: user._id };
         return res.status(200).send(new serviceResponse({ message: _response_message.updated(formName), data: response }));
