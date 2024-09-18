@@ -1,5 +1,5 @@
 const { validationResult } = require('express-validator');
-const { serviceResponse } = require('./api_response');
+const { sendResponse } = require('./api_response');
 
 const errorFormatter = ({ location, msg, param }) => {
     return {
@@ -13,7 +13,7 @@ exports.validateErrors = (req, res, next) => {
     const errors = validationResult(req).formatWith(errorFormatter);
    // console.log('errors',errors)
     if (!errors.isEmpty()) {
-        return new serviceResponse({res, status: 400, errors: errors.array({ onlyFirstError: true }) })
+        return sendResponse({res, status: 400, errors: errors.array({ onlyFirstError: true }) })
     }
 
     /* deleting unaccessable fields */

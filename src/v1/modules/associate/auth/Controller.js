@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { _handleCatchErrors } = require("@src/v1/utils/helpers")
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse,serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
 const { User } = require("@src/v1/models/app/auth/User");
 const  OTP  = require("@src/v1/models/app/auth/OTP");
@@ -198,7 +198,7 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
     const { user_id } = req;
     let record = await User.findOne({ _id: user_id }).lean();
     if (!record) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }));
+        return sendResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] });
     }
     // record = { ...record }
     console.log(record)
@@ -216,13 +216,13 @@ module.exports.formPreview = async (req, res) => {
     try {
         const { user_id } = req;
         if (!user_id) {
-            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
+            return sendResponse({ status: 400, message: _middleware.require('user_id') });
         }
         const response = await User.findById({ _id: user_id });
         if (!response) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
+            return sendResponse({ status: 200, message: _query.get("data"), data: response });
         }
     } catch (error) {
         _handleCatchErrors(error, res);

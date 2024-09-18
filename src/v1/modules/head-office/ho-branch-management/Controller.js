@@ -1,5 +1,5 @@
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const {
   _response_message,
   _middleware,
@@ -35,7 +35,7 @@ module.exports.importBranches = async (req, res) => {
         return res
           .status(400)
           .send(
-            new serviceResponse({
+            sendResponse({
               status: 400,
               message: _response_message.fileMissing,
             })
@@ -99,7 +99,7 @@ module.exports.importBranches = async (req, res) => {
       return res
         .status(200)
         .send(
-          new serviceResponse({
+          sendResponse({
             status: 200,
             message: _response_message.importSuccess(),
           })
@@ -213,8 +213,7 @@ module.exports.importBranches = async (req, res) => {
       }
   
       // Return the branches along with pagination info
-      return res.status(200).send(
-        new serviceResponse({
+      return sendResponse({
           status: 200,
           message: "Branches fetched successfully",
           data: {
@@ -223,9 +222,8 @@ module.exports.importBranches = async (req, res) => {
             limit: parseInt(limit),
             page: parseInt(req.query.page)
           },
-        })
-      );
+        });
     } catch (err) {
-      return res.send(new serviceResponse({ status: 500, errors: [{ message: err.message }] }));
+      return res.send(sendResponse({ status: 500, errors: [{ message: err.message }] }));
     }
   };
