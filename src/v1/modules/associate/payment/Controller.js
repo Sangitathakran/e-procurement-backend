@@ -1,5 +1,5 @@
 const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel } = require("@src/v1/utils/helpers")
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse , serviceResponse} = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { _userType } = require('@src/v1/utils/constants');
@@ -36,7 +36,7 @@ module.exports.payment = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
+        // return sendResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
 
         if (isExport == 1) {
 
@@ -57,10 +57,10 @@ module.exports.payment = async (req, res) => {
                     worksheetName: `Payment-record-${userType}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+                return sendResponse({ status: 400, data: records, message: _response_message.notFound("Payment") })
             }
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+            return sendResponse({ status: 200, data: records, message: _response_message.found("Payment") })
         }
 
     } catch (error) {
@@ -115,10 +115,10 @@ module.exports.farmerOrders = async (req, res) => {
                     worksheetName: `FarmerOrder-record-${'Farmer'}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+                return sendResponse({ status: 400, data: records, message: _response_message.notFound("Payment") })
             }
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+            return sendResponse({ status: 200, data: records, message: _response_message.found("Payment") })
         }
 
     } catch (error) {
@@ -176,10 +176,10 @@ module.exports.batch = async (req, res) => {
                     worksheetName: `Payment-record-${userType}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+                return sendResponse({ status: 400, data: records, message: _response_message.notFound("Payment") })
             }
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+            return sendResponse({ status: 200, data: records, message: _response_message.found("Payment") })
         }
 
     } catch (error) {

@@ -2,7 +2,7 @@ const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity")
 const exportTemplate = require("@src/v1/utils/constants/exportTemplate");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { dumpJSONToCSV, _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { thirdPartyGetApi } = require("@src/v1/utils/helpers/third_party_Api");
 const { locationJson } = require("@src/v1/utils/seeders/stateDistrictCitySeeder");
 /**
@@ -47,7 +47,7 @@ exports.getAddressByPincode = async (req, res) => {
         const url = `https://api.postalpincode.in/pincode/${pincode}`
         const records = await thirdPartyGetApi(url, {})
 
-        return new serviceResponse({res, status: 200, data: records, message: _response_message.found() })
+        return sendResponse({res, status: 200, data: records, message: _response_message.found() })
     } catch (error) {
         _handleCatchErrors(error, res)
     }
@@ -73,7 +73,7 @@ exports.createSeeder = async (req, res) => {
                 console.log("seeder not found")
                 break;
         }
-        return res.send(new serviceResponse({ status: 200, message: _response_message.found() }))
+        return res.send(sendResponse({ status: 200, message: _response_message.found() }))
     } catch (error) {
         _handleCatchErrors(error, res)
     }
