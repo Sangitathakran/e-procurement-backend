@@ -12,7 +12,7 @@ requestRoutes.patch("/request", verifyAssociate, requestApprove);
 requestRoutes.post("/associate-offered", verifyAssociate, associateOffer);
 requestRoutes.get("/", verifyAssociate, getProcurement);
 
-requestRoutes.post("/", verifyAssociate, createProcurement);
+// requestRoutes.post("/", verifyAssociate, createProcurement);
 
 requestRoutes.put("/", verifyAssociate, updateProcurement);
 requestRoutes.get("/:id", verifyAssociate, getProcurementById);

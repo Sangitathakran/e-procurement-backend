@@ -5,7 +5,7 @@ const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOff
 const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
 const { _associateOfferStatus, _procuredStatus, _batchStatus, _user_status } = require('@src/v1/utils/constants');
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
-const { Request } = require("@src/v1/models/app/procurement/Request");
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 
 
@@ -74,7 +74,9 @@ module.exports.batch = async (req, res) => {
         await Payment.insertMany(payment);
 
         record.status = _associateOfferStatus.ordered;
+        procurementRecord.associatOrder_id.push(_associateOfferStatus._id)
         await record.save();
+        await procurementRecord.save()
 
         return res.status(200).send(new serviceResponse({ status: 200, data: associateRecords, message: _response_message.created("order") }))
 
