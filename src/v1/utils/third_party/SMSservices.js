@@ -1,6 +1,7 @@
 const axios = require('axios');
 const OTPModel = require('@src/v1/models/app/auth/OTP');
 SMS_API_KEY = process.env.SMS_SEND_API_KEY;
+FRONTEND_URL = process.env.FRONTEND_URL;
 
 class SMSService {
     constructor(sender = 'RADPVT') {
@@ -53,6 +54,23 @@ class SMSService {
         }
     }
     
+    async sendWelcomeSMSForAssociate(phoneNumber, associateName, associateId) {
+        try {
+            const encodedMessage = `Dear RSJ, You have been successfully registered with Navbazar. Here is your Associate ID: qw1213. Begin your procurement journey by clicking the following link: www.a.com. Team Navankur\n\n-Radiant Infonet Pvt. Ltd`;
+
+            const message = encodeURIComponent(encodedMessage);
+            const apikey = encodeURIComponent(SMS_API_KEY);
+            const number = 7417999581;
+            const sender = this.sender;
+            const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}&unicode=true`;
+            
+            const response = await axios.post(url);
+            return { message: 'Registration SMS sent successfully', response: response.data };
+        }   catch (error) {
+            return { error: error.message };
+        }
+    }
+    
     
 
     async sendSMS(phoneNumber, otp, templateName = 'default') {
@@ -95,7 +113,7 @@ class SMSService {
     }
 }
 
-const  smsService=new SMSService();
+const smsService = new SMSService();
 
 module.exports = {
     smsService

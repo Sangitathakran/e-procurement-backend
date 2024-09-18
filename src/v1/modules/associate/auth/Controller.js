@@ -181,12 +181,22 @@ module.exports.saveAssociateDetails = async (req, res) => {
             user?.authorised?.name && 
             user?.bank_details?.account_number 
         );
+
+        
         
         if (user.is_welcome_email_send === false && allDetailsFilled) {
             await emailService.sendWelcomeEmail(user);
             user.is_welcome_email_send = true;
             await user.save();
         }
+
+        // if (user.is_sms_send === tru && allDetailsFilled) {
+            const { phone, organization_name: name } = user.basic_details.associate_details;
+            const associateId = user.user_code;
+            await smsService.sendWelcomeSMSForAssociate(phone, name, associateId);
+            user.is_sms_send = true;
+            await user.save();
+        // }
         
         const response = { user_code: user.user_code, user_id: user._id };
         return res.status(200).send(new serviceResponse({ message: _response_message.updated(formName), data: response }));

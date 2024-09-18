@@ -108,7 +108,7 @@ module.exports.getProcurementCenter = async (req, res) => {
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
         }
-       return res.send(new serviceResponse({status: 200, data: records, message: _response_message.found("collection center") }));
+        return res.send(new serviceResponse({status: 200, data: records, message: _response_message.found("collection center") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
