@@ -7,7 +7,7 @@ hoBranchRoutes.post("/import", verifyJwtToken, importBranches);
 hoBranchRoutes.get('/export', exportBranches);
 hoBranchRoutes.get('/download-temp', downloadTemplate);
 hoBranchRoutes.get('/branchList', branchList);
-hoBranchRoutes.put('/toggle-status/:branchId', toggleBranchStatus);
+hoBranchRoutes.put('/toggle-status/:branchId', verifyJwtToken, toggleBranchStatus);
 
 
 module.exports = { hoBranchRoutes }; 
