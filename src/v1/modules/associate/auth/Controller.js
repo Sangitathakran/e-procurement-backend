@@ -21,9 +21,11 @@ const findUser = async (input, type) => {
 const sendEmailOtp = async (email) => {
     await emailService.sendEmailOTP(email);
 };
+
 const sendSmsOtp = async (phone) => {
     await smsService.sendOTPSMS(phone);
 };
+
 module.exports.sendOtp = async (req, res) => {
     try {
         const { input, term_condition } = req.body;
@@ -54,6 +56,7 @@ module.exports.sendOtp = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
 module.exports.loginOrRegister = async (req, res) => {
     try {
         const { userInput, inputOTP } = req.body;
@@ -64,10 +67,13 @@ module.exports.loginOrRegister = async (req, res) => {
         const query = isEmailInput
             ? { 'basic_details.associate_details.email': userInput }
             : { 'basic_details.associate_details.phone': userInput };
+
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
+
         if (!userOTP || inputOTP !== userOTP.otp) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
         }
+        
         let userExist = await User.findOne(query).lean();
 
         if (userExist) {
@@ -111,6 +117,7 @@ module.exports.loginOrRegister = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
 module.exports.saveAssociateDetails = async (req, res) => {
     try {
         const getToken = req.headers.token || req.cookies.token;
@@ -182,8 +189,6 @@ module.exports.saveAssociateDetails = async (req, res) => {
             user?.bank_details?.account_number
         );
 
-        
-        
         if (!user.is_welcome_email_send && allDetailsFilled) {
             await emailService.sendWelcomeEmail(user);
             user.is_welcome_email_send = true;
@@ -203,14 +208,15 @@ module.exports.saveAssociateDetails = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+
 module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
     const { user_id } = req;
     let record = await User.findOne({ _id: user_id }).lean();
     if (!record) {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }));
     }
-    // record = { ...record }
-    console.log(record)
+    
     const data = [
         { label: "organization", status: record?.basic_details?.associate_details?.organization_name ? "completed" : "pending" },
         { label: "Basic Details", status: record?.basic_details?.point_of_contact ? "completed" : "pending" },
@@ -221,6 +227,8 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
     ];
     return res.status(200).send(new serviceResponse({ status: 200, data, message: _response_message.found("status") }));
 })
+
+
 module.exports.formPreview = async (req, res) => {
     try {
         const { user_id } = req;
@@ -237,6 +245,7 @@ module.exports.formPreview = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
 module.exports.useStatusUpdate = async (req, res) => {
     try {
         const { userId } = req.body;

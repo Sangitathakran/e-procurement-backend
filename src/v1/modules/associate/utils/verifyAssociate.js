@@ -15,6 +15,8 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
     if (!token) {
         return res.status(200).send(new serviceResponse({ status: 403, errors: [{ message: _response_message.Unauthorized() }] }))
     }
+    console.log('req', req.url)
+    console.log('originalUrl:', req.originalUrl)
     if (tokenBlacklist.includes(token)) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "Token has been revoked" }] }))
     }
@@ -27,6 +29,7 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
         if (decodedToken.user_type != _userType.associate) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
+        if(req.url =="/onboarding"){}
         Object.entries(decodedToken).forEach(([key, value]) => {
             req[key] = value
         })

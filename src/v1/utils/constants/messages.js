@@ -54,6 +54,7 @@ module.exports = {
         otpSend: () => `OTP send successfully.`,
         allReadyApproved: (key) => `${key || "Data"} already Approved.`,
         user_status: () => 'Associate is pending. Contact to admin.',
-        importSuccess:() => "Branches created successfully"
+        importSuccess:() => "Branches created successfully",
+        userNotApproved:() => "User is not Approved"
     }
 }
