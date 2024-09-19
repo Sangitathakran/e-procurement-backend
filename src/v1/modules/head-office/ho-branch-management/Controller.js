@@ -260,24 +260,36 @@ module.exports.importBranches = async (req, res) => {
     }
   };
 
-
-  module.exports.branchList = async (req, res) => {
+module.exports.branchList = async (req, res) => {
     try {
-      const { limit, skip, sortBy, paginate } = req.query;
+      const { limit = 10, skip = 0 , paginate = 1, search = '', page = 1 } = req.query;
   
-      // Count total number of branches (for pagination purposes)
-      const totalCount = await Branches.countDocuments();
+      // Adding search filter
+      const searchQuery = {
+        $or: [
+          { batchName: { $regex: search, $options: 'i' } },        // Case-insensitive search for batchName
+          { emailAddress: { $regex: search, $options: 'i' } },     // Case-insensitive search for emailAddress
+          { 'pointOfContact.name': { $regex: search, $options: 'i' } }, // Case-insensitive search for pointOfContactName
+          { 'pointOfContact.email': { $regex: search, $options: 'i' } }  // Case-insensitive search for pointOfContactEmail
+        ]
+      };
   
-      // Fetch paginated branch data
-      let branches = await Branches.find()
-        .limit(limit)    // Limit the number of documents returned
-        .skip(skip)      // Skip the first 'n' documents based on pagination
-        .sort(sortBy);   // Sort the documents based on the field specified in the request
+      // Count total documents for pagination purposes, applying search filter
+      const totalCount = await Branches.countDocuments(searchQuery);
+  
+      // Fetch paginated branch data with search and sorting
+      let branches = await Branches.find(searchQuery)
+        .limit(parseInt(limit))    // Limit the number of documents returned
+        .skip(parseInt(skip))      // Skip the first 'n' documents based on pagination
+        .sort({ createdAt: -1 });  // Sort by createdAt in descending order by default
   
       // If paginate is set to 0, return all branches without paginating
       if (paginate == 0) {
-        branches = await Branches.find();
+        branches = await Branches.find(searchQuery).sort({ createdAt: -1 });
       }
+  
+      // Calculate total pages for pagination
+      const totalPages = Math.ceil(totalCount / limit);
   
       // Return the branches along with pagination info
       return res.status(200).send(
@@ -287,8 +299,9 @@ module.exports.importBranches = async (req, res) => {
           data: {
             branches: branches,
             totalCount: totalCount,
+            totalPages: totalPages,
             limit: parseInt(limit),
-            page: parseInt(req.query.page)
+            page: parseInt(page)
           },
         })
       );
@@ -296,3 +309,39 @@ module.exports.importBranches = async (req, res) => {
       return res.send(serviceResponse({ status: 500, errors: [{ message: err.message }] }));
     }
   };
+  
+  
+module.exports.toggleBranchStatus = async (req, res) => {
+  try {
+    const { branchId } = req.params; 
+
+    const branch = await Branches.findById(branchId);
+    console.log({branch})
+
+    
+    if (!branch) {
+      return res.status(404).send(serviceResponse({ 
+        status: 404, 
+        message: 'Branch not found' 
+      }));
+    }
+
+    // Toggle the status: if active, set to inactive; if inactive, set to active
+    branch.status = branch.status === 'active' ? 'inactive' : 'active';
+
+    await branch.save();
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        message: "Branch status updated successfully",
+        data: branch
+      })
+    );
+  } catch (err) {
+    return res.status(500).send(serviceResponse({
+      status: 500,
+      errors: [{ message: err.message }]
+    }));
+  }
+};
