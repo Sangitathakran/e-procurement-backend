@@ -19,7 +19,7 @@ class EmailService {
             }
         });
     }
-    
+
     async sendEmail(to, subject, html) {
         try {
             await this.transporter.sendMail({
@@ -38,17 +38,17 @@ class EmailService {
     getOTP() {
         return Math.floor(1000 + Math.random() * 9000);
     }
-    
+
     async sendForgotPasswordEmail(userEmail, sendMailData) {
         try {
             const template = await this.loadTemplate("forgotPassword");
             const resetPasswordLink = `${sendMailData.app_url}forgot-password?token=${sendMailData.createResetToken}`;
             const html = template
-                    .replace("{{resetPasswordLink}}", resetPasswordLink)
-                    .replace("{{app_url}}", sendMailData.app_url)
-                    .replace("{{logo_url}}", sendMailData.logo_url);
-            
-            await sendMail(userEmail,'','Reset Your Password',html);
+                .replace("{{resetPasswordLink}}", resetPasswordLink)
+                .replace("{{app_url}}", sendMailData.app_url)
+                .replace("{{logo_url}}", sendMailData.logo_url);
+
+            await sendMail(userEmail, '', 'Reset Your Password', html);
             return { message: 'Forgot Password Link Send successfully' };
         } catch (error) {
             console.error("Error sending forgot password email:", error);
@@ -59,26 +59,26 @@ class EmailService {
     async sendEmailOTP(newUserEmail) {
         try {
             const otp = this.getOTP();
-            let otpRecord = await OTPModel.findOne({ email:newUserEmail });
+            let otpRecord = await OTPModel.findOne({ email: newUserEmail });
             if (otpRecord) {
-                await OTPModel.deleteOne({ email:newUserEmail });
+                await OTPModel.deleteOne({ email: newUserEmail });
             }
-            const newOTPRecord = new OTPModel({ email:newUserEmail, otp, term_condition:true });
+            const newOTPRecord = new OTPModel({ email: newUserEmail, otp, term_condition: true });
             await newOTPRecord.save();
 
             const template = await this.loadTemplate("otpTemplate");
             const html = template.replace("{{app_url}}", APP_URL)
-                        .replace("{{logo_url}}", LOGO_URL)
-                        .replace("{{otp_code}}", otp);
-            await sendMail(newUserEmail,'','OTP',html);
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{otp_code}}", otp);
+            await sendMail(newUserEmail, '', 'OTP', html);
         } catch (error) {
             console.error("Error sending otp email:", error);
             throw error;
         }
     }
-    
 
-    async sendWelcomeEmail(newUserEmail, APP_URL, LOGO_URL) {
+
+    async sendWelcomeEmail(userDetails, APP_URL, LOGO_URL) {
         try {
             const email = userDetails.basic_details.associate_details.email;
             const userName = userDetails.basic_details.associate_details.organization_name;
@@ -86,12 +86,12 @@ class EmailService {
 
             const template = await this.loadTemplate("welcomeTemplate");
             const html = template
-                    .replace("{{app_url}}", FRONTEND_URL)
-                    .replace("{{logo_url}}", LOGO_URL)
-                    .replace("{{user_name}}", userName)
-                    .replace("{{user_code}}", userCode);
-            
-            await sendMail(email,'','Registration done successfully || Navbazar || ',html);
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{user_name}}", userName)
+                .replace("{{user_code}}", userCode);
+
+            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
 
         } catch (error) {
             console.error("Error sending welcome email:", error);
@@ -104,13 +104,13 @@ class EmailService {
             const templatePath = path.join(__dirname, "../../utils/third_party/emailTemplates", `${templateName}.html`);
             fs.chmodSync(templatePath, '755');
             const templateContent = await fs.promises.readFile(templatePath, { encoding: "utf8" });
-            return templateContent; 
+            return templateContent;
         } catch (error) {
             console.error(`Error loading email template ${templateName}:`, error);
             throw error;
         }
     }
-    
+
 }
 
 const emailService = new EmailService;

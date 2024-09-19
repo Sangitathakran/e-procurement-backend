@@ -238,14 +238,16 @@ module.exports.submitForm = async (req, res) => {
       const stateCode = stateData.stateCode;
       const districtSerialNumber = district.serialNumber;
       const districtCode = district.districtCode;
+      const farmer_mongo_id = farmer._id.toString().slice(-3).toUpperCase()
       const randomNumber = Math.floor(100 + Math.random() * 900);
 
       const farmerId =
-        stateCode + districtSerialNumber + districtCode + randomNumber;
+        stateCode + districtSerialNumber + farmer_mongo_id + randomNumber;
       // console.log("farmerId-->", farmerId)
       return farmerId;
     };
     const farmer_id = await generateFarmerId(farmerDetails);
+
 
     if (farmerDetails && farmer_id) {
       if (farmerDetails.farmer_id == null) {

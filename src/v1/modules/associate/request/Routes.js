@@ -5,14 +5,13 @@ const requestRoutes = express.Router();
 
 requestRoutes.get("/offered-farmer", verifyAssociate, offeredFarmerList);
 requestRoutes.get("/associate-offers", verifyAssociate, getAssociateOffers);
-requestRoutes.put("/offer-status", verifyAssociate, approveRejectOfferByAgent);
 requestRoutes.put("/offered-farmer", verifyAssociate, editFarmerOffer);
 requestRoutes.get("/farmers", verifyAssociate, getFarmerListById);
 requestRoutes.patch("/request", verifyAssociate, requestApprove);
 requestRoutes.post("/associate-offered", verifyAssociate, associateOffer);
 requestRoutes.get("/", verifyAssociate, getProcurement);
 
-requestRoutes.post("/", verifyAssociate, createProcurement);
+// requestRoutes.post("/", verifyAssociate, createProcurement);
 
 requestRoutes.put("/", verifyAssociate, updateProcurement);
 requestRoutes.get("/:id", verifyAssociate, getProcurementById);
