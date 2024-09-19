@@ -166,14 +166,6 @@ const validateLand = checkSchema({
         errorMessage: 'Farmer ID must be a valid MongoDB ObjectId',
       },
     },
-    'associate_id': {
-      notEmpty: {
-        errorMessage: 'Associate ID is required',
-      },
-      isMongoId: {
-        errorMessage: 'Associate ID must be a valid MongoDB ObjectId',
-      },
-    },
     'total_area': {
       optional: true,
       isFloat: {
@@ -278,14 +270,6 @@ const validateLand = checkSchema({
     },
   });
   const validateCrop = checkSchema({
-    'associate_id': {
-      notEmpty: {
-        errorMessage: 'Associate ID is required',
-      },
-      isMongoId: {
-        errorMessage: 'Associate ID must be a valid MongoDB ObjectId',
-      },
-    },
     'farmer_id': {
       notEmpty: {
         errorMessage: 'Farmer ID is required',
@@ -451,14 +435,6 @@ const validateLand = checkSchema({
     },
   });
   const validateBank = checkSchema({
-    'associate_id': {
-      notEmpty: {
-        errorMessage: 'Associate ID is required',
-      },
-      isMongoId: {
-        errorMessage: 'Associate ID must be a valid MongoDB ObjectId',
-      },
-    },
     'farmer_id': {
       notEmpty: {
         errorMessage: 'Farmer ID is required',
