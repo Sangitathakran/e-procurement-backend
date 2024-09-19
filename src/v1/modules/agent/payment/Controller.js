@@ -22,8 +22,6 @@ module.exports.payment = async (req, res) => {
             query.user_type = _userType.agent;
         }
 
-        // query.status = _paymentstatus.completed;
-
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
             .populate({ 

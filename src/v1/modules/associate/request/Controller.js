@@ -12,6 +12,8 @@ const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const mongoose = require("mongoose");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { User } = require("@src/v1/models/app/auth/User");
+const { sendResponse , serviceResponse} = require("@src/v1/utils/helpers/api_response");
 
 module.exports.getProcurement = async (req, res) => {
 
@@ -562,8 +564,6 @@ module.exports.editFarmerOffer = async (req, res) => {
 }
 
 
-
-
 module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
     const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
@@ -598,3 +598,35 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("seller offer") }))
 })
+
+
+module.exports.hoBoList = async (req, res) => {
+    try {
+        const { search = '', userType } = req.query
+
+        if (!userType) {
+            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('user_type') }));
+        }
+       
+        let query = search ? { reqNo: { $regex: search, $options: 'i' } }  : {};
+
+        if (userType == _userType.ho) {
+            query.user_type = _userType.ho;
+
+        } else if (userType == _userType.bo) {
+            query.user_type = _userType.bo;
+        }
+
+        const response = await User.find(query);
+
+        if (!response) {
+            return sendResponse({ status: 400, data: records, message: _response_message.notFound("User") })           
+        } else {           
+            return sendResponse({ status: 200, data: records, message: _response_message.found("User") })           
+        }
+        
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+
+}
