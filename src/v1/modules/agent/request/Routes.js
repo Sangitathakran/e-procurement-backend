@@ -1,5 +1,5 @@
 const express = require("express");
-const { verifyAgent } = require("../utils/verifyAssociate");
+const { verifyAgent } = require("../utils/verifyAgent");
 const { createProcurement, approveRejectOfferByAgent } = require("./Controller");
 const requestRoutes = express.Router();
 
