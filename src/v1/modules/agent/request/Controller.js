@@ -47,7 +47,7 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
     const { user_id } = req;
 
     const { associateOffer_id, status, comment } = req.body;
-    
+
     const offer = await AssociateOffers.findOne({ _id: associateOffer_id });
     if (!offer) {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
@@ -66,4 +66,35 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
 
     return res.status(200).send(new serviceResponse({ status: 200, data: offer, message: _response_message.updated("offer") }))
 
+})
+
+module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
+
+    const { page, limit, skip, paginate = 1, sortBy, search = '', status } = req.query
+
+    let query = search ? {
+        $or: [
+            { "reqNo": { $regex: search, $options: 'i' } },
+            { "product.name": { $regex: search, $options: 'i' } },
+            { "product.grade": { $regex: search, $options: 'i' } },
+        ]
+    } : {};
+
+    const records = { count: 0 };
+
+    records.rows = paginate == 1 ? await RequestModel.find(query)
+        .sort(sortBy)
+        .skip(skip)
+        .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
+
+    records.count = await RequestModel.countDocuments(query);
+
+
+    if (paginate == 1) {
+        records.page = page
+        records.limit = limit
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
 })
