@@ -26,8 +26,6 @@ module.exports.getProcurement = async (req, res) => {
                 { "reqNo": { $regex: search, $options: 'i' } },
                 { "product.name": { $regex: search, $options: 'i' } },
                 { "product.grade": { $regex: search, $options: 'i' } },
-                { "product.variety": { $regex: search, $options: 'i' } },
-                { "product.category": { $regex: search, $options: 'i' } },
             ]
         } : {};
 
@@ -201,7 +199,7 @@ module.exports.associateOffer = async (req, res) => {
 
         await FarmerOffers.insertMany(dataToBeInserted);
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: sellerOfferRecord, message: "offer submitted" }))
+        return res.status(200).send(new serviceResponse({ status: 200, data: associateOfferRecord, message: "offer submitted" }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -562,37 +560,6 @@ module.exports.editFarmerOffer = async (req, res) => {
 }
 
 
-module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) => {
-
-
-    const { user_type, user_id } = req;
-
-    // if (user_type != _userType.admin) {
-    //     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] })))
-    // }
-
-    const { associateOffer_id, status, comment } = req.body;
-
-    const offer = await AssociateOffers.findOne({ _id: associateOffer_id });
-
-    if (!offer) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
-    }
-
-    if (!Object.values(_sellerOfferStatus).includes(status)) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("status") }] }))
-    }
-
-    if (status == _associateOfferStatus.rejected && comment) {
-        offer.comments.push({ user_id: user_id, comment });
-    }
-
-    offer.status = status;
-    await offer.save();
-
-    return res.status(200).send(new serviceResponse({ status: 200, data: offer, message: _response_message.found("offer") }))
-
-})
 
 
 module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
