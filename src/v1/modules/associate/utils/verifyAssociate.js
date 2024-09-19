@@ -1,4 +1,5 @@
 const { JWT_SECRET_KEY } = require('@config/index');
+const { User } = require('@src/v1/models/app/auth/User');
 const { _userType } = require('@src/v1/utils/constants');
 const { _response_message } = require('@src/v1/utils/constants/messages');
 const { serviceResponse } = require('@src/v1/utils/helpers/api_response');
@@ -15,11 +16,12 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
     if (!token) {
         return res.status(200).send(new serviceResponse({ status: 403, errors: [{ message: _response_message.Unauthorized() }] }))
     }
+    console.log('req.url :>> ', req.url);
     if (tokenBlacklist.includes(token)) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "Token has been revoked" }] }))
     }
 
-    jwt.verify(token, JWT_SECRET_KEY, function (err, decodedToken) {
+    jwt.verify(token, JWT_SECRET_KEY, async function (err, decodedToken) {
         if (err) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.invalid("token") }] }))
 
@@ -27,11 +29,22 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
         if (decodedToken.user_type != _userType.associate) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
+        const userExist = await User.findOne({ _id: decodedToken.user_id })
+
+        if (!userExist) {
+            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("User") }] }));
+        }
         Object.entries(decodedToken).forEach(([key, value]) => {
             req[key] = value
         })
         // req.headers = decodedToken;
-        next();
+        if (req.url === '/onboarding' || req.url === '/onboarding-status') {
+            next();
+        } else if (userExist.is_approved == true) {
+            next();
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notApproved("User") }] }));
+        }
     });
 
 })

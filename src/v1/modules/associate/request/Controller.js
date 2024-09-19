@@ -28,8 +28,6 @@ module.exports.getProcurement = async (req, res) => {
                 { "reqNo": { $regex: search, $options: 'i' } },
                 { "product.name": { $regex: search, $options: 'i' } },
                 { "product.grade": { $regex: search, $options: 'i' } },
-                { "product.variety": { $regex: search, $options: 'i' } },
-                { "product.category": { $regex: search, $options: 'i' } },
             ]
         } : {};
 
