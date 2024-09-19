@@ -22,7 +22,7 @@ module.exports.sendOTP = async (req, res) => {
     if (!isValidMobile) {
       return  sendResponse({res,
         status: 400,
-        message: _response_message.invalid("mobile Number"),
+        message: _response_message.invalid("mobile number"),
       })
     }
 
@@ -38,7 +38,7 @@ module.exports.sendOTP = async (req, res) => {
     return sendResponse({res,
       status: 200,
       data: [],
-      message: _response_message.otpCreate("Mobile Number"),
+      message: _response_message.otpCreate("mobile number"),
     })
   } catch (err) {
     console.log("error", err);
@@ -55,7 +55,7 @@ module.exports.verifyOTP = async (req, res) => {
     if (!isValidMobile) {
       return  sendResponse({res,
         status: 400,
-        message: _response_message.invalid("mobile Number"),
+        message: _response_message.invalid("mobile number"),
       })
     }
 
@@ -89,10 +89,9 @@ module.exports.verifyOTP = async (req, res) => {
       token: generateJwtToken({ mobile_no: mobileNumber }),
       ...JSON.parse(JSON.stringify(individualFormerData)), // Use individualFormerData (existing or newly saved)
     };
-
+      
     // Send the response
-    return sendResponse({
-      res,
+    return sendResponse({res,
       status: 200,
       data: resp,
       message: _response_message.otp_verified("your mobile"),
@@ -259,7 +258,6 @@ module.exports.submitForm = async (req, res) => {
         const mobileNumber = req.mobile_no;
         const farmerName = farmerDetails.basic_details.name;
         const farmerId = farmerDetails.farmer_id;
-        //const smsService = new SMSService();
         await smsService.sendFarmerRegistrationSMS(
           mobileNumber,
           farmerName,
@@ -269,7 +267,7 @@ module.exports.submitForm = async (req, res) => {
         return sendResponse({res,status:200, data: farmerUpdatedDetails })
       }
 
-      return  sendResponse({
+      return sendResponse({
         res,
         status:200,
         data: farmerDetails,

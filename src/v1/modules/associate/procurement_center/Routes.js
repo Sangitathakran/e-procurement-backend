@@ -5,6 +5,7 @@ const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, 
 const express = require("express");
 const { verifyAssociate } = require("../utils/verifyAssociate");
 const procurementCenterRoutes = express.Router();
+const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 
 procurementCenterRoutes.get("/", verifyAssociate, getProcurementCenter);
 procurementCenterRoutes.post("/import-centers", ImportProcurementCenter);
@@ -29,6 +30,6 @@ procurementCenterRoutes.post("/", validateErrors, verifyAssociate, createProcure
     body("addressType", _middleware.require("addressType")).isIn(['Residential', 'Business', 'Billing', 'Shipping']),
     body("isPrimary").optional().isBoolean()
 ]);
-procurementCenterRoutes.get("/ho-list", verifyAssociate, getHoProcurementCenter);
+procurementCenterRoutes.get("/ho-list",verifyJwtToken, getHoProcurementCenter);
 
 module.exports = { procurementCenterRoutes }; 
