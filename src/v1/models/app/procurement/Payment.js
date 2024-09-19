@@ -4,6 +4,7 @@ const { _collectionName, _paymentmethod, _paymentstatus } = require('@src/v1/uti
 const PaymentSchema = new mongoose.Schema({
     whomToPay: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
     user_type: { type: String, enum: ["farmer", "associate", "agent"], required: true },
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
     qtyProcured: { type: String, required: true },
     reqNo: { type: String, required: true },
     commodity: { type: String, trim: true },

@@ -9,7 +9,7 @@ module.exports.payment = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0  } = req.query
-     
+    
         let query = search ? { reqNo: { $regex: search, $options: 'i' } }  : {};
 
         if (userType == _userType.farmer) {

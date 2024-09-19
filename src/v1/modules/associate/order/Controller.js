@@ -65,7 +65,7 @@ module.exports.batch = async (req, res) => {
                 myMap.set(ele.procurementCenter_id, { req_id: req_id, batchId, seller_id: user_id, associateOffer_id: record._id, dispatchedqty: ele.qtyProcured });
             }
 
-            payment.push({ whomToPay: ele.farmer_id, user_type: "farmer", qtyProcured: ele.offeredQty, reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
+            payment.push({ whomToPay: ele.farmer_id, user_type: "farmer", user_id: user_id, qtyProcured: ele.offeredQty,  reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
 
         }
 

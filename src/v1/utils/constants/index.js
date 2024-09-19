@@ -271,6 +271,7 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
+    approved: "Approved",
     completed: "Completed",
 }
 
