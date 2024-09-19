@@ -29,7 +29,9 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
         if (decodedToken.user_type != _userType.associate) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
-        if(req.url =="/onboarding"){}
+        if(req.url =="/onboarding"){
+
+        }
         Object.entries(decodedToken).forEach(([key, value]) => {
             req[key] = value
         })
