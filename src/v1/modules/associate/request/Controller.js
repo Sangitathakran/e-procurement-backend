@@ -617,14 +617,14 @@ module.exports.hoBoList = async (req, res) => {
             query.user_type = _userType.bo;
         }
 
-        const response = await User.find(query);
+        const response = await User.find(query).select({ _id: 1, basic_details: 1});
 
         if (!response) {
             return sendResponse({ status: 400, data: records, message: _response_message.notFound("User") })           
         } else {           
             return sendResponse({ status: 200, data: records, message: _response_message.found("User") })           
         }
-        
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }
