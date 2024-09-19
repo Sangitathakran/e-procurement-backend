@@ -9,8 +9,8 @@ const csv = require("csv-parser");
 const { _userType, _center_type } = require("@src/v1/utils/constants");
 const Readable = require('stream').Readable;
 
-module.exports.createProcurementCenter = async (req, res) => {
 
+module.exports.createProcurementCenter = async (req, res) => {
     try {
         const { user_id, user_type, trader_type } = req
         const { center_name,center_code, line1, line2, state, district, city, name, email, mobile, designation,aadhar_number, aadhar_image, postalCode, lat, long, addressType, location_url } = req.body;
@@ -124,19 +124,19 @@ module.exports.getHoProcurementCenter = async (req, res) => {
             ...(search ? { center_name: { $regex: search, $options: "i" } ,deletedAt: null} : { deletedAt: null })
         };
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await CollectionCenter.find(query)
+        records.rows = paginate == 1 ? await ProcurementCenter.find(query)
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await CollectionCenter.find(query).sort(sortBy);
+            .limit(parseInt(limit)) : await ProcurementCenter.find(query).sort(sortBy);
 
-        records.count = await CollectionCenter.countDocuments(query);
+        records.count = await ProcurementCenter.countDocuments(query);
 
         if (paginate == 1) {
             records.page = page 
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-
+        
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement center") }));
 
     } catch (error) {
