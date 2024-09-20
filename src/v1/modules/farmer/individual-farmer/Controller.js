@@ -154,10 +154,14 @@ module.exports.saveFarmerDetails = async (req, res) => {
     if (farmerDetails) {
       farmerDetails[screenName] = req.body[screenName];
       farmerDetails.steps = req.body?.steps;
-      const farmerUpdatedDetails = await farmerDetails.save();
+      await farmerDetails.save();
+
+
+      const farmerData = await IndividualFarmer.findById(farmer_id)
+
       return sendResponse({res,
         status:200,
-        data: farmerUpdatedDetails,
+        data: farmerData,
         message: _response_message.updated(screenName),
       })
     } else {
