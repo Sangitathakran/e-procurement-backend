@@ -16,7 +16,6 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
     if (!token) {
         return res.status(200).send(new serviceResponse({ status: 403, errors: [{ message: _response_message.Unauthorized() }] }))
     }
-    console.log('req.url :>> ', req.url);
     if (tokenBlacklist.includes(token)) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "Token has been revoked" }] }))
     }

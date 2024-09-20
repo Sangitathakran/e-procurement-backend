@@ -15,6 +15,8 @@ const batchsSchema = new mongoose.Schema({
         weight_slip: { type: String, trim: true },
         qc_report: { type: String, trim: true },
         lab_report: { type: String, trim: true },
+        dispatched_at: { type: Date },
+        dispatched_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
     },
     intransit: {
         driver: {
@@ -34,8 +36,13 @@ const batchsSchema = new mongoose.Schema({
         },
         no_of_bags: { type: Number, trim: true },
         qty: { type: Number, trim: true },
+        intransit_at: { type: Date },
+        intransit_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
+
     },
-    delivered: {},
+    delivered: { type: String, trim: true },
+    delivered_at: { type: Date },
+    delivered_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
     status: { type: String, enum: Object.values(_batchStatus), default: _batchStatus.pending }
 }, { timestamps: true });
 
