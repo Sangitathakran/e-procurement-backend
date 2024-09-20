@@ -1,9 +1,9 @@
 const { _handleCatchErrors, _generateOrderNumber } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { _response_message } = require("@src/v1/utils/constants/messages");
+const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
-const { _associateOfferStatus, _procuredStatus, _batchStatus, _user_status } = require('@src/v1/utils/constants');
+const { _associateOfferStatus, _procuredStatus, _batchStatus, _user_status, _userType } = require('@src/v1/utils/constants');
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
@@ -65,7 +65,7 @@ module.exports.batch = async (req, res) => {
                 myMap.set(ele.procurementCenter_id, { req_id: req_id, batchId, seller_id: user_id, associateOffer_id: record._id, dispatchedqty: ele.qtyProcured });
             }
 
-            payment.push({ whomToPay: ele.farmer_id, user_type: "farmer", qtyProcured: ele.offeredQty, reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
+            payment.push({ whomToPay: ele.farmer_id, user_type: _userType.farmer, qtyProcured: ele.offeredQty, reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
 
         }
 
@@ -74,11 +74,11 @@ module.exports.batch = async (req, res) => {
         await Payment.insertMany(payment);
 
         record.status = _associateOfferStatus.ordered;
-        procurementRecord.associatOrder_id.push(_associateOfferStatus._id)
+        procurementRecord.associatOrder_id.push(record._id)
         await record.save();
         await procurementRecord.save()
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: associateRecords, message: _response_message.created("order") }))
+        return res.status(200).send(new serviceResponse({ status: 200, data: associateRecords, message: _response_message.created("batch") }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -90,7 +90,7 @@ module.exports.editTrackDelivery = async (req, res) => {
 
     try {
 
-        const { id, material_img, weight_slip, qc_report, lab_report, name, contact, license, aadhar, service_name, vehicleNo, vehicle_weight, loaded_weight, qc_charges, no_of_bags, qty } = req.body;
+        const { form_type, id, material_img, weight_slip, qc_report, lab_report, name, contact, license, aadhar, service_name, vehicleNo, vehicle_weight, loaded_weight, qc_charges, no_of_bags, qty, delivered } = req.body;
 
         const record = await Batch.findOne({ _id: id });
 
@@ -98,34 +98,64 @@ module.exports.editTrackDelivery = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
         }
 
-        if (material_img && weight_slip && qc_report && lab_report) {
-            record.dispatched.material_img = material_img;
-            record.dispatched.weight_slip = weight_slip;
-            record.dispatched.qc_report = qc_report;
-            record.dispatched.lab_report = lab_report;
+        switch (form_type) {
+            case _batchStatus.dispatched:
 
-            record.status = _batchStatus.dispatched
-        }
+                if (material_img && weight_slip && qc_report && lab_report) {
+                    record.dispatched.material_img = material_img;
+                    record.dispatched.weight_slip = weight_slip;
+                    record.dispatched.qc_report = qc_report;
+                    record.dispatched.lab_report = lab_report;
+                    record.dispatched.dispatched_at = new Date();
 
-        if (name && contact && license && aadhar && service_name && vehicleNo && vehicle_weight && loaded_weight && qc_charges && no_of_bags && qty) {
+                    record.status = _batchStatus.dispatched
+                } else {
+                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
+                }
+                break;
 
-            record.intransit.driver.name = name;
-            record.intransit.driver.contact = contact;
-            record.intransit.driver.license = license;
-            record.intransit.driver.aadhar = aadhar;
-            record.intransit.transport.service_name = service_name;
-            record.intransit.transport.vehicleNo = vehicleNo;
-            record.intransit.transport.vehicle_weight = vehicle_weight;
-            record.intransit.transport.loaded_weight = loaded_weight;
-            record.intransit.bill.qc_charges = qc_charges;
-            record.intransit.no_of_bags = no_of_bags;
-            record.intransit.qty = qty;
+            case _batchStatus.intransit:
 
-            record.status = _batchStatus.intransit;
+                if (name && contact && license && aadhar && service_name && vehicleNo && vehicle_weight && loaded_weight && qc_charges && no_of_bags && qty) {
+
+                    record.intransit.driver.name = name;
+                    record.intransit.driver.contact = contact;
+                    record.intransit.driver.license = license;
+                    record.intransit.driver.aadhar = aadhar;
+                    record.intransit.transport.service_name = service_name;
+                    record.intransit.transport.vehicleNo = vehicleNo;
+                    record.intransit.transport.vehicle_weight = vehicle_weight;
+                    record.intransit.transport.loaded_weight = loaded_weight;
+                    record.intransit.bill.qc_charges = qc_charges;
+                    record.intransit.no_of_bags = no_of_bags;
+                    record.intransit.qty = qty;
+                    record.intransit.intransit_at = new Date();
+
+                    record.status = _batchStatus.intransit;
+                } else {
+                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
+                }
+
+                break;
+
+            case _batchStatus.delivered:
+                if (delivered) {
+                    record.delivered = delivered;
+                    record.delivered_at = new Date();
+                    record.status = _batchStatus.delivered;
+                } else {
+                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
+                }
+                break;
+
+            default:
+
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "enter correct form_type" }] }));
+                break;
         }
 
         await record.save();
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("order") }));
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("batch") }));
 
 
     } catch (error) {

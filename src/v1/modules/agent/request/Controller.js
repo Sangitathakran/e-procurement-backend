@@ -11,7 +11,7 @@ const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOff
 
 module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req
-    const { organization_id, quotedPrice, deliveryDate, name, commodityImage, grade, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate } = req.body;
+    const { quotedPrice, deliveryDate, name, commodityImage, grade, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate } = req.body;
 
     if (user_type && user_type != _userType.agent)
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }))
@@ -29,12 +29,11 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
 
     const delivery_date = moment(deliveryDate).format("YYYY-MM-DD");
 
-    if (moment(delivery_date).isBefore(moment(quoteExpiry))) {
+    if (moment(delivery_date).isBefore(quoteExpiry)) {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid_delivery_date("Delivery date") }] }))
     }
 
     const record = await RequestModel.create({
-        organization_id,
         head_office_id,
         branch_id,
         reqNo: randomVal,
@@ -42,7 +41,7 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
         quotedPrice, deliveryDate: delivery_date,
         product: { name, commodityImage, grade, quantity },
         address: { deliveryLocation, lat, long },
-        quoteExpiry: moment(quoteExpiry),
+        quoteExpiry: moment(quoteExpiry).toDate(),
         createdBy: user_id
     });
 
@@ -91,7 +90,7 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
     records.rows = paginate == 1 ? await RequestModel.find(query)
         .sort(sortBy)
-        .skip(skip)
+        .skip(skip).populate({ path: "branch_id", select: "_id branchName" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
     records.count = await RequestModel.countDocuments(query);

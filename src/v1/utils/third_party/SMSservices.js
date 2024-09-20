@@ -1,6 +1,7 @@
 const axios = require('axios');
 const OTPModel = require('@src/v1/models/app/auth/OTP');
 SMS_API_KEY = process.env.SMS_SEND_API_KEY;
+FRONTEND_URL = process.env.FRONTEND_URL;
 
 class SMSService {
     constructor(sender = 'RADPVT') {
@@ -17,7 +18,6 @@ class SMSService {
             }
             const newOTPRecord = new OTPModel({ phone, otp, term_condition:true });
             await newOTPRecord.save();
-    
             return this.sendSMS(phone, otp, 'default');
         } catch (error) {
             return { error: error.message };
@@ -36,17 +36,37 @@ class SMSService {
         return this.sendSMS(phoneNumber, otp, 'reset_password');
     }
 
-
     async sendFarmerRegistrationSMS(phoneNumber, farmerName, farmerId) {
         try {
-            const message = encodeURIComponent(`प्रिय ${farmerName} आपका किसान आईडी ${farmerId} के साथ NAVBAZAR \nपर पंजीकरण सफलतापूर्वक पूरा हो गया है। धन्यवाद!\n\n-Radiant Infonet Private Limited`);
+           
+            const message = encodeURIComponent(`प्रिय ${farmerName} आपका किसान आईडी ${farmerId} \nके साथ NAVBAZAR \nपर पंजीकरण सफलतापूर्वक पूरा हो गया है। धन्यवाद!\n\n-Navankur`);
             // Prepare the URL for the SMS API request
             const apikey = encodeURIComponent(SMS_API_KEY);
             const number = phoneNumber;
             const sender = this.sender;
             const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}&unicode=true`;
+    
             // Send the SMS using axios
             const response = await axios.post(url);
+            return { message: 'Registration SMS sent successfully', response: response.data };
+        }   catch (error) {
+            return { error: error.message };
+        }
+    }
+    
+    async sendWelcomeSMSForAssociate(phoneNumber, name, associateId) {
+        try {
+            const website = 'https://bit.ly/4eu23WC'; /////  https://ep-testing.navbazar.com/
+            const encodedMessage = `Dear ${name}, You have been successfully registered with Navbazar. Here is your Associate ID: ${associateId}. Begin your procurement journey by clicking the following link: ${website}. Team Navankur\n\n-Radiant Infonet Pvt. Ltd`;
+
+            const message = encodeURIComponent(encodedMessage);
+            const apikey = encodeURIComponent(SMS_API_KEY);
+            const number = phoneNumber;
+            const sender = this.sender; 
+            const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}&unicode=true`;
+            
+            const response = await axios.post(url);
+            console.log('response', response.data);
             return { message: 'Registration SMS sent successfully', response: response.data };
         }   catch (error) {
             return { error: error.message };
@@ -95,7 +115,7 @@ class SMSService {
     }
 }
 
-const  smsService=new SMSService();
+const smsService = new SMSService();
 
 module.exports = {
     smsService
