@@ -189,3 +189,32 @@ module.exports.batch = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+module.exports.paymentApprove = async (req, res) => {
+
+    try {
+
+        const { reqNo } = req.body;
+        const { user_type } = req;
+
+        if (user_type != _userType.agent) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+        }
+
+        const paymentList = await Payment.find({ reqNo });
+
+        if (!paymentList) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Payment") }] }))
+        }
+
+            paymentList.status = _paymentstatus.approved;
+                 
+            await paymentList.save();
+           
+            return res.status(200).send(new serviceResponse({ status: 200, data: existingRequest, message: "Payment Approved by admin" }))
+        
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
