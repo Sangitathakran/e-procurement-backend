@@ -101,6 +101,7 @@ const userSchema = new mongoose.Schema({
     is_approved:{type: Boolean,default: false},
     is_email_verified:{type: String,default: false},
     is_welcome_email_send:{type: Boolean,default: false},
+    is_sms_send:{type: Boolean,default: false},
     term_condition:{type: String,default: false},
     active: {type: Boolean,default: true},
     ..._commonKeys

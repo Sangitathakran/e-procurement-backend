@@ -10,6 +10,6 @@ userAuthRoutes.post("/register-login", loginOrRegister);
 userAuthRoutes.put("/onboarding", verifyAssociate, validateForm, saveAssociateDetails);
 userAuthRoutes.get("/onboarding", verifyAssociate, formPreview);
 userAuthRoutes.get("/onboarding-status", verifyAssociate, onboardingStatus);
-userAuthRoutes.patch("/update-approval", verifyAgent, useStatusUpdate);
+userAuthRoutes.patch("/update-approval", useStatusUpdate);
 
 module.exports = { userAuthRoutes }; 

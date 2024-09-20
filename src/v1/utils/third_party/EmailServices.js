@@ -77,7 +77,6 @@ class EmailService {
         }
     }
 
-
     async sendWelcomeEmail(userDetails, APP_URL, LOGO_URL) {
         try {
             const email = userDetails.basic_details.associate_details.email;
