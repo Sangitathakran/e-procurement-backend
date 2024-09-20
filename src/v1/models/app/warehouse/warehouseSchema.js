@@ -34,6 +34,6 @@ const warehouseSchema = new mongoose.Schema({
     }
 }, { timestamps: true})
 
-module.exports = mongoose.model(_collectionName.Warehouse, warehouseSchema);
-
+const wareHouse = mongoose.model(_collectionName.DummyWarehouse, warehouseSchema);
+module.exports = {wareHouse};
 
