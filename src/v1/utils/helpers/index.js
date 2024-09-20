@@ -15,7 +15,7 @@ const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity")
  */
 exports._handleCatchErrors = async (error, res, next) => {
     // errorLogger.error({ message: error.message, stack: error.stack }) 
-    return sendResponse({ status: 500, errors: [{ message: error.message, stack: error.stack }] })
+    return res.status(500).json({status: 500, errors: [{ message: error.message, stack: error.stack }] })
 }
 
 
@@ -44,7 +44,7 @@ exports.dumpJSONToCSV = (req, res, config = {
 
 
     } catch (error) {
-        return sendResponse({res, status: 500, errors: [{ message: `${error.message}` }] });
+        return sendResponse({ res, status: 500, errors: [{ message: `${error.message}` }] });
     }
 };
 
