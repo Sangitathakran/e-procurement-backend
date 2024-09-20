@@ -22,7 +22,7 @@ module.exports.sendOTP = async (req, res) => {
     if (!isValidMobile) {
       return  sendResponse({res,
         status: 400,
-        message: _response_message.invalid("mobile Number"),
+        message: _response_message.invalid("mobile number"),
       })
     }
 
@@ -38,7 +38,7 @@ module.exports.sendOTP = async (req, res) => {
     return sendResponse({res,
       status: 200,
       data: [],
-      message: _response_message.otpCreate("Mobile Number"),
+      message: _response_message.otpCreate("mobile number"),
     })
   } catch (err) {
     console.log("error", err);
@@ -55,7 +55,7 @@ module.exports.verifyOTP = async (req, res) => {
     if (!isValidMobile) {
       return  sendResponse({res,
         status: 400,
-        message: _response_message.invalid("mobile Number"),
+        message: _response_message.invalid("mobile number"),
       })
     }
 
@@ -89,10 +89,9 @@ module.exports.verifyOTP = async (req, res) => {
       token: generateJwtToken({ mobile_no: mobileNumber }),
       ...JSON.parse(JSON.stringify(individualFormerData)), // Use individualFormerData (existing or newly saved)
     };
-
+      
     // Send the response
-    return sendResponse({
-      res,
+    return sendResponse({res,
       status: 200,
       data: resp,
       message: _response_message.otp_verified("your mobile"),
@@ -107,11 +106,17 @@ module.exports.verifyOTP = async (req, res) => {
 module.exports.registerName = async (req, res) => {
   try {
     const { registerName } = req.body;
+    if(!registerName)
+        return sendResponse({res, status: 400, data:null, message: _response_message.notProvided('Name')})
 
     // Check if the user already exists and is verified
     const farmerData = await IndividualFarmer.findOneAndUpdate(
       { mobile_no: req.mobile_no },
-      { $set: { name: registerName, userType: 3 } },
+      { $set: { name: registerName, 
+                userType: 3 ,
+                basic_details : {name: registerName, mobile_no: req.mobile_no} 
+              } 
+      },
       { new: true }
     );
 
@@ -238,7 +243,7 @@ module.exports.submitForm = async (req, res) => {
       // console.log("district--->", district)
       const stateCode = stateData.stateCode;
       const districtSerialNumber = district.serialNumber;
-      const districtCode = district.districtCode;
+      // const districtCode = district.districtCode;
       const farmer_mongo_id = farmer._id.toString().slice(-3).toUpperCase()
       const randomNumber = Math.floor(100 + Math.random() * 900);
 
@@ -259,7 +264,6 @@ module.exports.submitForm = async (req, res) => {
         const mobileNumber = req.mobile_no;
         const farmerName = farmerDetails.basic_details.name;
         const farmerId = farmerDetails.farmer_id;
-        //const smsService = new SMSService();
         await smsService.sendFarmerRegistrationSMS(
           mobileNumber,
           farmerName,
@@ -269,7 +273,7 @@ module.exports.submitForm = async (req, res) => {
         return sendResponse({res,status:200, data: farmerUpdatedDetails })
       }
 
-      return  sendResponse({
+      return sendResponse({
         res,
         status:200,
         data: farmerDetails,
