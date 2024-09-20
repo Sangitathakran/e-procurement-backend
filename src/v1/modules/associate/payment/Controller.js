@@ -18,8 +18,6 @@ module.exports.payment = async (req, res) => {
 
         const {user_id} = req;
       
-        // let query = search ? { reqNo: { $regex: search, $options: 'i' } }  : {};
-
         let query = {
             user_id,
             ...(search ? { reqNo: { $regex: search, $options: 'i' } }  : {}) // Search functionality
@@ -49,8 +47,6 @@ module.exports.payment = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        // return sendResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
-
         if (isExport == 1) {
 
             const record = records.rows.map((item) => {
@@ -71,8 +67,6 @@ module.exports.payment = async (req, res) => {
                 });
             } else {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
-                
-                // return sendResponse({ status: 400, data: records, message: _response_message.notFound("Payment") })
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
@@ -197,10 +191,10 @@ module.exports.batch = async (req, res) => {
                     worksheetName: `Payment-record-${userType}`
                 });
             } else {
-                return sendResponse({ status: 400, data: records, message: _response_message.notFound("Payment") })
+                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
             }
         } else {
-            return sendResponse({ status: 200, data: records, message: _response_message.found("Payment") })
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
         }
 
     } catch (error) {
