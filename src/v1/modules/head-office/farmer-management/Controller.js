@@ -1,12 +1,14 @@
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
-
+const mongoose = require("mongoose");
+const ObjectId = mongoose.Types.ObjectId;
 const IndividualModel = require("@src/v1/models/app/farmerDetails/IndividualFarmer")
-const {farmer} = require("@src/v1/models/app/farmerDetails/Farmer")
+const {farmer} = require("@src/v1/models/app/farmerDetails/Farmer");
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 
 
-  module.exports.farmerList = async (req, res) => {
+module.exports.farmerList = async (req, res) => {
     try {
         const { page = 1, limit = 10, sortBy = 'name', search = '', isExport = 0 } = req.query;
         const skip = (page - 1) * limit;
@@ -27,6 +29,7 @@ const {farmer} = require("@src/v1/models/app/farmerDetails/Farmer")
         records.rows.push(...await farmer.find(query)
                                     .select('associate_id farmer_code name parents mobile_no address')
                                     .populate({path:'associate_id', select:"user_code"})
+                                    // .populate({path:'address.state_id', model: "StateDistrictCity", match: {"states._id": { $exists: true } }})
                                     .limit(parseInt(limit/2))
                                     .skip(parseInt(skip/2))
                                     .sort(sortBy)
@@ -41,20 +44,12 @@ const {farmer} = require("@src/v1/models/app/farmerDetails/Farmer")
                                                 .lean()
                          )
               
-        const data = records.rows.map(item => {
+        const data = await Promise.all(records.rows.map(async(item) => {
 
-            let address = { 
-                address_line : item?.address?.address_line || (`${item?.address?.address_line_1} ${item?.address?.address_line_2}`),
-                village: item?.address?.village ||" ",
-                block: item?.address?.block ||" ",
-                district: item?.address?.district || "unknown",
-                state: item?.address?.state || "unknown",
-                pinCode: item?.address?.pinCode 
-
-            }
-
+            let address = await getAddress(item)
 
             let farmer = {
+                        _id:item?._id,
                         farmer_name: item?.name,  
                         address: address,
                         mobile_no: item?.mobile_no,
@@ -63,10 +58,10 @@ const {farmer} = require("@src/v1/models/app/farmerDetails/Farmer")
                         father_spouse_name: item?.basic_details?.father_husband_name ||
                                     item?.parents?.father_name ||
                                     item?.parents?.mother_name  
-            };
+            }
     
             return farmer;
-        });
+        }))
 
         records.rows = data
 
@@ -131,4 +126,125 @@ const {farmer} = require("@src/v1/models/app/farmerDetails/Farmer")
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.getSingleFarmer = async (req, res) => {
+    try {
+   
+        const farmerId = req.params.id
+        if(!farmerId)
+                return sendResponse({res, status: 400, data: null, message: _response_message.notProvided('Farmer Id')})
+
+        const associate = req.params.associate
+
+        let farmerDetails
+        switch (associate) {
+            case 'true': 
+              farmerDetails = await farmer.findOne({ _id: farmerId });
+              break;
+      
+            case 'false': 
+              farmerDetails = await IndividualModel.findOne({ _id: farmerId });
+              break;
+      
+            default:
+              farmerDetails = null; 
+        }
+
+        return sendResponse({
+                res,
+                status: 200,
+                data: farmerDetails,
+                message: farmerDetails 
+                    ? _response_message.found("farmer")
+                    : _response_message.notFound("farmer")
+            });
+        
+        
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+const getAddress = async (item) =>{
+    return { 
+        address_line : item?.address?.address_line || (`${item?.address?.address_line_1} ${item?.address?.address_line_2}`),
+        village: item?.address?.village ||" ",
+        block: item?.address?.block ||" ",
+        district: item?.address?.district 
+                    ? item?.address?.district 
+                    : item?.address?.district_id
+                        ? await getDistrict(item?.address?.district_id)
+                        : "unknown",
+        state: item?.address?.state 
+                ? item?.address?.state 
+                : item?.address?.state_id
+                    ? await getState(item?.address?.state_id)
+                    : "unknown",
+        pinCode: item?.address?.pinCode 
+
+    }
+}
+
+const getState = async (stateId)=>{
+    const state = await StateDistrictCity.aggregate([
+        {
+           $match: { _id: new ObjectId(`66d8438dddba819889f4d798`)}
+        },
+        {
+            $project: {
+                _id: 1,
+                state: {
+                  $arrayElemAt: [
+                    {
+                      $map: {
+                        input: {
+                          $filter: {
+                                        input: "$states",
+                                        as: 'item',
+                                        cond: { $eq: ['$$item._id', stateId ] }
+                                    }
+                        },
+                        as: "filterState",
+                        in: "$$filterState.state_title"
+                      }
+                    },
+                    0
+                  ]
+                  
+                }
+            }
+        }
+    ])
+    return state[0].state
+}
+
+const getDistrict = async (districtId)=>{
+    const district = await StateDistrictCity.aggregate([
+        {
+           $match: { _id: new ObjectId(`66d8438dddba819889f4d798`)}
+        },
+        {
+           $unwind: "$states" 
+        },
+        { 
+           $unwind: "$states.districts"
+        },
+        { 
+            $match: { "states.districts._id": districtId }
+        },
+        {
+            $project: { 
+                _id: 1,
+                district: "$states.districts.district_title"
+            }
+        }
+
+
+    ])
+    return district[0].district
+
+}
+
+
 

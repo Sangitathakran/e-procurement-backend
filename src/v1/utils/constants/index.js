@@ -195,7 +195,7 @@ const _category = {
 
 const _areaUnit = {
     Hectares: "Hectares",
-    Acres: "acres",
+    Acres: "Acres",
     Bigha: "Bigha",
 }
 const _soilType = {
