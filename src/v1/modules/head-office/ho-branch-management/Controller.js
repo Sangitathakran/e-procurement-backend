@@ -6,7 +6,7 @@ const {
   _auth_module,
 } = require("@src/v1/utils/constants/messages");
 
-const Branches = require("@src/v1/models/master/Branches");
+const { Branches } = require("@src/v1/models/master/Branches");
 const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 
 const xlsx = require("xlsx");
@@ -146,7 +146,10 @@ module.exports.importBranches = async (req, res) => {
       });
 
       // Insert the branches into the database
-      await Branches.insertMany(branches);
+      for (const branchData of branches) {
+        const branch = new Branches(branchData);
+        await branch.save();  
+      }
 
        // Send an email to each branch email address notifying them that the branch has been created
        for (const branch of branches) {
@@ -160,7 +163,9 @@ module.exports.importBranches = async (req, res) => {
                       <p>Thank you,<br/>NCCF E-Procurement Team</p>`;
   
         // Use the helper function to send the email
-        await sendMail(branch.emailAddress, null, subject, body);
+        sendMail(branch.emailAddress, null, subject, body).catch(err => {
+          console.error(`Failed to send email to ${branch.emailAddress}: ${err.message}`);
+      });;
       }
   
       return res
@@ -180,11 +185,12 @@ module.exports.importBranches = async (req, res) => {
 
   module.exports.exportBranches = async (req, res) => {
     try {
-      const branches = await Branches.find({}, 'branchName emailAddress pointOfContact address status createdAt');
+      const branches = await Branches.find({}, 'branchId branchName emailAddress pointOfContact address status createdAt');
   
       // Format the data to be exported
       const branchData = branches.map((branch) => ({
         id: branch._id.toString(), 
+        branchId: branch.branchId,
         name: branch.branchName,
         email: branch.emailAddress,
         address: branch.address,
@@ -310,7 +316,7 @@ module.exports.branchList = async (req, res) => {
     }
   };
   
-  
+
 module.exports.toggleBranchStatus = async (req, res) => {
   try {
     const { branchId } = req.params; 
