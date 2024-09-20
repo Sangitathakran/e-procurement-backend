@@ -70,10 +70,12 @@ module.exports.payment = async (req, res) => {
                     worksheetName: `Payment-record-${userType}`
                 });
             } else {
-                return sendResponse({ status: 400, data: records, message: _response_message.notFound("Payment") })
+                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
+                
+                // return sendResponse({ status: 400, data: records, message: _response_message.notFound("Payment") })
             }
         } else {
-            return sendResponse({ status: 200, data: records, message: _response_message.found("Payment") })
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
         }
 
     } catch (error) {
@@ -134,10 +136,10 @@ module.exports.farmerOrders = async (req, res) => {
                     worksheetName: `FarmerOrder-record-${'Farmer'}`
                 });
             } else {
-                return sendResponse({ status: 400, data: records, message: _response_message.notFound("Payment") })
+                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
             }
         } else {
-            return sendResponse({ status: 200, data: records, message: _response_message.found("Payment") })
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
         }
 
     } catch (error) {
@@ -212,7 +214,7 @@ module.exports.getFarmerListById = async (req, res) => {
     try {
         const { user_type } = req; // Retrieve user_id and user_type from request
         const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = 'name', search = '', farmer_id } = req.query;
-console.log(farmer_id);
+
         // Ensure only `associate` users can access this API
         if (user_type !== _userType.associate) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
