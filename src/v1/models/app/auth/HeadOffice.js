@@ -34,7 +34,7 @@ const headOfficeSchema = new mongoose.Schema({
         type:Boolean,
         default:false
     },
-    userType:{
+    user_type:{
             type:String,
             default:"5"
     },
