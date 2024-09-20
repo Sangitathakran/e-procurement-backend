@@ -53,9 +53,11 @@ module.exports = {
         confirm_password_match: (key) => `${key} Password and confirm password should match.`,
         otpSend: () => `OTP send successfully.`,
         allReadyApproved: (key) => `${key || "Data"} already Approved.`,
+        notApproved: (key) => `${key || "Data"} not Approved.`,
         user_status: () => 'Associate is pending. Contact to admin.',
         importSuccess:() => "Branches created successfully",
         fileMissing:() => "File is not provided",
-        notProvided: (key)=> `${key} is not provided`
+        notProvided: (key)=> `${key} is not provided`,
+        userNotApproved:() => "User is not Approved"
     }
 }

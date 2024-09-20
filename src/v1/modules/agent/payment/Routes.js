@@ -1,6 +1,6 @@
 const express = require("express");
 const { payment, farmerOrders, batch } = require("./Controller");
-const { verifyAssociate } = require("../utils/verifyAssociate");
+const { verifyAssociate } = require("../utils/verifyAgent");
 
 const paymentRoutes = express.Router();
 
