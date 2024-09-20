@@ -1,9 +1,15 @@
 const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { sendResponse , serviceResponse} = require("@src/v1/utils/helpers/api_response");
-const { _response_message } = require("@src/v1/utils/constants/messages");
+const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { _userType } = require('@src/v1/utils/constants');
 const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
+const { getFarmerDetails } = require("../../farmer/individual-farmer/Controller");
+
+const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const moment = require("moment");
+const mongoose = require("mongoose");
+const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 
 module.exports.payment = async (req, res) => {
 
@@ -199,3 +205,198 @@ module.exports.batch = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+
+module.exports.getFarmerListById = async (req, res) => {
+
+    try {
+        const { user_type } = req; // Retrieve user_id and user_type from request
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = 'name', search = '', farmer_id } = req.query;
+console.log(farmer_id);
+        // Ensure only `associate` users can access this API
+        if (user_type !== _userType.associate) {
+            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
+        }
+
+        // Build query to find farmers associated with the current user (associate)
+        let query = {
+            _id: new mongoose.Types.ObjectId(farmer_id), // Match farmers under current associate
+            // associate_id: user_id, // Match farmers under current associate
+            ...(search && { name: { $regex: search, $options: 'i' } }) // Search functionality
+        };
+
+        // Build aggregation pipeline
+        let aggregationPipeline = [
+            { $match: query }, // Match by associate_id and optional search
+            {
+                $lookup: {
+                    from: 'crops',
+                    localField: '_id',
+                    foreignField: 'farmer_id',
+                    as: 'crops',
+                    pipeline: [{
+                        $project: {
+                            _id: 1,
+                            associate_id: 1,
+                            farmer_id: 1,
+                            sowing_date: 1,
+                            harvesting_date: 1,
+                            crops_name: 1,
+                            production_quantity: 1,
+                            yield: 1,
+                            insurance_worth: 1,
+                            status: 1
+                        }
+                    }]
+                }
+            },
+            {
+                $lookup: {
+                    from: 'lands',
+                    localField: '_id',
+                    foreignField: 'farmer_id',
+                    as: 'lands',
+                    pipeline: [{
+                        $project: {
+                            _id: 1,
+                            farmer_id: 1,
+                            associate_id: 1,
+                            total_area: 1,
+                            area_unit: 1,
+                            khasra_no: 1,
+                            khatauni: 1,
+                            sow_area: 1,
+                            land_address: 1,
+                            soil_type: 1,
+                            soil_tested: 1,
+                            soil_health_card: 1,
+                            lab_distance_unit: 1,
+                            status: 1,
+                        }
+                    }]
+                }
+
+            },
+            {
+                $lookup: {
+                    from: 'banks',
+                    localField: '_id',
+                    foreignField: 'farmer_id',
+                    as: 'bankDetails',
+                    pipeline: [{
+                        $project: {
+                            _id: 1,
+                            farmer_id: 1,
+                            associate_id: 1,
+                            bank_name: 1,
+                            account_no: 1,
+                            ifsc_code: 1,
+                            account_holder_name: 1,
+                            branch_address: 1,
+                            status: 1,
+                        }
+                    }]
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'associate_id',
+                    foreignField: '_id',
+                    as: 'associateDetails',
+                    pipeline: [{
+                        $project: {
+                            organization_name: '$basic_details.associate_details.organization_name', // Project only the required fields
+                        }
+                    }]
+                }
+            },
+            {
+                $match: {
+                    'crops.0': { $exists: true }, // Ensure farmers have at least one crop
+                    'bankDetails.0': { $exists: true } // Ensure farmers have bank details
+                }
+            },
+            { $unwind: '$associateDetails' }, // Unwind to merge associate details
+            { $unwind: '$bankDetails' }, // Unwind to merge bank details
+            {
+                $project: {
+                    farmer_code: 1,
+                    title: 1,
+                    mobile_no: 1,
+                    name: 1,
+                    parents: 1,
+                    dob: 1,
+                    gender: 1,
+                    address: 1,
+                    crops: 1,
+                    bankDetails: 1,
+                    lands: 1
+                }
+            },
+            {
+                $sort: { [sortBy]: 1 } // Sort by the `sortBy` field, default to `name`
+            }
+        ];
+
+        // Apply pagination if `paginate` is enabled
+        if (paginate == 1) {
+            aggregationPipeline.push({
+                $skip: parseInt(skip) || (parseInt(page) - 1) * parseInt(limit)
+            }, {
+                $limit: parseInt(limit)
+            });
+        }
+
+        // Fetch count of farmers
+        const countPipeline = [
+            { $match: query },
+            {
+                $lookup: {
+                    from: 'crops',
+                    localField: '_id',
+                    foreignField: 'farmer_id',
+                    as: 'crops'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'banks',
+                    localField: '_id',
+                    foreignField: 'farmer_id',
+                    as: 'bankDetails'
+                }
+            },
+            {
+                $match: {
+                    'crops.0': { $exists: true }, // Farmers with crops
+                    'bankDetails.0': { $exists: true } // Farmers with bank details
+                }
+            },
+            { $count: 'total' } // Count total records matching the criteria
+        ];
+
+        // Execute the count query
+        const countResult = await farmer.aggregate(countPipeline);
+        const totalRecords = countResult[0] ? countResult[0].total : 0;
+
+        // Execute the main aggregation query
+        const rows = await farmer.aggregate(aggregationPipeline);
+
+        const records = {
+            count: totalRecords,
+            rows: rows
+        };
+
+        // If pagination is enabled, add pagination metadata
+        if (paginate == 1) {
+            records.page = parseInt(page);
+            records.limit = parseInt(limit);
+            records.pages = limit != 0 ? Math.ceil(totalRecords / limit) : 0;
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('farmer') }))
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
