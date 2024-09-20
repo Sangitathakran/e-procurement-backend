@@ -732,9 +732,24 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 
       let errors = [];
 
-      if (!fpo_name || !name || !father_name || !date_of_birth || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no || account_no) {
-        errors.push({ record: rec, error: "Required fields missing" });
+      if (!fpo_name || !name || !father_name || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no) {
+        let missingFields = [];
+      
+        if (!fpo_name) missingFields.push('FPO NAME');
+        if (!name) missingFields.push('NAME');
+        if (!father_name) missingFields.push('FATHER NAME');
+        if (!gender) missingFields.push('GENDER');
+        if (!aadhar_no) missingFields.push('AADHAR NUMBER');
+        if (!address_line) missingFields.push('ADDRESS LINE');
+        if (!state_name) missingFields.push('STATE NAME');
+        if (!district_name) missingFields.push('DISTRICT NAME');
+        if (!mobile_no) missingFields.push('MOBILE NUMBER');
+      
+        errors.push({ 
+          error: `Required fields missing: ${missingFields.join(', ')}` 
+        });
       }
+      
       if (!/^\d{12}$/.test(aadhar_no)) {
         errors.push({ record: rec, error: "Invalid Aadhar Number" });
       }
@@ -763,7 +778,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 
         if (farmerRecord) {
           farmerRecord = await updateFarmerRecord(farmerRecord, {
-            associate_id: associateId, title, name, father_name, mother_name, dob, gender, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, state_id, district_id, block, village, pinCode, mobile_no, email
+            associate_id: associateId, title, name, father_name, mother_name, dob:date_of_birth, gender, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, state_id, district_id, block, village, pinCode, mobile_no, email
           });
 
           updateRelatedRecords(farmerRecord._id, {
@@ -772,7 +787,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           });
         } else {
           farmerRecord = await insertNewFarmerRecord({
-            associate_id: associateId, title, name, father_name, mother_name, dob, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, state_id, district_id, block, village, pinCode, mobile_no, email,
+            associate_id: associateId, title, name, father_name, mother_name, dob:date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, state_id, district_id, block, village, pinCode, mobile_no, email,
           });
 
           insertNewRelatedRecords(farmerRecord._id, {
