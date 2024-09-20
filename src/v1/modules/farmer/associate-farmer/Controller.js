@@ -19,6 +19,7 @@ module.exports.createFarmer = async (req, res) => {
 
         if (existingFarmer) {
             return sendResponse({
+                res,
                 status: 400,
                 errors: [{ message: _response_message.allReadyExist("farmer") }]
             });
@@ -29,6 +30,7 @@ module.exports.createFarmer = async (req, res) => {
         const savedFarmer = await newFarmer.save();
 
         return sendResponse({
+          res,
             status: 201,
             data: savedFarmer,
             message: _response_message.created("Farmer")
@@ -59,6 +61,7 @@ module.exports.getFarmers = async (req, res) => {
         }
 
         return sendResponse({
+          res,
             status: 200,
             data: records,
             message: _response_message.found("farmers")
@@ -82,6 +85,7 @@ module.exports.editFarmer = async (req, res) => {
       const existingFarmer = await farmer.findById(id);
       if (!existingFarmer) {
         return sendResponse({
+          res,
           status: 404,
           errors: [{ message: _response_message.notFound("farmer") }]
         });
@@ -107,6 +111,7 @@ module.exports.editFarmer = async (req, res) => {
       const updatedFarmer = await existingFarmer.save();
   
       return sendResponse({
+        res,
         status: 200,
         data: updatedFarmer,
         message: _response_message.updated("Farmer")
@@ -127,12 +132,14 @@ module.exports.deletefarmer = async (req, res) => {
       
       if (response.deletedCount > 0) {
         return sendResponse({
+          res,
           status: 200,
           data: response,
           message: _response_message.deleted("farmer"),
         });
       } else {
         return sendResponse({
+          res,
           status: 404,
           data: response,
           message: _response_message.notFound("farmer"),
@@ -155,6 +162,7 @@ module.exports.deletefarmer = async (req, res) => {
   
       if (existingLand) {
         return sendResponse({
+          res,
           status: 400,
           errors: [{ message: _response_message.allReadyExist("Land") }]
         });
@@ -174,6 +182,7 @@ module.exports.deletefarmer = async (req, res) => {
       const savedLand = await newLand.save();
   
       return sendResponse({
+        res,
         status: 201,
         data: savedLand,
         message: _response_message.created("Land")
@@ -208,12 +217,14 @@ module.exports.deletefarmer = async (req, res) => {
   
       if (!updatedLand) {
         return sendResponse({
+          res,
           status: 404,
           message: _response_message.notFound("Land")
         });
       }
   
       return sendResponse({
+        res,
         status: 200,
         data: updatedLand,
         message: _response_message.updated("Land")
@@ -262,13 +273,16 @@ module.exports.deletefarmer = async (req, res) => {
       );
   
       if (!updatedLand) {
+    
         return sendResponse({
+          res,
           status: 404,
           message: _response_message.notFound("Land")
         });
       }
   
       return sendResponse({
+        res,
         status: 200,
         data: updatedLand,
         message: _response_message.updated("Land")
@@ -288,12 +302,14 @@ module.exports.deletefarmer = async (req, res) => {
         
         if (response.deletedCount > 0) {
           return sendResponse({
+            res,
             status: 200,
             data: response,
             message: _response_message.deleted("Land"),
           });
         } else {
           return sendResponse({
+            res,
             status: 404,
             data: response,
             message: _response_message.notFound("Land"),
@@ -327,6 +343,7 @@ module.exports.deletefarmer = async (req, res) => {
         const savedCrop = await newCrop.save();
     
         return sendResponse({
+          res,
             status: 201,
             data: savedCrop,
             message: _response_message.created("Crop")
@@ -363,12 +380,14 @@ module.exports.deletefarmer = async (req, res) => {
 
         if (!updatedCrop) {
             return sendResponse({
+              res,
                 status: 404,
                 message: _response_message.notFound("Crop")
             });
         }
 
         return sendResponse({
+          res,
             status: 200,
             data: updatedCrop,
             message: _response_message.updated("Crop")
@@ -389,12 +408,14 @@ module.exports.deleteCrop = async (req, res) => {
         
         if (response.deletedCount > 0) {
           return sendResponse({
+            res,
             status: 200,
             data: response,
             message: _response_message.deleted("Crop"),
           });
         } else {
           return sendResponse({
+            res,
             status: 404,
             data: response,
             message: _response_message.notFound("Crop"),
@@ -428,6 +449,7 @@ module.exports.createBank = async (req, res) => {
 
         if (!state_id || !district_id) {
             return sendResponse({
+              res,
                 status: 400,
                 message: "Invalid state or district provided"
             });
@@ -452,6 +474,7 @@ module.exports.createBank = async (req, res) => {
         const savedBank = await newBank.save();
         
         return sendResponse({
+          res,
             status: 201,
             data: savedBank,
             message: _response_message.created("Bank")
@@ -486,6 +509,7 @@ module.exports.updateBank = async (req, res) => {
 
         if (!state_id || !district_id) {
             return sendResponse({
+              res,
                 status: 400,
                 message: "Invalid state or district provided"
             });
@@ -513,12 +537,14 @@ module.exports.updateBank = async (req, res) => {
 
         if (!updatedBank) {
             return sendResponse({
+              res,
                 status: 404,
                 message: "Bank not found"
             });
         }
 
         return sendResponse({
+          res,
             status: 200,
             data: updatedBank,
             message: _response_message.updated("Bank")
@@ -538,12 +564,14 @@ module.exports.deleteBank = async (req, res) => {
         
         if (response.deletedCount > 0) {
           return sendResponse({
+            res,
             status: 200,
             data: response,
             message: _response_message.deleted("Bank"),
           });
         } else {
           return sendResponse({
+            res,
             status: 404,
             data: response,
             message: _response_message.notFound("Bank"),
