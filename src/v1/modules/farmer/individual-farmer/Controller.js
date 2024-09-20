@@ -13,6 +13,11 @@ const { body, validationResult, checkSchema } = require("express-validator");
 const { errorFormatter } = require("@src/v1/utils/helpers/express_validator");
 const { smsService } = require("@src/v1/utils/third_party/SMSservices");
 const OTPModel = require("@src/v1/models/app/auth/OTP");
+const axios = require('axios');
+const archiver = require('archiver');
+const path = require('path');
+const fsp = require("fs-extra");
+const fs = require('fs');
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -293,6 +298,81 @@ module.exports.submitForm = async (req, res) => {
   } catch (err) {
     console.log("error", err);
     _handleCatchErrors(err, res);
+  }
+};
+
+
+//convert url into zip file
+module.exports.createZip = async (req, res) => {
+  try {
+    const url = req.query.url; 
+    if (!url) {
+      return sendResponse({
+        res: res, 
+        status: 400, 
+        message: 'Invalid request', 
+        errors: 'URL is required'
+      });
+    }
+
+    const fileNameFromUrl = path.basename(new URL(url).pathname);
+    
+    const fileExtension = path.extname(fileNameFromUrl) || '.jpg'; // Default extension 
+    
+    const fileName = fileNameFromUrl || `downloadedFile${fileExtension}`;
+    
+    // Prepare the ZIP file name
+    const zipFileName = `${fileName}.zip`;
+
+    // Create a write stream for the ZIP file
+    const output = fsp.createWriteStream(zipFileName);
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    output.on('close', () => {
+      // Send the ZIP file after it has been created
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename=${zipFileName}`);
+      const fileStream = fs.createReadStream(zipFileName);
+      fileStream.pipe(res);
+    });
+
+    archive.on('error', (err) => {
+      console.error('Error creating archive:', err);
+      return sendResponse({
+        res: res, 
+        status: 500, 
+        message: 'Error creating ZIP archive', 
+        errors: err.message
+      });
+    });
+
+    // Pipe the archive data to the output file
+    archive.pipe(output);
+
+    // Download the file from the provided URL and add it directly to the ZIP root 
+    try {
+      const response = await axios.get(url, { responseType: 'stream' });
+      archive.append(response.data, { name: fileName }); 
+    } catch (error) {
+      return sendResponse({
+        res: res, 
+        status: 500, 
+        message: 'Error downloading file', 
+        errors: error.message
+      });
+    }
+
+    // Finalize the ZIP file
+    await archive.finalize();
+
+  } catch (error) {
+    console.error('Unexpected error:', error.message);
+    return sendResponse({
+      res: res, 
+      status: 500, 
+      message: 'Something went wrong', 
+      errors: error.message
+    });
   }
 };
 
