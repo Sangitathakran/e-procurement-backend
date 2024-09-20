@@ -220,9 +220,7 @@ module.exports.submitForm = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const farmerDetails = await IndividualFarmer.findById(id).select(
-      "address farmer_id basic_details"
-    );
+    const farmerDetails = await IndividualFarmer.findById(id)
     const generateFarmerId = (farmer) => {
       const stateData = stateList.stateList.find(
         (item) =>
