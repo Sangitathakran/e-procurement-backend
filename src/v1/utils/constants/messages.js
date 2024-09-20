@@ -55,6 +55,7 @@ module.exports = {
         allReadyApproved: (key) => `${key || "Data"} already Approved.`,
         user_status: () => 'Associate is pending. Contact to admin.',
         importSuccess:() => "Branches created successfully",
-        fileMissing:() => "File is not provided"
+        fileMissing:() => "File is not provided",
+        notProvided: (key)=> `${key} is not provided`
     }
 }

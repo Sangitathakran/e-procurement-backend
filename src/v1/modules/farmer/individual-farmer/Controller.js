@@ -106,11 +106,17 @@ module.exports.verifyOTP = async (req, res) => {
 module.exports.registerName = async (req, res) => {
   try {
     const { registerName } = req.body;
+    if(!registerName)
+        return sendResponse({res, status: 400, data:null, message: _response_message.notProvided('Name')})
 
     // Check if the user already exists and is verified
     const farmerData = await IndividualFarmer.findOneAndUpdate(
       { mobile_no: req.mobile_no },
-      { $set: { name: registerName, userType: 3 } },
+      { $set: { name: registerName, 
+                userType: 3 ,
+                basic_details : {name: registerName, mobile_no: req.mobile_no} 
+              } 
+      },
       { new: true }
     );
 
@@ -148,10 +154,14 @@ module.exports.saveFarmerDetails = async (req, res) => {
     if (farmerDetails) {
       farmerDetails[screenName] = req.body[screenName];
       farmerDetails.steps = req.body?.steps;
-      const farmerUpdatedDetails = await farmerDetails.save();
+      await farmerDetails.save();
+
+
+      const farmerData = await IndividualFarmer.findById(farmer_id)
+
       return sendResponse({res,
         status:200,
-        data: farmerUpdatedDetails,
+        data: farmerData,
         message: _response_message.updated(screenName),
       })
     } else {
@@ -237,7 +247,7 @@ module.exports.submitForm = async (req, res) => {
       // console.log("district--->", district)
       const stateCode = stateData.stateCode;
       const districtSerialNumber = district.serialNumber;
-      const districtCode = district.districtCode;
+      // const districtCode = district.districtCode;
       const farmer_mongo_id = farmer._id.toString().slice(-3).toUpperCase()
       const randomNumber = Math.floor(100 + Math.random() * 900);
 
