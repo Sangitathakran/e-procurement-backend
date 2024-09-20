@@ -16,7 +16,7 @@ const OTPModel = require("@src/v1/models/app/auth/OTP");
 const axios = require('axios');
 const archiver = require('archiver');
 const path = require('path');
-const fsp = require("fs-extra");//require('fs.promises');//require('fs/promises');
+const fsp = require("fs-extra");
 const fs = require('fs');
 
 module.exports.sendOTP = async (req, res) => {
