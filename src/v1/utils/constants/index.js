@@ -27,6 +27,7 @@ const _collectionName = {
     Batch: "Batch",
     Payment: "Payment",
     Branch: "Branch",
+    DummyWarehouse: "DummyWarehouse",
     FarmerOrder: "FarmerOrder",
 }
 const _status = {
@@ -191,6 +192,7 @@ const _category = {
     OBC: "OBC",
     SC: "SC",
     ST: "ST",
+    Others: "Others",
 }
 
 const _areaUnit = {

@@ -8,7 +8,7 @@ module.exports = {
         tokenExpired: "Token Expired, Please login again."
     },
     _middleware: {
-        require: (name) => `${name} is required.`
+        require: (name) => `${name} is required.`,
     },
     _query: {
         add: (key) => `${key || "Record"} add successfully.`,
@@ -57,6 +57,7 @@ module.exports = {
         user_status: () => 'Associate is pending. Contact to admin.',
         importSuccess:() => "Branches created successfully",
         fileMissing:() => "File is not provided",
-        notProvided: (key)=> `${key} is not provided`
+        notProvided: (key)=> `${key} is not provided`,
+        userNotApproved:() => "User is not Approved"
     }
 }

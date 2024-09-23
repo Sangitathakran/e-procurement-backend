@@ -2,7 +2,7 @@ const { _handleCatchErrors, _generateOrderNumber, _addDays } = require("@src/v1/
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const { _requestStatus, _webSocketEvents, _procuredStatus } = require('@src/v1/utils/constants');
+const { _requestStatus, _webSocketEvents, _procuredStatus, _collectionName } = require('@src/v1/utils/constants');
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
@@ -16,12 +16,9 @@ const { User } = require("@src/v1/models/app/auth/User");
 
 
 module.exports.getProcurement = async (req, res) => {
-
     try {
         const { organization_id, user_type, user_id } = req;
-        const { id } = req.params;
-
-        const { page, limit, skip, paginate = 1, sortBy, search = '', status } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', status } = req.query;
 
         let query = search ? {
             $or: [
@@ -31,45 +28,75 @@ module.exports.getProcurement = async (req, res) => {
             ]
         } : {};
 
+        // Handle status filtering based on offers
+        if (status && Object.values(_associateOfferStatus).includes(status)) {
+            // Aggregation pipeline to join with AssociateOffers
+            const pipeline = [
+                { $match: query },
+                {
+                    $lookup: {
+                        from: 'associateoffers',
+                        localField: '_id',
+                        foreignField: 'req_id',
+                        as: 'myoffer',
+                    },
+                },
+                { $unwind: '$myoffer' },
+                { $match: { 'myoffer.seller_id': new mongoose.Types.ObjectId(user_id), 'myoffer.status': status } },
+                {
+                    $project: {
+                        _id: 1,
+                        reqNo: 1,
+                        product: 1,
+                        quotedPrice: 1,
+                        deliveryDate: 1,
+                        expectedProcurementDate: 1,
+                        fulfilledQty: 1,
+                        status: 1,
+                        address: 1,
+                        'myoffer.offeredQty': 1,
+                        'myoffer.status': 1,
+                    },
+                },
+                { $sort: sortBy ? sortBy : { createdAt: -1 } },
+                { $skip: skip ? parseInt(skip) : 0 },
+                { $limit: limit ? parseInt(limit) : 10 }
+            ];
 
-        if (user_type == _userType.ho || user_type == _userType.bo) {
-            query.organization_id = organization_id
+            const records = {};
+            records.rows = await RequestModel.aggregate(pipeline);
+            records.count = records.rows.length;
 
-        } else if (user_type == _userType.associate) {
-            if (status && Object.values(_associateOfferStatus).includes(status)) {
-                const offerIds = (await AssociateOffers.find({ seller_id: user_id, status })).map((offer) => offer.req_id);
-                query._id = { $in: offerIds };
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
+        } else {
+            // Find requests that have no offers or are open
+            query.status = _requestStatus.open;
+            const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
+            query._id = { $nin: offerIds };
 
-            } else {
-                query.status = _requestStatus.open
-                const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
-                query._id = { $nin: offerIds };
+
+            const records = { count: 0 };
+            records.rows = paginate == 1 ? await RequestModel.find(query)
+                .sort(sortBy)
+                .skip(skip)
+                .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
+
+            records.count = await RequestModel.countDocuments(query);
+
+            if (paginate == 1) {
+                records.page = page;
+                records.limit = limit;
+                records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
             }
+
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
         }
-
-        const records = { count: 0 };
-
-        records.rows = paginate == 1 ? await RequestModel.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
-
-        records.count = await RequestModel.countDocuments(query);
-
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
 
     } catch (error) {
         console.log(error.message);
         _handleCatchErrors(error, res);
     }
-}
+};
 
 module.exports.getProcurementById = async (req, res) => {
 

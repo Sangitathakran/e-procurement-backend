@@ -3,7 +3,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
-const { _associateOfferStatus, _procuredStatus, _batchStatus, _user_status, _userType } = require('@src/v1/utils/constants');
+const { _associateOfferStatus, _procuredStatus, _batchStatus, _userType } = require('@src/v1/utils/constants');
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
@@ -65,7 +65,7 @@ module.exports.batch = async (req, res) => {
                 myMap.set(ele.procurementCenter_id, { req_id: req_id, batchId, seller_id: user_id, associateOffer_id: record._id, dispatchedqty: ele.qtyProcured });
             }
 
-            payment.push({ whomToPay: ele.farmer_id, user_type: _userType.farmer, user_id: user_id, qtyProcured: ele.offeredQty, reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
+            payment.push({ whomToPay: ele.farmer_id, user_type: _userType.farmer, user_id: user_id, qtyProcured: ele.offeredQty, req_id: req_id, reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
 
         }
 
