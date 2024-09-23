@@ -82,7 +82,7 @@ module.exports.saveHeadOffice = async (req, res) => {
             password: password,
         }
     
-        await sendHoCredentials(hoPocData);
+        await sendHoCredentials(hoAuthorisedData);
 
         return res.status(200).send(new serviceResponse({ message: _response_message.created('Head Office'), data: savedHeadOffice }));
     } catch (error) {
