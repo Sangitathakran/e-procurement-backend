@@ -1,4 +1,4 @@
-const { getProcurement, getProcurementById, createProcurement, updateProcurement, getFarmerListById, requestApprove, offeredFarmerList, editFarmerOffer, associateOffer, approveRejectOfferByAgent, getAssociateOffers } = require("./Controller");
+const { getProcurement, getProcurementById, createProcurement, updateProcurement, getFarmerListById, requestApprove, offeredFarmerList, editFarmerOffer, associateOffer, approveRejectOfferByAgent, getAssociateOffers, hoBoList } = require("./Controller");
 const express = require("express");
 const { verifyAssociate } = require("../utils/verifyAssociate");
 const requestRoutes = express.Router();
@@ -15,6 +15,6 @@ requestRoutes.get("/", verifyAssociate, getProcurement);
 
 requestRoutes.put("/", verifyAssociate, updateProcurement);
 requestRoutes.get("/:id", verifyAssociate, getProcurementById);
-
+requestRoutes.get("/ho-bo", verifyAssociate, hoBoList);
 
 module.exports = { requestRoutes }; 
