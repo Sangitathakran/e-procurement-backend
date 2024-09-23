@@ -15,7 +15,7 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 // const { Payment } = require("@src/v1/models/app/procurement");
 const { _query } = require("@src/v1/utils/constants/messages");
 
-//widget list
+//widget lists
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   let widgetDetails = {
     branch: { total: 0, lastMonth: [] },
