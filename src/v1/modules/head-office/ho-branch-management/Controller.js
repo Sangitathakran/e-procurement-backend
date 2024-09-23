@@ -12,6 +12,7 @@ const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 const xlsx = require("xlsx");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer"); 
 const { _status } = require("@src/v1/utils/constants");
+const { validateBranchData } = require("@src/v1/modules/head-office/ho-branch-management/Validations")
 
 
 
@@ -35,7 +36,7 @@ module.exports.importBranches = async (req, res) => {
         return res
           .status(400)
           .send(
-            serviceResponse({
+            new serviceResponse({
               status: 400,
               message: _response_message.fileMissing,
             })
@@ -51,8 +52,11 @@ module.exports.importBranches = async (req, res) => {
       const excelData = xlsx.utils.sheet_to_json(workbook.Sheets[sheet_name_list[0]]); // Convert first sheet to JSON
   
       // Expected headers
-      const expectedHeaders = ['branchName', 'emailAddress', 'pointOfContactName', 'pointOfContactPhone', 'pointOfContactEmail', 'address'];
-
+      const expectedHeaders = [
+        'branchName', 'emailAddress', 'pointOfContactName', 'pointOfContactPhone', 'pointOfContactEmail', 
+        'address', 'cityVillageTown', 'state', 'pincode'
+      ];
+      
       // Validate headers
       const fileHeaders = Object.keys(excelData[0] || {});
       const missingHeaders = expectedHeaders.filter(header => !fileHeaders.includes(header));
@@ -66,9 +70,6 @@ module.exports.importBranches = async (req, res) => {
         );
       }
 
-      // Email regex for validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
       // Extract all emailAddresses from the Excel data
       const emailAddresses = excelData.map(row => row.emailAddress);
 
@@ -76,60 +77,20 @@ module.exports.importBranches = async (req, res) => {
       const existingBranches = await Branches.find({ emailAddress: { $in: emailAddresses } });
 
       if (existingBranches.length > 0) {
-      // If there are existing email addresses, send an error response with email address details
-      const existingEmails = existingBranches.map(branch => branch.emailAddress);
-      return res.status(400).json({
+        // If there are existing email addresses, send an error response with email address details
+        const existingEmails = existingBranches.map(branch => branch.emailAddress);
+        return res.status(400).json({
           status: 400,
           message: `The following email addresses already exist in the system: ${existingEmails.join(', ')}`,
         });
       }
 
-      // Validate each row
-      for (const [index, row] of excelData.entries()) {
-        // Check for empty fields
-        for (const field of expectedHeaders) {
-          if (!row[field]) {
-            return res.status(400).send(
-              new serviceResponse({
-                status: 400,
-                message: `Row ${index + 1}: The field "${field}" is required and cannot be empty.`,
-              })
-            );
-          }
-        }
-
-        // Phone number length validation
-        if (row.pointOfContactPhone && row.pointOfContactPhone.toString().length !== 10) {
-          return res.status(400).send(
-            new serviceResponse({
-              status: 400,
-              message: `Row ${index + 1}: The phone number must be exactly 10 digits.`,
-            })
-          );
-        }
-
-        // Validate email format for emailAddress
-        if (!emailRegex.test(row.emailAddress)) {
-          return res.status(400).send(
-            new serviceResponse({
-              status: 400,
-              message: `Row ${index + 1}: The email address "${row.emailAddress}" is invalid.`,
-            })
-          );
-        }
-
-        // Validate email format for pointOfContactEmail
-        if (!emailRegex.test(row.pointOfContactEmail)) {
-          return res.status(400).send(
-            new serviceResponse({
-              status: 400,
-              message: `Row ${index + 1}: The point of contact email "${row.pointOfContactEmail}" is invalid.`,
-            })
-          );
-        }
+      const validationError = await validateBranchData(excelData, expectedHeaders, existingBranches);
+      if (validationError) {
+        return res.status(validationError.status).send(new serviceResponse(validationError));
       }
 
-      // Parse the rows into Branch objects, with status set to false by default
+      // Parse the rows into Branch objects, with status set to inactive by default
       const branches = excelData.map((row) => {
         return {
           branchName: row.branchName,
@@ -140,8 +101,11 @@ module.exports.importBranches = async (req, res) => {
             email: row.pointOfContactEmail
           },
           address: row.address,
-          status: _status.inactive, 
-          headOfficeId: headOfficeId, 
+          cityVillageTown: row.cityVillageTown,
+          state: row.state,
+          pincode: row.pincode,
+          status: _status.inactive,
+          headOfficeId: headOfficeId,
         };
       });
 
@@ -185,7 +149,7 @@ module.exports.importBranches = async (req, res) => {
 
   module.exports.exportBranches = async (req, res) => {
     try {
-      const branches = await Branches.find({}, 'branchId branchName emailAddress pointOfContact address status createdAt');
+      const branches = await Branches.find({}, 'branchId branchName emailAddress pointOfContact address cityVillageTown state pincode status createdAt');
   
       // Format the data to be exported
       const branchData = branches.map((branch) => ({
@@ -194,6 +158,9 @@ module.exports.importBranches = async (req, res) => {
         name: branch.branchName,
         email: branch.emailAddress,
         address: branch.address,
+        cityVillageTown: branch.cityVillageTown, 
+        state: branch.state,                     
+        pincode: branch.pincode, 
         pointOfContactName: branch.pointOfContact.name,
         pointOfContactPhone: branch.pointOfContact.phone,
         pointOfContactEmail: branch.pointOfContact.email,
@@ -238,7 +205,10 @@ module.exports.importBranches = async (req, res) => {
           pointOfContactName: 'User Name 1',
           pointOfContactPhone: '1234567890',
           pointOfContactEmail: 'user1@example.com',
-          address: 'Noida'
+          address: 'Noida',
+          cityVillageTown: 'Sample Town 1',
+          state: 'State 1',
+          pincode: '123456'
         },
         {
           branchName: 'Example Branch 2',
@@ -246,9 +216,13 @@ module.exports.importBranches = async (req, res) => {
           pointOfContactName: 'User Name 2',
           pointOfContactPhone: '0987654321',
           pointOfContactEmail: 'user2@example.com',
-          address: 'New Delhi'
+          address: 'New Delhi',
+          cityVillageTown: 'Sample Town 2',
+          state: 'State 2',
+          pincode: '654321'
         }
       ];
+  
   
       const workbook = xlsx.utils.book_new();
       const worksheet = xlsx.utils.json_to_sheet(templateData);
@@ -271,21 +245,24 @@ module.exports.branchList = async (req, res) => {
       const { limit = 10, skip = 0 , paginate = 1, search = '', page = 1 } = req.query;
   
       // Adding search filter
-      const searchQuery = {
+      const searchQuery = search ? {
         $or: [
           { batchName: { $regex: search, $options: 'i' } },        // Case-insensitive search for batchName
           { emailAddress: { $regex: search, $options: 'i' } },     // Case-insensitive search for emailAddress
           { 'pointOfContact.name': { $regex: search, $options: 'i' } }, // Case-insensitive search for pointOfContactName
           { 'pointOfContact.email': { $regex: search, $options: 'i' } }  // Case-insensitive search for pointOfContactEmail
         ]
-      };
+      } : {};
   
       // Count total documents for pagination purposes, applying search filter
       const totalCount = await Branches.countDocuments(searchQuery);
+
+       // Determine the effective limit
+      const effectiveLimit = Math.min(parseInt(limit), totalCount);
   
       // Fetch paginated branch data with search and sorting
       let branches = await Branches.find(searchQuery)
-        .limit(parseInt(limit))    // Limit the number of documents returned
+        .limit(effectiveLimit)    // Limit the number of documents returned
         .skip(parseInt(skip))      // Skip the first 'n' documents based on pagination
         .sort({ createdAt: -1 });  // Sort by createdAt in descending order by default
   
@@ -306,13 +283,13 @@ module.exports.branchList = async (req, res) => {
             branches: branches,
             totalCount: totalCount,
             totalPages: totalPages,
-            limit: parseInt(limit),
+            limit: effectiveLimit,
             page: parseInt(page)
           },
         })
       );
     } catch (err) {
-      return res.send(serviceResponse({ status: 500, errors: [{ message: err.message }] }));
+      return res.status(500).send(new serviceResponse({ status: 500, errors: [{ message: err.message }] }));
     }
   };
   
@@ -326,7 +303,7 @@ module.exports.toggleBranchStatus = async (req, res) => {
 
     
     if (!branch) {
-      return res.status(404).send(serviceResponse({ 
+      return res.status(404).send(new serviceResponse({ 
         status: 404, 
         message: 'Branch not found' 
       }));
@@ -345,7 +322,7 @@ module.exports.toggleBranchStatus = async (req, res) => {
       })
     );
   } catch (err) {
-    return res.status(500).send(serviceResponse({
+    return res.status(500).send(new serviceResponse({
       status: 500,
       errors: [{ message: err.message }]
     }));
