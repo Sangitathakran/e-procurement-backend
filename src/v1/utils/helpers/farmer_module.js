@@ -67,7 +67,6 @@ exports.updateRelatedRecords = async (farmer_id, data) => {
         { farmer_id },
         {
             farmer_id: data.farmer_id,
-            associate_id: data.associate_id,
             total_area: data.total_area,
             khasra_no: data.khasra_no,
             area_unit: data.area_unit,
@@ -91,7 +90,6 @@ exports.updateRelatedRecords = async (farmer_id, data) => {
         { farmer_id },
         {
             farmer_id: data.farmer_id,
-            associate_id: data.associate_id,
             sowing_date: data.sowing_date,
             harvesting_date: data.harvesting_date,
             crops_name: data.crops_name,
@@ -120,7 +118,6 @@ exports.updateRelatedRecords = async (farmer_id, data) => {
         { farmer_id },
         {
             farmer_id: data.farmer_id,
-            associate_id: data.associate_id,
             account_no:data.account_no,
             bank_name:data.bank_name,
             branch: data.branch,
@@ -140,7 +137,6 @@ exports.updateRelatedRecords = async (farmer_id, data) => {
 exports.insertNewRelatedRecords = async (farmer_id, data) => {
     const newLand = new Land({
         farmer_id,
-        associate_id: data.associate_id,
         total_area: data.total_area,
         khasra_no: data.khasra_no,
         area_unit: data.area_unit,
@@ -162,7 +158,6 @@ exports.insertNewRelatedRecords = async (farmer_id, data) => {
 
     const newCrop = new Crop({
         farmer_id,
-        associate_id: data.associate_id,
         sowing_date: data.sowing_date,
         harvesting_date: data.harvesting_date,
         crops_name: data.crops_name,
@@ -191,7 +186,6 @@ exports.insertNewRelatedRecords = async (farmer_id, data) => {
     await newCrop.save();
     const newBank = new Bank({
         farmer_id,
-        associate_id: data.associate_id,
         account_no:data.account_no,
         bank_name:data.bank_name,
         branch: data.branch,

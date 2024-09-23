@@ -10,7 +10,7 @@ const farmerSchema = new mongoose.Schema({
         father_name: { type: String, trim: true, },
         mother_name: { type: String, trim: true, }
     },
-    dob: { type: Date, trim: true, },
+    dob: { type: String, trim: true, },
     gender: { type: String, enum: Object.values(_gender), default: null, trim: true, },
     marital_status: { type: String, enum: Object.values(_maritalStatus), default: null, trim: true, },
     religion: { type: String, enum: Object.values(_religion), default: null, trim: true, },

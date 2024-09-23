@@ -8,7 +8,7 @@ module.exports = {
         tokenExpired: "Token Expired, Please login again."
     },
     _middleware: {
-        require: (name) => `${name} is required.`
+        require: (name) => `${name} is required.`,
     },
     _query: {
         add: (key) => `${key || "Record"} add successfully.`,

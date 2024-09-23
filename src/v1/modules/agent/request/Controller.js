@@ -90,7 +90,7 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
     records.rows = paginate == 1 ? await RequestModel.find(query)
         .sort(sortBy)
-        .skip(skip).populate({ path: "branch_id", select: "_id branchName" })
+        .skip(skip).populate({ path: "branch_id", select: "_id branchName branchId" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
     records.count = await RequestModel.countDocuments(query);
