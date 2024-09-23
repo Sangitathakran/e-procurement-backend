@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _userType, _trader_type, _user_status } = require('@src/v1/utils/constants');
+const { _collectionName, _userType, _trader_type } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const headOfficeSchema = new mongoose.Schema({
