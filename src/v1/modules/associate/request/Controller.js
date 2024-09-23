@@ -168,25 +168,24 @@ module.exports.associateOffer = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "incorrect quantity of request" }] }))
         }
 
-        const associateOfferRecord = await AssociateOffers.create({ seller_id: user_id, req_id: req_id, offeredQty: sumOfFarmerQty, createdBy: user_id });
+        for (let harvester of farmer_data) {
+            if (!(await farmer.findOne({ _id: harvester._id })))
+                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("farmer") }] }))
+        }
 
+        const associateOfferRecord = await AssociateOffers.create({ seller_id: user_id, req_id: req_id, offeredQty: sumOfFarmerQty, createdBy: user_id });
 
         const dataToBeInserted = [];
 
         for (let harvester of farmer_data) {
+            const farmerBankDetails = await Bank.findOne({ farmer_id: harvester._id });
 
             const existingFarmer = await farmer.findOne({ _id: harvester._id });
 
-            if (!existingFarmer) {
-                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("farmer") }] }))
-            }
-
-            const farmerBankDetails = await Bank.findOne({ farmer_id: harvester._id });
-
             const { account_no, ifsc_code, bank_name, account_holder_name } = farmerBankDetails;
-            const { name, father_name, address_line, mobile_no } = existingFarmer;
+            const { name, father_name, address_line, mobile_no, farmer_code } = existingFarmer;
 
-            const metaData = { name, father_name, address_line, mobile_no, account_no, ifsc_code, bank_name, account_holder_name, bank_name };
+            const metaData = { name, father_name, address_line, mobile_no, account_no, ifsc_code, bank_name, account_holder_name, bank_name, farmer_code };
 
             const FarmerOfferData = {
                 associateOffers_id: associateOfferRecord._id,
@@ -457,9 +456,18 @@ module.exports.offeredFarmerList = async (req, res) => {
 
     try {
         const { user_id, user_type } = req;
+        console.log("user_id", user_id);
+        console.log("user_type", user_type);
+
+
         const { page, limit, skip, sortBy, search = '', req_id } = req.query
 
+        console.log("queryline", { req_id, ...(user_type == _userType.associate && { seller_id: user_id }) });
+
+
         const offerIds = (await AssociateOffers.find({ req_id, ...(user_type == _userType.associate && { seller_id: user_id }) })).map((ele) => ele._id);
+
+        console.log("offerIds", offerIds);
 
         if (offerIds.length == 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
@@ -601,12 +609,12 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 module.exports.hoBoList = async (req, res) => {
     try {
         const { search = '', userType } = req.query
-      
+
         if (!userType) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('user_type') }));
         }
-      
-        let query = search ? { reqNo: { $regex: search, $options: 'i' } }  : {};
+
+        let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
         if (userType == _userType.ho) {
             query.user_type = _userType.ho;
@@ -615,17 +623,17 @@ module.exports.hoBoList = async (req, res) => {
             query.user_type = _userType.bo;
         }
 
-        const response = await User.find(query).select({ _id: 1, basic_details: 1});
+        const response = await User.find(query).select({ _id: 1, basic_details: 1 });
         // const response = await User.find(query);
 
         if (!response) {
-            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("User") }] }))      
-        } else {           
-            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.found("User") }] }))                   
+            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("User") }] }))
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.found("User") }] }))
         }
 
     } catch (error) {
-        
+
         _handleCatchErrors(error, res);
     }
 
