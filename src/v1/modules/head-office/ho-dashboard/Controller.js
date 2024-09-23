@@ -15,7 +15,7 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 // const { Payment } = require("@src/v1/models/app/procurement");
 const { _query } = require("@src/v1/utils/constants/messages");
 
-//widget list
+//widget lists
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   let widgetDetails = {
     branch: { total: 0, lastMonth: [] },
@@ -42,27 +42,27 @@ module.exports.farmerPayments = asyncErrorHandler(async (req, res) => {
   const { option } = req.query;
   const report = {
     week: [
-      { week: "Monday", revenue: 0 },
-      { week: "Tuesday", revenue: 0 },
-      { week: "Wednesday", revenue: 0 },
-      { week: "Thursday", revenue: 0 },
-      { week: "Friday", revenue: 0 },
-      { week: "Saturday", revenue: 0 },
-      { week: "Sunday", revenue: 0 },
+      { weekName: "Monday",week: 1, revenue: 0 },
+      { weekName: "Tuesday",week: 2, revenue: 0 },
+      { weekName: "Wednesday",week: 3, revenue: 0 },
+      { weekName: "Thursday",week: 4, revenue: 0 },
+      { weekName: "Friday",week: 5, revenue: 0 },
+      { weekName: "Saturday",week: 6, revenue: 0 },
+      { weekName: "Sunday",week: 7, revenue: 0 },
     ],
     month: [
-      { month: "January", revenue: 0 },
-      { month: "February", revenue: 0 },
-      { month: "March", revenue: 0 },
-      { month: "April", revenue: 0 },
-      { month: "May", revenue: 0 },
-      { month: "June", revenue: 0 },
-      { month: "July", revenue: 0 },
-      { month: "Augest", revenue: 0 },
-      { month: "September", revenue: 0 },
-      { month: "Octorber", revenue: 0 },
-      { month: "November", revenue: 0 },
-      { month: "Decmeber", revenue: 0 },
+      { monthName: "January", month: 1, revenue: 0 },
+      { monthName: "February", month: 2, revenue: 0 },
+      { monthName: "March", month: 3, revenue: 0 },
+      { monthName: "April", month: 4, revenue: 0 },
+      { monthName: "May", month: 5, revenue: 0 },
+      { monthName: "June", month: 6, revenue: 0 },
+      { monthName: "July", month: 7, revenue: 0 },
+      { monthName: "Augest", month: 8, revenue: 0 },
+      { monthName: "September", month: 9, revenue: 0 },
+      { monthName: "Octorber", month: 10, revenue: 0 },
+      { monthName: "November", month: 11, revenue: 0 },
+      { monthName: "Decmeber", month: 12, revenue: 0 },
     ],
   };
   let pipeline = [];
@@ -86,10 +86,15 @@ module.exports.farmerPayments = asyncErrorHandler(async (req, res) => {
     ];
   }
 
-  const paymentDetails = await Payment.aggregate(pipeline);
-    report[option].map(item=>{
-
-    })
+  let paymentDetails = await Payment.aggregate(pipeline);
+  paymentDetails = report[option].map((item) => {
+    let payment = paymentDetails?.find((item2) => item2?._id == item[option]);
+    if (payment?._id == item[option]) {
+      return { [option]: item[`${option}Name`], revenue: payment.revenue };
+    } else {
+      return { [option]: item[`${option}Name`], revenue: item.revenue };
+    }
+  });
 
   return sendResponse({
     res,
@@ -125,6 +130,12 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
       { month: "Decmeber", revenue: 214, expense: 140 },
     ],
   };
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Revenue exchange"),
+    data: report,
+  });
 });
 //locationWareHouseChart
 module.exports.locationWareHouseChart = asyncErrorHandler(async (req, res) => {
@@ -160,16 +171,46 @@ module.exports.locationWareHouseChart = asyncErrorHandler(async (req, res) => {
       totalWarhouse: "05",
     },
   ];
- 
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Warehouse Location"),
+    data: data,
+  });
 });
 //paymentQuantityPurchase
 module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
   const data = [
-    { orderId: "2766253", quantityPurchased: "1000 mt", amountPayable: "₹2,87,390" },
-    { orderId: "2766253", quantityPurchased: "1000 mt", amountPayable: "₹3,47,356" },
-    { orderId: "2766253", quantityPurchased: "1000 mt", amountPayable: "₹3,47,356" },
-    { orderId: "2766253", quantityPurchased: "1000 mt", amountPayable: "₹3,47,356" },
-    { orderId: "2766253", quantityPurchased: "1000 mt", amountPayable: "₹3,47,356" },
+    {
+      orderId: "2766253",
+      quantityPurchased: "1000 mt",
+      amountPayable: "₹2,87,390",
+    },
+    {
+      orderId: "2766253",
+      quantityPurchased: "1000 mt",
+      amountPayable: "₹3,47,356",
+    },
+    {
+      orderId: "2766253",
+      quantityPurchased: "1000 mt",
+      amountPayable: "₹3,47,356",
+    },
+    {
+      orderId: "2766253",
+      quantityPurchased: "1000 mt",
+      amountPayable: "₹3,47,356",
+    },
+    {
+      orderId: "2766253",
+      quantityPurchased: "1000 mt",
+      amountPayable: "₹3,47,356",
+    },
   ];
-
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Farmer Payments"),
+    data: data,
+  });
 });
