@@ -22,6 +22,7 @@ module.exports.Login = async (req, res) => {
      
     if (hoExist) {
       bcrypt.compare(password, hoExist.password, async (err, result) => {
+        console.log('error',err)
         if (err) {
           
           return sendResponse({
@@ -30,8 +31,9 @@ module.exports.Login = async (req, res) => {
             message: _auth_module.unAuth,
           });
         }
-        
+        console.log('result',result)
         if (result) {
+          console.log('result',result)
           const payload = { email: hoExist.email, _id: hoExist._id,user_type:hoExist.user_type};
           const now = new Date();
           const expiresIn = Math.floor(now.getTime() / 1000) + 3600;
