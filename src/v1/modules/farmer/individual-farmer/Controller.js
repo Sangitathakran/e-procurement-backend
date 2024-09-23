@@ -331,8 +331,22 @@ module.exports.createZip = async (req, res) => {
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename=${zipFileName}`);
       const fileStream = fs.createReadStream(zipFileName);
-      fileStream.pipe(res);
+      fileStream.pipe(res)
+
+      fileStream.on('close', () => {
+        // Unlink (delete) the file from the server
+        fs.unlink(zipFileName, (err) => {
+          if (err) {
+            console.error(`Error deleting file: ${zipFileName}`, err);
+          } else {
+            console.log(`File ${zipFileName} deleted successfully.`);
+          }
+        });
+      });
+
     });
+
+    
 
     archive.on('error', (err) => {
       console.error('Error creating archive:', err);
