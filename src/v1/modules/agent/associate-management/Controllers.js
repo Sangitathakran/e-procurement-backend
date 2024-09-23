@@ -16,27 +16,16 @@ module.exports.getAssociates = async (req, res) => {
         } : {};
 
         query.user_type = _userType.associate;
+        query.is_approved = false;
+        query.bank_details = { $ne: null }
 
         const records = { count: 0 };
 
-        records.rows = paginate == 1 ? await User.find(query)
+        records.rows = paginate == 1 ? await User.find(query).select('_id user_code basic_details user_type status')
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await User.find(query).sort(sortBy);
 
-        let finalRecords = [];
-
-        records.rows.forEach(associate => {
-
-            const { user_code, basic_details, address, active } = associate;
-
-            const associateData = { id: user_code, name: basic_details.associate_details.associate_name, contact: basic_details.associate_details.phone, point_of_contact: basic_details.point_of_contact, address, status: active };
-
-            finalRecords.push(associateData);
-
-        });
-
-        records.rows = finalRecords;
         records.count = await User.countDocuments(query);
 
         if (paginate == 1) {
