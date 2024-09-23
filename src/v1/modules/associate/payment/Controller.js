@@ -475,7 +475,7 @@ module.exports.getBill = async (req, res) => {
         const billPayment = await Batch.findOne({ batchId });
 
         if (billPayment) {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+            return res.status(200).send(new serviceResponse({ status: 200, data: billPayment, message: _query.get('Payment') }))
         }
         else {
             return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
