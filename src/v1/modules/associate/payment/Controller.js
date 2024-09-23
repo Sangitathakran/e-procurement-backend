@@ -485,8 +485,6 @@ module.exports.getBill = async (req, res) => {
 
         }));
         
-        
-        newdata.totalAmount = totalamount;
         const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
        
         let records = { ...billPayment.toObject(), totalamount, mspAmount }
@@ -497,7 +495,6 @@ module.exports.getBill = async (req, res) => {
         else {
             return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
         }
-
 
     } catch (error) {
         _handleCatchErrors(error, res);
