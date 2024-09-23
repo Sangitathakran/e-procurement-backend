@@ -1,17 +1,18 @@
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
-const { sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const {
   _response_message,
   _middleware,
   _auth_module,
 } = require("@src/v1/utils/constants/messages");
 
-const Branches = require("@src/v1/models/master/Branches");
+const { Branches } = require("@src/v1/models/master/Branches");
 const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 
 const xlsx = require("xlsx");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer"); 
 const { _status } = require("@src/v1/utils/constants");
+const { validateBranchData } = require("@src/v1/modules/head-office/ho-branch-management/Validations")
 
 
 
@@ -35,7 +36,7 @@ module.exports.importBranches = async (req, res) => {
         return res
           .status(400)
           .send(
-            sendResponse({
+            new serviceResponse({
               status: 400,
               message: _response_message.fileMissing,
             })
@@ -50,6 +51,24 @@ module.exports.importBranches = async (req, res) => {
       const sheet_name_list = workbook.SheetNames;
       const excelData = xlsx.utils.sheet_to_json(workbook.Sheets[sheet_name_list[0]]); // Convert first sheet to JSON
   
+      // Expected headers
+      const expectedHeaders = [
+        'branchName', 'emailAddress', 'pointOfContactName', 'pointOfContactPhone', 'pointOfContactEmail', 
+        'address', 'cityVillageTown', 'state', 'pincode'
+      ];
+      
+      // Validate headers
+      const fileHeaders = Object.keys(excelData[0] || {});
+      const missingHeaders = expectedHeaders.filter(header => !fileHeaders.includes(header));
+
+      if (missingHeaders.length > 0) {
+        return res.status(400).send(
+          new serviceResponse({
+            status: 400,
+            message: `Missing required headers: ${missingHeaders.join(', ')}`,
+          })
+        );
+      }
 
       // Extract all emailAddresses from the Excel data
       const emailAddresses = excelData.map(row => row.emailAddress);
@@ -58,15 +77,20 @@ module.exports.importBranches = async (req, res) => {
       const existingBranches = await Branches.find({ emailAddress: { $in: emailAddresses } });
 
       if (existingBranches.length > 0) {
-      // If there are existing email addresses, send an error response with email address details
-      const existingEmails = existingBranches.map(branch => branch.emailAddress);
-      return res.status(400).json({
+        // If there are existing email addresses, send an error response with email address details
+        const existingEmails = existingBranches.map(branch => branch.emailAddress);
+        return res.status(400).json({
           status: 400,
           message: `The following email addresses already exist in the system: ${existingEmails.join(', ')}`,
         });
       }
 
-      // Parse the rows into Branch objects, with status set to false by default
+      const validationError = await validateBranchData(excelData, expectedHeaders, existingBranches);
+      if (validationError) {
+        return res.status(validationError.status).send(new serviceResponse(validationError));
+      }
+
+      // Parse the rows into Branch objects, with status set to inactive by default
       const branches = excelData.map((row) => {
         return {
           branchName: row.branchName,
@@ -77,33 +101,45 @@ module.exports.importBranches = async (req, res) => {
             email: row.pointOfContactEmail
           },
           address: row.address,
-          status: _status.inactive, 
-          headOfficeId: headOfficeId, 
+          cityVillageTown: row.cityVillageTown,
+          state: row.state,
+          pincode: row.pincode,
+          status: _status.inactive,
+          headOfficeId: headOfficeId,
         };
       });
 
       // Insert the branches into the database
-      await Branches.insertMany(branches);
+      for (const branchData of branches) {
+        const branch = new Branches(branchData);
+        await branch.save();  
+      }
 
        // Send an email to each branch email address notifying them that the branch has been created
        for (const branch of branches) {
-            const subject = 'Branch Created Successfully';
+            const subject = 'Welcome to NCCF E-Procurement Portal👋';
             const body = `<p>Dear ${branch.pointOfContact.name},</p>
-                      <p>Your branch (${branch.branchName}) has been successfully created in our system.</p>
-                      <p>Regards,<br/>Radiant Team</p>`;
+                      <p>You are invited to join NCCF E-Procurement Portal! For login, You need to reset the temporary password. Please click the button given below to create your new account password.</p>
+                      <strong>(CHANGE PASSWORD)</strong><br/>
+                      <p>Email Id: </p>
+                      <p>Temporary Password: </p>
+                      <p>Link: </p>
+                      <p>Thank you,<br/>NCCF E-Procurement Team</p>`;
   
         // Use the helper function to send the email
-        await sendMail(branch.emailAddress, null, subject, body);
+        sendMail(branch.emailAddress, null, subject, body).catch(err => {
+          console.error(`Failed to send email to ${branch.emailAddress}: ${err.message}`);
+      });;
       }
   
       return res
-        .status(200)
-        .send(
-          sendResponse({
-            status: 200,
-            message: _response_message.importSuccess(),
-          })
-        );
+      .status(200)
+      .send(
+        new serviceResponse({
+          status: 200,
+          message: _response_message.importSuccess(),
+        })
+      );
     } catch (err) {
       _handleCatchErrors(err, res);
     }
@@ -113,14 +149,18 @@ module.exports.importBranches = async (req, res) => {
 
   module.exports.exportBranches = async (req, res) => {
     try {
-      const branches = await Branches.find({}, 'branchName emailAddress pointOfContact address status createdAt');
+      const branches = await Branches.find({}, 'branchId branchName emailAddress pointOfContact address cityVillageTown state pincode status createdAt');
   
       // Format the data to be exported
       const branchData = branches.map((branch) => ({
         id: branch._id.toString(), 
+        branchId: branch.branchId,
         name: branch.branchName,
         email: branch.emailAddress,
         address: branch.address,
+        cityVillageTown: branch.cityVillageTown, 
+        state: branch.state,                     
+        pincode: branch.pincode, 
         pointOfContactName: branch.pointOfContact.name,
         pointOfContactPhone: branch.pointOfContact.phone,
         pointOfContactEmail: branch.pointOfContact.email,
@@ -165,7 +205,10 @@ module.exports.importBranches = async (req, res) => {
           pointOfContactName: 'User Name 1',
           pointOfContactPhone: '1234567890',
           pointOfContactEmail: 'user1@example.com',
-          address: 'Noida'
+          address: 'Noida',
+          cityVillageTown: 'Sample Town 1',
+          state: 'State 1',
+          pincode: '123456'
         },
         {
           branchName: 'Example Branch 2',
@@ -173,9 +216,13 @@ module.exports.importBranches = async (req, res) => {
           pointOfContactName: 'User Name 2',
           pointOfContactPhone: '0987654321',
           pointOfContactEmail: 'user2@example.com',
-          address: 'New Delhi'
+          address: 'New Delhi',
+          cityVillageTown: 'Sample Town 2',
+          state: 'State 2',
+          pincode: '654321'
         }
       ];
+  
   
       const workbook = xlsx.utils.book_new();
       const worksheet = xlsx.utils.json_to_sheet(templateData);
@@ -193,37 +240,91 @@ module.exports.importBranches = async (req, res) => {
     }
   };
 
-
-  module.exports.branchList = async (req, res) => {
+module.exports.branchList = async (req, res) => {
     try {
-      const { limit, skip, sortBy, paginate } = req.query;
+      const { limit = 10, skip = 0 , paginate = 1, search = '', page = 1 } = req.query;
   
-      // Count total number of branches (for pagination purposes)
-      const totalCount = await Branches.countDocuments();
+      // Adding search filter
+      const searchQuery = search ? {
+        $or: [
+          { batchName: { $regex: search, $options: 'i' } },        // Case-insensitive search for batchName
+          { emailAddress: { $regex: search, $options: 'i' } },     // Case-insensitive search for emailAddress
+          { 'pointOfContact.name': { $regex: search, $options: 'i' } }, // Case-insensitive search for pointOfContactName
+          { 'pointOfContact.email': { $regex: search, $options: 'i' } }  // Case-insensitive search for pointOfContactEmail
+        ]
+      } : {};
   
-      // Fetch paginated branch data
-      let branches = await Branches.find()
-        .limit(limit)    // Limit the number of documents returned
-        .skip(skip)      // Skip the first 'n' documents based on pagination
-        .sort(sortBy);   // Sort the documents based on the field specified in the request
+      // Count total documents for pagination purposes, applying search filter
+      const totalCount = await Branches.countDocuments(searchQuery);
+
+       // Determine the effective limit
+      const effectiveLimit = Math.min(parseInt(limit), totalCount);
+  
+      // Fetch paginated branch data with search and sorting
+      let branches = await Branches.find(searchQuery)
+        .limit(effectiveLimit)    // Limit the number of documents returned
+        .skip(parseInt(skip))      // Skip the first 'n' documents based on pagination
+        .sort({ createdAt: -1 });  // Sort by createdAt in descending order by default
   
       // If paginate is set to 0, return all branches without paginating
       if (paginate == 0) {
-        branches = await Branches.find();
+        branches = await Branches.find(searchQuery).sort({ createdAt: -1 });
       }
   
+      // Calculate total pages for pagination
+      const totalPages = Math.ceil(totalCount / limit);
+  
       // Return the branches along with pagination info
-      return sendResponse({
+      return res.status(200).send(
+        new serviceResponse({
           status: 200,
           message: "Branches fetched successfully",
           data: {
             branches: branches,
             totalCount: totalCount,
-            limit: parseInt(limit),
-            page: parseInt(req.query.page)
+            totalPages: totalPages,
+            limit: effectiveLimit,
+            page: parseInt(page)
           },
-        });
+        })
+      );
     } catch (err) {
-      return res.send(sendResponse({ status: 500, errors: [{ message: err.message }] }));
+      return res.status(500).send(new serviceResponse({ status: 500, errors: [{ message: err.message }] }));
     }
   };
+  
+
+module.exports.toggleBranchStatus = async (req, res) => {
+  try {
+    const { branchId } = req.params; 
+
+    const branch = await Branches.findById(branchId);
+    console.log({branch})
+
+    
+    if (!branch) {
+      return res.status(404).send(new serviceResponse({ 
+        status: 404, 
+        message: 'Branch not found' 
+      }));
+    }
+
+    // Toggle the status: if active, set to inactive; if inactive, set to active
+    branch.status = branch.status === 'active' ? 'inactive' : 'active';
+
+    await branch.save();
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        message: "Branch status updated successfully",
+        data: branch
+      })
+    );
+  } catch (err) {
+    return res.status(500).send(new serviceResponse({
+      status: 500,
+      errors: [{ message: err.message }]
+    }));
+  }
+};

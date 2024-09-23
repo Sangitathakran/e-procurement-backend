@@ -12,6 +12,8 @@ const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const mongoose = require("mongoose");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { User } = require("@src/v1/models/app/auth/User");
+
 
 module.exports.getProcurement = async (req, res) => {
 
@@ -26,8 +28,6 @@ module.exports.getProcurement = async (req, res) => {
                 { "reqNo": { $regex: search, $options: 'i' } },
                 { "product.name": { $regex: search, $options: 'i' } },
                 { "product.grade": { $regex: search, $options: 'i' } },
-                { "product.variety": { $regex: search, $options: 'i' } },
-                { "product.category": { $regex: search, $options: 'i' } },
             ]
         } : {};
 
@@ -562,8 +562,6 @@ module.exports.editFarmerOffer = async (req, res) => {
 }
 
 
-
-
 module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
     const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
@@ -598,3 +596,37 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("seller offer") }))
 })
+
+
+module.exports.hoBoList = async (req, res) => {
+    try {
+        const { search = '', userType } = req.query
+      
+        if (!userType) {
+            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('user_type') }));
+        }
+      
+        let query = search ? { reqNo: { $regex: search, $options: 'i' } }  : {};
+
+        if (userType == _userType.ho) {
+            query.user_type = _userType.ho;
+
+        } else if (userType == _userType.bo) {
+            query.user_type = _userType.bo;
+        }
+
+        const response = await User.find(query).select({ _id: 1, basic_details: 1});
+        // const response = await User.find(query);
+
+        if (!response) {
+            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("User") }] }))      
+        } else {           
+            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.found("User") }] }))                   
+        }
+
+    } catch (error) {
+        
+        _handleCatchErrors(error, res);
+    }
+
+}

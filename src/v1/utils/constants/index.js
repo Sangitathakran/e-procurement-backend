@@ -26,7 +26,8 @@ const _collectionName = {
     StateDistrictCity: "StateDistrictCity",
     Batch: "Batch",
     Payment: "Payment",
-    Branch: "Branch"
+    Branch: "Branch",
+    DummyWarehouse: "DummyWarehouse"
 }
 const _status = {
     active: "active",
@@ -190,6 +191,7 @@ const _category = {
     OBC: "OBC",
     SC: "SC",
     ST: "ST",
+    Others: "Others",
 }
 
 const _areaUnit = {
@@ -271,6 +273,7 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
+    approved: "Approved",
     completed: "Completed",
 }
 
