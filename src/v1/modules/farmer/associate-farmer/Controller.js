@@ -16,7 +16,7 @@ module.exports.createFarmer = async (req, res) => {
   try {
     const { associate_id, title, name, parents, dob, gender, marital_status, religion, category, education, proof, address, mobile_no, email, status } = req.body;
     const { father_name, mother_name } = parents || {};
-    const existingFarmer = await farmer.findOne({ 'mobile_no': mobile_no });
+    const existingFarmer = await farmer.findOne({ 'proof.aadhar_no': proof.aadhar_no });
 
     if (existingFarmer) {
       return res.status(200).send(new serviceResponse({
@@ -43,8 +43,6 @@ module.exports.getFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy = 'name', search = '', paginate = 1, associate_id } = req.query;
     const skip = (page - 1) * limit;
-
-    // const query = search ? { name: { $regex: search, $options: 'i' } } : {};
     let query = {};
     const records = { count: 0 };
     if (associate_id) {
@@ -54,7 +52,7 @@ module.exports.getFarmers = async (req, res) => {
       query.name = { $regex: search, $options: 'i' };
     }
     records.rows = paginate == 1
-      ? await farmer.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy)
+      ? await farmer.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('associate_id', '_id user_code')
       : await farmer.find(query).sort(sortBy);
 
     records.count = await farmer.countDocuments(query);
@@ -201,8 +199,8 @@ module.exports.getLand = async (req, res) => {
     }
 
     records.rows = paginate == 1
-      ? await Land.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy)
-      : await Land.find(query).sort(sortBy);
+      ? await Land.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id','id name')
+      : await Land.find(query).sort(sortBy).populate('farmer_id','id name').populate('farmer_id', 'id name')
 
     records.count = await Land.countDocuments(query);
 
@@ -331,8 +329,8 @@ module.exports.getCrop = async (req, res) => {
     const records = { pastCrops: {}, upcomingCrops: {} };
 
     const fetchCrops = async (cropQuery) => paginate == 1
-      ? Crop.find(cropQuery).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy)
-      : Crop.find(cropQuery).sort(sortBy);
+      ? Crop.find(cropQuery).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id','id name')
+      : Crop.find(cropQuery).sort(sortBy).populate('farmer_id','id name');
 
     const [pastCrops, upcomingCrops] = await Promise.all([
       fetchCrops({ ...query, sowing_date: { $lt: currentDate } }),
@@ -499,7 +497,7 @@ module.exports.getBank = async (req, res) => {
     }
 
     records.rows = paginate == 1
-      ? await Bank.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy)
+      ? await Bank.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id','id name')
       : await Bank.find(query).sort(sortBy);
 
     records.count = await Bank.countDocuments(query);
@@ -734,7 +732,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 
       if (!fpo_name || !name || !father_name || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no) {
         let missingFields = [];
-      
+
         if (!fpo_name) missingFields.push('FPO NAME');
         if (!name) missingFields.push('NAME');
         if (!father_name) missingFields.push('FATHER NAME');
@@ -744,12 +742,12 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         if (!state_name) missingFields.push('STATE NAME');
         if (!district_name) missingFields.push('DISTRICT NAME');
         if (!mobile_no) missingFields.push('MOBILE NUMBER');
-      
-        errors.push({ 
-          error: `Required fields missing: ${missingFields.join(', ')}` 
+
+        errors.push({
+          error: `Required fields missing: ${missingFields.join(', ')}`
         });
       }
-      
+
       if (!/^\d{12}$/.test(aadhar_no)) {
         errors.push({ record: rec, error: "Invalid Aadhar Number" });
       }
@@ -778,7 +776,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 
         if (farmerRecord) {
           farmerRecord = await updateFarmerRecord(farmerRecord, {
-            associate_id: associateId, title, name, father_name, mother_name, dob:date_of_birth, gender, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, state_id, district_id, block, village, pinCode, mobile_no, email
+            associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, state_id, district_id, block, village, pinCode, mobile_no, email
           });
 
           updateRelatedRecords(farmerRecord._id, {
@@ -787,7 +785,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           });
         } else {
           farmerRecord = await insertNewFarmerRecord({
-            associate_id: associateId, title, name, father_name, mother_name, dob:date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, state_id, district_id, block, village, pinCode, mobile_no, email,
+            associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, state_id, district_id, block, village, pinCode, mobile_no, email,
           });
 
           insertNewRelatedRecords(farmerRecord._id, {
@@ -893,16 +891,20 @@ module.exports.exportFarmers = async (req, res) => {
         $unwind: { path: '$bank', preserveNullAndEmptyArrays: true }
       },
       { $sort: { createdAt: sortBy === '-createdAt' ? -1 : 1 } },
-      { $skip: paginate == 1 ? (parseInt(skip)) : 0 },
-      { $limit: paginate == 1 ? parseInt(limit) : 10000 }
     ];
+    if (isExport == 0) {
+      aggregationPipeline.push(
+        { $skip: paginate == 1 ? (parseInt(skip)) : 0 },
+        { $limit: paginate == 1 ? parseInt(limit) : 10000 }
+      );
+    }
     const farmersData = await farmer.aggregate(aggregationPipeline);
     const totalFarmersCount = await farmer.countDocuments(query);
     const records = {
       rows: farmersData,
       count: totalFarmersCount,
     };
-    if (paginate == 1) {
+    if (paginate == 1 && isExport == 0) {
       records.page = parseInt(page);
       records.limit = parseInt(limit);
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
@@ -914,13 +916,13 @@ module.exports.exportFarmers = async (req, res) => {
           "Farmer Contact": item?.mobile_no || 'NA',
           "Father Name": item?.parents?.father_name || 'NA',
           "Mother Name": item?.parents?.mother_name || 'NA',
-          "Date of Birth": item?.dob ? item?.dob.toISOString().split('T')[0] : 'NA',
+          "Date of Birth": item?.dob || 'NA',
           "Gender": item?.gender || 'NA',
           "Marital Status": item?.marital_status || 'NA',
           "Religion": item?.religion || 'NA',
           "Category": item?.category || 'NA',
           "Highest Education": item?.education?.highest_edu || 'NA',
-          "Education Details": item?.education?.edu_details.join(', ') || 'NA',
+          "Education Details": item?.education?.edu_details || 'NA',
           "Proof Type": item?.proof?.type || 'NA',
           "Aadhar Number": item?.proof?.aadhar_no || 'NA',
           "Address Line": item?.address?.address_line || 'NA',
