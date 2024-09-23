@@ -9,7 +9,6 @@ const { User } = require("@src/v1/models/app/auth/User");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
-const ExcelJS = require('exceljs');
 const Readable = require('stream').Readable;
 
 module.exports.createFarmer = async (req, res) => {
