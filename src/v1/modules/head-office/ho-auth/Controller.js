@@ -22,7 +22,6 @@ module.exports.Login = async (req, res) => {
     let hoUser=(hoExist?.authorised.email==email)?"Poc":"authorised";
     if (hoExist) {
       bcrypt.compare(password, hoExist.password, async (err, result) => {
-        console.log('error',err)
         if (err) {
           
           return sendResponse({
@@ -31,7 +30,6 @@ module.exports.Login = async (req, res) => {
             message: _auth_module.unAuth,
           });
         }
-        console.log('result',result)
         if (result) {
           console.log('result',result)
           const payload = { email: hoExist.email, _id: hoExist._id,user_type:hoExist.user_type};
