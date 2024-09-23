@@ -7,6 +7,7 @@ const PaymentSchema = new mongoose.Schema({
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
     qtyProcured: { type: String, required: true },
     reqNo: { type: String, required: true },
+    req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true },
     commodity: { type: String, trim: true },
     payment_id: { type: String, required: false },
     transaction_id: { type: String, required: false, },

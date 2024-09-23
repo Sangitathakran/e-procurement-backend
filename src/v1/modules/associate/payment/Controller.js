@@ -18,7 +18,7 @@ module.exports.payment = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0  } = req.query
 
         const {user_id} = req;
-      
+      console.log(userType);
         let query = {
             user_id,
             ...(search ? { reqNo: { $regex: search, $options: 'i' } }  : {}) // Search functionality
