@@ -10,6 +10,7 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const moment = require("moment");
 const mongoose = require("mongoose");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
 module.exports.payment = async (req, res) => {
 
@@ -83,9 +84,7 @@ module.exports.farmerOrders = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '', farmer_id, isExport = 0  } = req.query;
        
         const {user_id} = req;
-        // let query = search ? { order_no: { $regex: search, $options: 'i' } }  : {};
-        // query.farmer_id = farmer_id;
-
+        
         let query = {
             user_id,
             farmer_id: farmer_id,
@@ -396,3 +395,29 @@ module.exports.getFarmerListById = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.getBill = async (req, res) => {
+
+    try {
+        const { batchId } = req.query
+
+        const { user_id, user_type } = req;
+      
+        if (user_type !== _userType.associate) {
+            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
+        }
+
+        const billPayment = await Batch.findOne({ batchId });
+
+        if (billPayment) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+        }
+        else {
+            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
+        }
+       
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
