@@ -205,7 +205,7 @@ module.exports.batchList = async (req, res) => {
 
     try {
      
-        const { user_id, user_type } = req;
+        // const { user_id, user_type } = req;
 
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0  } = req.query
      
