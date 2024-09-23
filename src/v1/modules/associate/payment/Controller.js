@@ -201,6 +201,66 @@ module.exports.batch = async (req, res) => {
     }
 }
 
+module.exports.batchList = async (req, res) => {
+
+    try {
+     
+        const { user_id, user_type } = req;
+
+        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0  } = req.query
+     
+        let query = {
+            req_id,
+            ...(search ? { order_no: { $regex: search, $options: 'i' } }  : {}) // Search functionality
+        };  
+
+        const records = { count: 0 };
+        records.rows = paginate == 1 ? await Batch.find(query)
+            .populate({ 
+                path: 'procurementCenter_id', select:'_id center_name center_code center_type address',
+                path: 'req_id', select:'_id reqNo product address deliveryDate quotedPrice status'
+            })
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
+
+        records.count = await Batch.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+                return {
+                    "Batch ID": item?.batchId || 'NA',
+                    "procurementCenter_id": item?.procurementCenter_id || 'NA',
+                    "Quantity Purchased": item?.qtyProcured || 'NA',
+                    "Status": item?.status ?? 'NA'
+                }
+            })
+
+            if (record.length > 0) {
+              
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Payment-${userType}.xlsx`,
+                    worksheetName: `Payment-record-${userType}`
+                });
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
 
 module.exports.getFarmerListById = async (req, res) => {
 
