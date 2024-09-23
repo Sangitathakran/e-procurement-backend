@@ -9,7 +9,7 @@ module.exports.payment = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0  } = req.query
-     
+    
         let query = search ? { reqNo: { $regex: search, $options: 'i' } }  : {};
 
         if (userType == _userType.farmer) {
@@ -21,8 +21,6 @@ module.exports.payment = async (req, res) => {
         else if (userType == _userType.agent) {
             query.user_type = _userType.agent;
         }
-
-        // query.status = _paymentstatus.completed;
 
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
@@ -186,6 +184,35 @@ module.exports.batch = async (req, res) => {
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
         }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.paymentApprove = async (req, res) => {
+
+    try {
+
+        const { reqNo } = req.body;
+        const { user_type } = req;
+
+        if (user_type != _userType.agent) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+        }
+
+        const paymentList = await Payment.find({ reqNo });
+
+        if (!paymentList) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Payment") }] }))
+        }
+
+            paymentList.status = _paymentstatus.approved;
+                 
+            await paymentList.save();
+           
+            return res.status(200).send(new serviceResponse({ status: 200, data: existingRequest, message: "Payment Approved by admin" }))
+        
 
     } catch (error) {
         _handleCatchErrors(error, res);
