@@ -6,7 +6,7 @@ const headOfficeSchema = new mongoose.Schema({
     office_id: {type: String, required: true, trim: true},
     password: {type: String, required: true},
     email_verified: {type: Boolean, default: false},
-    user_ype: {type: String, default: "5"},
+    user_type: {type: String, default: "5"},
     company_details: {
         name: {type: String, trim: true},
         pan_card: {type: String, trim: true},
@@ -36,7 +36,7 @@ const headOfficeSchema = new mongoose.Schema({
         name: {type: String, trim: true},
         designation: {type: String, trim: true},
         phone: {type: String, trim: true},
-        email: {type: String, trim: true},
+        email: {type: String, trim: true, unique: true},
         aadhar_number: {type: String, trim: true},
         aadhar_certificate: {
             front: {type: String, trim: true},
