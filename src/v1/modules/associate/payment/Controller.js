@@ -5,12 +5,13 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { _userType } = require('@src/v1/utils/constants');
 const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
 const { getFarmerDetails } = require("../../farmer/individual-farmer/Controller");
-
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const moment = require("moment");
 const mongoose = require("mongoose");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
+
 
 module.exports.payment = async (req, res) => {
 
@@ -19,8 +20,6 @@ module.exports.payment = async (req, res) => {
 
         const {user_id} = req;
       
-        console.log(userType);
-
         let query = {
             user_id,
             ...(search ? { reqNo: { $regex: search, $options: 'i' } }  : {}) // Search functionality
@@ -217,22 +216,26 @@ module.exports.batchList = async (req, res) => {
         };  
 
         const records = { count: 0 };
+        
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+        .select({ _id: 1, reqNo: 1, product: 1, deliveryDate:1, address:1, quotedPrice:1, status: 1});
+
         records.rows = paginate == 1 ? await Batch.find(query)
             .populate({ 
-                path: 'procurementCenter_id', select:'_id center_name center_code center_type address',
-                path: 'req_id', select:'_id reqNo product address deliveryDate quotedPrice status'
+                path: 'procurementCenter_id', select:'_id center_name center_code center_type address'
             })
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
-        records.count = await Batch.countDocuments(query);
+        records.count = await Batch.countDocuments(query);       
 
         if (paginate == 1) {
             records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
+        
 
         if (isExport == 1) {
 
