@@ -3,7 +3,6 @@ const { _collectionName, _userType, _trader_type, _user_status } = require('@src
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const headOfficeSchema = new mongoose.Schema({
-    office_id: {type: String, required: true, trim: true},
     password: {type: String, required: true},
     email_verified: {type: Boolean, default: false},
     user_type: {type: String, default: "5"},

@@ -18,8 +18,8 @@ const bcrypt = require("bcryptjs");
 module.exports.Login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    let hoExist = await HeadOffice.findOne({ email });
-     
+    let hoExist = await HeadOffice.findOne({$or:[{"point_of_contact.email":email},{"authorised.email":email}] });
+    let hoUser=(hoExist?.authorised.email==email)?"Poc":"authorised";
     if (hoExist) {
       bcrypt.compare(password, hoExist.password, async (err, result) => {
         console.log('error',err)
@@ -40,7 +40,7 @@ module.exports.Login = async (req, res) => {
           const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
           const data = {
             token: token,
-            details:  {...payload,office:hoExist.office_id},
+            details:  {...payload,office:hoExist.office_id,hoUser},
           };
 
           return sendResponse({
