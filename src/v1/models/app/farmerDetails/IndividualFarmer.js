@@ -12,7 +12,7 @@ const farmerSchema = new mongoose.Schema({
 
     user_type: {
         type: String,
-        default: "3"
+        default: "1"
     },
     
     basic_details: { 
