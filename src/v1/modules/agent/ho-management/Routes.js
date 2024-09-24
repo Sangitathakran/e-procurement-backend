@@ -1,5 +1,5 @@
 const express = require("express");
-const { getHo, saveHeadOffice } = require("./Controllers");
+const { getHo, saveHeadOffice, userStatusUpdate } = require("./Controllers");
 const { validateForm } = require("@src/v1/modules/agent/ho-management/Validation")
 
 const hoMngmntRoutes = express.Router();
@@ -7,5 +7,6 @@ const hoMngmntRoutes = express.Router();
 
 hoMngmntRoutes.get("/", getHo);
 hoMngmntRoutes.post("/", validateForm, saveHeadOffice);
+hoMngmntRoutes.patch("/update-approval", userStatusUpdate);
 
 module.exports = { hoMngmntRoutes }; 
