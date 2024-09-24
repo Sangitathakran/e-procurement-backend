@@ -187,6 +187,20 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
 });
 
+module.exports.associateOfferbyid = asyncErrorHandler(async (req, res) => {
+    const { id } = req.params
+
+    const record = await AssociateOffers.findOne({ _id: id })
+        .populate({ path: 'req_id', select: '_id product.name product.grade product.commodityImage reqNo deliveryDate' })
+        .populate({ path: 'seller_id', select: '_id basic_details.associate_details.associate_name user_code' })
+        .select('_id seller_id req_id offeredQty status procuredQty')
+
+    if (!record) {
+        return res.send(new serviceResponse({ status: 400, data: record, message: _response_message.notFound() }))
+    }
+    return res.send(new serviceResponse({ status: 200, data: record, message: _response_message.found() }))
+})
+
 module.exports.getofferedFarmers = asyncErrorHandler(async (req, res) => {
     const { page, limit, skip, sortBy, search = '', associateOffers_id } = req.query
 
