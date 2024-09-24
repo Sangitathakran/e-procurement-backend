@@ -22,7 +22,7 @@ const fs = require('fs');
 module.exports.sendOTP = async (req, res) => {
   try {
     const { mobileNumber, acceptTermCondition } = req.body;
-    // Validate the mobile numbers
+    // Validate the mobile number
     const isValidMobile = await validateMobileNumber(mobileNumber);
     if (!isValidMobile) {
       return  sendResponse({res,
