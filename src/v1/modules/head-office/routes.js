@@ -1,7 +1,7 @@
 const express = require("express")
 const headOfficeRoutes = express.Router()
 
-const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
+const { verifyJwtToken } = require("@src/v1/middlewares/jwt");
 
 const {hoAuthRoutes} = require("./ho-auth/Routes")
 const {hoBranchRoutes} = require("./ho-branch-management/Routes")
