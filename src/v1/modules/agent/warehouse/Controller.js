@@ -1,5 +1,5 @@
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
-const { sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse, serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { wareHouse } = require("@src/v1/models/app/warehouse/warehouseSchema");
 
@@ -55,20 +55,11 @@ module.exports.warehouseList = async (req, res) => {
                 });
             }
             else {
-                return sendResponse({
-                    res,
-                    status: 200,
-                    data: records,
-                    message: _response_message.found("warehouse")
-                });
+                return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("warehouse") }))
             }
         }
         else {
-            return sendResponse({
-                status: 200,
-                data: records,
-                message: _response_message.found("warehouse")
-            });
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("warehouse") }))
         }
     } catch (error) {
         _handleCatchErrors(error, res);
