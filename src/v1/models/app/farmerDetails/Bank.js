@@ -4,6 +4,7 @@ const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const BankSchema = new mongoose.Schema({
     farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true, },
     bank_name: { type: String, required: true, trim: true },
+    branch_name: { type: String, required: true, trim: true },
     account_no: { type: String, required: true, trim: true },
     ifsc_code: { type: String, required: true, trim: true },
     account_holder_name: { type: String, required: true, trim: true },

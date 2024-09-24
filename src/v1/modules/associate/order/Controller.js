@@ -2,11 +2,11 @@ const { _handleCatchErrors, _generateOrderNumber } = require("@src/v1/utils/help
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
-const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
 const { _associateOfferStatus, _procuredStatus, _batchStatus, _userType } = require('@src/v1/utils/constants');
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 
 
 module.exports.batch = async (req, res) => {
@@ -28,13 +28,13 @@ module.exports.batch = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
         }
 
-        const farmerRecords = await FarmerOffers.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id });
+        const farmerRecords = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id });
 
         if (farmerRecords) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
         }
 
-        const receivedRecords = await FarmerOffers.find({ status: _procuredStatus.received, associateOffers_id: record?._id });
+        const receivedRecords = await FarmerOrders.find({ status: _procuredStatus.received, associateOffers_id: record?._id });
 
         if (receivedRecords.length == 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }));
