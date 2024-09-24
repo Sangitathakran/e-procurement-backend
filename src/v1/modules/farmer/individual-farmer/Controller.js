@@ -118,7 +118,7 @@ module.exports.registerName = async (req, res) => {
     const farmerData = await IndividualFarmer.findOneAndUpdate(
       { mobile_no: req.mobile_no },
       { $set: { name: registerName, 
-                userType: 3 ,
+                user_type: "3" ,
                 basic_details : {name: registerName, mobile_no: req.mobile_no} 
               } 
       },
