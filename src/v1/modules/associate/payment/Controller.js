@@ -1,16 +1,13 @@
 const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel } = require("@src/v1/utils/helpers")
-const { sendResponse, serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { _userType } = require('@src/v1/utils/constants');
-const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
-const { getFarmerDetails } = require("../../farmer/individual-farmer/Controller");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
-const moment = require("moment");
 const mongoose = require("mongoose");
-const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 
 
 module.exports.payment = async (req, res) => {
@@ -93,12 +90,12 @@ module.exports.farmerOrders = async (req, res) => {
         };
 
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await FarmerOffers.find(query)
+        records.rows = paginate == 1 ? await FarmerOrders.find(query)
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await FarmerOffers.find(query).sort(sortBy);
+            .limit(parseInt(limit)) : await FarmerOrders.find(query).sort(sortBy);
 
-        records.count = await FarmerOffers.countDocuments(query);
+        records.count = await FarmerOrders.countDocuments(query);
 
         if (paginate == 1) {
             records.page = page
@@ -474,8 +471,8 @@ module.exports.getBill = async (req, res) => {
         if (user_type !== _userType.associate) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
-       
-        const billPayment = await Batch.findOne({ batchId }).select({_id:1, batchId: 1, req_id:1, dispatchedqty:1});
+
+        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1 });
 
         let totalamount = 0;
         let mspPercentage = 1; // The percentage you want to calculate       
@@ -485,9 +482,9 @@ module.exports.getBill = async (req, res) => {
         const newdata = await Promise.all(reqDetails.map(async record => {
             totalamount += record.amount;
         }));
-        
+
         const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
-       
+
         let records = { ...billPayment.toObject(), totalamount, mspAmount }
 
         if (records) {

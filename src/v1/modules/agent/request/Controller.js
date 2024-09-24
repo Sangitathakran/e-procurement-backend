@@ -1,13 +1,15 @@
 const { _generateOrderNumber, _addDays } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
-const { _webSocketEvents, _associateOfferStatus } = require('@src/v1/utils/constants');
+const { _webSocketEvents, _associateOfferStatus, _status } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
+const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 
 module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req
@@ -56,6 +58,7 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
     const { associateOffer_id, status, comment } = req.body;
 
     const offer = await AssociateOffers.findOne({ _id: associateOffer_id });
+
     if (!offer) {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
     }
@@ -69,6 +72,17 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
     }
 
     offer.status = status;
+
+    const farmerOffer = await FarmerOffers.find({ associateOffers_id: associateOffer_id, status: _status.active });
+
+    for (let offered of farmerOffer) {
+
+        const { associateOffers_id, farmer_id, metaData, offeredQty, qtyProcured } = offered;
+        const newFarmerOrder = new FarmerOrders({ associateOffers_id, farmer_id, metaData, offeredQty, qtyProcured, order_no: "OD" + _generateOrderNumber() });
+
+        await newFarmerOrder.save();
+    }
+
     await offer.save();
 
     return res.status(200).send(new serviceResponse({ status: 200, data: offer, message: _response_message.updated("offer") }))
