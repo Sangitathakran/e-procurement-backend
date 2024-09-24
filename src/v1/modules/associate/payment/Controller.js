@@ -326,6 +326,7 @@ module.exports.getFarmerListById = async (req, res) => {
                             area_unit: 1,
                             khasra_no: 1,
                             khatauni: 1,
+                            ghat_no: 1,
                             sow_area: 1,
                             land_address: 1,
                             soil_type: 1,
