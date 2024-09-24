@@ -6,7 +6,7 @@ const requestRoutes = express.Router();
 requestRoutes.get("/offered-farmer", verifyAssociate, offeredFarmerList);
 requestRoutes.get("/farmer-orders", verifyAssociate, farmerOrderList);
 requestRoutes.get("/associate-offers", verifyAssociate, getAssociateOffers);
-requestRoutes.put("/offered-farmer", verifyAssociate, editFarmerOffer);
+requestRoutes.put("/received-by-farmer", verifyAssociate, editFarmerOffer);
 requestRoutes.get("/farmers", verifyAssociate, getFarmerListById);
 requestRoutes.patch("/request", verifyAssociate, requestApprove);
 requestRoutes.post("/associate-offered", verifyAssociate, associateOffer);
