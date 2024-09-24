@@ -1,9 +1,10 @@
-const { getProcurement, getProcurementById, createProcurement, updateProcurement, getFarmerListById, requestApprove, offeredFarmerList, editFarmerOffer, associateOffer, approveRejectOfferByAgent, getAssociateOffers, hoBoList } = require("./Controller");
+const { getProcurement, getProcurementById, createProcurement, updateProcurement, getFarmerListById, requestApprove, offeredFarmerList, editFarmerOffer, associateOffer, approveRejectOfferByAgent, getAssociateOffers, hoBoList, farmerOrderList } = require("./Controller");
 const express = require("express");
 const { verifyAssociate } = require("../utils/verifyAssociate");
 const requestRoutes = express.Router();
 
 requestRoutes.get("/offered-farmer", verifyAssociate, offeredFarmerList);
+requestRoutes.get("/farmer-orders", verifyAssociate, farmerOrderList);
 requestRoutes.get("/associate-offers", verifyAssociate, getAssociateOffers);
 requestRoutes.put("/offered-farmer", verifyAssociate, editFarmerOffer);
 requestRoutes.get("/farmers", verifyAssociate, getFarmerListById);

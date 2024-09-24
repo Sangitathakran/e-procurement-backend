@@ -13,6 +13,7 @@ const mongoose = require("mongoose");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { User } = require("@src/v1/models/app/auth/User");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 
 
 module.exports.getProcurement = async (req, res) => {
@@ -54,7 +55,6 @@ module.exports.getProcurement = async (req, res) => {
                 //         fulfilledQty: 1,
                 //         status: 1,
                 //         address: 1,
-                //         quoteExpiry: 1,
                 //         'myoffer.offeredQty': 1,
                 //         'myoffer.status': 1,
                 //     },
@@ -105,11 +105,13 @@ module.exports.getProcurementById = async (req, res) => {
 
         const { id } = req.params;
 
-        const record = await RequestModel.findOne({ _id: id });
+        const record = await RequestModel.findOne({ _id: id }).lean();
 
         if (!record) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
         }
+
+        record.myOffer = await AssociateOffers.findOne({ req_id: id });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("procurement") }))
 
@@ -484,18 +486,9 @@ module.exports.offeredFarmerList = async (req, res) => {
 
     try {
         const { user_id, user_type } = req;
-        console.log("user_id", user_id);
-        console.log("user_type", user_type);
-
-
         const { page, limit, skip, sortBy, search = '', req_id } = req.query
 
-        console.log("queryline", { req_id, ...(user_type == _userType.associate && { seller_id: user_id }) });
-
-
         const offerIds = (await AssociateOffers.find({ req_id, ...(user_type == _userType.associate && { seller_id: user_id }) })).map((ele) => ele._id);
-
-        console.log("offerIds", offerIds);
 
         if (offerIds.length == 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
@@ -512,12 +505,58 @@ module.exports.offeredFarmerList = async (req, res) => {
         query.associateOffers_id = { $in: offerIds };
         const records = { count: 0 };
 
-        records.rows = await FarmerOffers.find(query).populate('procurementCenter_id')
+        records.rows = await FarmerOffers.find(query)
             .sort(sortBy)
             .skip(skip)
+            .populate("farmer_id")
             .limit(parseInt(limit))
 
         records.count = await FarmerOffers.countDocuments(query);
+        records.page = page
+        records.limit = limit
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }))
+
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+
+
+module.exports.farmerOrderList = async (req, res) => {
+
+    try {
+        const { user_id, user_type } = req;
+        const { page, limit, skip, sortBy, search = '', req_id } = req.query
+
+        const offerIds = (await AssociateOffers.find({ req_id, ...(user_type == _userType.associate && { seller_id: user_id }) })).map((ele) => ele._id);
+
+        if (offerIds.length == 0) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
+        }
+
+        let query = search ? {
+            $or: [
+                { "metaData.name": { $regex: search, $options: 'i' } },
+                { "metaData.father_name": { $regex: search, $options: 'i' } },
+                { "metaData.mobile_no": { $regex: search, $options: 'i' } },
+            ]
+        } : {};
+
+        query.associateOffers_id = { $in: offerIds };
+        const records = { count: 0 };
+
+        records.rows = await FarmerOrders.find(query)
+            .sort(sortBy)
+            .skip(skip)
+            .populate("farmer_id")
+            .populate("procurementCenter_id")
+            .limit(parseInt(limit))
+
+        records.count = await FarmerOrders.countDocuments(query);
 
         records.page = page
         records.limit = limit
