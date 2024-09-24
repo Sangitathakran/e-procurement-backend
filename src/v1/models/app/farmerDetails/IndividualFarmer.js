@@ -10,9 +10,9 @@ const farmerSchema = new mongoose.Schema({
     farmer_id: {type: String, default: null},
     isWelcomeMsgSend: {type: Boolean, default:false},
 
-    userType: {
-        type: Number,
-        default: 1
+    user_type: {
+        type: String,
+        default: "3"
     },
     
     basic_details: { 
