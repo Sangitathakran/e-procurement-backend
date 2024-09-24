@@ -118,7 +118,7 @@ module.exports.registerName = async (req, res) => {
     const farmerData = await IndividualFarmer.findOneAndUpdate(
       { mobile_no: req.mobile_no },
       { $set: { name: registerName, 
-                userType: 3 ,
+                user_type: "3" ,
                 basic_details : {name: registerName, mobile_no: req.mobile_no} 
               } 
       },
@@ -225,9 +225,7 @@ module.exports.submitForm = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const farmerDetails = await IndividualFarmer.findById(id).select(
-      "address farmer_id basic_details"
-    );
+    const farmerDetails = await IndividualFarmer.findById(id)
     const generateFarmerId = (farmer) => {
       const stateData = stateList.stateList.find(
         (item) =>
@@ -333,8 +331,22 @@ module.exports.createZip = async (req, res) => {
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename=${zipFileName}`);
       const fileStream = fs.createReadStream(zipFileName);
-      fileStream.pipe(res);
+      fileStream.pipe(res)
+
+      fileStream.on('close', () => {
+        // Unlink (delete) the file from the server
+        fs.unlink(zipFileName, (err) => {
+          if (err) {
+            console.error(`Error deleting file: ${zipFileName}`, err);
+          } else {
+            console.log(`File ${zipFileName} deleted successfully.`);
+          }
+        });
+      });
+
     });
+
+    
 
     archive.on('error', (err) => {
       console.error('Error creating archive:', err);

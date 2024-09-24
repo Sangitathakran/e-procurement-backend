@@ -77,6 +77,27 @@ class EmailService {
         }
     }
 
+    async sendHoCredentialsEmail(userDetails) {
+        try {
+            const email = userDetails.email;
+            const user_name = userDetails.name;
+            const password = userDetails.password;
+
+            const template = await this.loadTemplate("hoRegistrationTemplate");
+            const html = template
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{email}}", email)
+                .replace("{{user_name}}", user_name)
+                .replace("{{password}}", password);
+
+            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+
+        } catch (error) {
+            console.error("Error sending welcome email:", error);
+            throw error;
+        }
+    }
 
     async sendWelcomeEmail(userDetails, APP_URL, LOGO_URL) {
         try {

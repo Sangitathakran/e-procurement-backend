@@ -191,6 +191,7 @@ const _category = {
     OBC: "OBC",
     SC: "SC",
     ST: "ST",
+    Others: "Others",
 }
 
 const _areaUnit = {
@@ -272,6 +273,7 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
+    approved: "Approved",
     completed: "Completed",
 }
 
