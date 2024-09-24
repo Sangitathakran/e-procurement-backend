@@ -213,3 +213,77 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
     data: data,
   });
 });
+//branchOfficeProcurement
+module.exports.branchOfficeProcurement=asyncErrorHandler(async(req,res)=>{
+  const data = [
+    { state: "Uttar Pradesh", farmers: 2800 },
+    { state: "Madhya Pradesh", farmers: 2800 },
+    { state: "Haryana", farmers: 3800 },
+    { state: "Himachal Pradesh", farmers: 1400 },
+  ];
+ 
+ const stateOptions = [
+    { value: "", label: "Select All" },
+    { value: "maharashtra", label: "Maharashtra" },
+    { value: "gujarat", label: "Gujarat" },
+    { value: "rajasthan", label: "Rajasthan" },    
+  ];
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("BranchOfficeProcurement"),
+    data: data,
+  });      
+});
+//farmerBenifitted
+module.exports.farmerBenifitted=asyncErrorHandler(async(req,res)=>{
+  const data = [
+    { month: "December", farmers: 2800 },
+    { month: "November", farmers: 2800 },
+    { month: "October", farmers: 3800 },
+    { month: "September", farmers: 1400 },
+    { month: "August", farmers: 2000 },
+    { month: "July", farmers: 1000 },
+    { month: "June", farmers: 3900 },
+    { month: "May", farmers: 3900 },
+    { month: "April", farmers: 3900 },
+    { month: "March", farmers: 3900 },
+    { month: "February", farmers: 3900 },
+    { month: "January", farmers: 3900 },
+  ];
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("FarmerBenifitted"),
+    data: data,
+  });      
+});
+//procurementStatus
+module.exports.procurementStatus=asyncErrorHandler(async(req,res)=>{
+  const data = [
+    { status: "Completed", visitors: 58, fill: "#40BF7F" },
+    { status: "Ongoing", visitors: 32, fill: "#FF8819" },
+    { status: "Failed", visitors: 16, fill: "#F64C4C" },
+  ];
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("ProcurementStatus"),
+    data: data,
+  });      
+});
+//procurementOnTime
+module.exports.procurementOnTime=asyncErrorHandler(async(req,res)=>{
+  const data = [
+    { status: "On-Time", visitors: 58, fill: "#40BF7F" },
+    { status: "Late", visitors: 22, fill: "#FF8819" },
+    { status: "Early", visitors: 8, fill: "#F64C4C" },
+  ];
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("ProcurementOnTime"),
+    data: data,
+  });      
+});
+
