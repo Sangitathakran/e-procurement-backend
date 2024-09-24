@@ -43,21 +43,22 @@ module.exports.getProcurement = async (req, res) => {
                 },
                 { $unwind: '$myoffer' },
                 { $match: { 'myoffer.seller_id': new mongoose.Types.ObjectId(user_id), 'myoffer.status': status } },
-                {
-                    $project: {
-                        _id: 1,
-                        reqNo: 1,
-                        product: 1,
-                        quotedPrice: 1,
-                        deliveryDate: 1,
-                        expectedProcurementDate: 1,
-                        fulfilledQty: 1,
-                        status: 1,
-                        address: 1,
-                        'myoffer.offeredQty': 1,
-                        'myoffer.status': 1,
-                    },
-                },
+                // {
+                //     $project: {
+                //         _id: 1,
+                //         reqNo: 1,
+                //         product: 1,
+                //         quotedPrice: 1,
+                //         deliveryDate: 1,
+                //         expectedProcurementDate: 1,
+                //         fulfilledQty: 1,
+                //         status: 1,
+                //         address: 1,
+                //         quoteExpiry: 1,
+                //         'myoffer.offeredQty': 1,
+                //         'myoffer.status': 1,
+                //     },
+                // },
                 { $sort: sortBy ? sortBy : { createdAt: -1 } },
                 { $skip: skip ? parseInt(skip) : 0 },
                 { $limit: limit ? parseInt(limit) : 10 }
@@ -503,7 +504,7 @@ module.exports.offeredFarmerList = async (req, res) => {
         query.associateOffers_id = { $in: offerIds };
         const records = { count: 0 };
 
-        records.rows = await FarmerOffers.find(query)
+        records.rows = await FarmerOffers.find(query).populate('procurementCenter_id')
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit))
