@@ -9,10 +9,9 @@ const
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { User } = require("@src/v1/models/app/auth/User");
 const {
-  ProcurementCenter,
+  ProcurementCenter
 } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-// const { Payment } = require("@src/v1/models/app/procurement");
 const { _query } = require("@src/v1/utils/constants/messages");
 
 //widget lists
