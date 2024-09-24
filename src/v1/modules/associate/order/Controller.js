@@ -16,6 +16,12 @@ module.exports.batch = async (req, res) => {
         const { req_id } = req.body;
         const { user_id } = req;
 
+        const batchRecord = await Batch.findOne({ req_id, seller_id: user_id });
+
+        if (batchRecord) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("batch") }] }))
+        }
+
         const procurementRecord = await RequestModel.findOne({ _id: req_id });
 
         if (!procurementRecord) {
