@@ -133,7 +133,7 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
   return sendResponse({
     res,
     status: 200,
-    message: _query.get("Revenue exchange"),
+    message: _query.get("Revenue Expense chart"),
     data: report,
   });
 });
