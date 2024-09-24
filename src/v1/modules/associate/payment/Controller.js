@@ -302,6 +302,7 @@ module.exports.getFarmerListById = async (req, res) => {
                             sowing_date: 1,
                             harvesting_date: 1,
                             crops_name: 1,
+                            crop_seasons: 1,
                             production_quantity: 1,
                             yield: 1,
                             insurance_worth: 1,
@@ -349,6 +350,7 @@ module.exports.getFarmerListById = async (req, res) => {
                             farmer_id: 1,
                             associate_id: 1,
                             bank_name: 1,
+                            branch_name: 1,
                             account_no: 1,
                             ifsc_code: 1,
                             account_holder_name: 1,
@@ -481,8 +483,6 @@ module.exports.getBill = async (req, res) => {
 
         const newdata = await Promise.all(reqDetails.map(async record => {
             totalamount += record.amount;
-            // return { ...record.toObject(), billPayment}
-
         }));
         
         const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
