@@ -1,5 +1,5 @@
 const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel } = require("@src/v1/utils/helpers")
-const { sendResponse , serviceResponse} = require("@src/v1/utils/helpers/api_response");
+const { sendResponse, serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { _userType } = require('@src/v1/utils/constants');
@@ -16,13 +16,13 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0  } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0 } = req.query
 
-        const {user_id} = req;
-      
+        const { user_id } = req;
+
         let query = {
             user_id,
-            ...(search ? { reqNo: { $regex: search, $options: 'i' } }  : {}) // Search functionality
+            ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
         if (userType == _userType.farmer) {
@@ -34,8 +34,8 @@ module.exports.payment = async (req, res) => {
 
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
-            .populate({ 
-                path: 'whomToPay', select:'_id associate_id farmer_code name'
+            .populate({
+                path: 'whomToPay', select: '_id associate_id farmer_code name'
             })
             .sort(sortBy)
             .skip(skip)
@@ -61,7 +61,7 @@ module.exports.payment = async (req, res) => {
             })
 
             if (record.length > 0) {
-              
+
                 dumpJSONToExcel(req, res, {
                     data: record,
                     fileName: `Payment-${userType}.xlsx`,
@@ -82,15 +82,15 @@ module.exports.payment = async (req, res) => {
 module.exports.farmerOrders = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', farmer_id, isExport = 0  } = req.query;
-       
-        const {user_id} = req;
-        
+        const { page, limit, skip, paginate = 1, sortBy, search = '', farmer_id, isExport = 0 } = req.query;
+
+        const { user_id } = req;
+
         let query = {
             user_id,
             farmer_id: farmer_id,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } }  : {}) // Search functionality
-        };     
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
 
         const records = { count: 0 };
         records.rows = paginate == 1 ? await FarmerOffers.find(query)
@@ -123,7 +123,7 @@ module.exports.farmerOrders = async (req, res) => {
             })
 
             if (record.length > 0) {
-              
+
                 dumpJSONToExcel(req, res, {
                     data: record,
                     fileName: `FarmerOrder-${'Farmer'}.xlsx`,
@@ -144,9 +144,9 @@ module.exports.farmerOrders = async (req, res) => {
 module.exports.batch = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0  } = req.query
-     
-        let query = search ? { reqNo: { $regex: search, $options: 'i' } }  : {};
+        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0 } = req.query
+
+        let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
         if (userType == _userType.farmer) {
             query.user_type = 'farmer';
@@ -157,8 +157,8 @@ module.exports.batch = async (req, res) => {
 
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
-            .populate({ 
-                path: 'whomToPay', select:'_id associate_id farmer_code name'
+            .populate({
+                path: 'whomToPay', select: '_id associate_id farmer_code name'
             })
             .sort(sortBy)
             .skip(skip)
@@ -184,7 +184,7 @@ module.exports.batch = async (req, res) => {
             })
 
             if (record.length > 0) {
-              
+
                 dumpJSONToExcel(req, res, {
                     data: record,
                     fileName: `Payment-${userType}.xlsx`,
@@ -205,37 +205,37 @@ module.exports.batch = async (req, res) => {
 module.exports.batchList = async (req, res) => {
 
     try {
-     
+
         // const { user_id, user_type } = req;
 
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0  } = req.query
-     
+        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
+
         let query = {
             req_id,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } }  : {}) // Search functionality
-        };  
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
 
         const records = { count: 0 };
-        
+
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
-        .select({ _id: 1, reqNo: 1, product: 1, deliveryDate:1, address:1, quotedPrice:1, status: 1});
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
         records.rows = paginate == 1 ? await Batch.find(query)
-            .populate({ 
-                path: 'procurementCenter_id', select:'_id center_name center_code center_type address'
+            .populate({
+                path: 'procurementCenter_id', select: '_id center_name center_code center_type address'
             })
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
-        records.count = await Batch.countDocuments(query);       
+        records.count = await Batch.countDocuments(query);
 
         if (paginate == 1) {
             records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-        
+
 
         if (isExport == 1) {
 
@@ -249,7 +249,7 @@ module.exports.batchList = async (req, res) => {
             })
 
             if (record.length > 0) {
-              
+
                 dumpJSONToExcel(req, res, {
                     data: record,
                     fileName: `Payment-${userType}.xlsx`,
@@ -302,6 +302,7 @@ module.exports.getFarmerListById = async (req, res) => {
                             sowing_date: 1,
                             harvesting_date: 1,
                             crops_name: 1,
+                            crop_seasons: 1,
                             production_quantity: 1,
                             yield: 1,
                             insurance_worth: 1,
@@ -325,6 +326,7 @@ module.exports.getFarmerListById = async (req, res) => {
                             area_unit: 1,
                             khasra_no: 1,
                             khatauni: 1,
+                            ghat_no: 1,
                             sow_area: 1,
                             land_address: 1,
                             soil_type: 1,
@@ -349,6 +351,7 @@ module.exports.getFarmerListById = async (req, res) => {
                             farmer_id: 1,
                             associate_id: 1,
                             bank_name: 1,
+                            branch_name: 1,
                             account_no: 1,
                             ifsc_code: 1,
                             account_holder_name: 1,
@@ -467,20 +470,32 @@ module.exports.getBill = async (req, res) => {
         const { batchId } = req.query
 
         const { user_id, user_type } = req;
-      
+
         if (user_type !== _userType.associate) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
+       
+        const billPayment = await Batch.findOne({ batchId }).select({_id:1, batchId: 1, req_id:1, dispatchedqty:1});
 
-        const billPayment = await Batch.findOne({ batchId });
+        let totalamount = 0;
+        let mspPercentage = 1; // The percentage you want to calculate       
 
-        if (billPayment) {
+        const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });
+
+        const newdata = await Promise.all(reqDetails.map(async record => {
+            totalamount += record.amount;
+        }));
+        
+        const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
+       
+        let records = { ...billPayment.toObject(), totalamount, mspAmount }
+
+        if (records) {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
         }
         else {
             return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
         }
-       
 
     } catch (error) {
         _handleCatchErrors(error, res);
