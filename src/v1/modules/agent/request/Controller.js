@@ -187,7 +187,34 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
 });
 
+module.exports.getofferedFarmers = asyncErrorHandler(async (req, res) => {
+    const { page, limit, skip, sortBy, search = '', associateOffers_id } = req.query
 
+    let query = search ? {
+        $or: [
+            { "metaData.name": { $regex: search, $options: 'i' } },
+            { "metaData.father_name": { $regex: search, $options: 'i' } },
+            { "metaData.mobile_no": { $regex: search, $options: 'i' } },
+        ]
+    } : {};
+
+    query.associateOffers_id = associateOffers_id;
+    const records = { count: 0 };
+
+    records.rows = await FarmerOffers.find(query)
+        .sort(sortBy)
+        .skip(skip)
+        .populate({ path: 'farmer_id', select: '_id farmer_code parents address' })
+        .limit(parseInt(limit))
+        .select('_id associateOffers_id farmer_id metaData offeredQty')
+
+    records.count = await FarmerOffers.countDocuments(query);
+    records.page = page
+    records.limit = limit
+    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }))
+})
 
 
 module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) => {
