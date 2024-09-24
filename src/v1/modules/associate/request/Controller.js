@@ -602,7 +602,7 @@ module.exports.editFarmerOffer = async (req, res) => {
         const { id, receving_date, qtyProcured, procurementCenter_id, weighbridge_name, weighbridge_no, tare_weight, gross_weight, net_weight, weight_slip, status = _procuredStatus.received } = req.body;
         const { user_id } = req;
 
-        const record = await FarmerOffers.findOne({ _id: id });
+        const record = await FarmerOrders.findOne({ _id: id });
 
         if (!record) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }))
