@@ -26,7 +26,8 @@ const _collectionName = {
     StateDistrictCity: "StateDistrictCity",
     Batch: "Batch",
     Payment: "Payment",
-    Branch: "Branch"
+    Branch: "Branch",
+    DummyWarehouse: "DummyWarehouse"
 }
 const _status = {
     active: "active",
