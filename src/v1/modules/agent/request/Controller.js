@@ -88,9 +88,8 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
     // Building the query
     let query = search ? {
         $or: [
-            { "reqNo": { $regex: search, $options: 'i' } },
-            { "product.name": { $regex: search, $options: 'i' } },
-            { "product.grade": { $regex: search, $options: 'i' } },
+            { "associate.user_code": { $regex: search, $options: 'i' } },
+            { "associate.basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
         ]
     } : {};
 
@@ -116,6 +115,14 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
                 localField: '_id',
                 foreignField: 'associateOffers_id',
                 as: 'farmeroffers'
+            }
+        },
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'seller_id',
+                foreignField: '_id',
+                as: 'associate'
             }
         },
         {
@@ -160,6 +167,7 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
                 }
             }
         },
+        { $unwind: '$associate' },
         {
             $project: {
                 _id: 1,
@@ -167,7 +175,11 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
                 status: 1,
                 numberOfFarmerOffers: 1, // Include the count of FarmerOffers
                 procurementStatus: 1, // Include the calculated procurementStatus
-                req_id: 1
+                req_id: 1,
+                // associate: { $arrayElemAt: ['$associate', 0] },
+                'associate._id': 1,
+                'associate.user_code': 1,
+                'associate.basic_details.associate_details.associate_name': 1,
             }
         },
         { $match: query }, // Apply query

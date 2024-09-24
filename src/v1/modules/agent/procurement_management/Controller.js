@@ -14,7 +14,7 @@ module.exports.createProcurementCenter = async (req, res) => {
     try {
         const { user_id, user_type } = req
         const { center_name, center_code, line1, line2, state, district, city, name, email, mobile, designation, aadhar_number, aadhar_image, postalCode, lat, long, addressType, location_url } = req.body;
-        
+
         let center_type;
         if (user_type == '4') {
             center_type = _center_type.associate;
@@ -46,15 +46,20 @@ module.exports.createProcurementCenter = async (req, res) => {
 module.exports.getProcurementCenter = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, centerType } = req.query
-        
+        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, centerType = 'self' } = req.query
+
         const { user_id } = req
-        
+
         let query = {
-            ...(search ? { name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+            ...(search ? {
+                $or: [
+                    { center_name: { $regex: search, $options: "i" } },
+                    { center_code: { $regex: search, $options: "i" } }
+                ], deletedAt: null
+            } : { deletedAt: null })
         };
         if (centerType === 'self') {
-            query.user_id = user_id; 
+            query.user_id = user_id;
         } else if (centerType === 'associate') {
             query.user_id = { $ne: user_id };
         }
@@ -143,7 +148,7 @@ module.exports.getHoProcurementCenter = async (req, res) => {
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-        
+
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement center") }));
 
     } catch (error) {
