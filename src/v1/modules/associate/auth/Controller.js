@@ -60,6 +60,7 @@ module.exports.sendOtp = async (req, res) => {
 module.exports.loginOrRegister = async (req, res) => {
     try {
         const { userInput, inputOTP } = req.body;
+        
         if (!userInput || !inputOTP) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('otp_required') }] }));
         }
@@ -77,7 +78,7 @@ module.exports.loginOrRegister = async (req, res) => {
         }
         
         let userExist = await User.findOne(query).lean();
-
+        
         if (userExist) {
             const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
             const now = new Date();
@@ -90,7 +91,7 @@ module.exports.loginOrRegister = async (req, res) => {
             });
             const data = {
                 token: token,
-                user_type: userExist.user_type,
+                user_type: _userType.associate,
                 is_approved: userExist.is_approved,
                 phone: userExist.basic_details.associate_details.phone,
                 associate_code: userExist.user_code,
@@ -105,7 +106,7 @@ module.exports.loginOrRegister = async (req, res) => {
                     ? { associate_details: { email: userInput } }
                     : { associate_details: { phone: userInput } },
                 term_condition: true,
-                user_type: _userType.associate,
+                
             };
             if (isEmailInput) {
                 newUser.is_email_verified = true;
@@ -113,7 +114,7 @@ module.exports.loginOrRegister = async (req, res) => {
                 newUser.is_mobile_verified = true;
             }
             const userInsert = await User.create(newUser);
-            return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('User'), data: userInsert }));
+            return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.created('User'), data: userInsert }));
         }
     } catch (error) {
         _handleCatchErrors(error, res);
