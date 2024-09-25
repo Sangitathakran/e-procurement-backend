@@ -67,8 +67,8 @@ const basicDetailsSchema = Joi.object({
         }),
         pan_image: Joi.string().trim().optional(),
     }),
-    implementation_agency: Joi.string().trim().min(2).max(50),
-    cbbo_name: Joi.string().trim().min(2).max(50),
+    implementation_agency: Joi.string().trim().optional().allow(''),
+    cbbo_name: Joi.string().trim().optional().allow(''),
 
 });
 

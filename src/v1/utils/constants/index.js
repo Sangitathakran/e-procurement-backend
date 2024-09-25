@@ -132,7 +132,7 @@ const _trader_type = {
     SOCIETY: 'Society',
     TRUST: 'Trust',
     INDIVIDUAL: 'Individual',
-    PROPRITER: 'Propriter',
+    PROPRIETOR: 'Proprietor',
 }
 
 const _center_type = {
