@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
 const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
-const { _userType } = require("@src/v1/utils/constants");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { User } = require("@src/v1/models/app/auth/User");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const bcrypt = require('bcrypt');
+const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
 
 
 module.exports.getHo = async (req, res) => {
@@ -113,6 +113,21 @@ module.exports.saveHeadOffice = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.updateStatus = asyncErrorHandler(async (req, res) => {
+    const { id, status } = req.body
+
+    const record = await HeadOffice.findOne({ _id: id })
+
+    if (!record) {
+        return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Head Office") }] }))
+    }
+
+    record.active = status
+    record.save()
+
+    return res.send(new serviceResponse({ status: 200, data: record, message: _response_message.updated() }))
+})
 
 module.exports.userStatusUpdate = async (req, res) => { // TODO ask ankush is this api is workig anywhere
     try {
