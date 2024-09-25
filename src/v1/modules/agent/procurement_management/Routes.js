@@ -7,9 +7,10 @@ const { verifyAgent } = require("../utils/verifyAgent");
 const procurementCenterRoutes = express.Router();
 const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 
+procurementCenterRoutes.post("/import-centers", verifyAgent, ImportProcurementCenter);
+procurementCenterRoutes.post("/generateCenterCode", verifyAgent, generateCenterCode);
+procurementCenterRoutes.get("/ho-list", verifyJwtToken, getHoProcurementCenter);
 procurementCenterRoutes.get("/", verifyAgent, getProcurementCenter);
-procurementCenterRoutes.post("/import-centers", ImportProcurementCenter);
-procurementCenterRoutes.post("/generateCenterCode", generateCenterCode);
 procurementCenterRoutes.post("/", validateErrors, verifyAgent, createProcurementCenter, [
     body("center_name", _middleware.require("center_name")).notEmpty().trim(),
     body("center_code", _middleware.require("center_code")).notEmpty().trim(),
@@ -30,6 +31,6 @@ procurementCenterRoutes.post("/", validateErrors, verifyAgent, createProcurement
     body("addressType", _middleware.require("addressType")).isIn(['Residential', 'Business', 'Billing', 'Shipping']),
     body("isPrimary").optional().isBoolean()
 ]);
-procurementCenterRoutes.get("/ho-list",verifyJwtToken, getHoProcurementCenter);
+// TODO Add create procurement center end point to postman colletion
 
 module.exports = { procurementCenterRoutes }; 

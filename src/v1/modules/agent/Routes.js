@@ -8,8 +8,8 @@ const { procurementCenterRoutes } = require("./procurement_management/Routes");
 const agentRoutes = express.Router();
 
 agentRoutes.use('/request', requestRoutes);
-agentRoutes.use("/associate-management", associateMngmntRoutes);
-agentRoutes.use("/ho-management", hoMngmntRoutes);
+agentRoutes.use("/associate", associateMngmntRoutes);
+agentRoutes.use("/ho", hoMngmntRoutes);
 agentRoutes.use("/warehouse", warehouseRoutes);
 agentRoutes.use("/procurement", procurementCenterRoutes);
 

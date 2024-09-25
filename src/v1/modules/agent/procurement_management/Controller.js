@@ -128,7 +128,7 @@ module.exports.getProcurementCenter = async (req, res) => {
 }
 
 
-module.exports.getHoProcurementCenter = async (req, res) => {
+module.exports.getHoProcurementCenter = async (req, res) => { // TODO ask ankush for getHoProcurementCenter api in agent
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
