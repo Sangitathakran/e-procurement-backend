@@ -91,7 +91,7 @@ class EmailService {
                 .replace("{{user_name}}", user_name)
                 .replace("{{password}}", password);
 
-            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+            await sendMail(email, '', 'Head Office registration done successfully | NavBazaar Login Credentials ', html);
 
         } catch (error) {
             console.error("Error sending welcome email:", error);
