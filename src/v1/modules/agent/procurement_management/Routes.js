@@ -1,7 +1,7 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
-const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode, getHoProcurementCenter } = require("./Controller");
+const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode } = require("./Controller");
 const express = require("express");
 const { verifyAgent } = require("../utils/verifyAgent");
 const procurementCenterRoutes = express.Router();
@@ -9,7 +9,6 @@ const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 
 procurementCenterRoutes.post("/import-centers", verifyAgent, ImportProcurementCenter);
 procurementCenterRoutes.post("/generateCenterCode", verifyAgent, generateCenterCode);
-procurementCenterRoutes.get("/ho-list", verifyJwtToken, getHoProcurementCenter);
 procurementCenterRoutes.get("/", verifyAgent, getProcurementCenter);
 procurementCenterRoutes.post("/", validateErrors, verifyAgent, createProcurementCenter, [
     body("center_name", _middleware.require("center_name")).notEmpty().trim(),
@@ -31,6 +30,5 @@ procurementCenterRoutes.post("/", validateErrors, verifyAgent, createProcurement
     body("addressType", _middleware.require("addressType")).isIn(['Residential', 'Business', 'Billing', 'Shipping']),
     body("isPrimary").optional().isBoolean()
 ]);
-// TODO Add create procurement center end point to postman colletion
 
 module.exports = { procurementCenterRoutes }; 

@@ -127,35 +127,6 @@ module.exports.getProcurementCenter = async (req, res) => {
     }
 }
 
-
-module.exports.getHoProcurementCenter = async (req, res) => { // TODO ask ankush for getHoProcurementCenter api in agent
-
-    try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
-        let query = {
-            ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
-        };
-        const records = { count: 0 };
-        records.rows = paginate == 1 ? await ProcurementCenter.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await ProcurementCenter.find(query).sort(sortBy);
-
-        records.count = await ProcurementCenter.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement center") }));
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-}
-
 module.exports.ImportProcurementCenter = async (req, res) => {
     try {
         const { isxlsx = 1 } = req.body;
