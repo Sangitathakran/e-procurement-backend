@@ -5,7 +5,7 @@ const { verifyAgent } = require("../utils/verifyAgent");
 
 const hoMngmntRoutes = express.Router();
 
-hoMngmntRoutes.patch("/status", verifyAgent, updateStatus);
+hoMngmntRoutes.patch("/:id/:status", verifyAgent, updateStatus);
 hoMngmntRoutes.get("/", verifyAgent, getHo);
 hoMngmntRoutes.post("/", validateForm, saveHeadOffice);
 
