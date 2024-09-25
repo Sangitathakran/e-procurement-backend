@@ -137,7 +137,7 @@ module.exports.getSingleFarmer = async (req, res) => {
                 return sendResponse({res, status: 400, data: null, message: _response_message.notProvided('Farmer Id')})
 
         const type = req.params.type
-         const farmerDetails =  await singlefarmerDetails(res, farmerId, type);
+        const farmerDetails =  await singlefarmerDetails(res, farmerId, type);
                
     
 
@@ -244,85 +244,42 @@ const singlefarmerDetails = async (res, farmerId, farmerType=1) => {
 
     try {
         const SINGLE_FARMER_INITIALS = {
-            basic_details: {
-                name: null,
-                father_spouse_name: null,
-                email: null,
-                mobile_no: null,
-                category: null,
-                dob: null,
-                farmer_type: null,
-                gender: null
-            },
-            address: {
-                address_line_1: null,
-                address_line_2: null,
-                pincode: null,
-                state: null,
-                district: null,
-                village_town_city: null,
-                taluka: null,
-                country: null,
-            },
-            land_details: {
-                total_area: null,
-                pincode: null,
-                khasra_no: null,
-                ghat_no: null,
-                soil_type: null,
-                soil_tested: null
-            },
+            basic_details: {},
+            address: {},
+            land_details: {},
+            bank_details: {},
             crop_details: {
-               upcoming_harvest: [{crop_name: null,
-                sowing_date: null,
-                harvest_date: null,
-                season: null}],
-                
-               past_harvest:[{
-                crop_name: null,
-                sowing_date: null,
-                harvest_date: null,
-                season: null
-               }] 
-                
+                upcoming_harvest: [],
+                past_harvest:[] 
             },
-            bank_details: {
-                bank_name: null,
-                branch_name: null,
-                account_holder_name: null,
-                ifsc_code: null,
-                account_no: null,
-                confirm_account_no: null,
-                upload_proof: null
-            }
         }
         //this is associate farmer
         if(farmerType==1){
-           const basicDetails = await farmer.findById(farmerId).select('name parents email mobile_no category dob farmer_type gender')
-           const address = await farmer.findById(farmerId).select('address.address_line address.pinCode address.village address.country address.block')
-           const landDetails = await Land.findOne({ _id: farmerId }).select('total_area khasra_no soil_type soil_tested')
-           const cropDetails = await Crop.findOne({ _id: farmerId }).select('crops_name sowing_date harvesting_date crop_seasons')
-           const bankDetails = await Bank.findOne({ _id: farmerId }).select('bank_name account_holder_name ifsc_code account_no document')
-          
+           const basicDetails = await farmer.findById(farmerId)
+           const address = await farmer.findById(farmerId)
+           const landDetails = await Land.findOne({ farmer_id: farmerId })
+           const cropDetails = await Crop.find({ farmer_id: farmerId })
+           const bankDetails = await Bank.findOne({ farmer_id: farmerId })
+
            SINGLE_FARMER_INITIALS.basic_details = {
-             name: basicDetails?.name,
+             name: basicDetails?.name || null ,
              father_spouse_name: basicDetails?.parents?.father_name ||
-                                 basicDetails.parents?.mother_name,
-             email: bankDetails?.email,
-             mobile_no: basicDetails?.mobile_no,
-             category: basicDetails?.category,
-             farmer_type: basicDetails?.farmer_type,
-             gender: basicDetails?.gender
+                                 basicDetails.parents?.mother_name  || null,
+             email: bankDetails?.email || null,
+             mobile_no: basicDetails?.mobile_no  || null,
+             category: basicDetails?.category  || null,
+             farmer_type: basicDetails?.farmer_type  || null,
+             gender: basicDetails?.gender  || null
            }
            SINGLE_FARMER_INITIALS.address = {
             address_line_1: address?.address.address_line || null,
             address_line_2: address?.address.address_line || null,
-            pincode: address?.address.pinCode,
-            state: null,
-            district: null,
-            village_town_city: address?.address.village,
-            taluka: address?.address.block,
-            country: address?.address.country
+            pincode: address?.address.pinCode  || null,
+            state: await getState(address?.address?.state_id),
+            district: await getDistrict(address?.address?.district_id),
+            village_town_city: address?.address.village  || null,
+            taluka: address?.address.block  || null,
+            country: address?.address.country  || null
            }
            SINGLE_FARMER_INITIALS.land_details = {
             total_area: landDetails?.total_area || null,
@@ -332,88 +289,122 @@ const singlefarmerDetails = async (res, farmerId, farmerType=1) => {
             soil_type: landDetails?.soil_type || null,
             soil_tested: landDetails?.soil_tested || null
            }
-           SINGLE_FARMER_INITIALS.crop_details = {
-            upcoming_harvest: [{
-                crop_name: cropDetails?.crops_name,
-                sowing_date: cropDetails?.sowing_date,
-                harvest_date: cropDetails?.harvesting_date,
-                season: cropDetails?.crop_seasons
-            }],
-                
-               past_harvest:[{
-                crop_name: cropDetails?.crops_name,
-                sowing_date: cropDetails?.sowing_date,
-                harvest_date: cropDetails?.harvesting_date,
-                season: cropDetails?.crop_seasons
-               }] 
-           }
+
            SINGLE_FARMER_INITIALS.bank_details = {
-            bank_name: bankDetails?.bank_name,
-            branch_name: bankDetails?.bank_name,
-            account_holder_name: bankDetails?.account_holder_name,
-            ifsc_code: bankDetails?.ifsc_code,
-            account_no: bankDetails?.account_no,
-            confirm_account_no: bankDetails?.account_no,
-            upload_proof: bankDetails?.document
+            bank_name: bankDetails?.bank_name  || null,
+            branch_name: bankDetails?.bank_name  || null,
+            account_holder_name: bankDetails?.account_holder_name  || null,
+            ifsc_code: bankDetails?.ifsc_code  || null,
+            account_no: bankDetails?.account_no  || null,
+            confirm_account_no: bankDetails?.account_no  || null,
+            upload_proof: bankDetails?.document  || null
            }
 
+           cropDetails.map(item=> {
+                let crop = { 
+                    
+                        crop_name: item?.crops_name || null ,
+                        sowing_date: item?.sowing_date || null,
+                        harvest_date: item?.harvesting_date || null,
+                        season: item?.crop_seasons || null
+                    
+                }
+                let cropHarvestDate = new Date(crop.harvest_date)
+                let currentDate = new Date()
+    
+                if(cropHarvestDate < currentDate) {
+                    SINGLE_FARMER_INITIALS.crop_details.past_harvest.push(crop)
+                }else{ 
+                    SINGLE_FARMER_INITIALS.crop_details.upcoming_harvest.push(crop)
+                }
+                
+                
+                
+           })
+
+
+
+           return SINGLE_FARMER_INITIALS;
 
         }
         //this is individual farmer
         if(farmerType==2){
             const individualfarmerDetails = await IndividualModel.findOne({ _id: farmerId })
+            //temperary logic as indivdiual farmer don't have crop data 
+            const upcomping_crop = individualfarmerDetails.land_details.kharif_crops.map(item=> { 
+                let crop = { 
+                    
+                    crop_name: item || null ,
+                    sowing_date: item?.sowing_date || null,
+                    harvest_date: item?.harvesting_date || null,
+                    season: item?.crop_seasons || null
+                
+                }
+
+                return crop
+            })
+            //temperary logic as indivdiual farmer don't have crop data
+            const past_crop = individualfarmerDetails.land_details.rabi_crops.map(item=> { 
+                let crop = { 
+                    
+                    crop_name: item || null ,
+                    sowing_date: item?.sowing_date || null,
+                    harvest_date: item?.harvesting_date || null,
+                    season: item?.crop_seasons || null
+                
+                }
+
+                return crop
+            })
+            
+
             SINGLE_FARMER_INITIALS.basic_details = {
-                name:individualfarmerDetails?.basic_details.name,
-                father_spouse_name:individualfarmerDetails?.basic_details.father_husband_name ,
-                email:individualfarmerDetails?.basic_details.email,
-                mobile_no:individualfarmerDetails?.basic_details.mobile_no,
-                category:individualfarmerDetails?.basic_details.category,
-                dob:individualfarmerDetails?.basic_details.dob,
-                farmer_type:individualfarmerDetails?.basic_details.farmer_type,
-                gender:individualfarmerDetails?.basic_details.gender
+                name:individualfarmerDetails?.basic_details.name || null,
+                father_spouse_name:individualfarmerDetails?.basic_details.father_husband_name || null,
+                email:individualfarmerDetails?.basic_details.email || null,
+                mobile_no:individualfarmerDetails?.basic_details.mobile_no || null,
+                category:individualfarmerDetails?.basic_details.category || null,
+                dob:individualfarmerDetails?.basic_details.dob || null,
+                farmer_type:individualfarmerDetails?.basic_details.farmer_type || null,
+                gender:individualfarmerDetails?.basic_details.gender || null
             }
             SINGLE_FARMER_INITIALS.address = {
                 address_line_1: individualfarmerDetails?.address.address_line_1 || null,
                 address_line_2: individualfarmerDetails?.address.address_line_2 || null,
-                pincode: individualfarmerDetails?.address.pinCode,
-                state: individualfarmerDetails?.state,
-                district:individualfarmerDetails?.address.district,
-                village_town_city: individualfarmerDetails?.address.village,
-                taluka: individualfarmerDetails?.address.block,
-                country: individualfarmerDetails?.address.country
+                pincode: individualfarmerDetails?.address.pinCode || null,
+                state: individualfarmerDetails?.state || null,
+                district:individualfarmerDetails?.address.district || null,
+                village_town_city: individualfarmerDetails?.address.village || null,
+                taluka: individualfarmerDetails?.address.block || null,
+                country: individualfarmerDetails?.address.country || null
             }
             SINGLE_FARMER_INITIALS.land_details = {
-                total_area: individualfarmerDetails?.land_details.total_area,
-                pincode:individualfarmerDetails?.land_details.pinCode,
-                khasra_no: individualfarmerDetails?.land_details.khasra_no,
-                ghat_no: individualfarmerDetails?.land_details.ghat_number,
-                soil_type: individualfarmerDetails?.land_details.soil_type,
-                soil_tested: individualfarmerDetails?.land_details.soil_tested
+                total_area: individualfarmerDetails?.land_details.total_area || null,
+                pincode:individualfarmerDetails?.land_details.pinCode || null,
+                khasra_no: individualfarmerDetails?.land_details.khasra_no || null,
+                ghat_no: individualfarmerDetails?.land_details.ghat_number || null,
+                soil_type: individualfarmerDetails?.land_details.soil_type || null,
+                soil_tested: individualfarmerDetails?.land_details.soil_tested || null
             }
             SINGLE_FARMER_INITIALS.crop_details = {
-                upcoming_harvest: [{crop_name: null,
-                    sowing_date: null,
-                    harvest_date: null,
-                    season: null}],
+                
+                upcoming_harvest: upcomping_crop,
                     
-                   past_harvest:[{
-                    crop_name: null,
-                    sowing_date: null,
-                    harvest_date: null,
-                    season: null
-                   }] 
+                past_harvest: past_crop 
             }
             SINGLE_FARMER_INITIALS.bank_details = {
-                bank_name: individualfarmerDetails?.bank_details.bank_name,
-                branch_name: individualfarmerDetails?.bank_details.branch_name,
-                account_holder_name: individualfarmerDetails?.bank_details.account_holder_name,
-                ifsc_code: individualfarmerDetails?.bank_details.ifsc_code,
-                account_no: individualfarmerDetails?.bank_details.account_no,
-                confirm_account_no: individualfarmerDetails?.bank_details.account_no,
-                upload_proof: individualfarmerDetails?.bank_details.proof_doc_key
+                bank_name: individualfarmerDetails?.bank_details.bank_name || null,
+                branch_name: individualfarmerDetails?.bank_details.branch_name || null,
+                account_holder_name: individualfarmerDetails?.bank_details.account_holder_name || null,
+                ifsc_code: individualfarmerDetails?.bank_details.ifsc_code|| null,
+                account_no: individualfarmerDetails?.bank_details.account_no || null,
+                confirm_account_no: individualfarmerDetails?.bank_details.account_no || null,
+                upload_proof: individualfarmerDetails?.bank_details.proof_doc_key || null
             }
+
+            return SINGLE_FARMER_INITIALS;
         }
-        return SINGLE_FARMER_INITIALS;
+        
 
     } catch (error) {
          _handleCatchErrors(error, res);
