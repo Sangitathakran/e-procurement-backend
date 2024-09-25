@@ -7,6 +7,7 @@ const landSchema = new mongoose.Schema({
     area_unit: { type: String, enum: Object.values(_areaUnit), default: null, trim: true, },
     khasra_no: { type: String, trim: true, },
     khatauni: { type: String, trim: true, },
+    ghat_no: { type: String, trim: true, },
     sow_area: { type: String, trim: true, },
     land_address: {
         country: { type: String, trim:true, default: 'India', },

@@ -27,7 +27,8 @@ const _collectionName = {
     Batch: "Batch",
     Payment: "Payment",
     Branch: "Branch",
-    DummyWarehouse: "DummyWarehouse"
+    DummyWarehouse: "DummyWarehouse",
+    FarmerOrder: "FarmerOrder",
 }
 const _status = {
     active: "active",
