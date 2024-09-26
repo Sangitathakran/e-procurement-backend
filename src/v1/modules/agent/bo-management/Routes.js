@@ -8,4 +8,5 @@ boManagementRoutes.patch("/:id/:status", verifyAgent, updateStatus);
 boManagementRoutes.get("/", verifyAgent, getBo);
 
 
+
 module.exports = { boManagementRoutes }; 

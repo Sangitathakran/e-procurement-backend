@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { User } = require("@src/v1/models/app/auth/User");
-const { _userType } = require("@src/v1/utils/constants");
+const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
@@ -45,7 +45,7 @@ module.exports.getAssociates = async (req, res) => {
 
 module.exports.userStatusUpdate = async (req, res) => {
     try {
-        const { userId } = req.body;
+        const { userId, status } = req.body;
         if (!userId) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('user id') }] }));
         }
@@ -56,10 +56,14 @@ module.exports.userStatusUpdate = async (req, res) => {
         if (!user) {
             return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound('User') }] }));
         }
-        if (user.is_approved) {
+        if (user.is_approved == _userStatus.approved) {
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.allReadyApproved('User') }));
         }
-        user.is_approved = true;
+        if(!Object.values(_userStatus).includes(status)){
+            return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.invalid('Status') }));
+        }
+        
+        user.is_approved = status;
 
         if (!user.is_welcome_email_send) {
             await emailService.sendWelcomeEmail(user);
