@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _userType, _trader_type } = require('@src/v1/utils/constants');
+const { _collectionName, _userType, _trader_type, _userStatus } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const userSchema = new mongoose.Schema({
 
@@ -97,8 +97,9 @@ const userSchema = new mongoose.Schema({
     user_code: { type: String, unique: true },
     user_type: { type: String, trim: true, enum: Object.values(_userType) },
     is_mobile_verified: { type: String, default: false },
-    is_approved: { type: Boolean, default: false },
+    is_approved: { type: String, enum: Object.values(_userStatus), default: _userStatus.pending },
     is_email_verified: { type: String, default: false },
+    is_form_submitted: { type: String, default: false },
     is_welcome_email_send: { type: Boolean, default: false },
     is_sms_send: { type: Boolean, default: false },
     term_condition: { type: String, default: false },
