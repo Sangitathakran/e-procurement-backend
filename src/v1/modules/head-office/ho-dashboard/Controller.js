@@ -7,6 +7,7 @@ const
   IndividualFarmer
  = require("@src/v1/models/app/farmerDetails/IndividualFarmer");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const {wareHouse}=require("@src/v1/models/app/warehouse/warehouseSchema")
 const { User } = require("@src/v1/models/app/auth/User");
 const {
   ProcurementCenter
@@ -138,43 +139,46 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
 });
 //locationWareHouseChart
 module.exports.locationWareHouseChart = asyncErrorHandler(async (req, res) => {
-  const data = [
-    {
-      wrId: "WR23452",
-      warehouseName: "WR23452",
-      district: "Berhampur",
-      totalWarhouse: "12",
+    const {option,paginate=1,skip,limit}=req.query;        
+    let record={count:0}
+    record.row =await wareHouse.aggregate([{$group:{_id:"$state",district:{$push:"$district"},totalwarehouse:{"$sum":1}}},{
+      "$project": {
+        "district": {
+          "$rtrim": {
+            "input": {
+              "$reduce": {
+                "input": "$district",
+                "initialValue": "",
+                "in": {
+                  "$concat": [
+                    "$$value",
+                    "$$this",
+                    ","
+                  ]
+                }
+              }
+            },
+            "chars": ","
+          }
+        },
+        state:"$_id",
+        totalwarehouse:1,
+        _id:0
+      }
     },
-    {
-      wrId: "WR23418",
-      warehouseName: "WR23418",
-      district: "Bangalore",
-      totalWarhouse: "05",
-    },
-    {
-      wrId: "WR23241",
-      warehouseName: "WR23241",
-      district: "Rajpur Sonarpur",
-      totalWarhouse: "08",
-    },
-    {
-      wrId: "WR23563",
-      warehouseName: "WR23563",
-      district: "Bhalswa Jahangir Pur",
-      totalWarhouse: "02",
-    },
-    {
-      wrId: "WR23443",
-      warehouseName: "WR23443",
-      district: "Srinagar",
-      totalWarhouse: "05",
-    },
-  ];
+    {$skip:skip},
+    {$limit:limit}
+  ])
+  record.count=await wareHouse.aggregate([{$group:{_id:"$state",district:{$push:"$district"}}},
+    {$setWindowFields: {output: {totalCount: {$count: {}}}}},
+    {$skip:skip},
+    {$limit:limit},{$project:{totalCount:1,_id:0}}])
+    record.count=record.count[0].totalCount
   return sendResponse({
     res,
     status: 200,
     message: _query.get("Warehouse Location"),
-    data: data,
+    data: record,
   });
 });
 //paymentQuantityPurchase
@@ -222,12 +226,6 @@ module.exports.branchOfficeProcurement=asyncErrorHandler(async(req,res)=>{
     { state: "Himachal Pradesh", farmers: 1400 },
   ];
  
- const stateOptions = [
-    { value: "", label: "Select All" },
-    { value: "maharashtra", label: "Maharashtra" },
-    { value: "gujarat", label: "Gujarat" },
-    { value: "rajasthan", label: "Rajasthan" },    
-  ];
   return sendResponse({
     res,
     status: 200,
