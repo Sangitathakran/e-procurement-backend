@@ -91,7 +91,7 @@ module.exports.loginOrRegister = async (req, res) => {
             });
             const data = {
                 token: token,
-                user_type: _userType.associate,
+                user_type: userExist.user_type,
                 is_approved: userExist.is_approved,
                 phone: userExist.basic_details.associate_details.phone,
                 associate_code: userExist.user_code,
@@ -106,7 +106,7 @@ module.exports.loginOrRegister = async (req, res) => {
                     ? { associate_details: { email: userInput } }
                     : { associate_details: { phone: userInput } },
                 term_condition: true,
-                
+                user_type: _userType.associate,
             };
             if (isEmailInput) {
                 newUser.is_email_verified = true;
