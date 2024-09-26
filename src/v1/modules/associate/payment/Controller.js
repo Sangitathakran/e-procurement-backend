@@ -484,9 +484,9 @@ module.exports.getBill = async (req, res) => {
         }));
 
         const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
-        const packingQty = (0.8/1000); 
-        
-        let records = { ...billPayment.toObject(), totalamount, mspAmount, packingQty }
+        const billQty = (0.8/1000); 
+
+        let records = { ...billPayment.toObject(), totalamount, mspAmount, billQty }
 
         if (records) {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
