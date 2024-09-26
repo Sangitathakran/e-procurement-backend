@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const { User } = require("@src/v1/models/app/auth/User");
-const { _userStatus } = require("@src/v1/utils/constants");
-const { _userType, _user_status } = require("@src/v1/utils/constants");
+const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
@@ -166,7 +165,7 @@ module.exports.pendingRequests = async (req, res) => {
             ]
         } : {};
 
-        query.user_status = { $in: [_user_status.PENDING, _user_status.DISAPPROVED] };
+        query.user_status = { $in: [_userStatus.pending, _userStatus.rejected] };
 
         const records = { count: 0 };
 
