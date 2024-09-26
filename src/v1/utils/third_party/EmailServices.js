@@ -99,7 +99,7 @@ class EmailService {
         }
     }
 
-    async sendWelcomeEmail(userDetails, APP_URL, LOGO_URL) {
+    async sendWelcomeEmail(userDetails) {
         try {
             const email = userDetails.basic_details.associate_details.email;
             const userName = userDetails.basic_details.associate_details.organization_name;
