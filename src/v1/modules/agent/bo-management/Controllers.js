@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
-const { Branches } = require('@src/v1/models/master/Branches');
+const { Branches } = require('@src/v1/models/app/branchManagement/Branches');
 
 
 module.exports.getBo = asyncErrorHandler(async (req, res) => {
@@ -52,3 +52,5 @@ module.exports.updateStatus = asyncErrorHandler(async (req, res) => {
 
     return res.send(new serviceResponse({ status: 200, data: record, message: _response_message.updated() }))
 })
+
+

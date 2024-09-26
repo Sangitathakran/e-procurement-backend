@@ -128,6 +128,12 @@ const _userType = {
     agent: "6",
 }
 
+const _userStatus = {
+    approved: 'approved',
+    rejected: 'rejected',
+    pending: 'pending',
+}
+
 const _trader_type = {
     ORGANISATION: 'Organisation',
     SOCIETY: 'Society',
@@ -359,5 +365,6 @@ module.exports = {
     _paymentstatus,
     _center_type,
     _address_type,
-    _individual_category
+    _individual_category,
+    _userStatus
 }

@@ -260,7 +260,6 @@ module.exports.ImportProcurementCenter = async (req, res) => {
 module.exports.generateCenterCode = async (req, res) => {
     try {
         const lastCenter = await ProcurementCenter.findOne({ center_code: { $exists: true } }).sort({ center_code: -1 });
-
         let CenterCode = '';
 
         if (lastCenter && lastCenter.center_code) {

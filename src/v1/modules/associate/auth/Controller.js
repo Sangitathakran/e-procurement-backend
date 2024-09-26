@@ -60,6 +60,7 @@ module.exports.sendOtp = async (req, res) => {
 module.exports.loginOrRegister = async (req, res) => {
     try {
         const { userInput, inputOTP } = req.body;
+        
         if (!userInput || !inputOTP) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('otp_required') }] }));
         }
@@ -85,6 +86,7 @@ module.exports.loginOrRegister = async (req, res) => {
                     ? { associate_details: { email: userInput } }
                     : { associate_details: { phone: userInput } },
                 term_condition: true,
+                user_type: _userType.associate,
             };
             if (isEmailInput) {
                 newUser.is_email_verified = true;
@@ -133,7 +135,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
         switch (formName) {
             case 'organization':
                 user.basic_details.associate_details.organization_name = formData.organization_name;
-                user.user_type = _userType.associate;
+                
                 break;
             case 'basic_details':
                 if (formData.associate_details && formData.associate_details.phone) {
@@ -180,28 +182,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
                 return res.status(200).send(new serviceResponse({ status: 400, message: `Invalid form name: ${formName}` }));
         }
         await user.save();
-        const allDetailsFilled = (
-            user?.basic_details?.associate_details?.organization_name &&
-            user?.basic_details?.point_of_contact?.name &&
-            user?.address?.registered?.line1 &&
-            user?.company_details?.cin_number &&
-            user?.authorised?.name &&
-            user?.bank_details?.account_number
-        );
-
-        if (!user.is_welcome_email_send && allDetailsFilled) {
-            await emailService.sendWelcomeEmail(user);
-            user.is_welcome_email_send = true;
-            await user.save();
-        }
-
-        if (!user.is_sms_send && allDetailsFilled) {
-            const { phone, organization_name } = user.basic_details.associate_details;
-
-            await smsService.sendWelcomeSMSForAssociate(phone, organization_name, user.user_code);
-            await user.updateOne({ is_sms_send: true });
-        }
-
+        
         const response = { user_code: user.user_code, user_id: user._id };
         return res.status(200).send(new serviceResponse({ message: _response_message.updated(formName), data: response }));
     } catch (error) {
@@ -246,3 +227,70 @@ module.exports.formPreview = async (req, res) => {
     }
 }
 
+module.exports.findUserStatus = async (req, res) => {
+    try {
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
+        const decode = await decryptJwtToken(getToken);
+        const userId = decode.data.user_id;
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        }
+        
+        const response = await User.findById({ _id: userId });
+        if (!response) {
+            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.finalFormSubmit = async (req, res) => {
+    try {
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
+        const decode = await decryptJwtToken(getToken);
+        const userId = decode.data.user_id;
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        }
+        
+        user.is_form_submitted = true;
+
+        const allDetailsFilled = (
+            user?.basic_details?.associate_details?.organization_name &&
+            user?.basic_details?.point_of_contact?.name &&
+            user?.address?.registered?.line1 &&
+            user?.company_details?.cin_number &&
+            user?.authorised?.name &&
+            user?.bank_details?.account_number
+        );
+
+        if (!user.is_welcome_email_send && allDetailsFilled) {
+            await emailService.sendWelcomeEmail(user);
+            user.is_welcome_email_send = true;
+            await user.save();
+        }
+
+        if (!user.is_sms_send && allDetailsFilled) {
+            const { phone, organization_name } = user.basic_details.associate_details;
+
+            await smsService.sendWelcomeSMSForAssociate(phone, organization_name, user.user_code);
+            await user.updateOne({ is_sms_send: true });
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: _query.update("data"), data: user.is_form_submitted }));
+        
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}

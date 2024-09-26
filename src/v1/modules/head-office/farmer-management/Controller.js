@@ -6,7 +6,9 @@ const ObjectId = mongoose.Types.ObjectId;
 const IndividualModel = require("@src/v1/models/app/farmerDetails/IndividualFarmer")
 const {farmer} = require("@src/v1/models/app/farmerDetails/Farmer");
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
-
+const {Bank} = require("@src/v1/models/app/farmerDetails/Bank");
+const {Crop} = require("@src/v1/models/app/farmerDetails/Crop");
+const {Land} = require("@src/v1/models/app/farmerDetails/Land");
 
 module.exports.farmerList = async (req, res) => {
     try {
@@ -134,26 +136,15 @@ module.exports.getSingleFarmer = async (req, res) => {
         if(!farmerId)
                 return sendResponse({res, status: 400, data: null, message: _response_message.notProvided('Farmer Id')})
 
-        const associate = req.params.associate
-
-        let farmerDetails
-        switch (associate) {
-            case 'true': 
-              farmerDetails = await farmer.findOne({ _id: farmerId });
-              break;
-      
-            case 'false': 
-              farmerDetails = await IndividualModel.findOne({ _id: farmerId });
-              break;
-      
-            default:
-              farmerDetails = null; 
-        }
+        const type = req.params.type
+        const farmerDetails =  await singlefarmerDetails(res, farmerId, type);
+               
+    
 
         return sendResponse({
                 res,
                 status: 200,
-                data: farmerDetails,
+                data: farmerDetails ,
                 message: farmerDetails 
                     ? _response_message.found("farmer")
                     : _response_message.notFound("farmer")
@@ -247,4 +238,178 @@ const getDistrict = async (districtId)=>{
 }
 
 
+
+const singlefarmerDetails = async (res, farmerId, farmerType=1) => {
+
+
+    try {
+        const SINGLE_FARMER_INITIALS = {
+            basic_details: {},
+            address: {},
+            land_details: {},
+            bank_details: {},
+            crop_details: {
+                upcoming_harvest: [],
+                past_harvest:[] 
+            },
+        }
+        //this is associate farmer
+        if(farmerType==1){
+           const basicDetails = await farmer.findById(farmerId)
+           const address = await farmer.findById(farmerId)
+           const landDetails = await Land.findOne({ farmer_id: farmerId })
+           const cropDetails = await Crop.find({ farmer_id: farmerId })
+           const bankDetails = await Bank.findOne({ farmer_id: farmerId })
+
+           SINGLE_FARMER_INITIALS.basic_details = {
+             name: basicDetails?.name || null ,
+             father_spouse_name: basicDetails?.parents?.father_name ||
+                                 basicDetails.parents?.mother_name  || null,
+             email: bankDetails?.email || null,
+             mobile_no: basicDetails?.mobile_no  || null,
+             category: basicDetails?.category  || null,
+             farmer_type: basicDetails?.farmer_type  || null,
+             gender: basicDetails?.gender  || null
+           }
+           SINGLE_FARMER_INITIALS.address = {
+            address_line_1: address?.address.address_line || null,
+            address_line_2: address?.address.address_line || null,
+            pincode: address?.address.pinCode  || null,
+            state: await getState(address?.address?.state_id),
+            district: await getDistrict(address?.address?.district_id),
+            village_town_city: address?.address.village  || null,
+            taluka: address?.address.block  || null,
+            country: address?.address.country  || null
+           }
+           SINGLE_FARMER_INITIALS.land_details = {
+            total_area: landDetails?.total_area || null,
+            pincode: null,
+            khasra_no: landDetails?.khasra_no || null,
+            ghat_no: null,
+            soil_type: landDetails?.soil_type || null,
+            soil_tested: landDetails?.soil_tested || null
+           }
+
+           SINGLE_FARMER_INITIALS.bank_details = {
+            bank_name: bankDetails?.bank_name  || null,
+            branch_name: bankDetails?.bank_name  || null,
+            account_holder_name: bankDetails?.account_holder_name  || null,
+            ifsc_code: bankDetails?.ifsc_code  || null,
+            account_no: bankDetails?.account_no  || null,
+            confirm_account_no: bankDetails?.account_no  || null,
+            upload_proof: bankDetails?.document  || null
+           }
+
+           cropDetails.map(item=> {
+                let crop = { 
+                    
+                        crop_name: item?.crops_name || null ,
+                        sowing_date: item?.sowing_date || null,
+                        harvest_date: item?.harvesting_date || null,
+                        season: item?.crop_seasons || null
+                    
+                }
+                let cropHarvestDate = new Date(crop.harvest_date)
+                let currentDate = new Date()
+    
+                if(cropHarvestDate < currentDate) {
+                    SINGLE_FARMER_INITIALS.crop_details.past_harvest.push(crop)
+                }else{ 
+                    SINGLE_FARMER_INITIALS.crop_details.upcoming_harvest.push(crop)
+                }
+                
+                
+                
+           })
+
+
+
+           return SINGLE_FARMER_INITIALS;
+
+        }
+        //this is individual farmer
+        if(farmerType==2){
+            const individualfarmerDetails = await IndividualModel.findOne({ _id: farmerId })
+            //temperary logic as indivdiual farmer don't have crop data 
+            const upcomping_crop = individualfarmerDetails.land_details.kharif_crops.map(item=> { 
+                let crop = { 
+                    
+                    crop_name: item || null ,
+                    sowing_date: item?.sowing_date || null,
+                    harvest_date: item?.harvesting_date || null,
+                    season: item?.crop_seasons || null
+                
+                }
+
+                return crop
+            })
+            //temperary logic as indivdiual farmer don't have crop data
+            const past_crop = individualfarmerDetails.land_details.rabi_crops.map(item=> { 
+                let crop = { 
+                    
+                    crop_name: item || null ,
+                    sowing_date: item?.sowing_date || null,
+                    harvest_date: item?.harvesting_date || null,
+                    season: item?.crop_seasons || null
+                
+                }
+
+                return crop
+            })
+            
+
+            SINGLE_FARMER_INITIALS.basic_details = {
+                name:individualfarmerDetails?.basic_details.name || null,
+                father_spouse_name:individualfarmerDetails?.basic_details.father_husband_name || null,
+                email:individualfarmerDetails?.basic_details.email || null,
+                mobile_no:individualfarmerDetails?.basic_details.mobile_no || null,
+                category:individualfarmerDetails?.basic_details.category || null,
+                dob:individualfarmerDetails?.basic_details.dob || null,
+                farmer_type:individualfarmerDetails?.basic_details.farmer_type || null,
+                gender:individualfarmerDetails?.basic_details.gender || null
+            }
+            SINGLE_FARMER_INITIALS.address = {
+                address_line_1: individualfarmerDetails?.address.address_line_1 || null,
+                address_line_2: individualfarmerDetails?.address.address_line_2 || null,
+                pincode: individualfarmerDetails?.address.pinCode || null,
+                state: individualfarmerDetails?.state || null,
+                district:individualfarmerDetails?.address.district || null,
+                village_town_city: individualfarmerDetails?.address.village || null,
+                taluka: individualfarmerDetails?.address.block || null,
+                country: individualfarmerDetails?.address.country || null
+            }
+            SINGLE_FARMER_INITIALS.land_details = {
+                total_area: individualfarmerDetails?.land_details.total_area || null,
+                pincode:individualfarmerDetails?.land_details.pinCode || null,
+                khasra_no: individualfarmerDetails?.land_details.khasra_no || null,
+                ghat_no: individualfarmerDetails?.land_details.ghat_number || null,
+                soil_type: individualfarmerDetails?.land_details.soil_type || null,
+                soil_tested: individualfarmerDetails?.land_details.soil_tested || null
+            }
+            SINGLE_FARMER_INITIALS.crop_details = {
+                
+                upcoming_harvest: upcomping_crop,
+                    
+                past_harvest: past_crop 
+            }
+            SINGLE_FARMER_INITIALS.bank_details = {
+                bank_name: individualfarmerDetails?.bank_details.bank_name || null,
+                branch_name: individualfarmerDetails?.bank_details.branch_name || null,
+                account_holder_name: individualfarmerDetails?.bank_details.account_holder_name || null,
+                ifsc_code: individualfarmerDetails?.bank_details.ifsc_code|| null,
+                account_no: individualfarmerDetails?.bank_details.account_no || null,
+                confirm_account_no: individualfarmerDetails?.bank_details.account_no || null,
+                upload_proof: individualfarmerDetails?.bank_details.proof_doc_key || null
+            }
+
+            return SINGLE_FARMER_INITIALS;
+        }
+        
+
+    } catch (error) {
+         _handleCatchErrors(error, res);
+
+    }
+
+}
 
