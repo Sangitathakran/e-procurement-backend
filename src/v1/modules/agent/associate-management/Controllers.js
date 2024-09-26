@@ -56,13 +56,10 @@ module.exports.userStatusUpdate = async (req, res) => {
         if (!user) {
             return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound('User') }] }));
         }
-        if (user.is_approved == _userStatus.approved) {
-            return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.allReadyApproved('User') }));
-        }
+        
         if(!Object.values(_userStatus).includes(status)){
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.invalid('Status') }));
         }
-        
         user.is_approved = status;
 
         if (!user.is_welcome_email_send) {
@@ -71,7 +68,7 @@ module.exports.userStatusUpdate = async (req, res) => {
         }
         await user.save();
 
-        return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.updated('User approval status'), data: { userId } }));
+        return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.updated('User status'), data: { userId, user_status:status } }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }
