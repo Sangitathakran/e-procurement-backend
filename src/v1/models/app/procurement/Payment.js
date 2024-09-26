@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
-const { _collectionName, _paymentmethod, _paymentstatus } = require('@src/v1/utils/constants');
+const { _collectionName, _paymentmethod, _paymentstatus, _userType } = require('@src/v1/utils/constants');
 
 const PaymentSchema = new mongoose.Schema({
     whomToPay: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
-    user_type: { type: String, enum: ["farmer", "associate", "agent"], required: true },
+    user_type: { type: String, enum: Object.values(_userType), required: true },
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
     qtyProcured: { type: String, required: true },
     reqNo: { type: String, required: true },

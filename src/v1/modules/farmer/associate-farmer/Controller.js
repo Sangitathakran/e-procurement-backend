@@ -40,12 +40,13 @@ module.exports.createFarmer = async (req, res) => {
 };
 module.exports.getFarmers = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy = 'name', search = '', paginate = 1, associate_id } = req.query;
-    const skip = (page - 1) * limit;
+    const { page = 1, limit = 10, sortBy, search = '', skip, paginate = 1, is_associated = 1 } = req.query;
+    const { user_id } = req
+
     let query = {};
     const records = { count: 0 };
-    if (associate_id) {
-      query.associate_id = associate_id;
+    if (is_associated == 1) {
+      query.associate_id = user_id;
     }
     if (search) {
       query.name = { $regex: search, $options: 'i' };
@@ -198,8 +199,8 @@ module.exports.getLand = async (req, res) => {
     }
 
     records.rows = paginate == 1
-      ? await Land.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id','id name')
-      : await Land.find(query).sort(sortBy).populate('farmer_id','id name').populate('farmer_id', 'id name')
+      ? await Land.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
+      : await Land.find(query).sort(sortBy).populate('farmer_id', 'id name').populate('farmer_id', 'id name')
 
     records.count = await Land.countDocuments(query);
 
@@ -328,8 +329,8 @@ module.exports.getCrop = async (req, res) => {
     const records = { pastCrops: {}, upcomingCrops: {} };
 
     const fetchCrops = async (cropQuery) => paginate == 1
-      ? Crop.find(cropQuery).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id','id name')
-      : Crop.find(cropQuery).sort(sortBy).populate('farmer_id','id name');
+      ? Crop.find(cropQuery).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
+      : Crop.find(cropQuery).sort(sortBy).populate('farmer_id', 'id name');
 
     const [pastCrops, upcomingCrops] = await Promise.all([
       fetchCrops({ ...query, sowing_date: { $lt: currentDate } }),
@@ -496,7 +497,7 @@ module.exports.getBank = async (req, res) => {
     }
 
     records.rows = paginate == 1
-      ? await Bank.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id','id name')
+      ? await Bank.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
       : await Bank.find(query).sort(sortBy);
 
     records.count = await Bank.countDocuments(query);
