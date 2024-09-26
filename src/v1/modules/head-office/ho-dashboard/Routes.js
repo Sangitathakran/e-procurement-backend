@@ -16,7 +16,7 @@ const {
 hoDashboardRoutes.get("/widget-list", widgetList);
 hoDashboardRoutes.get("/farmer-payments", farmerPayments);
 hoDashboardRoutes.get("/revenue-expense", revenueExpenseChart);
-hoDashboardRoutes.get("/location-warehouse-chart", locationWareHouseChart);
+hoDashboardRoutes.get("/location-warehouse", locationWareHouseChart);
 hoDashboardRoutes.get(
   "/payment-quantity-purchase-chart",
   paymentQuantityPurchase
