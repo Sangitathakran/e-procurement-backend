@@ -5,6 +5,7 @@ const { hoMngmntRoutes } = require("./ho-management/Routes");
 const { warehouseRoutes } = require("./warehouse/Routes");
 const { procurementCenterRoutes } = require("./procurement_management/Routes");
 const { boManagementRoutes } = require("./bo-management/Routes");
+const { trackDeliveryRoutes } = require("./track_order/Routes");
 
 const agentRoutes = express.Router();
 
@@ -14,5 +15,6 @@ agentRoutes.use("/ho", hoMngmntRoutes);
 agentRoutes.use("/bo", boManagementRoutes);
 agentRoutes.use("/warehouse", warehouseRoutes);
 agentRoutes.use("/procurement", procurementCenterRoutes);
+agentRoutes.use("/track-orders", trackDeliveryRoutes);
 
 module.exports = { agentRoutes } 
