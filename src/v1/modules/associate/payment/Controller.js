@@ -138,7 +138,7 @@ module.exports.farmerOrders = async (req, res) => {
     }
 }
 
-module.exports.batch = async (req, res) => {
+module.exports.associateOrders = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0 } = req.query
@@ -484,8 +484,9 @@ module.exports.getBill = async (req, res) => {
         }));
 
         const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
-
-        let records = { ...billPayment.toObject(), totalamount, mspAmount }
+        const packingQty = (0.8/1000); 
+        
+        let records = { ...billPayment.toObject(), totalamount, mspAmount, packingQty }
 
         if (records) {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
