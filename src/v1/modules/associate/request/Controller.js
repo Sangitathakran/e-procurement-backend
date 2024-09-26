@@ -67,6 +67,12 @@ module.exports.getProcurement = async (req, res) => {
             const records = {};
             records.rows = await RequestModel.aggregate(pipeline);
             records.count = records.rows.length;
+            
+            if (paginate == 1) {
+                records.page = page;
+                records.limit = limit;
+                records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+            }
 
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
         } else {
