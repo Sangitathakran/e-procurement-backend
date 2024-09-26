@@ -239,7 +239,7 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
     data: data,
   });
 });
-//farmerBenifitted
+//farmerBenifitteds
 module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
   const report = {
     month: [
