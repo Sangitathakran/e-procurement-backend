@@ -17,6 +17,19 @@ const warehouseSchema = new mongoose.Schema({
         required : true,
         trim: true 
     },
+    state:{
+        type:String,
+        default:'Uttar Pradesh',
+        required:true
+    },
+    district:{
+        type:String,
+        required:true
+    },
+    location:{
+        type:String,
+        required:true
+    },
     authorized_personName: {
         type: String,
         required : true,
