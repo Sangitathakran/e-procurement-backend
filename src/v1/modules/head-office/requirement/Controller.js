@@ -99,8 +99,6 @@ module.exports.orderListByRequestId = asyncErrorHandler(async (req, res) => {
           records.count = await Batch.countDocuments(query);
         }
         
-    
-
     if (paginate == 1) {
       records.page = page;
       records.limit = limit;
@@ -118,3 +116,26 @@ module.exports.orderListByRequestId = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
+module.exports.qcDetailsById = asyncErrorHandler( async (req, res) =>{
+  try{
+  
+    const {id} = req.params;
+    const records = {};
+    records.rows = 
+    ( await Batch.findById(id)
+       .select(" ")
+       .populate({path:'req_id',select:''}) ) ?? []
+
+    return sendResponse({
+      res,
+      status: 200,
+      data : records,
+      message: _response_message.found("QC detail")
+    })   
+
+  } catch (error) {
+    console.log("error==>", error);
+    _handleCatchErrors(error, res)
+  }
+})
