@@ -14,7 +14,7 @@ const {
 const {
   Batch,
 } = require("@src/v1/models/app/procurement/Batch");
-const Branches = require("@src/v1/models/master/Branches");
+const Branches = require("@src/v1/models/app/branchManagement/Branches");
 const {getFilter}=require("@src/v1/utils/helpers/customFilter")
 //widget list
 module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
