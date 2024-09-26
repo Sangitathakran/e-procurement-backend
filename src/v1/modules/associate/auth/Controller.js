@@ -85,6 +85,7 @@ module.exports.loginOrRegister = async (req, res) => {
                     ? { associate_details: { email: userInput } }
                     : { associate_details: { phone: userInput } },
                 term_condition: true,
+                user_type: _userType.associate,
             };
             if (isEmailInput) {
                 newUser.is_email_verified = true;
@@ -133,7 +134,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
         switch (formName) {
             case 'organization':
                 user.basic_details.associate_details.organization_name = formData.organization_name;
-                user.user_type = _userType.associate;
+                
                 break;
             case 'basic_details':
                 if (formData.associate_details && formData.associate_details.phone) {
