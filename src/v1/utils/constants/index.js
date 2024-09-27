@@ -112,6 +112,7 @@ const _associateOfferStatus = {
     accepted: 'Accepted',
     rejected: 'Rejected',
     pending: 'Pending',
+    partially_ordered: "Partially_Ordered",
     ordered: "Ordered",
 }
 
