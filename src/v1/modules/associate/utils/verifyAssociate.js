@@ -1,6 +1,6 @@
 const { JWT_SECRET_KEY } = require('@config/index');
 const { User } = require('@src/v1/models/app/auth/User');
-const { _userType } = require('@src/v1/utils/constants');
+const { _userType, _userStatus } = require('@src/v1/utils/constants');
 const { _response_message } = require('@src/v1/utils/constants/messages');
 const { serviceResponse } = require('@src/v1/utils/helpers/api_response');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
@@ -36,7 +36,7 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
         // req.headers = decodedToken;
         if (req.url === '/onboarding' || req.url === '/onboarding-status' || req.url === '/find-user-status' || req.url === '/final-submit') {
             next();
-        } else if (userExist.is_approved == true) {
+        } else if (userExist.is_approved == _userStatus.approved) {
             if (decodedToken.user_type != _userType.associate) {
                 return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
             }

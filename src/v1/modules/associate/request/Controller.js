@@ -67,7 +67,7 @@ module.exports.getProcurement = async (req, res) => {
             const records = {};
             records.rows = await RequestModel.aggregate(pipeline);
             records.count = records.rows.length;
-            
+
             if (paginate == 1) {
                 records.page = page;
                 records.limit = limit;
@@ -536,9 +536,9 @@ module.exports.farmerOrderList = async (req, res) => {
 
     try {
         const { user_id, user_type } = req;
-        const { page, limit, skip, sortBy, search = '', req_id } = req.query
+        const { page, limit, skip, sortBy, search = '', req_id, status } = req.query
 
-        const offerIds = (await AssociateOffers.find({ req_id, ...(user_type == _userType.associate && { seller_id: user_id }) })).map((ele) => ele._id);
+        const offerIds = [(await AssociateOffers.findOne({ req_id, seller_id: user_id }))?._id];
 
         if (offerIds.length == 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
@@ -553,6 +553,12 @@ module.exports.farmerOrderList = async (req, res) => {
         } : {};
 
         query.associateOffers_id = { $in: offerIds };
+
+
+        if (status) {
+            query.status = status;
+        }
+
         const records = { count: 0 };
 
         records.rows = await FarmerOrders.find(query)
