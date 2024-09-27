@@ -219,6 +219,7 @@ module.exports.getLand = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 module.exports.updateLand = async (req, res) => {
   try {
     const { land_id } = req.params;
@@ -673,6 +674,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const type = rec["ID PROOF TYPE"];
       const aadhar_no = rec["AADHAR NUMBER*"];
       const address_line = rec["ADDRESS LINE*"];
+      const country =  rec["COUNTRY NAME"];
       const state_name = rec["STATE NAME*"];
       const district_name = rec["DISTRICT NAME*"];
       const block = rec["BLOCK NAME"];
@@ -715,7 +717,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const crop_insurance = rec["CROP INSURANCE"];
       const insurance_company = rec["INSURANCE COMPANY"];
       const insurance_worth = rec["INSURANCE WORTH"];
-      const crop_seasons = rec["CROP SEASONS*"];
+      const crop_seasons = rec["CROP SEASONS"];
       const bank_name = rec["BANK NAME"];
       const account_no = rec["ACCOUNT NUMBER"];
       const branch = rec["BRANCH"];
@@ -728,7 +730,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const bank_pincode = rec["BANK PINCODE"];
 
       let errors = [];
-
       if (!fpo_name || !name || !father_name || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no) {
         let missingFields = [];
 
@@ -763,7 +764,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         const land_district_id = await getDistrictId(district);
         const bank_state_id = await getStateId(bank_state_name);
         const bank_district_id = await getDistrictId(bank_district_name);
-        const dob = await parseDate(date_of_birth);
         const sowing_date = parseMonthyear(sowingdate);
         const harvesting_date = parseMonthyear(harvestingdate);
 
@@ -775,7 +775,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 
         if (farmerRecord) {
           farmerRecord = await updateFarmerRecord(farmerRecord, {
-            associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, state_id, district_id, block, village, pinCode, mobile_no, email
+            associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email
           });
 
           updateRelatedRecords(farmerRecord._id, {
@@ -784,7 +784,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           });
         } else {
           farmerRecord = await insertNewFarmerRecord({
-            associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, state_id, district_id, block, village, pinCode, mobile_no, email,
+            associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email,
           });
 
           insertNewRelatedRecords(farmerRecord._id, {
