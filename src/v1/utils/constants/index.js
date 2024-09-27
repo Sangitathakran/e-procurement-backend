@@ -26,7 +26,9 @@ const _collectionName = {
     StateDistrictCity: "StateDistrictCity",
     Batch: "Batch",
     Payment: "Payment",
-    Branch: "Branch"
+    Branch: "Branch",
+    DummyWarehouse: "DummyWarehouse",
+    FarmerOrder: "FarmerOrder",
 }
 const _status = {
     active: "active",
@@ -126,12 +128,18 @@ const _userType = {
     agent: "6",
 }
 
+const _userStatus = {
+    approved: 'approved',
+    rejected: 'rejected',
+    pending: 'pending',
+}
+
 const _trader_type = {
     ORGANISATION: 'Organisation',
     SOCIETY: 'Society',
     TRUST: 'Trust',
     INDIVIDUAL: 'Individual',
-    PROPRITER: 'Propriter',
+    PROPRIETOR: 'Proprietor',
 }
 
 const _center_type = {
@@ -272,6 +280,7 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
+    approved: "Approved",
     completed: "Completed",
 }
 
@@ -356,5 +365,6 @@ module.exports = {
     _paymentstatus,
     _center_type,
     _address_type,
-    _individual_category
+    _individual_category,
+    _userStatus
 }

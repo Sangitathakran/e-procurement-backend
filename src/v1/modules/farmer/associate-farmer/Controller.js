@@ -5,6 +5,7 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
+const IndividualModel = require("@src/v1/models/app/farmerDetails/IndividualFarmer")
 const { User } = require("@src/v1/models/app/auth/User");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const xlsx = require('xlsx');
@@ -40,12 +41,13 @@ module.exports.createFarmer = async (req, res) => {
 };
 module.exports.getFarmers = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy = 'name', search = '', paginate = 1, associate_id } = req.query;
-    const skip = (page - 1) * limit;
+    const { page = 1, limit = 10, sortBy, search = '', skip, paginate = 1, is_associated = 1 } = req.query;
+    const { user_id } = req
+
     let query = {};
     const records = { count: 0 };
-    if (associate_id) {
-      query.associate_id = associate_id;
+    if (is_associated == 1) {
+      query.associate_id = user_id;
     }
     if (search) {
       query.name = { $regex: search, $options: 'i' };
@@ -198,8 +200,8 @@ module.exports.getLand = async (req, res) => {
     }
 
     records.rows = paginate == 1
-      ? await Land.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id','id name')
-      : await Land.find(query).sort(sortBy).populate('farmer_id','id name').populate('farmer_id', 'id name')
+      ? await Land.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
+      : await Land.find(query).sort(sortBy).populate('farmer_id', 'id name').populate('farmer_id', 'id name')
 
     records.count = await Land.countDocuments(query);
 
@@ -329,8 +331,8 @@ module.exports.getCrop = async (req, res) => {
     const records = { pastCrops: {}, upcomingCrops: {} };
 
     const fetchCrops = async (cropQuery) => paginate == 1
-      ? Crop.find(cropQuery).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id','id name')
-      : Crop.find(cropQuery).sort(sortBy).populate('farmer_id','id name');
+      ? Crop.find(cropQuery).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
+      : Crop.find(cropQuery).sort(sortBy).populate('farmer_id', 'id name');
 
     const [pastCrops, upcomingCrops] = await Promise.all([
       fetchCrops({ ...query, sowing_date: { $lt: currentDate } }),
@@ -497,7 +499,7 @@ module.exports.getBank = async (req, res) => {
     }
 
     records.rows = paginate == 1
-      ? await Bank.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id','id name')
+      ? await Bank.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
       : await Bank.find(query).sort(sortBy);
 
     records.count = await Bank.countDocuments(query);
@@ -997,3 +999,186 @@ module.exports.exportFarmers = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
+
+module.exports.individualfarmerList = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, sortBy = 'name', search = '', isExport = 0 } = req.query;
+    const skip = (page - 1) * limit;
+    const searchFields = ['name', 'farmer_id', 'farmer_code', 'mobile_no']
+
+
+
+    const makeSearchQuery = (searchFields) => {
+      let query = {}
+      query['$or'] = searchFields.map(item => ({ [item]: { $regex: search, $options: 'i' } }))
+      return query
+    }
+
+    const query = search ? makeSearchQuery(searchFields) : {}
+    const records = { count: 0, rows: [] };
+
+    // individual farmer list
+    records.rows = await IndividualModel.find(query)
+      // .select('associate_id farmer_id name basic_details.father_husband_name mobile_no address')
+      .limit(parseInt(limit))
+      .skip(parseInt(skip))
+      .sort(sortBy)
+
+    // const data = await Promise.all(records.rows.map(async (item) => {
+
+    //   let address = await getAddress(item)
+
+    //   let farmer = {
+    //     _id: item?._id,
+    //     farmer_name: item?.name,
+    //     address: address,
+    //     mobile_no: item?.mobile_no,
+    //     associate_id: item?.associate_id?.user_code || null,
+    //     farmer_id: item?.farmer_code || item?.farmer_id,
+    //     father_spouse_name: item?.basic_details?.father_husband_name ||
+    //       item?.parents?.father_name ||
+    //       item?.parents?.mother_name
+    //   }
+
+    //   return farmer;
+    // }))
+
+    // records.rows = data
+
+    records.count = await IndividualModel.countDocuments(query);
+
+
+
+    records.page = page;
+    records.limit = limit;
+    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+    if (isExport == 1) {
+
+      const record = records.rows.map((item) => {
+        let address = item?.address?.address_line + ", " +
+          item?.address?.village + ", " +
+          item?.address?.block + ", " +
+          item?.address?.district + ", " +
+          item?.address?.state + ", " +
+          item?.address?.pinCode
+
+        return {
+          "Farmer Name": item?.farmer_name || 'NA',
+          "Mobile Number": item?.mobile_no || 'NA',
+          "Associate ID": item?.associate_id || 'NA',
+          "Farmer ID": item?.farmer_id ?? 'NA',
+          "Father/Spouse Name": item?.father_spouse_name ?? 'NA',
+          "Address": address ?? 'NA',
+        }
+
+
+      })
+      if (record.length > 0) {
+
+        dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Farmer-List.xlsx`,
+          worksheetName: `Farmer-List`
+        });
+      } else {
+        return res.send(new serviceResponse({
+          status: 200,
+          data: records,
+          message: _response_message.found("farmers")
+        }))
+      }
+    }
+    else {
+      return res.send(new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("farmers")
+      }))
+    }
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+
+
+const getAddress = async (item) => {
+  return {
+    address_line: item?.address?.address_line || (`${item?.address?.address_line_1} ${item?.address?.address_line_2}`),
+    village: item?.address?.village || " ",
+    block: item?.address?.block || " ",
+    district: item?.address?.district
+      ? item?.address?.district
+      : item?.address?.district_id
+        ? await getDistrict(item?.address?.district_id)
+        : "unknown",
+    state: item?.address?.state
+      ? item?.address?.state
+      : item?.address?.state_id
+        ? await getState(item?.address?.state_id)
+        : "unknown",
+    pinCode: item?.address?.pinCode
+
+  }
+}
+
+const getDistrict = async (districtId) => {
+  const district = await StateDistrictCity.aggregate([
+    {
+      $match: { _id: new ObjectId(`66d8438dddba819889f4d798`) }
+    },
+    {
+      $unwind: "$states"
+    },
+    {
+      $unwind: "$states.districts"
+    },
+    {
+      $match: { "states.districts._id": districtId }
+    },
+    {
+      $project: {
+        _id: 1,
+        district: "$states.districts.district_title"
+      }
+    }
+
+
+  ])
+  return district[0].district
+
+}
+
+const getState = async (stateId) => {
+  const state = await StateDistrictCity.aggregate([
+    {
+      $match: { _id: new ObjectId(`66d8438dddba819889f4d798`) }
+    },
+    {
+      $project: {
+        _id: 1,
+        state: {
+          $arrayElemAt: [
+            {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$states",
+                    as: 'item',
+                    cond: { $eq: ['$$item._id', stateId] }
+                  }
+                },
+                as: "filterState",
+                in: "$$filterState.state_title"
+              }
+            },
+            0
+          ]
+
+        }
+      }
+    }
+  ])
+  return state[0].state
+}

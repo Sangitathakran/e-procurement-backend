@@ -25,9 +25,6 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.invalid("token") }] }))
 
         }
-        if (decodedToken.user_type != _userType.associate) {
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
-        }
         const userExist = await User.findOne({ _id: decodedToken.user_id })
 
         if (!userExist) {
@@ -37,9 +34,12 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
             req[key] = value
         })
         // req.headers = decodedToken;
-        if (req.url === '/onboarding' || req.url === '/onboarding-status') {
+        if (req.url === '/onboarding' || req.url === '/onboarding-status' || req.url === '/find-user-status' || req.url === '/final-submit') {
             next();
         } else if (userExist.is_approved == true) {
+            if (decodedToken.user_type != _userType.associate) {
+                return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
+            }
             next();
         } else {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notApproved("User") }] }));

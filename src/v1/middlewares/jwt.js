@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const { sendResponse } = require('@src/v1/utils/helpers/api_response');
 const { _auth_module } = require('@src/v1/utils/constants/messages');
 const { JWT_SECRET_KEY } = require('@config/index');
-const { redisClient } = require('@config/redis');
+// const { redisClient } = require('@config/redis');
 
 /**
  * 
@@ -12,7 +12,7 @@ const { redisClient } = require('@config/redis');
  * @returns 
  */
 const verifyJwtToken = function (req, res, next) {
-    let { token } = req.cookies;
+    let { token } = req.headers;
     if (token) {
 
         jwt.verify(token, JWT_SECRET_KEY, async function (err, decoded) {
@@ -20,7 +20,9 @@ const verifyJwtToken = function (req, res, next) {
                 return sendResponse({res, status: 403, errors: _auth_module.unAuth });
             }
             else {
-                if (await redisClient.get(decoded._id)) {
+              //  console.log(await redisClient.get(decoded._id))
+                 if (decoded._id && checkUser(req?.baseUrl?.split('/')[2],decoded.user_type)) {
+                    
                     // Set Your Token Keys In Request
                     Object.entries(decoded).forEach(([key, value]) => {
                         req[key] = value
@@ -36,7 +38,18 @@ const verifyJwtToken = function (req, res, next) {
         return sendResponse({res, status: 403, errors: _auth_module.tokenMissing });
     }
 };
-
+const checkUser=(route,user_type)=>{
+    let user_interface={
+        ho:5,
+        associate:4,
+        farmer:3
+    }
+    if(user_interface[route]==user_type){
+        return true;
+    }else{
+        return false;
+    }
+}
 const verifyBasicAuth = async function (req, res, next) {
     try {
         const authheader = req.headers.authorization;

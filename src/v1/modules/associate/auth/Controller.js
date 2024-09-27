@@ -60,10 +60,11 @@ module.exports.sendOtp = async (req, res) => {
 module.exports.loginOrRegister = async (req, res) => {
     try {
         const { userInput, inputOTP } = req.body;
+        
         if (!userInput || !inputOTP) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('otp_required') }] }));
         }
-        const staticOTP = '9999'; 
+        const staticOTP = '9999';
         const isEmailInput = isEmail(userInput);
         const query = isEmailInput
             ? { 'basic_details.associate_details.email': userInput }
@@ -71,34 +72,14 @@ module.exports.loginOrRegister = async (req, res) => {
 
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
-        
+
         if ((!userOTP || inputOTP !== userOTP.otp) && inputOTP !== staticOTP) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
         }
-        
+
         let userExist = await User.findOne(query).lean();
 
-        if (userExist) {
-            const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
-            const now = new Date();
-            const expiresIn = Math.floor(now.getTime() / 1000) + 3600;
-            const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
-            res.cookie('token', token, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
-                maxAge: 3600000 // 1 hour in milliseconds
-            });
-            const data = {
-                token: token,
-                user_type: userExist.user_type,
-                is_approved: userExist.is_approved,
-                phone: userExist.basic_details.associate_details.phone,
-                associate_code: userExist.user_code,
-                organization_name: userExist.basic_details.associate_details.organization_name || null,
-                onboarding: (userExist?.basic_details?.associate_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details) ? true : false
-            }
-            return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: data }));
-        } else {
+        if (!userExist) {
             const newUser = {
                 client_id: isEmailInput ? '1243' : '9876',
                 basic_details: isEmailInput
@@ -112,9 +93,27 @@ module.exports.loginOrRegister = async (req, res) => {
             } else {
                 newUser.is_mobile_verified = true;
             }
-            const userInsert = await User.create(newUser);
-            return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('User'), data: userInsert }));
+            userExist = await User.create(newUser);
         }
+        const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
+        const now = new Date();
+        const expiresIn = Math.floor(now.getTime() / 1000) + 3600;
+        const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
+            maxAge: 3600000 // 1 hour in milliseconds
+        });
+        const data = {
+            token: token,
+            user_type: userExist.user_type,
+            is_approved: userExist.is_approved,
+            phone: userExist.basic_details.associate_details.phone,
+            associate_code: userExist.user_code,
+            organization_name: userExist.basic_details.associate_details.organization_name || null,
+            onboarding: (userExist?.basic_details?.associate_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details) ? true : false
+        }
+        return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: data }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -136,6 +135,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
         switch (formName) {
             case 'organization':
                 user.basic_details.associate_details.organization_name = formData.organization_name;
+                
                 break;
             case 'basic_details':
                 if (formData.associate_details && formData.associate_details.phone) {
@@ -182,27 +182,6 @@ module.exports.saveAssociateDetails = async (req, res) => {
                 return res.status(200).send(new serviceResponse({ status: 400, message: `Invalid form name: ${formName}` }));
         }
         await user.save();
-        const allDetailsFilled = (
-            user?.basic_details?.associate_details?.organization_name &&
-            user?.basic_details?.point_of_contact?.name &&
-            user?.address?.registered?.line1 &&
-            user?.company_details?.cin_number &&
-            user?.authorised?.name &&
-            user?.bank_details?.account_number
-        );
-
-        if (!user.is_welcome_email_send && allDetailsFilled) {
-            await emailService.sendWelcomeEmail(user);
-            user.is_welcome_email_send = true;
-            await user.save();
-        }
-
-        if (!user.is_sms_send && allDetailsFilled) {
-            const { phone, organization_name } = user.basic_details.associate_details;
-            
-            await smsService.sendWelcomeSMSForAssociate(phone, organization_name, user.user_code);
-            await user.updateOne({ is_sms_send: true });
-        }
         
         const response = { user_code: user.user_code, user_id: user._id };
         return res.status(200).send(new serviceResponse({ message: _response_message.updated(formName), data: response }));
@@ -218,7 +197,7 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
     if (!record) {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }));
     }
-    
+
     const data = [
         { label: "organization", status: record?.basic_details?.associate_details?.organization_name ? "completed" : "pending" },
         { label: "Basic Details", status: record?.basic_details?.point_of_contact ? "completed" : "pending" },
@@ -248,31 +227,69 @@ module.exports.formPreview = async (req, res) => {
     }
 }
 
-module.exports.useStatusUpdate = async (req, res) => {
+module.exports.findUserStatus = async (req, res) => {
     try {
-        const { userId } = req.body;
-        if (!userId) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('user id') }] }));
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
-        if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('user id') }] }));
-        }
+        const decode = await decryptJwtToken(getToken);
+        const userId = decode.data.user_id;
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound('User') }] }));
+            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         }
-        if (user.is_approved) {
-            return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.allReadyApproved('User') }));
+        
+        const response = await User.findById({ _id: userId });
+        if (!response) {
+            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
         }
-        user.is_approved = true;
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
 
-        if (!user.is_welcome_email_send) {
+module.exports.finalFormSubmit = async (req, res) => {
+    try {
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
+        const decode = await decryptJwtToken(getToken);
+        const userId = decode.data.user_id;
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        }
+        
+        user.is_form_submitted = true;
+
+        const allDetailsFilled = (
+            user?.basic_details?.associate_details?.organization_name &&
+            user?.basic_details?.point_of_contact?.name &&
+            user?.address?.registered?.line1 &&
+            user?.company_details?.cin_number &&
+            user?.authorised?.name &&
+            user?.bank_details?.account_number
+        );
+
+        if (!user.is_welcome_email_send && allDetailsFilled) {
             await emailService.sendWelcomeEmail(user);
             user.is_welcome_email_send = true;
+            await user.save();
         }
-        await user.save();
 
-        return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.updated('User approval status'), data: { userId } }));
+        if (!user.is_sms_send && allDetailsFilled) {
+            const { phone, organization_name } = user.basic_details.associate_details;
+
+            await smsService.sendWelcomeSMSForAssociate(phone, organization_name, user.user_code);
+            await user.updateOne({ is_sms_send: true });
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: _query.update("data"), data: user.is_form_submitted }));
+        
     } catch (error) {
         _handleCatchErrors(error, res);
     }

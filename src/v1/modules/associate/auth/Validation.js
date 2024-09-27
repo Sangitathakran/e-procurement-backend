@@ -19,7 +19,7 @@ const basicDetailsSchema = Joi.object({
                 'string.empty': _middleware.require('phone'),
                 'string.pattern.base': _response_message.invalid('phone number'),
             }),
-        company_logo: Joi.string().trim().required(),
+        company_logo: Joi.string().trim().required().allow(''),
     }),
     point_of_contact: Joi.object({
         name: Joi.string().trim().required().messages({
@@ -65,10 +65,10 @@ const basicDetailsSchema = Joi.object({
         pan_card: Joi.string().trim().pattern(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/).messages({
             'string.pattern.base': _response_message.invalid('PAN card format'),
         }),
-        pan_image: Joi.string().trim().optional(),
+        pan_image: Joi.string().trim().optional().allow(''),
     }),
-    implementation_agency: Joi.string().trim().min(2).max(50),
-    cbbo_name: Joi.string().trim().min(2).max(50),
+    implementation_agency: Joi.string().trim().optional().allow(''),
+    cbbo_name: Joi.string().trim().optional().allow(''),
 
 });
 
@@ -77,7 +77,7 @@ const addressSchema = Joi.object({
         line1: Joi.string().trim().required().messages({
             'string.empty': _middleware.require('address line1'),
         }),
-        line2: Joi.string().trim().optional(),
+        line2: Joi.string().trim().optional().allow(''),
         country: Joi.string().trim().required().messages({
             'string.empty': _middleware.require('country'),
         }),
@@ -87,7 +87,7 @@ const addressSchema = Joi.object({
         district: Joi.string().trim().required().messages({
             'string.empty': _middleware.require('district'),
         }),
-        taluka: Joi.string().trim().optional(),
+        taluka: Joi.string().trim().optional().allow(''),
         pinCode: Joi.string().trim().pattern(/^[1-9][0-9]{5}$/).required().messages({
             'string.empty': _middleware.require('pinCode'),
             'string.pattern.base': _response_message.invalid('PIN code'),
@@ -130,10 +130,10 @@ const companyDetailsSchema = Joi.object({
     cin_image: Joi.string().trim().required().messages({
         'string.empty': _middleware.require('CIN image'),
     }),
-    tan_number: Joi.string().trim().pattern(/^[A-Z]{4}[0-9]{5}[A-Z]{1}$/).messages({
+    tan_number: Joi.string().trim().pattern(/^[A-Z]{4}[0-9]{5}[A-Z]{1}$/).allow('').messages({
         'string.pattern.base': _response_message.invalid('TAN number format'),
     }),
-    tan_image: Joi.string().trim().required().messages({
+    tan_image: Joi.string().trim().required().allow('').messages({
         'string.empty': _middleware.require('TAN image'),
     }),
     pan_card: Joi.string().trim().required().pattern(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/).messages({
