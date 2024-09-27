@@ -1,11 +1,12 @@
 const express = require("express");
-const { payment, farmerOrders, associateOrders, paymentApprove, getBill, proceedToPay, associateOrdersProceedToPay, batchListProceedToPay, getBillProceedToPay } = require("./Controller");
+const { payment, farmerOrders, associateOrders, batchList, paymentApprove, getBill, proceedToPay, associateOrdersProceedToPay, batchListProceedToPay, getBillProceedToPay } = require("./Controller");
 const { verifyAgent } = require("../utils/verifyAgent");
 
 const paymentRoutes = express.Router();
 
 paymentRoutes.get("/", verifyAgent, payment);
 paymentRoutes.get("/associate-orders", verifyAgent, associateOrders);
+paymentRoutes.get("/batch-list", verifyAgent, batchList);
 paymentRoutes.get("/farmer-orders", verifyAgent, farmerOrders);
 paymentRoutes.patch("/payment-approval", verifyAgent, paymentApprove);
 paymentRoutes.get("/bill-view", verifyAgent, getBill);

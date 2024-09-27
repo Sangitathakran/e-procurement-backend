@@ -55,10 +55,12 @@ module.exports.payment = async (req, res) => {
 
             const record = records.rows.map((item) => {
                 return {
-                    "Request ID": item?.reqNo || 'NA',
+                    "Order ID": item?.reqNo || 'NA',
+                    "Batch ID": item?.batchId || 'NA',
                     "Commodity": item?.commodity || 'NA',
                     "Quantity Purchased": item?.qtyProcured || 'NA',
-                    "Status": item?.status ?? 'NA'
+                    "Payment Status": item?.payment_status ?? 'NA',
+                    "Approval Status": item?.status ?? 'NA'
                 }
             })
 
@@ -66,8 +68,8 @@ module.exports.payment = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-${userType}.xlsx`,
-                    worksheetName: `Payment-record-${userType}`
+                    fileName: `Payment-record.xlsx`,
+                    worksheetName: `Payment-record`
                 });
             } else {
                 return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
@@ -97,12 +99,12 @@ module.exports.associateOrders = async (req, res) => {
             user_type: _userType.associate,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
-        `   `
-        `   `
+        
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
             .populate({
-                path: 'whomToPay', select: '_id associate_id farmer_code name'
+                path: 'whomToPay', select: '_id associate_id farmer_code name',
+                path: 'user_id', select: '_id user_code basic_details.associate_details'
             })
             .sort(sortBy)
             .skip(skip)
@@ -120,8 +122,73 @@ module.exports.associateOrders = async (req, res) => {
 
             const record = records.rows.map((item) => {
                 return {
-                    "Request ID": item?.reqNo || 'NA',
-                    "Commodity": item?.commodity || 'NA',
+                    "Associate ID": item?.user_id.user_code || 'NA',
+                    "Associate Type": item?.user_id.basic_details.associate_details.associate_name || 'NA',
+                    "Associate Name": item?.user_id.basic_details.associate_details.associate_type || 'NA',
+                    "Quantity Purchased": item?.qtyProcured || 'NA'
+                }
+            })
+
+            if (record.length > 0) {
+
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Associate-orders.xlsx`,
+                    worksheetName: `Associate-orders`
+                });
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.batchList = async (req, res) => {
+
+    try {
+
+        // const { user_id, user_type } = req;
+
+        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
+
+        let query = {
+            req_id,
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        const records = { count: 0 };
+
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+
+        records.rows = paginate == 1 ? await Batch.find(query)
+            .populate({
+                path: 'procurementCenter_id', select: '_id center_name center_code center_type address'
+            })
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
+
+        records.count = await Batch.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+                return {
+                    "Batch ID": item?.batchId || 'NA',
+                    "procurementCenter_id": item?.procurementCenter_id || 'NA',
                     "Quantity Purchased": item?.qtyProcured || 'NA',
                     "Status": item?.status ?? 'NA'
                 }
@@ -135,10 +202,10 @@ module.exports.associateOrders = async (req, res) => {
                     worksheetName: `Payment-record-${userType}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
             }
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
         }
 
     } catch (error) {
