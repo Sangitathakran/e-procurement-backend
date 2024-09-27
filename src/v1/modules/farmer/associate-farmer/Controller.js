@@ -5,6 +5,7 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
+const IndividualModel = require("@src/v1/models/app/farmerDetails/IndividualFarmer")
 const { User } = require("@src/v1/models/app/auth/User");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const xlsx = require('xlsx');
@@ -220,6 +221,7 @@ module.exports.getLand = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 module.exports.updateLand = async (req, res) => {
   try {
     const { land_id } = req.params;
@@ -674,6 +676,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const type = rec["ID PROOF TYPE"];
       const aadhar_no = rec["AADHAR NUMBER*"];
       const address_line = rec["ADDRESS LINE*"];
+      const country =  rec["COUNTRY NAME"];
       const state_name = rec["STATE NAME*"];
       const district_name = rec["DISTRICT NAME*"];
       const block = rec["BLOCK NAME"];
@@ -716,7 +719,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const crop_insurance = rec["CROP INSURANCE"];
       const insurance_company = rec["INSURANCE COMPANY"];
       const insurance_worth = rec["INSURANCE WORTH"];
-      const crop_seasons = rec["CROP SEASONS*"];
+      const crop_seasons = rec["CROP SEASONS"];
       const bank_name = rec["BANK NAME"];
       const account_no = rec["ACCOUNT NUMBER"];
       const branch = rec["BRANCH"];
@@ -729,7 +732,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const bank_pincode = rec["BANK PINCODE"];
 
       let errors = [];
-
       if (!fpo_name || !name || !father_name || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no) {
         let missingFields = [];
 
@@ -764,7 +766,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         const land_district_id = await getDistrictId(district);
         const bank_state_id = await getStateId(bank_state_name);
         const bank_district_id = await getDistrictId(bank_district_name);
-        const dob = await parseDate(date_of_birth);
         const sowing_date = parseMonthyear(sowingdate);
         const harvesting_date = parseMonthyear(harvestingdate);
 
@@ -776,7 +777,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 
         if (farmerRecord) {
           farmerRecord = await updateFarmerRecord(farmerRecord, {
-            associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, state_id, district_id, block, village, pinCode, mobile_no, email
+            associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email
           });
 
           updateRelatedRecords(farmerRecord._id, {
@@ -785,7 +786,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           });
         } else {
           farmerRecord = await insertNewFarmerRecord({
-            associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, state_id, district_id, block, village, pinCode, mobile_no, email,
+            associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email,
           });
 
           insertNewRelatedRecords(farmerRecord._id, {
@@ -998,3 +999,186 @@ module.exports.exportFarmers = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
+
+module.exports.individualfarmerList = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, sortBy = 'name', search = '', isExport = 0 } = req.query;
+    const skip = (page - 1) * limit;
+    const searchFields = ['name', 'farmer_id', 'farmer_code', 'mobile_no']
+
+
+
+    const makeSearchQuery = (searchFields) => {
+      let query = {}
+      query['$or'] = searchFields.map(item => ({ [item]: { $regex: search, $options: 'i' } }))
+      return query
+    }
+
+    const query = search ? makeSearchQuery(searchFields) : {}
+    const records = { count: 0, rows: [] };
+
+    // individual farmer list
+    records.rows = await IndividualModel.find(query)
+      // .select('associate_id farmer_id name basic_details.father_husband_name mobile_no address')
+      .limit(parseInt(limit))
+      .skip(parseInt(skip))
+      .sort(sortBy)
+
+    // const data = await Promise.all(records.rows.map(async (item) => {
+
+    //   let address = await getAddress(item)
+
+    //   let farmer = {
+    //     _id: item?._id,
+    //     farmer_name: item?.name,
+    //     address: address,
+    //     mobile_no: item?.mobile_no,
+    //     associate_id: item?.associate_id?.user_code || null,
+    //     farmer_id: item?.farmer_code || item?.farmer_id,
+    //     father_spouse_name: item?.basic_details?.father_husband_name ||
+    //       item?.parents?.father_name ||
+    //       item?.parents?.mother_name
+    //   }
+
+    //   return farmer;
+    // }))
+
+    // records.rows = data
+
+    records.count = await IndividualModel.countDocuments(query);
+
+
+
+    records.page = page;
+    records.limit = limit;
+    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+    if (isExport == 1) {
+
+      const record = records.rows.map((item) => {
+        let address = item?.address?.address_line + ", " +
+          item?.address?.village + ", " +
+          item?.address?.block + ", " +
+          item?.address?.district + ", " +
+          item?.address?.state + ", " +
+          item?.address?.pinCode
+
+        return {
+          "Farmer Name": item?.farmer_name || 'NA',
+          "Mobile Number": item?.mobile_no || 'NA',
+          "Associate ID": item?.associate_id || 'NA',
+          "Farmer ID": item?.farmer_id ?? 'NA',
+          "Father/Spouse Name": item?.father_spouse_name ?? 'NA',
+          "Address": address ?? 'NA',
+        }
+
+
+      })
+      if (record.length > 0) {
+
+        dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Farmer-List.xlsx`,
+          worksheetName: `Farmer-List`
+        });
+      } else {
+        return res.send(new serviceResponse({
+          status: 200,
+          data: records,
+          message: _response_message.found("farmers")
+        }))
+      }
+    }
+    else {
+      return res.send(new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("farmers")
+      }))
+    }
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+
+
+const getAddress = async (item) => {
+  return {
+    address_line: item?.address?.address_line || (`${item?.address?.address_line_1} ${item?.address?.address_line_2}`),
+    village: item?.address?.village || " ",
+    block: item?.address?.block || " ",
+    district: item?.address?.district
+      ? item?.address?.district
+      : item?.address?.district_id
+        ? await getDistrict(item?.address?.district_id)
+        : "unknown",
+    state: item?.address?.state
+      ? item?.address?.state
+      : item?.address?.state_id
+        ? await getState(item?.address?.state_id)
+        : "unknown",
+    pinCode: item?.address?.pinCode
+
+  }
+}
+
+const getDistrict = async (districtId) => {
+  const district = await StateDistrictCity.aggregate([
+    {
+      $match: { _id: new ObjectId(`66d8438dddba819889f4d798`) }
+    },
+    {
+      $unwind: "$states"
+    },
+    {
+      $unwind: "$states.districts"
+    },
+    {
+      $match: { "states.districts._id": districtId }
+    },
+    {
+      $project: {
+        _id: 1,
+        district: "$states.districts.district_title"
+      }
+    }
+
+
+  ])
+  return district[0].district
+
+}
+
+const getState = async (stateId) => {
+  const state = await StateDistrictCity.aggregate([
+    {
+      $match: { _id: new ObjectId(`66d8438dddba819889f4d798`) }
+    },
+    {
+      $project: {
+        _id: 1,
+        state: {
+          $arrayElemAt: [
+            {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$states",
+                    as: 'item',
+                    cond: { $eq: ['$$item._id', stateId] }
+                  }
+                },
+                as: "filterState",
+                in: "$$filterState.state_title"
+              }
+            },
+            0
+          ]
+
+        }
+      }
+    }
+  ])
+  return state[0].state
+}
