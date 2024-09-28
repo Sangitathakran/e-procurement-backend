@@ -87,7 +87,7 @@ module.exports.batch = async (req, res) => {
             }
         }
 
-        await Batch.create({ seller_id: user_id, req_id, associateOffer_id: record._id, batchId, farmerOrderIds: farmerData, dispatched_at: new Date() })
+        await Batch.create({ seller_id: user_id, req_id, associateOffer_id: record._id, batchId, farmerOrderIds: farmerData })
 
         procurementRecord.associatOrder_id.push(record._id)
         await record.save();
@@ -105,7 +105,7 @@ module.exports.editTrackDelivery = async (req, res) => {
 
     try {
 
-        const { form_type, id, material_img, weight_slip, qc_report, lab_report, name, contact, license, aadhar, service_name, vehicleNo, vehicle_weight, loaded_weight, qc_charges, no_of_bags, qty, gst_number, pan_number } = req.body;
+        const { form_type, id, material_img, weight_slip, qc_survey, gunny_bags, weighing_stiching, loading_unloading, transportation, driage, qc_report, lab_report, name, contact, license, aadhar, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number, weight_slip: intransit_weight_slip, no_of_bags, weight, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, delivered_on } = req.body;
 
         const record = await Batch.findOne({ _id: id });
 
@@ -116,12 +116,18 @@ module.exports.editTrackDelivery = async (req, res) => {
         switch (form_type) {
             case _batchStatus.dispatched:
 
-                if (material_img && weight_slip && qc_report && lab_report) {
+                if (material_img && weight_slip && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && qc_report && lab_report) {
                     record.dispatched.material_img = material_img;
                     record.dispatched.weight_slip = weight_slip;
+                    record.dispatched.dispatched_at = new Date();
+                    record.dispatched.bills.qc_survey = qc_survey;
+                    record.dispatched.bills.gunny_bags = gunny_bags;
+                    record.dispatched.bills.weighing_stiching = weighing_stiching;
+                    record.dispatched.bills.loading_unloading = loading_unloading;
+                    record.dispatched.bills.transportation = transportation;
+                    record.dispatched.bills.driage = driage;
                     record.dispatched.qc_report = qc_report;
                     record.dispatched.lab_report = lab_report;
-                    record.dispatched.dispatched_at = new Date();
 
                     record.status = _batchStatus.dispatched
                 } else {
@@ -131,18 +137,23 @@ module.exports.editTrackDelivery = async (req, res) => {
 
             case _batchStatus.intransit:
 
-                if (name && contact && license && aadhar && service_name && vehicleNo && vehicle_weight && loaded_weight && qc_charges && no_of_bags && qty) {
+                if (name && contact && license && aadhar && service_name && vehicleNo && vehicle_weight && loaded_weight && gst_number && pan_number && intransit_weight_slip && no_of_bags && weight) {
 
                     record.intransit.driver.name = name;
                     record.intransit.driver.contact = contact;
                     record.intransit.driver.license = license;
                     record.intransit.driver.aadhar = aadhar;
+
                     record.intransit.transport.service_name = service_name;
                     record.intransit.transport.vehicleNo = vehicleNo;
                     record.intransit.transport.vehicle_weight = vehicle_weight;
                     record.intransit.transport.loaded_weight = loaded_weight;
+                    record.intransit.transport.gst_number = gst_number;
+                    record.intransit.transport.pan_number = pan_number;
+
+                    record.intransit.weight_slip = intransit_weight_slip;
                     record.intransit.no_of_bags = no_of_bags;
-                    record.intransit.qty = qty;
+                    record.intransit.weight = weight;
                     record.intransit.intransit_at = new Date();
 
                     record.status = _batchStatus.intransit;
@@ -153,8 +164,16 @@ module.exports.editTrackDelivery = async (req, res) => {
                 break;
 
             case _batchStatus.delivered:
-                if (delivered) {
-                    record.delivered = delivered;
+                if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight && delivered_on) {
+                    record.delivered.proof_of_delivery = proof_of_delivery;
+                    record.delivered.weigh_bridge_slip = weigh_bridge_slip;
+                    record.delivered.receiving_copy = receiving_copy;
+                    record.delivered.truck_photo = truck_photo;
+                    record.delivered.details.loaded_vehicle_weight = loaded_vehicle_weight;
+                    record.delivered.details.tare_weight = tare_weight;
+                    record.delivered.details.net_weight = net_weight;
+                    record.delivered.details.delivered_on = delivered_on;
+
                     record.delivered_at = new Date();
                     record.status = _batchStatus.delivered;
                 } else {
@@ -215,9 +234,9 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
 
     try {
 
-        const { batchId } = req.query;
+        const { id } = req.params;
 
-        const record = await Batch.findOne({ batchId })
+        const record = await Batch.findOne({ _id: id })
             .select({ dispatched: 1, intransit: 1, status: 1 })
             .populate({
                 path: 'req_id', select: 'product address'
