@@ -18,7 +18,7 @@ const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 
 module.exports.getProcurement = async (req, res) => {
     try {
-        const { organization_id, user_type, user_id } = req;
+        const { user_id } = req;
         const { page, limit, skip, paginate = 1, sortBy, search = '', status } = req.query;
 
         let query = search ? {
@@ -31,6 +31,7 @@ module.exports.getProcurement = async (req, res) => {
 
         // Handle status filtering based on offers
         if (status && Object.values(_associateOfferStatus).includes(status)) {
+            console.log('status', status)
             // Aggregation pipeline to join with AssociateOffers
             const pipeline = [
                 { $match: query },
@@ -43,7 +44,14 @@ module.exports.getProcurement = async (req, res) => {
                     },
                 },
                 { $unwind: '$myoffer' },
-                { $match: { 'myoffer.seller_id': new mongoose.Types.ObjectId(user_id), 'myoffer.status': status } },
+                {
+                    $match: {
+                        'myoffer.seller_id': new mongoose.Types.ObjectId(user_id),
+                        ...((status == _associateOfferStatus.pending || status == _associateOfferStatus.rejected) && { 'myoffer.status': status }),
+                        ...(status == _associateOfferStatus.accepted && { 'myoffer.status': { $in: [_associateOfferStatus.accepted, _associateOfferStatus.partially_ordered] } }),
+                        ...(status == _associateOfferStatus.ordered && { 'myoffer.status': { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } }),
+                    }
+                },
                 // {
                 //     $project: {
                 //         _id: 1,
