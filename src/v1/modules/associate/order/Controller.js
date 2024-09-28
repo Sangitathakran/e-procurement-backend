@@ -114,7 +114,7 @@ module.exports.editTrackDelivery = async (req, res) => {
         }
 
         switch (form_type) {
-            case _batchStatus.dispatched:
+            case _batchStatus.mark_ready:
 
                 if (material_img && weight_slip && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && qc_report && lab_report) {
                     record.dispatched.material_img = material_img;
