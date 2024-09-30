@@ -14,7 +14,7 @@ const {
 const {
   Batch,
 } = require("@src/v1/models/app/procurement/Batch");
-const Branches = require("@src/v1/models/master/Branches");
+const Branches = require("@src/v1/models/app/branchManagement/Branches");
 const {getFilter}=require("@src/v1/utils/helpers/customFilter")
 //widget list
 module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
@@ -67,16 +67,19 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
-module.exports.orderListByRequestId = asyncErrorHandler(async (req, res) => {
+module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
   try {
     const { page, limit, skip = 0, paginate, sortBy, search = "" } = req.query;
     const {id}=req.params;
     const filter=await getFilter(req,["status", "reqNo","branchName"]);
     const query = filter;
     const records = { count: 0 };
+    console.log("query--> ", query)
     records.rows =
       (await Batch.find({req_id:id})
         .select(" ")
+        .populate({ path: "req_id" , select: "address"})
+        .populate({ path: "seller_id" , select: "basic_details.associate_details"})
         .populate({path:'procurementCenter_id',select:'',match:query})
         .skip(skip)
         .limit(parseInt(limit))
@@ -96,7 +99,7 @@ module.exports.orderListByRequestId = asyncErrorHandler(async (req, res) => {
           });
           records.count=records.rows.length;
         }else{
-          records.count = await Batch.countDocuments(query);
+          records.count = await Batch.countDocuments({req_id:id});
         }
         
     if (paginate == 1) {
@@ -104,6 +107,22 @@ module.exports.orderListByRequestId = asyncErrorHandler(async (req, res) => {
       records.limit = limit;
       records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
     }
+
+    records.rows = records.rows.map(item=> { 
+          let batch = {}
+
+          batch['batchId'] = item.batchId
+          batch['associate_name'] = item?.seller_id?.basic_details?.associate_details?.associate_name ?? null
+          batch['procurement_center'] = item?.procurementCenter_id?.center_name ?? null
+          batch['quantity_purchased'] = item?.dispatchedqty ?? null
+          batch['procured_on'] = item?.dispatched_at
+          batch['delivery_location'] = item?.req_id.address.deliveryLocation ?? null
+          batch['address'] = item.req_id.address
+          batch['status'] = item.status
+          batch['_id'] = item._id
+
+          return batch
+    })
 
     return sendResponse({
       res,

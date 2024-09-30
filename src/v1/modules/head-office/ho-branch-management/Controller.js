@@ -6,7 +6,7 @@ const {
   _auth_module,
 } = require("@src/v1/utils/constants/messages");
 
-const { Branches } = require("@src/v1/models/master/Branches");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 
 const xlsx = require("xlsx");
@@ -246,13 +246,8 @@ module.exports.branchList = async (req, res) => {
   
       // Adding search filter
       const searchQuery = search ? {
-        $or: [
-          { batchName: { $regex: search, $options: 'i' } },        // Case-insensitive search for batchName
-          { emailAddress: { $regex: search, $options: 'i' } },     // Case-insensitive search for emailAddress
-          { 'pointOfContact.name': { $regex: search, $options: 'i' } }, // Case-insensitive search for pointOfContactName
-          { 'pointOfContact.email': { $regex: search, $options: 'i' } }  // Case-insensitive search for pointOfContactEmail
-        ]
-      } : {};
+        branchName: { $regex: search, $options: 'i' }        // Case-insensitive search for branchName
+       } : {};
   
       // Count total documents for pagination purposes, applying search filter
       const totalCount = await Branches.countDocuments(searchQuery);
