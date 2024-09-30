@@ -24,7 +24,7 @@ associateFarmerRoutes.post("/createBank", verifyJwtToken, [validateBank, validat
 associateFarmerRoutes.get("/get-bank", verifyJwtToken, getBank);
 associateFarmerRoutes.put("/updateBank/:bank_id", verifyJwtToken, updateBank);
 associateFarmerRoutes.delete("/deleteBank", verifyJwtToken, deleteBank);
-associateFarmerRoutes.post("/bulk-upload", verifyJwtToken, bulkUploadFarmers);
+associateFarmerRoutes.post("/bulk-upload",verifyAssociate, bulkUploadFarmers);
 associateFarmerRoutes.post("/bulk-export", verifyJwtToken, exportFarmers);
 associateFarmerRoutes.get("/localfarmer", verifyAssociate, individualfarmerList);
 module.exports = { associateFarmerRoutes }; 
