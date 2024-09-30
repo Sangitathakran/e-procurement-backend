@@ -14,12 +14,36 @@ const batchsSchema = new mongoose.Schema({
         material_img: [{ type: String, required: true }],
         weight_slip: { type: String, trim: true },
         bills: {
-            qc_survey: { type: String, trim: true },
-            gunny_bags: { type: String, trim: true },
-            weighing_stiching: { type: String, trim: true },
-            loading_unloading: { type: String, trim: true },
-            transportation: { type: String, trim: true },
-            driage: { type: String, trim: true },
+            qc_survey: {
+                quantity: { type: Number, trim: true },
+                bills: [{ type: String, trim: true }],
+                total: { type: Number, trim: true },
+            },
+            gunny_bags: {
+                quantity: { type: Number, trim: true },
+                bills: [{ type: String, trim: true }],
+                total: { type: Number, trim: true },
+            },
+            weighing_stiching: {
+                quantity: { type: Number, trim: true },
+                bills: [{ type: String, trim: true }],
+                total: { type: Number, trim: true },
+            },
+            loading_unloading: {
+                quantity: { type: Number, trim: true },
+                bills: [{ type: String, trim: true }],
+                total: { type: Number, trim: true },
+            },
+            transportation: {
+                quantity: { type: Number, trim: true },
+                bills: [{ type: String, trim: true }],
+                total: { type: Number, trim: true },
+            },
+            driage: {
+                quantity: { type: Number, trim: true },
+                bills: [{ type: String, trim: true }],
+                total: { type: Number, trim: true },
+            }
         },
         qc_report: { type: String, trim: true },
         lab_report: { type: String, trim: true },
@@ -36,9 +60,9 @@ const batchsSchema = new mongoose.Schema({
         transport: {
             service_name: { type: String, trim: true },
             vehicleNo: { type: String, trim: true },
-            vehicle_weight: { type: String, trim: true },
-            loaded_weight: { type: String, trim: true },
-            gst_number: { type: Number, trim: true },
+            vehicle_weight: { type: Number, trim: true },
+            loaded_weight: { type: Number, trim: true },
+            gst_number: { type: String, trim: true },
             pan_number: { type: String, trim: true },
         },
         weight_slip: { type: String, trim: true },

@@ -269,7 +269,7 @@ const _zaidCrops = {
 
 const _batchStatus = {
     pending: "Pending",
-    dispatched: "Dispatched",
+    mark_ready: "Mark-Ready",
     intransit: "In-Transit",
     delivered: "Delivered",
 }
