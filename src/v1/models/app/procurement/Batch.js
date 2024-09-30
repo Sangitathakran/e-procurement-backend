@@ -65,6 +65,7 @@ const batchsSchema = new mongoose.Schema({
             gst_number: { type: String, trim: true },
             pan_number: { type: String, trim: true },
         },
+        licenseImg: { type: String, trim: true },
         weight_slip: { type: String, trim: true },
         no_of_bags: { type: Number, trim: true },
         weight: { type: Number, trim: true },
