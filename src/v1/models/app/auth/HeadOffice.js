@@ -48,27 +48,31 @@ const headOfficeSchema = new mongoose.Schema({
     registered_time: {type: Date, default: Date.now},
     active: {type: Boolean, default: true},
     is_password_change: {type: Boolean, default: false},
-    head_office_code: {type: String, unique: true},
+    head_office_code: { type: String, unique: true },
 }, {timestamps: true});
 
 
 headOfficeSchema.pre('save', async function (next) {
-    if (!this.isNew) return next();
+    if (this.isNew && !this.head_office_code) {
+        try {
+            const HeadOffice = mongoose.model(_collectionName.HeadOffice, headOfficeSchema);
 
-    const HeadOffice = mongoose.model(_collectionName.HeadOffice, headOfficeSchema);
-    try {
-        const lastUser = await HeadOffice.findOne().sort({ createdAt: -1 });
-        let nextUserCode = 'HO00001';
+            const lastUser = await HeadOffice.findOne().sort({ createdAt: -1 });
 
-        if (lastUser && lastUser.head_office_code) {  
-            const lastCodeNumber = parseInt(lastUser.head_office_code.slice(2), 10);
-            nextUserCode = 'HO' + String(lastCodeNumber + 1).padStart(5, '0');
+            let nextUserCode = 'HO00001';
+
+            if (lastUser && lastUser.head_office_code) {
+                const lastCodeNumber = parseInt(lastUser.head_office_code.slice(2), 10);
+                nextUserCode = 'HO' + String(lastCodeNumber + 1).padStart(5, '0');
+            }
+
+            this.head_office_code = nextUserCode;
+            next();
+        } catch (err) {
+            next(err);
         }
-
-        this.head_office_code = nextUserCode;
+    } else {
         next();
-    } catch (err) {
-        next(err);
     }
 });
 

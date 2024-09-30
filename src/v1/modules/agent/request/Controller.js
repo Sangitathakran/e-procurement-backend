@@ -268,8 +268,8 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
 
     for (let offered of farmerOffer) {
 
-        const { associateOffers_id, farmer_id, metaData, offeredQty, qtyProcured } = offered;
-        const newFarmerOrder = new FarmerOrders({ associateOffers_id, farmer_id, metaData, offeredQty, qtyProcured, order_no: "OD" + _generateOrderNumber() });
+        const { associateOffers_id, farmer_id, metaData, offeredQty } = offered;
+        const newFarmerOrder = new FarmerOrders({ associateOffers_id, farmer_id, metaData, offeredQty, order_no: "OD" + _generateOrderNumber() });
 
         await newFarmerOrder.save();
     }

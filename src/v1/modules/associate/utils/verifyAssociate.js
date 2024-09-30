@@ -22,6 +22,9 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
 
     jwt.verify(token, JWT_SECRET_KEY, async function (err, decodedToken) {
         if (err) {
+            if (err.name === 'TokenExpiredError') {
+                return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "Token has expired" }] }));
+            }
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.invalid("token") }] }))
 
         }
