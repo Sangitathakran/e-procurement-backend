@@ -119,6 +119,7 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
           batch['delivery_location'] = item?.req_id.address.deliveryLocation ?? null
           batch['address'] = item.req_id.address
           batch['status'] = item.status
+          batch['_id'] = item._id
 
           return batch
     })
