@@ -1,4 +1,5 @@
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { _associateOfferStatus } = require("@src/v1/utils/constants");
 const { _response_message } = require("@src/v1/utils/constants/messages");
@@ -113,3 +114,31 @@ module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Associate orders") }));
 
 })
+
+
+module.exports.getBatchByAssociateOfferrs = asyncErrorHandler(async (req, res) => {
+
+    const { page, limit, skip, sortBy, search = '', status, paginate = 1, associateOffer_id } = req.query;
+
+    let query = search ? {
+        $or: [
+            { "product.name": { $regex: search, $options: 'i' } },
+            { "product.grade": { $regex: search, $options: 'i' } },
+        ]
+    } : {};
+
+    // Aggregation pipeline to join with AssociateOffers
+
+    const records = {};
+    records.rows = await Batch.aggregate(pipeline);
+    records.count = records.rows.length;
+
+
+    if (paginate == 1) {
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+    }
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
+}
+)
