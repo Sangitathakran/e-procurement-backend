@@ -4,6 +4,7 @@ const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { emailService } = require('@src/v1/utils/third_party/EmailServices');
 
 
 module.exports.getAssociates = async (req, res) => {
@@ -114,7 +115,7 @@ module.exports.userStatusUpdate = async (req, res) => {
         user.is_approved = status;
 
         if (!user.is_welcome_email_send) {
-            await emailService.sendWelcomeEmail(user);
+            emailService.sendWelcomeEmail(user);
             user.is_welcome_email_send = true;
         }
         await user.save();
