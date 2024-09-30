@@ -613,6 +613,7 @@ module.exports.deleteBank = async (req, res) => {
 
 module.exports.bulkUploadFarmers = async (req, res) => {
   try {
+    const { user_id } = req;
     const { isxlsx = 1 } = req.body;
     const [file] = req.files;
 
@@ -676,7 +677,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const type = rec["ID PROOF TYPE"];
       const aadhar_no = rec["AADHAR NUMBER*"];
       const address_line = rec["ADDRESS LINE*"];
-      const country =  rec["COUNTRY NAME"];
+      const country = rec["COUNTRY NAME"];
       const state_name = rec["STATE NAME*"];
       const district_name = rec["DISTRICT NAME*"];
       const block = rec["BLOCK NAME"];
@@ -768,9 +769,12 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         const bank_district_id = await getDistrictId(bank_district_name);
         const sowing_date = parseMonthyear(sowingdate);
         const harvesting_date = parseMonthyear(harvestingdate);
-
-        const associate = await User.findOne({ 'basic_details.associate_details.organization_name': fpo_name });
-        const associateId = associate ? associate._id : null;
+        
+        let associateId = user_id;
+        if(!user_id){
+          const associate = await User.findOne({ 'basic_details.associate_details.organization_name': fpo_name });
+           associateId = associate ? associate._id : null;
+        }
 
 
         let farmerRecord = await farmer.findOne({ 'proof.aadhar_no': aadhar_no });
