@@ -7,6 +7,7 @@ const batchsSchema = new mongoose.Schema({
     associateOffer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, required: true },
     batchId: { type: String, trim: true, },
     farmerOrderIds: [{ farmerOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.FarmerOrder, required: true }, qty: { type: Number, default: 0 } }],
+    procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
     dispatched_at: { type: Date },
     delivery_at: { type: Date },
     dispatchedqty: { type: Number },
