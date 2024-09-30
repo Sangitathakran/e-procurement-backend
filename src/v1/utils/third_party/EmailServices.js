@@ -91,7 +91,7 @@ class EmailService {
                 .replace("{{user_name}}", user_name)
                 .replace("{{password}}", password);
 
-            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+            await sendMail(email, '', 'Head Office registration done successfully | NavBazaar Login Credentials ', html);
 
         } catch (error) {
             console.error("Error sending welcome email:", error);
@@ -99,7 +99,7 @@ class EmailService {
         }
     }
 
-    async sendWelcomeEmail(userDetails, APP_URL, LOGO_URL) {
+    async sendWelcomeEmail(userDetails) {
         try {
             const email = userDetails.basic_details.associate_details.email;
             const userName = userDetails.basic_details.associate_details.organization_name;

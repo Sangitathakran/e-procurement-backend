@@ -115,7 +115,7 @@ module.exports.saveHeadOffice = async (req, res) => {
 };
 
 module.exports.updateStatus = asyncErrorHandler(async (req, res) => {
-    const { id, status } = req.body
+    const { id, status } = req.params
 
     const record = await HeadOffice.findOne({ _id: id })
 

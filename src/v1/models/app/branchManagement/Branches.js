@@ -6,6 +6,7 @@ const branchSchema = new mongoose.Schema({
   branchName: {
     type: String,
     required: true,
+    trim: true,
     maxLength: 100, // Max 100 characters
   },
   branchId: {
@@ -17,31 +18,36 @@ const branchSchema = new mongoose.Schema({
     required: true,
     unique: true,
     lowercase: true,
+    trim: true,
     maxLength: 100, // Max 100 characters
   },
   pointOfContact: {
-    name: { type: String, required: true, maxLength: 100 }, // Max 100 characters
-    phone: { type: String, required: true, match: /^\d{10}$/ }, // Exactly 10 digits
-    email: { type: String, required: true, lowercase: true, maxLength: 100 }, // Max 100 characters
+    name: { type: String, required: true, trim: true, maxLength: 100 }, // Max 100 characters
+    phone: { type: String, required: true, trim: true, match: /^\d{10}$/ }, // Exactly 10 digits
+    email: { type: String, required: true, lowercase: true, trim: true, maxLength: 100 }, // Max 100 characters
   },
   address: {
     type: String,
     required: true,
+    trim: true,
     maxLength: 255, // Max 255 characters
   },
   cityVillageTown: {
     type: String,
     required: true,
+    trim: true,
     maxLength: 100, // Max 100 characters
   },
   state: {
     type: String,
     required: true,
+    trim: true,
     maxLength: 100, // Max 100 characters
   },
   pincode: {
     type: String,
     required: true,
+    trim: true,
     match: /^\d{6}$/, // Max 6 digits
   },
   status: {

@@ -13,13 +13,48 @@ module.exports.batch = async (req, res) => {
 
     try {
 
-        const { req_id } = req.body;
+        const { req_id, truck_capacity, farmerData = [] } = req.body;
         const { user_id } = req;
 
-        const batchRecord = await Batch.findOne({ req_id, seller_id: user_id });
+        const record = await AssociateOffers.findOne({ seller_id: user_id, req_id: req_id });
 
-        if (batchRecord) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("batch") }] }))
+        if (!record) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
+        }
+
+        const sumOfQty = farmerData.reduce((acc, curr) => {
+            acc = acc + curr.qty;
+            return acc;
+        }, 0);
+
+        if (sumOfQty > truck_capacity) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "quantity should not exceeds truck capacity" }] }))
+        }
+
+        const farmerOrderIds = [];
+        let partiallyFulfulled = 0
+
+        for (let farmer of farmerData) {
+
+            const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id });
+
+            if (!farmerOrder) {
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer order") }] }));
+            }
+
+            if (farmerOrder.status != _procuredStatus.received) {
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "farmer order should not be pending" }] }));
+            }
+
+            if (farmerOrder?.qtyProcured < farmer.qty) {
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "added quantity should not exceed quantity procured" }] }));
+            }
+
+            if ((farmerOrder?.qtyProcured - farmer.qty) != 0) {
+                partiallyFulfulled = 1
+            }
+
+            farmerOrderIds.push(farmer.farmerOrder_id);
         }
 
         const procurementRecord = await RequestModel.findOne({ _id: req_id });
@@ -28,63 +63,37 @@ module.exports.batch = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
         }
 
-        const record = await AssociateOffers.findOne({ seller_id: user_id, req_id: req_id });
-
-        if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
-        }
-
-        const farmerRecords = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id });
+        const farmerRecords = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $in: farmerOrderIds } });
 
         if (farmerRecords) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
         }
+        const farmerRecordsPending = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $nin: farmerOrderIds } });
 
-        const receivedRecords = await FarmerOrders.find({ status: _procuredStatus.received, associateOffers_id: record?._id });
+        if (farmerRecordsPending || partiallyFulfulled == 1) {
+            record.status = _associateOfferStatus.partially_ordered;
+        } else {
+            record.status = _associateOfferStatus.ordered;
 
-        if (receivedRecords.length == 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }));
         }
 
-        const total_qty_procured = receivedRecords.reduce((acc, cur) => acc += cur.qtyProcured, 0)
-        if (total_qty_procured > record.offeredQty) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Quantity procured") }] }));
-        }
-        const myMap = new Map();
-        const payment = [];
-
-        for (let ele of receivedRecords) {
-            if (myMap.has(ele.procurementCenter_id)) {
-                const currElement = myMap.get(ele.procurementCenter_id);
-                currElement.dispatchedqty += ele.qtyProcured;
-            } else {
-                let batchId;
-                let isUnique = false;
-
-                while (!isUnique) {
-                    batchId = _generateOrderNumber();
-                    const existingOrder = await Batch.findOne({ batchId: batchId });
-                    if (!existingOrder) {
-                        isUnique = true;
-                    }
-                }
-                myMap.set(ele.procurementCenter_id, { req_id: req_id, batchId, seller_id: user_id, associateOffer_id: record._id, dispatchedqty: ele.qtyProcured });
+        let batchId;
+        let isUnique = false;
+        while (!isUnique) {
+            batchId = _generateOrderNumber();
+            const existingOrder = await Batch.findOne({ batchId: batchId });
+            if (!existingOrder) {
+                isUnique = true;
             }
-
-            payment.push({ whomToPay: ele.farmer_id, user_type: _userType.farmer, user_id: user_id, qtyProcured: ele.offeredQty, req_id: req_id, reqNo: procurementRecord?.reqNo, commodity: procurementRecord?.product?.name, amount: 0 });
-
         }
 
-        const associateRecords = await Batch.insertMany([...myMap.values()]);
+        await Batch.create({ seller_id: user_id, req_id, associateOffer_id: record._id, batchId, farmerOrderIds: farmerData, dispatched_at: new Date() })
 
-        await Payment.insertMany(payment);
-
-        record.status = _associateOfferStatus.ordered;
         procurementRecord.associatOrder_id.push(record._id)
         await record.save();
         await procurementRecord.save()
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: associateRecords, message: _response_message.created("batch") }))
+        return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.created("batch") }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -96,7 +105,7 @@ module.exports.editTrackDelivery = async (req, res) => {
 
     try {
 
-        const { form_type, id, material_img, weight_slip, qc_report, lab_report, name, contact, license, aadhar, service_name, vehicleNo, vehicle_weight, loaded_weight, qc_charges, no_of_bags, qty, delivered } = req.body;
+        const { form_type, id, material_img, weight_slip, qc_report, lab_report, name, contact, license, aadhar, service_name, vehicleNo, vehicle_weight, loaded_weight, qc_charges, no_of_bags, qty, gst_number, pan_number } = req.body;
 
         const record = await Batch.findOne({ _id: id });
 
@@ -132,7 +141,6 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.intransit.transport.vehicleNo = vehicleNo;
                     record.intransit.transport.vehicle_weight = vehicle_weight;
                     record.intransit.transport.loaded_weight = loaded_weight;
-                    record.intransit.bill.qc_charges = qc_charges;
                     record.intransit.no_of_bags = no_of_bags;
                     record.intransit.qty = qty;
                     record.intransit.intransit_at = new Date();
@@ -183,7 +191,6 @@ module.exports.viewTrackDelivery = async (req, res) => {
         records.rows = paginate == 1 ? await Batch.find(query).populate({
             path: 'req_id', select: 'product address',
             path: 'associateOffer_id', select: 'offeredQty procuredQty',
-            path: 'procurementCenter_id', select: 'point_of_contact address'
         })
             .sort(sortBy)
             .skip(skip)
