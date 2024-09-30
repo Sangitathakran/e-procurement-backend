@@ -11,6 +11,8 @@ const {
   ProcurementCenter,
 } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
+const {Batch}=require("@src/v1/models/app/procurement/Batch");
+const {RequestModel}=require("@src/v1/models/app/procurement/Request");
 const {AssociateOffers}=require("@src/v1/models/app/procurement/AssociateOffers")
 const { _query } = require("@src/v1/utils/constants/messages");
 
@@ -239,7 +241,7 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
     data: data,
   });
 });
-//farmerBenifitted
+//farmerBenifitteds
 module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
   const report = {
     month: [
@@ -282,17 +284,30 @@ module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
 });
 //procurementStatus
 module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
-     const procurementStatusDetails= await AssociateOffers.aggregate([{
-      $group:{_id:"$status",total:{$count:{}}}
+       let {id}=req.query;
+       let request={};
+       if(!id){
+        request=await RequestModel.findOne({status:"Open"}).sort({createdAt:-1})
+       }else{
+        request=await RequestModel.findById(id)
+       }
+     const procurementStatusDetails= await Batch.aggregate([
+      {
+      $match:{
+        // req_id:request._id,
+        status:{"$ne": null}}
      },
-     {$project:{status:"$_id",visitors:"$total",_id:0}}
+     {
+      $group:{_id:"$status",quantity:{$sum:"$dispatchedqty"}}
+     },
+     {$project:{status:"$_id",mtQuantity:"$quantity",_id:0}}
     ])
   
   return sendResponse({
     res,
     status: 200,
     message: _query.get("ProcurementStatus"),
-    data: procurementStatusDetails,
+    data: {fulfilledQty:request.fulfilledQty,procurementStatusDetails},
   });
 });
 //procurementOnTime
