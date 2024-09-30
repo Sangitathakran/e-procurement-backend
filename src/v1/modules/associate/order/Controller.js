@@ -33,10 +33,17 @@ module.exports.batch = async (req, res) => {
 
         const farmerOrderIds = [];
         let partiallyFulfulled = 0
+        let procurementCenter_id;
 
         for (let farmer of farmerData) {
 
             const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id });
+
+            if (!procurementCenter_id) {
+                procurementCenter_id = farmerOrder.procurementCenter_id;
+            } else if (procurementCenter_id && procurementCenter_id != farmerOrder.procurementCenter_id) {
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "procurement center should be same for all the orders" }] }))
+            }
 
             if (!farmerOrder) {
                 return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer order") }] }));
@@ -87,7 +94,7 @@ module.exports.batch = async (req, res) => {
             }
         }
 
-        await Batch.create({ seller_id: user_id, req_id, associateOffer_id: record._id, batchId, farmerOrderIds: farmerData })
+        await Batch.create({ seller_id: user_id, req_id, associateOffer_id: record._id, batchId, farmerOrderIds: farmerData, procurementCenter_id })
 
         procurementRecord.associatOrder_id.push(record._id)
         await record.save();
