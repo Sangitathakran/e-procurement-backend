@@ -36,21 +36,28 @@ module.exports.sendLog = () => {
             }
 
             // Create a backup file with the current timestamp
-            fs.writeFile(backupFilePath, data, (err) => {
+            fs.writeFile(backupFilePath, data, async (err) => {
                 if (err) {
                     console.error('Error creating backup file:', err);
                     return;
                 }
                 console.log('Backup created at:', backupFilePath);
+                // Send the email with the log file as an attachment
+                await sendMail(logEmails, '', "Procurement_apis Server logs", '', [
+                    {
+                        filename: 'error.txt', // Name of the attachment
+                        path: filePath, // Path of the file to be attached
+                    }
+                ]);
+
+                console.log('Email sent with logs as an attachment');
 
                 // Clear the original error log file
-                fs.writeFile(filePath, '', async (err) => {
+                fs.writeFile(filePath, '', (err) => {
                     if (err) {
                         console.error('Error clearing error log file:', err);
                         return;
                     }
-                    await sendMail(logEmails, "Server logs", data);
-                    console.log('Email sent with logs');
                 });
             });
         });
