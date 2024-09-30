@@ -96,8 +96,7 @@ module.exports.loginOrRegister = async (req, res) => {
             userExist = await User.create(newUser);
         }
         const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
-        const now = new Date();
-        const expiresIn = Math.floor(now.getTime() / 1000) + 3600;
+        const expiresIn = 3600; // 1 hour in seconds
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
         res.cookie('token', token, {
             httpOnly: true,
