@@ -80,7 +80,8 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
         .select(" ")
         .populate({ path: "req_id" , select: "address"})
         .populate({ path: "seller_id" , select: "basic_details.associate_details"})
-        .populate({path:'procurementCenter_id',select:'',match:query})
+        .populate({ path:'procurementCenter_id',select:'',match:query})
+        .populate({ path: 'farmerOrderIds.farmerOrder_id',  select: 'order_no'})
         .skip(skip)
         .limit(parseInt(limit))
         .sort(sortBy)) ?? [];
@@ -115,11 +116,13 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
           batch['associate_name'] = item?.seller_id?.basic_details?.associate_details?.associate_name ?? null
           batch['procurement_center'] = item?.procurementCenter_id?.center_name ?? null
           batch['quantity_purchased'] = item?.dispatchedqty ?? null
-          batch['procured_on'] = item?.dispatched_at
+          batch['procured_on'] = item?.dispatched_at ?? null
           batch['delivery_location'] = item?.req_id.address.deliveryLocation ?? null
           batch['address'] = item.req_id.address
           batch['status'] = item.status
+          batch['lot_ids'] = item.farmerOrderIds.reduce((acc, item)=> [...acc, item.farmerOrder_id.order_no], [])
           batch['_id'] = item._id
+          batch['total_amount'] = item?.total_amount ?? "2 CR"
 
           return batch
     })
