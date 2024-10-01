@@ -320,31 +320,30 @@ module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
      const procurementStatusDetails= await Batch.aggregate([
       {
       $match:{
-        // req_id:request._id,
+         req_id:request._id,
         status:{"$ne": null}}
      },
      {
       $group:{_id:"$status",quantity:{$sum:"$dispatchedqty"}}
      },
-     {$project:{status:"$_id",quantity:"$quantity",_id:0}}
+     {$project:{status:"$_id",quantity:"$quantity",_id:0,dispatchedqty:1}}
     ])
-    statusDetails.map(item=>{
+    statusDetails= procurementStatusDetails && statusDetails.map(item=>{
          if(item.status=='Requirement'){
           return {...item,quantity:request.fulfilledQty,totalQuantity:request.totalQuantity}
          }else if(item.status=='Procurement Done'){
          let deliveredDetails= procurementStatusDetails.find(item2=>item2.status=="Delivered");
-            return {...item,quantity:deliveredDetails?.quantity,totalQuantity:request.fulfilledQty}
+            return {...item,quantity:deliveredDetails?.quantity??0,totalQuantity:request.fulfilledQty}
          }else if(item.status=='Procurement Left'){
           let deliveredDetails= procurementStatusDetails.filter(item2=>(item2.status=="In-Transit"||item2.status=="Pending")).reduce((acc,curr)=>{
             return acc=curr.quantity
           },0);
-             return {...item,quantity:deliveredDetails,totalQuantity:request.fulfilledQty}
+             return {...item,quantity:deliveredDetails??0,totalQuantity:request.fulfilledQty}
           }else if(item.status=='Procurement Ongoing'){
-            let deliveredDetails= procurementStatusDetails.find(item2=>item2.status=="In-Transit")
-            let leftDetails= procurementStatusDetails.filter(item2=>(item2.status=="In-Transit"||item2.status=="Pending")).reduce((acc,curr)=>{
-              return acc=curr.quantity
-            },0);
-               return {...item,quantity:deliveredDetails.quantity,totalQuantity:leftDetails}
+            let deliveredDetails= procurementStatusDetails.find(item2=>item2.status=="Delivered")??{quantity:0}
+            let inTransitDetails= procurementStatusDetails.find(item2=>item2.status=="In-Transit")??{quantity:0}
+            let leftDetails=request.fulfilledQty-deliveredDetails?.quantity
+               return {...item,quantity:inTransitDetails?.quantity,totalQuantity:leftDetails}
             }
           
     })
