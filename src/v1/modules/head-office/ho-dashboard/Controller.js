@@ -282,7 +282,7 @@ module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
     data: farmerBenifittedDetails,
   });
 });
-//procurementStatus
+//procurementStatuss
 module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
      let statusDetails=[
       {
