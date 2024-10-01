@@ -9,6 +9,11 @@ const branchSchema = new mongoose.Schema({
     trim: true,
     maxLength: 100, // Max 100 characters
   },
+  password: {
+    type: String,
+    required: true,
+    minlength: 8,
+  },
   branchId: {
     type: String,
     unique: true,
