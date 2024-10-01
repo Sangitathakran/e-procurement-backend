@@ -118,21 +118,23 @@ module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
 
 module.exports.getBatchByAssociateOfferrs = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, sortBy, search = '', status, paginate = 1, associateOffer_id } = req.query;
+    const { page, limit, skip, sortBy, search = '', paginate = 1, associateOffer_id } = req.query;
 
     let query = search ? {
-        $or: [
-            { "product.name": { $regex: search, $options: 'i' } },
-            { "product.grade": { $regex: search, $options: 'i' } },
-        ]
+        $or: []
     } : {};
 
-    // Aggregation pipeline to join with AssociateOffers
+    query.associateOffer_id = associateOffer_id;
 
     const records = {};
-    records.rows = await Batch.aggregate(pipeline);
-    records.count = records.rows.length;
+    records.rows = await Batch.find(query).select("_id batchId status dispatched_at dispatchedqty delivered_at") // Select fields from Batch
+        .populate({
+            path: 'seller_id',
+            select: 'basic_details.point_of_contact',
+        })
+        .populate("procurementCenter_id")
 
+    records.count = records.rows.length;
 
     if (paginate == 1) {
         records.page = page;
@@ -142,3 +144,28 @@ module.exports.getBatchByAssociateOfferrs = asyncErrorHandler(async (req, res) =
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
 }
 )
+
+
+
+module.exports.trackDeliveryByBatchId = async (req, res) => {
+
+    try {
+
+        const { id } = req.params;
+
+        const record = await Batch.findOne({ _id: id })
+            .select({ dispatched: 1, intransit: 1, status: 1 })
+            .populate({
+                path: 'req_id', select: 'product address'
+            });
+
+        if (!record) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Track order") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
