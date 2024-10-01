@@ -333,7 +333,7 @@ module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
           return {...item,quantity:request.fulfilledQty,totalQuantity:request.totalQuantity}
          }else if(item.status=='Procurement Done'){
          let deliveredDetails= procurementStatusDetails.find(item2=>item2.status=="Delivered");
-            return {...item,quantity:deliveredDetails.quantity,totalQuantity:request.fulfilledQty}
+            return {...item,quantity:deliveredDetails?.quantity,totalQuantity:request.fulfilledQty}
          }else if(item.status=='Procurement Left'){
           let deliveredDetails= procurementStatusDetails.filter(item2=>(item2.status=="In-Transit"||item2.status=="Pending")).reduce((acc,curr)=>{
             return acc=curr.quantity
