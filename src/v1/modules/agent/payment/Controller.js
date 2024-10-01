@@ -7,7 +7,7 @@ const { _userType, _paymentstatus } = require('@src/v1/utils/constants');
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const mongoose = require("mongoose");
-
+const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 
 module.exports.payment = async (req, res) => {
 
@@ -37,7 +37,7 @@ module.exports.payment = async (req, res) => {
             .sort(sortBy);
 
             let batchId = {}
-            const newdata = await Promise.all(records.rows.map(async record => {
+            records.rows = await Promise.all(records.rows.map(async record => {
                 const batch = await Batch.findOne({'req_id':record.req_id}).select({batchId: 1, _id: 0});
                  batchId = batch?.batchId;
                 return { ...record.toObject(), batchId }
@@ -75,7 +75,7 @@ module.exports.payment = async (req, res) => {
                 return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
             }
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: newdata, message: _response_message.found("Payment") }))
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
         }
 
     } catch (error) {
@@ -151,9 +151,6 @@ module.exports.associateOrders = async (req, res) => {
 module.exports.batchList = async (req, res) => {
 
     try {
-
-        // const { user_id, user_type } = req;
-
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
 
         let query = {
@@ -181,7 +178,6 @@ module.exports.batchList = async (req, res) => {
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-
 
         if (isExport == 1) {
 
@@ -213,14 +209,63 @@ module.exports.batchList = async (req, res) => {
     }
 }
 
+
+module.exports.lot_list = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', farmerOrderId } = req.query;
+
+        let query = {
+            _id: farmerOrderId,
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        const records = { count: 0 };
+        records.rows = paginate == 1 ? await FarmerOrders.find(query)
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await FarmerOrders.find(query)
+            .sort(sortBy);
+
+        let farmerName = {}
+        
+        records.rows = await Promise.all(records.rows.map(async record => {
+            
+            const farmerDetails = await farmer.findOne({'_id':record.farmer_id}).select({name: 1, _id: 0});
+    
+            const farmerName = farmerDetails ? farmerDetails.name : null;
+            return { ...record.toObject(), farmerName }
+        }));
+
+        records.count = await FarmerOrders.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+ 
+        if(records) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        }
+        else{
+            return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
 module.exports.farmerOrders = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffers_id, isExport = 0 } = req.query;
 
-        let query = search ? { order_no: { $regex: search, $options: 'i' } } : {};
-
-        query.associateOffers_id = associateOffers_id;
+        let query = {
+            associateOffers_id,
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
 
         const records = { count: 0 };
         records.rows = paginate == 1 ? await FarmerOrders.find(query)
