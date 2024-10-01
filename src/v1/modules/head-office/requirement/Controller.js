@@ -120,7 +120,7 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
           batch['delivery_location'] = item?.req_id.address.deliveryLocation ?? null
           batch['address'] = item.req_id.address
           batch['status'] = item.status
-          batch['lot_ids'] = item.farmerOrderIds.reduce((acc, item)=> [...acc, item.farmerOrder_id.order_no], [])
+          batch['lot_ids'] = (item?.farmerOrderIds.reduce((acc, item)=> [...acc, item.farmerOrder_id.order_no], [])) ?? []
           batch['_id'] = item._id
           batch['total_amount'] = item?.total_amount ?? "2 CR"
 
