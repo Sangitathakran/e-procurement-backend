@@ -36,5 +36,6 @@ module.exports = {
         secretKey: process.env.SECRET_ACCESS_KEY,
         region: process.env.REGION,
         bucketName: process.env.BUCKET_NAME
-    }
+    },
+    logEmails: 'imran@radiantinfonet.com , maneesh@radiantinfonet.com ,ayush@navankur.org , dileep@radiantinfonet.com'
 }
