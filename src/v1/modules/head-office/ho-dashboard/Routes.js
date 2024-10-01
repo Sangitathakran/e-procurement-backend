@@ -18,7 +18,7 @@ hoDashboardRoutes.get("/farmer-payments", farmerPayments);
 hoDashboardRoutes.get("/revenue-expense", revenueExpenseChart);
 hoDashboardRoutes.get("/location-warehouse", locationWareHouseChart);
 hoDashboardRoutes.get(
-  "/payment-quantity-purchase-chart",
+  "/payment-quantity-purchase",
   paymentQuantityPurchase
 );
 hoDashboardRoutes.get("/branch-officeprocurement", branchOfficeProcurement);

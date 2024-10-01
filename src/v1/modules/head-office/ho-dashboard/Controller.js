@@ -35,7 +35,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   return sendResponse({
     res,
     status: 200,
-    message: _query.get("Account"),
+    message: _query.get("Widget List"),
     data: widgetDetails,
   });
 });
@@ -193,38 +193,18 @@ module.exports.locationWareHouseChart = asyncErrorHandler(async (req, res) => {
 });
 //paymentQuantityPurchase
 module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
-  const data = [
-    {
-      orderId: "2766253",
-      quantityPurchased: "1000 mt",
-      amountPayable: "₹2,87,390",
-    },
-    {
-      orderId: "2766253",
-      quantityPurchased: "1000 mt",
-      amountPayable: "₹3,47,356",
-    },
-    {
-      orderId: "2766253",
-      quantityPurchased: "1000 mt",
-      amountPayable: "₹3,47,356",
-    },
-    {
-      orderId: "2766253",
-      quantityPurchased: "1000 mt",
-      amountPayable: "₹3,47,356",
-    },
-    {
-      orderId: "2766253",
-      quantityPurchased: "1000 mt",
-      amountPayable: "₹3,47,356",
-    },
-  ];
+  const {limit,skip,page}=req.query;
+  let records={count:0};
+  records.row= await RequestModel.find({}).select('quotedPrice fulfilledQty reqNo').skip(skip).limit(limit);
+  records.count=await RequestModel.countDocuments({}).skip(skip).limit(limit);
+      records.page = page;
+      records.limit = limit;
+      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
   return sendResponse({
     res,
     status: 200,
     message: _query.get("Farmer Payments"),
-    data: data,
+    data: records,
   });
 });
 //branchOfficeProcurement
