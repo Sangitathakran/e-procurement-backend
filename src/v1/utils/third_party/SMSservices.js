@@ -66,7 +66,7 @@ class SMSService {
             const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}&unicode=true`;
             
             const response = await axios.post(url);
-            console.log('response', response.data);
+            
             return { message: 'Registration SMS sent successfully', response: response.data };
         }   catch (error) {
             return { error: error.message };

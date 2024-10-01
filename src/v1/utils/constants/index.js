@@ -112,6 +112,7 @@ const _associateOfferStatus = {
     accepted: 'Accepted',
     rejected: 'Rejected',
     pending: 'Pending',
+    partially_ordered: "Partially_Ordered",
     ordered: "Ordered",
 }
 
@@ -126,6 +127,12 @@ const _userType = {
     associate: "4",
     farmer: "5",
     agent: "6",
+}
+
+const _userStatus = {
+    approved: 'approved',
+    rejected: 'rejected',
+    pending: 'pending',
 }
 
 const _trader_type = {
@@ -262,7 +269,7 @@ const _zaidCrops = {
 
 const _batchStatus = {
     pending: "Pending",
-    dispatched: "Dispatched",
+    mark_ready: "Mark-Ready",
     intransit: "In-Transit",
     delivered: "Delivered",
 }
@@ -359,5 +366,6 @@ module.exports = {
     _paymentstatus,
     _center_type,
     _address_type,
-    _individual_category
+    _individual_category,
+    _userStatus
 }

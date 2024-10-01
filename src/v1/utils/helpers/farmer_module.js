@@ -22,6 +22,7 @@ exports.insertNewFarmerRecord = async (data) => {
         education: { highest_edu:data.highest_edu, edu_details: data.edu_details },
         address: {
             address_line: data.address_line,
+            country:data.country,
             state_id: data.state_id,
             district_id: data.district_id,
             block: data.block,
@@ -51,6 +52,7 @@ exports.updateFarmerRecord = async (farmerRecord, data) => {
     farmerRecord.proof.type = data.type;
     farmerRecord.proof.aadhar_no = data.aadhar_no;
     farmerRecord.address.address_line = data.address_line;
+    farmerRecord.address.country = data.country;
     farmerRecord.address.state_id = data.state_id;
     farmerRecord.address.district_id = data.district_id;
     farmerRecord.address.block = data.block;

@@ -281,14 +281,14 @@ const validateLand = checkSchema({
     'sowing_date': {
       optional: true,
       notEmpty: {
-        errorMessage: 'sowing_date is required',
+        errorMessage: 'Sowing Date is required',
       },
       
     },
     'harvesting_date': {
       optional: true,
       notEmpty: {
-        errorMessage: 'harvesting_date is required',
+        errorMessage: 'Harvesting Date is required',
       },
     },
     'crops_name': {

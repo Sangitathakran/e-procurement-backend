@@ -44,6 +44,7 @@ module.exports.getHo = async (req, res) => {
                     'point_of_contact.mobile': 1,
                     'point_of_contact.designation': 1,
                     registered_time: 1,
+                    head_office_code: 1,
                     active: 1,
                     address: 1
                 }
@@ -85,7 +86,6 @@ module.exports.saveHeadOffice = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const headOffice = new HeadOffice({
-            office_id: 'HO123456',
             password: hashedPassword,
             email_verified: false,
             user_ype: "5",
@@ -115,7 +115,7 @@ module.exports.saveHeadOffice = async (req, res) => {
 };
 
 module.exports.updateStatus = asyncErrorHandler(async (req, res) => {
-    const { id, status } = req.body
+    const { id, status } = req.params
 
     const record = await HeadOffice.findOne({ _id: id })
 
