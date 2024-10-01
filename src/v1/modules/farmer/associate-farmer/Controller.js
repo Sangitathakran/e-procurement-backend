@@ -659,22 +659,25 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         console.log("Streem error")
       });
     }
-
+    
     let errorArray = [];
     const processFarmerRecord = async (rec) => {
+      const toLowerCaseIfExists = (value) => {
+        return value ? value.toLowerCase() : value;
+      };
       const fpo_name = rec["FPO NAME*"];
-      const title = rec["TITLE"];
+      const title = toLowerCaseIfExists(rec["TITLE"]);
       const name = rec["NAME*"];
       const father_name = rec["FATHER NAME*"];
       const mother_name = rec["MOTHER NAME"];
       const date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)*"];
-      const gender = rec["GENDER*"];
-      const marital_status = rec["MARITAL STATUS"];
-      const religion = rec["RELIGION"];
-      const category = rec["CATEGORY"];
-      const highest_edu = rec["EDUCATION LEVEL"];
+      const gender = toLowerCaseIfExists(rec["GENDER*"]);
+      const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS"]);
+      const religion = toLowerCaseIfExists(rec["RELIGION"]);
+      const category = toLowerCaseIfExists(rec["CATEGORY"]);
+      const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL"]);
       const edu_details = rec["EDU DETAILS"];
-      const type = rec["ID PROOF TYPE"];
+      const type = toLowerCaseIfExists(rec["ID PROOF TYPE"]);
       const aadhar_no = rec["AADHAR NUMBER*"];
       const address_line = rec["ADDRESS LINE*"];
       const country = rec["COUNTRY NAME"];
@@ -686,7 +689,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const mobile_no = rec["MOBILE NO*"];
       const email = rec["EMAIL ID"];
       const total_area = rec["TOTAL AREA"];
-      const area_unit = rec["AREA UNIT"];
+      const area_unit = toLowerCaseIfExists(rec["AREA UNIT"]);
       const khasra_no = rec["KHASRA NUMBER"];
       const khatauni = rec["KHATAUNI"];
       const sow_area = rec["SOW AREA"];
@@ -694,11 +697,11 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const district = rec["DISTRICT"];
       const sub_district = rec["SUB DISTRICT"];
       const expected_production = rec["EXPECTED PRODUCTION"];
-      const soil_type = rec["SOIL TYPE"];
-      const soil_tested = rec["SOIL TESTED"];
-      const soil_health_card = rec["SOIL HEALTH CARD"];
+      const soil_type = toLowerCaseIfExists(rec["SOIL TYPE"]);
+      const soil_tested = toLowerCaseIfExists(rec["SOIL TESTED"]);
+      const soil_health_card = toLowerCaseIfExists(rec["SOIL HEALTH CARD"]);
       const soil_testing_lab_name = rec["SOIL TESTING LAB NAME"];
-      const lab_distance_unit = rec["LAB DISTANCE UNIT"];
+      const lab_distance_unit = toLowerCaseIfExists(rec["LAB DISTANCE UNIT"]);
       const sowingdate = rec["SOWING DATE(MM-YYYY)*"];
       const harvestingdate = rec["HARVESTING DATE(MM-YYYY)*"];
       const crops_name = rec["CROPS NAME*"];
@@ -707,20 +710,20 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const selling_price = rec["SELLING PRICE"];
       const market_price = rec["MARKETABLE PRICE"];
       const yield = rec["YIELD(KG)"];
-      const seed_used = rec["SEED USED"];
-      const fertilizer_used = rec["FERTILIZER USED"];
+      const seed_used = toLowerCaseIfExists(rec["SEED USED"]);
+      const fertilizer_used = toLowerCaseIfExists(rec["FERTILIZER USED"])
       const fertilizer_name = rec["FERTILIZER NAME"];
       const fertilizer_dose = rec["FERTILIZER DOSE"];
-      const pesticide_used = rec["PESTICIDE USED"];
+      const pesticide_used = toLowerCaseIfExists(rec["PESTICIDE USED"]);
       const pesticide_name = rec["PESTICIDE NAME"];
       const pesticide_dose = rec["PESTICIDE DOSE"];
-      const insecticide_used = rec["INSECTICIDE USED"];
+      const insecticide_used = toLowerCaseIfExists(rec["INSECTICIDE USED"]);
       const insecticide_name = rec["INSECTICIDE NAME"];
       const insecticide_dose = rec["INSECTICIDE DOSE"];
-      const crop_insurance = rec["CROP INSURANCE"];
+      const crop_insurance = toLowerCaseIfExists(rec["CROP INSURANCE"]);
       const insurance_company = rec["INSURANCE COMPANY"];
       const insurance_worth = rec["INSURANCE WORTH"];
-      const crop_seasons = rec["CROP SEASONS"];
+      const crop_seasons = toLowerCaseIfExists(rec["CROP SEASONS"]);
       const bank_name = rec["BANK NAME"];
       const account_no = rec["ACCOUNT NUMBER"];
       const branch = rec["BRANCH"];
@@ -731,7 +734,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const bank_block = rec["BANK BLOCK NAME"];
       const city = rec["CITY"];
       const bank_pincode = rec["BANK PINCODE"];
-
       let errors = [];
       if (!fpo_name || !name || !father_name || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no) {
         let missingFields = [];
@@ -750,7 +752,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           error: `Required fields missing: ${missingFields.join(', ')}`
         });
       }
-
       if (!/^\d{12}$/.test(aadhar_no)) {
         errors.push({ record: rec, error: "Invalid Aadhar Number" });
       }

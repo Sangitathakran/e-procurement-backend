@@ -12,6 +12,7 @@ const RequestSchema = new mongoose.Schema({
     deliveryDate: { type: Date, required: true, },
     expectedProcurementDate: { type: Date, required: true, },
     fulfilledQty: { type: Number, default: 0 },
+    totalQuantity: { type: Number, default: 0 },
     product: {
         name: { type: String, required: true },
         // category: { type: String, required: false },

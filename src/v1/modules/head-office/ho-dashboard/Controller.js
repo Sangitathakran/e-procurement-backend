@@ -11,9 +11,11 @@ const {
   ProcurementCenter,
 } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const {Batch}=require("@src/v1/models/app/procurement/Batch");
-const {RequestModel}=require("@src/v1/models/app/procurement/Request");
-const {AssociateOffers}=require("@src/v1/models/app/procurement/AssociateOffers")
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
+const {
+  AssociateOffers,
+} = require("@src/v1/models/app/procurement/AssociateOffers");
 const { _query } = require("@src/v1/utils/constants/messages");
 
 //widget lists
@@ -108,27 +110,27 @@ module.exports.farmerPayments = asyncErrorHandler(async (req, res) => {
 module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
   const report = {
     week: [
-      { week: "Monday", revenue: 186, expense: 80 },
-      { week: "Tuesday", revenue: 205, expense: 200 },
-      { week: "Wednesday", revenue: 237, expense: 120 },
-      { week: "Thursday", revenue: 73, expense: 190 },
-      { week: "Friday", revenue: 209, expense: 130 },
-      { week: "Saturday", revenue: 214, expense: 140 },
-      { week: "Sunday", revenue: 214, expense: 140 },
+      { week: "Mon", farmer: 186, agency: 80 },
+      { week: "Tuesday", farmer: 205, agency: 200 },
+      { week: "Wednesday", farmer: 237, agency: 120 },
+      { week: "Thursday", farmer: 73, agency: 190 },
+      { week: "Friday", farmer: 209, agency: 190 },
+      { week: "Saturday", farmer: 214, agency: 140 },
+      { week: "Sunday", farmer: 214, agency: 140 },
     ],
     month: [
-      { month: "January", revenue: 186, expense: 80 },
-      { month: "February", revenue: 305, expense: 200 },
-      { month: "March", revenue: 237, expense: 120 },
-      { month: "April", revenue: 73, expense: 190 },
-      { month: "May", revenue: 209, expense: 130 },
-      { month: "June", revenue: 214, expense: 140 },
-      { month: "July", revenue: 214, expense: 140 },
-      { month: "Augest", revenue: 214, expense: 140 },
-      { month: "September", revenue: 214, expense: 140 },
-      { month: "Octorber", revenue: 214, expense: 140 },
-      { month: "November", revenue: 214, expense: 140 },
-      { month: "Decmeber", revenue: 214, expense: 140 },
+      { month: "January", farmer: 186, agency: 80 },
+      { month: "February", farmer: 305, agency: 200 },
+      { month: "March", farmer: 237, agency: 120 },
+      { month: "April", farmer: 73, agency: 190 },
+      { month: "May", farmer: 209, agency: 130 },
+      { month: "June", farmer: 214, agency: 140 },
+      { month: "July", farmer: 214, agency: 140 },
+      { month: "Augest", farmer: 214, agency: 140 },
+      { month: "September", farmer: 214, agency: 140 },
+      { month: "Octorber", farmer: 214, agency: 140 },
+      { month: "November", farmer: 214, agency: 140 },
+      { month: "Decmeber", farmer: 214, agency: 140 },
     ],
   };
   return sendResponse({
@@ -259,22 +261,25 @@ module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
       { monthName: "Decmeber", month: 12, farmers: 0 },
     ],
   };
-  let farmerBenifittedDetails= await AssociateOffers.aggregate([ {
-    $project: { month: { $month: "$createdAt" } },
-  },
-  {
-    $group: { _id: "$month", farmers: { $count: {} } },
-  }
+  let farmerBenifittedDetails = await AssociateOffers.aggregate([
+    {
+      $project: { month: { $month: "$createdAt" } },
+    },
+    {
+      $group: { _id: "$month", farmers: { $count: {} } },
+    },
   ]);
   farmerBenifittedDetails = report.month.map((item) => {
-    let farmerDetails = farmerBenifittedDetails?.find((item2) => item2?._id == item.month);
+    let farmerDetails = farmerBenifittedDetails?.find(
+      (item2) => item2?._id == item.month
+    );
     if (farmerDetails?._id == item.month) {
       return { month: item.monthName, farmers: farmerDetails.farmers };
     } else {
-      return { month: item.monthName, farmers: item.farmers };;
+      return { month: item.monthName, farmers: item.farmers };
     }
   });
-  
+
   return sendResponse({
     res,
     status: 200,
@@ -284,39 +289,121 @@ module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
 });
 //procurementStatus
 module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
-       let {id}=req.query;
-       let request={};
-       if(!id){
-        request=await RequestModel.findOne({status:"Open"}).sort({createdAt:-1})
-       }else{
-        request=await RequestModel.findById(id)
-       }
-     const procurementStatusDetails= await Batch.aggregate([
-      {
-      $match:{
-        // req_id:request._id,
-        status:{"$ne": null}}
-     },
-     {
-      $group:{_id:"$status",quantity:{$sum:"$dispatchedqty"}}
-     },
-     {$project:{status:"$_id",mtQuantity:"$quantity",_id:0}}
-    ])
-  
+  let statusDetails = [
+    {
+      status: "Requirement",
+      quantity: 0,
+      totalQuantity: 0,
+      fill: "#0062F5",
+    },
+    {
+      status: "Procurement Done",
+      quantity: 0,
+      totalQuantity: 0,
+      fill: "#40BF7F",
+    },
+    {
+      status: "Procurement Left",
+      quantity: 0,
+      totalQuantity: 0,
+      fill: "#FF8819",
+    },
+    {
+      status: "Procurement Ongoing",
+      quantity: 0,
+      totalQuantity: 0,
+      fill: "#F64C4C",
+    },
+  ];
+  let { id } = req.query;
+  let request = {};
+  if (!id) {
+    request = await RequestModel.findOne({ status: "Open" }).sort({
+      createdAt: -1,
+    });
+  } else {
+    request = await RequestModel.findById(id);
+  }
+  const procurementStatusDetails = await Batch.aggregate([
+    {
+      $match: {
+        req_id: request._id,
+        status: { $ne: null },
+      },
+    },
+    {
+      $group: { _id: "$status", quantity: { $sum: "$dispatchedqty" } },
+    },
+    {
+      $project: {
+        status: "$_id",
+        quantity: "$quantity",
+        _id: 0,
+        dispatchedqty: 1,
+      },
+    },
+  ]);
+  statusDetails =
+    procurementStatusDetails &&
+    statusDetails.map((item) => {
+      if (item.status == "Requirement") {
+        return {
+          ...item,
+          quantity: request.fulfilledQty,
+          totalQuantity: request.totalQuantity,
+        };
+      } else if (item.status == "Procurement Done") {
+        let deliveredDetails = procurementStatusDetails.find(
+          (item2) => item2.status == "Delivered"
+        );
+        return {
+          ...item,
+          quantity: deliveredDetails?.quantity ?? 0,
+          totalQuantity: request.fulfilledQty,
+        };
+      } else if (item.status == "Procurement Left") {
+        let deliveredDetails = procurementStatusDetails
+          .filter(
+            (item2) => item2.status == "In-Transit" || item2.status == "Pending"
+          )
+          .reduce((acc, curr) => {
+            return (acc = curr.quantity);
+          }, 0);
+        return {
+          ...item,
+          quantity: deliveredDetails ?? 0,
+          totalQuantity: request.fulfilledQty,
+        };
+      } else if (item.status == "Procurement Ongoing") {
+        let deliveredDetails = procurementStatusDetails.find(
+          (item2) => item2.status == "Delivered"
+        ) ?? { quantity: 0 };
+        let inTransitDetails = procurementStatusDetails.find(
+          (item2) => item2.status == "In-Transit"
+        ) ?? { quantity: 0 };
+        let leftDetails = request.fulfilledQty - deliveredDetails?.quantity;
+        return {
+          ...item,
+          quantity: inTransitDetails?.quantity,
+          totalQuantity: leftDetails,
+        };
+      }
+    });
   return sendResponse({
     res,
     status: 200,
     message: _query.get("ProcurementStatus"),
-    data: {fulfilledQty:request.fulfilledQty,procurementStatusDetails},
+    data: statusDetails,
   });
 });
 //procurementOnTime
 module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
-  const procurementStatusDetails= await AssociateOffers.aggregate([{
-    $group:{_id:"$status",total:{$count:{}}}
-   },
-   {$project:{status:"$_id",visitors:"$total",_id:0}}
-  ])
+  const procurementStatusDetails = await AssociateOffers.aggregate([
+    {
+      $group: { _id: "$status", total: { $count: {} } },
+    },
+    { $project: { status: "$_id", visitors: "$total", _id: 0 } },
+  ]);
   const data = [
     { status: "On-Time", visitors: 58, fill: "#40BF7F" },
     { status: "Late", visitors: 22, fill: "#FF8819" },
