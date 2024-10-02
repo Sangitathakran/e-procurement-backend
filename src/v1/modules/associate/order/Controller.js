@@ -112,7 +112,7 @@ module.exports.editTrackDelivery = async (req, res) => {
 
     try {
 
-        const { form_type, id, material_img, weight_slip, qc_survey, gunny_bags, weighing_stiching, loading_unloading, transportation, driage, qc_report, lab_report, name, contact, license, aadhar, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number, weight_slip: intransit_weight_slip, no_of_bags, weight, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, delivered_on } = req.body;
+        const { form_type, id, material_img, weight_slip, qc_survey, gunny_bags, weighing_stiching, loading_unloading, transportation, driage, qc_report, lab_report, name, contact, license, aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number, weight_slip: intransit_weight_slip, no_of_bags, weight, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, delivered_on } = req.body;
 
         const record = await Batch.findOne({ _id: id });
 
@@ -144,13 +144,14 @@ module.exports.editTrackDelivery = async (req, res) => {
 
             case _batchStatus.intransit:
 
-                if (name && contact && license && aadhar && service_name && vehicleNo && vehicle_weight && loaded_weight && gst_number && pan_number && intransit_weight_slip && no_of_bags && weight) {
+                if (name && contact && license && aadhar && licenseImg && service_name && vehicleNo && vehicle_weight && loaded_weight && gst_number && pan_number && intransit_weight_slip && no_of_bags && weight) {
 
                     record.intransit.driver.name = name;
                     record.intransit.driver.contact = contact;
                     record.intransit.driver.license = license;
                     record.intransit.driver.aadhar = aadhar;
 
+                    record.intransit.licenseImg = licenseImg;
                     record.intransit.transport.service_name = service_name;
                     record.intransit.transport.vehicleNo = vehicleNo;
                     record.intransit.transport.vehicle_weight = vehicle_weight;
