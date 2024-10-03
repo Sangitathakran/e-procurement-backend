@@ -9,7 +9,7 @@ const batchsSchema = new mongoose.Schema({
     farmerOrderIds: [{ farmerOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.FarmerOrder, required: true }, qty: { type: Number, default: 0 } }],
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
     dispatched_at: { type: Date },
-    dispatchedqty: { type: Number },
+    dispatchedqty: { type: Number,default:0 },
     dispatched: {
         material_img: [{ type: String, required: true }],
         weight_slip: { type: String, trim: true },

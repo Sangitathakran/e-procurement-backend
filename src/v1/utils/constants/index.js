@@ -281,8 +281,12 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
-    approved: "Approved",
     completed: "Completed",
+}
+
+const _paymentApproval = {
+    pending: "Pending",
+    approved: "Approved",
 }
 
 const _individual_farmer_onboarding_steps = [
@@ -364,6 +368,7 @@ module.exports = {
     _batchStatus,
     _paymentmethod,
     _paymentstatus,
+    _paymentApproval,
     _center_type,
     _address_type,
     _individual_category,

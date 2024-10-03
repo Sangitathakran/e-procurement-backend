@@ -67,17 +67,21 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
-module.exports.orderListByRequestId = asyncErrorHandler(async (req, res) => {
+module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
   try {
     const { page, limit, skip = 0, paginate, sortBy, search = "" } = req.query;
     const {id}=req.params;
     const filter=await getFilter(req,["status", "reqNo","branchName"]);
     const query = filter;
     const records = { count: 0 };
+    console.log("query--> ", query)
     records.rows =
       (await Batch.find({req_id:id})
         .select(" ")
-        .populate({path:'procurementCenter_id',select:'',match:query})
+        .populate({ path: "req_id" , select: "address"})
+        .populate({ path: "seller_id" , select: "basic_details.associate_details"})
+        .populate({ path:'procurementCenter_id',select:'',match:query})
+        .populate({ path: 'farmerOrderIds.farmerOrder_id',  select: 'order_no'})
         .skip(skip)
         .limit(parseInt(limit))
         .sort(sortBy)) ?? [];
@@ -96,16 +100,32 @@ module.exports.orderListByRequestId = asyncErrorHandler(async (req, res) => {
           });
           records.count=records.rows.length;
         }else{
-          records.count = await Batch.countDocuments(query);
+          records.count = await Batch.countDocuments({req_id:id});
         }
         
-    
-
     if (paginate == 1) {
       records.page = page;
       records.limit = limit;
       records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
     }
+
+    records.rows = records.rows.map(item=> { 
+          let batch = {}
+
+          batch['batchId'] = item.batchId
+          batch['associate_name'] = item?.seller_id?.basic_details?.associate_details?.associate_name ?? null
+          batch['procurement_center'] = item?.procurementCenter_id?.center_name ?? null
+          batch['quantity_purchased'] = item?.dispatchedqty ?? null
+          batch['procured_on'] = item?.dispatched_at ?? null
+          batch['delivery_location'] = item?.req_id.address.deliveryLocation ?? null
+          batch['address'] = item.req_id.address
+          batch['status'] = item.status
+          batch['lot_ids'] = (item?.farmerOrderIds.reduce((acc, item)=> [...acc, item.farmerOrder_id.order_no], [])) ?? []
+          batch['_id'] = item._id
+          batch['total_amount'] = item?.total_amount ?? "2 CR"
+
+          return batch
+    })
 
     return sendResponse({
       res,
@@ -118,3 +138,26 @@ module.exports.orderListByRequestId = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
+module.exports.qcDetailsById = asyncErrorHandler( async (req, res) =>{
+  try{
+  
+    const {id} = req.params;
+    const records = {};
+    records.rows = 
+    ( await Batch.findById(id)
+       .select(" ")
+       .populate({path:'req_id',select:''}) ) ?? []
+
+    return sendResponse({
+      res,
+      status: 200,
+      data : records,
+      message: _response_message.found("QC detail")
+    })   
+
+  } catch (error) {
+    console.log("error==>", error);
+    _handleCatchErrors(error, res)
+  }
+})

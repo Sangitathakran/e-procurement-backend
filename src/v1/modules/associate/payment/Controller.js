@@ -138,7 +138,7 @@ module.exports.farmerOrders = async (req, res) => {
     }
 }
 
-module.exports.batch = async (req, res) => {
+module.exports.associateOrders = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0 } = req.query
@@ -473,22 +473,25 @@ module.exports.getBill = async (req, res) => {
         }
 
         const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1 });
+        
+        if(billPayment){
+            let totalamount = 0;
+            let mspPercentage = 1; // The percentage you want to calculate       
 
-        let totalamount = 0;
-        let mspPercentage = 1; // The percentage you want to calculate       
+            const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });
 
-        const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });
+            const newdata = await Promise.all(reqDetails.map(async record => {
+                totalamount += record.amount;
+            }));
 
-        const newdata = await Promise.all(reqDetails.map(async record => {
-            totalamount += record.amount;
-        }));
+            const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
+            const billQty = (0.8/1000); 
 
-        const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
+            let records = { ...billPayment.toObject(), totalamount, mspAmount, billQty }
 
-        let records = { ...billPayment.toObject(), totalamount, mspAmount }
-
-        if (records) {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+            if (records) {
+                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+            }
         }
         else {
             return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
