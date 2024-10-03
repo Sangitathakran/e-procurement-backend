@@ -7,6 +7,7 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const moment = require("moment")
 
 
 module.exports.batch = async (req, res) => {
@@ -108,7 +109,8 @@ module.exports.editTrackDelivery = async (req, res) => {
 
     try {
 
-        const { form_type, id, material_img, weight_slip, qc_survey, gunny_bags, weighing_stiching, loading_unloading, transportation, driage, qc_report, lab_report, name, contact, license, aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number, weight_slip: intransit_weight_slip, no_of_bags, weight, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, delivered_on } = req.body;
+        const { form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching, loading_unloading, transportation, driage, storageExp, commission, qc_report = [], lab_report = [], name, contact, license, aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number, intransit_weight_slip, no_of_bags, weight, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, } = req.body;
+        const { user_id } = req
 
         const record = await Batch.findOne({ _id: id });
 
@@ -119,18 +121,23 @@ module.exports.editTrackDelivery = async (req, res) => {
         switch (form_type) {
             case _batchStatus.mark_ready:
 
-                if (material_img && weight_slip && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && qc_report && lab_report) {
-                    record.dispatched.material_img = material_img;
-                    record.dispatched.weight_slip = weight_slip;
-                    record.dispatched.dispatched_at = new Date();
+                if (material_img && weight_slip && procurementExp && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && storageExp && commission && qc_report && lab_report) {
+                    record.dispatched.material_img.inital.push(...material_img.map(i => { return { img: i, on: moment() } }));
+                    record.dispatched.weight_slip.inital.push(...weight_slip.map(i => { return { img: i, on: moment() } }));
+                    record.dispatched.bills.procurementExp = procurementExp;
                     record.dispatched.bills.qc_survey = qc_survey;
                     record.dispatched.bills.gunny_bags = gunny_bags;
                     record.dispatched.bills.weighing_stiching = weighing_stiching;
                     record.dispatched.bills.loading_unloading = loading_unloading;
                     record.dispatched.bills.transportation = transportation;
                     record.dispatched.bills.driage = driage;
-                    record.dispatched.qc_report = qc_report;
-                    record.dispatched.lab_report = lab_report;
+                    record.dispatched.bills.storageExp = storageExp;
+                    record.dispatched.bills.commission = commission;
+                    record.dispatched.bills.total = parseInt(procurementExp) + parseInt(driage) + parseInt(storageExp) + parseInt(commission);
+                    record.dispatched.qc_report.inital.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+                    record.dispatched.lab_report.inital.push(...lab_report.map(i => { return { img: i, on: moment() } }));
+                    record.dispatched.dispatched_at = new Date();
+                    record.dispatched.dispatched_by = user_id;
 
                     record.status = _batchStatus.dispatched
                 } else {
@@ -159,6 +166,7 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.intransit.no_of_bags = no_of_bags;
                     record.intransit.weight = weight;
                     record.intransit.intransit_at = new Date();
+                    record.intransit.intransit_by = user_id;
 
                     record.status = _batchStatus.intransit;
                 } else {
@@ -168,17 +176,17 @@ module.exports.editTrackDelivery = async (req, res) => {
                 break;
 
             case _batchStatus.delivered:
-                if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight && delivered_on) {
+                if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
                     record.delivered.proof_of_delivery = proof_of_delivery;
                     record.delivered.weigh_bridge_slip = weigh_bridge_slip;
                     record.delivered.receiving_copy = receiving_copy;
                     record.delivered.truck_photo = truck_photo;
-                    record.delivered.details.loaded_vehicle_weight = loaded_vehicle_weight;
-                    record.delivered.details.tare_weight = tare_weight;
-                    record.delivered.details.net_weight = net_weight;
-                    record.delivered.details.delivered_on = delivered_on;
+                    record.delivered.loaded_vehicle_weight = loaded_vehicle_weight;
+                    record.delivered.tare_weight = tare_weight;
+                    record.delivered.net_weight = net_weight;
+                    record.delivered.delivered_at = new Date();
+                    record.delivered.delivered_by = user_id;
 
-                    record.delivered_at = new Date();
                     record.status = _batchStatus.delivered;
                 } else {
                     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));

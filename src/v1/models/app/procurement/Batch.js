@@ -72,12 +72,10 @@ const batchsSchema = new mongoose.Schema({
         weigh_bridge_slip: { type: String, trim: true },
         receiving_copy: { type: String, trim: true },
         truck_photo: { type: String, trim: true },
-        details: {
-            loaded_vehicle_weight: { type: Number, trim: true },
-            tare_weight: { type: Number, trim: true },
-            net_weight: { type: Number, trim: true },
-            delivered_at: { type: Date, trim: true },
-        },
+        loaded_vehicle_weight: { type: Number, trim: true },
+        tare_weight: { type: Number, trim: true },
+        net_weight: { type: Number, trim: true },
+        delivered_at: { type: Date, trim: true },
         delivered_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
     },
     status: { type: String, enum: Object.values(_batchStatus), default: _batchStatus.pending }
