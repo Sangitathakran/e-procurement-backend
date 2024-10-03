@@ -7,6 +7,7 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const moment = require("moment")
 
 
 module.exports.batch = async (req, res) => {
@@ -16,8 +17,13 @@ module.exports.batch = async (req, res) => {
         const { req_id, truck_capacity, farmerData = [] } = req.body;
         const { user_id } = req;
 
-        const record = await AssociateOffers.findOne({ seller_id: user_id, req_id: req_id });
+        //  procurement Request exist or not 
+        const procurementRecord = await RequestModel.findOne({ _id: req_id });
+        if (!procurementRecord) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
+        }
 
+        const record = await AssociateOffers.findOne({ seller_id: user_id, req_id: req_id });
         if (!record) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
         }
@@ -37,70 +43,61 @@ module.exports.batch = async (req, res) => {
 
         for (let farmer of farmerData) {
 
-            const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id });
+            const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).lean();
 
-            if (!procurementCenter_id) {
-                procurementCenter_id = farmerOrder.procurementCenter_id;
-            } else if (procurementCenter_id && procurementCenter_id != farmerOrder.procurementCenter_id) {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "procurement center should be same for all the orders" }] }))
-            }
-
+            // farmer order exist or not 
             if (!farmerOrder) {
                 return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer order") }] }));
             }
 
+            // order should be procured from these farmers 
             if (farmerOrder.status != _procuredStatus.received) {
                 return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "farmer order should not be pending" }] }));
             }
 
+            // procurement Center should be same in current batch
+            if (!procurementCenter_id) {
+                procurementCenter_id = farmerOrder?.procurementCenter_id.toString();
+            } else if (procurementCenter_id && procurementCenter_id != farmerOrder.procurementCenter_id.toString()) {
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "procurement center should be same for all the orders" }] }))
+            }
+
+            //qty should not exceed from qty procured 
             if (farmerOrder?.qtyProcured < farmer.qty) {
                 return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "added quantity should not exceed quantity procured" }] }));
             }
-
+            // is the order full fill partially 
             if ((farmerOrder?.qtyProcured - farmer.qty) != 0) {
                 partiallyFulfulled = 1
             }
-
+            farmer.amt = (farmer.qty * procurementRecord?.quotedPrice)
             farmerOrderIds.push(farmer.farmerOrder_id);
         }
 
-        const procurementRecord = await RequestModel.findOne({ _id: req_id });
-
-        if (!procurementRecord) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
-        }
-
+        // given farmer's order should be in in received state
         const farmerRecords = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $in: farmerOrderIds } });
-
-        if (farmerRecords) {
+        if (farmerRecords)
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
-        }
+
+
+        // update status based on fullfilment 
         const farmerRecordsPending = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $nin: farmerOrderIds } });
+        record.status = (farmerRecordsPending || partiallyFulfulled == 1) ? _associateOfferStatus.partially_ordered : _associateOfferStatus.ordered
 
-        if (farmerRecordsPending || partiallyFulfulled == 1) {
-            record.status = _associateOfferStatus.partially_ordered;
-        } else {
-            record.status = _associateOfferStatus.ordered;
-
-        }
-
-        let batchId;
-        let isUnique = false;
+        //create unique batch Number 
+        let batchId, isUnique = false;
         while (!isUnique) {
             batchId = _generateOrderNumber();
-            const existingOrder = await Batch.findOne({ batchId: batchId });
-            if (!existingOrder) {
-                isUnique = true;
-            }
+            if (!(await Batch.findOne({ batchId: batchId }))) isUnique = true;
         }
 
-        await Batch.create({ seller_id: user_id, req_id, associateOffer_id: record._id, batchId, farmerOrderIds: farmerData, procurementCenter_id })
+        const batchCreated = await Batch.create({ seller_id: user_id, req_id, associateOffer_id: record._id, batchId, farmerOrderIds: farmerData, procurementCenter_id, qty: sumOfQty, goodsPrice: (sumOfQty * procurementRecord?.quotedPrice), totalPrice: (sumOfQty * procurementRecord?.quotedPrice) })
 
         procurementRecord.associatOrder_id.push(record._id)
         await record.save();
         await procurementRecord.save()
 
-        return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.created("batch") }))
+        return res.status(200).send(new serviceResponse({ status: 200, data: batchCreated, message: _response_message.created("batch") }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -112,7 +109,8 @@ module.exports.editTrackDelivery = async (req, res) => {
 
     try {
 
-        const { form_type, id, material_img, weight_slip, qc_survey, gunny_bags, weighing_stiching, loading_unloading, transportation, driage, qc_report, lab_report, name, contact, license, aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number, weight_slip: intransit_weight_slip, no_of_bags, weight, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, delivered_on } = req.body;
+        const { form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching, loading_unloading, transportation, driage, storageExp, commission, qc_report = [], lab_report = [], name, contact, license, aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number, intransit_weight_slip, no_of_bags, weight, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, } = req.body;
+        const { user_id } = req
 
         const record = await Batch.findOne({ _id: id });
 
@@ -123,18 +121,23 @@ module.exports.editTrackDelivery = async (req, res) => {
         switch (form_type) {
             case _batchStatus.mark_ready:
 
-                if (material_img && weight_slip && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && qc_report && lab_report) {
-                    record.dispatched.material_img = material_img;
-                    record.dispatched.weight_slip = weight_slip;
-                    record.dispatched.dispatched_at = new Date();
+                if (material_img && weight_slip && procurementExp && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && storageExp && commission && qc_report && lab_report) {
+                    record.dispatched.material_img.inital.push(...material_img.map(i => { return { img: i, on: moment() } }));
+                    record.dispatched.weight_slip.inital.push(...weight_slip.map(i => { return { img: i, on: moment() } }));
+                    record.dispatched.bills.procurementExp = procurementExp;
                     record.dispatched.bills.qc_survey = qc_survey;
                     record.dispatched.bills.gunny_bags = gunny_bags;
                     record.dispatched.bills.weighing_stiching = weighing_stiching;
                     record.dispatched.bills.loading_unloading = loading_unloading;
                     record.dispatched.bills.transportation = transportation;
                     record.dispatched.bills.driage = driage;
-                    record.dispatched.qc_report = qc_report;
-                    record.dispatched.lab_report = lab_report;
+                    record.dispatched.bills.storageExp = storageExp;
+                    record.dispatched.bills.commission = commission;
+                    record.dispatched.bills.total = parseInt(procurementExp) + parseInt(driage) + parseInt(storageExp) + parseInt(commission);
+                    record.dispatched.qc_report.inital.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+                    record.dispatched.lab_report.inital.push(...lab_report.map(i => { return { img: i, on: moment() } }));
+                    record.dispatched.dispatched_at = new Date();
+                    record.dispatched.dispatched_by = user_id;
 
                     record.status = _batchStatus.dispatched
                 } else {
@@ -163,6 +166,7 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.intransit.no_of_bags = no_of_bags;
                     record.intransit.weight = weight;
                     record.intransit.intransit_at = new Date();
+                    record.intransit.intransit_by = user_id;
 
                     record.status = _batchStatus.intransit;
                 } else {
@@ -172,17 +176,17 @@ module.exports.editTrackDelivery = async (req, res) => {
                 break;
 
             case _batchStatus.delivered:
-                if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight && delivered_on) {
+                if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
                     record.delivered.proof_of_delivery = proof_of_delivery;
                     record.delivered.weigh_bridge_slip = weigh_bridge_slip;
                     record.delivered.receiving_copy = receiving_copy;
                     record.delivered.truck_photo = truck_photo;
-                    record.delivered.details.loaded_vehicle_weight = loaded_vehicle_weight;
-                    record.delivered.details.tare_weight = tare_weight;
-                    record.delivered.details.net_weight = net_weight;
-                    record.delivered.details.delivered_on = delivered_on;
+                    record.delivered.loaded_vehicle_weight = loaded_vehicle_weight;
+                    record.delivered.tare_weight = tare_weight;
+                    record.delivered.net_weight = net_weight;
+                    record.delivered.delivered_at = new Date();
+                    record.delivered.delivered_by = user_id;
 
-                    record.delivered_at = new Date();
                     record.status = _batchStatus.delivered;
                 } else {
                     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
