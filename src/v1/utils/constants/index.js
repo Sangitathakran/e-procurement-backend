@@ -272,7 +272,9 @@ const _batchStatus = {
     mark_ready: "Mark-Ready",
     intransit: "In-Transit",
     delivered: "Delivered",
-    approved: "Approved"
+    finalQc: "Final Qc",
+    paymentApproved: "Payment Approved",
+    paymentComplete: "Payment Complete"
 }
 
 const _paymentmethod = {
