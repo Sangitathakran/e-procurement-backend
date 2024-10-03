@@ -262,181 +262,182 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
 });
 //branchOfficeProcurement
 module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
-    let {stateNames}=req.query;
-    
-    stateNames=stateNames?JSON.parse(stateNames):[];
-    let data = [
-      {
-        state: "Andhra Pradesh",
-        farmers: 0,
-      },
+  let { stateNames } = req.query;
 
-      {
-        state: "Arunachal Pradesh",
-        farmers: 0,
-      },
-      {
-        state: "Assam",
-        farmers: 0,
-      },
-      {
-        state: "Bihar",
-        farmers: 0,
-      },
-      {
-        state: "Chhattisgarh",
-        farmers: 0,
-      },
-      {
-        state: "Goa",
-        farmers: 0,
-      },
-      {
-        state: "Gujarat",
-        farmers: 0,
-      },
-      {
-        state: "Haryana",
-        farmers: 0,
-      },
-      {
-        state: "Himachal Pradesh",
-        farmers: 0,
-      },
-      {
-        state: "Jharkhand",
-        farmers: 0,
-      },
-      {
-        name: "Karnataka",
-        farmers: 0,
-      },
-      {
-        state: "Kerala",
-        farmers: 0,
-      },
-      {
-        state: "Madhya Pradesh",
-        farmers: 0,
-      },
-      {
-        state: "Maharashtra",
-        farmers: 0,
-      },
-      {
-        state: "Manipur",
-        farmers: 0,
-      },
-      {
-        state: "Meghalaya",
-        farmers: 0,
-      },
-      {
-        state: "Mizoram",
-        farmers: 0,
-      },
-      {
-        state: "Nagaland",
-        farmers: 0,
-      },
-      {
-        state: "Odisha",
-        farmers: 0,
-      },
-      {
-        state: "Punjab",
-        farmers: 0,
-      },
-      {
-        name: "Rajasthan",
-        farmers: 0,
-      },
-      {
-        state: "Sikkim",
-        farmers: 0,
-      },
-      {
-        state: "Tamil Nadu",
-        farmers: 0,
-      },
-      {
-        state: "Telangana",
-        farmers: 0,
-      },
-      {
-        state: "Tripura",
-        farmers: 0,
-      },
-      {
-        state: "Uttar Pradesh",
-        farmers: 0,
-      },
-      {
-        state: "Uttarakhand",
-        farmers: 0,
-      },
-      {
-        state: "West Bengal",
-        farmers: 0,
-      },
-      {
-        state: "Andaman and Nicobar Islands",
-        farmers: 0,
-      },
-      {
-        state: "Chandigarh",
-        farmers: 0,
-      },
-      {
-        state: "Dadra and Nagar Haveli and Daman and Diu",
-        farmers: 0,
-      },
-      {
-        state: "Lakshadweep",
-        farmers: 0,
-      },
-      {
-        state: "Delhi",
-        farmers: 0,
-      },
-      {
-        state: "Puducherry",
-        farmers: 0,
-      },
-      {
-        state: "Ladakh",
-        farmers: 0,
-      },
-      {
-        state: "Jammu and Kashmir",
-        farmers: 0,
-      },
-    ];
-    let pipeline=[{
-      $lookup:{
-        from:"procurementcenters",
-        localField:"procurementCenter_id",
-        foreignField:"_id",
-        as:"result"
-      }    
-},
+  stateNames = stateNames ? JSON.parse(stateNames) : [];
+  let data = [
+    {
+      state: "Andhra Pradesh",
+      farmers: 0,
+    },
 
-{$unwind:{
-path: "$result",
-preserveNullAndEmptyArrays: false
-}
-},
+    {
+      state: "Arunachal Pradesh",
+      farmers: 0,
+    },
+    {
+      state: "Assam",
+      farmers: 0,
+    },
+    {
+      state: "Bihar",
+      farmers: 0,
+    },
+    {
+      state: "Chhattisgarh",
+      farmers: 0,
+    },
+    {
+      state: "Goa",
+      farmers: 0,
+    },
+    {
+      state: "Gujarat",
+      farmers: 0,
+    },
+    {
+      state: "Haryana",
+      farmers: 0,
+    },
+    {
+      state: "Himachal Pradesh",
+      farmers: 0,
+    },
+    {
+      state: "Jharkhand",
+      farmers: 0,
+    },
+    {
+      name: "Karnataka",
+      farmers: 0,
+    },
+    {
+      state: "Kerala",
+      farmers: 0,
+    },
+    {
+      state: "Madhya Pradesh",
+      farmers: 0,
+    },
+    {
+      state: "Maharashtra",
+      farmers: 0,
+    },
+    {
+      state: "Manipur",
+      farmers: 0,
+    },
+    {
+      state: "Meghalaya",
+      farmers: 0,
+    },
+    {
+      state: "Mizoram",
+      farmers: 0,
+    },
+    {
+      state: "Nagaland",
+      farmers: 0,
+    },
+    {
+      state: "Odisha",
+      farmers: 0,
+    },
+    {
+      state: "Punjab",
+      farmers: 0,
+    },
+    {
+      name: "Rajasthan",
+      farmers: 0,
+    },
+    {
+      state: "Sikkim",
+      farmers: 0,
+    },
+    {
+      state: "Tamil Nadu",
+      farmers: 0,
+    },
+    {
+      state: "Telangana",
+      farmers: 0,
+    },
+    {
+      state: "Tripura",
+      farmers: 0,
+    },
+    {
+      state: "Uttar Pradesh",
+      farmers: 0,
+    },
+    {
+      state: "Uttarakhand",
+      farmers: 0,
+    },
+    {
+      state: "West Bengal",
+      farmers: 0,
+    },
+    {
+      state: "Andaman and Nicobar Islands",
+      farmers: 0,
+    },
+    {
+      state: "Chandigarh",
+      farmers: 0,
+    },
+    {
+      state: "Dadra and Nagar Haveli and Daman and Diu",
+      farmers: 0,
+    },
+    {
+      state: "Lakshadweep",
+      farmers: 0,
+    },
+    {
+      state: "Delhi",
+      farmers: 0,
+    },
+    {
+      state: "Puducherry",
+      farmers: 0,
+    },
+    {
+      state: "Ladakh",
+      farmers: 0,
+    },
+    {
+      state: "Jammu and Kashmir",
+      farmers: 0,
+    },
+  ];
+  let pipeline = [
+    {
+      $lookup: {
+        from: "procurementcenters",
+        localField: "procurementCenter_id",
+        foreignField: "_id",
+        as: "result",
+      },
+    },
 
-{ $group:{_id:"$result.address.state",farmers: { $count: {} }}},
+    {
+      $unwind: {
+        path: "$result",
+        preserveNullAndEmptyArrays: false,
+      },
+    },
 
-{$project:{state:"$_id",farmers:1,_id:0}}
-]
-if(stateNames.length>0){
-  pipeline.push({$match:{state:{$in:stateNames}}})
-}else{
+    { $group: { _id: "$result.address.state", farmers: { $count: {} } } },
 
-}
-   let branchOfficeProc= await  Batch.aggregate(pipeline);
+    { $project: { state: "$_id", farmers: 1, _id: 0 } },
+  ];
+  if (stateNames.length > 0) {
+    pipeline.push({ $match: { state: { $in: stateNames } } });
+  } else {
+  }
+  let branchOfficeProc = await Batch.aggregate(pipeline);
   // data=data.map(item=>{
   //   let stateDetails=branchOfficeProc.find(item2=>item2.state==item.state)
   //       if(stateDetails){
