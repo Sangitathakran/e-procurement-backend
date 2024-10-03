@@ -24,7 +24,6 @@ exports.verifyBO = asyncErrorHandler(async (req, res, next) => {
     jwt.verify(token, JWT_SECRET_KEY, function (err, decodedToken) {
         if (err) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.invalid("token") }] }))
-
         }
         
         if (decodedToken.user_type != _userType.bo) {
