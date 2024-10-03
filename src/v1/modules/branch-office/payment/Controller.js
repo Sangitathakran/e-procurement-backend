@@ -90,7 +90,7 @@ module.exports.associateOrders = async (req, res) => {
 
         const { user_type } = req;
 
-        if (user_type != _userType.agent) {
+        if (user_type != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
@@ -209,53 +209,6 @@ module.exports.batchList = async (req, res) => {
     }
 }
 
-module.exports.lot_list = async (req, res) => {
-
-    try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', farmerOrderId } = req.query;
-
-        let query = {
-            _id: farmerOrderId,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
-        };
-
-        const records = { count: 0 };
-        records.rows = paginate == 1 ? await FarmerOrders.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await FarmerOrders.find(query)
-            .sort(sortBy);
-
-        let farmerName = {}
-        
-        records.rows = await Promise.all(records.rows.map(async record => {
-            
-            const farmerDetails = await farmer.findOne({'_id':record.farmer_id}).select({name: 1, _id: 0});
-    
-            const farmerName = farmerDetails ? farmerDetails.name : null;
-            return { ...record.toObject(), farmerName }
-        }));
-
-        records.count = await FarmerOrders.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
- 
-        if(records) {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
-        }
-        else{
-            return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
-        }
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-}
-
 module.exports.farmerOrders = async (req, res) => {
 
     try {
@@ -362,47 +315,6 @@ module.exports.getBill = async (req, res) => {
             let mspPercentage = 1; // The percentage you want to calculate       
 
             const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });
-
-            const newdata = await Promise.all(reqDetails.map(async record => {
-                totalamount += record.amount;
-            }));
-
-            const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
-            const billQty = (0.8/1000); 
-
-            let records = { ...billPayment.toObject(), totalamount, mspAmount, billQty }
-
-            if (records) {
-                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
-            }
-        }
-        else {
-            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
-        }
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-}
-
-module.exports.getBillProceedToPay = async (req, res) => {
-
-    try {
-        const { batchId } = req.query
-
-        const { user_type } = req;
-
-        if (user_type !== _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized("User") }] }));
-        }
-
-        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1 });
-
-        if(billPayment){
-            let totalamount = 0;
-            let mspPercentage = 1; // The percentage you want to calculate     
-            
-            const reqDetails = await Payment.find({ req_id: billPayment.req_id, status: _paymentstatus.approved }).select({ _id: 0, amount: 1 });
 
             const newdata = await Promise.all(reqDetails.map(async record => {
                 totalamount += record.amount;
