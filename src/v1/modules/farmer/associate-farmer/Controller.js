@@ -779,7 +779,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 
 
         let farmerRecord = await farmer.findOne({ 'proof.aadhar_no': aadhar_no });
-
         if (farmerRecord) {
           farmerRecord = await updateFarmerRecord(farmerRecord, {
             associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email
@@ -793,7 +792,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           farmerRecord = await insertNewFarmerRecord({
             associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email,
           });
-
           insertNewRelatedRecords(farmerRecord._id, {
             associate_id: associateId, total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, sub_district, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons, bank_name, account_no, branch, ifsc_code, account_holder_name, bank_state_id, bank_district_id, bank_block, city, bank_pincode,
           });
