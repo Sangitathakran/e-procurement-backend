@@ -20,6 +20,20 @@ const { _query } = require("@src/v1/utils/constants/messages");
 
 //widget lists
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
+  let report= [
+  { monthName: "January", month: 1, total: 0 },
+  { monthName: "February", month: 2, total: 0 },
+  { monthName: "March", month: 3, total: 0 },
+  { monthName: "April", month: 4, total: 0 },
+  { monthName: "May", month: 5, total: 0 },
+  { monthName: "June", month: 6, total: 0 },
+  { monthName: "July", month: 7, total: 0 },
+  { monthName: "Augest", month: 8, total: 0 },
+  { monthName: "September", month: 9, total: 0 },
+  { monthName: "Octorber", month: 10, total: 0 },
+  { monthName: "November", month: 11, total: 0 },
+  { monthName: "Decmeber", month: 12, total: 0 }
+]
   let widgetDetails = {
     branch: { total: 0, lastMonth: [] },
 
@@ -32,6 +46,30 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   widgetDetails.farmer.total = individualFCount + associateFCount;
   widgetDetails.associate.total = await User.countDocuments({});
   widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
+ let lastMonthUser=await User.aggregate([{$match:{user_type:"Associate"}},{$project:{month: { $month: "$createdAt"}}},{$group:{_id:"$month",total:{$sum:1}}}]);
+ let lastMonthFarmer=await farmer.aggregate([{$project:{month: { $month: "$createdAt"}}},{$group:{_id:"$month",total:{$sum:1}}}]);
+ let lastMonthIFarmer=await IndividualFarmer.aggregate([{$project:{month: { $month: "$createdAt"}}},{$group:{_id:"$month",total:{$sum:1}}}]);
+  let getReport=(report,data)=>{
+    return report.map((item) => {
+      let details = data?.find(
+        (item2) => item2?._id == item.month
+      );
+      if (details?._id == item.month) {
+        return { month: item.monthName, total: details.total };
+      } else {
+        return { month: item.monthName, total: item.total };
+      }
+    });
+  }
+  widgetDetails.associate.lastMonth= getReport(report,lastMonthUser);
+  widgetDetails.farmer.lastMonth=getReport(report,lastMonthFarmer);
+  let lastMonthIFarmerDetails=getReport(report,lastMonthIFarmer);
+  widgetDetails.farmer.lastMonth=lastMonthIFarmerDetails.map((item,index)=>{
+         if(item.month==widgetDetails.farmer.lastMonth[index].month){
+          return {...item,total:item.total+widgetDetails.farmer.lastMonth[index].total}
+         }
+         
+  })
   return sendResponse({
     res,
     status: 200,
@@ -378,17 +416,47 @@ module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
 });
 //procurementOnTime
 module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
-  const procurementStatusDetails = await AssociateOffers.aggregate([
-    {
-      $group: { _id: "$status", total: { $count: {} } },
-    },
-    { $project: { status: "$_id", visitors: "$total", _id: 0 } },
-  ]);
-  const data = [
-    { status: "On-Time", visitors: 58, fill: "#40BF7F" },
-    { status: "Late", visitors: 22, fill: "#FF8819" },
-    { status: "Early", visitors: 8, fill: "#F64C4C" },
+  
+  let data = [
+    { status: "On-Time", visitors: 0, fill: "#40BF7F" },
+    { status: "Late", visitors: 0, fill: "#FF8819" },
+    { status: "Early", visitors: 0, fill: "#F64C4C" },
   ];
+  
+    const results = await Batch.aggregate([
+      {
+        $project: {
+          status: {
+            $cond: {
+              if: { $lt: ['$delivered_at', '$dispatched_at'] },
+              then: 'Early',
+              else: {
+                $cond: {
+                  if: { $lte: ['$delivered_at', '$dispatched_at'] },
+                  then: 'On-Time',
+                  else: 'Late',
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+        },
+      },
+      {$project:{status:"$_id",visitors:"$count",_id:0}}
+    ]);
+    data=data.map((item)=>{
+      let details =results.find(item2=>item2.status==item.status);
+       if(item.status==details.status){
+        return {...item,visitors:details.visitors}
+       }else{
+        return {...item}
+       }
+    })
   return sendResponse({
     res,
     status: 200,
