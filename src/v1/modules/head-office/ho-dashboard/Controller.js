@@ -20,20 +20,20 @@ const { _query } = require("@src/v1/utils/constants/messages");
 
 //widget lists
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
-  let report= [
-  { monthName: "January", month: 1, total: 0 },
-  { monthName: "February", month: 2, total: 0 },
-  { monthName: "March", month: 3, total: 0 },
-  { monthName: "April", month: 4, total: 0 },
-  { monthName: "May", month: 5, total: 0 },
-  { monthName: "June", month: 6, total: 0 },
-  { monthName: "July", month: 7, total: 0 },
-  { monthName: "Augest", month: 8, total: 0 },
-  { monthName: "September", month: 9, total: 0 },
-  { monthName: "Octorber", month: 10, total: 0 },
-  { monthName: "November", month: 11, total: 0 },
-  { monthName: "Decmeber", month: 12, total: 0 }
-]
+  let report = [
+    { monthName: "January", month: 1, total: 0 },
+    { monthName: "February", month: 2, total: 0 },
+    { monthName: "March", month: 3, total: 0 },
+    { monthName: "April", month: 4, total: 0 },
+    { monthName: "May", month: 5, total: 0 },
+    { monthName: "June", month: 6, total: 0 },
+    { monthName: "July", month: 7, total: 0 },
+    { monthName: "Augest", month: 8, total: 0 },
+    { monthName: "September", month: 9, total: 0 },
+    { monthName: "Octorber", month: 10, total: 0 },
+    { monthName: "November", month: 11, total: 0 },
+    { monthName: "Decmeber", month: 12, total: 0 },
+  ];
   let widgetDetails = {
     branch: { total: 0, lastMonth: [] },
 
@@ -46,30 +46,42 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   widgetDetails.farmer.total = individualFCount + associateFCount;
   widgetDetails.associate.total = await User.countDocuments({});
   widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
- let lastMonthUser=await User.aggregate([{$match:{user_type:"Associate"}},{$project:{month: { $month: "$createdAt"}}},{$group:{_id:"$month",total:{$sum:1}}}]);
- let lastMonthFarmer=await farmer.aggregate([{$project:{month: { $month: "$createdAt"}}},{$group:{_id:"$month",total:{$sum:1}}}]);
- let lastMonthIFarmer=await IndividualFarmer.aggregate([{$project:{month: { $month: "$createdAt"}}},{$group:{_id:"$month",total:{$sum:1}}}]);
-  let getReport=(report,data)=>{
+  let lastMonthUser = await User.aggregate([
+    { $match: { user_type: "Associate" } },
+    { $project: { month: { $month: "$createdAt" } } },
+    { $group: { _id: "$month", total: { $sum: 1 } } },
+  ]);
+  let lastMonthFarmer = await farmer.aggregate([
+    { $project: { month: { $month: "$createdAt" } } },
+    { $group: { _id: "$month", total: { $sum: 1 } } },
+  ]);
+  let lastMonthIFarmer = await IndividualFarmer.aggregate([
+    { $project: { month: { $month: "$createdAt" } } },
+    { $group: { _id: "$month", total: { $sum: 1 } } },
+  ]);
+  let getReport = (report, data) => {
     return report.map((item) => {
-      let details = data?.find(
-        (item2) => item2?._id == item.month
-      );
+      let details = data?.find((item2) => item2?._id == item.month);
       if (details?._id == item.month) {
         return { month: item.monthName, total: details.total };
       } else {
         return { month: item.monthName, total: item.total };
       }
     });
-  }
-  widgetDetails.associate.lastMonth= getReport(report,lastMonthUser);
-  widgetDetails.farmer.lastMonth=getReport(report,lastMonthFarmer);
-  let lastMonthIFarmerDetails=getReport(report,lastMonthIFarmer);
-  widgetDetails.farmer.lastMonth=lastMonthIFarmerDetails.map((item,index)=>{
-         if(item.month==widgetDetails.farmer.lastMonth[index].month){
-          return {...item,total:item.total+widgetDetails.farmer.lastMonth[index].total}
-         }
-         
-  })
+  };
+  widgetDetails.associate.lastMonth = getReport(report, lastMonthUser);
+  widgetDetails.farmer.lastMonth = getReport(report, lastMonthFarmer);
+  let lastMonthIFarmerDetails = getReport(report, lastMonthIFarmer);
+  widgetDetails.farmer.lastMonth = lastMonthIFarmerDetails.map(
+    (item, index) => {
+      if (item.month == widgetDetails.farmer.lastMonth[index].month) {
+        return {
+          ...item,
+          total: item.total + widgetDetails.farmer.lastMonth[index].total,
+        };
+      }
+    }
+  );
   return sendResponse({
     res,
     status: 200,
@@ -231,13 +243,16 @@ module.exports.locationWareHouseChart = asyncErrorHandler(async (req, res) => {
 });
 //paymentQuantityPurchase
 module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
-  const {limit,skip,page}=req.query;
-  let records={count:0};
-  records.row= await RequestModel.find({}).select('quotedPrice fulfilledQty reqNo').skip(skip).limit(limit);
-  records.count=await RequestModel.countDocuments({}).skip(skip).limit(limit);
-      records.page = page;
-      records.limit = limit;
-      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+  const { limit, skip, page } = req.query;
+  let records = { count: 0 };
+  records.row = await RequestModel.find({})
+    .select("quotedPrice fulfilledQty reqNo")
+    .skip(skip)
+    .limit(limit);
+  records.count = await RequestModel.countDocuments({}).skip(skip).limit(limit);
+  records.page = page;
+  records.limit = limit;
+  records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
   return sendResponse({
     res,
     status: 200,
@@ -247,21 +262,199 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
 });
 //branchOfficeProcurement
 module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
-  const data = [
-    { state: "Uttar Pradesh", farmers: 2800 },
-    { state: "Madhya Pradesh", farmers: 2800 },
-    { state: "Haryana", farmers: 3800 },
-    { state: "Himachal Pradesh", farmers: 1400 },
+  let { stateNames } = req.query;
+
+  stateNames = stateNames ? JSON.parse(stateNames) : [];
+  let data = [
+    {
+      state: "Andhra Pradesh",
+      farmers: 0,
+    },
+
+    {
+      state: "Arunachal Pradesh",
+      farmers: 0,
+    },
+    {
+      state: "Assam",
+      farmers: 0,
+    },
+    {
+      state: "Bihar",
+      farmers: 0,
+    },
+    {
+      state: "Chhattisgarh",
+      farmers: 0,
+    },
+    {
+      state: "Goa",
+      farmers: 0,
+    },
+    {
+      state: "Gujarat",
+      farmers: 0,
+    },
+    {
+      state: "Haryana",
+      farmers: 0,
+    },
+    {
+      state: "Himachal Pradesh",
+      farmers: 0,
+    },
+    {
+      state: "Jharkhand",
+      farmers: 0,
+    },
+    {
+      name: "Karnataka",
+      farmers: 0,
+    },
+    {
+      state: "Kerala",
+      farmers: 0,
+    },
+    {
+      state: "Madhya Pradesh",
+      farmers: 0,
+    },
+    {
+      state: "Maharashtra",
+      farmers: 0,
+    },
+    {
+      state: "Manipur",
+      farmers: 0,
+    },
+    {
+      state: "Meghalaya",
+      farmers: 0,
+    },
+    {
+      state: "Mizoram",
+      farmers: 0,
+    },
+    {
+      state: "Nagaland",
+      farmers: 0,
+    },
+    {
+      state: "Odisha",
+      farmers: 0,
+    },
+    {
+      state: "Punjab",
+      farmers: 0,
+    },
+    {
+      name: "Rajasthan",
+      farmers: 0,
+    },
+    {
+      state: "Sikkim",
+      farmers: 0,
+    },
+    {
+      state: "Tamil Nadu",
+      farmers: 0,
+    },
+    {
+      state: "Telangana",
+      farmers: 0,
+    },
+    {
+      state: "Tripura",
+      farmers: 0,
+    },
+    {
+      state: "Uttar Pradesh",
+      farmers: 0,
+    },
+    {
+      state: "Uttarakhand",
+      farmers: 0,
+    },
+    {
+      state: "West Bengal",
+      farmers: 0,
+    },
+    {
+      state: "Andaman and Nicobar Islands",
+      farmers: 0,
+    },
+    {
+      state: "Chandigarh",
+      farmers: 0,
+    },
+    {
+      state: "Dadra and Nagar Haveli and Daman and Diu",
+      farmers: 0,
+    },
+    {
+      state: "Lakshadweep",
+      farmers: 0,
+    },
+    {
+      state: "Delhi",
+      farmers: 0,
+    },
+    {
+      state: "Puducherry",
+      farmers: 0,
+    },
+    {
+      state: "Ladakh",
+      farmers: 0,
+    },
+    {
+      state: "Jammu and Kashmir",
+      farmers: 0,
+    },
   ];
+  let pipeline = [
+    {
+      $lookup: {
+        from: "procurementcenters",
+        localField: "procurementCenter_id",
+        foreignField: "_id",
+        as: "result",
+      },
+    },
+
+    {
+      $unwind: {
+        path: "$result",
+        preserveNullAndEmptyArrays: false,
+      },
+    },
+
+    { $group: { _id: "$result.address.state", farmers: { $count: {} } } },
+
+    { $project: { state: "$_id", farmers: 1, _id: 0 } },
+  ];
+  if (stateNames.length > 0) {
+    pipeline.push({ $match: { state: { $in: stateNames } } });
+  } else {
+  }
+  let branchOfficeProc = await Batch.aggregate(pipeline);
+  // data=data.map(item=>{
+  //   let stateDetails=branchOfficeProc.find(item2=>item2.state==item.state)
+  //       if(stateDetails){
+  //         return {...item,farmers:stateDetails.farmers}
+  //       }else{
+  //         return {...item}
+  //       }
+  // })
 
   return sendResponse({
     res,
     status: 200,
     message: _query.get("BranchOfficeProcurement"),
-    data: data,
+    data: branchOfficeProc,
   });
 });
-//farmerBenifitteds
+//farmerBenifitted
 module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
   const report = {
     month: [
@@ -416,47 +609,46 @@ module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
 });
 //procurementOnTime
 module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
-  
   let data = [
     { status: "On-Time", visitors: 0, fill: "#40BF7F" },
     { status: "Late", visitors: 0, fill: "#FF8819" },
     { status: "Early", visitors: 0, fill: "#F64C4C" },
   ];
-  
-    const results = await Batch.aggregate([
-      {
-        $project: {
-          status: {
-            $cond: {
-              if: { $lt: ['$delivered_at', '$dispatched_at'] },
-              then: 'Early',
-              else: {
-                $cond: {
-                  if: { $lte: ['$delivered_at', '$dispatched_at'] },
-                  then: 'On-Time',
-                  else: 'Late',
-                },
+
+  const results = await Batch.aggregate([
+    {
+      $project: {
+        status: {
+          $cond: {
+            if: { $lt: ["$delivered_at", "$dispatched_at"] },
+            then: "Early",
+            else: {
+              $cond: {
+                if: { $lte: ["$delivered_at", "$dispatched_at"] },
+                then: "On-Time",
+                else: "Late",
               },
             },
           },
         },
       },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-        },
+    },
+    {
+      $group: {
+        _id: "$status",
+        count: { $sum: 1 },
       },
-      {$project:{status:"$_id",visitors:"$count",_id:0}}
-    ]);
-    data=data.map((item)=>{
-      let details =results.find(item2=>item2.status==item.status);
-       if(item.status==details.status){
-        return {...item,visitors:details.visitors}
-       }else{
-        return {...item}
-       }
-    })
+    },
+    { $project: { status: "$_id", visitors: "$count", _id: 0 } },
+  ]);
+  data = data.map((item) => {
+    let details = results.find((item2) => item2.status == item.status);
+    if (item.status == details.status) {
+      return { ...item, visitors: details.visitors };
+    } else {
+      return { ...item };
+    }
+  });
   return sendResponse({
     res,
     status: 200,
