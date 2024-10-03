@@ -21,7 +21,7 @@ module.exports.login = async (req, res) => {
         }
 
         const branchUser = await Branches.findOne({ emailAddress: email });
-
+        
         if (!branchUser) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('User') }] }));
         }
@@ -33,7 +33,7 @@ module.exports.login = async (req, res) => {
         }
 
 
-        const payload = { email: branchUser.emailAddress, user_id: branchUser._id }
+        const payload = { email: branchUser.emailAddress, user_id: branchUser._id, user_type: branchUser.user_type }
         const expiresIn = 3600; // 1 hour in seconds
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
         res.cookie('token', token, {
@@ -44,6 +44,7 @@ module.exports.login = async (req, res) => {
         const data = {
             token: token,
             branch_code: branchUser.branchId,
+            user_type: branchUser.user_type
         }
         return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: data }));
     } catch (error) {

@@ -13,6 +13,7 @@ const tokenBlacklist = [];
 exports.verifyBO = asyncErrorHandler(async (req, res, next) => {
 
     const token = req.headers.token || req.cookies.token;
+    
     if (!token) {
         return res.status(200).send(new serviceResponse({ status: 403, errors: [{ message: _response_message.Unauthorized() }] }))
     }
