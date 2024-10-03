@@ -272,6 +272,7 @@ const _batchStatus = {
     mark_ready: "Mark-Ready",
     intransit: "In-Transit",
     delivered: "Delivered",
+    approved: "Approved"
 }
 
 const _paymentmethod = {
