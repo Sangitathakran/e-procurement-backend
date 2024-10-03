@@ -35,6 +35,10 @@ const warehouseSchema = new mongoose.Schema({
         required : true,
         trim: true
     },
+    weight_bridge: {
+        type: Boolean,
+        default:false
+    },
     pointOfContact: {
         name: {type: String, required: true},
         email: {type: String, required: true, lowercase: true},
