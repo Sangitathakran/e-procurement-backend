@@ -168,14 +168,14 @@ const _user_status = {
 
 }
 const _proofType = {
-    Aadhar: "Aadhar",
-    Pancard: "Pancard",
-    VoterId: "VoterId",
+    Aadhar: "aadhar",
+    Pancard: "pancard",
+    VoterId: "voterId",
 }
 const _titles = {
-    Mr: "Mr",
-    Mrs: "Mrs",
-    Miss: "Miss",
+    Mr: "mr",
+    Mrs: "mrs",
+    Miss: "miss",
 }
 const _gender = {
     male: "male",
@@ -184,62 +184,62 @@ const _gender = {
     other: "others",
 }
 const _maritalStatus = {
-    Married: "Married",
-    Unmarried: "Unmarried",
+    Married: "married",
+    Unmarried: "unmarried",
 }
 const _religion = {
-    Hindu: "Hindu",
-    Muslim: "Muslim",
-    Sikh: "Sikh",
-    Isai: "Isai",
-    Parsi: "Parsi",
+    Hindu: "hindu",
+    Muslim: "muslim",
+    Sikh: "sikh",
+    Isai: "isai",
+    Parsi: "parsi",
 }
 const _category = {
-    GEN: "GEN",
-    OBC: "OBC",
-    SC: "SC",
-    ST: "ST",
-    Others: "Others",
+    GEN: "gen",
+    OBC: "obc",
+    SC: "sc",
+    ST: "st",
+    Others: "others",
 }
 
 const _areaUnit = {
-    Hectares: "Hectares",
-    Acres: "Acres",
-    Bigha: "Bigha",
+    Hectares: "hectares",
+    Acres: "acres",
+    Bigha: "bigha",
 }
 const _soilType = {
-    Sandy: "Sandy",
-    Loamy: "Loamy",
-    Clayey: "Clayey",
-    Red_soil: "Red_soil",
-    Alkaline: "Alkaline",
-    Other: "Other",
+    Sandy: "sandy",
+    Loamy: "loamy",
+    Clayey: "clayey",
+    Red_soil: "red_soil",
+    Alkaline: "alkaline",
+    Other: "other",
 }
 const _distanceUnit = {
-    Km: "Km",
-    Metre: "Metre",
+    Km: "km",
+    Metre: "metre",
 }
 const _seedUsed = {
-    farmseved: "Farmseved",
-    Company: "Company",
+    farmseved: "farmseved",
+    Company: "company",
 }
 const _yesNo = {
-    Yes: "Yes",
-    No: "No",
+    Yes: "yes",
+    No: "no",
 }
 const _seasons = {
-    Rabi: "Rabi",
-    Kharif: "Kharif",
-    Zaid: "Zaid",
-    Others: "Others",
+    Rabi: "rabi",
+    Kharif: "kharif",
+    Zaid: "zaid",
+    Others: "others",
 }
 const _education = {
-    Nonmatric: "Nonmatric",
-    Matric: "Matric",
-    Intermidiate: "Intermidiate",
-    Graduate: "Graduate",
-    Postgraduate: "Postgraduate",
-    Others: "Others",
+    Nonmatric: "nonmatric",
+    Matric: "matric",
+    Intermidiate: "intermidiate",
+    Graduate: "graduate",
+    Postgraduate: "postgraduate",
+    Others: "others",
 }
 
 const _khaifCrops = {
@@ -272,6 +272,9 @@ const _batchStatus = {
     mark_ready: "Mark-Ready",
     intransit: "In-Transit",
     delivered: "Delivered",
+    finalQc: "Final Qc",
+    paymentApproved: "Payment Approved",
+    paymentComplete: "Payment Complete"
 }
 
 const _paymentmethod = {
@@ -281,8 +284,12 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
-    approved: "Approved",
     completed: "Completed",
+}
+
+const _paymentApproval = {
+    pending: "Pending",
+    approved: "Approved",
 }
 
 const _individual_farmer_onboarding_steps = [
@@ -364,6 +371,7 @@ module.exports = {
     _batchStatus,
     _paymentmethod,
     _paymentstatus,
+    _paymentApproval,
     _center_type,
     _address_type,
     _individual_category,
