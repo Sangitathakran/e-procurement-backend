@@ -454,7 +454,7 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
     data: branchOfficeProc,
   });
 });
-//farmerBenifitteds
+//farmerBenifitted
 module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
   const report = {
     month: [
