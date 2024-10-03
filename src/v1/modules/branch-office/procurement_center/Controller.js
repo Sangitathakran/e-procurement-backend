@@ -14,7 +14,7 @@ module.exports.getProcurementCenter = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
         let query = {
-            ...(search ? { name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+            ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
         const records = { count: 0 };
         records.rows = paginate == 1
