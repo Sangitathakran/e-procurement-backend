@@ -169,7 +169,7 @@ exports.insertNewRelatedRecords = async (farmer_id, data, res) => {
         soil_testing_lab_name: data.soil_testing_lab_name,
         lab_distance_unit: data.lab_distance_unit,
     });
-    await newLand.save();
+     await newLand.save();
 
     const newCrop = new Crop({
         farmer_id,
@@ -215,7 +215,9 @@ exports.insertNewRelatedRecords = async (farmer_id, data, res) => {
             },
     });
     await newBank.save();
+    return { newLand, newCrop, newBank };
 } catch (error) {
     return null;
   }
 };
+
