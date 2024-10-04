@@ -166,14 +166,14 @@ module.exports.pendingRequests = async (req, res) => {
             ]
         } : {};
 
-        query.user_status = { $in: [_userStatus.pending, _userStatus.rejected] };
+        query.is_approved = { $in: [_userStatus.pending, _userStatus.rejected] };
 
         const records = { count: 0 };
 
-        records.rows = paginate == 1 ? await User.find(query).select("user_code basic_details user_status")
+        records.rows = paginate == 1 ? await User.find(query).select("user_code basic_details is_approved")
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await User.find(query).sort(sortBy).select("user_code basic_details user_status");
+            .limit(parseInt(limit)) : await User.find(query).sort(sortBy).select("user_code basic_details is_approved");
 
         records.count = await User.countDocuments(query);
 
