@@ -158,36 +158,121 @@ module.exports.farmerPayments = asyncErrorHandler(async (req, res) => {
 });
 //revenue expense chart
 module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
+     let {option}=req.query;
+
   const report = {
     week: [
-      { week: "Mon", farmer: 186, agency: 80 },
-      { week: "Tuesday", farmer: 205, agency: 200 },
-      { week: "Wednesday", farmer: 237, agency: 120 },
-      { week: "Thursday", farmer: 73, agency: 190 },
-      { week: "Friday", farmer: 209, agency: 190 },
-      { week: "Saturday", farmer: 214, agency: 140 },
-      { week: "Sunday", farmer: 214, agency: 140 },
+       { weekName: "Monday", week: 1,farmer: 0, agency: 0 },
+      { weekName: "Tuesday", week: 2, farmer: 0, agency: 0},
+      { weekName: "Wednesday", week: 3, farmer: 0, agency: 0 },
+      { weekName: "Thursday", week: 4, farmer: 0, agency: 0},
+      { weekName: "Friday", week: 5, farmer: 0, agency: 0},
+      { weekName: "Saturday", week: 6,farmer: 0, agency: 0 },
+      { weekName: "Sunday", week: 7, farmer: 0, agency: 0 },
     ],
     month: [
-      { month: "January", farmer: 186, agency: 80 },
-      { month: "February", farmer: 305, agency: 200 },
-      { month: "March", farmer: 237, agency: 120 },
-      { month: "April", farmer: 73, agency: 190 },
-      { month: "May", farmer: 209, agency: 130 },
-      { month: "June", farmer: 214, agency: 140 },
-      { month: "July", farmer: 214, agency: 140 },
-      { month: "Augest", farmer: 214, agency: 140 },
-      { month: "September", farmer: 214, agency: 140 },
-      { month: "Octorber", farmer: 214, agency: 140 },
-      { month: "November", farmer: 214, agency: 140 },
-      { month: "Decmeber", farmer: 214, agency: 140 },
+      { monthName: "January",month:1, farmer: 0, agency: 0 },
+      { monthName: "February",month:2, farmer: 0, agency: 0 },
+      { monthName: "March",month:3, farmer: 0, agency: 0 },
+      { monthName: "April",month:4, farmer: 0, agency: 0 },
+      { monthName: "May",month:5, farmer: 0, agency: 0},
+      { monthName: "June", month:6,farmer: 0, agency: 0 },
+      { monthName: "July", month:7,farmer: 0, agency: 0 },
+      { monthName: "Augest",month:8, farmer: 0, agency: 0},
+      { monthName: "September",month:9, farmer: 0, agency: 0},
+      { monthName: "Octorber", month:10,farmer: 0, agency: 0 },
+      { monthName: "November",month:11, farmer: 0, agency: 0 },
+      { monthName: "Decmeber",month:12, farmer: 0, agency: 0 },
     ],
   };
+
+  const groupStage = option === 'week' 
+        ? {
+            // Group by day of the week
+            $group: {
+                _id: {
+                    day: { $dayOfWeek: "$createdAt" }, // 1 (Sunday) to 7 (Saturday)
+                    payment_collect_by: "$payment_collect_by",
+                },
+                totalAmount: { $sum: "$amount" },
+            },
+        }
+        : {
+            // Group by year and month
+            $group: {
+                _id: {
+                    year: { $year: "$createdAt" },
+                    month: { $month: "$createdAt" },
+                    payment_collect_by: "$payment_collect_by",
+                },
+                totalAmount: { $sum: "$amount" },
+            },
+        };
+
+    const results = await Payment.aggregate([
+        groupStage,
+        {
+            // Reshape the output
+            $project: {
+                _id: 0,
+                ...(option === 'week' ? {
+                    day: "$_id.day",
+                    payment_collect_by: "$_id.payment_collect_by",
+                } : {
+                    year: "$_id.year",
+                    month: "$_id.month",
+                    payment_collect_by: "$_id.payment_collect_by",
+                }),
+                totalAmount: "$totalAmount",
+            },
+         },
+        {
+          
+            $group: {
+                _id: option === 'week' ? "$day" : { month: "$month" },
+                farmer: {
+                    $sum: {
+                        $cond: [{ $eq: ["$payment_collect_by", "farmer"] }, "$totalAmount", 0],
+                    },
+                },
+                agency: {
+                    $sum: {
+                        $cond: [{ $eq: ["$payment_collect_by", "Agency"] }, "$totalAmount", 0],
+                    },
+                },
+            },
+        },
+        {
+            // Final projection to shape the output
+            $project: {
+                _id: 0,
+                ...(option === 'week' ? { day: "$_id" } : {  month: "$_id.month" }),
+                farmer: 1,
+                agency: 1,
+            },
+        },
+        {
+            // Sort by day or by year and month
+            $sort: option === 'week' ? { day: 1 } : {month: 1 },
+        },
+    ]);
+   let  paymentDetails = report[option].map((item) => {
+      let payment = results?.find((item2) => item2[option] == item[option]);
+      console.log('payment',payment,item)
+      if (payment) {
+        return { [option]: item[`${option}Name`], farmer: payment.farmer,agency:payment.agency };
+      } else {
+        return { [option]: item[`${option}Name`], farmer: item.farmer,agency:item.agency };
+      }
+    });
+
+
+
   return sendResponse({
     res,
     status: 200,
     message: _query.get("Revenue Expense chart"),
-    data: report,
+    data: paymentDetails,
   });
 });
 //locationWareHouseChart
