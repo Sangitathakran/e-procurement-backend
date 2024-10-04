@@ -32,14 +32,14 @@ module.exports.payment = async (req, res) => {
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Payment.find(query)
-            .sort(sortBy);
+                .sort(sortBy);
 
-            let batchId = {}
-            records.rows = await Promise.all(records.rows.map(async record => {
-                const batch = await Batch.findOne({'req_id':record.req_id}).select({batchId: 1, _id: 0});
-                 batchId = batch?.batchId;
-                return { ...record.toObject(), batchId }
-            }));
+        let batchId = {}
+        records.rows = await Promise.all(records.rows.map(async record => {
+            const batch = await Batch.findOne({ 'req_id': record.req_id }).select({ batchId: 1, _id: 0 });
+            batchId = batch?.batchId;
+            return { ...record.toObject(), batchId }
+        }));
 
         records.count = await Payment.countDocuments(query);
 
@@ -83,7 +83,7 @@ module.exports.payment = async (req, res) => {
 
 module.exports.associateOrders = async (req, res) => {
 
-    try {       
+    try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
 
         const { user_type } = req;
@@ -97,7 +97,7 @@ module.exports.associateOrders = async (req, res) => {
             user_type: _userType.associate,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
-        
+
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
             .populate({
@@ -222,19 +222,68 @@ module.exports.batchApprove = async (req, res) => {
             { _id: { $in: batchIds } },  // Match any batchIds in the provided array
             { $set: { status: _batchStatus.paymentApproved } } // Set the new status for matching documents
         );
-    
+
         if (result.matchedCount === 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
         }
-    
+
         return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
 
-        
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }
 }
 
+module.exports.qcReport = async (req, res) => {
+
+    try {
+        const { id } = req.query;
+        const { user_type } = req;
+
+        if (user_type != _userType.bo) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+        }
+
+        const qcReport = await Batch.findOne({ _id: id })
+            .populate({
+                path: 'req_id', select: '_id reqNo product address quotedPrice fulfilledQty totalQuantity expectedProcurementDate'
+            })
+
+        if (qcReport) {
+
+            let totalamount = 0;
+            let mspPercentage = 1; // The percentage you want to calculate       
+
+            const reqDetails = await Payment.find({
+                $and: [
+                    { req_id: qcReport.req_id },
+                    { user_id: qcReport.seller_id }
+                ]
+            })
+                .select({ _id: 0, amount: 1 });
+
+            const newdata = await Promise.all(reqDetails.map(async record => {
+                totalamount += record.amount;
+            }));
+
+            const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
+
+            let records = { ...qcReport.toObject(), totalamount, mspAmount }
+
+            if (records) {
+                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Qc Report') }))
+            }
+        }
+        else {
+            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Qc Report") }] }))
+        }
+
+    }
+    catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
 
 module.exports.paymentApprove = async (req, res) => {
 
@@ -248,16 +297,16 @@ module.exports.paymentApprove = async (req, res) => {
         }
 
         const paymentList = await Payment.findOne({ req_id });
-        
-        if (!paymentList) {                   
+
+        if (!paymentList) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Payment") }] }))
         }
-        
+
         paymentList.status = _paymentstatus.approved;
 
         await paymentList.save();
 
-        return res.status(200).send(new serviceResponse({ status: 200, message: "Payments Approved by admin" }));       
+        return res.status(200).send(new serviceResponse({ status: 200, message: "Payments Approved by admin" }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -277,8 +326,8 @@ module.exports.getBill = async (req, res) => {
 
         const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1 });
 
-        if(billPayment){
-                
+        if (billPayment) {
+
             let totalamount = 0;
             let mspPercentage = 1; // The percentage you want to calculate       
 
@@ -289,7 +338,7 @@ module.exports.getBill = async (req, res) => {
             }));
 
             const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
-            const billQty = (0.8/1000); 
+            const billQty = (0.8 / 1000);
 
             let records = { ...billPayment.toObject(), totalamount, mspAmount, billQty }
 
