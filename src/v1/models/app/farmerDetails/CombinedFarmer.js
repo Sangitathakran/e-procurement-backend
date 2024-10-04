@@ -3,6 +3,7 @@ const { _collectionName, _proofType, _titles, _gender, _religion, _maritalStatus
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const farmerSchema = new mongoose.Schema({
+    associate_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: _collectionName.Users, default: null },
     mobile_no: { type: String, required: true },
     name: { type: String, default: null },
     is_verify_otp: { type: Boolean, default: false },
@@ -22,6 +23,7 @@ const farmerSchema = new mongoose.Schema({
         mobile_no: { type: String, trim: true },
         category: { type: String, enum: Object.values(_individual_category), trim: false },
         dob: { type: String, trim: true },
+        age: { type: String, trim: true },
         farmer_type: { type: String, enum: Object.values(_farmerType), trim: false },
         gender: { type: String, enum: Object.values(_gender), trim: false }
     },
@@ -35,6 +37,8 @@ const farmerSchema = new mongoose.Schema({
         block: { type: String, trim: false },
         village: { type: String, trim: false },
         pin_code: { type: String, trim: true },
+        lat: { type: String, trim: false },
+        long: { type: String, trim: true },
     },
 documents: { 
         aadhar_number: { type: String, trim: true },
@@ -82,96 +86,87 @@ documents: {
             required: true 
         },
         soil_tested: { type: Boolean, required: true },
-        uploadSoilHealthCard: { type: String }, // if soilTested is true
-        optForSoilTesting: { type: Boolean, required: true },
-        soilTestingAgencies: { type: [String] },
-        uploadGeotag: { type: String, required: true } // file upload URL/path
+        uploadSoil_health_card: { type: String }, // if soilTested is true
+        opt_for_soil_testing: { type: Boolean, required: true },
+        soil_testing_agencies: { type: [String] },
+        upload_geotag: { type: String, required: true } // file upload URL/path
     },
     
-    cropDetails: [{
-        cropSeason: { 
+    crop_details: [{
+        crop_season: { 
             type: String, 
             enum: ['Kharif', 'Rabi'], 
             required: true 
         },
-        cropName: { type: String, required: true },
-        cropVariety: { type: String, required: true },
-        sowingDate: { type: Date, required: true },
-        harvestingDate: { type: Date, required: true },
-        productionQuantity: { type: Number, required: true },
-        sellingPrice: { type: Number, required: true },
+        crop_name: { type: String, required: true },
+        crop_variety: { type: String, required: true },
+        sowing_date: { type: Date, required: true },
+        harvesting_date: { type: Date, required: true },
+        production_quantity: { type: Number, required: true },
+        selling_price: { type: Number, required: true },
         yield: { type: Number, required: true },
-        landName: { type: String, required: true },
-        cropGrowthStage: { 
+        land_name: { type: String, required: true },
+        crop_growth_stage: { 
             type: String, 
             enum: ['Stage1', 'Stage2', 'Stage3', 'Stage4'] 
         },
-        cropDisease: { type: String },
-        cropRotation: { type: Boolean, required: true },
-        previousCropDetails: {
-            cropSeason: { type: String },
-            cropName: { type: String }
+        crop_disease: { type: String },
+        crop_rotation: { type: Boolean, required: true },
+        previous_crop_details: {
+            crop_season: { type: String },
+            crop_name: { type: String }
         }
     }],
     
-    insuranceDetails: {
-        cropName: { type: String, required: true },
-        insuranceCompany: { type: String, required: true },
-        landName: { type: String, required: true },
-        insuranceWorth: { type: Number, required: true },
-        insurancePremium: { type: Number, required: true },
-        insuranceStartDate: { type: Date, required: true },
-        insuranceEndDate: { type: Date, required: true }
+    insurance_details: {
+        crop_name: { type: String, required: true },
+        insurance_company: { type: String, required: true },
+        land_name: { type: String, required: true },
+        insurance_worth: { type: Number, required: true },
+        insurance_premium: { type: Number, required: true },
+        insurance_start_date: { type: Date, required: true },
+        insurance_end_date: { type: Date, required: true }
     },
     
-    infrastructureNeeds: {
+    infrastructure_needs: {
         warehouse: { type: Boolean, required: true },
-        coldStorage: { type: Boolean, required: true },
-        processingUnit: { type: Boolean, required: true },
-        transportationFacilities: { type: Boolean, required: true }
+        cold_storage: { type: Boolean, required: true },
+        processing_unit: { type: Boolean, required: true },
+        transportation_facilities: { type: Boolean, required: true }
     },
     
-    financialSupport: {
-        creditFacilities: { type: Boolean, required: true },
-        sourceOfCredit: { type: String },
-        financialChallenges: { type: String },
-        supportRequired: { type: String }
+    financial_support: {
+        credit_facilities: { type: Boolean, required: true },
+        source_of_credit: { type: String },
+        financial_challenges: { type: String },
+        support_required: { type: String }
     },
     
-    marketingAndOutput: {
-        cropSold: { type: String, required: true },
-        quantitySold: { type: Number, required: true },
-        averageSellingPrice: { type: Number, required: true },
-        marketingChannelsUsed: { type: String, required: true },
-        challengesFaced: { type: String }
+    marketing_and_output: {
+        crop_sold: { type: String, required: true },
+        quantity_sold: { type: Number, required: true },
+        average_selling_price: { type: Number, required: true },
+        marketing_channels_used: { type: String, required: true },
+        challenges_faced: { type: String }
     },
     
-    inputDetails: {
-        inputType: { 
+    input_details: {
+        input_type: { 
             type: String, 
             enum: ['Seeds', 'Fertilizer', 'Micronutrients', 'Herbicides', 'Insecticides', 'Fungicides', 'Sprayers', 'Irrigation'], 
             required: true 
         },
         seeds: {
-            cropName: { type: String, required: true },
-            cropVariety: { type: String, required: true },
-            nameOfSeeds: { type: String, required: true },
-            nameOfSeedsCompany: { type: String, required: true },
-            packageSize: { type: String, required: true },
-            totalPackageRequired: { type: Number, required: true },
-            dateOfPurchase: { type: Date, required: true }
+            crop_name: { type: String, required: true },
+            crop_variety: { type: String, required: true },
+            name_of_seeds: { type: String, required: true },
+            name_of_seeds_company: { type: String, required: true },
+            package_size: { type: String, required: true },
+            total_package_required: { type: Number, required: true },
+            date_of_purchase: { type: Date, required: true }
         }
     },
-    steps: [{ 
-        label: { type: String },
-        screen_number: { type: String, default: "1" },
-        status: { type: String, enum: ['active', 'pending', 'completed'], default: "pending" }
-    }],
 
-    all_steps_completed_status: { type: Boolean, default: false },
-    associate_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: _collectionName.Users, default: null },
-
-    // Fields from the combined schemas
     parents: {
         father_name: { type: String, trim: true },
         mother_name: { type: String, trim: true }
@@ -188,7 +183,13 @@ documents: {
         aadhar_no: { type: String, required: true, trim: true },
     },
     status: { type: String, enum: Object.values(_status), default: _status.active },
+    steps: [{ 
+        label: { type: String },
+        screen_number: { type: String, default: "1" },
+        status: { type: String, enum: ['active', 'pending', 'completed'], default: "pending" }
+    }],
 
+    all_steps_completed_status: { type: Boolean, default: false },
     ..._commonKeys
 }, { timestamps: true });
 
