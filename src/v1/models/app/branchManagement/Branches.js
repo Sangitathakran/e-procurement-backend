@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _status, _collectionName } = require('@src/v1/utils/constants');
+const { _status,_userType, _collectionName } = require('@src/v1/utils/constants');
 const { generateRandomId } = require('@src/v1/utils/helpers/randomIdGenerator');
 
 const branchSchema = new mongoose.Schema({
@@ -8,6 +8,11 @@ const branchSchema = new mongoose.Schema({
     required: true,
     trim: true,
     maxLength: 100, // Max 100 characters
+  },
+  password: {
+    type: String,
+    required: true,
+    minlength: 8,
   },
   branchId: {
     type: String,
@@ -60,6 +65,7 @@ const branchSchema = new mongoose.Schema({
     ref: 'headOffice',
     required: true,
   },
+  user_type: { type: String, trim: true, enum: Object.values(_userType) },
 }, { timestamps: true });
 
 // Pre-save hook to generate a unique random BranchId
