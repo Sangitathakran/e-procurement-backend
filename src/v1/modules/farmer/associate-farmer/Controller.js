@@ -652,19 +652,19 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         }
       });
 
-      parser.on('end', (err, data) => {
-        console.log("Streem end")
+      parser.on('end', () => {
+        console.log("Stream end");
       });
-      parser.on('error', (err, data) => {
-        console.log("Streem error")
+      parser.on('error', (err) => {
+        console.log("Stream error", err);
       });
     }
-    
+
     let errorArray = [];
     const processFarmerRecord = async (rec) => {
-      const toLowerCaseIfExists = (value) => {
-        return value ? value.toLowerCase() : value;
-      };
+      // Utility function to convert to lowercase if value exists
+      const toLowerCaseIfExists = (value) => value ? value.toLowerCase() : value;
+
       const fpo_name = rec["FPO NAME*"];
       const title = toLowerCaseIfExists(rec["TITLE"]);
       const name = rec["NAME*"];
@@ -734,11 +734,10 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const bank_block = rec["BANK BLOCK NAME"];
       const city = rec["CITY"];
       const bank_pincode = rec["BANK PINCODE"];
-      let errors = [];
-      if (!fpo_name || !name || !father_name || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no) {
-        let missingFields = [];
 
-        if (!fpo_name) missingFields.push('FPO NAME');
+      let errors = [];
+      if (!name || !father_name || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no) {
+        let missingFields = [];
         if (!name) missingFields.push('NAME');
         if (!father_name) missingFields.push('FATHER NAME');
         if (!gender) missingFields.push('GENDER');
@@ -752,17 +751,18 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           error: `Required fields missing: ${missingFields.join(', ')}`
         });
       }
+
       if (!/^\d{12}$/.test(aadhar_no)) {
-        errors.push({ record: rec, error: "Invalid Aadhar Number" });
-      }
+            errors.push({ record: rec, error: "Invalid Aadhar Number" });
+          }
       if (!/^\d{10}$/.test(mobile_no)) {
-        errors.push({ record: rec, error: "Invalid Mobile Number" });
-      }
+            errors.push({ record: rec, error: "Invalid Mobile Number" });
+          }
 
       if (errors.length > 0) return { success: false, errors };
 
       try {
-        state_id = await getStateId(state_name);
+        const state_id = await getStateId(state_name);
         const district_id = await getDistrictId(district_name);
         const land_state_id = await getStateId(state);
         const land_district_id = await getDistrictId(district);
@@ -770,32 +770,33 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         const bank_district_id = await getDistrictId(bank_district_name);
         const sowing_date = parseMonthyear(sowingdate);
         const harvesting_date = parseMonthyear(harvestingdate);
-        
-        let associateId = user_id;
-        if(!user_id){
-          const associate = await User.findOne({ 'basic_details.associate_details.organization_name': fpo_name });
-           associateId = associate ? associate._id : null;
-        }
 
+        let associateId = user_id;
+        if (!user_id) {
+          const associate = await User.findOne({ 'basic_details.associate_details.organization_name': fpo_name });
+          associateId = associate ? associate._id : null;
+        }
 
         let farmerRecord = await farmer.findOne({ 'proof.aadhar_no': aadhar_no });
         if (farmerRecord) {
+          // Update existing farmer record
           farmerRecord = await updateFarmerRecord(farmerRecord, {
             associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email
           });
 
-          updateRelatedRecords(farmerRecord._id, {
-            farmer_id: farmerRecord._id, associate_id: associateId, total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, sub_district, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
+          // Update land and bank details if present
+          await updateRelatedRecords(farmerRecord._id, {
+            farmer_id: farmerRecord._id,  total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, sub_district, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
             bank_name, account_no, branch, ifsc_code, account_holder_name, bank_state_id, bank_district_id, bank_block, city, bank_pincode,
           });
         } else {
+          // Insert new farmer record
           farmerRecord = await insertNewFarmerRecord({
             associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email,
           });
-          insertNewRelatedRecords(farmerRecord._id, {
-            associate_id: associateId, total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, sub_district, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons, bank_name, account_no, branch, ifsc_code, account_holder_name, bank_state_id, bank_district_id, bank_block, city, bank_pincode,
+          await insertNewRelatedRecords(farmerRecord._id, {
+            total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, sub_district, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons, bank_name, account_no, branch, ifsc_code, account_holder_name, bank_state_id, bank_district_id, bank_block, city, bank_pincode,
           });
-
         }
 
       } catch (error) {
@@ -830,6 +831,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 module.exports.exportFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = '-createdAt', search = '', isExport = 0 } = req.query;
