@@ -4,6 +4,7 @@ const _collectionName = {
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",
+    agency:"agency",
     individualFarmers: "individual_farmers",
     Users: "Users",
     HeadOffice: "headoffices",
