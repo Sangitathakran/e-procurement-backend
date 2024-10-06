@@ -1,8 +1,11 @@
 const mongoose = require('mongoose');
-const { _collectionName, _paymentmethod, _paymentstatus, _userType } = require('@src/v1/utils/constants');
+const { _collectionName, _paymentmethod, _paymentstatus, _userType, _paymentApproval } = require('@src/v1/utils/constants');
 
 const PaymentSchema = new mongoose.Schema({
-    whomToPay: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
+    payment_collect_by:{type:String,enum:['Farmer','Agency']},
+    whomToPay: { type: mongoose.Schema.Types.ObjectId, ref:function(){
+            return this.payment_collect_by=='Farmer'?_collectionName.farmers:_collectionName.agency
+    } ,required: true },
     user_type: { type: String, enum: Object.values(_userType), required: true },
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
     qtyProcured: { type: String, required: true },
@@ -14,7 +17,8 @@ const PaymentSchema = new mongoose.Schema({
     amount: { type: Number, required: true },
     date: { type: Date, },
     method: { type: String, enum: Object.values(_paymentmethod) },
-    status: { type: String, enum: Object.values(_paymentstatus), default: _paymentstatus.pending },
+    payment_status: { type: String, enum: Object.values(_paymentstatus), default: _paymentstatus.pending },
+    status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
 }, { timestamps: true });
 
 const Payment = mongoose.model(_collectionName.Payment, PaymentSchema);

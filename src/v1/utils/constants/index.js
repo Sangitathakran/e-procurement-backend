@@ -4,6 +4,7 @@ const _collectionName = {
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",
+    agency:"agency",
     individualFarmers: "individual_farmers",
     Users: "Users",
     HeadOffice: "headoffices",
@@ -272,6 +273,9 @@ const _batchStatus = {
     mark_ready: "Mark-Ready",
     intransit: "In-Transit",
     delivered: "Delivered",
+    finalQc: "Final Qc",
+    paymentApproved: "Payment Approved",
+    paymentComplete: "Payment Complete"
 }
 
 const _paymentmethod = {
@@ -281,8 +285,12 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
-    approved: "Approved",
     completed: "Completed",
+}
+
+const _paymentApproval = {
+    pending: "Pending",
+    approved: "Approved",
 }
 
 const _individual_farmer_onboarding_steps = [
@@ -364,6 +372,7 @@ module.exports = {
     _batchStatus,
     _paymentmethod,
     _paymentstatus,
+    _paymentApproval,
     _center_type,
     _address_type,
     _individual_category,
