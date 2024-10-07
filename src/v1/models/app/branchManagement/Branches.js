@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { _status, _collectionName } = require('@src/v1/utils/constants');
-const { generateRandomId } = require('@src/v1/utils/helpers/randomIdGenerator');
+const { generateRandomId } = require('@src/v1/utils/helpers/randomGenerator');
+const { required } = require('joi');
 
 const branchSchema = new mongoose.Schema({
   branchName: {
@@ -31,6 +32,14 @@ const branchSchema = new mongoose.Schema({
     required: true,
     trim: true,
     maxLength: 255, // Max 255 characters
+  },
+  password: {
+    type: String,
+    required:true,
+  },
+  isPasswordChanged: {
+    type: Boolean,
+    default: false,
   },
   cityVillageTown: {
     type: String,

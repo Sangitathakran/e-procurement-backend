@@ -13,7 +13,8 @@ const xlsx = require("xlsx");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer"); 
 const { _status } = require("@src/v1/utils/constants");
 const { validateBranchData } = require("@src/v1/modules/head-office/ho-branch-management/Validations")
-
+const { generateRandomPassword } = require('@src/v1/utils/helpers/randomGenerator');
+const bcrypt = require('bcrypt');
 
 
 
@@ -89,9 +90,11 @@ module.exports.importBranches = async (req, res) => {
       if (validationError) {
         return res.status(validationError.status).send(new serviceResponse(validationError));
       }
-
       // Parse the rows into Branch objects, with status set to inactive by default
-      const branches = excelData.map((row) => {
+      const branches = await Promise.all(excelData.map(async (row) => {
+        const password = generateRandomPassword();
+        const hashedPassword = await bcrypt.hash(password, 10);
+
         return {
           branchName: row.branchName,
           emailAddress: row.emailAddress,
@@ -106,8 +109,9 @@ module.exports.importBranches = async (req, res) => {
           pincode: row.pincode,
           status: _status.inactive,
           headOfficeId: headOfficeId,
-        };
-      });
+          password: hashedPassword,
+        }; 
+      }));
 
       // Insert the branches into the database
       for (const branchData of branches) {
