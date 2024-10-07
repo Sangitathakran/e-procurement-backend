@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _status, _collectionName } = require('@src/v1/utils/constants');
+const { _status, _userType, _collectionName } = require('@src/v1/utils/constants');
 const { generateRandomId } = require('@src/v1/utils/helpers/randomGenerator');
 const { required } = require('joi');
 
