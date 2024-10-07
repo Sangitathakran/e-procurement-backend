@@ -249,7 +249,9 @@ module.exports.qcReport = async (req, res) => {
             .populate({
                 path: 'req_id', select: '_id reqNo product address quotedPrice fulfilledQty totalQuantity expectedProcurementDate'
             })
-
+         
+            // return res.status(200).send(new serviceResponse({ status: 200, data: qcReport, message: _query.get('Qc Report') }))
+        
         if (qcReport) {
 
             let totalamount = 0;
@@ -289,14 +291,19 @@ module.exports.paymentApprove = async (req, res) => {
 
     try {
 
-        const { req_id } = req.body;
+        const { req_id, associate_id } = req.body;
         const { user_type } = req;
 
         if (user_type != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
-        const paymentList = await Payment.findOne({ req_id });
+        const paymentList = await Payment.findOne({
+            $and: [
+                { req_id },
+                { user_id: associate_id }
+            ]
+        });
 
         if (!paymentList) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Payment") }] }))
