@@ -53,4 +53,3 @@ const warehouseSchema = new mongoose.Schema({
 
 const wareHouse = mongoose.model(_collectionName.DummyWarehouse, warehouseSchema);
 module.exports = {wareHouse};
-
