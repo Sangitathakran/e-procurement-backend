@@ -15,7 +15,7 @@ module.exports.getAssociates = async (req, res) => {
         // Build the query for searching/filtering associates
         let matchQuery = {
             user_type: _userType.associate,
-            // is_approved: false,
+            is_approved: _userStatus.approved,
             // bank_details: { $ne: null }
         };
 
