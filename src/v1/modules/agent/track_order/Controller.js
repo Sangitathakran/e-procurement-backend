@@ -96,7 +96,8 @@ module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
                 'assocaite._id': 1,
                 'assocaite.user_code': 1,
                 'assocaite.basic_details.associate_details.associate_name': 1,
-                batchcount: 1
+                batchcount: 1,
+                req_id: 1
             }
         },
         { $limit: limit ? parseInt(limit) : 10 },
