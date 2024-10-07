@@ -10,6 +10,11 @@ const branchSchema = new mongoose.Schema({
     trim: true,
     maxLength: 100, // Max 100 characters
   },
+  password: {
+    type: String,
+    required: true,
+    minlength: 8,
+  },
   branchId: {
     type: String,
     unique: true,
@@ -69,6 +74,7 @@ const branchSchema = new mongoose.Schema({
     ref: 'headOffice',
     required: true,
   },
+  user_type: { type: String, trim: true, enum: Object.values(_userType) },
 }, { timestamps: true });
 
 // Pre-save hook to generate a unique random BranchId

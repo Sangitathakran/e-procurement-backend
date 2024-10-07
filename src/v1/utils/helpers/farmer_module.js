@@ -2,10 +2,11 @@
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
-const { _generateFarmerCode, } = require("@src/v1/utils/helpers");
+const { _generateFarmerCode,_handleCatchErrors } = require("@src/v1/utils/helpers");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 
 exports.insertNewFarmerRecord = async (data) => {
+    try {
     const farmerCode = await _generateFarmerCode();
     const newFarmer = new farmer({
         associate_id: data.associate_id,
@@ -34,9 +35,13 @@ exports.insertNewFarmerRecord = async (data) => {
     });
     await newFarmer.save();
     return newFarmer;
+} catch (error) {
+    return null;
+}
 };
 
 exports.updateFarmerRecord = async (farmerRecord, data) => {
+    try{
     farmerRecord.associate_id = data.associate_id;
     farmerRecord.title = data.title;
     farmerRecord.name = data.name;
@@ -62,9 +67,13 @@ exports.updateFarmerRecord = async (farmerRecord, data) => {
     farmerRecord.email_id = data.email;
     await farmerRecord.save();
     return farmerRecord;
+} catch (error) {
+    return null;
+}
 };
 
 exports.updateRelatedRecords = async (farmer_id, data) => {
+    try{
     await Land.updateOne(
         { farmer_id },
         {
@@ -134,9 +143,13 @@ exports.updateRelatedRecords = async (farmer_id, data) => {
             },
         }
     );
+} catch (error) {
+    return null;
+  }
 };
 
-exports.insertNewRelatedRecords = async (farmer_id, data) => {
+exports.insertNewRelatedRecords = async (farmer_id, data, res) => {
+    try{
     const newLand = new Land({
         farmer_id,
         total_area: data.total_area,
@@ -156,7 +169,7 @@ exports.insertNewRelatedRecords = async (farmer_id, data) => {
         soil_testing_lab_name: data.soil_testing_lab_name,
         lab_distance_unit: data.lab_distance_unit,
     });
-    await newLand.save();
+     await newLand.save();
 
     const newCrop = new Crop({
         farmer_id,
@@ -202,4 +215,9 @@ exports.insertNewRelatedRecords = async (farmer_id, data) => {
             },
     });
     await newBank.save();
+    return { newLand, newCrop, newBank };
+} catch (error) {
+    return null;
+  }
 };
+

@@ -7,9 +7,9 @@ const {wareHouse} = require('@src/v1/models/app/warehouse/warehouseSchema');
 
 module.exports.warehousedata = async(req, res) => {
     try {
-        const {warehouseId, warehouseName, ownerName, authorized_personName, pointOfContact, warehouseCapacity} = req.body;
+        const {warehouseId, warehouseName, ownerName, authorized_personName, weight_bridge, pointOfContact, warehouseCapacity} = req.body;
 
-        const warehousedetails = await wareHouse.create({warehouseId, warehouseName, ownerName, authorized_personName, pointOfContact, warehouseCapacity });
+        const warehousedetails = await wareHouse.create({warehouseId, warehouseName, ownerName, authorized_personName, weight_bridge,  pointOfContact, warehouseCapacity });
 
         return sendResponse({
             res,
