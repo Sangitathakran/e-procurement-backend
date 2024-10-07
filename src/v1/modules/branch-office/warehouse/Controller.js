@@ -20,7 +20,7 @@ module.exports.warehouseList = async (req, res) => {
 
         //warehouse list
         records.rows = await wareHouse.find(query)
-            .select('warehouseId warehouseName ownerName authorized_personName pointOfContact warehouseCapacity')
+            .select('warehouseId warehouseName ownerName authorized_personName pointOfContact warehouseCapacity weight_bridge')
             .limit(parseInt(limit))
             .skip(parseInt(skip))
             .sort(sortBy)
