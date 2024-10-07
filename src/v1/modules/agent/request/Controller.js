@@ -280,21 +280,13 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
 
 })
 
-module.exports.getProcurementById = async (req, res) => {
+module.exports.getProcurementById = asyncErrorHandler(async (req, res) => {
+    const { id } = req.params;
+    const record = await RequestModel.findOne({ _id: id });
 
-    try {
-
-        const { id } = req.params;
-
-        const record = await RequestModel.findOne({ _id: id });
-
-        if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
-        }
-
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("procurement") }))
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
     }
-}
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("procurement") }))
+})
