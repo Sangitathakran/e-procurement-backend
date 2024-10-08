@@ -336,7 +336,6 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
     .limit(limit);
     
   records.count = await RequestModel.countDocuments({})
-
   records.page = page;
   records.limit = limit;
   records.pages =  Math.ceil(records.count / limit);
