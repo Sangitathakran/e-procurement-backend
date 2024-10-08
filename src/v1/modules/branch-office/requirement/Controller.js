@@ -1,6 +1,7 @@
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const { _response_message } = require("@src/v1/utils/constants/messages");
+const { _batchStatus } = require("@src/v1/utils/constants");
+const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 
@@ -44,8 +45,6 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
 
     const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query;
 
-    // field left --> is qtyProcured and procuredOn according to figma 
-    // qtyProcured is in the farmerOrders table 
 
     let query = search ? {
         $or: [
@@ -64,7 +63,6 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
         .populate([
             { path: "seller_id", select: "basic_details.associate_details.associate_name" },
             { path: "req_id", select: "address.deliveryLocation" },
-            { path: "farmerOrderIds", select: "qtyProcured" },
             { path: "procurementCenter_id", select: "center_name" },
         ])
         .sort(sortBy)
@@ -81,4 +79,50 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
 
+})
+
+
+module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
+
+    const { id, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight } = req.body;
+    const { user_id } = req;
+
+    const record = await Batch.findOne({ _id: id });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+    }
+
+    if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
+        record.delivered.proof_of_delivery = proof_of_delivery;
+        record.delivered.weigh_bridge_slip = weigh_bridge_slip;
+        record.delivered.receiving_copy = receiving_copy;
+        record.delivered.truck_photo = truck_photo;
+        record.delivered.loaded_vehicle_weight = loaded_vehicle_weight;
+        record.delivered.tare_weight = tare_weight;
+        record.delivered.net_weight = net_weight;
+        record.delivered.delivered_at = new Date();
+        record.delivered.delivered_by = user_id;
+
+        record.status = _batchStatus.delivered;
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
+
+})
+
+
+module.exports.getBatch = asyncErrorHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    let record = await Batch.findOne({ _id: id });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Batch") }));
 })

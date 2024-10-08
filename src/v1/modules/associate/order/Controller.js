@@ -109,7 +109,7 @@ module.exports.editTrackDelivery = async (req, res) => {
 
     try {
 
-        const { form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching, loading_unloading, transportation, driage, storageExp, commission, qc_report = [], lab_report = [], name, contact, license, aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number, intransit_weight_slip, no_of_bags, weight, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, } = req.body;
+        const { form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching, loading_unloading, transportation, driage, storageExp, commission, qc_report = [], lab_report = [], name, contact, license, aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number, intransit_weight_slip, no_of_bags, weight } = req.body;
         const { user_id } = req
 
         const record = await Batch.findOne({ _id: id });
@@ -173,24 +173,6 @@ module.exports.editTrackDelivery = async (req, res) => {
                     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
                 }
 
-                break;
-
-            case _batchStatus.delivered:
-                if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
-                    record.delivered.proof_of_delivery = proof_of_delivery;
-                    record.delivered.weigh_bridge_slip = weigh_bridge_slip;
-                    record.delivered.receiving_copy = receiving_copy;
-                    record.delivered.truck_photo = truck_photo;
-                    record.delivered.loaded_vehicle_weight = loaded_vehicle_weight;
-                    record.delivered.tare_weight = tare_weight;
-                    record.delivered.net_weight = net_weight;
-                    record.delivered.delivered_at = new Date();
-                    record.delivered.delivered_by = user_id;
-
-                    record.status = _batchStatus.delivered;
-                } else {
-                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
-                }
                 break;
 
             default:
