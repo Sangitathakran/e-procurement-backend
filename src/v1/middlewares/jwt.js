@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const { sendResponse } = require('@src/v1/utils/helpers/api_response');
 const { _auth_module } = require('@src/v1/utils/constants/messages');
 const { JWT_SECRET_KEY } = require('@config/index');
+const {_userType}=require('../utils/constants/index')
+
 // const { redisClient } = require('@config/redis');
 
 /**
@@ -39,12 +41,7 @@ const verifyJwtToken = function (req, res, next) {
     }
 };
 const checkUser=(route,user_type)=>{
-    let user_interface={
-        ho:5,
-        associate:4,
-        farmer:3
-    }
-    if(user_interface[route]==user_type){
+    if(_userType[route]==user_type){
         return true;
     }else{
         return false;
