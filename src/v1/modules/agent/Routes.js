@@ -4,6 +4,7 @@ const { associateMngmntRoutes } = require("./associate-management/Routes");
 const { hoMngmntRoutes } = require("./ho-management/Routes");
 const { warehouseRoutes } = require("./warehouse/Routes");
 const { procurementCenterRoutes } = require("./procurement_management/Routes");
+const { dashboardRoutes } = require("./dashboard/Routes");
 const { boManagementRoutes } = require("./bo-management/Routes");
 const { trackDeliveryRoutes } = require("./track_order/Routes");
 const { paymentRoutes } = require("./payment/Routes");
@@ -18,5 +19,6 @@ agentRoutes.use("/warehouse", warehouseRoutes);
 agentRoutes.use("/procurement", procurementCenterRoutes);
 agentRoutes.use("/track-orders", trackDeliveryRoutes);
 agentRoutes.use('/payment', paymentRoutes);
+agentRoutes.use("/dashboard", dashboardRoutes);
 
 module.exports = { agentRoutes } 
