@@ -335,15 +335,15 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
     .skip(skip)
     .limit(limit);
     
-  records.count = records.row.length
+  records.count = await RequestModel.countDocuments({})
 
   records.page = page;
   records.limit = limit;
-  records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+  records.pages =  Math.ceil(records.count / limit);
   return sendResponse({
     res,
     status: 200,
-    message: _query.get("Farmer Payments"),
+    message: _query.get("Payment Quantity"),
     data: records,
   });
 });
