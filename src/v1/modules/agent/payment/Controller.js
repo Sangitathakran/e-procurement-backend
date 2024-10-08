@@ -598,7 +598,7 @@ module.exports.getBillProceedToPay = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized("User") }] }));
         }
 
-        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice:1, totalPrice:1, dispatchedqty: 1 });
+        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice:1, totalPrice:1, dispatched:1 });
 
         if(billPayment){
             let totalamount = billPayment.totalPrice;
