@@ -128,7 +128,7 @@ module.exports.getBatchByAssociateOfferrs = asyncErrorHandler(async (req, res) =
     query.associateOffer_id = associateOffer_id;
 
     const records = {};
-    records.rows = await Batch.find(query).select("_id batchId status dispatched.dispatched_at qty delivered.delivered_at") // Select fields from Batch
+    records.rows = await Batch.find(query).select("_id req_id batchId status dispatched.dispatched_at qty delivered.delivered_at") // Select fields from Batch
         .populate({
             path: 'seller_id',
             select: 'basic_details.point_of_contact',
