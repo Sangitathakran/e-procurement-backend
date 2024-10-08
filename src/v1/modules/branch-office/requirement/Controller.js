@@ -105,6 +105,8 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
         record.delivered.delivered_by = user_id;
 
         record.status = _batchStatus.delivered;
+
+        await record.save();
     } else {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
     }
