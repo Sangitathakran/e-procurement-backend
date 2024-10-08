@@ -18,7 +18,7 @@ const {
 } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { _query } = require("@src/v1/utils/constants/messages");
 
-//widget lists
+//widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   let report = [
     { monthName: "January", month: 1, total: 0 },
@@ -335,15 +335,14 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
     .skip(skip)
     .limit(limit);
     
-  records.count = records.row.length
-
+  records.count = await RequestModel.countDocuments({})
   records.page = page;
   records.limit = limit;
-  records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+  records.pages =  Math.ceil(records.count / limit);
   return sendResponse({
     res,
     status: 200,
-    message: _query.get("Farmer Payments"),
+    message: _query.get("Payment Quantity"),
     data: records,
   });
 });
