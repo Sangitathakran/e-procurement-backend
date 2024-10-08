@@ -37,10 +37,14 @@ module.exports.payment = async (req, res) => {
             .sort(sortBy);
 
             let batchId = {}
+            let branch_id = {}
+
             records.rows = await Promise.all(records.rows.map(async record => {
                 const batch = await Batch.findOne({'req_id':record.req_id}).select({batchId: 1, _id: 0});
                  batchId = batch?.batchId;
-                return { ...record.toObject(), batchId }
+                 const branch = await RequestModel.findOne({'_id':record.req_id}).select({branch_id: 1, _id: 0});
+                 branch_id = branch?.batchId;
+                return { ...record.toObject(), batchId, branch_id }
             }));
 
         records.count = await Payment.countDocuments(query);
@@ -110,6 +114,9 @@ module.exports.associateOrders = async (req, res) => {
             .skip(skip)
             .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
 
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+            
         records.count = await Payment.countDocuments(query);
 
         if (paginate == 1) {
