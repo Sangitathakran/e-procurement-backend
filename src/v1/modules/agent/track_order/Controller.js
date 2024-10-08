@@ -30,7 +30,7 @@ module.exports.getProcurement = asyncErrorHandler(
                 },
             },
             { $unwind: '$myoffer' },
-            { $match: { 'myoffer.status': _associateOfferStatus.ordered } },
+            { $match: { 'myoffer.status': { $in: [_associateOfferStatus.ordered,_associateOfferStatus.partially_ordered] } } },
             { $limit: limit ? parseInt(limit) : 10 },
             ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
             ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []) // Pagination if required
@@ -96,7 +96,8 @@ module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
                 'assocaite._id': 1,
                 'assocaite.user_code': 1,
                 'assocaite.basic_details.associate_details.associate_name': 1,
-                batchcount: 1
+                batchcount: 1,
+                req_id: 1
             }
         },
         { $limit: limit ? parseInt(limit) : 10 },

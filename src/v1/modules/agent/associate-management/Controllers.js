@@ -15,7 +15,7 @@ module.exports.getAssociates = async (req, res) => {
         // Build the query for searching/filtering associates
         let matchQuery = {
             user_type: _userType.associate,
-            // is_approved: false,
+            is_approved: _userStatus.approved,
             // bank_details: { $ne: null }
         };
 
@@ -167,13 +167,14 @@ module.exports.pendingRequests = async (req, res) => {
         } : {};
 
         query.is_approved = { $in: [_userStatus.pending, _userStatus.rejected] };
+        query.is_form_submitted = true
 
         const records = { count: 0 };
 
-        records.rows = paginate == 1 ? await User.find(query).select("user_code basic_details is_approved")
+        records.rows = paginate == 1 ? await User.find(query).select("user_code basic_details is_approved is_form_submitted")
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await User.find(query).sort(sortBy).select("user_code basic_details is_approved");
+            .limit(parseInt(limit)) : await User.find(query).sort(sortBy).select("user_code basic_details is_approved is_form_submitted");
 
         records.count = await User.countDocuments(query);
 
