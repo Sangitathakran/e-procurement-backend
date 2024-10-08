@@ -336,7 +336,7 @@ module.exports.paymentApprove = async (req, res) => {
 
         await paymentList.save();
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: existingRequest, message: "Payment Approved by admin" }))
+        return res.status(200).send(new serviceResponse({ status: 200, message: "Payment Approved by admin" }))
 
 
     } catch (error) {
