@@ -30,7 +30,7 @@ module.exports.getProcurement = asyncErrorHandler(
                 },
             },
             { $unwind: '$myoffer' },
-            { $match: { 'myoffer.status': { $in: [_associateOfferStatus.ordered,_associateOfferStatus.partially_ordered] } } },
+            { $match: { 'myoffer.status': { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } } },
             { $limit: limit ? parseInt(limit) : 10 },
             ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
             ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []) // Pagination if required
@@ -86,7 +86,7 @@ module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
         { $unwind: '$assocaite' },
         { $match: query },
         { $addFields: { batchcount: { $size: '$batch' } } },
-        { $match: { status: _associateOfferStatus.ordered } },
+        { $match: { status: { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } } },
         {
             $project: {
                 _id: 1,
@@ -128,7 +128,7 @@ module.exports.getBatchByAssociateOfferrs = asyncErrorHandler(async (req, res) =
     query.associateOffer_id = associateOffer_id;
 
     const records = {};
-    records.rows = await Batch.find(query).select("_id batchId status dispatched_at dispatchedqty delivered_at") // Select fields from Batch
+    records.rows = await Batch.find(query).select("_id batchId status dispatched.dispatched_at qty delivered.delivered_at") // Select fields from Batch
         .populate({
             path: 'seller_id',
             select: 'basic_details.point_of_contact',
