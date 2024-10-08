@@ -12,7 +12,7 @@ const farmerSchema = new mongoose.Schema({
 
     user_type: { 
         type: String, 
-        enum: ['Farmer', 'FPO', 'Trader', 'Corporate', 'Miller'], 
+        enum: ['Individual', 'Associate'], 
         required: true 
     },
     
@@ -34,6 +34,7 @@ const farmerSchema = new mongoose.Schema({
         country: { type: String, trim: true },
         state: { type: String, trim: true },
         district: { type: String, trim: true },
+        tahshil: { type: String, trim: true },
         block: { type: String, trim: false },
         village: { type: String, trim: false },
         pin_code: { type: String, trim: true },
