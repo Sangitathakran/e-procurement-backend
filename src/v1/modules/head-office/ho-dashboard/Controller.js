@@ -334,7 +334,9 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
     .select("quotedPrice fulfilledQty reqNo")
     .skip(skip)
     .limit(limit);
-  records.count = await RequestModel.countDocuments({}).skip(skip).limit(limit);
+    
+  records.count = records.row.length
+
   records.page = page;
   records.limit = limit;
   records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
@@ -728,7 +730,7 @@ module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
   ]);
   data = data.map((item) => {
     let details = results.find((item2) => item2.status == item.status);
-    if (item.status == details.status) {
+    if (item.status == details?.status) {
       return { ...item, visitors: details.visitors };
     } else {
       return { ...item };
