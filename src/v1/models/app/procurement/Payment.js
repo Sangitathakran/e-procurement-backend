@@ -3,9 +3,10 @@ const { _collectionName, _paymentmethod, _paymentstatus, _userType, _paymentAppr
 
 const PaymentSchema = new mongoose.Schema({
     payment_collect_by:{type:String,enum:['Farmer','Agency']},
-    whomToPay: { type: mongoose.Schema.Types.ObjectId, ref:function(){
-            return this.payment_collect_by=='Farmer'?_collectionName.farmers:_collectionName.agency
-    } ,required: true },
+    // whomToPay: { type: mongoose.Schema.Types.ObjectId, ref:function(){
+    //         return this.payment_collect_by=='Farmer'?_collectionName.farmers:_collectionName.agency
+    // } ,required: true },
+    whomToPay: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
     user_type: { type: String, enum: Object.values(_userType), required: true },
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
     qtyProcured: { type: String, required: true },
