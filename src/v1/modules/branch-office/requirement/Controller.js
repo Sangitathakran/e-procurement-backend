@@ -128,3 +128,18 @@ module.exports.getBatch = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Batch") }));
 })
+
+module.exports.getFarmerByBatchId = asyncErrorHandler(async (req, res) => {
+
+
+    const { id } = req.params;
+
+    const record = await Batch.findOne({ _id: id }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
+
+})

@@ -155,7 +155,7 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
         const { id } = req.params;
 
         const record = await Batch.findOne({ _id: id })
-            .select({ dispatched: 1, intransit: 1, status: 1 })
+            .select({ dispatched: 1, intransit: 1, delivered: 1, status: 1 })
             .populate({
                 path: 'req_id', select: 'product address'
             });
