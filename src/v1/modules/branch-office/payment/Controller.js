@@ -327,22 +327,22 @@ module.exports.getBill = async (req, res) => {
 
         const { user_id, user_type } = req;
 
-        if (user_type !== _userType.associate) {
+        if (user_type !== _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
-        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1 });
+        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice:1, totalPrice:1, dispatched:1 });
 
         if (billPayment) {
 
-            let totalamount = 0;
+            billPayment.totalPrice;
             let mspPercentage = 1; // The percentage you want to calculate       
 
             const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });
 
-            const newdata = await Promise.all(reqDetails.map(async record => {
-                totalamount += record.amount;
-            }));
+            // const newdata = await Promise.all(reqDetails.map(async record => {
+            //     totalamount += record.amount;
+            // }));
 
             const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
             const billQty = (0.8 / 1000);
