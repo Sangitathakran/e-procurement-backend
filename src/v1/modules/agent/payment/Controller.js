@@ -3,7 +3,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType, _paymentstatus } = require('@src/v1/utils/constants');
+const { _userType, _paymentApproval } = require('@src/v1/utils/constants');
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const mongoose = require("mongoose");
@@ -344,7 +344,7 @@ module.exports.paymentApprove = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Payment") }] }))
         }
 
-        paymentList.status = _paymentstatus.approved;
+        paymentList.status = _paymentApproval.approved;
 
         await paymentList.save();
 
@@ -410,7 +410,7 @@ module.exports.proceedToPay = async (req, res) => {
         }
 
         let query = {
-            status: _paymentstatus.approved,
+            status: _paymentApproval.approved,
             ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
@@ -476,7 +476,7 @@ module.exports.associateOrdersProceedToPay = async (req, res) => {
 
         let query = {
             req_id,
-            status: _paymentstatus.approved,
+            status: _paymentApproval.approved,
             user_type: _userType.associate,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
@@ -542,7 +542,7 @@ module.exports.batchListProceedToPay = async (req, res) => {
 
         let query = {
             req_id,
-            status: _paymentstatus.approved,
+            // status: _paymentApproval.approved,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
@@ -615,7 +615,7 @@ module.exports.getBillProceedToPay = async (req, res) => {
             let totalamount = billPayment.totalPrice;
             let mspPercentage = 1; // The percentage you want to calculate     
             
-            const reqDetails = await Payment.find({ req_id: billPayment.req_id, status: _paymentstatus.approved }).select({ _id: 0, amount: 1 });
+            const reqDetails = await Payment.find({ req_id: billPayment.req_id, status: _paymentApproval.approved }).select({ _id: 0, amount: 1 });
 
             // const newdata = await Promise.all(reqDetails.map(async record => {
             //     totalamount += record.amount;
