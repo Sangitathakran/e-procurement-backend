@@ -37,10 +37,14 @@ module.exports.payment = async (req, res) => {
             .sort(sortBy);
 
             let batchId = {}
+            let branch_id = {}
+
             records.rows = await Promise.all(records.rows.map(async record => {
                 const batch = await Batch.findOne({'req_id':record.req_id}).select({batchId: 1, _id: 0});
                  batchId = batch?.batchId;
-                return { ...record.toObject(), batchId }
+                 const branch = await RequestModel.findOne({'_id':record.req_id}).select({branch_id: 1, _id: 0});
+                 branch_id = branch?.batchId;
+                return { ...record.toObject(), batchId, branch_id }
             }));
 
         records.count = await Payment.countDocuments(query);
@@ -110,6 +114,9 @@ module.exports.associateOrders = async (req, res) => {
             .skip(skip)
             .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
 
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+            
         records.count = await Payment.countDocuments(query);
 
         if (paginate == 1) {
@@ -349,28 +356,29 @@ module.exports.getBill = async (req, res) => {
     try {
         const { batchId } = req.query
 
-        const { user_id, user_type } = req;
+        const { user_type } = req;
 
-        if (user_type !== _userType.associate) {
+        if (user_type != _userType.agent) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
-        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1 });
+        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice:1, totalPrice:1, dispatched:1 });
 
         if(billPayment){
                 
-            let totalamount = 0;
+            let totalamount = billPayment.totalPrice;
             let mspPercentage = 1; // The percentage you want to calculate       
 
             const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });
-
-            const newdata = await Promise.all(reqDetails.map(async record => {
-                totalamount += record.amount;
-            }));
+           
+            // const newdata = await Promise.all(reqDetails.map(async record => {
+            //     totalamount += record.amount;
+            // }));
 
             const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
+            const billQty = (0.8/1000); 
 
-            let records = { ...billPayment.toObject(), totalamount, mspAmount }
+            let records = { ...billPayment.toObject(), totalamount, mspAmount, billQty }
 
             if (records) {
                 return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
@@ -597,17 +605,17 @@ module.exports.getBillProceedToPay = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized("User") }] }));
         }
 
-        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1 });
+        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice:1, totalPrice:1, dispatched:1 });
 
         if(billPayment){
-            let totalamount = 0;
+            let totalamount = billPayment.totalPrice;
             let mspPercentage = 1; // The percentage you want to calculate     
             
             const reqDetails = await Payment.find({ req_id: billPayment.req_id, status: _paymentstatus.approved }).select({ _id: 0, amount: 1 });
 
-            const newdata = await Promise.all(reqDetails.map(async record => {
-                totalamount += record.amount;
-            }));
+            // const newdata = await Promise.all(reqDetails.map(async record => {
+            //     totalamount += record.amount;
+            // }));
 
             const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
             const billQty = (0.8/1000); 
