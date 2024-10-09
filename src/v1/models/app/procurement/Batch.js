@@ -76,7 +76,7 @@ const batchsSchema = new mongoose.Schema({
         tare_weight: { type: Number, trim: true },
         net_weight: { type: Number, trim: true },
         delivered_at: { type: Date, trim: true },
-        delivered_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
+        delivered_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch },
     },
     status: { type: String, enum: Object.values(_batchStatus), default: _batchStatus.pending }
 }, { timestamps: true });

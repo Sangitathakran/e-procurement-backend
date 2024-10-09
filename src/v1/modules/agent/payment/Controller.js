@@ -8,6 +8,8 @@ const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const mongoose = require("mongoose");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
+
 
 module.exports.payment = async (req, res) => {
 
@@ -43,7 +45,11 @@ module.exports.payment = async (req, res) => {
                 const batch = await Batch.findOne({'req_id':record.req_id}).select({batchId: 1, _id: 0});
                  batchId = batch?.batchId;
                  const branch = await RequestModel.findOne({'_id':record.req_id}).select({branch_id: 1, _id: 0});
-                 branch_id = branch?.batchId;
+                //  branch_id = branch?.batchId;
+               
+                 const branchDetails = await Branches.findOne({'_id':branch.branch_id}).select({branchName:1, branchId: 1, _id: 0});
+                
+                 branch_id = branchDetails?.batchId;
                 return { ...record.toObject(), batchId, branch_id }
             }));
 
@@ -215,7 +221,6 @@ module.exports.batchList = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
 
 module.exports.lot_list = async (req, res) => {
 
@@ -392,8 +397,7 @@ module.exports.getBill = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
-
+               
 module.exports.proceedToPay = async (req, res) => {
 
     try {
