@@ -9,6 +9,7 @@ const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const mongoose = require("mongoose");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
+const { PaymentLogs } = require("@src/v1/models/app/procurement/PaymentLogs");
 
 
 module.exports.payment = async (req, res) => {
@@ -28,7 +29,8 @@ module.exports.payment = async (req, res) => {
         }
 
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await Payment.find(query)
+
+        const rows = paginate == 1 ? await Payment.find(query)
             .populate({
                 path: 'whomToPay', select: '_id associate_id farmer_code name',
                 path: 'req_id', select: 'product farmer_code name'
@@ -38,20 +40,15 @@ module.exports.payment = async (req, res) => {
             .limit(parseInt(limit)) : await Payment.find(query)
             .sort(sortBy);
 
-            let batchId = {}
-            let branch_id = {}
-
-            records.rows = await Promise.all(records.rows.map(async record => {
-                const batch = await Batch.findOne({'req_id':record.req_id}).select({batchId: 1, _id: 0});
-                 batchId = batch?.batchId;
-                 const branch = await RequestModel.findOne({'_id':record.req_id}).select({branch_id: 1, _id: 0});
-                //  branch_id = branch?.batchId;
+            let branchDetails = {}
+            
+            records.rows = await Promise.all(rows.map(async record => {
                
-                 const branchDetails = await Branches.findOne({'_id':branch.branch_id}).select({branchName:1, branchId: 1, _id: 0});
-                
-                 branch_id = branchDetails?.batchId;
-                return { ...record.toObject(), batchId, branch_id }
-            }));
+                 branchDetails = await RequestModel.findOne({'_id':record.req_id}).select({branch_id: 1, _id: 0})
+                .populate({ path: 'branch_id', select: 'branchName branchId' });
+              
+               return { ...record.toObject(), branchDetails }
+           }));
 
         records.count = await Payment.countDocuments(query);
 
@@ -340,7 +337,8 @@ module.exports.paymentApprove = async (req, res) => {
 
         const paymentList = await Payment.find({ req_id });
 
-        if (!paymentList) {
+        // console.log(paymentList);
+        if (!paymentList || paymentList.length === 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Payment") }] }))
         }
 
@@ -415,13 +413,23 @@ module.exports.proceedToPay = async (req, res) => {
         };
 
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await Payment.find(query)
+        const rows = paginate == 1 ? await Payment.find(query)
             .populate({
                 path: 'whomToPay', select: '_id associate_id farmer_code name'
             })
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
+
+            let branchDetails = {}
+            records.rows = await Promise.all(rows.map(async record => {
+               
+                 branchDetails = await RequestModel.findOne({'_id':record.req_id}).select({branch_id: 1, _id: 0})
+                 .populate({ path: 'branch_id', select: 'branchName branchId' });
+               
+                return { ...record.toObject(), branchDetails }
+            }));
+
 
         records.count = await Payment.countDocuments(query);
 
@@ -430,8 +438,6 @@ module.exports.proceedToPay = async (req, res) => {
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-
-        // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
 
         if (isExport == 1) {
 
@@ -484,11 +490,16 @@ module.exports.associateOrdersProceedToPay = async (req, res) => {
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
             .populate({
-                path: 'whomToPay', select: '_id associate_id farmer_code name'
+                path: 'whomToPay', select: '_id associate_id farmer_code name',
+                path: 'user_id', select: '_id user_code basic_details.associate_details'
             })
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
+
+            
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+        .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
         records.count = await Payment.countDocuments(query);
 
@@ -542,7 +553,6 @@ module.exports.batchListProceedToPay = async (req, res) => {
 
         let query = {
             req_id,
-            // status: _paymentApproval.approved,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
@@ -551,14 +561,26 @@ module.exports.batchListProceedToPay = async (req, res) => {
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
-        records.rows = paginate == 1 ? await Batch.find(query)
+         const rows = paginate == 1 ? await Batch.find(query)
             .populate({
                 path: 'procurementCenter_id', select: '_id center_name center_code center_type address'
             })
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
-
+          
+            records.rows = await Promise.all(rows.map(async record => {
+                
+                const  paymentData = await Payment.findOne({
+                    $and: [
+                    { req_id: record.req_id },
+                    { user_id: record.seller_id },
+                    ]
+                }).select({payment_status: 1, createdAt:1, updatedAt:1, _id: 0});
+                              
+                return { ...record.toObject(), paymentData }
+            }));
+           
         records.count = await Batch.countDocuments(query);
 
         if (paginate == 1) {
@@ -617,10 +639,6 @@ module.exports.getBillProceedToPay = async (req, res) => {
             
             const reqDetails = await Payment.find({ req_id: billPayment.req_id, status: _paymentApproval.approved }).select({ _id: 0, amount: 1 });
 
-            // const newdata = await Promise.all(reqDetails.map(async record => {
-            //     totalamount += record.amount;
-            // }));
-
             const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
             const billQty = (0.8/1000); 
 
@@ -633,6 +651,135 @@ module.exports.getBillProceedToPay = async (req, res) => {
         else {
             return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
         }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.paymentEdit = async (req, res) => {
+
+    try {
+
+        const { id } = req.body; // Assume the document in Collection A is identified by `id`
+        const { procurementExp, driage, storageExp } = req.body; // Fields to be updated or inserted
+
+        const { user_id, user_type } = req;
+
+        if (user_type != _userType.agent) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+        }
+       const batchDetails = await Batch.findOne({_id:id})
+        // Update multiple fields in Batch
+        const updatedDoc = await Batch.findByIdAndUpdate(
+            id,
+            {
+                $set: {
+                    'dispatched.bills.procurementExp': procurementExp,
+                    'dispatched.bills.driage': driage,
+                    'dispatched.bills.storageExp': storageExp,
+                    'dispatched.bills.total': parseInt(procurementExp) + parseInt(driage) + parseInt(storageExp) + parseInt(batchDetails.dispatched.bills.commission)      
+                },
+            },
+            { new: true } // Return the updated document
+        );
+
+        if (!updatedDoc) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))           
+        }
+        
+        // Insert a new row (document) into PaymentLogs
+        const newDocumentB = new PaymentLogs({
+            'procurementExp': procurementExp,
+            'driage': driage,
+            'storageExp': storageExp,
+            'total': updatedDoc.dispatched.bills.total,
+            'batch_id': updatedDoc._id, // Link the new document to Batch if necessary
+            'seller_id': updatedDoc._id, 
+            'req_id': updatedDoc._id, 
+            'updated_by' : user_id
+        });
+
+        await newDocumentB.save(); // Save the new document in PaymentLogs
+        
+        // Send success response
+        return res.status(200).send(new serviceResponse({ status: 200, message: "Payment Approved by admin" }))
+        
+        } catch (error) {
+        console.error(error);
+        _handleCatchErrors(error, res);
+        }
+            
+}
+
+module.exports.paymentLogs = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query
+
+        const { user_type } = req;
+
+        if (user_type != _userType.agent) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+        }
+
+        let query = {
+            batch_id,
+            ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        const records = { count: 0 };
+        records.rows = paginate == 1 ? await PaymentLogs.find(query)
+            .populate({
+                path: 'updated_by', select: '_id associate_details point_of_contact'
+            })
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await PaymentLogs.find(query).sort(sortBy);
+
+        records.count = await PaymentLogs.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+       if(!records){
+            return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment Logs") }))
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment Logs") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+
+}
+  
+
+module.exports.batchApprove = async (req, res) => {
+
+    try {
+
+        const { batchIds } = req.body;
+        const { user_type } = req;
+
+        if (user_type != _userType.agent) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+        }
+
+        const result = await Batch.updateMany(
+            { _id: { $in: batchIds } },  // Match any batchIds in the provided array
+            { $set: { status: _batchStatus.paymentApproved } } // Set the new status for matching documents
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
+
 
     } catch (error) {
         _handleCatchErrors(error, res);
