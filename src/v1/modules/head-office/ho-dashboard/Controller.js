@@ -18,7 +18,7 @@ const {
 } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { _query } = require("@src/v1/utils/constants/messages");
 
-//widget lists
+//widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   let report = [
     { monthName: "January", month: 1, total: 0 },
