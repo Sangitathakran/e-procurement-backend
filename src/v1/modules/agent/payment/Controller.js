@@ -484,7 +484,8 @@ module.exports.associateOrdersProceedToPay = async (req, res) => {
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
             .populate({
-                path: 'whomToPay', select: '_id associate_id farmer_code name'
+                path: 'whomToPay', select: '_id associate_id farmer_code name',
+                path: 'user_id', select: '_id user_code basic_details.associate_details'
             })
             .sort(sortBy)
             .skip(skip)
