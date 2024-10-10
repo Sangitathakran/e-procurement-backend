@@ -49,7 +49,7 @@ module.exports.getHo = async (req, res) => {
                     address: 1
                 }
             },
-            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
+            ...(sortBy ? [{ $sort: { [sortBy]: -1 } }] : []),  // Sorting if required
             ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []) // Pagination if required
         ]);
 
