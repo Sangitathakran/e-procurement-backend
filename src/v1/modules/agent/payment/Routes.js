@@ -22,6 +22,6 @@ paymentRoutes.get("/proceed-to-pay-bill-view", verifyAgent, getBillProceedToPay)
 paymentRoutes.put("/payment-edit", verifyAgent, paymentEdit);
 paymentRoutes.get("/payment-logs", verifyAgent, paymentLogs);
 
-paymentRoutes.get("/batch-approval", verifyBO, batchApprove);
+paymentRoutes.get("/batch-approval", verifyAgent, batchApprove);
 
 module.exports = { paymentRoutes }; 
