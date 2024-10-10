@@ -1,5 +1,5 @@
 const express = require("express");
-const { payment, farmerOrders, associateOrders, batchList, paymentApprove, getBill, lot_list, proceedToPay, associateOrdersProceedToPay, batchListProceedToPay, getBillProceedToPay, paymentEdit, paymentLogs } = require("./Controller");
+const { payment, farmerOrders, associateOrders, batchList, paymentApprove, getBill, lot_list, proceedToPay, associateOrdersProceedToPay, batchListProceedToPay, getBillProceedToPay, paymentEdit, paymentLogs, batchApprove } = require("./Controller");
 const { verifyAgent } = require("../utils/verifyAgent");
 
 const paymentRoutes = express.Router();
@@ -21,5 +21,7 @@ paymentRoutes.get("/proceed-to-pay-bill-view", verifyAgent, getBillProceedToPay)
 
 paymentRoutes.put("/payment-edit", verifyAgent, paymentEdit);
 paymentRoutes.get("/payment-logs", verifyAgent, paymentLogs);
+
+paymentRoutes.get("/batch-approval", verifyBO, batchApprove);
 
 module.exports = { paymentRoutes }; 

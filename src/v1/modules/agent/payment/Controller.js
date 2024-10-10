@@ -739,3 +739,31 @@ module.exports.paymentLogs = async (req, res) => {
 
 }
   
+
+module.exports.batchApprove = async (req, res) => {
+
+    try {
+
+        const { batchIds } = req.body;
+        const { user_type } = req;
+
+        if (user_type != _userType.agent) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+        }
+
+        const result = await Batch.updateMany(
+            { _id: { $in: batchIds } },  // Match any batchIds in the provided array
+            { $set: { status: _batchStatus.paymentApproved } } // Set the new status for matching documents
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
+
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
