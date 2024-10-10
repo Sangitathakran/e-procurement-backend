@@ -4,7 +4,7 @@ const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const farmerSchema = new mongoose.Schema({
     associate_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: _collectionName.Users, default: null },
-    mobile_no: { type: String, required: true },
+    mobile_no: { type: String, required: false },
     name: { type: String, default: null },
     is_verify_otp: { type: Boolean, default: false },
     farmer_id: { type: String, default: null },
@@ -13,7 +13,7 @@ const farmerSchema = new mongoose.Schema({
     user_type: { 
         type: String, 
         enum: ['Individual', 'Associate'], 
-        required: true 
+        required: false 
     },
     
     basic_details: { 
@@ -57,31 +57,31 @@ documents: {
         account_no: { type: String, trim: true },
         proof_doc_key: { type: String, trim: true }
     },
-    land_details: [{land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: true }}],
+    land_details: [{land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: false }}],
     
     crop_details: [{
-        crop_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Crops, required: true }
+        crop_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Crops, required: false }
     }],
     
     insurance_details: [{
-        crop_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Crops, required: true },
-        insurance_company: { type: String, required: true },
-        land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: true },
-        insurance_worth: { type: Number, required: true },
-        insurance_premium: { type: Number, required: true },
-        insurance_start_date: { type: Date, required: true },
-        insurance_end_date: { type: Date, required: true }
+        crop_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Crops, required: false },
+        insurance_company: { type: String, required: false },
+        land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: false },
+        insurance_worth: { type: Number, required: false },
+        insurance_premium: { type: Number, required: false },
+        insurance_start_date: { type: Date, required: false },
+        insurance_end_date: { type: Date, required: false }
     }],
     
     infrastructure_needs: {
-        warehouse: { type: Boolean, required: true },
-        cold_storage: { type: Boolean, required: true },
-        processing_unit: { type: Boolean, required: true },
-        transportation_facilities: { type: Boolean, required: true }
+        warehouse: { type: Boolean, required: false },
+        cold_storage: { type: Boolean, required: false },
+        processing_unit: { type: Boolean, required: false },
+        transportation_facilities: { type: Boolean, required: false }
     },
     
     financial_support: {
-        credit_facilities: { type: Boolean, required: true },
+        credit_facilities: { type: Boolean, required: false },
         source_of_credit: { type: String },
         financial_challenges: { type: String },
         support_required: { type: String }
@@ -102,7 +102,7 @@ documents: {
     proof: {
         type: { type: String, enum: Object.values(_proofType), default: null, trim: true },
         doc: { type: String, trim: true },
-        aadhar_no: { type: String, required: true, trim: true },
+        aadhar_no: { type: String, required: false, trim: true },
     },
     status: { type: String, enum: Object.values(_status), default: _status.active },
     steps: [{ 
