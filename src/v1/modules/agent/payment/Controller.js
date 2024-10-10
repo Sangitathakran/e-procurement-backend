@@ -433,8 +433,6 @@ module.exports.proceedToPay = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
-
         if (isExport == 1) {
 
             const record = records.rows.map((item) => {
@@ -491,6 +489,10 @@ module.exports.associateOrdersProceedToPay = async (req, res) => {
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
+
+            
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+        .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
         records.count = await Payment.countDocuments(query);
 
@@ -619,10 +621,6 @@ module.exports.getBillProceedToPay = async (req, res) => {
             
             const reqDetails = await Payment.find({ req_id: billPayment.req_id, status: _paymentApproval.approved }).select({ _id: 0, amount: 1 });
 
-            // const newdata = await Promise.all(reqDetails.map(async record => {
-            //     totalamount += record.amount;
-            // }));
-
             const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
             const billQty = (0.8/1000); 
 
@@ -695,7 +693,6 @@ module.exports.paymentEdit = async (req, res) => {
         }
             
 }
-
 
 module.exports.paymentLogs = async (req, res) => {
 
