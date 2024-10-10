@@ -46,10 +46,12 @@ module.exports.getHo = async (req, res) => {
                     registered_time: 1,
                     head_office_code: 1,
                     active: 1,
-                    address: 1
+                    address: 1,
+                    createdAt: 1,
+                    updatedAt: 1
                 }
             },
-            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
+            { $sort: sortBy },
             ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []) // Pagination if required
         ]);
 
