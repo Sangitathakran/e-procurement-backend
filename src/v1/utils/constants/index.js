@@ -30,7 +30,8 @@ const _collectionName = {
     Branch: "Branch",
     DummyWarehouse: "DummyWarehouse",
     FarmerOrder: "FarmerOrder",
-    PaymentLog: "PaymentLog"
+    PaymentLog: "PaymentLog",
+    AgentPayment: "AgentPayment"
 }
 const _status = {
     active: "active",
