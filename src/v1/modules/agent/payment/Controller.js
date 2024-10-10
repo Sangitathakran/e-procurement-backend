@@ -29,7 +29,8 @@ module.exports.payment = async (req, res) => {
         }
 
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await Payment.find(query)
+
+        const rows = paginate == 1 ? await Payment.find(query)
             .populate({
                 path: 'whomToPay', select: '_id associate_id farmer_code name',
                 path: 'req_id', select: 'product farmer_code name'
@@ -42,13 +43,13 @@ module.exports.payment = async (req, res) => {
             let batchId = {}
             let branch_id = {}
 
-            records.rows = await Promise.all(records.rows.map(async record => {
+            records.rows = await Promise.all(rows.map(async record => {
                 const batch = await Batch.findOne({'req_id':record.req_id}).select({batchId: 1, _id: 0});
                  batchId = batch?.batchId;
-                 const branch = await RequestModel.findOne({'_id':record.req_id}).select({branch_id: 1, _id: 0});
+                 const reqDetails = await RequestModel.findOne({'_id':record.req_id}).select({branch_id: 1, _id: 0});
                 //  branch_id = branch?.batchId;
-               
-                 const branchDetails = await Branches.findOne({'_id':branch.branch_id}).select({branchName:1, branchId: 1, _id: 0});
+                               
+                 const branchDetails = await Branches.findOne({'_id':reqDetails.branch_id}).select({branchName:1, branchId: 1, _id: 0});
                 
                  branch_id = branchDetails?.batchId;
                 return { ...record.toObject(), batchId, branch_id }
@@ -417,13 +418,26 @@ module.exports.proceedToPay = async (req, res) => {
         };
 
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await Payment.find(query)
+        const rows = paginate == 1 ? await Payment.find(query)
             .populate({
                 path: 'whomToPay', select: '_id associate_id farmer_code name'
             })
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
+
+            
+            records.rows = await Promise.all(rows.map(async record => {
+                const batch = await Batch.findOne({'req_id':record.req_id}).select({batchId: 1, _id: 0});
+                 batchId = batch?.batchId;
+                 const reqDetails = await RequestModel.findOne({'_id':record.req_id}).select({branch_id: 1, _id: 0});
+                                             
+                 const branchDetails = await Branches.findOne({'_id':reqDetails.branch_id}).select({branchName:1, branchId: 1, _id: 0});
+                
+                 branch_id = branchDetails?.batchId;
+                return { ...record.toObject(), batchId, branch_id }
+            }));
+
 
         records.count = await Payment.countDocuments(query);
 
@@ -484,7 +498,8 @@ module.exports.associateOrdersProceedToPay = async (req, res) => {
         const records = { count: 0 };
         records.rows = paginate == 1 ? await Payment.find(query)
             .populate({
-                path: 'whomToPay', select: '_id associate_id farmer_code name'
+                path: 'whomToPay', select: '_id associate_id farmer_code name',
+                path: 'user_id', select: '_id user_code basic_details.associate_details'
             })
             .sort(sortBy)
             .skip(skip)
@@ -546,7 +561,6 @@ module.exports.batchListProceedToPay = async (req, res) => {
 
         let query = {
             req_id,
-            // status: _paymentApproval.approved,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
@@ -555,14 +569,26 @@ module.exports.batchListProceedToPay = async (req, res) => {
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
-        records.rows = paginate == 1 ? await Batch.find(query)
+         const rows = paginate == 1 ? await Batch.find(query)
             .populate({
                 path: 'procurementCenter_id', select: '_id center_name center_code center_type address'
             })
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
-
+          
+            records.rows = await Promise.all(rows.map(async record => {
+                
+                const  paymentData = await Payment.findOne({
+                    $and: [
+                    { req_id: record.req_id },
+                    { user_id: record.seller_id },
+                    ]
+                }).select({payment_status: 1, createdAt:1, updatedAt:1, _id: 0});
+                              
+                return { ...record.toObject(), paymentData }
+            }));
+           
         records.count = await Batch.countDocuments(query);
 
         if (paginate == 1) {
