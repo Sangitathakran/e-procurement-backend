@@ -18,6 +18,8 @@ const archiver = require('archiver');
 const path = require('path');
 const fsp = require("fs-extra");
 const fs = require('fs');
+const farmerModel = require('@src/v1/models/app/farmerDetails/Farmer')
+
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -75,16 +77,16 @@ module.exports.verifyOTP = async (req, res) => {
     }
 
     // Find the farmer data and verify OTP
-    let individualFormerData = await IndividualFarmer.findOne({
+    let individualFormerData = await farmerModel.findOne({ 
       mobile_no: mobileNumber,
-      isVerifyOtp: true,
+      is_verify_otp:true
     });
 
     // If farmer data does not exist, create a new one
     if (!individualFormerData) {
-      individualFormerData = await new IndividualFarmer({
+      individualFormerData = await new farmerModel({
         mobile_no: mobileNumber,
-        isVerifyOtp: true,
+        is_verify_otp:true,
         steps: _individual_farmer_onboarding_steps, // Ensure that this field is set as required
       }).save();
     }
@@ -96,7 +98,8 @@ module.exports.verifyOTP = async (req, res) => {
     };
       
     // Send the response
-    return sendResponse({res,
+    return sendResponse({
+      res,
       status: 200,
       data: resp,
       message: _response_message.otp_verified("your mobile"),
@@ -115,7 +118,7 @@ module.exports.registerName = async (req, res) => {
         return sendResponse({res, status: 400, data:null, message: _response_message.notProvided('Name')})
 
     // Check if the user already exists and is verified
-    const farmerData = await IndividualFarmer.findOneAndUpdate(
+    const farmerData = await farmerModel.findOneAndUpdate(
       { mobile_no: req.mobile_no },
       { $set: { name: registerName, 
                 user_type: "5" ,
@@ -152,7 +155,7 @@ module.exports.saveFarmerDetails = async (req, res) => {
     const { id: farmer_id } = req.params;
     if (!screenName)
       return res.status(400).send({ message: "Please Provide Screen Name" });
-    const farmerDetails = await IndividualFarmer.findById(farmer_id).select(
+    const farmerDetails = await farmerModel.findById(farmer_id).select(
       `${screenName}`
     );
 
@@ -162,7 +165,7 @@ module.exports.saveFarmerDetails = async (req, res) => {
       await farmerDetails.save();
 
 
-      const farmerData = await IndividualFarmer.findById(farmer_id)
+      const farmerData = await farmerModel.findById(farmer_id)
 
       return sendResponse({res,
         status:200,
@@ -193,11 +196,11 @@ module.exports.getFarmerDetails = async (req, res) => {
       : null;
 
     if (selectFields) {
-      farmerDetails = await IndividualFarmer.findOne({ _id: id }).select(
+      farmerDetails = await farmerModel.findOne({ _id: id }).select(
         selectFields
       );
     } else {
-      farmerDetails = await IndividualFarmer.findOne({ _id: id });
+      farmerDetails = await farmerModel.findOne({ _id: id });
     }
 
     if (farmerDetails) {
@@ -225,7 +228,7 @@ module.exports.submitForm = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const farmerDetails = await IndividualFarmer.findById(id)
+    const farmerDetails = await farmerModel.findById(id)
     const generateFarmerId = (farmer) => {
       const stateData = stateList.stateList.find(
         (item) =>
@@ -260,23 +263,28 @@ module.exports.submitForm = async (req, res) => {
       return farmerId;
     };
     const farmer_id = await generateFarmerId(farmerDetails);
-
-
+   
     if (farmerDetails && farmer_id) {
       if (farmerDetails.farmer_id == null) {
         farmerDetails.farmer_id = farmer_id;
         farmerDetails.allStepsCompletedStatus = true;
-        const farmerUpdatedDetails = await farmerDetails.save();
+        
         //welcome sms send functionality
         const mobileNumber = req.mobile_no;
         const farmerName = farmerDetails.basic_details.name;
         const farmerId = farmerDetails.farmer_id;
-        await smsService.sendFarmerRegistrationSMS(
+        const isMszSent = await smsService.sendFarmerRegistrationSMS(
           mobileNumber,
           farmerName,
           farmerId
         );
-
+        //console.log("isMszSent==>",isMszSent)
+        if (isMszSent && isMszSent.response && isMszSent.response.status === 'success') {
+          // Message was sent successfully
+          farmerDetails.is_welcome_msg_send = true;
+        }  
+        
+        const farmerUpdatedDetails = await farmerDetails.save();
         return sendResponse({res,status:200, data: farmerUpdatedDetails })
       }
 
