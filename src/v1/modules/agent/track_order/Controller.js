@@ -5,6 +5,7 @@ const { _associateOfferStatus } = require("@src/v1/utils/constants");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const mongoose = require("mongoose");
 
 module.exports.getProcurement = asyncErrorHandler(
     async (req, res) => {
@@ -30,7 +31,7 @@ module.exports.getProcurement = asyncErrorHandler(
                 },
             },
             { $unwind: '$myoffer' },
-            { $match: { 'myoffer.status': { $in: [_associateOfferStatus.ordered,_associateOfferStatus.partially_ordered] } } },
+            { $match: { 'myoffer.status': { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } } },
             { $limit: limit ? parseInt(limit) : 10 },
             ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
             ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []) // Pagination if required
@@ -53,7 +54,7 @@ module.exports.getProcurement = asyncErrorHandler(
 
 module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, sortBy, search = '', status, paginate = 1 } = req.query;
+    const { page, limit, skip, sortBy, search = '', status, paginate = 1, req_id } = req.query;
 
     let query = search ? {
         $or: [
@@ -63,15 +64,19 @@ module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
     } : {};
 
 
+    query.req_id = new mongoose.Types.ObjectId(req_id);
+    query.status = { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] }  // Correctly filtering by status
+
+
     const records = {};
+
     records.rows = await AssociateOffers.aggregate([
         {
             $lookup: {
                 from: 'users',
                 localField: 'seller_id',
                 foreignField: '_id',
-                as: 'assocaite',
-
+                as: 'associate'  // Fixed the typo here
             }
         },
         {
@@ -79,32 +84,39 @@ module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
                 from: 'batches',
                 localField: '_id',
                 foreignField: 'associateOffer_id',
-                as: 'batch',
-
+                as: 'batch'
             }
         },
-        { $unwind: '$assocaite' },
-        { $match: query },
-        { $addFields: { batchcount: { $size: '$batch' } } },
-        { $match: { status: _associateOfferStatus.ordered } },
+        {
+            $unwind: '$associate'
+        },
+        {
+            $match: query
+        },
+        {
+            $addFields: { batchcount: { $size: '$batch' } }
+        },
         {
             $project: {
                 _id: 1,
                 offeredQty: 1,
                 procuredQty: 1,
                 status: 1,
-                'assocaite._id': 1,
-                'assocaite.user_code': 1,
-                'assocaite.basic_details.associate_details.associate_name': 1,
+                'associate._id': 1,
+                'associate.user_code': 1,
+                'associate.basic_details.associate_details.associate_name': 1,  // Ensure this path exists in 'users' collection
                 batchcount: 1,
                 req_id: 1
             }
         },
-        { $limit: limit ? parseInt(limit) : 10 },
-        ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
-        ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []) // Pagination if required
+        {
+            $limit: limit ? parseInt(limit) : 10
+        },
+        ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+        ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : [])
     ]);
-    records.count = records.rows.length;
+
+    records.count = await AssociateOffers.countDocuments(query);
 
     if (paginate == 1) {
         records.page = page;
@@ -128,7 +140,7 @@ module.exports.getBatchByAssociateOfferrs = asyncErrorHandler(async (req, res) =
     query.associateOffer_id = associateOffer_id;
 
     const records = {};
-    records.rows = await Batch.find(query).select("_id batchId status dispatched_at dispatchedqty delivered_at") // Select fields from Batch
+    records.rows = await Batch.find(query).select("_id req_id batchId status dispatched.dispatched_at qty delivered.delivered_at") // Select fields from Batch
         .populate({
             path: 'seller_id',
             select: 'basic_details.point_of_contact',
@@ -155,7 +167,7 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
         const { id } = req.params;
 
         const record = await Batch.findOne({ _id: id })
-            .select({ dispatched: 1, intransit: 1, status: 1 })
+            .select({ dispatched: 1, intransit: 1, delivered: 1, status: 1 })
             .populate({
                 path: 'req_id', select: 'product address'
             });
