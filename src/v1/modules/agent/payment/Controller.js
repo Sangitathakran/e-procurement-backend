@@ -40,20 +40,15 @@ module.exports.payment = async (req, res) => {
             .limit(parseInt(limit)) : await Payment.find(query)
             .sort(sortBy);
 
-            let batchId = {}
-            let branch_id = {}
-
+            let branchDetails = {}
+            
             records.rows = await Promise.all(rows.map(async record => {
-                const batch = await Batch.findOne({'req_id':record.req_id}).select({batchId: 1, _id: 0});
-                 batchId = batch?.batchId;
-                 const reqDetails = await RequestModel.findOne({'_id':record.req_id}).select({branch_id: 1, _id: 0});
-                //  branch_id = branch?.batchId;
-                               
-                 const branchDetails = await Branches.findOne({'_id':reqDetails.branch_id}).select({branchName:1, branchId: 1, _id: 0});
-                
-                 branch_id = branchDetails?.batchId;
-                return { ...record.toObject(), batchId, branch_id }
-            }));
+               
+                 branchDetails = await RequestModel.findOne({'_id':record.req_id}).select({branch_id: 1, _id: 0})
+                .populate({ path: 'branch_id', select: 'branchName branchId' });
+              
+               return { ...record.toObject(), branchDetails }
+           }));
 
         records.count = await Payment.countDocuments(query);
 
@@ -426,16 +421,13 @@ module.exports.proceedToPay = async (req, res) => {
             .skip(skip)
             .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
 
-            
+            let branchDetails = {}
             records.rows = await Promise.all(rows.map(async record => {
-                const batch = await Batch.findOne({'req_id':record.req_id}).select({batchId: 1, _id: 0});
-                 batchId = batch?.batchId;
-                 const reqDetails = await RequestModel.findOne({'_id':record.req_id}).select({branch_id: 1, _id: 0});
-                                             
-                 const branchDetails = await Branches.findOne({'_id':reqDetails.branch_id}).select({branchName:1, branchId: 1, _id: 0});
-                
-                 branch_id = branchDetails?.batchId;
-                return { ...record.toObject(), batchId, branch_id }
+               
+                 branchDetails = await RequestModel.findOne({'_id':record.req_id}).select({branch_id: 1, _id: 0})
+                 .populate({ path: 'branch_id', select: 'branchName branchId' });
+               
+                return { ...record.toObject(), branchDetails }
             }));
 
 
