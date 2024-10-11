@@ -8,8 +8,8 @@ const procTrackingRoutes = express.Router();
 
 
 procTrackingRoutes.get("/", verifyAgent, getProcurementTracking);
-procTrackingRoutes.get("/associate-offer", getAssociateOffers);
-procTrackingRoutes.get("/farmer-associate", getFarmersByAssocaiteId);
+procTrackingRoutes.get("/associate-offer", verifyAgent, getAssociateOffers);
+procTrackingRoutes.get("/farmer-associate", verifyAgent, getFarmersByAssocaiteId);
 procTrackingRoutes.get("/farmers/:id", verifyAgent, getFarmersOrdersData);
 
 module.exports = { procTrackingRoutes }; 
