@@ -74,7 +74,7 @@ module.exports.getProcurement = async (req, res) => {
 
             const records = {};
             records.rows = await RequestModel.aggregate(pipeline);
-            records.count = records.rows.length;
+            records.count =await RequestModel.countDocuments(query);
 
             if (paginate == 1) {
                 records.page = page;

@@ -28,7 +28,7 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
         .skip(skip)
         .limit(parseInt(limit)) : await RequestModel.find(query).select(selectValues).sort(sortBy);
 
-    records.count = records.rows.length;
+    records.count = await RequestModel.countDocuments(query);
 
     if (paginate == 1) {
         records.page = page;
@@ -69,7 +69,7 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
         .skip(skip)
         .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
-    records.count = records.rows.length;
+    records.count = await Batch.countDocuments(query);
 
     if (paginate == 1) {
         records.page = page;

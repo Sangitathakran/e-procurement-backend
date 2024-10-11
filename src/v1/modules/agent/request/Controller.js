@@ -188,7 +188,7 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
         { $limit: parseInt(limit) }, // Limit for pagination
     ]);
 
-    records.count = records.rows.length;
+    records.count = await AssociateOffers.countDocuments(query);
 
     if (paginate == 1) {
         records.page = page;

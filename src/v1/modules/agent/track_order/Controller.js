@@ -39,7 +39,7 @@ module.exports.getProcurement = asyncErrorHandler(
 
         const records = {};
         records.rows = await RequestModel.aggregate(pipeline);
-        records.count = records.rows.length;
+        records.count = await RequestModel.countDocuments(query);
 
 
         if (paginate == 1) {
@@ -147,7 +147,7 @@ module.exports.getBatchByAssociateOfferrs = asyncErrorHandler(async (req, res) =
         })
         .populate("procurementCenter_id")
 
-    records.count = records.rows.length;
+    records.count = await Batch.countDocuments(query);
 
     if (paginate == 1) {
         records.page = page;
