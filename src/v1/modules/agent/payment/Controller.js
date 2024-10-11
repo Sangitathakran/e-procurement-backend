@@ -865,7 +865,7 @@ module.exports.agentPaymentList = async (req, res) => {
 
         const rows = paginate == 1 ? await AgentPayment.find(query)
             .populate({
-                path: 'req_id', select: 'product farmer_code name'
+                path:'req_id', select: '_id reqNo product address deliveryDate quotedPrice status'
             })
             .sort(sortBy)
             .skip(skip)
