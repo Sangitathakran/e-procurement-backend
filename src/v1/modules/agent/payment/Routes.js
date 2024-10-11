@@ -16,7 +16,7 @@ paymentRoutes.get("/proceed-to-pay", verifyAgent, proceedToPay);
 paymentRoutes.get("/proceed-to-pay-associate-orders", verifyAgent, associateOrdersProceedToPay);
 paymentRoutes.get("/proceed-to-pay-batch-list", verifyAgent, batchListProceedToPay);
 paymentRoutes.get("/proceed-to-pay-bill-view", verifyAgent, getBillProceedToPay);
-paymentRoutes.get("/batch-approval", verifyAgent, batchApprove);
+paymentRoutes.put("/batch-approval", verifyAgent, batchApprove);
 paymentRoutes.put("/payment-edit", verifyAgent, paymentEdit);
 paymentRoutes.get("/payment-logs", verifyAgent, paymentLogs);
 paymentRoutes.post("/generate-bill", verifyAgent, generateBill);
