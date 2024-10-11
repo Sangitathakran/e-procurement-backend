@@ -853,7 +853,6 @@ module.exports.generateBill = async (req, res) => {
 
 }
 
-
 module.exports.agentPaymentList = async (req, res) => {
 
     try {
