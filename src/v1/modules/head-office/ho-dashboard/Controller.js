@@ -4,7 +4,7 @@ const {
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const IndividualFarmer = require("@src/v1/models/app/farmerDetails/IndividualFarmer");
-const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const  farmer  = require("@src/v1/models/app/farmerDetails/Farmer");
 const { wareHouse } = require("@src/v1/models/app/warehouse/warehouseSchema");
 const { User } = require("@src/v1/models/app/auth/User");
 const {
@@ -20,7 +20,9 @@ const { _query } = require("@src/v1/utils/constants/messages");
 
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
-  let report = [
+  try{
+
+  report = [
     { monthName: "January", month: 1, total: 0 },
     { monthName: "February", month: 2, total: 0 },
     { monthName: "March", month: 3, total: 0 },
@@ -88,6 +90,10 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
     message: _query.get("Widget List"),
     data: widgetDetails,
   });
+}catch(error){
+  console.log('error',error)
+}
+
 });
 
 //farmer payments
