@@ -834,6 +834,7 @@ module.exports.generateBill = async (req, res) => {
                 'bills.total': total,
                 user_id,
                 req_id,
+                'commission': ((billPayment.bills.procurementExp + billPayment.bills.driage + billPayment.bills.storageExp * 1) / 100),
                 'bill_at': new Date(),
                 'bill_slip.inital': bill_slip.map(i => { return { img: i, on: new Date() } }) // Ensure inital is initialized as an empty array
             });
@@ -958,23 +959,29 @@ module.exports.agentPaymentEdit = async (req, res) => {
     try {
 
         const { id } = req.body; // Assume the document in Collection A is identified by `id`
-        const { procurementExp, driage, storageExp } = req.body; // Fields to be updated or inserted
+        const { procurementExp, driage, storageExp, notes } = req.body; // Fields to be updated or inserted
 
         const { user_id, user_type } = req;
 
         if (user_type != _userType.agent) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
-        const batchDetails = await AgentPayment.findOne({ _id: id })
+
+        const billPayment = await AgentPayment.findOne({ _id:id })
+
+        let commission = ((parseInt(procurementExp ? procurementExp : billPayment.bills.procurementExp) + parseInt(driage ? driage : billPayment.bills.driage) + parseInt(storageExp ? storageExp :  billPayment.bills.storageExp) * 1) / 100);
+       
         // Update multiple fields in Batch
         const updatedDoc = await AgentPayment.findByIdAndUpdate(
             id,
             {
                 $set: {
-                    'dispatched.bills.procurementExp': procurementExp,
-                    'dispatched.bills.driage': driage,
-                    'dispatched.bills.storageExp': storageExp,
-                    'dispatched.bills.total': parseInt(procurementExp) + parseInt(driage) + parseInt(storageExp) + parseInt(batchDetails.dispatched.bills.commission)
+                    'bills.procurementExp': procurementExp,
+                    'bills.driage': driage,
+                    'bills.storageExp': storageExp,
+                    'bills.commission': commission,
+                    'bills.total': parseInt(procurementExp) + parseInt(driage) + parseInt(storageExp) + parseInt(commission),
+                    'notes' : notes
                 },
             },
             { new: true } // Return the updated document
@@ -989,10 +996,9 @@ module.exports.agentPaymentEdit = async (req, res) => {
             'procurementExp': procurementExp,
             'driage': driage,
             'storageExp': storageExp,
-            'total': updatedDoc.dispatched.bills.total,
-            'batch_id': updatedDoc._id, // Link the new document to Batch if necessary
-            'seller_id': updatedDoc._id,
-            'req_id': updatedDoc._id,
+            'total': updatedDoc.bills.total,
+            'req_id': updatedDoc.req_id,
+            'seller_id' : user_id,
             'updated_by': user_id
         });
 
@@ -1011,16 +1017,17 @@ module.exports.agentPaymentEdit = async (req, res) => {
 module.exports.agentPaymentLogs = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
 
-        const { user_type } = req;
+        const { user_id, user_type } = req;
 
         if (user_type != _userType.agent) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         let query = {
-            batch_id,
+            req_id,
+            seller_id:user_id,
             ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
