@@ -1,10 +1,10 @@
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const { _batchStatus } = require("@src/v1/utils/constants");
+const { _batchStatus, received_qc_status } = require("@src/v1/utils/constants");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
-
+const moment = require("moment");
 
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
 
@@ -28,7 +28,7 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
         .skip(skip)
         .limit(parseInt(limit)) : await RequestModel.find(query).select(selectValues).sort(sortBy);
 
-    records.count = records.rows.length;
+    records.count = await RequestModel.countDocuments(query);
 
     if (paginate == 1) {
         records.page = page;
@@ -69,7 +69,7 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
         .skip(skip)
         .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
-    records.count = records.rows.length;
+    records.count = await Batch.countDocuments(query);
 
     if (paginate == 1) {
         records.page = page;
@@ -84,13 +84,26 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
 
 module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
-    const { id, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight } = req.body;
+    const { id, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, material_image = [], weight_slip = [], qc_report = [] } = req.body;
     const { user_id } = req;
 
     const record = await Batch.findOne({ _id: id });
 
     if (!record) {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+    }
+
+    if (material_image) {
+        record.dispatched.material_img.received.push(...material_image.map(i => { return { img: i, on: moment() } }))
+    }
+
+    if (weight_slip) {
+        record.dispatched.weight_slip.received.push(...weight_slip.map(i => { return { img: i, on: moment() } }))
+    }
+
+    if (qc_report) {
+        record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+        record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
     }
 
     if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
@@ -142,4 +155,21 @@ module.exports.getFarmerByBatchId = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
 
+})
+
+module.exports.updateStatus = asyncErrorHandler(async (req, res) => {
+
+    const { id, status } = req.query;
+
+    const record = await Batch.findOne({ _id: id });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("batch") }] }));
+    }
+
+    record.dispatched.qc_report.received_qc_status = status;
+
+    await record.save();
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("batch") }));
 })

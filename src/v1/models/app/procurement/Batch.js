@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _batchStatus } = require('@src/v1/utils/constants');
+const { _collectionName, _batchStatus, received_qc_status } = require('@src/v1/utils/constants');
 
 const batchsSchema = new mongoose.Schema({
     seller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
@@ -36,6 +36,7 @@ const batchsSchema = new mongoose.Schema({
         qc_report: {
             inital: [{ img: { type: String, required: true }, on: { type: Date } }],
             received: [{ img: { type: String, required: true }, on: { type: Date } }],
+            received_qc_status: { type: String, enum: Object.values(received_qc_status), defualt: received_qc_status.pending },
         },
         lab_report: {
             inital: [{ img: { type: String, required: true }, on: { type: Date } }],
@@ -84,4 +85,3 @@ const batchsSchema = new mongoose.Schema({
 const Batch = mongoose.model(_collectionName.Batch, batchsSchema);
 
 module.exports = { Batch };
-
