@@ -1,4 +1,5 @@
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
@@ -16,15 +17,11 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 400, errors: _response_message.notFound("request") }));
     }
 
-    // let query = search ? {
-    //     $or: [
-    //         // { "metaData.name": { $regex: search, $options: 'i' } },
-    //         // { "metaData.father_name": { $regex: search, $options: 'i' } },
-    //         // { "metaData.mobile_no": { $regex: search, $options: 'i' } },
-    //     ]
-    // } : {}; 
-
-    let query = {};
+    let query = search ? {
+        $or: [
+            { "pointOfContact.name": { $regex: search, $options: 'i' } },
+        ]
+    } : {};
 
     query._id = { $in: requestIds };
 
@@ -55,9 +52,7 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
     let query = search ? {
         $or: [
-            // { "metaData.name": { $regex: search, $options: 'i' } },
-            // { "metaData.father_name": { $regex: search, $options: 'i' } },
-            // { "metaData.mobile_no": { $regex: search, $options: 'i' } },
+            { "basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
         ]
     } : {};
 
@@ -151,5 +146,56 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("request") }))
 
+
+})
+
+module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
+
+    const { page, limit, skip, paginate = 1, sortBy, search = '', id } = req.query
+
+    let query = search ? {
+        $or: [
+            { "metaData.name": { $regex: search, $options: 'i' } }
+        ]
+    } : {};
+
+    query.associateOffers_id = id;
+
+    const farmerOrders = await FarmerOrders.find(query);
+
+    if (farmerOrders.length == 0) {
+        return res.status(200).send(new serviceResponse({ status: 400, errros: [{ message: _response_message.notFound("farmer orders") }] }));
+    }
+
+    const records = { count: 0 };
+
+    records.rows = paginate == 1 ? await FarmerOrders.find(query)
+        .populate("procurementCenter_id")
+        .sort(sortBy)
+        .skip(skip)
+        .limit(parseInt(limit)) : await FarmerOrders.find(query).populate("procurementCenter_id").sort(sortBy);
+
+    records.count = await FarmerOrders.countDocuments(query);
+
+    if (paginate == 1) {
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("farmer orders") }))
+})
+
+module.exports.getFarmersOrdersData = asyncErrorHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    const records = await FarmerOrders.findOne({ _id: id }).select("tare_weight gross_weight net_weight weight_slip");
+
+    if (!records) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer orders") }] }));
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("farmer order") }));
 
 })
