@@ -10,9 +10,14 @@ const farmerSchema = new mongoose.Schema({
     farmer_id: { type: String, default: null },
     is_welcome_msg_send: { type: Boolean, default: false },
 
-    user_type: { 
+    farmer_type: { 
         type: String, 
         enum: ['Individual', 'Associate'], 
+        required: false 
+    },
+    user_type: { 
+        type: String, 
+        default:"1",
         required: false 
     },
     
