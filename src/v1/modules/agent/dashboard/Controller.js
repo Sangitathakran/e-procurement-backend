@@ -123,7 +123,6 @@ module.exports.getProcurementsStats = async (req, res) => {
         const startOfMonth = new Date(selectedYear, selectedMonth, 1);
         const endOfMonth = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59, 999);
         
-
         const procurementsStats = await FarmerOrders.aggregate([
             {
                 $match: {
