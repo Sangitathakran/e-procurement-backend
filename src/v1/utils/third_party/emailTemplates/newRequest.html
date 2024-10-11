@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Navbazar</title>
+    <title>New Procurement Request - Navbazar</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -67,18 +67,24 @@
             <img src="{{logo_url}}" alt="Navbazar Logo" class="logo">
         </div>
         <div class="content">
-            <h2 style="margin-bottom: 20px;">Welcome to Navbazar!</h2>
-            <p>Dear <strong>{{user_name}}, </strong></p>
-            <p>You have been successfully registered with Navbazar.</p>
-            <p>Your Associate ID is <strong>{{user_code}}</strong>.</p>
-            <p>To begin your procurement journey, please visit the following link:</p>
-            <a href="{{app_url}}">
-                <button class="cta-button">Start Your Journey</button> <!-- Green button -->
+            <h2 style="margin-bottom: 20px;">New Procurement Request</h2>
+            <p>Dear <strong>{{Associate Name}}</strong>,</p>
+            <p>You have received a new procurement request (<strong>Order ID – {{order_id}}</strong>).</p>
+            <p>Please review the details by visiting the following link:</p>
+            <a href="{{review_link}}">
+                <button class="cta-button">Review Procurement Request</button> <!-- Green button -->
             </a>
-            <p>We're excited to collaborate with you!</p>
+            <p>Order Details:</p>
+            <ul style="list-style: none; padding: 0;">
+                <li><strong>Commodity name:</strong> {{commodity_name}}</li>
+                <li><strong>Quantity requested:</strong> {{quantity}} MT</li>
+                <li><strong>Quote expiry:</strong> {{quote_expiry}} days</li>
+                <li><strong>Expected procurement date:</strong> {{procurement_date}}</li>
+            </ul>
+            <p>Please ensure to confirm the availability and initiate the procurement process at your earliest convenience.</p>
         </div>
         <div class="footer">
-            <p>Best regards,<br>Team</p>
+            <p>Regards,<br>Navankur</p>
         </div>
     </div>
 </body>
