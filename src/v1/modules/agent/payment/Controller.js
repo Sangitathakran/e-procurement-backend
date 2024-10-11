@@ -933,7 +933,10 @@ module.exports.agentBill = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
-        const billPayment = await AgentPayment.findOne({ req_id });
+        const billPayment = await AgentPayment.findOne({ req_id })
+        .populate({
+            path:'req_id', select: '_id reqNo product address deliveryDate quotedPrice status'
+            });
 
         if (billPayment) { 
 
