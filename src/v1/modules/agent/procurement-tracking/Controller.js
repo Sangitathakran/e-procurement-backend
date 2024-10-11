@@ -87,22 +87,56 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
             $unwind: "$associate"
         },
         {
-            $addFields: { noOfLot: { $size: "$farmerorder" } }
-        },
+            $addFields: {
+                noOfLot: { $size: "$farmerorder" },
+                procurementStatus: {
+                    $cond: [
+                        {
+                            $anyElementTrue: {
+                                $map: {
+                                    input: '$farmerorder',
+                                    as: 'offer',
+                                    in: { $eq: ['$$offer.status', 'pending'] }
+                                }
+                            }
+                        },
+                        'pending',
+                        {
+                            $cond: [
+                                {
+                                    $allElementsTrue: {
+                                        $map: {
+                                            input: '$farmerorder',
+                                            as: 'offer',
+                                            in: { $eq: ['$$offer.status', 'Received'] }
+                                        }
+                                    }
+                                },
+                                'received',
+                                'pending'
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+        ,
         {
             $project: {
                 "associate.basic_details.associate_details.associate_name": 1,
                 "associate.user_code": 1,
                 "offeredQty": 1,
-                "farmerorder": 1,
                 'status': 1,
                 "noOfLot": 1,
+                "procurementStatus": 1,
+                createdAt: 1,
+                updatedAt: 1
             }
         },
         {
             $limit: limit ? parseInt(limit) : 10
         },
-        ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+        { $sort: sortBy },
         ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : [])
     ])
 
