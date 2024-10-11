@@ -4,7 +4,7 @@ const _collectionName = {
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",
-    agency:"agency",
+    agency: "agency",
     individualFarmers: "individual_farmers",
     Users: "Users",
     HeadOffice: "headoffices",
@@ -295,6 +295,12 @@ const _paymentApproval = {
     approved: "Approved",
 }
 
+const received_qc_status = {
+    accepted: "Accepted",
+    rejected: "Rejected",
+    pending: "Pending",
+}
+
 const _individual_farmer_onboarding_steps = [
     {
         label: "Basic Details",
@@ -378,5 +384,6 @@ module.exports = {
     _center_type,
     _address_type,
     _individual_category,
-    _userStatus
+    _userStatus,
+    received_qc_status
 }
