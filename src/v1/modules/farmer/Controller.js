@@ -435,7 +435,11 @@ module.exports.getFarmers = async (req, res) => {
       query.name = { $regex: search, $options: 'i' };
     }
     records.rows = paginate == 1
-      ? await farmer.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('associate_id', '_id user_code')
+      ? await farmer.find(query)
+          .limit(parseInt(limit))
+          .skip(parseInt(skip))
+          .sort(sortBy)
+          .populate('associate_id', '_id user_code')
       : await farmer.find(query).sort(sortBy);
 
     records.count = await farmer.countDocuments(query);
