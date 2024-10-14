@@ -121,4 +121,4 @@ documents: {
 }, { timestamps: true });
 
 const farmer = mongoose.model(_collectionName.farmers, farmerSchema);
-module.exports = farmer;
+module.exports = {farmer};
