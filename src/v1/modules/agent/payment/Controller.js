@@ -7,8 +7,7 @@ const { _userType, _paymentApproval, _batchStatus } = require('@src/v1/utils/con
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const mongoose = require("mongoose");
-// const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
-const farmerModel = require('@src/v1/models/app/farmerDetails/Farmer')
+const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { PaymentLogs } = require("@src/v1/models/app/procurement/PaymentLogs");
 const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
@@ -243,7 +242,7 @@ module.exports.lot_list = async (req, res) => {
 
         records.rows = await Promise.all(records.rows.map(async record => {
 
-            const farmerDetails = await farmerModel.findOne({ '_id': record.farmer_id }).select({ name: 1, _id: 0 });
+            const farmerDetails = await farmer.findOne({ '_id': record.farmer_id }).select({ name: 1, _id: 0 });
 
             const farmerName = farmerDetails ? farmerDetails.name : null;
             return { ...record.toObject(), farmerName }
