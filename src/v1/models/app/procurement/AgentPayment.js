@@ -13,7 +13,9 @@ const agentPaymentSchema = new mongoose.Schema({
         driage: { type: Number, trim: true },
         storageExp: { type: Number, trim: true },
         commission: { type: Number, trim: true },
-        total: { type: Number, trim: true }
+        total: { type: Number, trim: true },
+        approved_total: { type: Number, trim: true },
+        paid_total: { type: Number, trim: true }
     },
     bill_at: { type: Date },
     approved_at: { type: Date },

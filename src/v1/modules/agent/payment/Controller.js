@@ -3,7 +3,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType, _paymentApproval } = require('@src/v1/utils/constants');
+const { _userType, _paymentApproval, _batchStatus } = require('@src/v1/utils/constants');
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const mongoose = require("mongoose");
@@ -828,13 +828,13 @@ module.exports.generateBill = async (req, res) => {
         if (req_id && procurementExp && driage && storageExp) {
             // Insert a new row (document) into AgentPayment
             const billGenerate = await AgentPayment.create({
+                user_id,
+                req_id,
                 'bills.procurementExp': procurementExp,
                 'bills.driage': driage,
                 'bills.storageExp': storageExp,
-                'bills.total': total,
-                user_id,
-                req_id,
-                'commission': ((billPayment.bills.procurementExp + billPayment.bills.driage + billPayment.bills.storageExp * 1) / 100),
+                'bills.total': total,              
+                'bills.commission': ((procurementExp + driage + storageExp * 1) / 100),
                 'bill_at': new Date(),
                 'bill_slip.inital': bill_slip.map(i => { return { img: i, on: new Date() } }) // Ensure inital is initialized as an empty array
             });
@@ -853,7 +853,6 @@ module.exports.generateBill = async (req, res) => {
 
 }
 
-
 module.exports.agentPaymentList = async (req, res) => {
 
     try {
@@ -865,7 +864,7 @@ module.exports.agentPaymentList = async (req, res) => {
 
         const rows = paginate == 1 ? await AgentPayment.find(query)
             .populate({
-                path: 'req_id', select: 'product farmer_code name'
+                path:'req_id', select: '_id reqNo product address deliveryDate quotedPrice status'
             })
             .sort(sortBy)
             .skip(skip)
@@ -933,7 +932,10 @@ module.exports.agentBill = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
-        const billPayment = await AgentPayment.findOne({ req_id });
+        const billPayment = await AgentPayment.findOne({ req_id })
+        .populate({
+            path:'req_id', select: '_id reqNo product address deliveryDate quotedPrice status'
+            });
 
         if (billPayment) { 
 
