@@ -733,7 +733,7 @@ module.exports.paymentLogs = async (req, res) => {
         const records = { count: 0 };
         records.rows = paginate == 1 ? await PaymentLogs.find(query)
             .populate({
-                path: 'updated_by', select: '_id basic_details.associate_details'
+                path: 'updated_by', select: '_id basic_details.associate_details createdAt'
             }).select('_id procurementExp driage storageExp total updated_by')
             .sort(sortBy)
             .skip(skip)
