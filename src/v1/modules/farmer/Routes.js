@@ -34,7 +34,7 @@ farmerRoutes.post("/send-farmerOTP",sendOTP)
 farmerRoutes.post("/verify-farmerOTP",verifyOTP);
 farmerRoutes.post('/register-details',verifyJwtToken,[validateRegisterDetail,validateErrors],registerName)
 /* 
- individual farmer routes 
+ individual farmer routes s
              
  */
 farmerRoutes.put('/onboarding-details/:id',

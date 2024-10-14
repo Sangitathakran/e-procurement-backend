@@ -216,7 +216,7 @@ const _soilType = {
     Clayey: "clayey",
     Red_soil: "red_soil",
     Alkaline: "alkaline",
-    Other: "other",
+    Other: "other"
 }
 const _distanceUnit = {
     Km: "km",
