@@ -4,7 +4,7 @@ const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const cropSchema = new mongoose.Schema({
     crop_season: { 
         type: String, 
-        enum: ['Kharif', 'Rabi'], 
+        enum: Object.values(_seasons), 
         required: true 
     },
     crop_name: { type: String, required: true },
