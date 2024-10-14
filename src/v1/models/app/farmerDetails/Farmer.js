@@ -15,11 +15,7 @@ const farmerSchema = new mongoose.Schema({
         enum: ['Individual', 'Associate'], 
         required: false 
     },
-    user_type: { 
-        type: String, 
-        default:"1",
-        required: false 
-    },
+    user_type: { type: String,default:"1", required: false },
     
     basic_details: { 
         name: { type: String, trim: true },
@@ -121,4 +117,4 @@ documents: {
 }, { timestamps: true });
 
 const farmer = mongoose.model(_collectionName.farmers, farmerSchema);
-module.exports = farmer;
+module.exports = {farmer};
