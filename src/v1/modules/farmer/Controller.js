@@ -1,7 +1,7 @@
 const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse,sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
-const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const  farmer = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
@@ -10,7 +10,9 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const Readable = require('stream').Readable;
-const {smsService}=require('../../utils/third_party/SMSservices')
+const {smsService}=require('../../utils/third_party/SMSservices');
+const OTPModel=require("../../models/app/auth/OTP")
+const {generateJwtToken}=require('../../utils/helpers/jwt')
 module.exports.sendOTP = async (req, res) => {
   try {
     const { mobileNumber, acceptTermCondition } = req.body;
@@ -67,7 +69,7 @@ module.exports.verifyOTP = async (req, res) => {
     }
 
     // Find the farmer data and verify OTP
-    let individualFormerData = await farmerModel.findOne({ 
+    let individualFormerData = await farmer.findOne({ 
       mobile_no: mobileNumber,
       is_verify_otp:true
     });
