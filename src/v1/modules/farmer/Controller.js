@@ -1,7 +1,7 @@
 const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel } = require("@src/v1/utils/helpers")
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse,sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
-const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const  {farmer} = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
@@ -10,7 +10,9 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const Readable = require('stream').Readable;
-
+const {smsService}=require('../../utils/third_party/SMSservices');
+const OTPModel=require("../../models/app/auth/OTP")
+const {generateJwtToken}=require('../../utils/helpers/jwt')
 module.exports.sendOTP = async (req, res) => {
   try {
     const { mobileNumber, acceptTermCondition } = req.body;
@@ -67,7 +69,7 @@ module.exports.verifyOTP = async (req, res) => {
     }
 
     // Find the farmer data and verify OTP
-    let individualFormerData = await farmerModel.findOne({ 
+    let individualFormerData = await farmer.findOne({ 
       mobile_no: mobileNumber,
       is_verify_otp:true
     });
@@ -533,12 +535,12 @@ module.exports.deletefarmer = async (req, res) => {
 module.exports.createLand = async (req, res) => {
   try {
     const {
-      farmer_id, total_area, khasra_no, area_unit, khatauni, sow_area, state_name,
-      district_name, sub_district, expected_production, soil_type, soil_tested,
-      soil_health_card, soil_testing_lab_name, lab_distance_unit
+      farmer_id, area, land_name, cultivation_area, area_unit, state, district,
+      village, block, khtauni_number, khasra_number, khata_number,
+      soil_type, soil_tested, uploadSoil_health_card,opt_for_soil_testing,soil_testing_agencies,upload_geotag
     } = req.body;
 
-    const existingLand = await Land.findOne({ 'khasra_no': khasra_no });
+    const existingLand = await Land.findOne({ 'khasra_number': khasra_number });
 
     if (existingLand) {
       return res.status(200).send(new serviceResponse({
@@ -546,17 +548,12 @@ module.exports.createLand = async (req, res) => {
         errors: [{ message: _response_message.allReadyExist("Land") }]
       }));
     }
-    const state_id = await getStateId(state_name);
-    const district_id = await getDistrictId(district_name);
+    const state_id = await getStateId(state);
+    const district_id = await getDistrictId(district);
     const newLand = new Land({
-      farmer_id, total_area, khasra_no, area_unit, khatauni, sow_area,
-      land_address: {
-        state_id,
-        district_id,
-        sub_district
-      },
-      expected_production, soil_type, soil_tested,
-      soil_health_card, soil_testing_lab_name, lab_distance_unit
+      area, land_name, cultivation_area, area_unit, state:state_id, district:district_id,
+      village, block, khtauni_number, khasra_number, khata_number,
+      soil_type, soil_tested, uploadSoil_health_card,opt_for_soil_testing,soil_testing_agencies,upload_geotag
     });
     const savedLand = await newLand.save();
 
@@ -567,6 +564,7 @@ module.exports.createLand = async (req, res) => {
     }));
 
   } catch (error) {
+     console.log('error',error)
     _handleCatchErrors(error, res);
   }
 };
@@ -608,9 +606,9 @@ module.exports.updateLand = async (req, res) => {
   try {
     const { land_id } = req.params;
     const {
-      total_area, khasra_no, area_unit, khatauni, sow_area, state_name,
-      district_name, sub_district, expected_production, soil_type, soil_tested,
-      soil_health_card, soil_testing_lab_name, lab_distance_unit
+      area, land_name, cultivation_area, area_unit, state, district,
+      village, block, khtauni_number, khasra_number, khata_number,
+      soil_type, soil_tested, uploadSoil_health_card,opt_for_soil_testing,soil_testing_agencies,upload_geotag
     } = req.body;
 
     const state_id = await getStateId(state_name);
@@ -619,9 +617,9 @@ module.exports.updateLand = async (req, res) => {
     const updatedLand = await Land.findByIdAndUpdate(
       land_id,
       {
-        total_area, khasra_no, area_unit, khatauni, sow_area, state_id,
-        district_id, sub_district, expected_production, soil_type, soil_tested,
-        soil_health_card, soil_testing_lab_name, lab_distance_unit
+        area, land_name, cultivation_area, area_unit, state:state_id, district:district_id,
+      village, block, khtauni_number, khasra_number, khata_number,
+      soil_type, soil_tested, uploadSoil_health_card,opt_for_soil_testing,soil_testing_agencies,upload_geotag
       },
       { new: true }
     );
@@ -674,21 +672,17 @@ module.exports.deleteLand = async (req, res) => {
 module.exports.createCrop = async (req, res) => {
   try {
     const {
-      farmer_id, sowing_date, harvesting_date, crops_name, production_quantity,
-      area_unit, total_area, productivity, selling_price, market_price, yield, seed_used,
-      fertilizer_used, fertilizer_name, fertilizer_dose, pesticide_used, pesticide_name,
-      pesticide_dose, insecticide_used, insecticide_name, insecticide_dose, crop_insurance,
-      insurance_company, insurance_worth, crop_seasons
+      farmer_id, crop_season, crop_name, crops_name, crop_variety,
+      sowing_date, harvesting_date, production_quantity, selling_price,yield,land_name
+      ,crop_growth_stage,crop_disease,crop_rotation,previous_crop_details,marketing_and_output,input_details,seeds
     } = req.body;
 
     const sowingdate = parseMonthyear(sowing_date);
     const harvestingdate = parseMonthyear(harvesting_date);
     const newCrop = new Crop({
-      farmer_id, sowing_date: sowingdate, harvesting_date: harvestingdate, crops_name, production_quantity,
-      area_unit, total_area, productivity, selling_price, market_price, yield, seed_used,
-      fertilizer_used, fertilizer_name, fertilizer_dose, pesticide_used, pesticide_name,
-      pesticide_dose, insecticide_used, insecticide_name, insecticide_dose, crop_insurance,
-      insurance_company, insurance_worth, crop_seasons
+      farmer_id, crop_season, crop_name, crops_name, crop_variety,
+      sowing_date:sowingdate, harvesting_date:harvestingdate, production_quantity, selling_price,yield,land_name
+      ,crop_growth_stage,crop_disease,crop_rotation,previous_crop_details,marketing_and_output,input_details,seeds
     });
 
     const savedCrop = await newCrop.save();
@@ -751,11 +745,9 @@ module.exports.updateCrop = async (req, res) => {
   try {
     const { crop_id } = req.params;
     const {
-      farmer_id, sowing_date, harvesting_date, crops_name,
-      production_quantity, area_unit, total_area, productivity, selling_price,
-      market_price, yield, seed_used, fertilizer_used, fertilizer_name, fertilizer_dose,
-      pesticide_used, pesticide_name, pesticide_dose, insecticide_used, insecticide_name,
-      insecticide_dose, crop_insurance, insurance_company, insurance_worth, crop_seasons
+      farmer_id, crop_season, crop_name, crops_name, crop_variety,
+      sowing_date, harvesting_date, production_quantity, selling_price,yield,land_name
+      ,crop_growth_stage,crop_disease,crop_rotation,previous_crop_details,marketing_and_output,input_details,seeds
     } = req.body;
 
     const sowingdate = parseMonthyear(sowing_date);
@@ -763,11 +755,9 @@ module.exports.updateCrop = async (req, res) => {
     const updatedCrop = await Crop.findByIdAndUpdate(
       crop_id,
       {
-        farmer_id, sowing_date: sowingdate, harvesting_date: harvestingdate, crops_name,
-        production_quantity, area_unit, total_area, productivity, selling_price,
-        market_price, yield, seed_used, fertilizer_used, fertilizer_name, fertilizer_dose,
-        pesticide_used, pesticide_name, pesticide_dose, insecticide_used, insecticide_name,
-        insecticide_dose, crop_insurance, insurance_company, insurance_worth, crop_seasons
+        farmer_id, crop_season, crop_name, crops_name, crop_variety,
+      sowing_date:sowingdate, harvesting_date:harvestingdate, production_quantity, selling_price,yield,land_name
+      ,crop_growth_stage,crop_disease,crop_rotation,previous_crop_details,marketing_and_output,input_details,seeds
       },
       { new: true }
     );
