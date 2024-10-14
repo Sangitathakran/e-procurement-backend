@@ -734,8 +734,8 @@ module.exports.paymentLogs = async (req, res) => {
         const records = { count: 0 };
         records.rows = paginate == 1 ? await PaymentLogs.find(query)
             .populate({
-                path: 'updated_by', select: '_id associate_details point_of_contact'
-            })
+                path: 'updated_by', select: '_id basic_details.associate_details'
+            }).select('_id procurementExp driage storageExp total updated_by')
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await PaymentLogs.find(query).sort(sortBy);
@@ -804,9 +804,9 @@ module.exports.generateBill = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Req ID") }] }))
         }
 
-        const alreadyExist = await AgentPayment.findOne({req_id});
+        const alreadyExist = await AgentPayment.findOne({ req_id });
 
-        if(alreadyExist){
+        if (alreadyExist) {
             return res.status(200).send(new serviceResponse({ status: 200, message: "Payment already generated." }))
         }
 
@@ -833,7 +833,7 @@ module.exports.generateBill = async (req, res) => {
                 'bills.procurementExp': procurementExp,
                 'bills.driage': driage,
                 'bills.storageExp': storageExp,
-                'bills.total': total,              
+                'bills.total': total,
                 'bills.commission': ((procurementExp + driage + storageExp * 1) / 100),
                 'bill_at': new Date(),
                 'bill_slip.inital': bill_slip.map(i => { return { img: i, on: new Date() } }) // Ensure inital is initialized as an empty array
@@ -864,7 +864,7 @@ module.exports.agentPaymentList = async (req, res) => {
 
         const rows = paginate == 1 ? await AgentPayment.find(query)
             .populate({
-                path:'req_id', select: '_id reqNo product address deliveryDate quotedPrice status'
+                path: 'req_id', select: '_id reqNo product address deliveryDate quotedPrice status'
             })
             .sort(sortBy)
             .skip(skip)
@@ -933,11 +933,11 @@ module.exports.agentBill = async (req, res) => {
         }
 
         const billPayment = await AgentPayment.findOne({ req_id })
-        .populate({
-            path:'req_id', select: '_id reqNo product address deliveryDate quotedPrice status'
+            .populate({
+                path: 'req_id', select: '_id reqNo product address deliveryDate quotedPrice status'
             });
 
-        if (billPayment) { 
+        if (billPayment) {
 
             let commission = (billPayment.bills.procurementExp + billPayment.bills.driage + billPayment.bills.storageExp * 1) / 100;
 
@@ -969,10 +969,10 @@ module.exports.agentPaymentEdit = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
-        const billPayment = await AgentPayment.findOne({ _id:id })
+        const billPayment = await AgentPayment.findOne({ _id: id })
 
-        let commission = ((parseInt(procurementExp ? procurementExp : billPayment.bills.procurementExp) + parseInt(driage ? driage : billPayment.bills.driage) + parseInt(storageExp ? storageExp :  billPayment.bills.storageExp) * 1) / 100);
-       
+        let commission = ((parseInt(procurementExp ? procurementExp : billPayment.bills.procurementExp) + parseInt(driage ? driage : billPayment.bills.driage) + parseInt(storageExp ? storageExp : billPayment.bills.storageExp) * 1) / 100);
+
         // Update multiple fields in Batch
         const updatedDoc = await AgentPayment.findByIdAndUpdate(
             id,
@@ -983,7 +983,7 @@ module.exports.agentPaymentEdit = async (req, res) => {
                     'bills.storageExp': storageExp,
                     'bills.commission': commission,
                     'bills.total': parseInt(procurementExp) + parseInt(driage) + parseInt(storageExp) + parseInt(commission),
-                    'notes' : notes
+                    'notes': notes
                 },
             },
             { new: true } // Return the updated document
@@ -1000,7 +1000,7 @@ module.exports.agentPaymentEdit = async (req, res) => {
             'storageExp': storageExp,
             'total': updatedDoc.bills.total,
             'req_id': updatedDoc.req_id,
-            'seller_id' : user_id,
+            'seller_id': user_id,
             'updated_by': user_id
         });
 
@@ -1029,7 +1029,7 @@ module.exports.agentPaymentLogs = async (req, res) => {
 
         let query = {
             req_id,
-            seller_id:user_id,
+            seller_id: user_id,
             ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
