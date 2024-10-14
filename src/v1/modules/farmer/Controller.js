@@ -13,6 +13,7 @@ const Readable = require('stream').Readable;
 const {smsService}=require('../../utils/third_party/SMSservices');
 const OTPModel=require("../../models/app/auth/OTP")
 const {generateJwtToken}=require('../../utils/helpers/jwt')
+const _individual_farmer_onboarding_steps=require('@src/v1/utils/constants')
 module.exports.sendOTP = async (req, res) => {
   try {
     const { mobileNumber, acceptTermCondition } = req.body;
@@ -76,7 +77,7 @@ module.exports.verifyOTP = async (req, res) => {
 
     // If farmer data does not exist, create a new one
     if (!individualFormerData) {
-      individualFormerData = await new farmerModel({
+      individualFormerData = await new farmer({
         mobile_no: mobileNumber,
         is_verify_otp:true,
         steps: _individual_farmer_onboarding_steps, // Ensure that this field is set as required
@@ -110,7 +111,7 @@ module.exports.registerName = async (req, res) => {
         return sendResponse({res, status: 400, data:null, message: _response_message.notProvided('Name')})
 
     // Check if the user already exists and is verified
-    const farmerData = await farmerModel.findOneAndUpdate(
+    const farmerData = await farmer.findOneAndUpdate(
       { mobile_no: req.mobile_no },
       { $set: { name: registerName, 
                 user_type: "5" ,
@@ -147,7 +148,7 @@ module.exports.saveFarmerDetails = async (req, res) => {
     const { id: farmer_id } = req.params;
     if (!screenName)
       return res.status(400).send({ message: "Please Provide Screen Name" });
-    const farmerDetails = await farmerModel.findById(farmer_id).select(
+    const farmerDetails = await farmer.findById(farmer_id).select(
       `${screenName}`
     );
 
@@ -157,7 +158,7 @@ module.exports.saveFarmerDetails = async (req, res) => {
       await farmerDetails.save();
 
 
-      const farmerData = await farmerModel.findById(farmer_id)
+      const farmerData = await farmer.findById(farmer_id)
 
       return sendResponse({res,
         status:200,
@@ -188,11 +189,11 @@ module.exports.getFarmerDetails = async (req, res) => {
       : null;
 
     if (selectFields) {
-      farmerDetails = await farmerModel.findOne({ _id: id }).select(
+      farmerDetails = await farmer.findOne({ _id: id }).select(
         selectFields
       );
     } else {
-      farmerDetails = await farmerModel.findOne({ _id: id });
+      farmerDetails = await farmer.findOne({ _id: id });
     }
 
     if (farmerDetails) {
@@ -220,7 +221,7 @@ module.exports.submitForm = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const farmerDetails = await farmerModel.findById(id)
+    const farmerDetails = await farmer.findById(id)
     const generateFarmerId = (farmer) => {
       const stateData = stateList.stateList.find(
         (item) =>
