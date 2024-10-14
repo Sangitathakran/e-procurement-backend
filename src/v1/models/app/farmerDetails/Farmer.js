@@ -10,18 +10,18 @@ const farmerSchema = new mongoose.Schema({
     farmer_id: { type: String, default: null },
     is_welcome_msg_send: { type: Boolean, default: false },
 
-    farmer_type: { 
-        type: String, 
-        enum: ['Individual', 'Associate'], 
-        required: false 
+    farmer_type: {
+        type: String,
+        enum: ['Individual', 'Associate'],
+        required: false
     },
-    user_type: { 
-        type: String, 
-        default:"1",
-        required: false 
+    user_type: {
+        type: String,
+        default: "1",
+        required: false
     },
-    
-    basic_details: { 
+
+    basic_details: {
         name: { type: String, trim: true },
         email: { type: String, trim: false },
         father_husband_name: { type: String, trim: true },
@@ -46,7 +46,7 @@ const farmerSchema = new mongoose.Schema({
         lat: { type: String, trim: false },
         long: { type: String, trim: true },
     },
-documents: { 
+    documents: {
         aadhar_number: { type: String, trim: true },
         aadhar_front_doc_key: { type: String, trim: true },
         aadhar_back_doc_key: { type: String, trim: true },
@@ -54,7 +54,7 @@ documents: {
         pan_doc_key: { type: String, trim: true },
     },
 
-    bank_details: { 
+    bank_details: {
         bank_name: { type: String, trim: true },
         branch_name: { type: String, trim: true },
         account_holder_name: { type: String, trim: true },
@@ -62,12 +62,12 @@ documents: {
         account_no: { type: String, trim: true },
         proof_doc_key: { type: String, trim: true }
     },
-    land_details: [{land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: false }}],
-    
+    land_details: [{ land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: false } }],
+
     crop_details: [{
         crop_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Crops, required: false }
     }],
-    
+
     insurance_details: [{
         crop_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Crops, required: false },
         insurance_company: { type: String, required: false },
@@ -77,22 +77,22 @@ documents: {
         insurance_start_date: { type: Date, required: false },
         insurance_end_date: { type: Date, required: false }
     }],
-    
+
     infrastructure_needs: {
         warehouse: { type: Boolean, required: false },
         cold_storage: { type: Boolean, required: false },
         processing_unit: { type: Boolean, required: false },
         transportation_facilities: { type: Boolean, required: false }
     },
-    
+
     financial_support: {
         credit_facilities: { type: Boolean, required: false },
         source_of_credit: { type: String },
         financial_challenges: { type: String },
         support_required: { type: String }
     },
-    
-    
+
+
 
     parents: {
         father_name: { type: String, trim: true },
@@ -110,7 +110,7 @@ documents: {
         aadhar_no: { type: String, required: false, trim: true },
     },
     status: { type: String, enum: Object.values(_status), default: _status.active },
-    steps: [{ 
+    steps: [{
         label: { type: String },
         screen_number: { type: String, default: "1" },
         status: { type: String, enum: ['active', 'pending', 'completed'], default: "pending" }
@@ -121,4 +121,4 @@ documents: {
 }, { timestamps: true });
 
 const farmer = mongoose.model(_collectionName.farmers, farmerSchema);
-module.exports = {farmer};
+module.exports = { farmer };
