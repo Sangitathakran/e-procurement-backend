@@ -411,10 +411,7 @@ module.exports = {
     _address_type,
     _individual_category,
     _userStatus,
-<<<<<<< HEAD
     _featureType,
-    _statusType
-=======
+    _statusType,
     received_qc_status
->>>>>>> 76a73259b6aeb2b17d24d5f32b47af5266a3e497
 }
