@@ -38,13 +38,17 @@ farmerRoutes.post('/register-details',verifyJwtToken,[validateRegisterDetail,val
              
  */
 farmerRoutes.put('/onboarding-details/:id',
-    verifyJwtToken, 
+    // verifyJwtToken, 
     [validateFarmer,validateErrors],
     saveFarmerDetails);
 
-    farmerRoutes.get('/getFarmerDetails/:id',verifyJwtToken, getFarmerDetails);
+    farmerRoutes.get('/getFarmerDetails/:id',
+        // verifyJwtToken, 
+        getFarmerDetails);
 
-    farmerRoutes.post('/submit-form/:id',verifyJwtToken, submitForm)
+    farmerRoutes.post('/submit-form/:id',
+        // verifyJwtToken, 
+        submitForm)
 
     farmerRoutes.get('/download-zipFile',createZip)
 
