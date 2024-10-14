@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Navbazar</title>
+    <title>Batch Delivery Confirmation</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -67,15 +67,15 @@
             <img src="{{logo_url}}" alt="Navbazar Logo" class="logo">
         </div>
         <div class="content">
-            <h2 style="margin-bottom: 20px;">Welcome to Navbazar!</h2>
-            <p>Dear <strong>{{user_name}}, </strong></p>
-            <p>You have been successfully registered with Navbazar.</p>
-            <p>Your Associate ID is <strong>{{user_code}}</strong>.</p>
-            <p>To begin your procurement journey, please visit the following link:</p>
-            <a href="{{app_url}}">
-                <button class="cta-button">Start Your Journey</button> <!-- Green button -->
+            <p>Dear <strong>{{associate_name}}</strong>,</p>
+            <p>I am pleased to inform you that the following batch has been successfully delivered:</p>
+            <p><strong>Batch ID:</strong> {{batch_id}}</p>
+            <p><strong>Order ID:</strong> {{order_id}}</p>
+            <p>Please follow this link for further details regarding the proof of delivery and additional specifics:</p>
+            <a href="{{details_link}}">
+                <button class="cta-button">View Details</button>
             </a>
-            <p>We're excited to collaborate with you!</p>
+            <p>Warm Regards,<br>Navankur</p>
         </div>
         <div class="footer">
             <p>Best regards,<br>Team</p>

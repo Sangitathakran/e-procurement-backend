@@ -120,6 +120,153 @@ class EmailService {
         }
     }
 
+    async sendNewRequestEmail(userDetails) {
+        try {
+            const email = userDetails.basic_details.associate_details.email;
+            const userName = userDetails.basic_details.associate_details.organization_name;
+            const userCode = userDetails.user_code;
+
+            const template = await this.loadTemplate("newRequest");
+            const html = template
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{user_name}}", userName)
+                .replace("{{user_code}}", userCode);
+
+            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+
+        } catch (error) {
+            console.error("Error sending welcome email:", error);
+            throw error;
+        }
+    }
+
+    async sendProposedQuantityEmail(userDetails) {
+        try {
+            const email = userDetails.basic_details.associate_details.email;
+            const userName = userDetails.basic_details.associate_details.organization_name;
+            const userCode = userDetails.user_code;
+
+            const template = await this.loadTemplate("proposedQuantity");
+            const html = template
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{user_name}}", userName)
+                .replace("{{user_code}}", userCode);
+
+            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+
+        } catch (error) {
+            console.error("Error sending welcome email:", error);
+            throw error;
+        }
+    }
+
+    async sendCreateBatchEmail(userDetails) {
+        try {
+            const email = userDetails.basic_details.associate_details.email;
+            const userName = userDetails.basic_details.associate_details.organization_name;
+            const userCode = userDetails.user_code;
+
+            const template = await this.loadTemplate("createBatch");
+            const html = template
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{user_name}}", userName)
+                .replace("{{user_code}}", userCode);
+
+            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+
+        } catch (error) {
+            console.error("Error sending welcome email:", error);
+            throw error;
+        }
+    }
+
+    async sendTrackDeliveryDeliveredEmail(userDetails) {
+        try {
+            const email = userDetails.basic_details.associate_details.email;
+            const userName = userDetails.basic_details.associate_details.organization_name;
+            const userCode = userDetails.user_code;
+
+            const template = await this.loadTemplate("trackDeliveryDelivered");
+            const html = template
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{user_name}}", userName)
+                .replace("{{user_code}}", userCode);
+
+            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+
+        } catch (error) {
+            console.error("Error sending welcome email:", error);
+            throw error;
+        }
+    }
+
+    async sendTrackDeliveryDispatchedEmail(userDetails) {
+        try {
+            const email = userDetails.basic_details.associate_details.email;
+            const userName = userDetails.basic_details.associate_details.organization_name;
+            const userCode = userDetails.user_code;
+
+            const template = await this.loadTemplate("trackDeliveryDispatched");
+            const html = template
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{user_name}}", userName)
+                .replace("{{user_code}}", userCode);
+
+            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+
+        } catch (error) {
+            console.error("Error sending welcome email:", error);
+            throw error;
+        }
+    }
+
+    async sendTrackDeliveryInTransitEmail(userDetails) {
+        try {
+            const email = userDetails.basic_details.associate_details.email;
+            const userName = userDetails.basic_details.associate_details.organization_name;
+            const userCode = userDetails.user_code;
+
+            const template = await this.loadTemplate("trackDeliveryInTransit");
+            const html = template
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{user_name}}", userName)
+                .replace("{{user_code}}", userCode);
+
+            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+
+        } catch (error) {
+            console.error("Error sending welcome email:", error);
+            throw error;
+        }
+    }
+
+    async sendPaymentStatusEmail(userDetails) {
+        try {
+            const email = userDetails.basic_details.associate_details.email;
+            const userName = userDetails.basic_details.associate_details.organization_name;
+            const userCode = userDetails.user_code;
+
+            const template = await this.loadTemplate("paymentStatus");
+            const html = template
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{user_name}}", userName)
+                .replace("{{user_code}}", userCode);
+
+            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+
+        } catch (error) {
+            console.error("Error sending welcome email:", error);
+            throw error;
+        }
+    }
+
     async loadTemplate(templateName) {
         try {
             const templatePath = path.join(__dirname, "../../utils/third_party/emailTemplates", `${templateName}.html`);
