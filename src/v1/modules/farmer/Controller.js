@@ -671,21 +671,17 @@ module.exports.deleteLand = async (req, res) => {
 module.exports.createCrop = async (req, res) => {
   try {
     const {
-      farmer_id, sowing_date, harvesting_date, crops_name, production_quantity,
-      area_unit, total_area, productivity, selling_price, market_price, yield, seed_used,
-      fertilizer_used, fertilizer_name, fertilizer_dose, pesticide_used, pesticide_name,
-      pesticide_dose, insecticide_used, insecticide_name, insecticide_dose, crop_insurance,
-      insurance_company, insurance_worth, crop_seasons
+      farmer_id, crop_season, crop_name, crops_name, crop_variety,
+      sowing_date, harvesting_date, production_quantity, selling_price,yield,land_name
+      ,crop_growth_stage,crop_disease,crop_rotation,previous_crop_details,marketing_and_output,input_details,seeds
     } = req.body;
 
     const sowingdate = parseMonthyear(sowing_date);
     const harvestingdate = parseMonthyear(harvesting_date);
     const newCrop = new Crop({
-      farmer_id, sowing_date: sowingdate, harvesting_date: harvestingdate, crops_name, production_quantity,
-      area_unit, total_area, productivity, selling_price, market_price, yield, seed_used,
-      fertilizer_used, fertilizer_name, fertilizer_dose, pesticide_used, pesticide_name,
-      pesticide_dose, insecticide_used, insecticide_name, insecticide_dose, crop_insurance,
-      insurance_company, insurance_worth, crop_seasons
+      farmer_id, crop_season, crop_name, crops_name, crop_variety,
+      sowing_date:sowingdate, harvesting_date:harvestingdate, production_quantity, selling_price,yield,land_name
+      ,crop_growth_stage,crop_disease,crop_rotation,previous_crop_details,marketing_and_output,input_details,seeds
     });
 
     const savedCrop = await newCrop.save();
@@ -748,11 +744,9 @@ module.exports.updateCrop = async (req, res) => {
   try {
     const { crop_id } = req.params;
     const {
-      farmer_id, sowing_date, harvesting_date, crops_name,
-      production_quantity, area_unit, total_area, productivity, selling_price,
-      market_price, yield, seed_used, fertilizer_used, fertilizer_name, fertilizer_dose,
-      pesticide_used, pesticide_name, pesticide_dose, insecticide_used, insecticide_name,
-      insecticide_dose, crop_insurance, insurance_company, insurance_worth, crop_seasons
+      farmer_id, crop_season, crop_name, crops_name, crop_variety,
+      sowing_date, harvesting_date, production_quantity, selling_price,yield,land_name
+      ,crop_growth_stage,crop_disease,crop_rotation,previous_crop_details,marketing_and_output,input_details,seeds
     } = req.body;
 
     const sowingdate = parseMonthyear(sowing_date);
@@ -760,11 +754,9 @@ module.exports.updateCrop = async (req, res) => {
     const updatedCrop = await Crop.findByIdAndUpdate(
       crop_id,
       {
-        farmer_id, sowing_date: sowingdate, harvesting_date: harvestingdate, crops_name,
-        production_quantity, area_unit, total_area, productivity, selling_price,
-        market_price, yield, seed_used, fertilizer_used, fertilizer_name, fertilizer_dose,
-        pesticide_used, pesticide_name, pesticide_dose, insecticide_used, insecticide_name,
-        insecticide_dose, crop_insurance, insurance_company, insurance_worth, crop_seasons
+        farmer_id, crop_season, crop_name, crops_name, crop_variety,
+      sowing_date:sowingdate, harvesting_date:harvestingdate, production_quantity, selling_price,yield,land_name
+      ,crop_growth_stage,crop_disease,crop_rotation,previous_crop_details,marketing_and_output,input_details,seeds
       },
       { new: true }
     );
