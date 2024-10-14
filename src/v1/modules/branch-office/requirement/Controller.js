@@ -28,7 +28,7 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
         .skip(skip)
         .limit(parseInt(limit)) : await RequestModel.find(query).select(selectValues).sort(sortBy);
 
-    records.count = await RequestModel.countDocuments(query);
+    records.count = records.rows.length;
 
     if (paginate == 1) {
         records.page = page;
@@ -69,7 +69,7 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
         .skip(skip)
         .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
-    records.count = await Batch.countDocuments(query);
+    records.count = records.rows.length;
 
     if (paginate == 1) {
         records.page = page;
@@ -95,18 +95,12 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
     if (material_image) {
         record.dispatched.material_img.received.push(...material_image.map(i => { return { img: i, on: moment() } }))
-    }
-
-    if (weight_slip) {
+    } else if (weight_slip) {
         record.dispatched.weight_slip.received.push(...weight_slip.map(i => { return { img: i, on: moment() } }))
-    }
-
-    if (qc_report) {
+    } else if (qc_report) {
         record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
         record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
-    }
-
-    if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
+    } else if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
         record.delivered.proof_of_delivery = proof_of_delivery;
         record.delivered.weigh_bridge_slip = weigh_bridge_slip;
         record.delivered.receiving_copy = receiving_copy;
@@ -119,10 +113,11 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
         record.status = _batchStatus.delivered;
 
-        await record.save();
     } else {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
     }
+
+    await record.save();
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
 
