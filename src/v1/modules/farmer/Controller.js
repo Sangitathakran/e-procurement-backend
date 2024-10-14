@@ -1,5 +1,5 @@
 const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel } = require("@src/v1/utils/helpers")
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse,sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
@@ -10,7 +10,7 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const Readable = require('stream').Readable;
-
+const {smsService}=require('../../utils/third_party/SMSservices')
 module.exports.sendOTP = async (req, res) => {
   try {
     const { mobileNumber, acceptTermCondition } = req.body;
@@ -533,9 +533,9 @@ module.exports.deletefarmer = async (req, res) => {
 module.exports.createLand = async (req, res) => {
   try {
     const {
-      farmer_id, total_area, khasra_no, area_unit, khatauni, sow_area, state_name,
-      district_name, sub_district, expected_production, soil_type, soil_tested,
-      soil_health_card, soil_testing_lab_name, lab_distance_unit
+      farmer_id, area, land_name, cultivation_area, area_unit, state, district,
+      village, block, khtauni_number, khasra_number, khata_number,
+      soil_type, soil_tested, uploadSoil_health_card,opt_for_soil_testing,soil_testing_agencies,upload_geotag
     } = req.body;
 
     const existingLand = await Land.findOne({ 'khasra_no': khasra_no });
@@ -546,17 +546,12 @@ module.exports.createLand = async (req, res) => {
         errors: [{ message: _response_message.allReadyExist("Land") }]
       }));
     }
-    const state_id = await getStateId(state_name);
-    const district_id = await getDistrictId(district_name);
+    const state_id = await getStateId(state);
+    const district_id = await getDistrictId(district);
     const newLand = new Land({
-      farmer_id, total_area, khasra_no, area_unit, khatauni, sow_area,
-      land_address: {
-        state_id,
-        district_id,
-        sub_district
-      },
-      expected_production, soil_type, soil_tested,
-      soil_health_card, soil_testing_lab_name, lab_distance_unit
+      area, land_name, cultivation_area, area_unit, state:state_id, district:district_id,
+      village, block, khtauni_number, khasra_number, khata_number,
+      soil_type, soil_tested, uploadSoil_health_card,opt_for_soil_testing,soil_testing_agencies,upload_geotag
     });
     const savedLand = await newLand.save();
 
@@ -608,9 +603,9 @@ module.exports.updateLand = async (req, res) => {
   try {
     const { land_id } = req.params;
     const {
-      total_area, khasra_no, area_unit, khatauni, sow_area, state_name,
-      district_name, sub_district, expected_production, soil_type, soil_tested,
-      soil_health_card, soil_testing_lab_name, lab_distance_unit
+      area, land_name, cultivation_area, area_unit, state, district,
+      village, block, khtauni_number, khasra_number, khata_number,
+      soil_type, soil_tested, uploadSoil_health_card,opt_for_soil_testing,soil_testing_agencies,upload_geotag
     } = req.body;
 
     const state_id = await getStateId(state_name);
@@ -619,9 +614,9 @@ module.exports.updateLand = async (req, res) => {
     const updatedLand = await Land.findByIdAndUpdate(
       land_id,
       {
-        total_area, khasra_no, area_unit, khatauni, sow_area, state_id,
-        district_id, sub_district, expected_production, soil_type, soil_tested,
-        soil_health_card, soil_testing_lab_name, lab_distance_unit
+        area, land_name, cultivation_area, area_unit, state:state_id, district:district_id,
+      village, block, khtauni_number, khasra_number, khata_number,
+      soil_type, soil_tested, uploadSoil_health_card,opt_for_soil_testing,soil_testing_agencies,upload_geotag
       },
       { new: true }
     );
