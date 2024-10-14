@@ -30,8 +30,28 @@ const _collectionName = {
     Branch: "Branch",
     DummyWarehouse: "DummyWarehouse",
     FarmerOrder: "FarmerOrder",
-    PaymentLog: "PaymentLog"
+    PaymentLog: "PaymentLog",
+    FeatureList: "FeatureList",  // need to change to Features
+    UserRole: "UserRole",
+    MasterUser: "MasterUser"
 }
+
+const _userAction = { 
+    created: "created",
+    deleted: "deleted",
+    updated: "updated",
+    disabled: "disabled",
+    enabled: "enabled"
+}
+
+const _featureType = {
+    branchOffice: "branchOffice",
+    headOffice: "headOffice",
+    agency: "agency",
+    associate: "associate"
+
+}
+
 const _status = {
     active: "active",
     inactive: "inactive",
@@ -332,7 +352,13 @@ const _individual_category = {
     others: "others"
 }
 
+const _statusType = { 
+    active: 'active',
+    inactive: 'inactive'
+}
+
 module.exports = {
+    _userAction,
     _farmerType,
     _collectionName,
     _status,
@@ -377,5 +403,7 @@ module.exports = {
     _center_type,
     _address_type,
     _individual_category,
-    _userStatus
+    _userStatus,
+    _featureType,
+    _statusType
 }

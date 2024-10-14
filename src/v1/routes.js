@@ -12,6 +12,7 @@ const { agentRoutes } = require("./modules/agent/Routes");
 const { headOfficeRoutes}  = require("./modules/head-office/routes");
 const { branchOfficeoRoutes}  = require("./modules/branch-office/Routes");
 const { farmerRoutes} = require("./modules/farmer/Routes");
+const { authRoutes } = require("./modules/auth/routes");
 
 /* Define Your Routes */
 router.use(handlePagination)
@@ -30,5 +31,6 @@ router.use("/associate", associateRoutes);
 router.use("/farmer", farmerRoutes);
 router.use("/ho", headOfficeRoutes);
 router.use("/bo", branchOfficeoRoutes);
+router.use("/auth", authRoutes)
 
 module.exports = { router };

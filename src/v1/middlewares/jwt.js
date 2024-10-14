@@ -2,7 +2,9 @@ const jwt = require('jsonwebtoken');
 const { sendResponse } = require('@src/v1/utils/helpers/api_response');
 const { _auth_module } = require('@src/v1/utils/constants/messages');
 const { JWT_SECRET_KEY } = require('@config/index');
-const {_userType}=require('../utils/constants/index')
+const {_userType}=require('../utils/constants/index');
+const MasterUser = require('../models/master/MasterUser');
+
 
 // const { redisClient } = require('@config/redis');
 
@@ -72,7 +74,44 @@ const verifyBasicAuth = async function (req, res, next) {
     }
 }
 
+async function auth(req, res, next) {
+
+    try {
+
+      const token = req.header("token");
+      if (!token)
+        return sendResponse({res, status: 401, message: "You need to provide token for authentication"})
+
+      var decodedId = jwt.decode(token);
+      const user = await MasterUser.findOne({ email: decodedId.email })
+      
+      // if user not found return error
+      if (!user)
+        return sendResponse({res, status: 401, message: "The user does not exists on this platform"})
+  
+      if(user.status === "inactive") 
+        return sendResponse({res, status: 401, message: "This user is not active"})
+    
+      // if invalid token return 410 'Unauthorised'
+      let tokenValidate = jwt.verify(token, JWT_SECRET_KEY)
+      if (!tokenValidate) {
+        return sendResponse({res, status: 401, message: "This token has been expired"})
+      } else {
+        req.user = user;
+        next();
+      }
+    } catch (error) {
+      // send error if something goes wrong
+      if (error.message === "jwt expired") {
+        return sendResponse({res, status: 401, message: "Session has been expired"})
+      } else {
+        return sendResponse({res, status: 401, message: error.message})
+      }
+    }
+}
+
 module.exports = {
     verifyJwtToken,
-    verifyBasicAuth
+    verifyBasicAuth,
+    auth
 }
