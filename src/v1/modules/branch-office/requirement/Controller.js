@@ -93,11 +93,11 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
     }
 
-    if (material_image) {
+    if (material_image.length > 0) {
         record.dispatched.material_img.received.push(...material_image.map(i => { return { img: i, on: moment() } }))
-    } else if (weight_slip) {
+    } else if (weight_slip.length > 0) {
         record.dispatched.weight_slip.received.push(...weight_slip.map(i => { return { img: i, on: moment() } }))
-    } else if (qc_report) {
+    } else if (qc_report.length > 0) {
         record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
         record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
     } else if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
