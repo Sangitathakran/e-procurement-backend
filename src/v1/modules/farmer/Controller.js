@@ -540,7 +540,7 @@ module.exports.createLand = async (req, res) => {
       soil_type, soil_tested, uploadSoil_health_card,opt_for_soil_testing,soil_testing_agencies,upload_geotag
     } = req.body;
 
-    const existingLand = await Land.findOne({ 'khasra_no': khasra_no });
+    const existingLand = await Land.findOne({ 'khasra_number': khasra_number });
 
     if (existingLand) {
       return res.status(200).send(new serviceResponse({
@@ -564,6 +564,7 @@ module.exports.createLand = async (req, res) => {
     }));
 
   } catch (error) {
+     console.log('error',error)
     _handleCatchErrors(error, res);
   }
 };
