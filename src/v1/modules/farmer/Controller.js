@@ -577,7 +577,7 @@ module.exports.getLand = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy = 'khasra_no', search = '', paginate = 1, farmer_id } = req.query;
     const skip = (page - 1) * limit;
-
+    
     let query = {};
     const records = { count: 0 };
     if (farmer_id) {
