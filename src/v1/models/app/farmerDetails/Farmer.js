@@ -15,13 +15,9 @@ const farmerSchema = new mongoose.Schema({
         enum: ['Individual', 'Associate'],
         required: false
     },
-    user_type: {
-        type: String,
-        default: "1",
-        required: false
-    },
-
-    basic_details: {
+    user_type: { type: String,default:"1", required: false },
+    farmer_code: { type: String, trim: true, },
+    basic_details: { 
         name: { type: String, trim: true },
         email: { type: String, trim: false },
         father_husband_name: { type: String, trim: true },
@@ -67,17 +63,7 @@ const farmerSchema = new mongoose.Schema({
     crop_details: [{
         crop_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Crops, required: false }
     }],
-
-    insurance_details: [{
-        crop_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Crops, required: false },
-        insurance_company: { type: String, required: false },
-        land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: false },
-        insurance_worth: { type: Number, required: false },
-        insurance_premium: { type: Number, required: false },
-        insurance_start_date: { type: Date, required: false },
-        insurance_end_date: { type: Date, required: false }
-    }],
-
+    
     infrastructure_needs: {
         warehouse: { type: Boolean, required: false },
         cold_storage: { type: Boolean, required: false },
@@ -91,9 +77,6 @@ const farmerSchema = new mongoose.Schema({
         financial_challenges: { type: String },
         support_required: { type: String }
     },
-
-
-
     parents: {
         father_name: { type: String, trim: true },
         mother_name: { type: String, trim: true }
