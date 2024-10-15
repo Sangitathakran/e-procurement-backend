@@ -425,7 +425,7 @@ module.exports.getFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy, search = '', skip, paginate = 1, is_associated = 1 } = req.query;
     const { user_id } = req
-
+console.log(user_id);
     let query = {};
     const records = { count: 0 };
     if (is_associated == 1) {
@@ -1048,7 +1048,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const toLowerCaseIfExists = (value) => value ? value.toLowerCase() : value;
 
       const fpo_name = rec["FPO NAME*"];
-      const title = toLowerCaseIfExists(rec["TITLE"]);
       const name = rec["NAME*"];
       const father_name = rec["FATHER NAME*"];
       const mother_name = rec["MOTHER NAME"];
@@ -1108,14 +1107,9 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const crop_seasons = toLowerCaseIfExists(rec["CROP SEASONS"]);
       const bank_name = rec["BANK NAME"];
       const account_no = rec["ACCOUNT NUMBER"];
-      const branch = rec["BRANCH"];
+      const branch_name = rec["BRANCH"];
       const ifsc_code = rec["IFSC CODE"];
       const account_holder_name = rec["ACCOUNT HOLDER NAME"];
-      const bank_state_name = rec["BANK STATE NAME"];
-      const bank_district_name = rec["BANK DISTRICT NAME"];
-      const bank_block = rec["BANK BLOCK NAME"];
-      const city = rec["CITY"];
-      const bank_pincode = rec["BANK PINCODE"];
 
       let errors = [];
       if (!name || !father_name || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no) {
@@ -1148,8 +1142,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         const district_id = await getDistrictId(district_name);
         const land_state_id = await getStateId(state);
         const land_district_id = await getDistrictId(district);
-        const bank_state_id = await getStateId(bank_state_name);
-        const bank_district_id = await getDistrictId(bank_district_name);
         const sowing_date = parseMonthyear(sowingdate);
         const harvesting_date = parseMonthyear(harvestingdate);
 
@@ -1163,21 +1155,19 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         if (farmerRecord) {
           // Update existing farmer record
           farmerRecord = await updateFarmerRecord(farmerRecord, {
-            associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email
+            associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, gender, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name,
           });
-
           // Update land and bank details if present
           await updateRelatedRecords(farmerRecord._id, {
             farmer_id: farmerRecord._id,  total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, sub_district, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
-            bank_name, account_no, branch, ifsc_code, account_holder_name, bank_state_id, bank_district_id, bank_block, city, bank_pincode,
           });
         } else {
           // Insert new farmer record
           farmerRecord = await insertNewFarmerRecord({
-            associate_id: associateId, title, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email,
+            associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name,
           });
           await insertNewRelatedRecords(farmerRecord._id, {
-            total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, sub_district, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons, bank_name, account_no, branch, ifsc_code, account_holder_name, bank_state_id, bank_district_id, bank_block, city, bank_pincode,
+            total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, sub_district, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
           });
         }
 
