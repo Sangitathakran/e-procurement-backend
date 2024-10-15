@@ -34,17 +34,21 @@ farmerRoutes.post("/send-farmerOTP",sendOTP)
 farmerRoutes.post("/verify-farmerOTP",verifyOTP);
 farmerRoutes.post('/register-details',verifyJwtToken,[validateRegisterDetail,validateErrors],registerName)
 /* 
- individual farmer routes 
+ individual farmer routes s
              
  */
 farmerRoutes.put('/onboarding-details/:id',
-    verifyJwtToken, 
+    // verifyJwtToken, 
     [validateFarmer,validateErrors],
     saveFarmerDetails);
 
-    farmerRoutes.get('/getFarmerDetails/:id',verifyJwtToken, getFarmerDetails);
+    farmerRoutes.get('/getFarmerDetails/:id',
+        // verifyJwtToken, 
+        getFarmerDetails);
 
-    farmerRoutes.post('/submit-form/:id',verifyJwtToken, submitForm)
+    farmerRoutes.post('/submit-form/:id',
+        // verifyJwtToken, 
+        submitForm)
 
     farmerRoutes.get('/download-zipFile',createZip)
 

@@ -166,6 +166,13 @@ const validateLand = checkSchema({
         errorMessage: 'Farmer ID must be a valid MongoDB ObjectId',
       },
     },
+    'cultivation_area': {
+      optional: true,
+      isFloat: {
+        options: { min: 0 },
+        errorMessage: 'Cultivated area must be a positive number',
+      },
+    },
     'total_area': {
       optional: true,
       isFloat: {
