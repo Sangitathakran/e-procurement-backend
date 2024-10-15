@@ -128,7 +128,7 @@ module.exports.getBatch = asyncErrorHandler(async (req, res) => {
 
     const { id } = req.params;
 
-    let record = await Batch.findOne({ _id: id });
+    let record = await Batch.findOne({ _id: id }).populate("req_id");
 
     if (!record) {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
