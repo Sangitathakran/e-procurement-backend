@@ -25,12 +25,15 @@ const verifyJwtToken = function (req, res, next) {
             }
             else {
               //  console.log(await redisClient.get(decoded._id))
-                 if (decoded._id && checkUser(req?.baseUrl?.split('/')[2],decoded.user_type)) {
+                console.log("req?.baseUrl--->", req?.baseUrl)
+                 if (decoded) {
                     
                     // Set Your Token Keys In Request
                     Object.entries(decoded).forEach(([key, value]) => {
                         req[key] = value
                     })
+                    const user = await MasterUser.findOne({ email: decoded.email })
+                    req.user = user
                     next();
                 } else {
                     return sendResponse({res, status: 403, errors: _auth_module.tokenExpired });
@@ -42,8 +45,8 @@ const verifyJwtToken = function (req, res, next) {
         return sendResponse({res, status: 403, errors: _auth_module.tokenMissing });
     }
 };
-const checkUser=(route,user_type)=>{
-    if(_userType[route]==user_type){
+const checkUser=(route,userType)=>{
+    if(_userType[route]==userType){
         return true;
     }else{
         return false;

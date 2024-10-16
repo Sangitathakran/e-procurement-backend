@@ -99,6 +99,28 @@ class EmailService {
         }
     }
 
+    async sendUserCredentialsEmail(userDetails) {
+        try {
+            const email = userDetails.email;
+            const userId = userDetails.firstName;
+            const password = userDetails.password;
+
+            const template = await this.loadTemplate("hoRegistrationTemplate");
+            const html = template
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{email}}", email)
+                .replace("{{user_name}}", userId)
+                .replace("{{password}}", password);
+
+            await sendMail(email, '', 'User registration done successfully | NavBazaar Login Credentials ', html);
+
+        } catch (error) {
+            console.error("Error sending welcome email:", error);
+            throw error;
+        }
+    }
+
     async sendWelcomeEmail(userDetails) {
         try {
             const email = userDetails.basic_details.associate_details.email;

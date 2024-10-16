@@ -3,7 +3,8 @@ const { FeatureList } = require("@src/v1/models/master/FeatureList");
 const UserRole = require("@src/v1/models/master/UserRole");
 const MasterUser = require("@src/v1/models/master/MasterUser")
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
-const bcrypt = require("bcrypt")
+const bcrypt = require("bcrypt");
+const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 
 
 
@@ -246,10 +247,22 @@ exports.createUser = async (req, res) => {
         }
    
         const mobileNumber = mobile.trim().toLowerCase()
+        
+        let uniqueUserId;
+        while (true) {
+            const userId = generateUserId();
 
-        const isUserAlreadyExist = await MasterUser.findOne({mobile:mobileNumber})
+            const isUserAlreadyExist = await MasterUser.findOne({ userId: userId });
+            
+            if (!isUserAlreadyExist) {
+                uniqueUserId = userId;
+                break; 
+            }
+        }
+
+        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:mobileNumber}]})
         if(isUserAlreadyExist){
-            return sendResponse({res, status: 400, message: "user already existed with this mobile number"})
+          return sendResponse({res, status: 400, message: "user already existed with this mobile number"})
         }
 
         const salt = await bcrypt.genSalt(8);
@@ -261,15 +274,18 @@ exports.createUser = async (req, res) => {
             mobile: mobile,
             email:email,
             isSuperAdmin: isSuperAdmin || false,
-            userId: (Math.random() * 1000000000),
+            userId: uniqueUserId,
             userType: userType,
-            password: hashPassword || (Math.random() * 1000000000),
+            password: hashPassword,
             createdBy: req?.user?._id || null,
             userRole: userRole,
             portalId: req?.user?.portalId || null
         })
 
         const savedUser = await newUser.save()
+
+        await emailService.sendUserCredentialsEmail({email, firstName, password})
+
         delete savedUser.password
         return sendResponse({res,status: 200, data: savedUser, message: "New user created successfully"})
 
@@ -282,11 +298,9 @@ exports.createUser = async (req, res) => {
 
 exports.getUserPermission = async (req, res) => {
 
-    try {
-        const userId = req.params.id;
-    
+    try {    
         const response = await MasterUser
-          .findOne({ _id: userId })
+          .findOne({ _id: req.user._id })
           .populate(["portalId","userRole"])
 
         if (response) {
@@ -538,6 +552,23 @@ exports.getUsersByUser = async (req, res) => {
   } catch (error) {
       _handleCatchErrors(error, res);
   }
+}
+
+function generateUserId() {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const getRandomLetters = () => {
+      let result = '';
+      for (let i = 0; i < 3; i++) {
+          result += letters.charAt(Math.floor(Math.random() * letters.length));
+      }
+      return result;
+  };
+
+  const getRandomNumbers = () => {
+      return Math.floor(1000 + Math.random() * 9000).toString();
+  };
+
+  return getRandomLetters() + getRandomNumbers();
 }
 
 

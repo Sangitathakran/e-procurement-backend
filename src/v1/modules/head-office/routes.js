@@ -10,7 +10,6 @@ const {requireMentRoutes} = require("./requirement/Routes")
 const {farmerManagementRoutes} = require("./farmer-management/Route")
 const {warehouseRoutes} = require("./warehouse/Route")
 
-const { userManagementRoutes } = require("./user-management/Routes")
 
 headOfficeRoutes.use("/auth", hoAuthRoutes)
 headOfficeRoutes.use("/branch", verifyJwtToken, hoBranchRoutes)
@@ -19,7 +18,6 @@ headOfficeRoutes.use("/requirement", verifyJwtToken, requireMentRoutes)
 headOfficeRoutes.use("/farmer", verifyJwtToken, farmerManagementRoutes)
 headOfficeRoutes.use("/warehouse", verifyJwtToken, warehouseRoutes)
 
-headOfficeRoutes.use("/user", userManagementRoutes)
 
 module.exports = { headOfficeRoutes } 
 
