@@ -74,7 +74,7 @@ module.exports.getProcurement = async (req, res) => {
 
             const records = {};
             records.rows = await RequestModel.aggregate(pipeline);
-            records.count =await RequestModel.countDocuments(query);
+            records.count = await RequestModel.countDocuments(query);
 
             if (paginate == 1) {
                 records.page = page;
@@ -222,14 +222,11 @@ module.exports.associateOffer = async (req, res) => {
         const dataToBeInserted = [];
 
         for (let harvester of farmer_data) {
-            const farmerBankDetails = await Bank.findOne({ farmer_id: harvester._id });
 
             const existingFarmer = await farmer.findOne({ _id: harvester._id });
-
-            const { account_no, ifsc_code, bank_name, account_holder_name } = farmerBankDetails;
             const { name, father_name, address_line, mobile_no, farmer_code } = existingFarmer;
 
-            const metaData = { name, father_name, address_line, mobile_no, account_no, ifsc_code, bank_name, account_holder_name, bank_name, farmer_code };
+            const metaData = { name, father_name, address_line, mobile_no, farmer_code };
 
             const FarmerOfferData = {
                 associateOffers_id: associateOfferRecord._id,
