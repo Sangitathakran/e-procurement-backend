@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { User } = require("@src/v1/models/app/auth/User");
+const { MasterUser } = require("@src/v1/models/master/MasterUser");
 const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
@@ -120,12 +121,37 @@ module.exports.userStatusUpdate = async (req, res) => {
         }
         await user.save();
 
+        const password = generateRandomPassword();
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const masterUser = new MasterUser({
+            firstName: user.basic_details.associate_details.associate_name,
+            lastName: user.basic_details.associate_details.associate_name,
+            isSuperAdmin: true,
+            email: user.basic_details.associate_details.email,
+            mobile: user.basic_details.associate_details.phone,
+            password: hashedPassword,
+            userType: '4',
+        });
+
+        await masterUser.save();
+
         return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.updated('User status'), data: { userId, user_status: status } }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }
 }
 
+const generateRandomPassword = () => {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let password = '';
+    for (let i = 0; i < 8; i++) {
+        const randomIndex = Math.floor(Math.random() * characters.length);
+        password += characters[randomIndex];
+    }
+    return password;
+};
 
 module.exports.statusUpdate = async (req, res) => {
 

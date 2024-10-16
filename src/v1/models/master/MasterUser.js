@@ -173,4 +173,4 @@ userSchema.pre('save', function (next) {
 
 const MasterUser = mongoose.model(_collectionName.MasterUser, userSchema) // need to change the collection name
 
-module.exports = MasterUser
+module.exports = {MasterUser}

@@ -34,7 +34,9 @@ const _collectionName = {
     FeatureList: "FeatureList",  // need to change to Features
     UserRole: "UserRole",
     MasterUser: "MasterUser",
-    AgentPayment: "AgentPayment"
+    AgentPayment: "AgentPayment",
+    Associate: "Associate",
+    Agency: "Agency"
 }
 
 const _userAction = { 
@@ -413,5 +415,5 @@ module.exports = {
     _userStatus,
     _featureType,
     _statusType,
-    received_qc_status
+    received_qc_status,
 }
