@@ -110,6 +110,9 @@ module.exports.associateOrders = async (req, res) => {
             .skip(skip)
             .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
 
+            records.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+
         records.count = await Payment.countDocuments(query);
 
         if (paginate == 1) {
