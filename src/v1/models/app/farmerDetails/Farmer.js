@@ -94,11 +94,11 @@ const farmerSchema = new mongoose.Schema({
         aadhar_no: { type: String, required: false, trim: true },
     },
     status: { type: String, enum: Object.values(_status), default: _status.active },
-    steps: [{
-        label: { type: String },
-        screen_number: { type: String, default: "1" },
-        status: { type: String, enum: ['active', 'pending', 'completed'], default: "pending" }
-    }],
+    // steps: [{
+    //     label: { type: String },
+    //     screen_number: { type: String, default: "1" },
+    //     status: { type: String, enum: ['active', 'pending', 'completed'], default: "pending" }
+    // }],
 
     all_steps_completed_status: { type: Boolean, default: false },
     ..._commonKeys

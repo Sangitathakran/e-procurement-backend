@@ -79,8 +79,7 @@ module.exports.verifyOTP = async (req, res) => {
     if (!individualFormerData) {
       individualFormerData = await new farmer({
         mobile_no: mobileNumber,
-        is_verify_otp:true,
-        steps: _individual_farmer_onboarding_steps, // Ensure that this field is set as required
+        is_verify_otp: true
       }).save();
     }
 
@@ -154,7 +153,7 @@ module.exports.saveFarmerDetails = async (req, res) => {
 
     if (farmerDetails) {
       farmerDetails[screenName] = req.body[screenName];
-      farmerDetails.steps = req.body?.steps;
+      // farmerDetails.steps = req.body?.steps;
       await farmerDetails.save();
 
 
@@ -185,7 +184,7 @@ module.exports.getFarmerDetails = async (req, res) => {
     //if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
 
     const selectFields = screenName
-      ? `${screenName} allStepsCompletedStatus steps`
+      ? `${screenName} allStepsCompletedStatus `
       : null;
 
     if (selectFields) {
