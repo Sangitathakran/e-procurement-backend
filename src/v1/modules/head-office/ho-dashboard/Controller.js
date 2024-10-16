@@ -17,7 +17,7 @@ const {
   AssociateOffers,
 } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { _query } = require("@src/v1/utils/constants/messages");
-
+const moment=require('moment');
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   try {
@@ -352,6 +352,23 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
     data: records,
   });
 });
+module.exports.optionRequestId = asyncErrorHandler(async (req, res) => {
+  
+  let records = { count: 0 };
+  records.row = await RequestModel.find({
+    // head_office_id:req.user.portalId
+  })
+    .select("reqNo")
+
+
+ 
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Request Option List"),
+    data: records,
+  });
+});
 //branchOfficeProcurement
 module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
   let { stateNames } = req.query;
@@ -548,6 +565,7 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
 });
 //farmerBenifitted
 module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
+    const {startDate,endDate}=req.query;
   const report = {
     month: [
       { monthName: "January", month: 1, farmers: 0 },
@@ -564,14 +582,28 @@ module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
       { monthName: "Decmeber", month: 12, farmers: 0 },
     ],
   };
-  let farmerBenifittedDetails = await AssociateOffers.aggregate([
+  const pipeline=[
+    // query,
     {
       $project: { month: { $month: "$createdAt" } },
     },
     {
       $group: { _id: "$month", farmers: { $count: {} } },
     },
-  ]);
+  ]
+  if(startDate!=undefined ||endDate!=undefined){
+    let formatStartDate= moment(startDate).format('DD-MM-YYYY');
+    let formatEndDate= moment(endDate).format('DD-MM-YYYY');
+    pipeline.unshift({$match:{createdAt:{$gt:formatStartDate,$lte:formatEndDate}}})
+   
+  }else{
+   
+   
+  }
+  
+  let farmerBenifittedDetails = await AssociateOffers.aggregate(pipeline)
+ 
+  
   farmerBenifittedDetails = report.month.map((item) => {
     let farmerDetails = farmerBenifittedDetails?.find(
       (item2) => item2?._id == item.month
