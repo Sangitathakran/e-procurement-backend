@@ -9,7 +9,7 @@ const cropSchema = new mongoose.Schema({
     },
     farmer_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: _collectionName.farmers, default: null },
     land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: false },
-    crop_name: { type: String, required: false },
+    crops_name: { type: String, required: false },
     crop_variety: { type: String, required: false },
     sowing_date: { type: Date, required: false },
     harvesting_date: { type: Date, required: false },
