@@ -84,7 +84,7 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
 
 module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
-    const { id, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, material_image = [], weight_slip = [], qc_report = [] } = req.body;
+    const { id, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, material_image = [], weight_slip = [], qc_report = [], data, paymentIsApprove = 0 } = req.body;
     const { user_id } = req;
 
     const record = await Batch.findOne({ _id: id });
@@ -100,6 +100,10 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
     } else if (qc_report.length > 0) {
         record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
         record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
+    } else if (qc_report.length > 0 && data) {
+        record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+        record.dispatched.qc_report.received_qc_status = received_qc_status.rejected;
+        record.reason = { text: data, on: moment() }
     } else if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
         record.delivered.proof_of_delivery = proof_of_delivery;
         record.delivered.weigh_bridge_slip = weigh_bridge_slip;
@@ -113,7 +117,11 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
         record.status = _batchStatus.delivered;
 
-    } else {
+    } else if (paymentIsApprove == 1 && record.dispatched.qc_report.received.length > 0 && record.dispatched.qc_report.received_qc_status == received_qc_status.accepted) {
+        record.payement_approval_at = new Date();
+        record.payment_approve_by = user_id;
+    }
+    else {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
     }
 
@@ -150,21 +158,4 @@ module.exports.getFarmerByBatchId = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
 
-})
-
-module.exports.updateStatus = asyncErrorHandler(async (req, res) => {
-
-    const { id, status } = req.query;
-
-    const record = await Batch.findOne({ _id: id });
-
-    if (!record) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("batch") }] }));
-    }
-
-    record.dispatched.qc_report.received_qc_status = status;
-
-    await record.save();
-
-    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("batch") }));
 })

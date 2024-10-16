@@ -12,6 +12,6 @@ requirementRoutes.get("/batch", verifyBO, getBatchByReq);
 requirementRoutes.put("/batch", verifyBO, uploadRecevingStatus);
 requirementRoutes.get("/batch/:id", verifyBO, getBatch);
 requirementRoutes.get("/farmer/:id", verifyBO, getFarmerByBatchId);
-requirementRoutes.patch("/status", verifyBO, updateStatus);
+
 
 module.exports = { requirementRoutes }; 
