@@ -3,7 +3,7 @@ const { sendResponse } = require('@src/v1/utils/helpers/api_response');
 const { _auth_module } = require('@src/v1/utils/constants/messages');
 const { JWT_SECRET_KEY } = require('@config/index');
 const {_userType}=require('../utils/constants/index');
-const MasterUser = require('../models/master/MasterUser');
+const {MasterUser} = require('../models/master/MasterUser');
 
 
 // const { redisClient } = require('@config/redis');
@@ -18,7 +18,7 @@ const MasterUser = require('../models/master/MasterUser');
 const verifyJwtToken = function (req, res, next) {
     let { token } = req.headers;
     if (token) {
-
+        
         jwt.verify(token, JWT_SECRET_KEY, async function (err, decoded) {
             if (err) {
                 return sendResponse({res, status: 403, errors: _auth_module.unAuth });

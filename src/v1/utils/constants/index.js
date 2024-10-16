@@ -48,10 +48,10 @@ const _userAction = {
 }
 
 const _featureType = {
-    branchOffice: "branchOffice",
-    headOffice: "headOffice",
-    agency: "agency",
-    associate: "associate"
+    branchOffice: "BranchOffice",
+    headOffice: "HeadOffice",
+    agency: "Agency",
+    associate: "Associate"
 
 }
 

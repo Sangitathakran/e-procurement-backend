@@ -2,14 +2,14 @@
 
 const express = require("express");
 const { getProcurementTracking, getAssociateOffers, getFarmersByAssocaiteId, getFarmersOrdersData } = require("./Controller");
-const { verifyAgent } = require("../utils/verifyAgent");
+const { verifyJwtToken } = require("@src/v1/middlewares/jwt")
 
 const procTrackingRoutes = express.Router();
 
 
-procTrackingRoutes.get("/", verifyAgent, getProcurementTracking);
-procTrackingRoutes.get("/associate-offer", verifyAgent, getAssociateOffers);
-procTrackingRoutes.get("/farmer-associate", verifyAgent, getFarmersByAssocaiteId);
-procTrackingRoutes.get("/farmers/:id", verifyAgent, getFarmersOrdersData);
+procTrackingRoutes.get("/", verifyJwtToken, getProcurementTracking);
+procTrackingRoutes.get("/associate-offer", verifyJwtToken, getAssociateOffers);
+procTrackingRoutes.get("/farmer-associate", verifyJwtToken, getFarmersByAssocaiteId);
+procTrackingRoutes.get("/farmers/:id", verifyJwtToken, getFarmersOrdersData);
 
 module.exports = { procTrackingRoutes }; 

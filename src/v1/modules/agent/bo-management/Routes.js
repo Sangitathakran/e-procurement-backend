@@ -1,11 +1,11 @@
 const express = require("express");
 const { getBo, updateStatus } = require("./Controllers");
-const { verifyAgent } = require("../utils/verifyAgent");
+const { verifyJwtToken } = require("@src/v1/middlewares/jwt")
 
 const boManagementRoutes = express.Router();
 
-boManagementRoutes.patch("/:id/:status", verifyAgent, updateStatus);
-boManagementRoutes.get("/", verifyAgent, getBo);
+boManagementRoutes.patch("/:id/:status", verifyJwtToken, updateStatus);
+boManagementRoutes.get("/", verifyJwtToken, getBo);
 
 
 

@@ -1,13 +1,13 @@
 const express = require("express");
-const { verifyAgent } = require("../utils/verifyAgent");
+const { verifyJwtToken } = require("@src/v1/middlewares/jwt")
 const { getProcurement, getOrderedAssociate, getBatchByAssociateOfferrs, trackDeliveryByBatchId } = require("./Controller");
 const trackDeliveryRoutes = express.Router();
 
 
-trackDeliveryRoutes.get("/ordered-associate", verifyAgent, getOrderedAssociate);
-trackDeliveryRoutes.get("/request", verifyAgent, getProcurement);
-trackDeliveryRoutes.get("/batch", verifyAgent, getBatchByAssociateOfferrs);
-trackDeliveryRoutes.get("/batch/:id", verifyAgent, trackDeliveryByBatchId)
+trackDeliveryRoutes.get("/ordered-associate", verifyJwtToken, getOrderedAssociate);
+trackDeliveryRoutes.get("/request", verifyJwtToken, getProcurement);
+trackDeliveryRoutes.get("/batch", verifyJwtToken, getBatchByAssociateOfferrs);
+trackDeliveryRoutes.get("/batch/:id", verifyJwtToken, trackDeliveryByBatchId)
 
 
 module.exports = { trackDeliveryRoutes }; 

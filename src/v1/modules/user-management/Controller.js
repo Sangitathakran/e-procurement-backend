@@ -1,7 +1,7 @@
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { FeatureList } = require("@src/v1/models/master/FeatureList");
 const UserRole = require("@src/v1/models/master/UserRole");
-const MasterUser = require("@src/v1/models/master/MasterUser")
+const {MasterUser} = require("@src/v1/models/master/MasterUser")
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const bcrypt = require("bcrypt");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");

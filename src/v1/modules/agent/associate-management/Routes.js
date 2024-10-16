@@ -2,12 +2,12 @@
 
 const express = require("express");
 const { getAssociates, userStatusUpdate, statusUpdate, pendingRequests, getAssociatesById } = require("./Controllers");
-const { verifyAgent } = require("../utils/verifyAgent");
+
 
 const associateMngmntRoutes = express.Router();
+const { verifyJwtToken } = require("@src/v1/middlewares/jwt")
 
-
-associateMngmntRoutes.get("/", verifyAgent, getAssociates);
+associateMngmntRoutes.get("/", verifyJwtToken, getAssociates);
 associateMngmntRoutes.patch("/update-approval", userStatusUpdate);
 associateMngmntRoutes.patch("/status", statusUpdate);
 associateMngmntRoutes.get("/pending", pendingRequests);

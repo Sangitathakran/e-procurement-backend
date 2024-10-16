@@ -1,14 +1,14 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { getDashboardStats, getProcurementsStats, getProcurementStatusList, getPendingOffersCountByRequestId } = require("./Controller");
 const express = require("express");
-const { verifyAgent } = require("../utils/verifyAgent");
+const { verifyJwtToken } = require("@src/v1/middlewares/jwt")
 const dashboardRoutes = express.Router();
 
 
-dashboardRoutes.get("/", verifyAgent, getDashboardStats);
-dashboardRoutes.get("/precurement-stats", verifyAgent, getProcurementsStats);
-dashboardRoutes.get("/precurement-list", verifyAgent, getProcurementStatusList);
-dashboardRoutes.get("/pending-precurement-list", verifyAgent, getPendingOffersCountByRequestId);
+dashboardRoutes.get("/", verifyJwtToken, getDashboardStats);
+dashboardRoutes.get("/precurement-stats", verifyJwtToken, getProcurementsStats);
+dashboardRoutes.get("/precurement-list", verifyJwtToken, getProcurementStatusList);
+dashboardRoutes.get("/pending-precurement-list", verifyJwtToken, getPendingOffersCountByRequestId);
 
 
 module.exports = { dashboardRoutes }; 

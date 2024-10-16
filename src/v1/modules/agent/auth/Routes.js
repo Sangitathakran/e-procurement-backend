@@ -1,7 +1,7 @@
 const express = require("express");
 const { getAgency, createAgency } = require("./Controllers");
 const { validateForm } = require("@src/v1/modules/agent/auth/Validation");
-const { verifyAgent } = require("../utils/verifyAgent");
+
 
 const agencyMngmntRoutes = express.Router();
 
