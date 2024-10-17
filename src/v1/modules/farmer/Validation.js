@@ -552,6 +552,11 @@ const validateLand = checkSchema({
 
 const validationSchemas = {
   basic_details:  {
+    'basic_details.profile_pic': {
+      notEmpty: {
+        errorMessage: 'Profile Pic is required',
+      }
+    },
     'basic_details.name': {
       notEmpty: {
         errorMessage: 'Name is required',
@@ -561,6 +566,7 @@ const validationSchemas = {
         errorMessage: 'Name must be at least 3 characters long',
       },
     },
+
     'basic_details.email': {
       notEmpty: {
         errorMessage: 'Email is required',

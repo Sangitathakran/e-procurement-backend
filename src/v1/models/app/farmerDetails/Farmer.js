@@ -19,6 +19,7 @@ const farmerSchema = new mongoose.Schema({
     farmer_code: { type: String, trim: true, },
     basic_details: { 
         name: { type: String, trim: true },
+        profile_pic:{ type: String, trim: true },
         email: { type: String, trim: false },
         father_husband_name: { type: String, trim: true },
         mobile_no: { type: String, trim: true },

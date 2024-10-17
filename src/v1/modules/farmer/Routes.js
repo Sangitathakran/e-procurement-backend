@@ -39,7 +39,7 @@ farmerRoutes.post('/register-details',verifyJwtToken,[validateRegisterDetail,val
  */
 farmerRoutes.put('/onboarding-details/:id',
     // verifyJwtToken, 
-    [validateFarmer,validateErrors],
+    [validateIndFarmer,validateErrors],
     saveFarmerDetails);
 
     farmerRoutes.get('/getFarmerDetails/:id',
