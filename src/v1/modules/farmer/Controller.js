@@ -1,7 +1,7 @@
 const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel } = require("@src/v1/utils/helpers")
-const { serviceResponse,sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
-const  {farmer} = require("@src/v1/models/app/farmerDetails/Farmer");
+const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
@@ -10,24 +10,26 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const Readable = require('stream').Readable;
-const {smsService}=require('../../utils/third_party/SMSservices');
-const OTPModel=require("../../models/app/auth/OTP")
-const {generateJwtToken}=require('../../utils/helpers/jwt')
-const _individual_farmer_onboarding_steps=require('@src/v1/utils/constants')
+const { smsService } = require('../../utils/third_party/SMSservices');
+const OTPModel = require("../../models/app/auth/OTP")
+const { generateJwtToken } = require('../../utils/helpers/jwt')
+const _individual_farmer_onboarding_steps = require('@src/v1/utils/constants')
 module.exports.sendOTP = async (req, res) => {
   try {
     const { mobileNumber, acceptTermCondition } = req.body;
     // Validate the mobile number
     const isValidMobile = await validateMobileNumber(mobileNumber);
     if (!isValidMobile) {
-      return  sendResponse({res,
+      return sendResponse({
+        res,
         status: 400,
         message: _response_message.invalid("mobile number"),
       })
     }
 
     if (!acceptTermCondition) {
-      return   sendResponse({res,
+      return sendResponse({
+        res,
         status: 400,
         message: _response_message.Accept_term_condition(),
       })
@@ -35,7 +37,8 @@ module.exports.sendOTP = async (req, res) => {
 
     await smsService.sendOTPSMS(mobileNumber);
 
-    return sendResponse({res,
+    return sendResponse({
+      res,
       status: 200,
       data: [],
       message: _response_message.otpCreate("mobile number"),
@@ -53,7 +56,8 @@ module.exports.verifyOTP = async (req, res) => {
     // Validate the mobile number
     const isValidMobile = await validateMobileNumber(mobileNumber);
     if (!isValidMobile) {
-      return  sendResponse({res,
+      return sendResponse({
+        res,
         status: 400,
         message: _response_message.invalid("mobile number"),
       })
@@ -63,16 +67,17 @@ module.exports.verifyOTP = async (req, res) => {
     const userOTP = await OTPModel.findOne({ phone: mobileNumber });
     // Verify the OTP
     if (inputOTP !== userOTP?.otp) {
-      return sendResponse({res,
+      return sendResponse({
+        res,
         status: 400,
         message: _response_message.otp_not_verified("OTP"),
       })
     }
 
     // Find the farmer data and verify OTP
-    let individualFormerData = await farmer.findOne({ 
+    let individualFormerData = await farmer.findOne({
       mobile_no: mobileNumber,
-      is_verify_otp:true
+      is_verify_otp: true
     });
 
     // If farmer data does not exist, create a new one
@@ -88,7 +93,7 @@ module.exports.verifyOTP = async (req, res) => {
       token: generateJwtToken({ mobile_no: mobileNumber }),
       ...JSON.parse(JSON.stringify(individualFormerData)), // Use individualFormerData (existing or newly saved)
     };
-      
+
     // Send the response
     return sendResponse({
       res,
@@ -96,7 +101,7 @@ module.exports.verifyOTP = async (req, res) => {
       data: resp,
       message: _response_message.otp_verified("your mobile"),
     })
-      
+
   } catch (err) {
     console.log("error", err);
     _handleCatchErrors(err, res);
@@ -106,16 +111,18 @@ module.exports.verifyOTP = async (req, res) => {
 module.exports.registerName = async (req, res) => {
   try {
     const { registerName } = req.body;
-    if(!registerName)
-        return sendResponse({res, status: 400, data:null, message: _response_message.notProvided('Name')})
+    if (!registerName)
+      return sendResponse({ res, status: 400, data: null, message: _response_message.notProvided('Name') })
 
     // Check if the user already exists and is verified
     const farmerData = await farmer.findOneAndUpdate(
       { mobile_no: req.mobile_no },
-      { $set: { name: registerName, 
-                user_type: "5" ,
-                basic_details : {name: registerName, mobile_no: req.mobile_no} 
-              } 
+      {
+        $set: {
+          name: registerName,
+          user_type: "5",
+          basic_details: { name: registerName, mobile_no: req.mobile_no }
+        }
       },
       { new: true }
     );
@@ -159,8 +166,9 @@ module.exports.saveFarmerDetails = async (req, res) => {
 
       const farmerData = await farmer.findById(farmer_id)
 
-      return sendResponse({res,
-        status:200,
+      return sendResponse({
+        res,
+        status: 200,
         data: farmerData,
         message: _response_message.updated(screenName),
       })
@@ -202,7 +210,7 @@ module.exports.getFarmerDetails = async (req, res) => {
         data: farmerDetails,
         message: _response_message.found(screenName)
       })
-       
+
     } else {
       return sendResponse({
         res,
@@ -234,7 +242,7 @@ module.exports.submitForm = async (req, res) => {
       );
 
       if (!district) {
-        return  sendResponse({
+        return sendResponse({
           res,
           status: 400,
           message: _response_message.notFound(
@@ -255,12 +263,12 @@ module.exports.submitForm = async (req, res) => {
       return farmerId;
     };
     const farmer_id = await generateFarmerId(farmerDetails);
-   
+
     if (farmerDetails && farmer_id) {
       if (farmerDetails.farmer_id == null) {
         farmerDetails.farmer_id = farmer_id;
         farmerDetails.allStepsCompletedStatus = true;
-        
+
         //welcome sms send functionality
         const mobileNumber = req.mobile_no;
         const farmerName = farmerDetails.basic_details.name;
@@ -274,15 +282,15 @@ module.exports.submitForm = async (req, res) => {
         if (isMszSent && isMszSent.response && isMszSent.response.status === 'success') {
           // Message was sent successfully
           farmerDetails.is_welcome_msg_send = true;
-        }  
-        
+        }
+
         const farmerUpdatedDetails = await farmerDetails.save();
-        return sendResponse({res,status:200, data: farmerUpdatedDetails })
+        return sendResponse({ res, status: 200, data: farmerUpdatedDetails })
       }
 
       return sendResponse({
         res,
-        status:200,
+        status: 200,
         data: farmerDetails,
         message: _response_message.submit("Farmer"),
       })
@@ -303,22 +311,22 @@ module.exports.submitForm = async (req, res) => {
 //convert url into zip file
 module.exports.createZip = async (req, res) => {
   try {
-    const url = req.query.url; 
+    const url = req.query.url;
     if (!url) {
       return sendResponse({
-        res: res, 
-        status: 400, 
-        message: 'Invalid request', 
+        res: res,
+        status: 400,
+        message: 'Invalid request',
         errors: 'URL is required'
       });
     }
 
     const fileNameFromUrl = path.basename(new URL(url).pathname);
-    
+
     const fileExtension = path.extname(fileNameFromUrl) || '.jpg'; // Default extension 
-    
+
     const fileName = fileNameFromUrl || `downloadedFile${fileExtension}`;
-    
+
     // Prepare the ZIP file name
     const zipFileName = `${fileName}.zip`;
 
@@ -346,14 +354,14 @@ module.exports.createZip = async (req, res) => {
 
     });
 
-    
+
 
     archive.on('error', (err) => {
       console.error('Error creating archive:', err);
       return sendResponse({
-        res: res, 
-        status: 500, 
-        message: 'Error creating ZIP archive', 
+        res: res,
+        status: 500,
+        message: 'Error creating ZIP archive',
         errors: err.message
       });
     });
@@ -364,12 +372,12 @@ module.exports.createZip = async (req, res) => {
     // Download the file from the provided URL and add it directly to the ZIP root 
     try {
       const response = await axios.get(url, { responseType: 'stream' });
-      archive.append(response.data, { name: fileName }); 
+      archive.append(response.data, { name: fileName });
     } catch (error) {
       return sendResponse({
-        res: res, 
-        status: 500, 
-        message: 'Error downloading file', 
+        res: res,
+        status: 500,
+        message: 'Error downloading file',
         errors: error.message
       });
     }
@@ -380,9 +388,9 @@ module.exports.createZip = async (req, res) => {
   } catch (error) {
     console.error('Unexpected error:', error.message);
     return sendResponse({
-      res: res, 
-      status: 500, 
-      message: 'Something went wrong', 
+      res: res,
+      status: 500,
+      message: 'Something went wrong',
       errors: error.message
     });
   }
@@ -430,19 +438,16 @@ module.exports.getFarmers = async (req, res) => {
 
     let query = {};
     const records = { count: 0 };
-    if (is_associated == 1) {
-      query.associate_id = user_id;
-      query.farmer_type = 'Associate';
-    }
+    query.associate_id = is_associated == 1 ? user_id : null
     if (search) {
       query.name = { $regex: search, $options: 'i' };
     }
     records.rows = paginate == 1
       ? await farmer.find(query)
-          .limit(parseInt(limit))
-          .skip(parseInt(skip))
-          .sort(sortBy)
-          .populate('associate_id', '_id user_code')
+        .limit(parseInt(limit))
+        .skip(parseInt(skip))
+        .sort(sortBy)
+        .populate('associate_id', '_id user_code')
       : await farmer.find(query).sort(sortBy);
 
     records.count = await farmer.countDocuments(query);
@@ -542,7 +547,7 @@ module.exports.createLand = async (req, res) => {
     const {
       farmer_id, area, land_name, cultivation_area, area_unit, state, district,
       village, block, khtauni_number, khasra_number, khata_number,
-      soil_type, soil_tested, uploadSoil_health_card,opt_for_soil_testing,soil_testing_agencies,upload_geotag
+      soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     } = req.body;
 
     const existingLand = await Land.findOne({ 'khasra_number': khasra_number });
@@ -556,9 +561,9 @@ module.exports.createLand = async (req, res) => {
     const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
     const newLand = new Land({
-      area, land_name, cultivation_area, area_unit, state:state_id, district:district_id,
+      area, land_name, cultivation_area, area_unit, state: state_id, district: district_id,
       village, block, khtauni_number, khasra_number, khata_number,
-      soil_type, soil_tested, uploadSoil_health_card,opt_for_soil_testing,soil_testing_agencies,upload_geotag
+      soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     });
     const savedLand = await newLand.save();
 
@@ -569,7 +574,7 @@ module.exports.createLand = async (req, res) => {
     }));
 
   } catch (error) {
-     console.log('error',error)
+    console.log('error', error)
     _handleCatchErrors(error, res);
   }
 };
@@ -577,7 +582,7 @@ module.exports.getLand = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy = 'khasra_no', search = '', paginate = 1, farmer_id } = req.query;
     const skip = (page - 1) * limit;
-    
+
     let query = {};
     const records = { count: 0 };
     if (farmer_id) {
@@ -613,7 +618,7 @@ module.exports.updateLand = async (req, res) => {
     const {
       area, land_name, cultivation_area, area_unit, state, district,
       village, block, khtauni_number, khasra_number, khata_number,
-      soil_type, soil_tested, uploadSoil_health_card,opt_for_soil_testing,soil_testing_agencies,upload_geotag
+      soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     } = req.body;
 
     const state_id = await getStateId(state_name);
@@ -622,9 +627,9 @@ module.exports.updateLand = async (req, res) => {
     const updatedLand = await Land.findByIdAndUpdate(
       land_id,
       {
-        area, land_name, cultivation_area, area_unit, state:state_id, district:district_id,
-      village, block, khtauni_number, khasra_number, khata_number,
-      soil_type, soil_tested, uploadSoil_health_card,opt_for_soil_testing,soil_testing_agencies,upload_geotag
+        area, land_name, cultivation_area, area_unit, state: state_id, district: district_id,
+        village, block, khtauni_number, khasra_number, khata_number,
+        soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
       },
       { new: true }
     );
@@ -678,16 +683,16 @@ module.exports.createCrop = async (req, res) => {
   try {
     const {
       farmer_id, crop_season, crop_name, crops_name, crop_variety,
-      sowing_date, harvesting_date, production_quantity, selling_price,yield,land_name
-      ,crop_growth_stage,crop_disease,crop_rotation,previous_crop_details,marketing_and_output,input_details,seeds
+      sowing_date, harvesting_date, production_quantity, selling_price, yield, land_name
+      , crop_growth_stage, crop_disease, crop_rotation, previous_crop_details, marketing_and_output, input_details, seeds
     } = req.body;
 
     const sowingdate = parseMonthyear(sowing_date);
     const harvestingdate = parseMonthyear(harvesting_date);
     const newCrop = new Crop({
       farmer_id, crop_season, crop_name, crops_name, crop_variety,
-      sowing_date:sowingdate, harvesting_date:harvestingdate, production_quantity, selling_price,yield,land_name
-      ,crop_growth_stage,crop_disease,crop_rotation,previous_crop_details,marketing_and_output,input_details,seeds
+      sowing_date: sowingdate, harvesting_date: harvestingdate, production_quantity, selling_price, yield, land_name
+      , crop_growth_stage, crop_disease, crop_rotation, previous_crop_details, marketing_and_output, input_details, seeds
     });
 
     const savedCrop = await newCrop.save();
@@ -751,8 +756,8 @@ module.exports.updateCrop = async (req, res) => {
     const { crop_id } = req.params;
     const {
       farmer_id, crop_season, crop_name, crops_name, crop_variety,
-      sowing_date, harvesting_date, production_quantity, selling_price,yield,land_name
-      ,crop_growth_stage,crop_disease,crop_rotation,previous_crop_details,marketing_and_output,input_details,seeds
+      sowing_date, harvesting_date, production_quantity, selling_price, yield, land_name
+      , crop_growth_stage, crop_disease, crop_rotation, previous_crop_details, marketing_and_output, input_details, seeds
     } = req.body;
 
     const sowingdate = parseMonthyear(sowing_date);
@@ -761,8 +766,8 @@ module.exports.updateCrop = async (req, res) => {
       crop_id,
       {
         farmer_id, crop_season, crop_name, crops_name, crop_variety,
-      sowing_date:sowingdate, harvesting_date:harvestingdate, production_quantity, selling_price,yield,land_name
-      ,crop_growth_stage,crop_disease,crop_rotation,previous_crop_details,marketing_and_output,input_details,seeds
+        sowing_date: sowingdate, harvesting_date: harvestingdate, production_quantity, selling_price, yield, land_name
+        , crop_growth_stage, crop_disease, crop_rotation, previous_crop_details, marketing_and_output, input_details, seeds
       },
       { new: true }
     );
@@ -1071,7 +1076,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const sow_area = rec["SOW AREA"];
       const state = rec["STATE"];
       const district = rec["DISTRICT"];
-      const sub_district = rec["SUB DISTRICT"];
+      const landvillage = rec["ViLLAGE"];
       const expected_production = rec["EXPECTED PRODUCTION"];
       const soil_type = toLowerCaseIfExists(rec["SOIL TYPE"]);
       const soil_tested = toLowerCaseIfExists(rec["SOIL TESTED"]);
@@ -1124,11 +1129,11 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       }
 
       if (!/^\d{12}$/.test(aadhar_no)) {
-            errors.push({ record: rec, error: "Invalid Aadhar Number" });
-          }
+        errors.push({ record: rec, error: "Invalid Aadhar Number" });
+      }
       if (!/^\d{10}$/.test(mobile_no)) {
-            errors.push({ record: rec, error: "Invalid Mobile Number" });
-          }
+        errors.push({ record: rec, error: "Invalid Mobile Number" });
+      }
 
       if (errors.length > 0) return { success: false, errors };
 
@@ -1154,7 +1159,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           });
           // Update land and bank details if present
           await updateRelatedRecords(farmerRecord._id, {
-            farmer_id: farmerRecord._id,  total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, sub_district, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
+            farmer_id: farmerRecord._id, total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, village:landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
           });
         } else {
           // Insert new farmer record
@@ -1162,7 +1167,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
             associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name,
           });
           await insertNewRelatedRecords(farmerRecord._id, {
-            total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, sub_district, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
+            total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, village:landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
           });
         }
 
