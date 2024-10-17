@@ -32,6 +32,7 @@ const landSchema = new mongoose.Schema({
         state_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity' },
         district_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity.districts' },
         village: { type: String, required: false },
+        pin_code:{type:String,required:false},
         block: { type: String, required: false },
     },
     soil_tested: { type: String, enum: Object.values(_yesNo), required: false },
