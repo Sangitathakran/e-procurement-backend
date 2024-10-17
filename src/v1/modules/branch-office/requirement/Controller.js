@@ -180,45 +180,42 @@ module.exports.auditTrail = asyncErrorHandler(async (req, res) => {
     const steps = [
         {
             name: "Batch Created",
-            status: "completed", // or "in-progress"
-            date: "22 Sep, 2024 11:30 AM",
+            status: record ? "completed" : "pending",
+            date: record ? createdAt : null,
         },
         {
             name: "Mark Dispatched",
-            icon: BatchCreatedSteper,
-            status: "completed",
-            date: "22 Sep, 2024 11:30 AM",
+            status: dispatched ? "completed" : "pending",
+            date: dispatched.dispatched_at ? dispatched.dispatched_at : null,
         },
         {
             name: "In Transit",
-            icon: BatchCreatedSteper,
-            status: "in-progress",
-            date: "22 Sep, 2024 11:30 AM",
+            status: intransit ? "completed" : "pending",
+            date: intransit.intransit_at ? intransit.intransit_at : null,
         },
         {
             name: "Delivery Date",
-            icon: DeliveryDateSteper,
-            status: "in-progress",
-            date: "22 Sep, 2024 11:30 AM",
+            status: delivered ? "completed" : "pending",
+            date: delivered.delivered_at ? delivered.delivered_at : null,
         },
         {
             name: "Final QC Check",
-            icon: FinalQcCheckSteper,
-            status: "in-progress",
-            date: "22 Sep, 2024 11:30 AM",
+            status: dispatched.qc_report.received_qc_status == received_qc_status.accepted ? "completed" : dispatched.qc_report.received_qc_status == received_qc_status.rejected ? "rejected" : "pending",
+            date: dispatched.qc_report.received.on ? dispatched.qc_report.received.on : null
         },
         {
             name: "Payment Approval Date",
-            icon: FinalQcCheckSteper,
-            status: "in-progress",
-            date: "22 Sep, 2024 11:30 AM",
+            status: payement_approval_at ? "completed" : "pending",
+            date: payement_approval_at ? payement_approval_at : null,
         },
         {
             name: "Payment Paid",
-            icon: PaymentPaidSteper,
-            status: "completed",
-            date: "22 Sep, 2024 11:30 AM",
+            status: payment_at ? "completed" : "pending",
+            date: payment_at ? payment_at : null,
         },
     ];
+
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: steps, message: _response_message.found("audit trail") }))
 
 })
