@@ -407,8 +407,26 @@ const validateMobileNumber = async (mobile) => {
 */
 module.exports.createFarmer = async (req, res) => {
   try {
-    const { associate_id, title, name, parents, dob, gender, marital_status, religion, category, education, proof, address, mobile_no, email, status } = req.body;
+    const {
+      name,
+      parents,
+      dob,
+      gender,
+      marital_status,
+      religion,
+      category,
+      education,
+      proof,
+      address,
+      bank_details,
+      mobile_no,
+      email,
+      status
+    } = req.body;
+    const { user_id } = req
     const { father_name, mother_name } = parents || {};
+    const { bank_name, account_no, branch_name, ifsc_code, account_holder_name } = bank_details || {};
+
     const existingFarmer = await farmer.findOne({ 'proof.aadhar_no': proof.aadhar_no });
 
     if (existingFarmer) {
@@ -417,9 +435,40 @@ module.exports.createFarmer = async (req, res) => {
         errors: [{ message: _response_message.allReadyExist("farmer") }]
       }));
     }
+
     const farmerCode = await _generateFarmerCode();
 
-    const newFarmer = new farmer({ associate_id, farmer_code: farmerCode, title, name, parents: { father_name: father_name || '', mother_name: mother_name || '' }, dob, gender, marital_status, religion, category, education, proof, address, mobile_no, email, status });
+    // Enhanced function to check if the value is a string before calling toLowerCase
+    const toLowerCaseIfExists = (value) => (typeof value === 'string' && value) ? value.toLowerCase() : value;
+
+    const newFarmer = new farmer({
+      associate_id: user_id,
+      farmer_code: farmerCode,
+      name: toLowerCaseIfExists(name),
+      parents: {
+        father_name: toLowerCaseIfExists(father_name || ''),
+        mother_name: toLowerCaseIfExists(mother_name || '')
+      },
+      dob,
+      gender: toLowerCaseIfExists(gender),
+      marital_status: toLowerCaseIfExists(marital_status),
+      religion: toLowerCaseIfExists(religion),
+      category: toLowerCaseIfExists(category),
+      education: toLowerCaseIfExists(education),
+      proof,
+      address,
+      bank_details: {
+        bank_name: toLowerCaseIfExists(bank_name || ''),
+        account_no: account_no || '',
+        branch_name: toLowerCaseIfExists(branch_name || ''),
+        ifsc_code: toLowerCaseIfExists(ifsc_code || ''),
+        account_holder_name: toLowerCaseIfExists(account_holder_name || '')
+      },
+      mobile_no,
+      email: toLowerCaseIfExists(email),
+      status
+    });
+
     const savedFarmer = await newFarmer.save();
 
     return res.status(200).send(new serviceResponse({
@@ -432,6 +481,7 @@ module.exports.createFarmer = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 module.exports.getFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy, search = '', skip, paginate = 1, is_associated = 1 } = req.query;
@@ -1151,7 +1201,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           const associate = await User.findOne({ 'basic_details.associate_details.organization_name': fpo_name });
           associateId = associate ? associate._id : null;
         }
-
         let farmerRecord = await farmer.findOne({ 'proof.aadhar_no': aadhar_no });
         if (farmerRecord) {
           // Update existing farmer record
@@ -1560,3 +1609,47 @@ const getState = async (stateId) => {
   ])
   return state[0].state
 }
+module.exports.makeAssociateFarmer = async (req, res) => {
+  try {
+    const { farmer_id } = req.body; 
+    const { user_id } = req; 
+
+    if (!Array.isArray(farmer_id) || farmer_id.length === 0 || !user_id) {
+      return res.status(400).send(new serviceResponse({
+        status: 400,
+        errors: [{ message: "Farmer IDs array and Associate ID are required." }]
+      }));
+    }
+
+    let updatedFarmers = [];
+    let notFoundFarmers = [];
+
+    for (const id of farmer_id) { 
+      const localFarmer = await farmer.findOne({ _id: id, associate_id: null });
+
+      if (localFarmer) {
+        localFarmer.associate_id = user_id;
+        const updatedFarmer = await localFarmer.save();
+        updatedFarmers.push(updatedFarmer);
+      } else {
+        notFoundFarmers.push(id);
+      }
+    }
+
+    if (updatedFarmers.length === 0) {
+      return res.status(404).send(new serviceResponse({
+        status: 404,
+        errors: [{ message: "No local farmers found or already associated." }]
+      }));
+    }
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: { updatedFarmers, notFoundFarmers },
+      message: `${updatedFarmers.length} farmers successfully made associate farmers.`
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};

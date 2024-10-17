@@ -9,9 +9,9 @@ const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const multer = require('multer');
 const { verifyAssociate } = require("../associate/utils/verifyAssociate");
 const { getSingleFarmer } = require("../head-office/farmer-management/Controller");
-const {saveFarmerDetails, sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, editFarmer, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList } = require("./Controller");
+const {saveFarmerDetails, sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, editFarmer, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer } = require("./Controller");
 
-//farmerRoutes.post("/", verifyJwtToken, [validateFarmer, validateErrors], createFarmer);
+farmerRoutes.post("/", verifyJwtToken, verifyAssociate, [validateFarmer, validateErrors], createFarmer);
 farmerRoutes.get("/", verifyJwtToken, getFarmers);
 farmerRoutes.put('/:id', verifyJwtToken, editFarmer);
 farmerRoutes.delete("/", verifyJwtToken, deletefarmer);
@@ -33,6 +33,7 @@ farmerRoutes.get("/localfarmer", verifyAssociate, individualfarmerList);
 farmerRoutes.post("/send-farmerOTP",sendOTP)
 farmerRoutes.post("/verify-farmerOTP",verifyOTP);
 farmerRoutes.post('/register-details',verifyJwtToken,[validateRegisterDetail,validateErrors],registerName)
+farmerRoutes.post("/make-associate",verifyAssociate, makeAssociateFarmer);
 /* 
  individual farmer routes s
              
