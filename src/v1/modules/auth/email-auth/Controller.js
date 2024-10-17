@@ -7,9 +7,11 @@ const bcrypt = require('bcrypt');
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { FeatureList } = require("@src/v1/models/master/FeatureList");
+const { TypesModel } = require("@src/v1/models/master/Types")
 
 module.exports.login = async (req, res) => {
     try {
+
         const { email, password } = req.body;
         
         if (!email) {
@@ -19,7 +21,7 @@ module.exports.login = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Password') }] }));
         }
 
-        const user = await MasterUser.findOne({ email: email }).populate('userRole')
+        const user = await MasterUser.findOne({ email: email }).populate(["userRole","portalId"])
         
         if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('User') }] }));
@@ -35,14 +37,14 @@ module.exports.login = async (req, res) => {
         const expiresIn = 24 * 60 * 60;
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
-        const loginUser = JSON.parse(JSON.stringify(user))
-        delete loginUser.password
-
+        const typeData = await TypesModel.find()
         const userData = await getPermission(user)
         
         const data = {
             token: token,
-            user: userData
+            user: userData,
+            typeData: typeData
+
         }
         return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: data }));
     } catch (error) {
@@ -52,7 +54,14 @@ module.exports.login = async (req, res) => {
 
 const getPermission = async (response) => { 
 
-    const featureList = await FeatureList.find({featureType:"agency"})
+    const typeData = await TypesModel.find()
+    const type = typeData.reduce((acc, item)=>[...acc, item.featureType], [])
+    const userType = typeData.find(item=>item.userType===response.userType)
+    const featureType = userType.featureType 
+    if(!type.includes(featureType)){
+        throw new Error('Invalid feature type')
+    }
+    const featureList = await FeatureList.find({featureType:featureType})
     const resultArray = JSON.parse(JSON.stringify(response.userRole));
 
     const mergedResultsArray = [];
@@ -111,10 +120,10 @@ const getPermission = async (response) => {
     }
 
     const arrayC = mergeArrays(featureList, mergedResultsArray);
-
+ 
 
   const generateFeatureCode = (featureName) => {
-
+ 
       const featureNameArray = featureName.split(" ")
       const featureCode = featureNameArray.reduce((code, item)=> code.concat(item.trim().slice(0,2)), '')
       

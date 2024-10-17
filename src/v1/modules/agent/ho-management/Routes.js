@@ -7,7 +7,7 @@ const hoMngmntRoutes = express.Router();
 
 hoMngmntRoutes.patch("/:id/:status", verifyJwtToken, updateStatus);
 hoMngmntRoutes.get("/", verifyJwtToken, getHo);
-hoMngmntRoutes.post("/", validateForm, saveHeadOffice);
+hoMngmntRoutes.post("/", verifyJwtToken, validateForm, saveHeadOffice);
 
 
 module.exports = { hoMngmntRoutes }; 

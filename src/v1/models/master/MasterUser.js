@@ -1,6 +1,13 @@
 const { _collectionName, _userType, _statusType, _userAction } = require("@src/v1/utils/constants")
 const mongoose = require("mongoose")
 
+const { TypesModel } = require("@src/v1/models/master/Types")
+
+const getType = async () => { 
+    const type = await TypesModel.find()
+    return type
+}
+
 const userSchema = new mongoose.Schema({
 
     firstName : { 
@@ -66,80 +73,10 @@ const userSchema = new mongoose.Schema({
 
     createdBy: {type: mongoose.Schema.Types.ObjectId , ref: _collectionName.MasterUser },
 
-    history: [{
-        data: {
-            firstName : { 
-            type: String,
-            },
-            lastName : { 
-                type: String, 
-            },
-            isSuperAdmin: { 
-                type: Boolean,
-                default: false
-            },
-            isAdmin: { 
-                type: Boolean,
-                default: false
-            },
-            mobile: { 
-                type: String
-            },
-            email : { 
-                type: String, 
-            },
-            userId : { 
-                type: String,
-            },
-            isProfilePicUploaded : { 
-                type: Boolean,
-                default: false
-            },
-            ProfileKey : { 
-                type: String,
-                default: null
-            },
-            status: { 
-                type: String,
-                enum: Object.values(_statusType),
-                default: _statusType.inactive
-            },
-            isPasswordChangeEmailSend: { 
-                type: Boolean,
-                default: false
-            },
-            isInitialPasswordChanged: { 
-                type: Boolean, 
-                default: false
-            },
-            password: { 
-                type: String,
-            },
-            userType: { 
-                type:String,
-                enum: Object.values(_userType)
-            },
-            // sourceId: { 
-            //     type : mongoose.Schema.Types.ObjectId,
-            //     ref:  null
-            // },
-            userRole : [ { type: mongoose.Schema.Types.ObjectId , ref: _collectionName.UserRole } ],
-        
-            createdBy: {type: mongoose.Schema.Types.ObjectId , ref: _collectionName.MasterUser }
-        },
-        version: {
-            type: Number,
-            default: 1
-        },
-        updatedAt: { type: Date, default: Date.now },
-        updatedBy : { 
-            type: mongoose.Schema.Types.ObjectId,
-            ref: _collectionName.MasterUser,
-            default: null
-        },
-        actionTaken : { type: String, enum : Object.values(_userAction)},
-        ipAddress: { type: String }
-    }]
+    history: {
+        type: [mongoose.Schema.Types.Mixed], 
+        default: [] 
+    }
 },
 
 { timestamps : true }
@@ -147,24 +84,16 @@ const userSchema = new mongoose.Schema({
 
 )
 
-userSchema.pre('save', function (next) {
-    switch (this.userType) {
-        case _userType.ho:
-            this.portalRef = _collectionName.HeadOffice;
-            break;
-        case _userType.bo:
-            this.portalRef = _collectionName.Branch;
-            break;
-        case _userType.agent:
-            this.portalRef = _collectionName.Agency;
-            break;
-        case _userType.associate:
-            this.portalRef = _collectionName.Users; // it should be associate , need to change it later
-            break;
-        default: 
-            this.portalRef = null; 
-            break;
-    }
+userSchema.pre('save', async function (next) {
+     const typeData = await getType()
+     console.log("typeData-->", typeData)
+     typeData.forEach(item=> {
+        
+        if(this.userType === item.userType){
+            this.portalRef = item.collectionName;
+        }
+        
+    })
 
     next();
 });

@@ -7,7 +7,7 @@ const _collectionName = {
     agency: "agency",
     individualFarmers: "individual_farmers",
     Users: "Users",
-    HeadOffice: "headoffices",
+    HeadOffice: "HeadOffice", // change headoffices to HeadOffice
     Category: "Category",
     Variety: "variety",
     Unit: "unit",
@@ -32,11 +32,12 @@ const _collectionName = {
     FarmerOrder: "FarmerOrder",
     PaymentLog: "PaymentLog",
     FeatureList: "FeatureList",  // need to change to Features
-    UserRole: "UserRole",
+    UserRole: "UserRoles",
     MasterUser: "MasterUser",
     AgentPayment: "AgentPayment",
     Associate: "Associate",
-    Agency: "Agency"
+    Agency: "Agency",
+    Types: "Types"
 }
 
 const _userType_Feature_Collection = {

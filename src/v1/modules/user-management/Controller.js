@@ -6,6 +6,7 @@ const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const bcrypt = require("bcrypt");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { _featureType } = require("@src/v1/utils/constants");
+const { TypesModel } = require("@src/v1/models/master/Types");
 
 
 
@@ -13,9 +14,13 @@ const { _featureType } = require("@src/v1/utils/constants");
 exports.getFeatures = async (req, res) =>{
 
     try {
-     const featureType = req.params.type || null 
-     const query = featureType ? {} : {featureType: featureType}
-     const features = await FeatureList.find(query)
+     const typeData = await TypesModel.find()
+     const type = typeData.reduce((acc, item)=>[...acc, item.featureType], [])
+     const featureType = req.params.type 
+     if(!type.includes(featureType)){
+        return sendResponse({ res, status:400, message: "Invalid feature type"})
+     }
+     const features = await FeatureList.find({featureType:featureType})
      return sendResponse({ res, status:200, data: features , message: `${features.length} features in ${featureType}` });
         
     } catch (error) {
@@ -38,14 +43,15 @@ exports.createUserRole = async (req, res) => {
 
         const userRole = userRoleName.trim().toLowerCase()
 
-        const isUserRoleExist = await UserRole.findOne({userRoleName:userRole})
+        const isUserRoleExist = await UserRole.findOne({userRoleName:userRole, createdBy:req.user._id})
         if(isUserRoleExist){
             return sendResponse({res, status: 400, message: "user role is already exist"})
         }
 
         const newUserRole = new UserRole({ 
             userRoleName: userRole, 
-            createdBy: req?.user?._id ?? null,
+            createdBy: req?.user?._id,
+            userRoleType: req?.user?.userType,
             features : features
         })
 
@@ -66,8 +72,18 @@ exports.editUserRolePage = async (req, res) => {
         if(!userRoleId){
             return sendResponse({res, status: 400, message: "user role id not provided"})
         }
+
         const response = await UserRole.findOne({_id:userRoleId})
-        const features = await FeatureList.find({featureType:Object.values(_featureType)})
+        const typeData = await TypesModel.find()
+        const type = typeData.reduce((acc, item)=>[...acc, item.featureType], [])
+        const userType = typeData.find(item=>item.userType===response.userRoleType)
+        const featureType = userType.featureType
+
+        if(!type.includes(featureType)){
+          return sendResponse({ res, status:400, message: "Invalid feature type"})
+        }
+
+        const features = await FeatureList.find({featureType:featureType})
       
         if(response){
 
@@ -230,7 +246,7 @@ exports.getUserRoleList = async (req, res) => {
 
       const userRoles = await UserRole.find({createdBy: req.user._id}).select("_id userRoleName")
       if(userRoles.length < 1){
-        return sendResponse({res,status: 200,data: [] ,message: "no user found"});
+        return sendResponse({res,status: 200,data: [] ,message: "no user role found"});
       }
       return sendResponse({res,status: 200,data: userRoles ,message: "user role list"});
 
@@ -247,7 +263,7 @@ exports.createUser = async (req, res) => {
 
     try {
 
-        const { firstName, lastName, mobile, email, userType, userRole, isSuperAdmin, password } = req.body
+        const { firstName, lastName, mobile, email, userRole } = req.body
         if(!firstName){
             return sendResponse({res, status: 400, message: "first name not provided"})
         }
@@ -275,31 +291,31 @@ exports.createUser = async (req, res) => {
             }
         }
 
-        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:mobileNumber}]})
+        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:mobileNumber},{email:email}]})
         if(isUserAlreadyExist){
-          return sendResponse({res, status: 400, message: "user already existed with this mobile number"})
+          return sendResponse({res, status: 400, message: "user already existed with this mobile number or email"})
         }
 
         const salt = await bcrypt.genSalt(8);
-        const hashPassword = await bcrypt.hash(password, salt);
+        const hashPassword = await bcrypt.hash(uniqueUserId, salt); // hashing the uniqueUserId as password
 
         const newUser = new MasterUser({ 
             firstName: firstName, 
             lastName:lastName,
             mobile: mobile,
             email:email,
-            isSuperAdmin: isSuperAdmin || false,
+            // isSuperAdmin: true,
             userId: uniqueUserId,
-            userType: userType,
+            userType: req?.user?.userType,
             password: hashPassword,
-            createdBy: req?.user?._id || null,
+            createdBy: req?.user?._id,
             userRole: userRole,
-            portalId: req?.user?.portalId || null
+            portalId: req?.user?.portalId
         })
 
         const savedUser = await newUser.save()
 
-        await emailService.sendUserCredentialsEmail({email, firstName, password})
+        await emailService.sendUserCredentialsEmail({email, firstName, password: password = uniqueUserId})
 
         delete savedUser.password
         return sendResponse({res,status: 200, data: savedUser, message: "New user created successfully"})
@@ -320,8 +336,9 @@ exports.getUserPermission = async (req, res) => {
 
         if (response) {
           const newResponse = await getPermission(response)
+          const typeData = await TypesModel.find()
     
-          return sendResponse({res, status: 200, data: newResponse, message: "user found successfully"})
+          return sendResponse({res, status: 200, data: {permissions: newResponse, typeData: typeData}, message: "user found successfully"})
         } else {
             return sendResponse({res, status: 400, message: "no user found..."})
         }
@@ -332,7 +349,15 @@ exports.getUserPermission = async (req, res) => {
 
 const getPermission = async (response) => { 
 
-    const featureList = await FeatureList.find({})
+    const typeData = await TypesModel.find()
+    const type = typeData.reduce((acc, item)=>[...acc, item.featureType], [])
+    const userType = typeData.find(item=>item.userType===response.userType)
+    const featureType = userType.featureType 
+    if(!type.includes(featureType)){
+        return sendResponse({ res, status:400, message: "Invalid feature type"})
+    }
+
+    const featureList = await FeatureList.find({featureType:featureType})
     const resultArray = JSON.parse(JSON.stringify(response.userRole));
 
     const mergedResultsArray = [];
@@ -405,8 +430,7 @@ const getPermission = async (response) => {
           return featureCode.toUpperCase()
       }
   }
-  const generateSubFeatureCode = (subFeatureName) => {
-
+  const generateSubFeatureCode = (subFeatureName) => {  
       const subFeatureNameArray = subFeatureName.split(" ")
       const subFeatureCode = subFeatureNameArray.reduce((code, item)=> code.concat(item.trim().slice(0,2)), '')
       

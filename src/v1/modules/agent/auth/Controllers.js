@@ -9,6 +9,8 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const bcrypt = require('bcrypt');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
 
+const { TypesModel } = require("@src/v1/models/master/Types")
+
 
 module.exports.getAgency = async (req, res) => {
 
@@ -81,6 +83,8 @@ module.exports.createAgency = async (req, res) => {
         }
         await emailService.sendAgencyCredentialsEmail(agencydData);
 
+        const type = await TypesModel.findOne({_id:"67110114f1cae6b6aadc2425"})
+
         const masterUser = new MasterUser({
             firstName : first_name,
             lastName : last_name,
@@ -88,7 +92,9 @@ module.exports.createAgency = async (req, res) => {
             email : email,
             mobile : phone,
             password: hashedPassword,
-            userType : '6',
+            userType : type.userType,
+            createdBy: req.user._id,
+            portalId: savedAgency._id 
         });
 
         await masterUser.save();

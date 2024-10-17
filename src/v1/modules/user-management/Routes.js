@@ -7,8 +7,8 @@ const { createUserRole, getFeatures , editUserRolePage, editUserRole, getUserRol
 
 userManagementRoutes.get('/getFeatures/:type', verifyJwtToken , getFeatures )
 userManagementRoutes.post('/createUserRole' , verifyJwtToken, createUserRole )
-userManagementRoutes.get('/editUserRolePage/:id',verifyJwtToken ,  editUserRolePage )
-userManagementRoutes.put('/editUserRole', verifyJwtToken , editUserRole )
+userManagementRoutes.get('/editUserRolePage/:id' ,verifyJwtToken, editUserRolePage )
+userManagementRoutes.put('/editUserRole' , verifyJwtToken, editUserRole )
 userManagementRoutes.get('/getUserRoles', verifyJwtToken , getUserRoles )
 userManagementRoutes.get('/getUserRoleList', verifyJwtToken, getUserRoleList)
 

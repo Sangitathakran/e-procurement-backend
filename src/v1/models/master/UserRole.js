@@ -23,9 +23,8 @@ const userRoleSchema = new mongoose.Schema({
     },
     userRoleType: { 
         type:String,
-        enum: Object.values(_userType)
     },
-    admin: { 
+    isAdminUserRole: { 
         type: Boolean, 
         default:false
     },
@@ -84,93 +83,10 @@ const userRoleSchema = new mongoose.Schema({
             ],
         }
     ],
-    history: [{
-        data: {
-            userRoleName: { 
-                type: String, 
-                required: true
-            },
-            userAssigned: { 
-                type: Number, 
-                default: 0
-            },
-            createdBy: { 
-                type: mongoose.Schema.Types.ObjectId,
-                ref: _collectionName.MasterUser,
-                default: null
-            },
-            updatedBy : { 
-                type: mongoose.Schema.Types.ObjectId,
-                ref: _collectionName.MasterUser,
-                default: null
-            },
-            features: [
-                {
-                    featureName: { 
-                        type: String
-                    },
-                    enabled : { 
-                        type: Boolean
-                    },
-                    subFeatures: [
-                        { 
-                            subFeatureName: { 
-                                type: String
-                            },
-                            enabled : { 
-                                type: Boolean
-                            },
-                            permissions: {
-                                
-                                view : {
-                                    type: Boolean,
-                                    default: false
-                                },
-                                add : {
-                                    type: Boolean,
-                                    default: false
-                                },
-                                edit : {
-                                    type: Boolean,
-                                    default: false
-                                },
-                                delete : {
-                                    type: Boolean,
-                                    default: false
-                                },
-                                export : {
-                                    type: Boolean,
-                                    default: false
-                                },
-                                status : {
-                                    type: Boolean,
-                                    default: false
-                                },
-                                takeAction: {
-                                    type: Boolean,
-                                    default: false
-                                }
-                            },
-                            components: [{
-                                componentName: {type: String},
-                                enabled: {type: Boolean}
-                            }]
-                        }    
-                    ],
-                }
-            ]
-        },
-        version: {
-            type: Number,
-            default: 1
-        },
-        updatedAt: { type: Date, default: Date.now },
-        updatedBy : { 
-            type: mongoose.Schema.Types.ObjectId,
-            ref: _collectionName.MasterUser,
-            default: null
-        }
-    }] 
+    history: {
+        type: [mongoose.Schema.Types.Mixed], 
+        default: [] 
+    }
 },
     { timestamps : true}
 )
