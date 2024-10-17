@@ -646,7 +646,7 @@ const validationSchemas = {
         errorMessage: 'Village is required',
       },
     },
-    'address.pinCode': {
+    'address.pin_code': {
       notEmpty: {
         errorMessage: 'Pin code is required',
       },
