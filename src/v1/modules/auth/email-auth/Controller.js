@@ -1,5 +1,5 @@
 
-const MasterUser = require("@src/v1/models/master/MasterUser");
+const {MasterUser} = require("@src/v1/models/master/MasterUser");
 const { _auth_module, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
@@ -52,7 +52,7 @@ module.exports.login = async (req, res) => {
 
 const getPermission = async (response) => { 
 
-    const featureList = await FeatureList.find({})
+    const featureList = await FeatureList.find({featureType:"agency"})
     const resultArray = JSON.parse(JSON.stringify(response.userRole));
 
     const mergedResultsArray = [];

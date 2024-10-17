@@ -5,7 +5,7 @@ const {MasterUser} = require("@src/v1/models/master/MasterUser")
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const bcrypt = require("bcrypt");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
-
+const { _featureType } = require("@src/v1/utils/constants");
 
 
 
@@ -67,7 +67,7 @@ exports.editUserRolePage = async (req, res) => {
             return sendResponse({res, status: 400, message: "user role id not provided"})
         }
         const response = await UserRole.findOne({_id:userRoleId})
-        const features = await FeatureList.find({})
+        const features = await FeatureList.find({featureType:Object.values(_featureType)})
       
         if(response){
 

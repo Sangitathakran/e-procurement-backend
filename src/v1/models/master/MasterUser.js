@@ -144,7 +144,7 @@ const userSchema = new mongoose.Schema({
 
 { timestamps : true }
 
-
+// userType collection featureType ... has to match with each other can should never change 
 
 )
 
@@ -160,7 +160,7 @@ userSchema.pre('save', function (next) {
             this.portalRef = _collectionName.agency;
             break;
         case _userType.associate:
-            this.portalRef = _collectionName.Users;
+            this.portalRef = _collectionName.Users; // it should be associate , need to change it later
             break;
         default: 
             this.portalRef = null; 

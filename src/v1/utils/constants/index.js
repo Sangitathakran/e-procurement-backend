@@ -39,6 +39,10 @@ const _collectionName = {
     Agency: "Agency"
 }
 
+const _userType_Feature_Collection = {
+    
+}
+
 const _userAction = { 
     created: "created",
     deleted: "deleted",

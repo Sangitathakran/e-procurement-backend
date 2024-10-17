@@ -107,7 +107,7 @@ exports.createFeature = async (req, res) => {
 
         const featureCode = generateFeatureCode(featureDetails.featureName)
 
-        const isExistingFeatureCode = await FeatureList.findOne({featureCode: featureCode})
+        const isExistingFeatureCode = await FeatureList.findOne({featureCode: featureCode, featureType: featureDetails.featureType})
         if(isExistingFeatureCode){
             return sendResponse({res,status: 400, message: "feature code error, please try again" });
         }
@@ -132,6 +132,10 @@ exports.createSubFeature = async (req, res) => {
         const subFeatureDetails = req.body
         const featureCode = req.params.featureCode
 
+        if(!Object.values(_featureType).includes(subFeatureDetails.featureType)){
+            return sendResponse({res,status: 400, message: "invalid feature type" });
+        }
+
         const generateSubFeatureCode = (subFeatureName) => {
 
             const subFeatureNameArray = subFeatureName.split(" ")
@@ -147,7 +151,7 @@ exports.createSubFeature = async (req, res) => {
 
         const subFeatureCode = generateSubFeatureCode(subFeatureDetails.subFeatureName)
 
-        const feature = await FeatureList.findOne({featureCode: featureCode})
+        const feature = await FeatureList.findOne({featureCode: featureCode, featureType: subFeatureDetails.featureType})
         if(!feature){
             return sendResponse({res,status: 400, message: "invalid feature code, please try again" });
         }
