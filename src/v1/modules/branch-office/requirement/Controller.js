@@ -93,17 +93,21 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
     }
 
-    if (material_image.length > 0) {
+    if (qc_report.length > 0 && material_image.length > 0) {
+        record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+        record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
+    } else if (qc_report.length > 0 && material_image.length > 0 && data) {
+        record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+        record.dispatched.qc_report.received_qc_status = received_qc_status.rejected;
+        record.reason = { text: data, on: moment() }
+
+    } else if (material_image.length > 0) {
         record.dispatched.material_img.received.push(...material_image.map(i => { return { img: i, on: moment() } }))
     } else if (weight_slip.length > 0) {
         record.dispatched.weight_slip.received.push(...weight_slip.map(i => { return { img: i, on: moment() } }))
     } else if (qc_report.length > 0) {
         record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
         record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
-    } else if (qc_report.length > 0 && data) {
-        record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
-        record.dispatched.qc_report.received_qc_status = received_qc_status.rejected;
-        record.reason = { text: data, on: moment() }
     } else if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
         record.delivered.proof_of_delivery = proof_of_delivery;
         record.delivered.weigh_bridge_slip = weigh_bridge_slip;
@@ -157,5 +161,64 @@ module.exports.getFarmerByBatchId = asyncErrorHandler(async (req, res) => {
     }
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
+
+})
+
+
+module.exports.auditTrail = asyncErrorHandler(async (req, res) => {
+
+    const { id } = req.query;
+
+    const record = await Batch.findOne({ _id: id });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
+    }
+
+    const { dispatched, intransit, delivered, createdAt, payment_at, payement_approval_at } = record;
+
+    const steps = [
+        {
+            name: "Batch Created",
+            status: "completed", // or "in-progress"
+            date: "22 Sep, 2024 11:30 AM",
+        },
+        {
+            name: "Mark Dispatched",
+            icon: BatchCreatedSteper,
+            status: "completed",
+            date: "22 Sep, 2024 11:30 AM",
+        },
+        {
+            name: "In Transit",
+            icon: BatchCreatedSteper,
+            status: "in-progress",
+            date: "22 Sep, 2024 11:30 AM",
+        },
+        {
+            name: "Delivery Date",
+            icon: DeliveryDateSteper,
+            status: "in-progress",
+            date: "22 Sep, 2024 11:30 AM",
+        },
+        {
+            name: "Final QC Check",
+            icon: FinalQcCheckSteper,
+            status: "in-progress",
+            date: "22 Sep, 2024 11:30 AM",
+        },
+        {
+            name: "Payment Approval Date",
+            icon: FinalQcCheckSteper,
+            status: "in-progress",
+            date: "22 Sep, 2024 11:30 AM",
+        },
+        {
+            name: "Payment Paid",
+            icon: PaymentPaidSteper,
+            status: "completed",
+            date: "22 Sep, 2024 11:30 AM",
+        },
+    ];
 
 })
