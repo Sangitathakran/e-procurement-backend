@@ -1,6 +1,6 @@
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const { _batchStatus, received_qc_status } = require("@src/v1/utils/constants");
+const { _batchStatus, received_qc_status, _paymentstatus } = require("@src/v1/utils/constants");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
@@ -85,9 +85,9 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
 module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
     const { id, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, material_image = [], weight_slip = [], qc_report = [], data, paymentIsApprove = 0 } = req.body;
-    const { user_id } = req;
+    const { user_id, user_type } = req;
 
-    const record = await Batch.findOne({ _id: id });
+    const record = await Batch.findOne({ _id: id }).populate("req_id");
 
     if (!record) {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
@@ -108,6 +108,10 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
     } else if (qc_report.length > 0) {
         record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
         record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
+
+        const paymentData = { whomToPay: "awqw", user_type, user_id, qtyProcured: record.qty, reqNo: record.req_id.reqNo, req_id: record.req_id._id, commodity: record.req_id.product.name, payment_id: "", transaction_id: "", amount: " ", date: new Date(), method: "", payment_status: _paymentstatus.completed, status: "" }
+
+
     } else if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
         record.delivered.proof_of_delivery = proof_of_delivery;
         record.delivered.weigh_bridge_slip = weigh_bridge_slip;
