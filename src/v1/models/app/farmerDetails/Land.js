@@ -20,10 +20,6 @@ const landSchema = new mongoose.Schema({
         enum: Object.values(_areaUnit).slice(0, 2), 
         required: false 
     },
-    state: { type: String, required: false },
-    district: { type: String, required: false },
-    village: { type: String, required: false },
-    block: { type: String, required: false },
     khatauni: { type: String },
     khasra_no: { type: String },
     khata_number: { type: String },
@@ -31,6 +27,12 @@ const landSchema = new mongoose.Schema({
         type: String, 
         enum: Object.values(_soilType), 
         required: false 
+    },
+    land_address: {
+        state_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity' },
+        district_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity.districts' },
+        village: { type: String, required: false },
+        block: { type: String, required: false },
     },
     soil_tested: { type: String, enum: Object.values(_yesNo), required: false },
     uploadSoil_health_card: { type: String }, // if soilTested is true
