@@ -281,7 +281,10 @@ module.exports.submitForm = async (req, res) => {
         //console.log("isMszSent==>",isMszSent)
         if (isMszSent && isMszSent.response && isMszSent.response.status === 'success') {
           // Message was sent successfully
+          const landDetails = await Land.find({farmer_id:id});
+          let land_ids=landDetails.map(item=>({land_id:item._id}))
           farmerDetails.is_welcome_msg_send = true;
+          farmerDetails.land_details=land_ids
         }
 
         const farmerUpdatedDetails = await farmerDetails.save();
