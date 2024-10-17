@@ -1,4 +1,4 @@
-const { _collectionName } = require('@src/v1/utils/constants')
+const { _collectionName, _userType } = require('@src/v1/utils/constants')
 const mongoose = require('mongoose')
 
 const userRoleSchema = new mongoose.Schema({
@@ -20,6 +20,14 @@ const userRoleSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: _collectionName.MasterUser,
         default: null
+    },
+    userRoleType: { 
+        type:String,
+        enum: Object.values(_userType)
+    },
+    admin: { 
+        type: Boolean, 
+        default:false
     },
     features: [
         {

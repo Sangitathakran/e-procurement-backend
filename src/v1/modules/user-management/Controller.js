@@ -13,7 +13,7 @@ const { _featureType } = require("@src/v1/utils/constants");
 exports.getFeatures = async (req, res) =>{
 
     try {
-     const featureType = req.params.type || null
+     const featureType = req.params.type || null 
      const query = featureType ? {} : {featureType: featureType}
      const features = await FeatureList.find(query)
      return sendResponse({ res, status:200, data: features , message: `${features.length} features in ${featureType}` });
@@ -223,6 +223,21 @@ exports.getUserRoles = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+}
+
+exports.getUserRoleList = async (req, res) => { 
+  try {
+
+      const userRoles = await UserRole.find({createdBy: req.user._id}).select("_id userRoleName")
+      if(userRoles.length < 1){
+        return sendResponse({res,status: 200,data: [] ,message: "no user found"});
+      }
+      return sendResponse({res,status: 200,data: userRoles ,message: "user role list"});
+
+
+  } catch (error) {
+      _handleCatchErrors(error, res);
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -553,6 +568,26 @@ exports.getUsersByUser = async (req, res) => {
       _handleCatchErrors(error, res);
   }
 }
+
+exports.getSingleUser = async ( req, res) =>{
+  try {
+
+      const userId  = req.params.id
+      if(!userId){
+          return sendResponse({res, status: 400, message: "user id not provided"})
+      }
+      const user = await MasterUser.findOne({_id:userId}).populate({path:"userRole", select: "_id userRoleName"})
+      if(!user){
+          return sendResponse({res, status: 400, message: "user not exist or wrong user id"})
+      }
+
+      return sendResponse({res, status: 200, data: user, message: "fetched user successfully"})
+      
+  } catch (error) {
+      _handleCatchErrors(error, res);
+  }
+}
+
 
 function generateUserId() {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
