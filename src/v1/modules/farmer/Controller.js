@@ -621,8 +621,8 @@ module.exports.updateLand = async (req, res) => {
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     } = req.body;
 
-    const state_id = await getStateId(state_name);
-    const district_id = await getDistrictId(district_name);
+    const state_id = await getStateId(state);
+    const district_id = await getDistrictId(district);
 
     const updatedLand = await Land.findByIdAndUpdate(
       land_id,

@@ -552,11 +552,6 @@ const validateLand = checkSchema({
 
 const validationSchemas = {
   basic_details:  {
-    'basic_details.profile_pic': {
-      notEmpty: {
-        errorMessage: 'Profile Pic is required',
-      }
-    },
     'basic_details.name': {
       notEmpty: {
         errorMessage: 'Name is required',
