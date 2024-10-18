@@ -226,10 +226,23 @@ module.exports.lot_list = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', farmerOrderId } = req.query;
 
+        const batchIds = await Batch.find({ _id: farmerOrderId }).select({ _id: 1, farmerOrderIds: 1 });
+        
+        let farmerOrderIdsOnly = {}
+
+        if (batchIds && batchIds.length > 0) {
+            farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
+            console.log(farmerOrderIdsOnly);
+        } else {
+            console.log('No Farmer found with this batch.');
+        }
+
         let query = {
-            _id: farmerOrderId,
+            // _id: farmerOrderId,
+            _id: farmerOrderIdsOnly,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
+        
 
         const records = { count: 0 };
         records.rows = paginate == 1 ? await FarmerOrders.find(query)
