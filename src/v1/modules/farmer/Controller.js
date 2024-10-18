@@ -736,38 +736,30 @@ module.exports.createCrop = async (req, res) => {
 
 module.exports.getIndCropDetails = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy = 'crops_name', paginate = 1, farmer_id } = req.query;
-    const skip = (page - 1) * limit;
-    const currentDate = new Date();
-    const query = farmer_id ? { farmer_id } : {};
-    const records = { pastCrops: {}, upcomingCrops: {} };
+    const { farmer_id,land_id } = req.query;
+    
+    if(!farmer_id && !land_id) return sendResponse({res,status:400,message:"Please provide farmer Id and land Id"})
+    const query = farmer_id ? { farmer_id,land_id } : {};
 
-    const fetchCrops = async (cropQuery) => paginate == 1
-      ? Crop.find(cropQuery).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
-      : Crop.find(cropQuery).sort(sortBy).populate('farmer_id', 'id name');
-
-    const [pastCrops, upcomingCrops] = await Promise.all([
-      fetchCrops({ ...query, sowing_date: { $lt: currentDate } }),
-      fetchCrops({ ...query, sowing_date: { $gt: currentDate } })
-    ]);
-
-    const [pastCount, upcomingCount] = await Promise.all([
-      Crop.countDocuments({ ...query, sowing_date: { $lt: currentDate } }),
-      Crop.countDocuments({ ...query, sowing_date: { $gt: currentDate } })
-    ]);
-
-    records.pastCrops = { rows: pastCrops, count: pastCount };
-    records.upcomingCrops = { rows: upcomingCrops, count: upcomingCount };
-
-    if (paginate == 1) {
-      const totalPages = (count) => Math.ceil(count / limit);
-      records.pastCrops.pages = totalPages(pastCount);
-      records.upcomingCrops.pages = totalPages(upcomingCount);
+    const fetchCrops = await Crop.find(query).populate('farmer_id', 'id name')
+    let crops={
+      farmer_id:fetchCrops[0]?.farmer_id,
+      land_id:fetchCrops[0]?.land_id,
+      kharif_crops:[],rabi_crops:[],zaid_crops:[]
     }
+      if(fetchCrops){
+        crops.kharif_crops=fetchCrops.filter(item=>item.crop_season=='kharif').map(item=>item.crop_name)
+        crops.rabi_crops=fetchCrops.filter(item=>item.crop_season=='rabi').map(item=>item.crop_name)
+        crops.zaid_crops=fetchCrops.filter(item=>item.crop_season=='zaid').map(item=>item.crop_name)
+      }
+
+
+
+    
 
     return res.status(200).send(new serviceResponse({
       status: 200,
-      data: records,
+      data: crops,
       message: _response_message.found("Crops")
     }));
 
@@ -816,7 +808,76 @@ module.exports.getCrop = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+module.exports.updateIndCrop=async(req,res)=>{
+             try{
+            
+            
+             const { farmer_id } = req.params;
+             const {
+              land_id,kharif_crops,rabi_crops,zaid_crops
+            } = req.body;
+            const cropDetails=await Crop.find({farmer_id,land_id});
+            if(cropDetails){
+              for(let item of cropDetails){
+                if(item.crop_season=='kharif'){
+                  if(kharif_crops.includes(item.crop_name)){
+                    kharif_crops.pop(item.crop_name)
+                  }else{
 
+                    const response = await Crop.deleteOne({ _id: item._id });
+                  }
+                }
+                if(item.crop_season=='rabi'){
+                  if(rabi_crops.includes(item.crop_name)){
+                    rabi_crops.pop(item.crop_name)
+                  }else{
+                    const response = await Crop.deleteOne({ _id: item._id });
+                  }
+                }
+                if(item.crop_season=='zaid'){
+                  if(zaid_crops.includes(item.crop_name)){
+                    zaid_crops.pop(item.crop_name)
+                  }else{
+                    const response = await Crop.deleteOne({ _id: item._id });
+                  }
+                }
+               
+             
+            }
+            let fieldSets=[]
+            let fieldSet={land_id,farmer_id}
+            for(item of kharif_crops){
+              console.log('fieldSet',fieldSet)
+              fieldSets.push({...fieldSet,crop_season:"kharif",crop_name:item})
+              
+            }
+            for(item of rabi_crops){
+              fieldSets.push({...fieldSet,crop_season:"rabi",crop_name:item})
+              
+            }
+            for(item of zaid_crops){
+              fieldSets.push({...fieldSet,crop_season:"zaid",crop_name:item})
+            }
+            
+            let saveCrops= await Crop.insertMany(fieldSets)
+            if (!cropDetails) {
+              return res.status(200).send(new serviceResponse({
+                status: 404,
+                message: _response_message.notFound("Crop")
+              }));
+            }
+        
+            return res.status(200).send(new serviceResponse({
+              status: 200,
+              data: {farmer_id,land_id,kharif_crops,rabi_crops,zaid_crops},
+              message: _response_message.updated("Crop")
+            }));
+          }
+          }catch(err){
+            console.log('Error',err)
+            _handleCatchErrors(err, res);
+           }        
+}
 
 module.exports.updateCrop = async (req, res) => {
   try {
