@@ -317,6 +317,14 @@ exports.createUser = async (req, res) => {
 
         const savedUser = await newUser.save()
 
+        //assigned user role increment 
+        savedUser.userRole.map(async (role) => {
+          await UserRole.findOneAndUpdate(
+            { _id: role },
+            { $inc: { userAssigned: 1 } }
+          );
+        });
+
         await emailService.sendUserCredentialsEmail({email, firstName, password: password = uniqueUserId})
 
         delete savedUser.password
@@ -527,7 +535,31 @@ exports.editUser = async ( req, res) =>{
       if(req.body?.userRole.length > 0){
         user.userRole = req.body?.userRole;
       }
+      const previousUser = await MasterUser.find({_id:userId})
       const updatedUser = await user.save()
+
+
+      if(previousUser &&  updatedUser){
+        // checking the removal of userRole
+        previousUser.userRole.forEach(async (beforeRole) => {
+          if (!updatedUser.userRole.includes(beforeRole)) {
+            await UserRole.findOneAndUpdate(
+              { _id: beforeRole },
+              { $inc: { userAssigned: -1 } }
+            );
+          }
+        });
+
+        //checking the addition of userRole
+        updatedUser.userRole.forEach(async (afterRole) => {
+          if (!previousUser.userRole.includes(afterRole)) {
+            await UserRole.findOneAndUpdate(
+              { _id: afterRole },
+              { $inc: { userAssigned: 1 } }
+            );
+          }
+        });
+      }
 
       return sendResponse({res, status: 200, data: updatedUser, message: "user edited successfully"})
       
@@ -572,7 +604,7 @@ exports.getUsersByUser = async (req, res) => {
 
       const query = search ? makeSearchQuery(searchFields) : {createdBy : req.user._id}
       const records = { count: 0, rows: [] };
-      const userRoles = await MasterUser.find(query).skip(skip).limit(parseInt(limit))
+      const userRoles = await MasterUser.find(query).populate({path:"userRole", select: "_id userRoleName"}).skip(skip).limit(parseInt(limit))
       if(userRoles.length < 1){
           return sendResponse({res, status: 400, message: "no user found"})
       }
