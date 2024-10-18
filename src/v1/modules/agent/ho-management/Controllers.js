@@ -4,9 +4,12 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { User } = require("@src/v1/models/app/auth/User");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const bcrypt = require('bcrypt');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
+const { TypesModel } = require('@src/v1/models/master/Types');
+const { MasterUser } = require('@src/v1/models/master/MasterUser');
+const UserRole = require('@src/v1/models/master/UserRole');
 
 
 module.exports.getHo = async (req, res) => {
@@ -86,16 +89,26 @@ module.exports.saveHeadOffice = async (req, res) => {
         const { company_details, point_of_contact, address, authorised } = req.body;
         const password = generateRandomPassword();
 
+        // this is to get the type object of head office
+        const type = await TypesModel.findOne({_id:"671100dbf1cae6b6aadc2423"})
+
         const hashedPassword = await bcrypt.hash(password, 10);
         const headOffice = new HeadOffice({
             password: hashedPassword,
             email_verified: false,
-            user_ype: "5",
+            user_type: type.userType,
             company_details,
             point_of_contact,
             address,
             authorised,
         });
+
+
+        // checking the existing user in Master User collection
+        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:authorised.phone},{email:authorised.email}]})
+        if(isUserAlreadyExist){
+          return sendResponse({res, status: 400, message: "user already existed with this mobile number or email in Master"})
+        }
 
         const savedHeadOffice = await headOffice.save();
         const hoPocData = {
@@ -109,6 +122,23 @@ module.exports.saveHeadOffice = async (req, res) => {
             password: password,
         }
         await emailService.sendHoCredentialsEmail(hoAuthorisedData);
+
+        
+
+
+        const masterUser = new MasterUser({
+            firstName : authorised.name,
+            isAdmin : true,
+            email : authorised.email,
+            mobile : authorised.phone,
+            password: hashedPassword,
+            userType : type.userType,
+            userRole: [type.adminUserRoleId],
+            createdBy: req.user._id,
+            portalId: savedHeadOffice._id 
+        });
+
+        await masterUser.save();
 
         return res.status(200).send(new serviceResponse({ message: _response_message.created('Head Office'), data: savedHeadOffice }));
     } catch (error) {

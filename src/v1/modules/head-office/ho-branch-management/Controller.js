@@ -1,5 +1,7 @@
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { MasterUser } = require("@src/v1/models/master/MasterUser");
+
 const {
   _response_message,
   _middleware,
@@ -11,149 +13,189 @@ const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 
 const xlsx = require("xlsx");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer"); 
-const { _status } = require("@src/v1/utils/constants");
+const { _status, _userType } = require("@src/v1/utils/constants");
 const { validateBranchData } = require("@src/v1/modules/head-office/ho-branch-management/Validations")
 const { generateRandomPassword } = require('@src/v1/utils/helpers/randomGenerator');
 const bcrypt = require('bcrypt');
+const { TypesModel } = require("@src/v1/models/master/Types");
+const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 
 
 
 module.exports.importBranches = async (req, res) => {
-    try {
-      const { _id } = req;
- 
-      const headOfficeId = _id;
-  
-      if (!headOfficeId) {
-        return res.status(403).json({
-          message: "HeadOffice not found",
-          status: 403,
-        });
-      }
-  
-  
-      // Check if the file is provided via the global multer setup
-      if (!req.files || req.files.length === 0) {
-        return res
-          .status(400)
-          .send(
-            new serviceResponse({
-              status: 400,
-              message: _response_message.fileMissing,
-            })
-          );
-      }
-  
-      // Access the uploaded file
-      const uploadedFile = req.files[0]; 
-  
-      // Read the Excel file using xlsx
-      const workbook = xlsx.read(uploadedFile.buffer, { type: 'buffer' });
-      const sheet_name_list = workbook.SheetNames;
-      const excelData = xlsx.utils.sheet_to_json(workbook.Sheets[sheet_name_list[0]]); // Convert first sheet to JSON
-  
-      // Expected headers
-      const expectedHeaders = [
-        'branchName', 'emailAddress', 'pointOfContactName', 'pointOfContactPhone', 'pointOfContactEmail', 
-        'address', 'cityVillageTown', 'state', 'pincode'
-      ];
-      
-      // Validate headers
-      const fileHeaders = Object.keys(excelData[0] || {});
-      const missingHeaders = expectedHeaders.filter(header => !fileHeaders.includes(header));
+  try {
+    const headOfficeId = req.params.id;
 
-      if (missingHeaders.length > 0) {
-        return res.status(400).send(
+    if (!headOfficeId) {
+      return res.status(403).json({
+        message: "HeadOffice not found",
+        status: 403,
+      });
+    }
+
+
+    // Check if the file is provided via the global multer setup
+    if (!req.files || req.files.length === 0) {
+      return res
+        .status(400)
+        .send(
           new serviceResponse({
             status: 400,
-            message: `Missing required headers: ${missingHeaders.join(', ')}`,
+            message: _response_message.fileMissing,
           })
         );
-      }
+    }
 
-      // Extract all emailAddresses from the Excel data
-      const emailAddresses = excelData.map(row => row.emailAddress);
+    // Access the uploaded file
+    const uploadedFile = req.files[0]; 
 
-      // Check if any of the email addresses already exist in the database
-      const existingBranches = await Branches.find({ emailAddress: { $in: emailAddresses } });
 
-      if (existingBranches.length > 0) {
-        // If there are existing email addresses, send an error response with email address details
-        const existingEmails = existingBranches.map(branch => branch.emailAddress);
-        return res.status(400).json({
-          status: 400,
-          message: `The following email addresses already exist in the system: ${existingEmails.join(', ')}`,
-        });
-      }
+    // Read the Excel file using xlsx
+    const workbook = xlsx.read(uploadedFile.buffer, { type: 'buffer' });
+    const sheet_name_list = workbook.SheetNames;
+    const excelData = xlsx.utils.sheet_to_json(workbook.Sheets[sheet_name_list[0]]); // Convert first sheet to JSON
+    console.log('excelData length-->', excelData)
+    // Expected headers
+    const expectedHeaders = [
+      'branchName', 'emailAddress', 'pointOfContactName', 'pointOfContactPhone', 'pointOfContactEmail', 
+      'address', 'district', 'cityVillageTown', 'state', 'pincode'
+    ];
+    
+    // Validate headers
+    const fileHeaders = Object.keys(excelData[0] || {});
+    const missingHeaders = expectedHeaders.filter(header => !fileHeaders.includes(header));
 
-      const validationError = await validateBranchData(excelData, expectedHeaders, existingBranches);
-      if (validationError) {
-        return res.status(validationError.status).send(new serviceResponse(validationError));
-      }
-      // Parse the rows into Branch objects, with status set to inactive by default
-      const branches = await Promise.all(excelData.map(async (row) => {
-        const password = generateRandomPassword();
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        return {
-          branchName: row.branchName,
-          emailAddress: row.emailAddress,
-          pointOfContact: {
-            name: row.pointOfContactName,
-            phone: row.pointOfContactPhone,
-            email: row.pointOfContactEmail
-          },
-          address: row.address,
-          cityVillageTown: row.cityVillageTown,
-          state: row.state,
-          pincode: row.pincode,
-          status: _status.inactive,
-          headOfficeId: headOfficeId,
-          password: hashedPassword,
-        }; 
-      }));
-
-      // Insert the branches into the database
-      for (const branchData of branches) {
-        const branch = new Branches(branchData);
-        await branch.save();  
-      }
-
-       // Send an email to each branch email address notifying them that the branch has been created
-       for (const branch of branches) {
-            const subject = 'Welcome to NCCF E-Procurement Portal👋';
-            const body = `<p>Dear ${branch.pointOfContact.name},</p>
-                      <p>You are invited to join NCCF E-Procurement Portal! For login, You need to reset the temporary password. Please click the button given below to create your new account password.</p>
-                      <strong>(CHANGE PASSWORD)</strong><br/>
-                      <p>Email Id: </p>
-                      <p>Temporary Password: </p>
-                      <p>Link: </p>
-                      <p>Thank you,<br/>NCCF E-Procurement Team</p>`;
-  
-        // Use the helper function to send the email
-        sendMail(branch.emailAddress, null, subject, body).catch(err => {
-          console.error(`Failed to send email to ${branch.emailAddress}: ${err.message}`);
-      });;
-      }
-  
-      return res
-      .status(200)
-      .send(
+    if (missingHeaders.length > 0) {
+      return res.status(400).send(
         new serviceResponse({
-          status: 200,
-          message: _response_message.importSuccess(),
+          status: 400,
+          message: `Missing required headers: ${missingHeaders.join(', ')}`,
         })
       );
-    } catch (err) {
-      _handleCatchErrors(err, res);
     }
-  };
+
+    // Extract all emailAddresses from the Excel data
+    const emailAddresses = excelData.map(row => row.emailAddress);
+
+    // Check if any of the email addresses already exist in the database
+    const existingBranches = await Branches.find({ emailAddress: { $in: emailAddresses } });
+
+    if (existingBranches.length > 0) {
+      // If there are existing email addresses, send an error response with email address details
+      const existingEmails = existingBranches.map(branch => branch.emailAddress);
+      return res.status(400).json({
+        status: 400,
+        message: `The following email addresses already exist in the system: ${existingEmails.join(', ')}`,
+      });
+    }
+
+    const validationError = await validateBranchData(excelData, expectedHeaders, existingBranches);
+    if (validationError) {
+      return res.status(validationError.status).send(new serviceResponse(validationError));
+    }
+    // Parse the rows into Branch objects, with status set to inactive by default
+    const branches = await Promise.all(excelData.map(async (row) => {
+      const password = generateRandomPassword();
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      return {
+        branchName: row.branchName,
+        emailAddress: row.emailAddress,
+        pointOfContact: {
+          name: row.pointOfContactName,
+          phone: row.pointOfContactPhone,
+          email: row.pointOfContactEmail
+        },
+        address: row.address,
+        cityVillageTown: row.cityVillageTown,
+        state: row.state,
+        district:row.district,
+        pincode: row.pincode,
+        status: _status.inactive,
+        headOfficeId: headOfficeId,
+        password: password,
+        hashedPassword:hashedPassword,
+      }; 
+    }));
+
+    //this is to get the type object of head office  
+    const type = await TypesModel.findOne({_id:"67110087f1cae6b6aadc2421"})
+  
+    
+
+    // Insert the branches into the database
+    for (const branchData of branches) {
+      // checking the existing user in Master User collection
+      const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:branchData.pointOfContact.email},{email:branchData.pointOfContact.phone}]})
+      if(isUserAlreadyExist){
+        throw new Error("user already existed with this mobile number or email in Master")
+      }
+      const newBranchPayload = {
+        branchName: branchData.branchName,
+        emailAddress: branchData.emailAddress,
+        pointOfContact: {
+          name: branchData.pointOfContact.name,
+          phone: branchData.pointOfContact.phone,
+          email: branchData.pointOfContact.email
+        },
+        address: branchData.address,
+        cityVillageTown: branchData.cityVillageTown,
+        district:branchData.district,
+        state: branchData.state,
+        pincode: branchData.pincode,
+        headOfficeId: headOfficeId,
+        password: branchData.hashedPassword,
+      }
+      const branch = new Branches(newBranchPayload);
+      const newBranch = await branch.save();
+      
+      
+      const masterUser = new MasterUser({
+        firstName : branchData.pointOfContact.name,
+        isAdmin : true,
+        email : branchData.pointOfContact.email,
+        mobile : branchData.pointOfContact.phone,
+        password: branchData.hashedPassword,
+        userType : type.userType,
+        createdBy: req.user._id,
+        userRole: [type.adminUserRoleId],
+        portalId: newBranch._id
+      });
+
+      await masterUser.save();
+    }
+
+     // Send an email to each branch email address notifying them that the branch has been created
+     for (const branchData of branches) {
+          const hoAuthorisedData = {
+            email: branchData.pointOfContact.email,
+            name: branchData.pointOfContact.name,
+            password: branchData.password,
+        }
+        await emailService.sendHoCredentialsEmail(hoAuthorisedData);
+
+    }
+
+    return res
+    .status(200)
+    .send(
+      new serviceResponse({
+        status: 200,
+        message: _response_message.importSuccess(),
+        data:branches
+      })
+    );
+  } catch (err) {
+    _handleCatchErrors(err, res);
+  }
+};
+
   
   
 
   module.exports.exportBranches = async (req, res) => {
     try {
-      const branches = await Branches.find({}, 'branchId branchName emailAddress pointOfContact address cityVillageTown state pincode status createdAt');
+      const branches = await Branches.find({}, 'branchId branchName emailAddress pointOfContact address district cityVillageTown state pincode status createdAt');
   
       // Format the data to be exported
       const branchData = branches.map((branch) => ({
@@ -162,6 +204,7 @@ module.exports.importBranches = async (req, res) => {
         name: branch.branchName,
         email: branch.emailAddress,
         address: branch.address,
+        district: branch.district,
         cityVillageTown: branch.cityVillageTown, 
         state: branch.state,                     
         pincode: branch.pincode, 
