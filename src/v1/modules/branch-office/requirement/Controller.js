@@ -93,14 +93,13 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
     }
 
-    if (qc_report.length > 0 && material_image.length > 0) {
-        record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
-        record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
-    } else if (qc_report.length > 0 && material_image.length > 0 && data) {
+    if (qc_report.length > 0 && material_image.length > 0 && data) {
         record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
         record.dispatched.qc_report.received_qc_status = received_qc_status.rejected;
         record.reason = { text: data, on: moment() }
-
+    } else if (qc_report.length > 0 && material_image.length > 0) {
+        record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+        record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
     } else if (material_image.length > 0) {
         record.dispatched.material_img.received.push(...material_image.map(i => { return { img: i, on: moment() } }))
     } else if (weight_slip.length > 0) {
@@ -109,7 +108,7 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
         record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
         record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
 
-        const paymentData = { whomToPay: "awqw", user_type, user_id, qtyProcured: record.qty, reqNo: record.req_id.reqNo, req_id: record.req_id._id, commodity: record.req_id.product.name, payment_id: "", transaction_id: "", amount: " ", date: new Date(), method: "", payment_status: _paymentstatus.completed, status: "" }
+        const paymentData = { whomToPay: "awqw", user_type, user_id, qtyProcured: record.qty, reqNo: record.req_id.reqNo, req_id: record.req_id._id, commodity: record.req_id.product.name, payment_id: "", transaction_id: "", amount: record.totalPrice, date: new Date(), method: "", payment_status: _paymentstatus.completed, status: "" }
 
 
     } else if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
