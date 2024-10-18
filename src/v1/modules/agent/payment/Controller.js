@@ -794,7 +794,6 @@ module.exports.batchApprove = async (req, res) => {
 
         return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
 
-
     } catch (error) {
         _handleCatchErrors(error, res);
     }
