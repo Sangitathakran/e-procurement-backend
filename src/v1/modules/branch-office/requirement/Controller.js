@@ -1,10 +1,11 @@
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const { _batchStatus } = require("@src/v1/utils/constants");
+const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod } = require("@src/v1/utils/constants");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
-
+const moment = require("moment");
 
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
 
@@ -84,16 +85,48 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
 
 module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
-    const { id, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight } = req.body;
-    const { user_id } = req;
+    const { id, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, material_image = [], weight_slip = [], qc_report = [], data, paymentIsApprove = 0 } = req.body;
+    const { user_id, user_type } = req;
 
-    const record = await Batch.findOne({ _id: id });
+    const record = await Batch.findOne({ _id: id }).populate("req_id");
 
     if (!record) {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
     }
 
-    if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
+    if (qc_report.length > 0 && material_image.length > 0 && data) {
+        record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+        record.dispatched.qc_report.received_qc_status = received_qc_status.rejected;
+        record.reason = { text: data, on: moment() }
+    } else if (qc_report.length > 0 && material_image.length > 0) {
+        record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+        record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
+    } else if (material_image.length > 0) {
+        record.dispatched.material_img.received.push(...material_image.map(i => { return { img: i, on: moment() } }))
+    } else if (weight_slip.length > 0) {
+        record.dispatched.weight_slip.received.push(...weight_slip.map(i => { return { img: i, on: moment() } }))
+    } else if (qc_report.length > 0) {
+        record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+        record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
+
+        const { farmerOrderIds } = record;
+
+        const paymentRecords = [];
+
+        const request = await RequestModel.findOne({ _id: record?.req_id });
+
+        for (let farmer of farmerOrderIds) {
+
+            const farmerData = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id });
+
+            const paymentData = { payment_collect_by: "Farmer", whomToPay: farmerData.farmer_id, user_type, user_id, qtyProcured: farmer.qty, reqNo: request.reqNo, req_id: request._id, commodity: record.req_id.product.name, amount: farmer.amt, date: new Date(), method: _paymentmethod.bank_transfer }
+
+            paymentRecords.push(paymentData);
+        }
+
+        await Payment.insertMany(paymentRecords);
+
+    } else if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
         record.delivered.proof_of_delivery = proof_of_delivery;
         record.delivered.weigh_bridge_slip = weigh_bridge_slip;
         record.delivered.receiving_copy = receiving_copy;
@@ -106,10 +139,15 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
         record.status = _batchStatus.delivered;
 
-        await record.save();
-    } else {
+    } else if (paymentIsApprove == 1 && record.dispatched.qc_report.received.length > 0 && record.dispatched.qc_report.received_qc_status == received_qc_status.accepted) {
+        record.payement_approval_at = new Date();
+        record.payment_approve_by = user_id;
+    }
+    else {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
     }
+
+    await record.save();
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
 
@@ -120,7 +158,7 @@ module.exports.getBatch = asyncErrorHandler(async (req, res) => {
 
     const { id } = req.params;
 
-    let record = await Batch.findOne({ _id: id });
+    let record = await Batch.findOne({ _id: id }).populate("req_id");
 
     if (!record) {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
@@ -141,5 +179,61 @@ module.exports.getFarmerByBatchId = asyncErrorHandler(async (req, res) => {
     }
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
+
+})
+
+
+module.exports.auditTrail = asyncErrorHandler(async (req, res) => {
+
+    const { id } = req.query;
+
+    const record = await Batch.findOne({ _id: id });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
+    }
+
+    const { dispatched, intransit, delivered, createdAt, payment_at, payement_approval_at } = record;
+
+    const steps = [
+        {
+            name: "Batch Created",
+            status: record ? "completed" : "pending",
+            date: record ? createdAt : null,
+        },
+        {
+            name: "Mark Dispatched",
+            status: dispatched ? "completed" : "pending",
+            date: dispatched.dispatched_at ? dispatched.dispatched_at : null,
+        },
+        {
+            name: "In Transit",
+            status: intransit ? "completed" : "pending",
+            date: intransit.intransit_at ? intransit.intransit_at : null,
+        },
+        {
+            name: "Delivery Date",
+            status: delivered ? "completed" : "pending",
+            date: delivered.delivered_at ? delivered.delivered_at : null,
+        },
+        {
+            name: "Final QC Check",
+            status: dispatched.qc_report.received_qc_status == received_qc_status.accepted ? "completed" : dispatched.qc_report.received_qc_status == received_qc_status.rejected ? "rejected" : "pending",
+            date: dispatched.qc_report.received.on ? dispatched.qc_report.received.on : null
+        },
+        {
+            name: "Payment Approval Date",
+            status: payement_approval_at ? "completed" : "pending",
+            date: payement_approval_at ? payement_approval_at : null,
+        },
+        {
+            name: "Payment Paid",
+            status: payment_at ? "completed" : "pending",
+            date: payment_at ? payment_at : null,
+        },
+    ];
+
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: steps, message: _response_message.found("audit trail") }))
 
 })

@@ -4,7 +4,7 @@ const _collectionName = {
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",
-    agency:"agency",
+    agency: "agency",
     individualFarmers: "individual_farmers",
     Users: "Users",
     HeadOffice: "headoffices",
@@ -30,7 +30,8 @@ const _collectionName = {
     Branch: "Branch",
     DummyWarehouse: "DummyWarehouse",
     FarmerOrder: "FarmerOrder",
-    PaymentLog: "PaymentLog"
+    PaymentLog: "PaymentLog",
+    AgentPayment: "AgentPayment"
 }
 const _status = {
     active: "active",
@@ -215,7 +216,7 @@ const _soilType = {
     Clayey: "clayey",
     Red_soil: "red_soil",
     Alkaline: "alkaline",
-    Other: "other",
+    Other: "other"
 }
 const _distanceUnit = {
     Km: "km",
@@ -292,6 +293,12 @@ const _paymentstatus = {
 const _paymentApproval = {
     pending: "Pending",
     approved: "Approved",
+}
+
+const received_qc_status = {
+    accepted: "Accepted",
+    rejected: "Rejected",
+    pending: "Pending",
 }
 
 const _individual_farmer_onboarding_steps = [
@@ -377,5 +384,6 @@ module.exports = {
     _center_type,
     _address_type,
     _individual_category,
-    _userStatus
+    _userStatus,
+    received_qc_status
 }

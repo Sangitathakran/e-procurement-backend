@@ -17,77 +17,83 @@ const {
   AssociateOffers,
 } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { _query } = require("@src/v1/utils/constants/messages");
-
+const moment=require('moment');
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
-  let report = [
-    { monthName: "January", month: 1, total: 0 },
-    { monthName: "February", month: 2, total: 0 },
-    { monthName: "March", month: 3, total: 0 },
-    { monthName: "April", month: 4, total: 0 },
-    { monthName: "May", month: 5, total: 0 },
-    { monthName: "June", month: 6, total: 0 },
-    { monthName: "July", month: 7, total: 0 },
-    { monthName: "Augest", month: 8, total: 0 },
-    { monthName: "September", month: 9, total: 0 },
-    { monthName: "Octorber", month: 10, total: 0 },
-    { monthName: "November", month: 11, total: 0 },
-    { monthName: "Decmeber", month: 12, total: 0 },
-  ];
-  let widgetDetails = {
-    branch: { total: 0, lastMonth: [] },
+  try {
 
-    associate: { total: 0, lastMonth: [] },
-    procCenter: { total: 0, lastMonth: [] },
-    farmer: { total: 0, lastMonth: [] },
-  };
-  let individualFCount = (await IndividualFarmer.countDocuments({})) ?? 0;
-  let associateFCount = (await farmer.countDocuments({})) ?? 0;
-  widgetDetails.farmer.total = individualFCount + associateFCount;
-  widgetDetails.associate.total = await User.countDocuments({});
-  widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
-  let lastMonthUser = await User.aggregate([
-    { $match: { user_type: "Associate" } },
-    { $project: { month: { $month: "$createdAt" } } },
-    { $group: { _id: "$month", total: { $sum: 1 } } },
-  ]);
-  let lastMonthFarmer = await farmer.aggregate([
-    { $project: { month: { $month: "$createdAt" } } },
-    { $group: { _id: "$month", total: { $sum: 1 } } },
-  ]);
-  let lastMonthIFarmer = await IndividualFarmer.aggregate([
-    { $project: { month: { $month: "$createdAt" } } },
-    { $group: { _id: "$month", total: { $sum: 1 } } },
-  ]);
-  let getReport = (report, data) => {
-    return report.map((item) => {
-      let details = data?.find((item2) => item2?._id == item.month);
-      if (details?._id == item.month) {
-        return { month: item.monthName, total: details.total };
-      } else {
-        return { month: item.monthName, total: item.total };
+    report = [
+      { monthName: "January", month: 1, total: 0 },
+      { monthName: "February", month: 2, total: 0 },
+      { monthName: "March", month: 3, total: 0 },
+      { monthName: "April", month: 4, total: 0 },
+      { monthName: "May", month: 5, total: 0 },
+      { monthName: "June", month: 6, total: 0 },
+      { monthName: "July", month: 7, total: 0 },
+      { monthName: "Augest", month: 8, total: 0 },
+      { monthName: "September", month: 9, total: 0 },
+      { monthName: "Octorber", month: 10, total: 0 },
+      { monthName: "November", month: 11, total: 0 },
+      { monthName: "Decmeber", month: 12, total: 0 },
+    ];
+    let widgetDetails = {
+      branch: { total: 0, lastMonth: [] },
+
+      associate: { total: 0, lastMonth: [] },
+      procCenter: { total: 0, lastMonth: [] },
+      farmer: { total: 0, lastMonth: [] },
+    };
+    let individualFCount = (await IndividualFarmer.countDocuments({})) ?? 0;
+    let associateFCount = (await farmer.countDocuments({})) ?? 0;
+    widgetDetails.farmer.total = individualFCount + associateFCount;
+    widgetDetails.associate.total = await User.countDocuments({});
+    widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
+    let lastMonthUser = await User.aggregate([
+      { $match: { user_type: "Associate" } },
+      { $project: { month: { $month: "$createdAt" } } },
+      { $group: { _id: "$month", total: { $sum: 1 } } },
+    ]);
+    let lastMonthFarmer = await farmer.aggregate([
+      { $project: { month: { $month: "$createdAt" } } },
+      { $group: { _id: "$month", total: { $sum: 1 } } },
+    ]);
+    let lastMonthIFarmer = await IndividualFarmer.aggregate([
+      { $project: { month: { $month: "$createdAt" } } },
+      { $group: { _id: "$month", total: { $sum: 1 } } },
+    ]);
+    let getReport = (report, data) => {
+      return report.map((item) => {
+        let details = data?.find((item2) => item2?._id == item.month);
+        if (details?._id == item.month) {
+          return { month: item.monthName, total: details.total };
+        } else {
+          return { month: item.monthName, total: item.total };
+        }
+      });
+    };
+    widgetDetails.associate.lastMonth = getReport(report, lastMonthUser);
+    widgetDetails.farmer.lastMonth = getReport(report, lastMonthFarmer);
+    let lastMonthIFarmerDetails = getReport(report, lastMonthIFarmer);
+    widgetDetails.farmer.lastMonth = lastMonthIFarmerDetails.map(
+      (item, index) => {
+        if (item.month == widgetDetails.farmer.lastMonth[index].month) {
+          return {
+            ...item,
+            total: item.total + widgetDetails.farmer.lastMonth[index].total,
+          };
+        }
       }
+    );
+    return sendResponse({
+      res,
+      status: 200,
+      message: _query.get("Widget List"),
+      data: widgetDetails,
     });
-  };
-  widgetDetails.associate.lastMonth = getReport(report, lastMonthUser);
-  widgetDetails.farmer.lastMonth = getReport(report, lastMonthFarmer);
-  let lastMonthIFarmerDetails = getReport(report, lastMonthIFarmer);
-  widgetDetails.farmer.lastMonth = lastMonthIFarmerDetails.map(
-    (item, index) => {
-      if (item.month == widgetDetails.farmer.lastMonth[index].month) {
-        return {
-          ...item,
-          total: item.total + widgetDetails.farmer.lastMonth[index].total,
-        };
-      }
-    }
-  );
-  return sendResponse({
-    res,
-    status: 200,
-    message: _query.get("Widget List"),
-    data: widgetDetails,
-  });
+  } catch (error) {
+    console.log('error', error)
+  }
+
 });
 
 //farmer payments
@@ -158,113 +164,113 @@ module.exports.farmerPayments = asyncErrorHandler(async (req, res) => {
 });
 //revenue expense chart
 module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
-     let {option}=req.query;
+  let { option } = req.query;
 
   const report = {
     week: [
-       { weekName: "Monday", week: 1,farmer: 0, agency: 0 },
-      { weekName: "Tuesday", week: 2, farmer: 0, agency: 0},
+      { weekName: "Monday", week: 1, farmer: 0, agency: 0 },
+      { weekName: "Tuesday", week: 2, farmer: 0, agency: 0 },
       { weekName: "Wednesday", week: 3, farmer: 0, agency: 0 },
-      { weekName: "Thursday", week: 4, farmer: 0, agency: 0},
-      { weekName: "Friday", week: 5, farmer: 0, agency: 0},
-      { weekName: "Saturday", week: 6,farmer: 0, agency: 0 },
+      { weekName: "Thursday", week: 4, farmer: 0, agency: 0 },
+      { weekName: "Friday", week: 5, farmer: 0, agency: 0 },
+      { weekName: "Saturday", week: 6, farmer: 0, agency: 0 },
       { weekName: "Sunday", week: 7, farmer: 0, agency: 0 },
     ],
     month: [
-      { monthName: "January",month:1, farmer: 0, agency: 0 },
-      { monthName: "February",month:2, farmer: 0, agency: 0 },
-      { monthName: "March",month:3, farmer: 0, agency: 0 },
-      { monthName: "April",month:4, farmer: 0, agency: 0 },
-      { monthName: "May",month:5, farmer: 0, agency: 0},
-      { monthName: "June", month:6,farmer: 0, agency: 0 },
-      { monthName: "July", month:7,farmer: 0, agency: 0 },
-      { monthName: "Augest",month:8, farmer: 0, agency: 0},
-      { monthName: "September",month:9, farmer: 0, agency: 0},
-      { monthName: "Octorber", month:10,farmer: 0, agency: 0 },
-      { monthName: "November",month:11, farmer: 0, agency: 0 },
-      { monthName: "Decmeber",month:12, farmer: 0, agency: 0 },
+      { monthName: "January", month: 1, farmer: 0, agency: 0 },
+      { monthName: "February", month: 2, farmer: 0, agency: 0 },
+      { monthName: "March", month: 3, farmer: 0, agency: 0 },
+      { monthName: "April", month: 4, farmer: 0, agency: 0 },
+      { monthName: "May", month: 5, farmer: 0, agency: 0 },
+      { monthName: "June", month: 6, farmer: 0, agency: 0 },
+      { monthName: "July", month: 7, farmer: 0, agency: 0 },
+      { monthName: "Augest", month: 8, farmer: 0, agency: 0 },
+      { monthName: "September", month: 9, farmer: 0, agency: 0 },
+      { monthName: "Octorber", month: 10, farmer: 0, agency: 0 },
+      { monthName: "November", month: 11, farmer: 0, agency: 0 },
+      { monthName: "Decmeber", month: 12, farmer: 0, agency: 0 },
     ],
   };
 
-  const groupStage = option === 'week' 
-        ? {
-            // Group by day of the week
-            $group: {
-                _id: {
-                    day: { $dayOfWeek: "$createdAt" }, // 1 (Sunday) to 7 (Saturday)
-                    payment_collect_by: "$payment_collect_by",
-                },
-                totalAmount: { $sum: "$amount" },
-            },
-        }
-        : {
-            // Group by year and month
-            $group: {
-                _id: {
-                    year: { $year: "$createdAt" },
-                    month: { $month: "$createdAt" },
-                    payment_collect_by: "$payment_collect_by",
-                },
-                totalAmount: { $sum: "$amount" },
-            },
-        };
+  const groupStage = option === 'week'
+    ? {
+      // Group by day of the week
+      $group: {
+        _id: {
+          day: { $dayOfWeek: "$createdAt" }, // 1 (Sunday) to 7 (Saturday)
+          payment_collect_by: "$payment_collect_by",
+        },
+        totalAmount: { $sum: "$amount" },
+      },
+    }
+    : {
+      // Group by year and month
+      $group: {
+        _id: {
+          year: { $year: "$createdAt" },
+          month: { $month: "$createdAt" },
+          payment_collect_by: "$payment_collect_by",
+        },
+        totalAmount: { $sum: "$amount" },
+      },
+    };
 
-    const results = await Payment.aggregate([
-        groupStage,
-        {
-            // Reshape the output
-            $project: {
-                _id: 0,
-                ...(option === 'week' ? {
-                    day: "$_id.day",
-                    payment_collect_by: "$_id.payment_collect_by",
-                } : {
-                    year: "$_id.year",
-                    month: "$_id.month",
-                    payment_collect_by: "$_id.payment_collect_by",
-                }),
-                totalAmount: "$totalAmount",
-            },
-         },
-        {
-          
-            $group: {
-                _id: option === 'week' ? "$day" : { month: "$month" },
-                farmer: {
-                    $sum: {
-                        $cond: [{ $eq: ["$payment_collect_by", "farmer"] }, "$totalAmount", 0],
-                    },
-                },
-                agency: {
-                    $sum: {
-                        $cond: [{ $eq: ["$payment_collect_by", "Agency"] }, "$totalAmount", 0],
-                    },
-                },
-            },
+  const results = await Payment.aggregate([
+    groupStage,
+    {
+      // Reshape the output
+      $project: {
+        _id: 0,
+        ...(option === 'week' ? {
+          day: "$_id.day",
+          payment_collect_by: "$_id.payment_collect_by",
+        } : {
+          year: "$_id.year",
+          month: "$_id.month",
+          payment_collect_by: "$_id.payment_collect_by",
+        }),
+        totalAmount: "$totalAmount",
+      },
+    },
+    {
+
+      $group: {
+        _id: option === 'week' ? "$day" : { month: "$month" },
+        farmer: {
+          $sum: {
+            $cond: [{ $eq: ["$payment_collect_by", "farmer"] }, "$totalAmount", 0],
+          },
         },
-        {
-            // Final projection to shape the output
-            $project: {
-                _id: 0,
-                ...(option === 'week' ? { day: "$_id" } : {  month: "$_id.month" }),
-                farmer: 1,
-                agency: 1,
-            },
+        agency: {
+          $sum: {
+            $cond: [{ $eq: ["$payment_collect_by", "Agency"] }, "$totalAmount", 0],
+          },
         },
-        {
-            // Sort by day or by year and month
-            $sort: option === 'week' ? { day: 1 } : {month: 1 },
-        },
-    ]);
-   let  paymentDetails = report[option].map((item) => {
-      let payment = results?.find((item2) => item2[option] == item[option]);
-      console.log('payment',payment,item)
-      if (payment) {
-        return { [option]: item[`${option}Name`], farmer: payment.farmer,agency:payment.agency };
-      } else {
-        return { [option]: item[`${option}Name`], farmer: item.farmer,agency:item.agency };
-      }
-    });
+      },
+    },
+    {
+      // Final projection to shape the output
+      $project: {
+        _id: 0,
+        ...(option === 'week' ? { day: "$_id" } : { month: "$_id.month" }),
+        farmer: 1,
+        agency: 1,
+      },
+    },
+    {
+      // Sort by day or by year and month
+      $sort: option === 'week' ? { day: 1 } : { month: 1 },
+    },
+  ]);
+  let paymentDetails = report[option].map((item) => {
+    let payment = results?.find((item2) => item2[option] == item[option]);
+    console.log('payment', payment, item)
+    if (payment) {
+      return { [option]: item[`${option}Name`], farmer: payment.farmer, agency: payment.agency };
+    } else {
+      return { [option]: item[`${option}Name`], farmer: item.farmer, agency: item.agency };
+    }
+  });
 
 
 
@@ -334,15 +340,32 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
     .select("quotedPrice fulfilledQty reqNo")
     .skip(skip)
     .limit(limit);
-    
+
   records.count = await RequestModel.countDocuments({})
   records.page = page;
   records.limit = limit;
-  records.pages =  Math.ceil(records.count / limit);
+  records.pages = Math.ceil(records.count / limit);
   return sendResponse({
     res,
     status: 200,
     message: _query.get("Payment Quantity"),
+    data: records,
+  });
+});
+module.exports.optionRequestId = asyncErrorHandler(async (req, res) => {
+  
+  let records = { count: 0 };
+  records.row = await RequestModel.find({
+    // head_office_id:req.user.portalId
+  })
+    .select("reqNo")
+
+
+ 
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Request Option List"),
     data: records,
   });
 });
@@ -542,6 +565,7 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
 });
 //farmerBenifitted
 module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
+    const {startDate,endDate}=req.query;
   const report = {
     month: [
       { monthName: "January", month: 1, farmers: 0 },
@@ -558,14 +582,28 @@ module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
       { monthName: "Decmeber", month: 12, farmers: 0 },
     ],
   };
-  let farmerBenifittedDetails = await AssociateOffers.aggregate([
+  const pipeline=[
+    // query,
     {
       $project: { month: { $month: "$createdAt" } },
     },
     {
       $group: { _id: "$month", farmers: { $count: {} } },
     },
-  ]);
+  ]
+  if(startDate!=undefined ||endDate!=undefined){
+    let formatStartDate= moment(startDate).format('DD-MM-YYYY');
+    let formatEndDate= moment(endDate).format('DD-MM-YYYY');
+    pipeline.unshift({$match:{createdAt:{$gt:formatStartDate,$lte:formatEndDate}}})
+   
+  }else{
+   
+   
+  }
+  
+  let farmerBenifittedDetails = await AssociateOffers.aggregate(pipeline)
+ 
+  
   farmerBenifittedDetails = report.month.map((item) => {
     let farmerDetails = farmerBenifittedDetails?.find(
       (item2) => item2?._id == item.month

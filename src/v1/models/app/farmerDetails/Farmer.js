@@ -10,14 +10,16 @@ const farmerSchema = new mongoose.Schema({
     farmer_id: { type: String, default: null },
     is_welcome_msg_send: { type: Boolean, default: false },
 
-    user_type: { 
-        type: String, 
-        enum: ['Individual', 'Associate'], 
-        required: false 
+    farmer_type: {
+        type: String,
+        enum: ['Individual', 'Associate'],
+        required: false
     },
-    
+    user_type: { type: String,default:"1", required: false },
+    farmer_code: { type: String, trim: true, },
     basic_details: { 
         name: { type: String, trim: true },
+        profile_pic:{ type: String, trim: true },
         email: { type: String, trim: false },
         father_husband_name: { type: String, trim: true },
         mobile_no: { type: String, trim: true },
@@ -32,8 +34,8 @@ const farmerSchema = new mongoose.Schema({
         address_line_1: { type: String, trim: true },
         address_line_2: { type: String, trim: true },
         country: { type: String, trim: true },
-        state: { type: String, trim: true },
-        district: { type: String, trim: true },
+        state_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity' },
+        district_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity.districts' },
         tahshil: { type: String, trim: true },
         block: { type: String, trim: false },
         village: { type: String, trim: false },
@@ -41,7 +43,7 @@ const farmerSchema = new mongoose.Schema({
         lat: { type: String, trim: false },
         long: { type: String, trim: true },
     },
-documents: { 
+    documents: {
         aadhar_number: { type: String, trim: true },
         aadhar_front_doc_key: { type: String, trim: true },
         aadhar_back_doc_key: { type: String, trim: true },
@@ -49,7 +51,7 @@ documents: {
         pan_doc_key: { type: String, trim: true },
     },
 
-    bank_details: { 
+    bank_details: {
         bank_name: { type: String, trim: true },
         branch_name: { type: String, trim: true },
         account_holder_name: { type: String, trim: true },
@@ -57,20 +59,10 @@ documents: {
         account_no: { type: String, trim: true },
         proof_doc_key: { type: String, trim: true }
     },
-    land_details: [{land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: false }}],
-    
+    land_details: [{ land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: false } }],
+
     crop_details: [{
         crop_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Crops, required: false }
-    }],
-    
-    insurance_details: [{
-        crop_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Crops, required: false },
-        insurance_company: { type: String, required: false },
-        land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: false },
-        insurance_worth: { type: Number, required: false },
-        insurance_premium: { type: Number, required: false },
-        insurance_start_date: { type: Date, required: false },
-        insurance_end_date: { type: Date, required: false }
     }],
     
     infrastructure_needs: {
@@ -79,16 +71,13 @@ documents: {
         processing_unit: { type: Boolean, required: false },
         transportation_facilities: { type: Boolean, required: false }
     },
-    
+
     financial_support: {
         credit_facilities: { type: Boolean, required: false },
         source_of_credit: { type: String },
         financial_challenges: { type: String },
         support_required: { type: String }
     },
-    
-    
-
     parents: {
         father_name: { type: String, trim: true },
         mother_name: { type: String, trim: true }
@@ -105,15 +94,15 @@ documents: {
         aadhar_no: { type: String, required: false, trim: true },
     },
     status: { type: String, enum: Object.values(_status), default: _status.active },
-    steps: [{ 
-        label: { type: String },
-        screen_number: { type: String, default: "1" },
-        status: { type: String, enum: ['active', 'pending', 'completed'], default: "pending" }
-    }],
+    // steps: [{
+    //     label: { type: String },
+    //     screen_number: { type: String, default: "1" },
+    //     status: { type: String, enum: ['active', 'pending', 'completed'], default: "pending" }
+    // }],
 
     all_steps_completed_status: { type: Boolean, default: false },
     ..._commonKeys
 }, { timestamps: true });
 
 const farmer = mongoose.model(_collectionName.farmers, farmerSchema);
-module.exports = farmer;
+module.exports = { farmer };

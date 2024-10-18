@@ -14,7 +14,8 @@ const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity")
  * @param {import("express").NextFunction} next 
  */
 exports._handleCatchErrors = async (error, res, next) => {
-    // errorLogger.error({ message: error.message, stack: error.stack }) 
+    console.log('error',error)
+    //  errorLogger.error({ message: error.message, stack: error.stack }) 
     return res.status(500).json({status: 500, errors: [{ message: error.message, stack: error.stack }] })
 }
 

@@ -2,9 +2,9 @@ const mongoose = require('mongoose');
 const { _collectionName, _batchStatus } = require('@src/v1/utils/constants');
 
 const paymentLogsSchema = new mongoose.Schema({
-    seller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
+    seller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
     req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true },
-    batch_id:  { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch, required: true },
+    batch_id:  { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch },
     procurementExp: { type: Number, trim: true },
     driage: { type: Number, trim: true },
     storageExp: { type: Number, trim: true },

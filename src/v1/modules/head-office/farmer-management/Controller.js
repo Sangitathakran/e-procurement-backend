@@ -125,6 +125,7 @@ module.exports.farmerList = async (req, res) => {
 
 
     } catch (error) {
+        console.log('error',error)
         _handleCatchErrors(error, res);
     }
 };

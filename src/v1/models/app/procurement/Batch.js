@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _batchStatus } = require('@src/v1/utils/constants');
+const { _collectionName, _batchStatus, received_qc_status } = require('@src/v1/utils/constants');
 
 const batchsSchema = new mongoose.Schema({
     seller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
@@ -36,6 +36,7 @@ const batchsSchema = new mongoose.Schema({
         qc_report: {
             inital: [{ img: { type: String, required: true }, on: { type: Date } }],
             received: [{ img: { type: String, required: true }, on: { type: Date } }],
+            received_qc_status: { type: String, enum: Object.values(received_qc_status), defualt: received_qc_status.pending },
         },
         lab_report: {
             inital: [{ img: { type: String, required: true }, on: { type: Date } }],
@@ -78,10 +79,14 @@ const batchsSchema = new mongoose.Schema({
         delivered_at: { type: Date, trim: true },
         delivered_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch },
     },
+    reason: { text: { type: String }, on: { type: Date } },
+    payement_approval_at: { type: Date, default: null },
+    payment_approve_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
+    payment_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
+    payment_at: { type: Date, default: null },
     status: { type: String, enum: Object.values(_batchStatus), default: _batchStatus.pending }
 }, { timestamps: true });
 
 const Batch = mongoose.model(_collectionName.Batch, batchsSchema);
 
 module.exports = { Batch };
-

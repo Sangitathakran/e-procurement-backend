@@ -27,14 +27,14 @@ module.exports.getDashboardStats = async (req, res) => {
             is_approved: _userStatus.approved,
             createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
         });
-        
+
         const currentMonthAssociates = await User.countDocuments({
             user_type: _userType.associate,
             is_form_submitted: true,
             is_approved: _userStatus.approved,
             createdAt: { $gte: startOfCurrentMonth }
         });
-        
+
         const difference = currentMonthAssociates - lastMonthAssociates;
         const status = difference >= 0 ? 'increased' : 'decreased';
 
@@ -64,12 +64,12 @@ module.exports.getDashboardStats = async (req, res) => {
         }
 
         const branchOfficeCount = (await Branches.countDocuments({ status: _status.active })) ?? 0;
-        const associateCount = (await User.countDocuments({ user_type: _userType.associate, is_approved:_userStatus.approved, is_form_submitted:true })) ?? 0;
-        const procurementCenterCount = (await ProcurementCenter.countDocuments({ active:true })) ?? 0;
+        const associateCount = (await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true })) ?? 0;
+        const procurementCenterCount = (await ProcurementCenter.countDocuments({ active: true })) ?? 0;
         const farmerCount = (await farmer.countDocuments({ status: _status.active })) ?? 0;
 
         const associateStats = {
-            totalAssociates : associateCount,
+            totalAssociates: associateCount,
             currentMonthAssociates,
             lastMonthAssociates,
             difference,
@@ -86,11 +86,11 @@ module.exports.getDashboardStats = async (req, res) => {
             status: farmerStatus,
         };
 
-        const records = { 
+        const records = {
             branchOfficeCount,
-            associateStats, 
-            procurementCenterCount, 
-            farmerStats 
+            associateStats,
+            procurementCenterCount,
+            farmerStats
         };
 
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Dashboard Stats") }));
@@ -122,7 +122,8 @@ module.exports.getProcurementsStats = async (req, res) => {
 
         const startOfMonth = new Date(selectedYear, selectedMonth, 1);
         const endOfMonth = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59, 999);
-        
+
+
         const procurementsStats = await FarmerOrders.aggregate([
             {
                 $match: {
@@ -144,7 +145,7 @@ module.exports.getProcurementsStats = async (req, res) => {
             total: 0,
             completedPercentage: 0,
             ongoingPercentage: 0,
-            failedPercentage: 0 
+            failedPercentage: 0
         };
 
         procurementsStats.forEach(item => {
@@ -174,12 +175,12 @@ module.exports.getProcurementsStats = async (req, res) => {
 module.exports.getProcurementStatusList = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '',} = req.query
-        
+        const { page, limit, skip, paginate = 1, sortBy, search = '', } = req.query
+
         let query = {
             ...(search ? { reqNo: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
-        
+
         const records = { count: 0 };
         const selectedFields = 'reqNo quoteExpiry product.name quotedPrice totalQuantity fulfilledQty deliveryDate expectedProcurementDate';
         const fetchedRecords = paginate == 1
@@ -198,10 +199,10 @@ module.exports.getProcurementStatusList = async (req, res) => {
             quotedPrice: record.quotedPrice,
             deliveryDate: record.deliveryDate,
             expectedProcurementDate: record.expectedProcurementDate,
-            totalQuantity : record.totalQuantity,
-            fulfilledQty : record.fulfilledQty
+            totalQuantity: record.totalQuantity,
+            fulfilledQty: record.fulfilledQty
         }));
-            
+
         records.count = await RequestModel.countDocuments(query);
 
         if (paginate == 1) {
@@ -209,24 +210,24 @@ module.exports.getProcurementStatusList = async (req, res) => {
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-        
+
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Procurement") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-    
+
 }
 
 module.exports.getPendingOffersCountByRequestId = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '',} = req.query
-        
+        const { page, limit, skip, paginate = 1, sortBy, search = '', } = req.query
+
         let query = {
             ...(search && { reqNo: { $regex: search, $options: "i" } })
         };
-        
+
         const aggregationPipeline = [
             { $match: query },
             {
@@ -253,26 +254,27 @@ module.exports.getPendingOffersCountByRequestId = async (req, res) => {
                     fulfilledQty: 1,
                     deliveryDate: 1,
                     expectedProcurementDate: 1,
-                    pendingOffersCount:1,
+                    pendingOffersCount: 1,
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
             { $skip: skip },
             { $limit: parseInt(limit) }
         ];
-        const records = await RequestModel.aggregate(aggregationPipeline);
-        const count = await RequestModel.countDocuments(query);
+        const records = {}
+        records.rows = await RequestModel.aggregate(aggregationPipeline);
+        records.count = await RequestModel.countDocuments(query);
 
         if (paginate == 1) {
             records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-        
+
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Procurement") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-    
+
 }
