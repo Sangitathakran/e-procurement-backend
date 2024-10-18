@@ -224,9 +224,9 @@ module.exports.batchList = async (req, res) => {
 module.exports.lot_list = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', farmerOrderId } = req.query;
+        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
 
-        const batchIds = await Batch.find({ _id: farmerOrderId }).select({ _id: 1, farmerOrderIds: 1 });
+        const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
         
         let farmerOrderIdsOnly = {}
 
