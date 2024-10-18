@@ -101,6 +101,10 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
         record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
         record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
     } else if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
+
+        if (!record.intransit) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "please intransit it !!" }] }));
+        }
         record.delivered.proof_of_delivery = proof_of_delivery;
         record.delivered.weigh_bridge_slip = weigh_bridge_slip;
         record.delivered.receiving_copy = receiving_copy;
