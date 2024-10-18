@@ -88,12 +88,13 @@ module.exports.createAgency = async (req, res) => {
         const masterUser = new MasterUser({
             firstName : first_name,
             lastName : last_name,
-            isSuperAdmin : true,
+            isAdmin : true,
             email : email,
             mobile : phone,
             password: hashedPassword,
             userType : type.userType,
             createdBy: req.user._id,
+            userRole: [type.adminUserRoleId],
             portalId: savedAgency._id 
         });
 

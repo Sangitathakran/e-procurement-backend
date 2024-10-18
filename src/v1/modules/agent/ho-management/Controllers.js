@@ -133,7 +133,7 @@ module.exports.saveHeadOffice = async (req, res) => {
             mobile : authorised.phone,
             password: hashedPassword,
             userType : type.userType,
-            userRole: ['671159edcbbd6e268e80cfef'],
+            userRole: [type.adminUserRoleId],
             createdBy: req.user._id,
             portalId: savedHeadOffice._id 
         });
