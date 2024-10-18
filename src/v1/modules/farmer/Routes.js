@@ -1,14 +1,9 @@
 const express = require("express")
 const farmerRoutes = express.Router()
-
-
 const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
-
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { validateIndFarmer, validateRegisterDetail, validateFarmer, validateLand, validateCrop, validateBank } = require("./Validation")
-const multer = require('multer');
 const { verifyAssociate } = require("../associate/utils/verifyAssociate");
-const { getSingleFarmer } = require("../head-office/farmer-management/Controller");
 const { saveFarmerDetails, sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, editFarmer, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers } = require("./Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
 // const { verifyAgent } = require("../agent/utils/verifyAgent");
