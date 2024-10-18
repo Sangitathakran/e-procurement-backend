@@ -533,30 +533,26 @@ module.exports.getFarmers = async (req, res) => {
 module.exports.getBoFarmer = async (req, res) => {
   try {
     const { user_id } = req;
-
     const user = await Branches.findById(user_id);
-    console.log(user);
     if (!user) {
       return res.status(404).send({ message: "User not found." });
     }
 
-    const { state_name } = user; // Assuming the user model has a 'state_name' field
+    const { state } = user; 
 
-    if (!state_name) {
+    if (!state) {
       return res.status(400).send({ message: "User's state information is missing." });
     }
-
-    // Query farmers by state name (replace 'Farmer' with your farmer model)
-    const farmers = await Farmer.find({ state_name });
+    const farmers = await farmer.find({ state });
 
     if (farmers.length === 0) {
-      return res.status(404).send({ message: `No farmers found in state: ${state_name}` });
+      return res.status(404).send({ message: `No farmers found in state: ${state}` });
     }
 
     return res.status(200).send({
       status: 200,
       data: farmers,
-      message: `Farmers found in state: ${state_name}`,
+      message: `Farmers found in state: ${state}`,
     });
   } catch (error) {
     console.error(error);
