@@ -1,17 +1,12 @@
 const express = require("express")
 const farmerRoutes = express.Router()
-
-
 const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
-
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { validateIndFarmer, validateRegisterDetail, validateFarmer, validateLand, validateCrop, validateBank } = require("./Validation")
-const multer = require('multer');
 const { verifyAssociate } = require("../associate/utils/verifyAssociate");
-const { getSingleFarmer } = require("../head-office/farmer-management/Controller");
 const { saveFarmerDetails, sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, editFarmer, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers } = require("./Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
-const { verifyAgent } = require("../agent/utils/verifyAgent");
+// const { verifyAgent } = require("../agent/utils/verifyAgent");
 
 farmerRoutes.post("/", verifyJwtToken, verifyAssociate, [validateFarmer, validateErrors], createFarmer);
 farmerRoutes.get("/", verifyJwtToken, getFarmers);
@@ -37,7 +32,7 @@ farmerRoutes.post("/verify-farmerOTP", verifyOTP);
 farmerRoutes.post('/register-details', verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
 farmerRoutes.post("/make-associate", verifyAssociate, makeAssociateFarmer);
 farmerRoutes.get("/getbo-farmer", verifyBO, getBoFarmer);
-farmerRoutes.get("/getall-farmer", verifyAgent, getAllFarmers);
+// farmerRoutes.get("/getall-farmer", verifyAgent, getAllFarmers);
 
 /* 
  individual farmer routes s

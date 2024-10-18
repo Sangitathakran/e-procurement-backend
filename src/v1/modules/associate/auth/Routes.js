@@ -2,7 +2,6 @@ const { sendOtp, loginOrRegister, saveAssociateDetails, onboardingStatus, formPr
 const { validateForm } = require("@src/v1/modules/associate/auth/Validation")
 const express = require("express");
 const { verifyAssociate } = require("../utils/verifyAssociate");
-const { verifyAgent } = require("../../agent/utils/verifyAgent");
 const userAuthRoutes = express.Router();
 
 userAuthRoutes.post("/send-otp", sendOtp);
