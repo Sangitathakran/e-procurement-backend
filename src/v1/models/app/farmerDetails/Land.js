@@ -2,8 +2,9 @@ const mongoose = require('mongoose');
 const { _collectionName, _status, _areaUnit, _soilType, _distanceUnit, _yesNo } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const landSchema = new mongoose.Schema({ 
-    area: { type: Number, required: true },
-    land_name: { type: String, required: true },
+    total_area: { type: Number, required: false },
+    land_name: { type: String, required: false },
+    farmer_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: _collectionName.farmers, default: null },
     cultivation_area: { 
         type: Number, 
         // validate: {
@@ -12,28 +13,31 @@ const landSchema = new mongoose.Schema({
         //     },
         //     message: 'Cultivation area must not exceed total land area'
         // }, 
-        required: true 
+        required: false 
     },
     area_unit: { 
         type: String, 
         enum: Object.values(_areaUnit).slice(0, 2), 
-        required: true 
+        required: false 
     },
-    state: { type: String, required: true },
-    district: { type: String, required: true },
-    village: { type: String, required: true },
-    block: { type: String, required: true },
-    khtauni_number: { type: String },
-    khasra_number: { type: String },
+    khatauni: { type: String },
+    khasra_no: { type: String },
     khata_number: { type: String },
     soil_type: { 
         type: String, 
         enum: Object.values(_soilType), 
-        required: true 
+        required: false 
     },
-    soil_tested: { type: Boolean, required: true },
+    land_address: {
+        state_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity' },
+        district_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity.districts' },
+        village: { type: String, required: false },
+        pin_code:{type:String,required:false},
+        block: { type: String, required: false },
+    },
+    soil_tested: { type: String, enum: Object.values(_yesNo), required: false },
     uploadSoil_health_card: { type: String }, // if soilTested is true
-    opt_for_soil_testing: { type: Boolean, required: true },
+    opt_for_soil_testing: { type: Boolean, required: false },
     soil_testing_agencies: { type: [String] },
     upload_geotag: { type: String, required: false } // file upload URL/path
 }, { timestamps: true });
