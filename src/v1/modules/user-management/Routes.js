@@ -1,27 +1,27 @@
 const express = require("express")
 const userManagementRoutes = express.Router()
-const { verifyJwtToken } = require("@src/v1/middlewares/jwt")
+const { Auth } = require("@src/v1/middlewares/jwt")
 
 //userRole routes
 const { createUserRole, getFeatures , editUserRolePage, editUserRole, getUserRoles, getUserRoleList } = require("./Controller")
 
-userManagementRoutes.get('/getFeatures/:type', verifyJwtToken , getFeatures )
-userManagementRoutes.post('/createUserRole' , verifyJwtToken, createUserRole )
-userManagementRoutes.get('/editUserRolePage/:id' ,verifyJwtToken, editUserRolePage )
-userManagementRoutes.put('/editUserRole' , verifyJwtToken, editUserRole )
-userManagementRoutes.get('/getUserRoles', verifyJwtToken , getUserRoles )
-userManagementRoutes.get('/getUserRoleList', verifyJwtToken, getUserRoleList)
+userManagementRoutes.get('/getFeatures/:type', Auth , getFeatures )
+userManagementRoutes.post('/createUserRole' , Auth, createUserRole )
+userManagementRoutes.get('/editUserRolePage/:id' ,Auth, editUserRolePage )
+userManagementRoutes.put('/editUserRole' , Auth, editUserRole )
+userManagementRoutes.get('/getUserRoles', Auth , getUserRoles )
+userManagementRoutes.get('/getUserRoleList', Auth, getUserRoleList)
 
 
 //user routes 
 const { createUser, getUserPermission, editUser, toggleStatus, getUsersByUser, getSingleUser } = require("./Controller")
 
-userManagementRoutes.post('/createUser', verifyJwtToken, createUser )
-userManagementRoutes.get('/getUserPermission',verifyJwtToken ,  getUserPermission )
-userManagementRoutes.put('/editUser', verifyJwtToken , editUser )
-userManagementRoutes.put('/toggleStatus/:id', verifyJwtToken , toggleStatus )
-userManagementRoutes.get('/getUsersByUser', verifyJwtToken , getUsersByUser)
-userManagementRoutes.get('/getSingleUser/:id', verifyJwtToken , getSingleUser)
+userManagementRoutes.post('/createUser', Auth, createUser )
+userManagementRoutes.get('/getUserPermission',Auth ,  getUserPermission )
+userManagementRoutes.put('/editUser', Auth , editUser )
+userManagementRoutes.put('/toggleStatus/:id', Auth , toggleStatus )
+userManagementRoutes.get('/getUsersByUser', Auth , getUsersByUser)
+userManagementRoutes.get('/getSingleUser/:id', Auth , getSingleUser)
 
 
 

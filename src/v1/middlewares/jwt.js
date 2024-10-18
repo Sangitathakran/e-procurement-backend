@@ -2,8 +2,10 @@ const jwt = require('jsonwebtoken');
 const { sendResponse } = require('@src/v1/utils/helpers/api_response');
 const { _auth_module } = require('@src/v1/utils/constants/messages');
 const { JWT_SECRET_KEY } = require('@config/index');
-const {_userType}=require('../utils/constants/index');
-const {MasterUser} = require('../models/master/MasterUser');
+const {_userType}=require('@src/v1/utils/constants/index');
+const {MasterUser} = require('@src/v1/models/master/MasterUser');
+
+
 
 
 // const { redisClient } = require('@config/redis');
@@ -15,7 +17,7 @@ const {MasterUser} = require('../models/master/MasterUser');
  * @param {import('express').NextFunction} next 
  * @returns 
  */
-const verifyJwtToken = function (req, res, next) {
+const Auth = function (req, res, next) {
     let { token } = req.headers;
     if (token) {
         
@@ -24,8 +26,6 @@ const verifyJwtToken = function (req, res, next) {
                 return sendResponse({res, status: 403, errors: _auth_module.unAuth });
             }
             else {
-              //  console.log(await redisClient.get(decoded._id))
-                console.log("req?.baseUrl--->", req?.baseUrl)
                  if (decoded) {
                     
                     // Set Your Token Keys In Request
@@ -45,13 +45,15 @@ const verifyJwtToken = function (req, res, next) {
         return sendResponse({res, status: 403, errors: _auth_module.tokenMissing });
     }
 };
-const checkUser=(route,userType)=>{
-    if(_userType[route]==userType){
-        return true;
-    }else{
-        return false;
-    }
-}
+
+// const checkUser=(route,userType)=>{
+//     if(_userType[route]==userType){
+//         return true;
+//     }else{
+//         return false;
+//     }
+// }
+
 const verifyBasicAuth = async function (req, res, next) {
     try {
         const authheader = req.headers.authorization;
@@ -77,7 +79,7 @@ const verifyBasicAuth = async function (req, res, next) {
     }
 }
 
-async function auth(req, res, next) {
+async function verifyJwtToken(req, res, next) {
 
     try {
 
@@ -116,5 +118,5 @@ async function auth(req, res, next) {
 module.exports = {
     verifyJwtToken,
     verifyBasicAuth,
-    auth
+    Auth
 }

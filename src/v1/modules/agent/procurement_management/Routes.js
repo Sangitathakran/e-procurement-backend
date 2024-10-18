@@ -4,12 +4,12 @@ const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode } = require("./Controller");
 const express = require("express");
 const procurementCenterRoutes = express.Router();
-const { verifyJwtToken } = require("@src/v1/middlewares/jwt")
+const { Auth } = require("@src/v1/middlewares/jwt")
 
-procurementCenterRoutes.post("/import-centers", verifyJwtToken, ImportProcurementCenter);
-procurementCenterRoutes.post("/generateCenterCode", verifyJwtToken, generateCenterCode);
-procurementCenterRoutes.get("/", verifyJwtToken, getProcurementCenter);
-procurementCenterRoutes.post("/", validateErrors, verifyJwtToken, createProcurementCenter, [
+procurementCenterRoutes.post("/import-centers", Auth, ImportProcurementCenter);
+procurementCenterRoutes.post("/generateCenterCode", Auth, generateCenterCode);
+procurementCenterRoutes.get("/", Auth, getProcurementCenter);
+procurementCenterRoutes.post("/", validateErrors, Auth, createProcurementCenter, [
     body("center_name", _middleware.require("center_name")).notEmpty().trim(),
     body("center_code", _middleware.require("center_code")).notEmpty().trim(),
     body("line1", _middleware.require("line1")).notEmpty().trim(),

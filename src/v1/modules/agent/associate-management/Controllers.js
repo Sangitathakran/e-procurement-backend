@@ -6,6 +6,7 @@ const { _response_message, _middleware, _query } = require("@src/v1/utils/consta
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { emailService } = require('@src/v1/utils/third_party/EmailServices');
+const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator")
 
 
 module.exports.getAssociates = async (req, res) => {
@@ -128,7 +129,7 @@ module.exports.userStatusUpdate = async (req, res) => {
         const masterUser = new MasterUser({
             firstName: user.basic_details.associate_details.associate_name,
             lastName: user.basic_details.associate_details.associate_name,
-            isSuperAdmin: true,
+            isAdmin: true,
             email: user.basic_details.associate_details.email,
             mobile: user.basic_details.associate_details.phone,
             password: hashedPassword,
@@ -143,15 +144,6 @@ module.exports.userStatusUpdate = async (req, res) => {
     }
 }
 
-const generateRandomPassword = () => {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let password = '';
-    for (let i = 0; i < 8; i++) {
-        const randomIndex = Math.floor(Math.random() * characters.length);
-        password += characters[randomIndex];
-    }
-    return password;
-};
 
 module.exports.statusUpdate = async (req, res) => {
 

@@ -1,11 +1,11 @@
 const express = require("express");
 const { getBo, updateStatus } = require("./Controllers");
-const { verifyJwtToken } = require("@src/v1/middlewares/jwt")
+const { Auth } = require("@src/v1/middlewares/jwt")
 
 const boManagementRoutes = express.Router();
 
-boManagementRoutes.patch("/:id/:status", verifyJwtToken, updateStatus);
-boManagementRoutes.get("/", verifyJwtToken, getBo);
+boManagementRoutes.patch("/:id/:status", Auth, updateStatus);
+boManagementRoutes.get("/", Auth, getBo);
 
 
 

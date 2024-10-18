@@ -6,7 +6,7 @@ const { _response_message, _middleware, _auth_module, _query } = require("@src/v
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
-const { verifyJwtToken, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
+const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 
 
 module.exports.login = async (req, res) => {

@@ -5,9 +5,9 @@ const { getAssociates, userStatusUpdate, statusUpdate, pendingRequests, getAssoc
 
 
 const associateMngmntRoutes = express.Router();
-const { verifyJwtToken } = require("@src/v1/middlewares/jwt")
+const { Auth } = require("@src/v1/middlewares/jwt")
 
-associateMngmntRoutes.get("/", verifyJwtToken, getAssociates);
+associateMngmntRoutes.get("/", Auth, getAssociates);
 associateMngmntRoutes.patch("/update-approval", userStatusUpdate);
 associateMngmntRoutes.patch("/status", statusUpdate);
 associateMngmntRoutes.get("/pending", pendingRequests);

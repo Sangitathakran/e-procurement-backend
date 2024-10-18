@@ -8,6 +8,7 @@ const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const bcrypt = require('bcrypt');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
+const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator")
 
 const { TypesModel } = require("@src/v1/models/master/Types")
 
@@ -38,17 +39,6 @@ module.exports.getAgency = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
-
-const generateRandomPassword = () => {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let password = '';
-    for (let i = 0; i < 8; i++) {
-        const randomIndex = Math.floor(Math.random() * characters.length);
-        password += characters[randomIndex];
-    }
-    return password;
-};
 
 module.exports.createAgency = async (req, res) => {
     try {

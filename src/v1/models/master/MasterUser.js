@@ -86,7 +86,6 @@ const userSchema = new mongoose.Schema({
 
 userSchema.pre('save', async function (next) {
      const typeData = await getType()
-     console.log("typeData-->", typeData)
      typeData.forEach(item=> {
         
         if(this.userType === item.userType){

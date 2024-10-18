@@ -104,13 +104,7 @@ branchSchema.pre('save', async function (next) {
     }
   
     next();
-  });
-
-// Indexes for search optimization
-// branchSchema.index({ emailAddress: 1 }, { unique: true });  
-// branchSchema.index({ branchName: 1 }); 
-// branchSchema.index({ branchId: 1 }); 
-// branchSchema.index({ pointOfContact: 1 });  
+  }); 
 
 const Branches = mongoose.model(_collectionName.Branch, branchSchema);
 
