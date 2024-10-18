@@ -127,6 +127,10 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
         await Payment.insertMany(paymentRecords);
 
     } else if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
+
+        if (!record.intransit) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "please intransit it !!" }] }));
+        }
         record.delivered.proof_of_delivery = proof_of_delivery;
         record.delivered.weigh_bridge_slip = weigh_bridge_slip;
         record.delivered.receiving_copy = receiving_copy;
