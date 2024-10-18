@@ -10,7 +10,7 @@ const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require("@config/index");
 const {
-  verifyJwtToken,
+  Auth,
   decryptJwtToken,
 } = require("@src/v1/utils/helpers/jwt");
 const bcrypt = require("bcryptjs");
