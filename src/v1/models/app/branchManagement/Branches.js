@@ -52,6 +52,11 @@ const branchSchema = new mongoose.Schema({
     trim: true,
     maxLength: 100, // Max 100 characters
   },
+  district: {
+    type: String,
+    trim: true,
+    maxLength: 100, // Max 100 characters
+  },
   state: {
     type: String,
     required: true,

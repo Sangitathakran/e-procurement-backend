@@ -58,7 +58,7 @@ module.exports.importBranches = async (req, res) => {
     // Expected headers
     const expectedHeaders = [
       'branchName', 'emailAddress', 'pointOfContactName', 'pointOfContactPhone', 'pointOfContactEmail', 
-      'address', 'cityVillageTown', 'state', 'pincode'
+      'address', 'district', 'cityVillageTown', 'state', 'pincode'
     ];
     
     // Validate headers
@@ -109,6 +109,7 @@ module.exports.importBranches = async (req, res) => {
         address: row.address,
         cityVillageTown: row.cityVillageTown,
         state: row.state,
+        district:row.district,
         pincode: row.pincode,
         status: _status.inactive,
         headOfficeId: headOfficeId,
@@ -139,6 +140,7 @@ module.exports.importBranches = async (req, res) => {
         },
         address: branchData.address,
         cityVillageTown: branchData.cityVillageTown,
+        district:branchData.district,
         state: branchData.state,
         pincode: branchData.pincode,
         headOfficeId: headOfficeId,
@@ -193,7 +195,7 @@ module.exports.importBranches = async (req, res) => {
 
   module.exports.exportBranches = async (req, res) => {
     try {
-      const branches = await Branches.find({}, 'branchId branchName emailAddress pointOfContact address cityVillageTown state pincode status createdAt');
+      const branches = await Branches.find({}, 'branchId branchName emailAddress pointOfContact address district cityVillageTown state pincode status createdAt');
   
       // Format the data to be exported
       const branchData = branches.map((branch) => ({
@@ -202,6 +204,7 @@ module.exports.importBranches = async (req, res) => {
         name: branch.branchName,
         email: branch.emailAddress,
         address: branch.address,
+        district: branch.district,
         cityVillageTown: branch.cityVillageTown, 
         state: branch.state,                     
         pincode: branch.pincode, 
