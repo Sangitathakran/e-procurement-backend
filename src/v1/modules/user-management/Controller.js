@@ -215,8 +215,10 @@ exports.getUserRoles = async (req, res) => {
             return query
         }
 
-        const query = search ? makeSearchQuery(searchFields) : {}
+        let query = search ? makeSearchQuery(searchFields) : {}
         const records = { count: 0, rows: [] };
+
+        query = {...query, createdBy: req.user._id}
 
         const userRoles = await UserRole.find(query).skip(skip).limit(parseInt(limit))
         if(userRoles.length < 1){
