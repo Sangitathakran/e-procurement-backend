@@ -30,24 +30,25 @@ farmerRoutes.delete("/deleteBank", verifyJwtToken, deleteBank);
 farmerRoutes.post("/bulk-upload",verifyAssociate, bulkUploadFarmers);
 farmerRoutes.post("/bulk-export", verifyJwtToken, exportFarmers);
 farmerRoutes.get("/localfarmer", verifyAssociate, individualfarmerList);
-farmerRoutes.post("/send-farmerOTP",sendOTP)
-farmerRoutes.post("/verify-farmerOTP",verifyOTP);
-farmerRoutes.post('/register-details',verifyJwtToken,[validateRegisterDetail,validateErrors],registerName)
+
 /* 
  individual farmer routes s
              
  */
-farmerRoutes.put('/onboarding-details/:id',
-    // verifyJwtToken, 
-    [validateFarmer,validateErrors],
+ farmerRoutes.post("/send-farmerOTP",sendOTP);
+ farmerRoutes.post("/verify-farmerOTP",verifyOTP);
+ farmerRoutes.post('/register-details',verifyJwtToken,[validateRegisterDetail,validateErrors],registerName)
+ farmerRoutes.put('/onboarding-details/:id',
+    verifyJwtToken, 
+    [validateIndFarmer,validateErrors],
     saveFarmerDetails);
 
     farmerRoutes.get('/getFarmerDetails/:id',
-        // verifyJwtToken, 
+        verifyJwtToken, 
         getFarmerDetails);
 
-    farmerRoutes.post('/submit-form/:id',
-        // verifyJwtToken, 
+    farmerRoutes.put('/submit-form/:id',
+        verifyJwtToken, 
         submitForm)
 
     farmerRoutes.get('/download-zipFile',createZip)
