@@ -539,12 +539,12 @@ module.exports.getBoFarmer = async (req, res) => {
     }
 
     const { state } = user; 
-
     if (!state) {
       return res.status(400).send({ message: "User's state information is missing." });
     }
-    const farmers = await farmer.find({ state });
-
+    const state_id = await getStateId(state);
+    const farmers = await farmer.find({ 'address.state_id': state_id });
+    console.log(farmers);
     if (farmers.length === 0) {
       return res.status(404).send({ message: `No farmers found in state: ${state}` });
     }
