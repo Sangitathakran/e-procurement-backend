@@ -10,6 +10,7 @@ const {
   branchOfficeProcurement,
   procurementOnTime,
   farmerBenifitted,
+  optionRequestId,
   procurementStatus,
 } = require("./Controller");
 
@@ -21,6 +22,7 @@ hoDashboardRoutes.get(
   "/payment-quantity-purchase",
   paymentQuantityPurchase
 );
+hoDashboardRoutes.get('/requestId-option',optionRequestId)
 hoDashboardRoutes.get("/branch-officeprocurement", branchOfficeProcurement);
 hoDashboardRoutes.get("/benifitted-farmer", farmerBenifitted);
 hoDashboardRoutes.get("/procurement-status", procurementStatus);

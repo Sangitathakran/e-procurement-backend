@@ -84,8 +84,7 @@ module.exports.verifyOTP = async (req, res) => {
     if (!individualFormerData) {
       individualFormerData = await new farmer({
         mobile_no: mobileNumber,
-        is_verify_otp: true,
-        steps: _individual_farmer_onboarding_steps, // Ensure that this field is set as required
+        is_verify_otp: true
       }).save();
     }
 
@@ -161,7 +160,7 @@ module.exports.saveFarmerDetails = async (req, res) => {
 
     if (farmerDetails) {
       farmerDetails[screenName] = req.body[screenName];
-      farmerDetails.steps = req.body?.steps;
+      // farmerDetails.steps = req.body?.steps;
       await farmerDetails.save();
 
 
@@ -193,7 +192,7 @@ module.exports.getFarmerDetails = async (req, res) => {
     //if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
 
     const selectFields = screenName
-      ? `${screenName} allStepsCompletedStatus steps`
+      ? `${screenName} allStepsCompletedStatus `
       : null;
 
     if (selectFields) {
@@ -282,7 +281,10 @@ module.exports.submitForm = async (req, res) => {
         //console.log("isMszSent==>",isMszSent)
         if (isMszSent && isMszSent.response && isMszSent.response.status === 'success') {
           // Message was sent successfully
+          const landDetails = await Land.find({farmer_id:id});
+          let land_ids=landDetails.map(item=>({land_id:item._id}))
           farmerDetails.is_welcome_msg_send = true;
+          farmerDetails.land_details=land_ids
         }
 
         const farmerUpdatedDetails = await farmerDetails.save();
@@ -672,8 +674,8 @@ module.exports.updateLand = async (req, res) => {
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     } = req.body;
 
-    const state_id = await getStateId(state_name);
-    const district_id = await getDistrictId(district_name);
+    const state_id = await getStateId(state);
+    const district_id = await getDistrictId(district);
 
     const updatedLand = await Land.findByIdAndUpdate(
       land_id,

@@ -561,6 +561,7 @@ const validationSchemas = {
         errorMessage: 'Name must be at least 3 characters long',
       },
     },
+
     'basic_details.email': {
       notEmpty: {
         errorMessage: 'Email is required',
@@ -616,14 +617,10 @@ const validationSchemas = {
       },
     },
     'address.address_line_2': {
-      notEmpty: {
-        errorMessage: 'Address line 2 is required',
-      },
+      Empty: true
     },
     'address.country': {
-      notEmpty: {
-        errorMessage: 'Country is required',
-      },
+      Empty: true
     },
     'address.state': {
       notEmpty: {
@@ -636,16 +633,12 @@ const validationSchemas = {
       },
     },
     'address.block': {
-      notEmpty: {
-        errorMessage: 'Block is required',
-      },
+      Empty: true
     },
     'address.village': {
-      notEmpty: {
-        errorMessage: 'Village is required',
-      },
+      Empty: true
     },
-    'address.pinCode': {
+    'address.pin_code': {
       notEmpty: {
         errorMessage: 'Pin code is required',
       },
