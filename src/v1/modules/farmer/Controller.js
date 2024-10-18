@@ -564,7 +564,7 @@ module.exports.createLand = async (req, res) => {
     const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
     const newLand = new Land({
-      area, land_name, cultivation_area, area_unit, state: state_id, district: district_id,land_type,upload_land_document,
+      farmer_id,area, land_name, cultivation_area, area_unit, state: state_id, district: district_id,land_type,upload_land_document,
       village, block, khtauni_number, khasra_number, khata_number,
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     });
@@ -685,20 +685,43 @@ module.exports.deleteLand = async (req, res) => {
 module.exports.createCrop = async (req, res) => {
   try {
     const {
-      farmer_id, crop_season, crop_name, crops_name, crop_variety,
+      farmer_id,land_id, crop_season, crop_name, crops_name, crop_variety,kharif_crops,rabi_crops,zaid_crops,
       sowing_date, harvesting_date, production_quantity, selling_price, yield, land_name
       , crop_growth_stage, crop_disease, crop_rotation, previous_crop_details, marketing_and_output, input_details, seeds
     } = req.body;
 
-    const sowingdate = parseMonthyear(sowing_date);
-    const harvestingdate = parseMonthyear(harvesting_date);
-    const newCrop = new Crop({
-      farmer_id, crop_season, crop_name, crops_name, crop_variety,
+   
+    const farmerDetails=await farmer.findById(farmer_id);
+    console.log(farmerDetails)
+    const sowingdate = (farmerDetails?.farmer_type=='Individual')?'':parseMonthyear(sowing_date);
+    const harvestingdate = (farmerDetails?.farmer_type=='Individual')?'':parseMonthyear(harvesting_date); 
+    let fieldSets=[]
+    let fieldSet={
+      farmer_id, crop_season, crop_name, crops_name, crop_variety,land_id,
       sowing_date: sowingdate, harvesting_date: harvestingdate, production_quantity, selling_price, yield, land_name
       , crop_growth_stage, crop_disease, crop_rotation, previous_crop_details, marketing_and_output, input_details, seeds
-    });
-
-    const savedCrop = await newCrop.save();
+    }
+    if(farmerDetails && farmerDetails?.farmer_type=='Individual'){
+     
+      for(item of kharif_crops){
+        console.log('fieldSet',fieldSet)
+        fieldSets.push({...fieldSet,crop_season:"kharif",crop_name:item})
+        
+      }
+      for(item of rabi_crops){
+        fieldSets.push({...fieldSet,crop_season:"rabi",crop_name:item})
+        
+      }
+      for(item of zaid_crops){
+        fieldSets.push({...fieldSet,crop_season:"zaid",crop_name:item})
+      }
+      
+    }else{
+      fieldSets.push(fieldSet)
+    }
+   
+    console.log(fieldSets)
+   let savedCrop= await Crop.insertMany(fieldSets)
 
     return res.status(200).send(new serviceResponse({
       status: 201,
@@ -711,6 +734,47 @@ module.exports.createCrop = async (req, res) => {
   }
 };
 
+module.exports.getIndCropDetails = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, sortBy = 'crops_name', paginate = 1, farmer_id } = req.query;
+    const skip = (page - 1) * limit;
+    const currentDate = new Date();
+    const query = farmer_id ? { farmer_id } : {};
+    const records = { pastCrops: {}, upcomingCrops: {} };
+
+    const fetchCrops = async (cropQuery) => paginate == 1
+      ? Crop.find(cropQuery).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
+      : Crop.find(cropQuery).sort(sortBy).populate('farmer_id', 'id name');
+
+    const [pastCrops, upcomingCrops] = await Promise.all([
+      fetchCrops({ ...query, sowing_date: { $lt: currentDate } }),
+      fetchCrops({ ...query, sowing_date: { $gt: currentDate } })
+    ]);
+
+    const [pastCount, upcomingCount] = await Promise.all([
+      Crop.countDocuments({ ...query, sowing_date: { $lt: currentDate } }),
+      Crop.countDocuments({ ...query, sowing_date: { $gt: currentDate } })
+    ]);
+
+    records.pastCrops = { rows: pastCrops, count: pastCount };
+    records.upcomingCrops = { rows: upcomingCrops, count: upcomingCount };
+
+    if (paginate == 1) {
+      const totalPages = (count) => Math.ceil(count / limit);
+      records.pastCrops.pages = totalPages(pastCount);
+      records.upcomingCrops.pages = totalPages(upcomingCount);
+    }
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: records,
+      message: _response_message.found("Crops")
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
 module.exports.getCrop = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy = 'crops_name', paginate = 1, farmer_id } = req.query;

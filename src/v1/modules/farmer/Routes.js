@@ -20,6 +20,7 @@ farmerRoutes.get("/get-land", verifyJwtToken, getLand);
 farmerRoutes.put("/updateLand/:land_id", verifyJwtToken, updateLand);
 farmerRoutes.delete("/deleteLand", verifyJwtToken, deleteLand);
 farmerRoutes.post("/createCrop", verifyJwtToken, [validateCrop, validateErrors], createCrop);
+farmerRoutes.post("/createIndCrop", verifyJwtToken, createCrop);
 farmerRoutes.get("/get-crop", verifyJwtToken, getCrop);
 farmerRoutes.put("/updateCrop/:crop_id", verifyJwtToken, updateCrop);
 farmerRoutes.delete("/deleteCrop", verifyJwtToken, deleteCrop);
