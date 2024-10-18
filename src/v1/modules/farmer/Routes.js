@@ -9,9 +9,13 @@ const { validateIndFarmer, validateRegisterDetail, validateFarmer, validateLand,
 const multer = require('multer');
 const { verifyAssociate } = require("../associate/utils/verifyAssociate");
 const { getSingleFarmer } = require("../head-office/farmer-management/Controller");
+<<<<<<< HEAD
 const { saveFarmerDetails, sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, editFarmer, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers } = require("./Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
 const { verifyAgent } = require("../agent/utils/verifyAgent");
+=======
+const { saveFarmerDetails, sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, editFarmer, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer } = require("./Controller");
+>>>>>>> 81e37712d03f04fe34255501877aa1c8c867d40b
 
 farmerRoutes.post("/", verifyJwtToken, verifyAssociate, [validateFarmer, validateErrors], createFarmer);
 farmerRoutes.get("/", verifyJwtToken, getFarmers);
@@ -43,6 +47,9 @@ farmerRoutes.get("/getall-farmer", verifyAgent, getAllFarmers);
  individual farmer routes s
              
  */
+farmerRoutes.post("/send-farmerOTP", sendOTP);
+farmerRoutes.post("/verify-farmerOTP", verifyOTP);
+farmerRoutes.post('/register-details', verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
 farmerRoutes.put('/onboarding-details/:id',
     // verifyJwtToken, 
     [validateFarmer, validateErrors],
@@ -54,6 +61,16 @@ farmerRoutes.get('/getFarmerDetails/:id',
 
 farmerRoutes.post('/submit-form/:id',
     // verifyJwtToken, 
+    verifyJwtToken,
+    [validateIndFarmer, validateErrors],
+    saveFarmerDetails);
+
+farmerRoutes.get('/getFarmerDetails/:id',
+    verifyJwtToken,
+    getFarmerDetails);
+
+farmerRoutes.put('/submit-form/:id',
+    verifyJwtToken,
     submitForm)
 
 farmerRoutes.get('/download-zipFile', createZip)
