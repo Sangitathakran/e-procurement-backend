@@ -548,7 +548,7 @@ module.exports.deletefarmer = async (req, res) => {
 module.exports.createLand = async (req, res) => {
   try {
     const {
-      farmer_id, area, land_name, cultivation_area, area_unit, state, district,
+      farmer_id, area, land_name, cultivation_area, area_unit, state, district,land_type,upload_land_document,
       village, block, khtauni_number, khasra_number, khata_number,
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     } = req.body;
@@ -564,7 +564,7 @@ module.exports.createLand = async (req, res) => {
     const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
     const newLand = new Land({
-      area, land_name, cultivation_area, area_unit, state: state_id, district: district_id,
+      area, land_name, cultivation_area, area_unit, state: state_id, district: district_id,land_type,upload_land_document,
       village, block, khtauni_number, khasra_number, khata_number,
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     });
@@ -619,7 +619,7 @@ module.exports.updateLand = async (req, res) => {
   try {
     const { land_id } = req.params;
     const {
-      area, land_name, cultivation_area, area_unit, state, district,
+      area, land_name, cultivation_area, area_unit, state, district,land_type,upload_land_document,
       village, block, khtauni_number, khasra_number, khata_number,
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     } = req.body;
@@ -630,7 +630,7 @@ module.exports.updateLand = async (req, res) => {
     const updatedLand = await Land.findByIdAndUpdate(
       land_id,
       {
-        area, land_name, cultivation_area, area_unit, state: state_id, district: district_id,
+        area, land_name, cultivation_area, area_unit, state: state_id, district: district_id,land_type,upload_land_document,
         village, block, khtauni_number, khasra_number, khata_number,
         soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
       },
