@@ -486,12 +486,19 @@ module.exports.createFarmer = async (req, res) => {
 
 module.exports.getFarmers = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy, search = '', skip, paginate = 1, is_associated = 1 } = req.query;
+    const { page = 1, limit = 10, sortBy, search = '', skip, paginate = 1, is_associated  } = req.query;
     const { user_id } = req
 
     let query = {};
     const records = { count: 0 };
-    query.associate_id = is_associated == 1 ? user_id : null
+    // query.associate_id = is_associated == 1 ? user_id : null
+    if (is_associated == 1) {
+      query.associate_id = user_id;
+    } else if(is_associated == 0){
+      query.associate_id = null;
+    }else {
+      query = {};
+    }
     if (search) {
       query.name = { $regex: search, $options: 'i' };
     }
