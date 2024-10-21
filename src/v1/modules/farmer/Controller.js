@@ -555,7 +555,7 @@ module.exports.getFarmers = async (req, res) => {
 };
 module.exports.getBoFarmer = async (req, res) => {
   try {
-    const { user_id } = req;
+    const user_id  = req.user.portalId._id;
     const { page = 1, limit = 10, search = '', sortBy = 'name' } = req.query; 
 
     const user = await Branches.findById(user_id);
@@ -563,7 +563,7 @@ module.exports.getBoFarmer = async (req, res) => {
       return res.status(404).send({ message: "User not found." });
     }
 
-    const { state, district} = user; 
+    const { state, district } = user; 
     if (!state || !district) {
       return res.status(400).send({ message: "User's state information is missing." });
     }
