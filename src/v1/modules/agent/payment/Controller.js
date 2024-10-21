@@ -1073,43 +1073,36 @@ module.exports.agentPaymentLogs = async (req, res) => {
 
 }
 
-
 module.exports.agentDashboardAssociateList = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
+        const { page, limit=10, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
-        if (user_type == _userType.farmer) {
-            query.user_type = _userType.farmer;
-        } else if (user_type == _userType.associate) {
-            query.user_type = _userType.associate;
-        }
-        else if (user_type == _userType.agent) {
-            query.user_type = _userType.agent;
-        }
-
         const records = { count: 0 };
 
-        const rows = paginate == 1 ? await Payment.find(query)
-            .populate({
-                path: 'whomToPay', select: '_id associate_id farmer_code name',
-                path: 'req_id', select: 'product farmer_code name'
-            })
+        const rows = paginate == 1 ? await RequestModel.find(query)
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await Payment.find(query)
-                .sort(sortBy);
+            .limit(parseInt(limit)) : await RequestModel.find(query)
+            .sort(sortBy);
 
-        let branchDetails = {}
+        let paymentRequestCount = {}
 
         records.rows = await Promise.all(rows.map(async record => {
 
-            branchDetails = await RequestModel.findOne({ '_id': record.req_id }).select({ branch_id: 1, _id: 0 })
-                .populate({ path: 'branch_id', select: 'branchName branchId' });
+        let paymentRequestQuery = {'req_id': record._id, 'user_type': _userType.associate}
 
-            return { ...record.toObject(), branchDetails }
+            paymentRequestCount = await Payment.countDocuments(paymentRequestQuery)
+
+            return {
+                "reqNo": record?.reqNo || 'NA',
+                "qtyProcured": record?.product.quantity || 'NA',
+                "paymentDate": record?.createdAt ?? 'NA',
+                "paymentRequestCount": paymentRequestCount
+            }
+
         }));
 
         records.count = await Payment.countDocuments(query);
@@ -1169,17 +1162,16 @@ module.exports.agentDashboardPaymentList = async (req, res) => {
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await AgentPayment.find(query)
-                .sort(sortBy);
+            .sort(sortBy);
 
-        let branchDetails = {}
-
-        records.rows = await Promise.all(rows.map(async record => {
-
-            branchDetails = await RequestModel.findOne({ '_id': record.req_id }).select({ branch_id: 1, _id: 0 })
-                .populate({ path: 'branch_id', select: 'branchName branchId' });
-
-            return { ...record.toObject(), branchDetails }
-        }));
+                records.rows = rows.map((item) => {
+                    return {
+                        "reqNo": item?.req_id.reqNo || 'NA',
+                        "qtyProcured": item?.req_id.quantity || 'NA',
+                        "payment_status": item?.status ?? 'NA',
+                        "billingDate": item?.bill_at ?? 'NA'
+                    }
+                })
 
         records.count = await AgentPayment.countDocuments(query);
 
@@ -1188,34 +1180,6 @@ module.exports.agentDashboardPaymentList = async (req, res) => {
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-
-        /* 
-        if (isExport == 1) {
-
-            const record = records.rows.map((item) => {
-                return {
-                    "Order ID": item?.reqNo || 'NA',
-                    "Batch ID": item?.batchId || 'NA',
-                    "Commodity": item?.commodity || 'NA',
-                    "Quantity Purchased": item?.qtyProcured || 'NA',
-                    "Payment Status": item?.payment_status ?? 'NA',
-                    "Approval Status": item?.status ?? 'NA'
-                }
-            })
-
-            if (record.length > 0) {
-
-                dumpJSONToExcel(req, res, {
-                    data: record,
-                    fileName: `Payment-record.xlsx`,
-                    worksheetName: `Payment-record`
-                });
-            } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
-            }
-            
-        }
-        */
 
         if (records.length > 0) {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
