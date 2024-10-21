@@ -871,7 +871,25 @@ module.exports.createCrop = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+module.exports.getLandDetails=async(req,res)=>{
+  try {
+    const { id} = req.params;
 
+    const fetchLandDetails = await Land.findById(id).populate('farmer_id', 'id name')
+     if(!fetchLandDetails){
+      return sendResponse({res,status:404,message:"Land details not found"})
+     }
+   
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: fetchLandDetails,
+      message: _response_message.found("Land")
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+}
 module.exports.getIndCropDetails = async (req, res) => {
   try {
     const { farmer_id,land_id } = req.query;
