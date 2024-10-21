@@ -10,6 +10,7 @@ const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler')
 const { TypesModel } = require('@src/v1/models/master/Types');
 const { MasterUser } = require('@src/v1/models/master/MasterUser');
 const UserRole = require('@src/v1/models/master/UserRole');
+const getIpAddress = require('@src/v1/utils/helpers/getIPAddress');
 
 
 module.exports.getHo = async (req, res) => {
@@ -135,7 +136,8 @@ module.exports.saveHeadOffice = async (req, res) => {
             userType : type.userType,
             userRole: [type.adminUserRoleId],
             createdBy: req.user._id,
-            portalId: savedHeadOffice._id 
+            portalId: savedHeadOffice._id,
+            ipAddress: getIpAddress(req) 
         });
 
         await masterUser.save();

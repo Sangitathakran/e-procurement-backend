@@ -5,12 +5,8 @@ const { _response_message, _middleware, _auth_module } = require("@src/v1/utils/
 
 const agencySchema = Joi.object({
     
-    first_name: Joi.string().trim().max(100).required().messages({
+    agent_name: Joi.string().trim().max(100).required().messages({
         'string.empty': _middleware.require('First name'),
-    }),
-
-    last_name: Joi.string().trim().max(100).required().messages({
-        'string.empty': _middleware.require('last name'),
     }),
 
     email: Joi.string().trim().email().required().messages({
@@ -21,9 +17,6 @@ const agencySchema = Joi.object({
         'string.pattern.base': _response_message.invalid('mobile number'),
     }),
 
-    organization_name: Joi.string().trim().max(100).required().messages({
-        'string.empty': _middleware.require('organization name'),
-    }),
 });
 
 function validateForm(req, res, next) {
