@@ -12,7 +12,9 @@ farmerRoutes.post("/", verifyJwtToken, verifyAssociate, [validateFarmer, validat
 farmerRoutes.get("/", verifyJwtToken, getFarmers);
 farmerRoutes.put('/:id', verifyJwtToken, editFarmer);
 farmerRoutes.delete("/", verifyJwtToken, deletefarmer);
-farmerRoutes.post("/createLand", verifyJwtToken, [validateLand, validateErrors], createLand);
+farmerRoutes.post("/createLand", verifyJwtToken,
+    //  [validateLand, validateErrors]
+      createLand);
 farmerRoutes.get("/get-land", verifyJwtToken, getLand);
 farmerRoutes.put("/updateLand/:land_id", verifyJwtToken, updateLand);
 farmerRoutes.put("/updateIndCrop/:farmer_id", verifyJwtToken, updateIndCrop);

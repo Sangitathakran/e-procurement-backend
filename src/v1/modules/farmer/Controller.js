@@ -14,7 +14,9 @@ const Readable = require('stream').Readable;
 const { smsService } = require('../../utils/third_party/SMSservices');
 const OTPModel = require("../../models/app/auth/OTP")
 const { generateJwtToken } = require('../../utils/helpers/jwt')
-const _individual_farmer_onboarding_steps = require('@src/v1/utils/constants')
+const stateList=require("../../utils/constants/stateList");
+const _individual_farmer_onboarding_steps = require('@src/v1/utils/constants');
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 module.exports.sendOTP = async (req, res) => {
   try {
     const { mobileNumber, acceptTermCondition } = req.body;
@@ -230,10 +232,18 @@ module.exports.submitForm = async (req, res) => {
     const { id } = req.params;
 
     const farmerDetails = await farmer.findById(id)
+    const state = await StateDistrictCity.findOne({
+      // 'states._id': farmerDetails.address.state_id
+  });
+  console.log('state',state)
+  const stateDoc = await StateDistrictCity.findOne({
+    'states._id': farmerDetails.address.state_id
+});
+   // console.log(farmerDetails)
     const generateFarmerId = (farmer) => {
       const stateData = stateList.stateList.find(
         (item) =>
-          item.state.toLowerCase() === farmer.address.state.toLowerCase()
+          item.state.toLowerCase() === state.title.toLowerCase()
       );
       //console.log("stateData--->", stateData)
       const district = stateData.districts.find(
@@ -637,11 +647,22 @@ module.exports.deletefarmer = async (req, res) => {
 module.exports.createLand = async (req, res) => {
   try {
     const {
-      farmer_id, area, land_name, cultivation_area, area_unit, state, district,land_type,upload_land_document,
+      farmer_id,pin_code, area, land_name, area_unit, state, district,land_type,upload_land_document,
       village, block, khtauni_number, khasra_number, khata_number,
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     } = req.body;
-
+    console.log(farmer_id,
+    area,
+    pin_code,
+    state,
+    district,
+    village,
+    block,
+    khasra_number,
+    khtauni_number,
+    area_unit,
+    upload_land_document)
+  
     const existingLand = await Land.findOne({ 'khasra_number': khasra_number });
 
     if (existingLand) {
@@ -652,9 +673,17 @@ module.exports.createLand = async (req, res) => {
     }
     const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
+    
+    let land_address={
+      state_id,
+      block,
+      pin_code,
+      district_id,
+      village
+    }
     const newLand = new Land({
-      farmer_id,area, land_name, cultivation_area, area_unit, state: state_id, district: district_id,land_type,upload_land_document,
-      village, block, khtauni_number, khasra_number, khata_number,
+      farmer_id,area, land_name, area_unit,land_type,upload_land_document,land_address,
+       khtauni_number, khasra_number, khata_number,
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     });
     const savedLand = await newLand.save();
