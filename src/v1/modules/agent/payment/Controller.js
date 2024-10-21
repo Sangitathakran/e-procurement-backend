@@ -794,7 +794,6 @@ module.exports.batchApprove = async (req, res) => {
 
         return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
 
-
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -1072,4 +1071,124 @@ module.exports.agentPaymentLogs = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 
+}
+
+module.exports.agentDashboardAssociateList = async (req, res) => {
+
+    try {
+        const { page, limit=10, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
+
+        let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
+
+        const records = { count: 0 };
+
+        const rows = paginate == 1 ? await RequestModel.find(query)
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await RequestModel.find(query)
+            .sort(sortBy);
+
+        let paymentRequestCount = {}
+
+        records.rows = await Promise.all(rows.map(async record => {
+
+        let paymentRequestQuery = {'req_id': record._id, 'user_type': _userType.associate}
+
+            paymentRequestCount = await Payment.countDocuments(paymentRequestQuery)
+
+            return {
+                "reqNo": record?.reqNo || 'NA',
+                "qtyProcured": record?.product.quantity || 'NA',
+                "paymentDate": record?.createdAt ?? 'NA',
+                "paymentRequestCount": paymentRequestCount
+            }
+
+        }));
+
+        records.count = await Payment.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+                return {
+                    "Order ID": item?.reqNo || 'NA',
+                    "Batch ID": item?.batchId || 'NA',
+                    "Commodity": item?.commodity || 'NA',
+                    "Quantity Purchased": item?.qtyProcured || 'NA',
+                    "Payment Status": item?.payment_status ?? 'NA',
+                    "Approval Status": item?.status ?? 'NA'
+                }
+            })
+
+            if (record.length > 0) {
+
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Payment-record.xlsx`,
+                    worksheetName: `Payment-record`
+                });
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.agentDashboardPaymentList = async (req, res) => {
+
+    try {
+        
+        const { page, limit=10, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+
+        let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
+
+        const records = { count: 0 };
+
+        const rows = paginate == 1 ? await AgentPayment.find(query)
+            .populate({
+                path: 'req_id', select: '_id reqNo product address deliveryDate quotedPrice status'
+            })
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await AgentPayment.find(query)
+            .sort(sortBy);
+
+                records.rows = rows.map((item) => {
+                    return {
+                        "reqNo": item?.req_id.reqNo || 'NA',
+                        "qtyProcured": item?.req_id.quantity || 'NA',
+                        "payment_status": item?.status ?? 'NA',
+                        "billingDate": item?.bill_at ?? 'NA'
+                    }
+                })
+
+        records.count = await AgentPayment.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (records.length > 0) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        }
+         else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
 }
