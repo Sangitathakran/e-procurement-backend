@@ -886,7 +886,7 @@ module.exports.getLandDetails=async(req,res)=>{
   
   const districts = state.states[0].districts.find(item=>item._id==fetchLandDetails.land_address.district_id.toString())
    let land_address={
-    ...land_address,
+    ...fetchLandDetails.land_address,
     state:state.states[0].state_title,
     district:districts.district_title
    }
