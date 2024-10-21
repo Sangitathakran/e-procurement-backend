@@ -38,7 +38,7 @@ farmerRoutes.post("/send-farmerOTP", sendOTP)
 farmerRoutes.post("/verify-farmerOTP", verifyOTP);
 farmerRoutes.post('/register-details', verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
 farmerRoutes.post("/make-associate", verifyAssociate, makeAssociateFarmer);
-farmerRoutes.get("/getbo-farmer", verifyBO, getBoFarmer);
+farmerRoutes.get("/getbo-farmer", Auth, getBoFarmer);
 farmerRoutes.get("/getall-farmer", Auth, getAllFarmers);
 
 /* 
