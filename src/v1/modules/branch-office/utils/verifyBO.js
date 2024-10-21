@@ -26,9 +26,9 @@ exports.verifyBO = asyncErrorHandler(async (req, res, next) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.invalid("token") }] }))
         }
         
-        if (decodedToken.user_type != _userType.bo) {
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
-        }
+        // if (decodedToken.user_type != _userType.bo) {
+        //     return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
+        // }
         Object.entries(decodedToken).forEach(([key, value]) => {
             req[key] = value
         })
