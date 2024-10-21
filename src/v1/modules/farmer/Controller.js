@@ -732,7 +732,7 @@ module.exports.getLand = async (req, res) => {
 
     records.rows = paginate == 1
       ? await Land.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
-      : await Land.find(query).sort(sortBy).populate('farmer_id', 'id name').populate('farmer_id', 'id name')
+      : await Land.find(query).sort(sortBy).populate('farmer_id land_address.state_id', 'id name').populate('farmer_id', 'id name')
 
     records.count = await Land.countDocuments(query);
 
@@ -991,34 +991,8 @@ module.exports.updateIndCrop=async(req,res)=>{
              const {
               land_id,kharif_crops,rabi_crops,zaid_crops
             } = req.body;
-            const cropDetails=await Crop.find({farmer_id,land_id});
-            if(cropDetails){
-              for(let item of cropDetails){
-                if(item.crop_season=='kharif'){
-                  if(kharif_crops.includes(item.crop_name)){
-                    kharif_crops.pop(item.crop_name)
-                  }else{
-
-                    const response = await Crop.deleteOne({ _id: item._id });
-                  }
-                }
-                if(item.crop_season=='rabi'){
-                  if(rabi_crops.includes(item.crop_name)){
-                    rabi_crops.pop(item.crop_name)
-                  }else{
-                    const response = await Crop.deleteOne({ _id: item._id });
-                  }
-                }
-                if(item.crop_season=='zaid'){
-                  if(zaid_crops.includes(item.crop_name)){
-                    zaid_crops.pop(item.crop_name)
-                  }else{
-                    const response = await Crop.deleteOne({ _id: item._id });
-                  }
-                }
-               
-             
-            }
+            const cropDetails=await Crop.deleteMany({farmer_id,land_id});
+          
             let fieldSets=[]
             let fieldSet={land_id,farmer_id}
             for(item of kharif_crops){
@@ -1047,7 +1021,7 @@ module.exports.updateIndCrop=async(req,res)=>{
               data: {farmer_id,land_id,kharif_crops,rabi_crops,zaid_crops},
               message: _response_message.updated("Crop")
             }));
-          }
+          
           }catch(err){
             console.log('Error',err)
             _handleCatchErrors(err, res);
