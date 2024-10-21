@@ -764,12 +764,18 @@ module.exports.updateLand = async (req, res) => {
 
     const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
-
+    let land_address={
+      state_id,
+      block,
+      pin_code,
+      district_id,
+      village
+    }
     const updatedLand = await Land.findByIdAndUpdate(
       land_id,
       {
-        area, land_name, cultivation_area, area_unit, state: state_id, district: district_id,land_type,upload_land_document,
-        village, block, khtauni_number, khasra_number, khata_number,
+        area, land_name, cultivation_area, area_unit,land_type,upload_land_document,land_address
+        , khtauni_number, khasra_number, khata_number,
         soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
       },
       { new: true }
@@ -871,7 +877,36 @@ module.exports.createCrop = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+module.exports.getLandDetails=async(req,res)=>{
+  try {
+    const { id} = req.params;
 
+    let fetchLandDetails = await Land.findById(id).lean()
+    const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": fetchLandDetails.land_address.state_id.toString() } } },{ "states.$": 1 });
+  
+  const districts = state.states[0].districts.find(item=>item._id==fetchLandDetails.land_address.district_id.toString())
+   let land_address={
+    state:state.states[0].state_title,
+    district:districts.district_title
+   }
+  fetchLandDetails={
+    ...fetchLandDetails,
+    land_address
+  }
+     if(!fetchLandDetails){
+      return sendResponse({res,status:404,message:"Land details not found"})
+     }
+   
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: fetchLandDetails,
+      message: _response_message.found("Land")
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+}
 module.exports.getIndCropDetails = async (req, res) => {
   try {
     const { farmer_id,land_id } = req.query;

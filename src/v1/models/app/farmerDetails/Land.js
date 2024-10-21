@@ -5,7 +5,7 @@ const landSchema = new mongoose.Schema({
     total_area: { type: Number, required: false },
     land_name: { type: String, required: false },
     farmer_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: _collectionName.farmers, default: null },
-    area: { 
+    cultivation_area: { 
         type: Number, 
         // validate: {
         //     validator: function(value) {
@@ -15,13 +15,17 @@ const landSchema = new mongoose.Schema({
         // }, 
         required: false 
     },
+    area: { 
+        type: Number, 
+        required: false 
+    },
     area_unit: { 
         type: String, 
         enum: Object.values(_areaUnit).slice(0, 2), 
         required: false 
     },
-    khatauni: { type: String },
-    khasra_no: { type: String },
+    khtauni_number: { type: String },
+    khasra_number: { type: String },
     khata_number: { type: String },
     soil_type: { 
         type: String, 
