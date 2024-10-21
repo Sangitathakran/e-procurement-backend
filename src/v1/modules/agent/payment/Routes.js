@@ -1,7 +1,8 @@
 const express = require("express");
-const { payment, farmerOrders, associateOrders, batchList, paymentApprove, getBill, lot_list, proceedToPay, associateOrdersProceedToPay, batchListProceedToPay, getBillProceedToPay, paymentEdit, paymentLogs, batchApprove, generateBill, agentPaymentList, agentBill, agentPaymentEdit, agentPaymentLogs } = require("./Controller");
+const { payment, farmerOrders, associateOrders, batchList, paymentApprove, getBill, lot_list, proceedToPay, associateOrdersProceedToPay, batchListProceedToPay, getBillProceedToPay, paymentEdit, paymentLogs, batchApprove, generateBill, agentPaymentList, agentBill, agentPaymentEdit, agentPaymentLogs, 
+      agentDashboardAssociateList, agentDashboardPaymentList } = require("./Controller");
+const { verifyAgent } = require("../utils/verifyAgent");
 const { Auth } = require("@src/v1/middlewares/jwt")
-
 const paymentRoutes = express.Router();
 
 paymentRoutes.get("/", Auth, payment);
@@ -25,5 +26,8 @@ paymentRoutes.get("/agent-payment-list", Auth, agentPaymentList);
 paymentRoutes.get("/agent-bill", Auth, agentBill);
 paymentRoutes.put("/agent-payment-edit", Auth, agentPaymentEdit);
 paymentRoutes.get("/agent-payment-logs", Auth, agentPaymentLogs);
+
+paymentRoutes.get("/agent-dashboard-payment-list", Auth, agentDashboardAssociateList);
+paymentRoutes.get("/agent-dashboard-associate-list", Auth, agentDashboardPaymentList);
 
 module.exports = { paymentRoutes }; 

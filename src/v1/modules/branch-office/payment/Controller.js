@@ -345,10 +345,6 @@ module.exports.getBill = async (req, res) => {
 
             const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });
 
-            // const newdata = await Promise.all(reqDetails.map(async record => {
-            //     totalamount += record.amount;
-            // }));
-
             const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
             const billQty = (0.8 / 1000);
 
@@ -371,11 +367,6 @@ module.exports.lot_list = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
-
-        // let query = {
-        //     _id: farmerOrderId,
-        //     ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
-        // };
 
         const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
         
