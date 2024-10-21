@@ -3,11 +3,12 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType, _paymentstatus, _batchStatus } = require('@src/v1/utils/constants');
+const { _userType, _paymentstatus, _batchStatus, _associateOfferStatus } = require('@src/v1/utils/constants');
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 
 module.exports.payment = async (req, res) => {
 
@@ -199,24 +200,20 @@ module.exports.associateOrders = async (req, res) => {
 
         let query = {
             req_id,
-            user_type: _userType.associate,
+            status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] },
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await Payment.find(query)
+        records.rows = paginate == 1 ? await AssociateOffers.find(query)
             .populate({
-                path: 'whomToPay', select: '_id associate_id farmer_code name',
-                path: 'user_id', select: '_id user_code basic_details.associate_details'
+                path: 'seller_id', select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name'
             })
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
+            .limit(parseInt(limit)) : await AssociateOffers.find(query).sort(sortBy);
 
-        records.reqDetails = await RequestModel.findOne({ _id: req_id })
-            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
-
-        records.count = await Payment.countDocuments(query);
+        records.count = await AssociateOffers.countDocuments(query);
 
         if (paginate == 1) {
             records.page = page
