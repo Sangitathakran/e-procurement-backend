@@ -375,7 +375,8 @@ const getPermission = async (response) => {
         return sendResponse({ res, status:400, message: "Invalid feature type"})
     }
 
-    const featureList = await FeatureList.find({featureType:featureType})
+    const featureListDoc = await FeatureList.find({featureType:featureType})
+    const featureList = JSON.parse(JSON.stringify(featureListDoc))
     const resultArray = JSON.parse(JSON.stringify(response.userRole));
 
     const mergedResultsArray = [];
