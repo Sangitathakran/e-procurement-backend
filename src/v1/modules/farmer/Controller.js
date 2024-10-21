@@ -732,7 +732,7 @@ module.exports.getLand = async (req, res) => {
 
     records.rows = paginate == 1
       ? await Land.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
-      : await Land.find(query).sort(sortBy).populate('farmer_id', 'id name').populate('farmer_id', 'id name')
+      : await Land.find(query).sort(sortBy).populate('farmer_id land_address.state_id', 'id name').populate('farmer_id', 'id name')
 
     records.count = await Land.countDocuments(query);
 
@@ -757,7 +757,7 @@ module.exports.updateLand = async (req, res) => {
   try {
     const { land_id } = req.params;
     const {
-      area, land_name, cultivation_area, area_unit, state, district,land_type,upload_land_document,
+      area, land_name, cultivation_area,pin_code, area_unit, state, district,land_type,upload_land_document,
       village, block, khtauni_number, khasra_number, khata_number,
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     } = req.body;
@@ -882,10 +882,14 @@ module.exports.getLandDetails=async(req,res)=>{
     const { id} = req.params;
 
     let fetchLandDetails = await Land.findById(id).lean()
+    if(!fetchLandDetails){
+      return sendResponse({res,status:404,message:"Land details not found"})
+     }
     const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": fetchLandDetails.land_address.state_id.toString() } } },{ "states.$": 1 });
   
   const districts = state.states[0].districts.find(item=>item._id==fetchLandDetails.land_address.district_id.toString())
    let land_address={
+    ...fetchLandDetails.land_address,
     state:state.states[0].state_title,
     district:districts.district_title
    }
@@ -893,9 +897,7 @@ module.exports.getLandDetails=async(req,res)=>{
     ...fetchLandDetails,
     land_address
   }
-     if(!fetchLandDetails){
-      return sendResponse({res,status:404,message:"Land details not found"})
-     }
+     
    
     return res.status(200).send(new serviceResponse({
       status: 200,
@@ -989,34 +991,8 @@ module.exports.updateIndCrop=async(req,res)=>{
              const {
               land_id,kharif_crops,rabi_crops,zaid_crops
             } = req.body;
-            const cropDetails=await Crop.find({farmer_id,land_id});
-            if(cropDetails){
-              for(let item of cropDetails){
-                if(item.crop_season=='kharif'){
-                  if(kharif_crops.includes(item.crop_name)){
-                    kharif_crops.pop(item.crop_name)
-                  }else{
-
-                    const response = await Crop.deleteOne({ _id: item._id });
-                  }
-                }
-                if(item.crop_season=='rabi'){
-                  if(rabi_crops.includes(item.crop_name)){
-                    rabi_crops.pop(item.crop_name)
-                  }else{
-                    const response = await Crop.deleteOne({ _id: item._id });
-                  }
-                }
-                if(item.crop_season=='zaid'){
-                  if(zaid_crops.includes(item.crop_name)){
-                    zaid_crops.pop(item.crop_name)
-                  }else{
-                    const response = await Crop.deleteOne({ _id: item._id });
-                  }
-                }
-               
-             
-            }
+            const cropDetails=await Crop.deleteMany({farmer_id,land_id});
+          
             let fieldSets=[]
             let fieldSet={land_id,farmer_id}
             for(item of kharif_crops){
@@ -1045,7 +1021,7 @@ module.exports.updateIndCrop=async(req,res)=>{
               data: {farmer_id,land_id,kharif_crops,rabi_crops,zaid_crops},
               message: _response_message.updated("Crop")
             }));
-          }
+          
           }catch(err){
             console.log('Error',err)
             _handleCatchErrors(err, res);
