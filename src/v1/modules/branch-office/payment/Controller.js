@@ -35,7 +35,7 @@ module.exports.payment = async (req, res) => {
                     from: 'batches',
                     localField: '_id',
                     foreignField: 'req_id',
-                    as: 'batches'
+                    as: 'batches',
                 }
             },
             {
