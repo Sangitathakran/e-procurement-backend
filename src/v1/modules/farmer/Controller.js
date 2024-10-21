@@ -742,7 +742,7 @@ module.exports.getLand = async (req, res) => {
     if (farmer_id) {
       query.farmer_id = farmer_id;
     }
-
+//update
     let lands = paginate == 1
       ? await Land.find(query)
           .limit(parseInt(limit))
