@@ -119,7 +119,7 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
             const farmerData = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id });
 
-            const paymentData = { payment_collect_by: "Farmer", whomToPay: farmerData.farmer_id, user_type, user_id, qtyProcured: farmer.qty, reqNo: request.reqNo, req_id: request._id, commodity: record.req_id.product.name, amount: farmer.amt, date: new Date(), method: _paymentmethod.bank_transfer }
+            const paymentData = { batch_id: record?._id, payment_collect_by: "Farmer", whomToPay: farmerData.farmer_id, user_type, user_id, qtyProcured: farmer.qty, reqNo: request.reqNo, req_id: request._id, commodity: record.req_id.product.name, amount: farmer.amt, date: new Date(), method: _paymentmethod.bank_transfer }
 
             paymentRecords.push(paymentData);
         }
