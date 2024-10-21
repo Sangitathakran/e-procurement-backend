@@ -232,13 +232,11 @@ module.exports.submitForm = async (req, res) => {
     const { id } = req.params;
 
     const farmerDetails = await farmer.findById(id)
-    const state = await StateDistrictCity.findOne({
-      // 'states._id': farmerDetails.address.state_id
-  });
+    console.log(farmerDetails)
+    { states: { $elemMatch: { _id: "xyz" } } }
+    const state = await StateDistrictCity.findOne({ states: { $elemMatch: { _id: farmerDetails.address.state_id } } });
   console.log('state',state)
-  const stateDoc = await StateDistrictCity.findOne({
-    'states._id': farmerDetails.address.state_id
-});
+  const stateDoc = await StateDistrictCity.findOne( { states: { $elemMatch: { _id: farmerDetails.address.state_id } } });
    // console.log(farmerDetails)
     const generateFarmerId = (farmer) => {
       const stateData = stateList.stateList.find(

@@ -48,18 +48,14 @@ farmerRoutes.post("/verify-farmerOTP", verifyOTP);
 farmerRoutes.post('/register-details', verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
 farmerRoutes.put('/onboarding-details/:id',
     // verifyJwtToken, 
-    [validateFarmer, validateErrors],
+    [validateIndFarmer, validateErrors],
     saveFarmerDetails);
 
 farmerRoutes.get('/getFarmerDetails/:id',
     // verifyJwtToken, 
     getFarmerDetails);
 
-farmerRoutes.post('/submit-form/:id',
-    // verifyJwtToken, 
-    verifyJwtToken,
-    [validateIndFarmer, validateErrors],
-    saveFarmerDetails);
+
 
 farmerRoutes.get('/getFarmerDetails/:id',
     verifyJwtToken,
