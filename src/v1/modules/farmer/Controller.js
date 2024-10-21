@@ -882,6 +882,9 @@ module.exports.getLandDetails=async(req,res)=>{
     const { id} = req.params;
 
     let fetchLandDetails = await Land.findById(id).lean()
+    if(!fetchLandDetails){
+      return sendResponse({res,status:404,message:"Land details not found"})
+     }
     const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": fetchLandDetails.land_address.state_id.toString() } } },{ "states.$": 1 });
   
   const districts = state.states[0].districts.find(item=>item._id==fetchLandDetails.land_address.district_id.toString())
@@ -894,9 +897,7 @@ module.exports.getLandDetails=async(req,res)=>{
     ...fetchLandDetails,
     land_address
   }
-     if(!fetchLandDetails){
-      return sendResponse({res,status:404,message:"Land details not found"})
-     }
+     
    
     return res.status(200).send(new serviceResponse({
       status: 200,
