@@ -2,7 +2,7 @@ const { login } = require("./Controller")
 const { validateForm } = require("@src/v1/modules/branch-office/auth/Validation")
 
 const express = require("express");
-const { verifyBranchOffice } = require("../utils/verifyBO");
+const { verifyBranchOffice } = require("../utils/Auth");
 
 const userAuthRoutes = express.Router();
 

@@ -10,7 +10,7 @@ const tokenBlacklist = [];
 
 
 
-exports.verifyBO = asyncErrorHandler(async (req, res, next) => {
+exports.Auth = asyncErrorHandler(async (req, res, next) => {
 
     const token = req.headers.token || req.cookies.token;
     
