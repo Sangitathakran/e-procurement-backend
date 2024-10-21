@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { _collectionName, _paymentmethod, _paymentstatus, _userType, _paymentApproval } = require('@src/v1/utils/constants');
 
 const PaymentSchema = new mongoose.Schema({
-    payment_collect_by:{type:String,enum:['Farmer','Agency']},
+    payment_collect_by: { type: String, enum: ['Farmer', 'Agency'] },
     // whomToPay: { type: mongoose.Schema.Types.ObjectId, ref:function(){
     //         return this.payment_collect_by=='Farmer'?_collectionName.farmers:_collectionName.agency
     // } ,required: true },
@@ -12,6 +12,7 @@ const PaymentSchema = new mongoose.Schema({
     qtyProcured: { type: String, required: true },
     reqNo: { type: String, required: true },
     req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true },
+    batch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch, required: true },
     commodity: { type: String, trim: true },
     payment_id: { type: String, required: false },
     transaction_id: { type: String, required: false, },
