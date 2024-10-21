@@ -6,6 +6,7 @@ const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { User } = require("@src/v1/models/app/auth/User");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
@@ -486,7 +487,7 @@ module.exports.createFarmer = async (req, res) => {
 
 module.exports.getFarmers = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy, search = '', skip, paginate = 1, is_associated  } = req.query;
+    const { page = 1, limit = 10, sortBy, search = '', skip, paginate = 1, is_associated } = req.query;
     const { user_id } = req
 
     let query = {};
@@ -494,9 +495,10 @@ module.exports.getFarmers = async (req, res) => {
     // query.associate_id = is_associated == 1 ? user_id : null
     if (is_associated == 1) {
       query.associate_id = user_id;
-    } else if(is_associated == 0){
+    }
+    else if (is_associated == 0) {
       query.associate_id = null;
-    }else {
+    } else {
       query = {};
     }
     if (search) {
@@ -528,6 +530,59 @@ module.exports.getFarmers = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+module.exports.getBoFarmer = async (req, res) => {
+  try {
+    const { user_id } = req;
+    const { page = 1, limit = 10, search = '', sortBy = 'name' } = req.query; 
+
+    const user = await Branches.findById(user_id);
+    if (!user) {
+      return res.status(404).send({ message: "User not found." });
+    }
+
+    const { state, district} = user; 
+    if (!state || !district) {
+      return res.status(400).send({ message: "User's state information is missing." });
+    }
+
+    const state_id = await getStateId(state);
+    const district_id = await getDistrictId(district);
+    if (!state_id || !district_id) {
+      return res.status(400).send({ message: "State ID not found for the user's state." });
+    }
+
+    let query = { 'address.state_id': state_id,  'address.district_id': district_id};
+    if (search) {
+      query.name = { $regex: search, $options: 'i' }; 
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const parsedLimit = parseInt(limit);
+
+    const farmers = await farmer.find(query)
+      .sort({ [sortBy]: 1 })
+      .skip(skip)
+      .limit(parsedLimit)
+      .populate('associate_id', '_id user_code ');
+    const totalFarmers = await farmer.countDocuments(query);
+
+    if (farmers.length === 0) {
+      return res.status(404).send({ message: `No farmers found in state: ${state} and  District: ${district}`  });
+    }
+    return res.status(200).send({
+      status: 200,
+      totalFarmers, 
+      currentPage: page,
+      totalPages: Math.ceil(totalFarmers / parsedLimit),
+      data: farmers,
+      message: `Farmers found in state: ${state} and  District: ${district}`,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send({ message: "An error occurred while fetching farmers." });
+  }
+};
+
 module.exports.editFarmer = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1218,7 +1273,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           });
           // Update land and bank details if present
           await updateRelatedRecords(farmerRecord._id, {
-            farmer_id: farmerRecord._id, total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, village:landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
+            farmer_id: farmerRecord._id, total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, village: landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
           });
         } else {
           // Insert new farmer record
@@ -1226,7 +1281,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
             associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name,
           });
           await insertNewRelatedRecords(farmerRecord._id, {
-            total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, village:landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
+            total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, village: landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
           });
         }
 
@@ -1620,8 +1675,8 @@ const getState = async (stateId) => {
 }
 module.exports.makeAssociateFarmer = async (req, res) => {
   try {
-    const { farmer_id } = req.body; 
-    const { user_id } = req; 
+    const { farmer_id } = req.body;
+    const { user_id } = req;
 
     if (!Array.isArray(farmer_id) || farmer_id.length === 0 || !user_id) {
       return res.status(400).send(new serviceResponse({
@@ -1633,7 +1688,7 @@ module.exports.makeAssociateFarmer = async (req, res) => {
     let updatedFarmers = [];
     let notFoundFarmers = [];
 
-    for (const id of farmer_id) { 
+    for (const id of farmer_id) {
       const localFarmer = await farmer.findOne({ _id: id, associate_id: null });
 
       if (localFarmer) {
@@ -1660,5 +1715,81 @@ module.exports.makeAssociateFarmer = async (req, res) => {
 
   } catch (error) {
     _handleCatchErrors(error, res);
+  }
+};
+module.exports.getAllFarmers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, sortBy, search = '', paginate = 1 } = req.query;
+
+    let associatedQuery = { associate_id: { $ne: null } }; 
+    let localQuery = { associate_id: null };
+
+    if (search) {
+      const searchCondition = { name: { $regex: search, $options: 'i' } };
+      associatedQuery = { ...associatedQuery, ...searchCondition };
+      localQuery = { ...localQuery, ...searchCondition };
+    }
+
+    const records = {
+      associatedFarmers: [],
+      localFarmers: [],
+      associatedFarmersCount: 0,
+      localFarmersCount: 0,
+    };
+
+    const skip = (page - 1) * limit;
+    const parsedLimit = parseInt(limit);
+
+    if (paginate == 1) {
+      records.associatedFarmers = await farmer
+        .find(associatedQuery)
+        .populate('associate_id', '_id user_code')
+        .sort(sortBy ? { [sortBy]: 1 } : {})
+        .skip(skip)
+        .limit(parsedLimit);
+
+      records.localFarmers = await farmer
+        .find(localQuery)
+        .sort(sortBy ? { [sortBy]: 1 } : {})
+        .skip(skip)
+        .limit(parsedLimit);
+
+      records.associatedFarmersCount = await farmer.countDocuments(associatedQuery);
+      records.localFarmersCount = await farmer.countDocuments(localQuery);
+    } else {
+      records.associatedFarmers = await farmer
+        .find(associatedQuery)
+        .populate('associate_id', '_id user_code')
+        .sort(sortBy ? { [sortBy]: 1 } : {});
+
+      records.localFarmers = await farmer
+        .find(localQuery)
+        .sort(sortBy ? { [sortBy]: 1 } : {});
+
+      // Count total associated and local farmers
+      records.associatedFarmersCount = await farmer.countDocuments(associatedQuery);
+      records.localFarmersCount = await farmer.countDocuments(localQuery);
+    }
+
+    // Prepare response data
+    const responseData = {
+      associatedFarmersCount: records.associatedFarmersCount,
+      localFarmersCount: records.localFarmersCount,
+      associatedFarmers: records.associatedFarmers,
+      localFarmers: records.localFarmers,
+    };
+
+    return res.status(200).send({
+      status: 200,
+      data: responseData,
+      message: "Farmers data retrieved successfully.",
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send({
+      status: 500,
+      message: "An error occurred while fetching farmers data.",
+    });
   }
 };
