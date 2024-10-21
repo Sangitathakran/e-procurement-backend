@@ -256,10 +256,10 @@ module.exports.associateOrders = async (req, res) => {
 module.exports.batchList = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
 
         let query = {
-            req_id,
+            associateOffer_id,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
@@ -271,6 +271,7 @@ module.exports.batchList = async (req, res) => {
             })
             .sort(sortBy)
             .skip(skip)
+            .select('_id procurementCenter_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_approve_by')
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
