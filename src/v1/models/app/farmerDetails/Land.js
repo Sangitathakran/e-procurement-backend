@@ -5,7 +5,7 @@ const landSchema = new mongoose.Schema({
     total_area: { type: Number, required: false },
     land_name: { type: String, required: false },
     farmer_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: _collectionName.farmers, default: null },
-    area: { 
+    cultivation_area: { 
         type: Number, 
         // validate: {
         //     validator: function(value) {
@@ -13,6 +13,10 @@ const landSchema = new mongoose.Schema({
         //     },
         //     message: 'Cultivation area must not exceed total land area'
         // }, 
+        required: false 
+    },
+    area: { 
+        type: Number, 
         required: false 
     },
     area_unit: { 
