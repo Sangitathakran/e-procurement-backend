@@ -6,7 +6,7 @@ const { _response_message, _middleware, _auth_module } = require("@src/v1/utils/
 const agencySchema = Joi.object({
     
     agent_name: Joi.string().trim().max(100).required().messages({
-        'string.empty': _middleware.require('First name'),
+        'string.empty': _middleware.require('Agent name'),
     }),
 
     email: Joi.string().trim().email().required().messages({
@@ -15,6 +15,10 @@ const agencySchema = Joi.object({
     }),
     phone: Joi.string().trim().pattern(/^[0-9]{10}$/).optional().messages({
         'string.pattern.base': _response_message.invalid('mobile number'),
+    }),
+
+    ipAddress: Joi.string().trim().max(100).required().messages({
+        'string.empty': _middleware.require('Source not confirmed'),
     }),
 
 });
