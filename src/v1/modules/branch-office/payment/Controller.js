@@ -36,6 +36,14 @@ module.exports.payment = async (req, res) => {
                     localField: '_id',
                     foreignField: 'req_id',
                     as: 'batches',
+                    pipeline: [{
+                        $lookup: {
+                            from: 'payments',
+                            localField: '_id',
+                            foreignField: 'batch_id',
+                            as: 'payment',
+                        }
+                    }],
                 }
             },
             {
@@ -78,6 +86,31 @@ module.exports.payment = async (req, res) => {
                             initialValue: 0,
                             in: { $add: ['$$value', '$$this.totalPrice'] }  // Sum of totalPrice from batches
                         }
+                    },
+                    payment_status: {
+                        $cond: {
+                            if: {
+                                $anyElementTrue: {
+                                    $map: {
+                                        input: '$batches',
+                                        as: 'batch',
+                                        in: {
+                                            $anyElementTrue: {
+                                                $map: {
+                                                    input: '$$batch.payment',
+                                                    as: 'pay',
+                                                    in: {
+                                                        $eq: ['$$pay.status', 'Pending']  // Assuming status field exists in payments
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            then: 'Pending',
+                            else: 'Approved'
+                        }
                     }
                 }
             },
@@ -93,7 +126,8 @@ module.exports.payment = async (req, res) => {
                     'batches.status': 1,
                     approval_status: 1,
                     qtyPurchased: 1,
-                    amountPayable: 1
+                    amountPayable: 1,
+                    payment_status: 1
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
