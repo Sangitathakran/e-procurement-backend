@@ -881,7 +881,18 @@ module.exports.getLandDetails=async(req,res)=>{
   try {
     const { id} = req.params;
 
-    const fetchLandDetails = await Land.findById(id).populate('farmer_id', 'id name')
+    let fetchLandDetails = await Land.findById(id).lean()
+    const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": fetchLandDetails.land_address.state_id.toString() } } },{ "states.$": 1 });
+  
+  const districts = state.states[0].districts.find(item=>item._id==fetchLandDetails.land_address.district_id.toString())
+   let land_address={
+    state:state.states[0].state_title,
+    district:districts.district_title
+   }
+  fetchLandDetails={
+    ...fetchLandDetails,
+    land_address
+  }
      if(!fetchLandDetails){
       return sendResponse({res,status:404,message:"Land details not found"})
      }
