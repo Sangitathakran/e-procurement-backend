@@ -21,8 +21,8 @@ module.exports.getDashboardStats = async (req, res) => {
         const startOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
         const endOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
 
-        const lastMonthAssociates = await User.countDocuments({
-            user_type: _userType.associate,
+        const lastMonthBo = await User.countDocuments({
+            user_type: _userType.bo,
             is_form_submitted: true,
             is_approved: _userStatus.approved,
             createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
@@ -35,12 +35,12 @@ module.exports.getDashboardStats = async (req, res) => {
             createdAt: { $gte: startOfCurrentMonth }
         });
 
-        const difference = currentMonthAssociates - lastMonthAssociates;
+        const difference = currentMonthAssociates - lastMonthBo;
         const status = difference >= 0 ? 'increased' : 'decreased';
 
         let differencePercentage = 0;
-        if (lastMonthAssociates > 0) {
-            differencePercentage = (difference / lastMonthAssociates) * 100;
+        if (lastMonthBo > 0) {
+            differencePercentage = (difference / lastMonthBo) * 100;
         }
 
         // Farmers stats for last month and current month
@@ -71,7 +71,7 @@ module.exports.getDashboardStats = async (req, res) => {
         const associateStats = {
             totalAssociates: associateCount,
             currentMonthAssociates,
-            lastMonthAssociates,
+            lastMonthBo,
             difference,
             differencePercentage: differencePercentage.toFixed(2) + '%',
             status: status,

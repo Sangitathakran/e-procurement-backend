@@ -5,9 +5,9 @@ const { verifyBO } = require("../utils/verifyBO");
 const dashboardRoutes = express.Router();
 
 
-dashboardRoutes.get("/", verifyAgent, getDashboardStats);
-dashboardRoutes.get("/precurement-stats", verifyAgent, getProcurementsStats);
-dashboardRoutes.get("/precurement-list", verifyAgent, getProcurementStatusList);
-dashboardRoutes.get("/pending-precurement-list", verifyAgent, getPendingOffersCountByRequestId);
+dashboardRoutes.get("/", verifyBO, getDashboardStats);
+dashboardRoutes.get("/precurement-stats", verifyBO, getProcurementsStats);
+dashboardRoutes.get("/precurement-list", verifyBO, getProcurementStatusList);
+dashboardRoutes.get("/pending-precurement-list", verifyBO, getPendingOffersCountByRequestId);
 
 module.exports = { dashboardRoutes }; 
