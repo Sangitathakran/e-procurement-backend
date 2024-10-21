@@ -547,7 +547,6 @@ module.exports.getBoFarmer = async (req, res) => {
 
     const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
-    console.log(district_id);
     if (!state_id || !district_id) {
       return res.status(400).send({ message: "State ID not found for the user's state." });
     }
@@ -563,8 +562,8 @@ module.exports.getBoFarmer = async (req, res) => {
     const farmers = await farmer.find(query)
       .sort({ [sortBy]: 1 })
       .skip(skip)
-      .limit(parsedLimit);
-
+      .limit(parsedLimit)
+      .populate('associate_id', '_id user_code ');
     const totalFarmers = await farmer.countDocuments(query);
 
     if (farmers.length === 0) {
@@ -576,7 +575,7 @@ module.exports.getBoFarmer = async (req, res) => {
       currentPage: page,
       totalPages: Math.ceil(totalFarmers / parsedLimit),
       data: farmers,
-      message: `Farmers found in state: ${state}`,
+      message: `Farmers found in state: ${state} and  District: ${district}`,
     });
   } catch (error) {
     console.error(error);
