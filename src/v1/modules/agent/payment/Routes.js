@@ -27,7 +27,7 @@ paymentRoutes.get("/agent-bill", Auth, agentBill);
 paymentRoutes.put("/agent-payment-edit", Auth, agentPaymentEdit);
 paymentRoutes.get("/agent-payment-logs", Auth, agentPaymentLogs);
 
-paymentRoutes.get("/agent-dashboard-payment-list", Auth, agentDashboardAssociateList);
-paymentRoutes.get("/agent-dashboard-associate-list", Auth, agentDashboardPaymentList);
+paymentRoutes.get("/agent-dashboard-payment-list", Auth, agentDashboardPaymentList);
+paymentRoutes.get("/agent-dashboard-associate-list", Auth, agentDashboardAssociateList);
 
 module.exports = { paymentRoutes }; 
