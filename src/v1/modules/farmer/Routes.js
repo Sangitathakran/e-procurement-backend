@@ -7,6 +7,7 @@ const { verifyAssociate } = require("../associate/utils/verifyAssociate");
 const { saveFarmerDetails,updateIndCrop, getIndCropDetails,sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, editFarmer, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers } = require("./Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
 // const { verifyAgent } = require("../agent/utils/verifyAgent");
+const { Auth } = require("@src/v1/middlewares/jwt")
 
 farmerRoutes.post("/", verifyJwtToken, verifyAssociate, [validateFarmer, validateErrors], createFarmer);
 farmerRoutes.get("/", verifyJwtToken, getFarmers);
@@ -37,7 +38,7 @@ farmerRoutes.post("/verify-farmerOTP", verifyOTP);
 farmerRoutes.post('/register-details', verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
 farmerRoutes.post("/make-associate", verifyAssociate, makeAssociateFarmer);
 farmerRoutes.get("/getbo-farmer", verifyBO, getBoFarmer);
-// farmerRoutes.get("/getall-farmer", verifyAgent, getAllFarmers);
+farmerRoutes.get("/getall-farmer", Auth, getAllFarmers);
 
 /* 
  individual farmer routes s

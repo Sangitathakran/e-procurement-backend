@@ -541,26 +541,49 @@ module.exports.getFarmers = async (req, res) => {
 module.exports.getBoFarmer = async (req, res) => {
   try {
     const { user_id } = req;
+    const { page = 1, limit = 10, search = '', sortBy = 'name' } = req.query; 
+
     const user = await Branches.findById(user_id);
     if (!user) {
       return res.status(404).send({ message: "User not found." });
     }
 
-    const { state } = user; 
-
-    if (!state) {
+    const { state, district} = user; 
+    if (!state || !district) {
       return res.status(400).send({ message: "User's state information is missing." });
     }
-    const farmers = await farmer.find({ state });
 
-    if (farmers.length === 0) {
-      return res.status(404).send({ message: `No farmers found in state: ${state}` });
+    const state_id = await getStateId(state);
+    const district_id = await getDistrictId(district);
+    if (!state_id || !district_id) {
+      return res.status(400).send({ message: "State ID not found for the user's state." });
     }
 
+    let query = { 'address.state_id': state_id,  'address.district_id': district_id};
+    if (search) {
+      query.name = { $regex: search, $options: 'i' }; 
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const parsedLimit = parseInt(limit);
+
+    const farmers = await farmer.find(query)
+      .sort({ [sortBy]: 1 })
+      .skip(skip)
+      .limit(parsedLimit)
+      .populate('associate_id', '_id user_code ');
+    const totalFarmers = await farmer.countDocuments(query);
+
+    if (farmers.length === 0) {
+      return res.status(404).send({ message: `No farmers found in state: ${state} and  District: ${district}`  });
+    }
     return res.status(200).send({
       status: 200,
+      totalFarmers, 
+      currentPage: page,
+      totalPages: Math.ceil(totalFarmers / parsedLimit),
       data: farmers,
-      message: `Farmers found in state: ${state}`,
+      message: `Farmers found in state: ${state} and  District: ${district}`,
     });
   } catch (error) {
     console.error(error);
@@ -1848,56 +1871,70 @@ module.exports.makeAssociateFarmer = async (req, res) => {
 };
 module.exports.getAllFarmers = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy, search = '', paginate = 1, } = req.query;
+    const { page = 1, limit = 10, sortBy, search = '', paginate = 1 } = req.query;
 
-    let query = {
-      $or: [
-        { associate_id: { $ne: null } },
-      ]
-    };
+    let associatedQuery = { associate_id: { $ne: null } }; 
+    let localQuery = { associate_id: null };
+
     if (search) {
-      query.name = { $regex: search, $options: 'i' };
+      const searchCondition = { name: { $regex: search, $options: 'i' } };
+      associatedQuery = { ...associatedQuery, ...searchCondition };
+      localQuery = { ...localQuery, ...searchCondition };
     }
 
-    const records = { associatedFarmers: [], localFarmers: [], associatedFarmersCount: 0, localFarmersCount: 0 };
+    const records = {
+      associatedFarmers: [],
+      localFarmers: [],
+      associatedFarmersCount: 0,
+      localFarmersCount: 0,
+    };
+
+    const skip = (page - 1) * limit;
+    const parsedLimit = parseInt(limit);
+
     if (paginate == 1) {
-      records.associatedFarmers = await farmer.find({ associate_id: { $ne: null }, ...query })
+      records.associatedFarmers = await farmer
+        .find(associatedQuery)
         .populate('associate_id', '_id user_code')
         .sort(sortBy ? { [sortBy]: 1 } : {})
-        .skip((page - 1) * limit)
-        .limit(parseInt(limit));
-      records.localFarmers = await farmer.find({ associate_id: null, ...query })
-        .populate('associate_id', '_id user_code')
-        .sort(sortBy ? { [sortBy]: 1 } : {})
-        .skip((page - 1) * limit)
-        .limit(parseInt(limit));
-      records.associatedFarmersCount = await farmer.countDocuments({ associate_id: { $ne: null }, ...query });
-      records.localFarmersCount = await farmer.countDocuments({ associate_id: null, ...query });
+        .skip(skip)
+        .limit(parsedLimit);
 
+      records.localFarmers = await farmer
+        .find(localQuery)
+        .sort(sortBy ? { [sortBy]: 1 } : {})
+        .skip(skip)
+        .limit(parsedLimit);
+
+      records.associatedFarmersCount = await farmer.countDocuments(associatedQuery);
+      records.localFarmersCount = await farmer.countDocuments(localQuery);
     } else {
-      records.associatedFarmers = await farmer.find({ associate_id: { $ne: null }, ...query })
+      records.associatedFarmers = await farmer
+        .find(associatedQuery)
         .populate('associate_id', '_id user_code')
         .sort(sortBy ? { [sortBy]: 1 } : {});
 
-      records.localFarmers = await farmer.find({ associate_id: null, ...query })
-        .populate('associate_id', '_id user_code')
+      records.localFarmers = await farmer
+        .find(localQuery)
         .sort(sortBy ? { [sortBy]: 1 } : {});
 
-      records.associatedFarmersCount = await farmer.countDocuments({ associate_id: { $ne: null }, ...query });
-      records.localFarmersCount = await farmer.countDocuments({ associate_id: null, ...query });
+      // Count total associated and local farmers
+      records.associatedFarmersCount = await farmer.countDocuments(associatedQuery);
+      records.localFarmersCount = await farmer.countDocuments(localQuery);
     }
 
+    // Prepare response data
     const responseData = {
       associatedFarmersCount: records.associatedFarmersCount,
       localFarmersCount: records.localFarmersCount,
       associatedFarmers: records.associatedFarmers,
-      localFarmers: records.localFarmers
+      localFarmers: records.localFarmers,
     };
 
     return res.status(200).send({
       status: 200,
       data: responseData,
-      message: "Farmers data retrieved successfully."
+      message: "Farmers data retrieved successfully.",
     });
 
   } catch (error) {
