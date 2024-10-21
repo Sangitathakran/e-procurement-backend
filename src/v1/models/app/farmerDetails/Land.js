@@ -16,7 +16,7 @@ const landSchema = new mongoose.Schema({
         required: false 
     },
     area: { 
-        type: Number, 
+        type: String, 
         required: false 
     },
     area_unit: { 
