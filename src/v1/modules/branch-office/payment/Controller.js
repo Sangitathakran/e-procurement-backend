@@ -25,25 +25,85 @@ module.exports.payment = async (req, res) => {
             query.user_type = _userType.agent;
         }
 
+
+        const paymentIds = (await Payment.find(query)).map(i => i.req_id)
+
+        const aggregationPipeline = [
+            { $match: { _id: { $in: paymentIds } } },
+            {
+                $lookup: {
+                    from: 'batches',
+                    localField: '_id',
+                    foreignField: 'req_id',
+                    as: 'batches'
+                }
+            },
+            {
+                $match: {
+                    batches: { $ne: [] }
+                }
+            },
+            {
+                $addFields: {
+                    approval_status: {
+                        $cond: {
+                            if: {
+                                $anyElementTrue: {
+                                    $map: {
+                                        input: '$batches',
+                                        as: 'batch',
+                                        in: {
+                                            $or: [
+                                                { $not: { $ifNull: ['$$batch.payement_approval_at', true] } },  // Check if the field is missing
+                                                { $eq: ['$$batch.payement_approval_at', null] },  // Check for null value
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            then: 'Pending',
+                            else: 'Approved'
+                        }
+                    },
+                    qtyPurchased: {
+                        $reduce: {
+                            input: '$batches',
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this.qty'] }  // Sum of qty from batches
+                        }
+                    },
+                    amountPayable: {
+                        $reduce: {
+                            input: '$batches',
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this.totalPrice'] }  // Sum of totalPrice from batches
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    reqNo: 1,
+                    product: 1,
+                    'batches._id': 1,
+                    'batches.qty': 1,
+                    'batches.goodsPrice': 1,
+                    'batches.totalPrice': 1,
+                    'batches.status': 1,
+                    approval_status: 1,
+                    qtyPurchased: 1,
+                    amountPayable: 1
+                }
+            },
+            { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit) }
+        ];
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await Payment.find(query)
-            .populate({
-                path: 'whomToPay', select: '_id associate_id farmer_code name',
-                path: 'req_id', select: 'product farmer_code name'
-            })
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await Payment.find(query)
-                .sort(sortBy);
+        records.rows = await RequestModel.aggregate(aggregationPipeline);
 
-        let batchId = {}
-        records.rows = await Promise.all(records.rows.map(async record => {
-            const batch = await Batch.findOne({ 'req_id': record.req_id }).select({ batchId: 1, _id: 0 });
-            batchId = batch?.batchId;
-            return { ...record.toObject(), batchId }
-        }));
-
-        records.count = await Payment.countDocuments(query);
+        records.count = await RequestModel.countDocuments({ _id: { $in: paymentIds } });
 
         if (paginate == 1) {
             records.page = page
@@ -110,7 +170,7 @@ module.exports.associateOrders = async (req, res) => {
             .skip(skip)
             .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
 
-            records.reqDetails = await RequestModel.findOne({ _id: req_id })
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
         records.count = await Payment.countDocuments(query);
@@ -254,9 +314,9 @@ module.exports.qcReport = async (req, res) => {
             .populate({
                 path: 'req_id', select: '_id reqNo product address quotedPrice fulfilledQty totalQuantity expectedProcurementDate'
             })
-         
-            // return res.status(200).send(new serviceResponse({ status: 200, data: qcReport, message: _query.get('Qc Report') }))
-        
+
+        // return res.status(200).send(new serviceResponse({ status: 200, data: qcReport, message: _query.get('Qc Report') }))
+
         if (qcReport) {
 
             let totalamount = 0;
@@ -336,7 +396,7 @@ module.exports.getBill = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
-        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice:1, totalPrice:1, dispatched:1 });
+        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
 
         if (billPayment) {
 
@@ -369,7 +429,7 @@ module.exports.lot_list = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
 
         const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
-        
+
         let farmerOrderIdsOnly = {}
 
         if (batchIds && batchIds.length > 0) {
@@ -383,7 +443,7 @@ module.exports.lot_list = async (req, res) => {
             _id: farmerOrderIdsOnly,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
-        
+
         const records = { count: 0 };
         records.rows = paginate == 1 ? await FarmerOrders.find(query)
             .sort(sortBy)
