@@ -1,5 +1,6 @@
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod } = require("@src/v1/utils/constants");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
