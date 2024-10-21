@@ -20,8 +20,8 @@ const landSchema = new mongoose.Schema({
         enum: Object.values(_areaUnit).slice(0, 2), 
         required: false 
     },
-    khatauni: { type: String },
-    khasra_no: { type: String },
+    khtauni_number: { type: String },
+    khasra_number: { type: String },
     khata_number: { type: String },
     soil_type: { 
         type: String, 
