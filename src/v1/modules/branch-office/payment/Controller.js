@@ -134,20 +134,29 @@ module.exports.payment = async (req, res) => {
             { $skip: skip },
             { $limit: parseInt(limit) }
         ];
-        const records = { count: 0 };
-        records.rows = await RequestModel.aggregate(aggregationPipeline);
+        const records = await RequestModel.aggregate([
+            ...aggregationPipeline,
+            {
+                $facet: {
+                    data: aggregationPipeline, // Aggregate for data
+                    totalCount: [{ $count: 'count' }] // Count the documents
+                }
+            }
+        ]);
 
-        records.count = await RequestModel.countDocuments({ _id: { $in: paymentIds } });
-
+        const response = {
+            count: records[0]?.totalCount[0]?.count || 0,
+            rows: records[0]?.data || []
+        };
         if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+            response.page = page
+            response.limit = limit
+            response.pages = limit != 0 ? Math.ceil(response.count / limit) : 0
         }
 
         if (isExport == 1) {
 
-            const record = records.rows.map((item) => {
+            const record = response.rows.map((item) => {
                 return {
                     "Order ID": item?.reqNo || 'NA',
                     "Batch ID": item?.batchId || 'NA',
@@ -166,10 +175,10 @@ module.exports.payment = async (req, res) => {
                     worksheetName: `Payment-record`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+                return res.status(200).send(new serviceResponse({ status: 400, data: response, message: _response_message.notFound("Payment") }))
             }
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+            return res.status(200).send(new serviceResponse({ status: 200, data: response, message: _response_message.found("Payment") }))
         }
 
     } catch (error) {
