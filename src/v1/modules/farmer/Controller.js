@@ -764,12 +764,18 @@ module.exports.updateLand = async (req, res) => {
 
     const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
-
+    let land_address={
+      state_id,
+      block,
+      pin_code,
+      district_id,
+      village
+    }
     const updatedLand = await Land.findByIdAndUpdate(
       land_id,
       {
-        area, land_name, cultivation_area, area_unit, state: state_id, district: district_id,land_type,upload_land_document,
-        village, block, khtauni_number, khasra_number, khata_number,
+        area, land_name, cultivation_area, area_unit,land_type,upload_land_document,land_address
+        , khtauni_number, khasra_number, khata_number,
         soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
       },
       { new: true }
