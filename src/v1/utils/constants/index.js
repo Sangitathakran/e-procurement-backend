@@ -245,6 +245,12 @@ const _soilType = {
     Alkaline: "alkaline",
     Other: "other"
 }
+const _landType = {
+    OwnLand:"own land",
+    Partnership:"partnership",
+    Leaser:"leaser",
+    Other: "other"
+}
 const _distanceUnit = {
     Km: "km",
     Metre: "metre",
@@ -397,6 +403,7 @@ module.exports = {
     _category,
     _areaUnit,
     _soilType,
+    _landType,
     _distanceUnit,
     _seedUsed,
     _yesNo,

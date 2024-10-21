@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
-const { _collectionName, _status, _areaUnit, _soilType, _distanceUnit, _yesNo } = require('@src/v1/utils/constants');
+const { _collectionName, _status, _areaUnit, _soilType, _landType,_distanceUnit, _yesNo } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const landSchema = new mongoose.Schema({ 
     total_area: { type: Number, required: false },
     land_name: { type: String, required: false },
     farmer_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: _collectionName.farmers, default: null },
-    cultivation_area: { 
+    area: { 
         type: Number, 
         // validate: {
         //     validator: function(value) {
@@ -28,6 +28,12 @@ const landSchema = new mongoose.Schema({
         enum: Object.values(_soilType), 
         required: false 
     },
+    land_type: { 
+        type: String, 
+        enum: Object.values(_landType), 
+        required: false 
+    },
+    upload_land_document: { type: String },
     land_address: {
         state_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity' },
         district_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity.districts' },
