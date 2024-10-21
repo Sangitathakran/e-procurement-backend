@@ -87,6 +87,7 @@ module.exports.verifyOTP = async (req, res) => {
     if (!individualFormerData) {
       individualFormerData = await new farmer({
         mobile_no: mobileNumber,
+        farmer_type:'Individual',
         is_verify_otp: true
       }).save();
     }
@@ -232,22 +233,20 @@ module.exports.submitForm = async (req, res) => {
     const { id } = req.params;
 
     const farmerDetails = await farmer.findById(id)
-    console.log(farmerDetails)
-    { states: { $elemMatch: { _id: "xyz" } } }
-    const state = await StateDistrictCity.findOne({ states: { $elemMatch: { _id: farmerDetails.address.state_id } } });
-  console.log('state',state)
-  const stateDoc = await StateDistrictCity.findOne( { states: { $elemMatch: { _id: farmerDetails.address.state_id } } });
-   // console.log(farmerDetails)
+    // .populate('address.state_id')
+    const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails.address.state_id.toString() } } },{ "states.$": 1 });
+  
+  const districts = state.states[0].districts.find(item=>item._id==farmerDetails.address.district_id.toString())
+    
     const generateFarmerId = (farmer) => {
       const stateData = stateList.stateList.find(
         (item) =>
-          item.state.toLowerCase() === state.title.toLowerCase()
+          item.state.toLowerCase() === state.states[0].state_title.toLowerCase()
       );
-      //console.log("stateData--->", stateData)
+      // console.log("stateData--->", stateData)
       const district = stateData.districts.find(
         (item) =>
-          item.districtName.toLowerCase() ===
-          farmer.address.district.toLowerCase()
+          item.districtName.toLowerCase() ===districts.district_title.toLowerCase()
       );
 
       if (!district) {
