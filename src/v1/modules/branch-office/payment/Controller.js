@@ -355,37 +355,7 @@ module.exports.qcReport = async (req, res) => {
                 path: 'req_id', select: '_id reqNo product address quotedPrice fulfilledQty totalQuantity expectedProcurementDate'
             })
 
-        // return res.status(200).send(new serviceResponse({ status: 200, data: qcReport, message: _query.get('Qc Report') }))
-
-        if (qcReport) {
-
-            let totalamount = 0;
-            let mspPercentage = 1; // The percentage you want to calculate       
-
-            const reqDetails = await Payment.find({
-                $and: [
-                    { req_id: qcReport.req_id },
-                    { user_id: qcReport.seller_id }
-                ]
-            })
-                .select({ _id: 0, amount: 1 });
-
-            const newdata = await Promise.all(reqDetails.map(async record => {
-                totalamount += record.amount;
-            }));
-
-            const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
-
-            let records = { ...qcReport.toObject(), totalamount, mspAmount }
-
-            if (records) {
-                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Qc Report') }))
-            }
-        }
-        else {
-            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Qc Report") }] }))
-        }
-
+        return res.status(200).send(new serviceResponse({ status: 200, data: qcReport, message: _query.get('Qc Report') }))
     }
     catch (error) {
         _handleCatchErrors(error, res);
