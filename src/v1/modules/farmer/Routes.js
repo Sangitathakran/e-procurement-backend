@@ -14,7 +14,7 @@ farmerRoutes.get("/", verifyJwtToken, getFarmers);
 farmerRoutes.put('/:id', verifyJwtToken, editFarmer);
 farmerRoutes.delete("/", verifyJwtToken, deletefarmer);
 farmerRoutes.post("/createLand", verifyJwtToken,
-    //  [validateLand, validateErrors]
+    //   [validateLand, validateErrors],
       createLand);
 farmerRoutes.get("/get-land", verifyJwtToken, getLand);
 farmerRoutes.get("/get-land-details/:id", verifyJwtToken, getLandDetails);
