@@ -60,7 +60,7 @@ module.exports.sendOtp = async (req, res) => {
 module.exports.loginOrRegister = async (req, res) => {
     try {
         const { userInput, inputOTP } = req.body;
-        
+
         if (!userInput || !inputOTP) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('otp_required') }] }));
         }
@@ -105,7 +105,7 @@ module.exports.loginOrRegister = async (req, res) => {
         });
         const data = {
             token: token,
-            user_type: userExist.user_type,
+            userType: userExist.user_type,
             is_approved: userExist.is_approved,
             phone: userExist.basic_details.associate_details.phone,
             associate_code: userExist.user_code,
@@ -134,7 +134,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
         switch (formName) {
             case 'organization':
                 user.basic_details.associate_details.organization_name = formData.organization_name;
-                
+
                 break;
             case 'basic_details':
                 if (formData.associate_details && formData.associate_details.phone) {
@@ -181,7 +181,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
                 return res.status(200).send(new serviceResponse({ status: 400, message: `Invalid form name: ${formName}` }));
         }
         await user.save();
-        
+
         const response = { user_code: user.user_code, user_id: user._id };
         return res.status(200).send(new serviceResponse({ message: _response_message.updated(formName), data: response }));
     } catch (error) {
@@ -238,7 +238,7 @@ module.exports.findUserStatus = async (req, res) => {
         if (!user) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         }
-        
+
         const response = await User.findById({ _id: userId });
         if (!response) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
@@ -262,7 +262,7 @@ module.exports.finalFormSubmit = async (req, res) => {
         if (!user) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         }
-        
+
         user.is_form_submitted = true;
 
         const allDetailsFilled = (
@@ -288,7 +288,7 @@ module.exports.finalFormSubmit = async (req, res) => {
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, message: _query.update("data"), data: user.is_form_submitted }));
-        
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }
