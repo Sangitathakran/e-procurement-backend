@@ -757,7 +757,7 @@ module.exports.updateLand = async (req, res) => {
   try {
     const { land_id } = req.params;
     const {
-      area, land_name, cultivation_area, area_unit, state, district,land_type,upload_land_document,
+      area, land_name, cultivation_area,pin_code, area_unit, state, district,land_type,upload_land_document,
       village, block, khtauni_number, khasra_number, khata_number,
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     } = req.body;
