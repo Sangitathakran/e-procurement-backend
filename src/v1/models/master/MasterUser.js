@@ -73,6 +73,10 @@ const userSchema = new mongoose.Schema({
 
     createdBy: {type: mongoose.Schema.Types.ObjectId , ref: _collectionName.MasterUser },
 
+    updatedBy: {type: mongoose.Schema.Types.ObjectId , ref: _collectionName.MasterUser , default: null },
+
+    ipAddress: {type: String, default: null},
+
     history: {
         type: [mongoose.Schema.Types.Mixed], 
         default: [] 
@@ -93,6 +97,13 @@ userSchema.pre('save', async function (next) {
         }
         
     })
+
+
+    const historyEntry = { ...this.toObject() };
+    delete historyEntry.history
+    delete historyEntry._id
+    this.history.push(historyEntry);
+    
 
     next();
 });
