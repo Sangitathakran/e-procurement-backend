@@ -1,5 +1,6 @@
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod } = require("@src/v1/utils/constants");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
@@ -119,7 +120,7 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
             const farmerData = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id });
 
-            const paymentData = { payment_collect_by: "Farmer", whomToPay: farmerData.farmer_id, user_type, user_id, qtyProcured: farmer.qty, reqNo: request.reqNo, req_id: request._id, commodity: record.req_id.product.name, amount: farmer.amt, date: new Date(), method: _paymentmethod.bank_transfer }
+            const paymentData = { batch_id: record?._id, payment_collect_by: "Farmer", whomToPay: farmerData.farmer_id, user_type, user_id, qtyProcured: farmer.qty, reqNo: request.reqNo, req_id: request._id, commodity: record.req_id.product.name, amount: farmer.amt, date: new Date(), method: _paymentmethod.bank_transfer }
 
             paymentRecords.push(paymentData);
         }
