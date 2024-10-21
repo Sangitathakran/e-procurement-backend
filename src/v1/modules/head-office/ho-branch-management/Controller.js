@@ -19,13 +19,13 @@ const { generateRandomPassword } = require('@src/v1/utils/helpers/randomGenerato
 const bcrypt = require('bcrypt');
 const { TypesModel } = require("@src/v1/models/master/Types");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
+const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
 
 
 module.exports.importBranches = async (req, res) => {
   try {
     const headOfficeId = req.params.id;
-
     if (!headOfficeId) {
       return res.status(403).json({
         message: "HeadOffice not found",
@@ -159,7 +159,8 @@ module.exports.importBranches = async (req, res) => {
         userType : type.userType,
         createdBy: req.user._id,
         userRole: [type.adminUserRoleId],
-        portalId: newBranch._id
+        portalId: newBranch._id,
+        ipAddress:getIpAddress(req)
       });
 
       await masterUser.save();
