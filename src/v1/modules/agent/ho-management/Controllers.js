@@ -20,6 +20,10 @@ module.exports.getHo = async (req, res) => {
         let query = {
             ...(search ? { 'company_details.name': { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
+
+        if (paginate == 0) {
+            query.active = true
+        }
         const records = { count: 0 };
         records.rows = await HeadOffice.aggregate([
             { $match: query },
@@ -37,23 +41,36 @@ module.exports.getHo = async (req, res) => {
                 }
             },
             {
-                $project: {
-                    _id: 1,
-                    office_id: 1,
-                    'company_details.name': 1,
-                    registered_time: 1,
-                    branchCount: 1,
-                    'point_of_contact.name': 1,
-                    'point_of_contact.email': 1,
-                    'point_of_contact.mobile': 1,
-                    'point_of_contact.designation': 1,
-                    registered_time: 1,
-                    head_office_code: 1,
-                    active: 1,
-                    address: 1,
-                    createdAt: 1,
-                    updatedAt: 1
-                }
+                ...(paginate == 1 && {
+                    $project: {
+                        _id: 1,
+                        office_id: 1,
+                        'company_details.name': 1,
+                        registered_time: 1,
+                        branchCount: 1,
+                        'point_of_contact.name': 1,
+                        'point_of_contact.email': 1,
+                        'point_of_contact.mobile': 1,
+                        'point_of_contact.designation': 1,
+                        registered_time: 1,
+                        head_office_code: 1,
+                        active: 1,
+                        address: 1,
+                        createdAt: 1,
+                        updatedAt: 1
+                    }
+                }),
+                ...(paginate == 0 && {
+                    $project: {
+                        _id: 1,
+                        office_id: 1,
+                        'company_details.name': 1,
+                        'point_of_contact.name': 1,
+                        'point_of_contact.email': 1,
+                        'point_of_contact.designation': 1,
+                        head_office_code: 1,
+                    }
+                })
             },
             { $sort: sortBy },
             ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []) // Pagination if required
@@ -91,7 +108,7 @@ module.exports.saveHeadOffice = async (req, res) => {
         const password = generateRandomPassword();
 
         // this is to get the type object of head office
-        const type = await TypesModel.findOne({_id:"671100dbf1cae6b6aadc2423"})
+        const type = await TypesModel.findOne({ _id: "671100dbf1cae6b6aadc2423" })
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const headOffice = new HeadOffice({
@@ -106,9 +123,9 @@ module.exports.saveHeadOffice = async (req, res) => {
 
 
         // checking the existing user in Master User collection
-        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:authorised.phone},{email:authorised.email}]})
-        if(isUserAlreadyExist){
-          return sendResponse({res, status: 400, message: "user already existed with this mobile number or email in Master"})
+        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{ mobile: authorised.phone }, { email: authorised.email }] })
+        if (isUserAlreadyExist) {
+            return sendResponse({ res, status: 400, message: "user already existed with this mobile number or email in Master" })
         }
 
         const savedHeadOffice = await headOffice.save();
@@ -124,20 +141,20 @@ module.exports.saveHeadOffice = async (req, res) => {
         }
         await emailService.sendHoCredentialsEmail(hoAuthorisedData);
 
-        
+
 
 
         const masterUser = new MasterUser({
-            firstName : authorised.name,
-            isAdmin : true,
-            email : authorised.email,
-            mobile : authorised.phone,
+            firstName: authorised.name,
+            isAdmin: true,
+            email: authorised.email,
+            mobile: authorised.phone,
             password: hashedPassword,
-            userType : type.userType,
+            userType: type.userType,
             userRole: [type.adminUserRoleId],
             createdBy: req.user._id,
             portalId: savedHeadOffice._id,
-            ipAddress: getIpAddress(req) 
+            ipAddress: getIpAddress(req)
         });
 
         await masterUser.save();
