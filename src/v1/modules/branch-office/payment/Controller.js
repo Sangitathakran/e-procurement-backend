@@ -257,7 +257,7 @@ module.exports.batchList = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
-
+        const { userType } = req
         let query = {
             associateOffer_id,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
