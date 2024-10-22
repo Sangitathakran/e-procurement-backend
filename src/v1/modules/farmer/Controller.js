@@ -164,6 +164,17 @@ module.exports.saveFarmerDetails = async (req, res) => {
 
     if (farmerDetails) {
       farmerDetails[screenName] = req.body[screenName];
+
+      if(screenName=='address'){
+        let {state,district}=req.body[screenName];
+        const state_id = await getStateId(state);
+    const district_id = await getDistrictId(district);
+        farmerDetails[screenName]={
+          ...req.body[screenName],
+          state_id,
+          district_id
+        }
+      }
       // farmerDetails.steps = req.body?.steps;
       await farmerDetails.save();
 
@@ -209,9 +220,9 @@ module.exports.getFarmerDetails = async (req, res) => {
 
     if (farmerDetails) {
       if(screenName=='address'){
-        const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails?.address.state_id.toString() } } },{ "states.$": 1 });
+        const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails?.address?.state_id?.toString() } } },{ "states.$": 1 });
   
-        const districts = state?.states[0]?.districts.find(item=>item._id==farmerDetails?.address.district_id.toString())
+        const districts = state?.states[0]?.districts.find(item=>item._id==farmerDetails?.address?.district_id?.toString())
         
               farmerDetails={
                 ...farmerDetails,
@@ -287,31 +298,40 @@ module.exports.submitForm = async (req, res) => {
       return farmerId;
     };
     const farmer_id = await generateFarmerId(farmerDetails);
-
+      console.log(farmer_id)
     if (farmerDetails && farmer_id) {
+      const landDetails = await Land.find({farmer_id:id});
+        const cropDetails=await Crop.find({farmer_id:id})
+        let land_ids=landDetails.map(item=>({land_id:item._id}))
+        let crop_ids=cropDetails.map(item=>({crop_id:item._id}))
+        farmerDetails.land_details=land_ids
+        farmerDetails.crop_details=crop_ids
+        console.log(land_ids,crop_ids)
+        await farmerDetails.save();
       if (farmerDetails.farmer_id == null) {
         farmerDetails.farmer_id = farmer_id;
         farmerDetails.allStepsCompletedStatus = true;
-
+        
         //welcome sms send functionality
         const mobileNumber = req.mobile_no;
         const farmerName = farmerDetails.basic_details.name;
         const farmerId = farmerDetails.farmer_id;
+        
         const isMszSent = await smsService.sendFarmerRegistrationSMS(
           mobileNumber,
           farmerName,
           farmerId
         );
-        //console.log("isMszSent==>",isMszSent)
+       // console.log("isMszSent==>",isMszSent)
         if (isMszSent && isMszSent.response && isMszSent.response.status === 'success') {
           // Message was sent successfully
-          const landDetails = await Land.find({farmer_id:id});
-          let land_ids=landDetails.map(item=>({land_id:item._id}))
+          
           farmerDetails.is_welcome_msg_send = true;
-          farmerDetails.land_details=land_ids
+          
         }
 
         const farmerUpdatedDetails = await farmerDetails.save();
+        console.log(farmerUpdatedDetails)
         return sendResponse({ res, status: 200, data: farmerUpdatedDetails })
       }
 
@@ -1005,15 +1025,15 @@ module.exports.getIndCropDetails = async (req, res) => {
 };
 module.exports.getCrop = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy = 'crops_name', paginate = 1, farmer_id } = req.query;
+    const { page = 1, limit = 10, sortBy = 'crop_name', paginate = 1, farmer_id } = req.query;
     const skip = (page - 1) * limit;
     const currentDate = new Date();
     const query = farmer_id ? { farmer_id } : {};
     const records = { pastCrops: {}, upcomingCrops: {} };
-
-    const fetchCrops = async (cropQuery) => paginate == 1
-      ? Crop.find(cropQuery).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
-      : Crop.find(cropQuery).sort(sortBy).populate('farmer_id', 'id name');
+    
+    const fetchCrops = async (query) => paginate == 1
+      ? Crop.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
+      : Crop.find(query).sort(sortBy).populate('farmer_id', 'id name');
 
     const [pastCrops, upcomingCrops] = await Promise.all([
       fetchCrops({ ...query, sowing_date: { $lt: currentDate } }),
@@ -1423,7 +1443,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const lab_distance_unit = toLowerCaseIfExists(rec["LAB DISTANCE UNIT"]);
       const sowingdate = rec["SOWING DATE(MM-YYYY)*"];
       const harvestingdate = rec["HARVESTING DATE(MM-YYYY)*"];
-      const crops_name = rec["CROPS NAME*"];
+      const crop_name = rec["CROPS NAME*"];
       const production_quantity = rec["PRODUCTION QUANTITY*"];
       const productivity = rec["PRODUCTIVITY"];
       const selling_price = rec["SELLING PRICE"];
@@ -1442,7 +1462,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const crop_insurance = toLowerCaseIfExists(rec["CROP INSURANCE"]);
       const insurance_company = rec["INSURANCE COMPANY"];
       const insurance_worth = rec["INSURANCE WORTH"];
-      const crop_seasons = toLowerCaseIfExists(rec["CROP SEASONS"]);
+      const crop_season = toLowerCaseIfExists(rec["CROP SEASONS"]);
       const bank_name = rec["BANK NAME"];
       const account_no = rec["ACCOUNT NUMBER"];
       const branch_name = rec["BRANCH"];
@@ -1496,7 +1516,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           });
           // Update land and bank details if present
           await updateRelatedRecords(farmerRecord._id, {
-            farmer_id: farmerRecord._id, total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, village: landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
+            farmer_id: farmerRecord._id, total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, village: landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crop_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_season,
           });
         } else {
           // Insert new farmer record
@@ -1504,7 +1524,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
             associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name,
           });
           await insertNewRelatedRecords(farmerRecord._id, {
-            total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, village: landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
+            total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, village: landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crop_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_season,
           });
         }
 
@@ -1544,10 +1564,18 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 module.exports.exportFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = '-createdAt', search = '', isExport = 0 } = req.query;
+    const { user_id, user_type } = req;
     let query = {};
-    if (search) {
-      query = { name: { $regex: search, $options: 'i' } };
+
+    if (user_type === 4) {
+      query.associate_id = user_id;
+    } else {
+      query = {};
     }
+    if (search) {
+      query.name = { $regex: search, $options: 'i' };
+    }
+
     let aggregationPipeline = [
       { $match: query },
       {
@@ -1558,9 +1586,7 @@ module.exports.exportFarmers = async (req, res) => {
           as: 'state'
         }
       },
-      {
-        $unwind: { path: '$state', preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: '$state', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: 'statedistrictcities',
@@ -1569,9 +1595,7 @@ module.exports.exportFarmers = async (req, res) => {
           as: 'district'
         }
       },
-      {
-        $unwind: { path: '$district', preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: '$district', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: 'lands',
@@ -1580,9 +1604,7 @@ module.exports.exportFarmers = async (req, res) => {
           as: 'land'
         }
       },
-      {
-        $unwind: { path: '$land', preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: '$land', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: 'crops',
@@ -1591,39 +1613,40 @@ module.exports.exportFarmers = async (req, res) => {
           as: 'crops'
         }
       },
-      {
-        $unwind: { path: '$crops', preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: '$crops', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
-          from: 'banks',
+          from: 'users',
           localField: '_id',
-          foreignField: 'farmer_id',
-          as: 'bank'
+          foreignField: 'associate_id',
+          as: 'user'
         }
       },
-      {
-        $unwind: { path: '$bank', preserveNullAndEmptyArrays: true }
-      },
-      { $sort: { createdAt: sortBy === '-createdAt' ? -1 : 1 } },
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+      { $sort: { createdAt: sortBy === '-createdAt' ? -1 : 1 } }
     ];
-    if (isExport == 0) {
+
+    if (isExport == 0 && paginate == 1) {
       aggregationPipeline.push(
-        { $skip: paginate == 1 ? (parseInt(skip)) : 0 },
-        { $limit: paginate == 1 ? parseInt(limit) : 10000 }
+        { $skip: parseInt(skip) }, 
+        { $limit: parseInt(limit) }
       );
     }
+
     const farmersData = await farmer.aggregate(aggregationPipeline);
-    const totalFarmersCount = await farmer.countDocuments(query);
+    const totalFarmersCount = await farmer.countDocuments(query); 
+
     const records = {
       rows: farmersData,
       count: totalFarmersCount,
     };
+
     if (paginate == 1 && isExport == 0) {
       records.page = parseInt(page);
       records.limit = parseInt(limit);
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
+
     if (isExport == 1) {
       const record = farmersData.map((item) => {
         return {
@@ -1687,8 +1710,9 @@ module.exports.exportFarmers = async (req, res) => {
           "IFSC Code": item?.bank?.ifsc_code || 'NA',
           "Account Holder Name": item?.bank?.account_holder_name || 'NA',
           "Branch Address": `${item?.bank?.branch_address?.city || 'NA'}, ${item?.bank?.branch_address?.bank_block || 'NA'}, ${item?.bank?.branch_address?.bank_pincode || 'NA'}`,
-        }
+        };
       });
+
       if (record.length > 0) {
         dumpJSONToExcel(req, res, {
           data: record,
@@ -1713,7 +1737,6 @@ module.exports.exportFarmers = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
-
 
 module.exports.individualfarmerList = async (req, res) => {
   try {

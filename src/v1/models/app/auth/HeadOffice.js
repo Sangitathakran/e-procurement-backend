@@ -58,7 +58,6 @@ headOfficeSchema.pre('save', async function (next) {
             const HeadOffice = mongoose.model(_collectionName.HeadOffice, headOfficeSchema);
 
             const lastUser = await HeadOffice.findOne().sort({ createdAt: -1 });
-
             let nextUserCode = 'HO00001';
 
             if (lastUser && lastUser.head_office_code) {
