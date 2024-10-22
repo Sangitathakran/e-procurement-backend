@@ -543,7 +543,7 @@ exports.editUser = async ( req, res) =>{
       if(req.body?.userRole.length > 0){
         user.userRole = req.body?.userRole;
       }
-      const previousUser = await MasterUser.find({_id:userId})
+      const previousUser = await MasterUser.findOne({_id:userId})
       user.ipAddress = getIpAddress(req)
       user.updatedBy = req.user._id
       const updatedUser = await user.save()
