@@ -545,6 +545,7 @@ exports.editUser = async ( req, res) =>{
       }
       const previousUser = await MasterUser.find({_id:userId})
       user.ipAddress = getIpAddress(req)
+      user.updatedBy = req.user._id
       const updatedUser = await user.save()
 
 
@@ -614,7 +615,7 @@ exports.getUsersByUser = async (req, res) => {
 
       const query = search ? makeSearchQuery(searchFields) : {createdBy : req.user._id}
       const records = { count: 0, rows: [] };
-      const userRoles = await MasterUser.find(query).populate({path:"userRole", select: "_id userRoleName"}).skip(skip).limit(parseInt(limit))
+      const userRoles = await MasterUser.find(query,{password: 0}).populate({path:"userRole", select: "_id userRoleName"}).skip(skip).limit(parseInt(limit))
       if(userRoles.length < 1){
           return sendResponse({res, status: 400, message: "no user found"})
       }

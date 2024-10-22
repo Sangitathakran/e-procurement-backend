@@ -27,11 +27,17 @@ const Auth = function (req, res, next) {
             }
             else {
                  if (decoded) {
-                    
+                    const route = req.baseUrl.split("/")[2]
+                    const userType = decoded.userType
+                    const routeCheck = checkUser(route, userType)
+                    if(!routeCheck){
+                      return sendResponse({res, status: 403, errors: _auth_module.unAuth });
+                    }
                     // Set Your Token Keys In Request
                     Object.entries(decoded).forEach(([key, value]) => {
                         req[key] = value
                     })
+                  
                     const user = await MasterUser.findOne({ email: decoded.email }).populate("portalId")
                     req.user = user
                     next();
@@ -46,13 +52,17 @@ const Auth = function (req, res, next) {
     }
 };
 
-// const checkUser=(route,userType)=>{
-//     if(_userType[route]==userType){
-//         return true;
-//     }else{
-//         return false;
-//     }
-// }
+const checkUser=(route,userType)=>{
+    if(_userType[route]==userType){
+        return true;
+    }else{
+        const routeList = ['aws','master','modules','helper','user','auth']
+        if(routeList.includes(route)){
+          return true
+        }
+        return false;
+    }
+}
 
 const verifyBasicAuth = async function (req, res, next) {
     try {
