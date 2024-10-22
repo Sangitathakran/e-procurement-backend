@@ -246,7 +246,7 @@ module.exports.getofferedFarmers = asyncErrorHandler(async (req, res) => {
 module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) => {
     const { user_id } = req;
 
-    const { associateOffer_id, status, comment } = req.body;
+    const { associateOffer_id, status, comments } = req.body;
 
     const offer = await AssociateOffers.findOne({ _id: associateOffer_id });
 
@@ -258,8 +258,8 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("status") }] }))
     }
 
-    if (status == _associateOfferStatus.rejected && comment) {
-        offer.comments.push({ user_id: user_id, comment });
+    if (status == _associateOfferStatus.rejected && comments) {
+        offer.comments.push({ user_id: user_id, comment: comments });
     }
 
     offer.status = status;
