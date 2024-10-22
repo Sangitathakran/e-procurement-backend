@@ -1,7 +1,7 @@
 const { _generateOrderNumber, _addDays } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
-const { _webSocketEvents, _associateOfferStatus, _status } = require('@src/v1/utils/constants');
+const { _webSocketEvents, _associateOfferStatus, _status, _requestStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
@@ -260,6 +260,25 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
 
     if (status == _associateOfferStatus.rejected && comments) {
         offer.comments.push({ user_id: user_id, comment: comments });
+    } else if (status == _associateOfferStatus.accepted) {
+        const existingRequest = await RequestModel.findOne({ _id: offer?.req_id });
+
+        if (!existingRequest) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
+        }
+
+        existingRequest.fulfilledQty += offer?.offeredQty;
+
+        if (existingRequest.fulfilledQty == existingRequest?.product?.quantity) {
+            existingRequest.status = _requestStatus.fulfilled;
+        } else if (existingRequest.fulfilledQty < existingRequest?.product?.quantity) {
+            existingRequest.status = _requestStatus.partially_fulfulled;
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }))
+        }
+
+        await existingRequest.save();
+
     }
 
     offer.status = status;

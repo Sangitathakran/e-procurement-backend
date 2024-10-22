@@ -410,7 +410,7 @@ module.exports.getBill = async (req, res) => {
 
         if (billPayment) {
 
-            billPayment.totalPrice;
+            const totalamount = billPayment.totalPrice;
             let mspPercentage = 1; // The percentage you want to calculate       
 
             const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });

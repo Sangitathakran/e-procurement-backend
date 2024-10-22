@@ -95,9 +95,15 @@ module.exports.loginOrRegister = async (req, res) => {
             }
             userExist = await User.create(newUser);
         }
+
+        if (userExist.active == false) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "you are not an active user!" }] }));
+        }
+
         const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
         const expiresIn = 24 * 60 * 60; // 24 hour in seconds
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
