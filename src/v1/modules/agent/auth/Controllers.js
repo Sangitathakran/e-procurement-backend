@@ -52,7 +52,9 @@ module.exports.createAgency = async (req, res) => {
         }
 
         // checking the existing user in Master User collection
-        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:phone},{email:email}]})
+        const isUserAlreadyExist = await MasterUser.findOne(
+              { $or: [{ mobile: { $exists: true, $eq: phone } }, { email: { $exists: true, $eq: email } }] });
+          
         if(isUserAlreadyExist){
           return sendResponse({res, status: 400, message: "user already existed with this mobile number or email in Master"})
         }
@@ -98,5 +100,26 @@ module.exports.createAgency = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.changeStatus = async (req, res) => {
+    try {
+      const agentId  = req.params.id; 
+      if(!agentId){
+        return sendResponse({res, status: 400, message: "agent id not provided"})
+      }
+      const agent = await Agency.findById(agentId);
+      if(!agent){
+        return sendResponse({res, status: 400, message: "agent not exist or wrong agent id"})
+      }
+  
+      agent.status = agent?.status === 'active' ? 'inactive' : 'active';
+  
+      const updatedagent = await agent.save();
+      return sendResponse({res, status: 200, data: updatedagent, message: "user status changed successfully"})
+  
+    } catch (err) {
+      _handleCatchErrors(error, res);
+    }
+  };
 
 
