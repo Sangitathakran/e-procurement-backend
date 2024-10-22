@@ -164,6 +164,15 @@ module.exports.saveFarmerDetails = async (req, res) => {
 
     if (farmerDetails) {
       farmerDetails[screenName] = req.body[screenName];
+      if(screenName=='address'){
+        const state_id = await getStateId(state);
+    const district_id = await getDistrictId(district);
+        farmerDetails[screenName]={
+          ...req.body[screenName],
+          state_id,
+          district_id
+        }
+      }
       // farmerDetails.steps = req.body?.steps;
       await farmerDetails.save();
 
@@ -209,9 +218,9 @@ module.exports.getFarmerDetails = async (req, res) => {
 
     if (farmerDetails) {
       if(screenName=='address'){
-        const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails?.address.state_id.toString() } } },{ "states.$": 1 });
+        const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails?.address.state_id?.toString() } } },{ "states.$": 1 });
   
-        const districts = state?.states[0]?.districts.find(item=>item._id==farmerDetails?.address.district_id.toString())
+        const districts = state?.states[0]?.districts.find(item=>item._id==farmerDetails?.address.district_id?.toString())
         
               farmerDetails={
                 ...farmerDetails,
