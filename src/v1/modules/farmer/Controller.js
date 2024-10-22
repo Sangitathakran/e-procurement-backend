@@ -220,9 +220,9 @@ module.exports.getFarmerDetails = async (req, res) => {
 
     if (farmerDetails) {
       if(screenName=='address'){
-        const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails?.address.state_id?.toString() } } },{ "states.$": 1 });
+        const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails?.address?.state_id?.toString() } } },{ "states.$": 1 });
   
-        const districts = state?.states[0]?.districts.find(item=>item._id==farmerDetails?.address.district_id?.toString())
+        const districts = state?.states[0]?.districts.find(item=>item._id==farmerDetails?.address?.district_id?.toString())
         
               farmerDetails={
                 ...farmerDetails,
