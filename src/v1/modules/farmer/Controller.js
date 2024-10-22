@@ -164,7 +164,9 @@ module.exports.saveFarmerDetails = async (req, res) => {
 
     if (farmerDetails) {
       farmerDetails[screenName] = req.body[screenName];
+
       if(screenName=='address'){
+        let {state,district}=req.body[screenName];
         const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
         farmerDetails[screenName]={
