@@ -52,7 +52,9 @@ module.exports.createAgency = async (req, res) => {
         }
 
         // checking the existing user in Master User collection
-        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:phone},{email:email}]})
+        const isUserAlreadyExist = await MasterUser.findOne(
+              { $or: [{ mobile: { $exists: true, $eq: phone } }, { email: { $exists: true, $eq: email } }] });
+          
         if(isUserAlreadyExist){
           return sendResponse({res, status: 400, message: "user already existed with this mobile number or email in Master"})
         }
