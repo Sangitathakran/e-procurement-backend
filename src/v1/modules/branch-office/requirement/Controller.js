@@ -10,7 +10,7 @@ const moment = require("moment");
 
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
 
-    const { user_id } = req;
+    const { user_id, portalId } = req;
     const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query;
 
     let query = search ? {
@@ -20,7 +20,7 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
         ]
     } : {};
 
-    query.branch_id = user_id;
+    query.branch_id = { $in: [user_id, portalId] };
 
     const records = {};
     const selectValues = "reqNo product quotedPrice createdAt expectedProcurementDate deliveryDate address";
