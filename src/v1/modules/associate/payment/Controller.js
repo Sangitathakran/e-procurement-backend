@@ -591,7 +591,6 @@ module.exports.paymentLogs = async (req, res) => {
             if(item?.updated_by.user_type ==3){role = 'BO'}
             else if(item?.updated_by.user_type ==6){role = 'Agent'}
             else if(item?.updated_by.user_type ==2){role = 'HO'}
-            // else if(item?.updated_by.user_type ==4){role = 'Associate'}
             else {role = 'Admin'}
           
             return {
