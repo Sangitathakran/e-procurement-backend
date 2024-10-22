@@ -8,6 +8,7 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const mongoose = require("mongoose");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const { PaymentLogs } = require("@src/v1/models/app/procurement/PaymentLogs");
 
 
 module.exports.payment = async (req, res) => {
@@ -474,32 +475,9 @@ module.exports.getBill = async (req, res) => {
 
         const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice:1, totalPrice:1, dispatched:1 });
         
-        // const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice:1, totalPrice:1, dispatched:1 });
-
-        // if (billPayment) {
-
-        //     let totalamount = billPayment.totalPrice;
-        //     let mspPercentage = 1; // The percentage you want to calculate       
-
-        //     const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });
-
-        //     const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
-        //     const billQty = (0.8 / 1000);
-
-        //     let records = { ...billPayment.toObject(), totalamount, mspAmount, billQty }
-
-        //     if (records) {
-        //         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
-        //     }
-        // }
-        // else {
-        //     return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
-        // }
-
         if(billPayment){
             let totalamount = billPayment.totalPrice;
-            let mspPercentage = 1; // The percentage you want to calculate       
-
+            
             const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });
             
             let commission = billPayment.dispatched.bills.commission;
@@ -507,11 +485,8 @@ module.exports.getBill = async (req, res) => {
             if(commission==0){
                 commission = (billPayment.dispatched.bills.procurementExp + billPayment.dispatched.bills.driage + billPayment.dispatched.bills.storageExp * 1) / 100;
             }
-
-            const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
-            const billQty = (0.8/1000); 
-
-            let records = { ...billPayment.toObject(), totalamount, mspAmount, billQty,commission }
+           
+            let records = { ...billPayment.toObject(), commission }
             
             if (records) {
                 return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
@@ -524,4 +499,108 @@ module.exports.getBill = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+}
+
+module.exports.lotList = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
+
+        const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
+        
+        let farmerOrderIdsOnly = {}
+
+        if (batchIds && batchIds.length > 0) {
+            farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
+            console.log(farmerOrderIdsOnly);
+        } else {
+            console.log('No Farmer found with this batch.');
+        }
+
+        let query = {
+            _id: farmerOrderIdsOnly,
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+        
+        const records = { count: 0 };
+
+        const rows = paginate == 1 ? await FarmerOrders.find(query)
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await FarmerOrders.find(query)
+            .sort(sortBy);
+
+        records.rows = rows.map((item) => {
+            return {
+                "lotId": item?.metaData.farmer_code || 'NA',
+                "FarmerName": item?.metaData.name || 'NA',
+                "qty_purchased": item?.qtyProcured ?? 'NA',
+                "total_amount": item?.net_pay ?? 'NA',
+                "payment_status": item?.status ?? 'NA'
+            }
+        });
+
+        records.count = await FarmerOrders.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (records) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        }
+        else {
+            return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.paymentLogs = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query
+
+        const { user_type } = req;
+
+        // if (user_type != _userType.associate) {
+        //     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+        // }
+
+        let query = {
+            batch_id,
+            ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        const records = { count: 0 };
+        records.rows = paginate == 1 ? await PaymentLogs.find(query)
+            .populate({
+                path: 'updated_by', select: '_id basic_details.associate_details'
+            }).select('_id procurementExp driage storageExp total updated_by createdAt')
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await PaymentLogs.find(query).sort(sortBy);
+
+        records.count = await PaymentLogs.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (!records) {
+            return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment Logs") }))
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment Logs") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+
 }
