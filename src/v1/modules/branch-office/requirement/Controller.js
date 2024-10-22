@@ -129,12 +129,15 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
     } else if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
 
+        if (record.status != _batchStatus.intransit) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "batch should be intransit Please wait!!" }] }));
+        }
         if (!record.dispatched) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "please dispatched it !!" }] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "batch should be intransit Please wait!!" }] }));
         }
 
         if (!record.intransit) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "please intransit it !!" }] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "batch should be intransit Please wait!!" }] }));
         }
         record.delivered.proof_of_delivery = proof_of_delivery;
         record.delivered.weigh_bridge_slip = weigh_bridge_slip;
