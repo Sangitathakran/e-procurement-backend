@@ -23,7 +23,7 @@ const Auth = function (req, res, next) {
         
         jwt.verify(token, JWT_SECRET_KEY, async function (err, decoded) {
             if (err) {
-                return sendResponse({res, status: 403, errors: _auth_module.unAuth });
+                return sendResponse({res, status: 403,err, errors: _auth_module.unAuth });
             }
             else {
                  if (decoded) {
