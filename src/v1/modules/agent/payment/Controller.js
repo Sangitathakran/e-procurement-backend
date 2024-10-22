@@ -17,16 +17,16 @@ const moment = require("moment")
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0 } = req.query
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
-        if (user_type == _userType.farmer) {
+        if (userType == _userType.farmer) {
             query.user_type = _userType.farmer;
-        } else if (user_type == _userType.associate) {
+        } else if (userType == _userType.associate) {
             query.user_type = _userType.associate;
         }
-        else if (user_type == _userType.agent) {
+        else if (userType == _userType.agent) {
             query.user_type = _userType.agent;
         }
 
@@ -96,12 +96,6 @@ module.exports.associateOrders = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
-
-        const { user_type } = req;
-
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-        }
 
         let query = {
             req_id,
@@ -227,7 +221,6 @@ module.exports.lot_list = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
 
         const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
-        
         let farmerOrderIdsOnly = {}
 
         if (batchIds && batchIds.length > 0) {
@@ -242,7 +235,7 @@ module.exports.lot_list = async (req, res) => {
             _id: farmerOrderIdsOnly,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
-        
+
 
         const records = { count: 0 };
         records.rows = paginate == 1 ? await FarmerOrders.find(query)
@@ -344,11 +337,6 @@ module.exports.paymentApprove = async (req, res) => {
     try {
 
         const { req_id } = req.body;
-        const { user_type } = req;
-
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-        }
 
         const paymentList = await Payment.find({ req_id });
 
@@ -373,12 +361,6 @@ module.exports.getBill = async (req, res) => {
 
     try {
         const { batchId } = req.query
-
-        const { user_type } = req;
-
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
-        }
 
         const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
 
@@ -416,11 +398,6 @@ module.exports.proceedToPay = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
 
-        const { user_type } = req;
-
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-        }
 
         let query = {
             status: _paymentApproval.approved,
@@ -489,12 +466,6 @@ module.exports.associateOrdersProceedToPay = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
 
-        const { user_type } = req;
-
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-        }
-
         let query = {
             req_id,
             status: _paymentApproval.approved,
@@ -559,12 +530,6 @@ module.exports.batchListProceedToPay = async (req, res) => {
     try {
 
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
-
-        const { user_type } = req;
-
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-        }
 
         let query = {
             req_id,
@@ -640,12 +605,6 @@ module.exports.getBillProceedToPay = async (req, res) => {
     try {
         const { batchId } = req.query
 
-        const { user_type } = req;
-
-        if (user_type !== _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized("User") }] }));
-        }
-
         const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
 
         if (billPayment) {
@@ -679,11 +638,8 @@ module.exports.paymentEdit = async (req, res) => {
         const { id } = req.body; // Assume the document in Collection A is identified by `id`
         const { procurementExp, driage, storageExp } = req.body; // Fields to be updated or inserted
 
-        const { user_id, user_type } = req;
+        const { user_id } = req;
 
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-        }
         const batchDetails = await Batch.findOne({ _id: id })
         // Update multiple fields in Batch
         const updatedDoc = await Batch.findByIdAndUpdate(
@@ -732,12 +688,6 @@ module.exports.paymentLogs = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query
 
-        const { user_type } = req;
-
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-        }
-
         let query = {
             batch_id,
             ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {}) // Search functionality
@@ -777,11 +727,6 @@ module.exports.batchApprove = async (req, res) => {
     try {
 
         const { batchIds } = req.body;
-        const { user_type } = req;
-
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-        }
 
         const result = await Batch.updateMany(
             { _id: { $in: batchIds } },  // Match any batchIds in the provided array
@@ -805,11 +750,7 @@ module.exports.generateBill = async (req, res) => {
 
         const { req_id, bill_slip = [] } = req.body; // Fields to be updated or inserted
 
-        const { user_id, user_type } = req;
-
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-        }
+        const { user_id } = req;
 
         if (!req_id) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Req ID") }] }))
@@ -937,12 +878,6 @@ module.exports.agentBill = async (req, res) => {
     try {
         const { req_id } = req.query
 
-        const { user_type } = req;
-
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
-        }
-
         const billPayment = await AgentPayment.findOne({ req_id })
             .populate({
                 path: 'req_id', select: '_id reqNo product address deliveryDate quotedPrice status'
@@ -973,12 +908,6 @@ module.exports.agentPaymentEdit = async (req, res) => {
 
         const { id } = req.body; // Assume the document in Collection A is identified by `id`
         const { procurementExp, driage, storageExp, notes } = req.body; // Fields to be updated or inserted
-
-        const { user_id, user_type } = req;
-
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-        }
 
         const billPayment = await AgentPayment.findOne({ _id: id })
 
@@ -1032,11 +961,7 @@ module.exports.agentPaymentLogs = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
 
-        const { user_id, user_type } = req;
-
-        if (user_type != _userType.agent) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-        }
+        const { user_id } = req;
 
         let query = {
             req_id,
@@ -1076,7 +1001,7 @@ module.exports.agentPaymentLogs = async (req, res) => {
 module.exports.agentDashboardAssociateList = async (req, res) => {
 
     try {
-        const { page, limit=10, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
+        const { page, limit = 10, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
@@ -1086,13 +1011,13 @@ module.exports.agentDashboardAssociateList = async (req, res) => {
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await RequestModel.find(query)
-            .sort(sortBy);
+                .sort(sortBy);
 
         let paymentRequestCount = {}
 
         records.rows = await Promise.all(rows.map(async record => {
 
-        let paymentRequestQuery = {'req_id': record._id, 'user_type': _userType.associate}
+            let paymentRequestQuery = { 'req_id': record._id, 'user_type': _userType.associate }
 
             paymentRequestCount = await Payment.countDocuments(paymentRequestQuery)
 
@@ -1148,8 +1073,8 @@ module.exports.agentDashboardAssociateList = async (req, res) => {
 module.exports.agentDashboardPaymentList = async (req, res) => {
 
     try {
-        
-        const { page, limit=10, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+
+        const { page, limit = 10, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
@@ -1162,16 +1087,16 @@ module.exports.agentDashboardPaymentList = async (req, res) => {
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await AgentPayment.find(query)
-            .sort(sortBy);
+                .sort(sortBy);
 
-                records.rows = rows.map((item) => {
-                    return {
-                        "reqNo": item?.req_id.reqNo || 'NA',
-                        "qtyProcured": item?.req_id.quantity || 'NA',
-                        "payment_status": item?.status ?? 'NA',
-                        "billingDate": item?.bill_at ?? 'NA'
-                    }
-                })
+        records.rows = rows.map((item) => {
+            return {
+                "reqNo": item?.req_id.reqNo || 'NA',
+                "qtyProcured": item?.req_id.quantity || 'NA',
+                "payment_status": item?.status ?? 'NA',
+                "billingDate": item?.bill_at ?? 'NA'
+            }
+        })
 
         records.count = await AgentPayment.countDocuments(query);
 
@@ -1184,7 +1109,7 @@ module.exports.agentDashboardPaymentList = async (req, res) => {
         if (records.length > 0) {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
         }
-         else {
+        else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
         }
 
