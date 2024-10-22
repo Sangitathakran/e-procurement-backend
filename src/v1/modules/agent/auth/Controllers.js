@@ -101,4 +101,25 @@ module.exports.createAgency = async (req, res) => {
     }
 };
 
+module.exports.changeStatus = async (req, res) => {
+    try {
+      const agentId  = req.params.id; 
+      if(!agentId){
+        return sendResponse({res, status: 400, message: "agent id not provided"})
+      }
+      const agent = await Agency.findById(agentId);
+      if(!agent){
+        return sendResponse({res, status: 400, message: "agent not exist or wrong agent id"})
+      }
+  
+      agent.status = agent?.status === 'active' ? 'inactive' : 'active';
+  
+      const updatedagent = await agent.save();
+      return sendResponse({res, status: 200, data: updatedagent, message: "user status changed successfully"})
+  
+    } catch (err) {
+      _handleCatchErrors(error, res);
+    }
+  };
+
 

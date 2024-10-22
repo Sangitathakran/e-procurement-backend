@@ -56,6 +56,10 @@ const checkUser=(route,userType)=>{
     if(_userType[route]==userType){
         return true;
     }else{
+        const routeList = ['aws','master','modules','helper','user','auth']
+        if(routeList.includes(route)){
+          return true
+        }
         return false;
     }
 }
