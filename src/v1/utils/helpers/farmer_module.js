@@ -92,9 +92,9 @@ exports.updateRelatedRecords = async (farmer_id, data) => {
         {
             farmer_id: data.farmer_id,
             total_area: data.total_area,
-            khasra_no: data.khasra_no,
+            khasra_number: data.khasra_number,
             area_unit: data.area_unit,
-            khatauni: data.khatauni,
+            khtauni_number: data.khtauni_number,
             soil_type: data.soil_type,
             soil_tested: data.soil_tested,
             land_address: {
@@ -148,9 +148,9 @@ exports.insertNewRelatedRecords = async (farmer_id, data, res) => {
     const newLand = new Land({
         farmer_id,
         total_area: data.total_area,
-        khasra_no: data.khasra_no,
+        khasra_number: data.khasra_number,
         area_unit: data.area_unit,
-        khatauni: data.khatauni,
+        khtauni_number: data.khtauni_number,
         soil_type: data.soil_type,
         soil_tested: data.soil_tested,
         land_address: {
