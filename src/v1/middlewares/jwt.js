@@ -32,7 +32,7 @@ const Auth = function (req, res, next) {
                     Object.entries(decoded).forEach(([key, value]) => {
                         req[key] = value
                     })
-                    const user = await MasterUser.findOne({ email: decoded.email })
+                    const user = await MasterUser.findOne({ email: decoded.email }).populate("portalId")
                     req.user = user
                     next();
                 } else {
