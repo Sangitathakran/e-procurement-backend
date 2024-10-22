@@ -13,17 +13,17 @@ const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOff
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0 } = req.query
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
-        if (user_type == _userType.farmer) {
-            query.user_type = _userType.farmer;
-        } else if (user_type == _userType.associate) {
-            query.user_type = _userType.associate;
+        if (userType == _userType.farmer) {
+            query.userType = _userType.farmer;
+        } else if (userType == _userType.associate) {
+            query.userType = _userType.associate;
         }
-        else if (user_type == _userType.agent) {
-            query.user_type = _userType.agent;
+        else if (userType == _userType.agent) {
+            query.userType = _userType.agent;
         }
 
 
@@ -192,9 +192,9 @@ module.exports.associateOrders = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
 
-        const { user_type } = req;
+        const { userType } = req;
 
-        if (user_type != _userType.bo) {
+        if (userType != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
@@ -257,7 +257,7 @@ module.exports.batchList = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
-
+        const { userType } = req
         let query = {
             associateOffer_id,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
@@ -317,9 +317,9 @@ module.exports.batchApprove = async (req, res) => {
     try {
 
         const { batchIds } = req.body;
-        const { user_type } = req;
+        const { userType } = req;
 
-        if (user_type != _userType.bo) {
+        if (userType != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
@@ -344,9 +344,9 @@ module.exports.qcReport = async (req, res) => {
 
     try {
         const { id } = req.query;
-        const { user_type } = req;
+        const { userType } = req;
 
-        if (user_type != _userType.bo) {
+        if (userType != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
@@ -367,9 +367,9 @@ module.exports.paymentApprove = async (req, res) => {
     try {
 
         const { req_id, associate_id } = req.body;
-        const { user_type } = req;
+        const { userType } = req;
 
-        if (user_type != _userType.bo) {
+        if (userType != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
@@ -400,9 +400,9 @@ module.exports.getBill = async (req, res) => {
     try {
         const { batchId } = req.query
 
-        const { user_id, user_type } = req;
+        const { user_id, userType } = req;
 
-        if (user_type !== _userType.bo) {
+        if (userType !== _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
@@ -564,9 +564,9 @@ module.exports.agentBill = async (req, res) => {
     try {
         const { req_id } = req.query
 
-        const { user_type } = req;
+        const { userType } = req;
 
-        if (user_type != _userType.bo) {
+        if (userType != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 

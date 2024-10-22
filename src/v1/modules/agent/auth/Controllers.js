@@ -5,12 +5,13 @@ const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { Agency } = require("@src/v1/models/app/auth/Agency");
 const { MasterUser } = require("@src/v1/models/master/MasterUser");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const bcrypt = require('bcrypt');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
 const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator")
 
-const { TypesModel } = require("@src/v1/models/master/Types")
+const { TypesModel } = require("@src/v1/models/master/Types");
+const getIpAddress = require('@src/v1/utils/helpers/getIPAddress');
 
 
 module.exports.getAgency = async (req, res) => {
@@ -42,32 +43,34 @@ module.exports.getAgency = async (req, res) => {
 
 module.exports.createAgency = async (req, res) => {
     try {
-        const { first_name, last_name, email, phone, organization_name, company_logo } = req.body;
+        const { agent_name, email, phone } = req.body
 
         const existUser = await Agency.findOne({ email: email });
 
         if (existUser){
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist('Email') }] }))
         }
+
+        // checking the existing user in Master User collection
+        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:phone},{email:email}]})
+        if(isUserAlreadyExist){
+          return sendResponse({res, status: 400, message: "user already existed with this mobile number or email in Master"})
+        }
         
         const password = generateRandomPassword();
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const agency = new Agency({
-            first_name : first_name,
-            last_name : last_name,
+            agent_name : agent_name,
             email : email,
             phone : phone,
-            password: hashedPassword,
-            organization_name : organization_name,
-            company_logo : company_logo,
-            is_email_verified: true,
         });
 
         const savedAgency = await agency.save();
 
         const agencydData = {
             email: savedAgency.email,
+            user_name:savedAgency.first_name,
             name: savedAgency.first_name,
             password: password,
         }
@@ -76,8 +79,7 @@ module.exports.createAgency = async (req, res) => {
         const type = await TypesModel.findOne({_id:"67110114f1cae6b6aadc2425"})
 
         const masterUser = new MasterUser({
-            firstName : first_name,
-            lastName : last_name,
+            firstName : agent_name,
             isAdmin : true,
             email : email,
             mobile : phone,
@@ -85,7 +87,8 @@ module.exports.createAgency = async (req, res) => {
             userType : type.userType,
             createdBy: req.user._id,
             userRole: [type.adminUserRoleId],
-            portalId: savedAgency._id 
+            portalId: savedAgency._id,
+            ipAddress:getIpAddress(req) 
         });
 
         await masterUser.save();
