@@ -103,12 +103,11 @@ module.exports.saveHeadOffice = async (req, res) => {
             address,
             authorised,
         });
-
-
+        
         // checking the existing user in Master User collection
-        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:authorised.phone},{email:authorised.email}]})
+        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:authorised.mobile},{email:authorised.email}]})
         if(isUserAlreadyExist){
-          return sendResponse({res, status: 400, message: "user already existed with this mobile number or email in Master"})
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("already existed with this mobile number or email in Master") }] }))
         }
 
         const savedHeadOffice = await headOffice.save();
@@ -131,7 +130,7 @@ module.exports.saveHeadOffice = async (req, res) => {
             firstName : authorised.name,
             isAdmin : true,
             email : authorised.email,
-            mobile : authorised.phone,
+            mobile : authorised.mobile,
             password: hashedPassword,
             userType : type.userType,
             userRole: [type.adminUserRoleId],
