@@ -12,13 +12,17 @@ exports.insertNewFarmerRecord = async (data) => {
         farmer_type:"Associate",
         associate_id: data.associate_id,
         farmer_code: farmerCode,
-        basic_details: { dob: data.dob, gender: data.gender, mobile_no: data.mobile_no, email: data.email,},
+        basic_details: { dob: data.dob, 
+            gender: data.gender, 
+            mobile_no: data.mobile_no, 
+            email: data.email,
+            category: data.category
+        },
         name: data.name,
         parents: { father_name: data.father_name, mother_name: data.mother_name,},
         proof: { type: data.type, aadhar_no: data.aadhar_no },
         marital_status: data.marital_status,
         religion: data.religion,
-        category: data.category,
         education: { highest_edu:data.highest_edu, edu_details: data.edu_details },
         address: {
             address_line: data.address_line,
@@ -27,7 +31,7 @@ exports.insertNewFarmerRecord = async (data) => {
             district_id: data.district_id,
             block: data.block,
             village: data.village,
-            pinCode: data.pinCode,
+            pin_code: data.pinCode,
         },
         bank_details: {
             bank_name: data.bank_name, 

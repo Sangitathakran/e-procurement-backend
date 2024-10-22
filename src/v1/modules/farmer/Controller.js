@@ -1321,10 +1321,18 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 module.exports.exportFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = '-createdAt', search = '', isExport = 0 } = req.query;
+    const { user_id, user_type } = req;
     let query = {};
-    if (search) {
-      query = { name: { $regex: search, $options: 'i' } };
+
+    if (user_type === 4) {
+      query.associate_id = user_id;
+    } else {
+      query = {};
     }
+    if (search) {
+      query.name = { $regex: search, $options: 'i' };
+    }
+
     let aggregationPipeline = [
       { $match: query },
       {
@@ -1335,9 +1343,7 @@ module.exports.exportFarmers = async (req, res) => {
           as: 'state'
         }
       },
-      {
-        $unwind: { path: '$state', preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: '$state', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: 'statedistrictcities',
@@ -1346,9 +1352,7 @@ module.exports.exportFarmers = async (req, res) => {
           as: 'district'
         }
       },
-      {
-        $unwind: { path: '$district', preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: '$district', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: 'lands',
@@ -1357,9 +1361,7 @@ module.exports.exportFarmers = async (req, res) => {
           as: 'land'
         }
       },
-      {
-        $unwind: { path: '$land', preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: '$land', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: 'crops',
@@ -1368,39 +1370,40 @@ module.exports.exportFarmers = async (req, res) => {
           as: 'crops'
         }
       },
-      {
-        $unwind: { path: '$crops', preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: '$crops', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
-          from: 'banks',
+          from: 'users',
           localField: '_id',
-          foreignField: 'farmer_id',
-          as: 'bank'
+          foreignField: 'associate_id',
+          as: 'user'
         }
       },
-      {
-        $unwind: { path: '$bank', preserveNullAndEmptyArrays: true }
-      },
-      { $sort: { createdAt: sortBy === '-createdAt' ? -1 : 1 } },
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+      { $sort: { createdAt: sortBy === '-createdAt' ? -1 : 1 } }
     ];
-    if (isExport == 0) {
+
+    if (isExport == 0 && paginate == 1) {
       aggregationPipeline.push(
-        { $skip: paginate == 1 ? (parseInt(skip)) : 0 },
-        { $limit: paginate == 1 ? parseInt(limit) : 10000 }
+        { $skip: parseInt(skip) }, 
+        { $limit: parseInt(limit) }
       );
     }
+
     const farmersData = await farmer.aggregate(aggregationPipeline);
-    const totalFarmersCount = await farmer.countDocuments(query);
+    const totalFarmersCount = await farmer.countDocuments(query); 
+
     const records = {
       rows: farmersData,
       count: totalFarmersCount,
     };
+
     if (paginate == 1 && isExport == 0) {
       records.page = parseInt(page);
       records.limit = parseInt(limit);
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
+
     if (isExport == 1) {
       const record = farmersData.map((item) => {
         return {
@@ -1464,8 +1467,9 @@ module.exports.exportFarmers = async (req, res) => {
           "IFSC Code": item?.bank?.ifsc_code || 'NA',
           "Account Holder Name": item?.bank?.account_holder_name || 'NA',
           "Branch Address": `${item?.bank?.branch_address?.city || 'NA'}, ${item?.bank?.branch_address?.bank_block || 'NA'}, ${item?.bank?.branch_address?.bank_pincode || 'NA'}`,
-        }
+        };
       });
+
       if (record.length > 0) {
         dumpJSONToExcel(req, res, {
           data: record,
@@ -1490,7 +1494,6 @@ module.exports.exportFarmers = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
-
 
 module.exports.individualfarmerList = async (req, res) => {
   try {
