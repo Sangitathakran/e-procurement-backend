@@ -3,26 +3,27 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType, _paymentstatus, _batchStatus } = require('@src/v1/utils/constants');
+const { _userType, _paymentstatus, _batchStatus, _associateOfferStatus } = require('@src/v1/utils/constants');
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0 } = req.query
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
-        if (user_type == _userType.farmer) {
-            query.user_type = _userType.farmer;
-        } else if (user_type == _userType.associate) {
-            query.user_type = _userType.associate;
+        if (userType == _userType.farmer) {
+            query.userType = _userType.farmer;
+        } else if (userType == _userType.associate) {
+            query.userType = _userType.associate;
         }
-        else if (user_type == _userType.agent) {
-            query.user_type = _userType.agent;
+        else if (userType == _userType.agent) {
+            query.userType = _userType.agent;
         }
 
 
@@ -36,6 +37,14 @@ module.exports.payment = async (req, res) => {
                     localField: '_id',
                     foreignField: 'req_id',
                     as: 'batches',
+                    pipeline: [{
+                        $lookup: {
+                            from: 'payments',
+                            localField: '_id',
+                            foreignField: 'batch_id',
+                            as: 'payment',
+                        }
+                    }],
                 }
             },
             {
@@ -78,6 +87,31 @@ module.exports.payment = async (req, res) => {
                             initialValue: 0,
                             in: { $add: ['$$value', '$$this.totalPrice'] }  // Sum of totalPrice from batches
                         }
+                    },
+                    payment_status: {
+                        $cond: {
+                            if: {
+                                $anyElementTrue: {
+                                    $map: {
+                                        input: '$batches',
+                                        as: 'batch',
+                                        in: {
+                                            $anyElementTrue: {
+                                                $map: {
+                                                    input: '$$batch.payment',
+                                                    as: 'pay',
+                                                    in: {
+                                                        $eq: ['$$pay.status', 'Pending']  // Assuming status field exists in payments
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            then: 'Pending',
+                            else: 'Approved'
+                        }
                     }
                 }
             },
@@ -93,27 +127,37 @@ module.exports.payment = async (req, res) => {
                     'batches.status': 1,
                     approval_status: 1,
                     qtyPurchased: 1,
-                    amountPayable: 1
+                    amountPayable: 1,
+                    payment_status: 1
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
             { $skip: skip },
             { $limit: parseInt(limit) }
         ];
-        const records = { count: 0 };
-        records.rows = await RequestModel.aggregate(aggregationPipeline);
+        const records = await RequestModel.aggregate([
+            ...aggregationPipeline,
+            {
+                $facet: {
+                    data: aggregationPipeline, // Aggregate for data
+                    totalCount: [{ $count: 'count' }] // Count the documents
+                }
+            }
+        ]);
 
-        records.count = await RequestModel.countDocuments({ _id: { $in: paymentIds } });
-
+        const response = {
+            count: records[0]?.totalCount[0]?.count || 0,
+            rows: records[0]?.data || []
+        };
         if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+            response.page = page
+            response.limit = limit
+            response.pages = limit != 0 ? Math.ceil(response.count / limit) : 0
         }
 
         if (isExport == 1) {
 
-            const record = records.rows.map((item) => {
+            const record = response.rows.map((item) => {
                 return {
                     "Order ID": item?.reqNo || 'NA',
                     "Batch ID": item?.batchId || 'NA',
@@ -132,10 +176,10 @@ module.exports.payment = async (req, res) => {
                     worksheetName: `Payment-record`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+                return res.status(200).send(new serviceResponse({ status: 400, data: response, message: _response_message.notFound("Payment") }))
             }
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+            return res.status(200).send(new serviceResponse({ status: 200, data: response, message: _response_message.found("Payment") }))
         }
 
     } catch (error) {
@@ -148,32 +192,30 @@ module.exports.associateOrders = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
 
-        const { user_type } = req;
+        const { userType } = req;
 
-        if (user_type != _userType.bo) {
+        if (userType != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         let query = {
             req_id,
-            user_type: _userType.associate,
+            status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] },
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await Payment.find(query)
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+        records.rows = paginate == 1 ? await AssociateOffers.find(query)
             .populate({
-                path: 'whomToPay', select: '_id associate_id farmer_code name',
-                path: 'user_id', select: '_id user_code basic_details.associate_details'
+                path: 'seller_id', select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name'
             })
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
+            .limit(parseInt(limit)) : await AssociateOffers.find(query).sort(sortBy);
 
-        records.reqDetails = await RequestModel.findOne({ _id: req_id })
-            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
-
-        records.count = await Payment.countDocuments(query);
+        records.count = await AssociateOffers.countDocuments(query);
 
         if (paginate == 1) {
             records.page = page
@@ -214,17 +256,14 @@ module.exports.associateOrders = async (req, res) => {
 module.exports.batchList = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
 
         let query = {
-            req_id,
+            associateOffer_id,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
         const records = { count: 0 };
-
-        records.reqDetails = await RequestModel.findOne({ _id: req_id })
-            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
         records.rows = paginate == 1 ? await Batch.find(query)
             .populate({
@@ -232,6 +271,7 @@ module.exports.batchList = async (req, res) => {
             })
             .sort(sortBy)
             .skip(skip)
+            .select('_id procurementCenter_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_approve_by')
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
@@ -277,9 +317,9 @@ module.exports.batchApprove = async (req, res) => {
     try {
 
         const { batchIds } = req.body;
-        const { user_type } = req;
+        const { userType } = req;
 
-        if (user_type != _userType.bo) {
+        if (userType != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
@@ -304,9 +344,9 @@ module.exports.qcReport = async (req, res) => {
 
     try {
         const { id } = req.query;
-        const { user_type } = req;
+        const { userType } = req;
 
-        if (user_type != _userType.bo) {
+        if (userType != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
@@ -315,37 +355,7 @@ module.exports.qcReport = async (req, res) => {
                 path: 'req_id', select: '_id reqNo product address quotedPrice fulfilledQty totalQuantity expectedProcurementDate'
             })
 
-        // return res.status(200).send(new serviceResponse({ status: 200, data: qcReport, message: _query.get('Qc Report') }))
-
-        if (qcReport) {
-
-            let totalamount = 0;
-            let mspPercentage = 1; // The percentage you want to calculate       
-
-            const reqDetails = await Payment.find({
-                $and: [
-                    { req_id: qcReport.req_id },
-                    { user_id: qcReport.seller_id }
-                ]
-            })
-                .select({ _id: 0, amount: 1 });
-
-            const newdata = await Promise.all(reqDetails.map(async record => {
-                totalamount += record.amount;
-            }));
-
-            const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
-
-            let records = { ...qcReport.toObject(), totalamount, mspAmount }
-
-            if (records) {
-                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Qc Report') }))
-            }
-        }
-        else {
-            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Qc Report") }] }))
-        }
-
+        return res.status(200).send(new serviceResponse({ status: 200, data: qcReport, message: _query.get('Qc Report') }))
     }
     catch (error) {
         _handleCatchErrors(error, res);
@@ -357,9 +367,9 @@ module.exports.paymentApprove = async (req, res) => {
     try {
 
         const { req_id, associate_id } = req.body;
-        const { user_type } = req;
+        const { userType } = req;
 
-        if (user_type != _userType.bo) {
+        if (userType != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
@@ -390,9 +400,9 @@ module.exports.getBill = async (req, res) => {
     try {
         const { batchId } = req.query
 
-        const { user_id, user_type } = req;
+        const { user_id, userType } = req;
 
-        if (user_type !== _userType.bo) {
+        if (userType !== _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
@@ -554,9 +564,9 @@ module.exports.agentBill = async (req, res) => {
     try {
         const { req_id } = req.query
 
-        const { user_type } = req;
+        const { userType } = req;
 
-        if (user_type != _userType.bo) {
+        if (userType != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
