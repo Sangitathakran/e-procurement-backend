@@ -577,13 +577,33 @@ module.exports.paymentLogs = async (req, res) => {
         };
 
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await PaymentLogs.find(query)
+        const rows = paginate == 1 ? await PaymentLogs.find(query)
             .populate({
-                path: 'updated_by', select: '_id basic_details.associate_details'
+                path: 'updated_by', select: '_id user_type basic_details.associate_details'
             }).select('_id procurementExp driage storageExp total updated_by createdAt')
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await PaymentLogs.find(query).sort(sortBy);
+
+            let role = '';
+        records.rows = rows.map((item) => {
+
+            if(item?.updated_by.user_type ==3){role = 'BO'}
+            else if(item?.updated_by.user_type ==6){role = 'Agent'}
+            else if(item?.updated_by.user_type ==2){role = 'HO'}
+            // else if(item?.updated_by.user_type ==4){role = 'Associate'}
+            else {role = 'Admin'}
+          
+            return {
+                "Log time": item?.createdAt || 'NA',
+                "role": role || 'NA',
+                "action_by": item?.updated_by.basic_details.associate_details.organization_name ?? 'NA',
+                "procurement_expense": item?.procurementExp ?? 'NA',
+                "driage": item?.driage ?? 'NA',
+                "storage_expense": item?.storageExp ?? 'NA',
+                "remarks": item?.notes ?? 'NA',
+            }
+        });
 
         records.count = await PaymentLogs.countDocuments(query);
 
