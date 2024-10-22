@@ -7,6 +7,7 @@ const bcrypt = require("bcrypt");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { _featureType } = require("@src/v1/utils/constants");
 const { TypesModel } = require("@src/v1/models/master/Types");
+const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
 
 
@@ -52,7 +53,8 @@ exports.createUserRole = async (req, res) => {
             userRoleName: userRole, 
             createdBy: req?.user?._id,
             userRoleType: req?.user?.userType,
-            features : features
+            features : features,
+            ipAddress: getIpAddress(req)
         })
 
         const savedUserRole = await newUserRole.save()
@@ -122,7 +124,7 @@ function mergeObjects(obj1, obj2) {
         
         const mergedSubFeatures = obj1[key].map((subFeatureA) => {
           const matchingSubFeatureB = obj2[key].find(
-            (subFeatureB) => subFeatureB.subFeatureName === subFeatureA.subFeatureName
+            (subFeatureB) => subFeatureB.subFeatureName.toLowerCase() === subFeatureA.subFeatureName.toLowerCase()
           );
   
           if (matchingSubFeatureB) {
@@ -154,7 +156,7 @@ function mergeArrays(arrayA, arrayB) {
       
     const mergedArray = arrayA.map((itemA) => {
         
-      const matchingItemB = arrayB.find((itemB) => itemB.featureName === itemA.featureName);
+      const matchingItemB = arrayB.find((itemB) => itemB.featureName.toLowerCase() === itemA.featureName.toLowerCase());
   
       if (matchingItemB) {
           return mergeObjects(itemA, matchingItemB);
@@ -186,9 +188,14 @@ exports.editUserRole = async ( req, res, next) =>{
 
         const features = req.body.features
         const userRoleName = req.body.userRoleName || userRole.userRoleName
-        console.log('userRoleName--->', userRoleName)
+
         if(features.length > 0 && userRoleName){
-            const response = await UserRole.findOneAndUpdate({_id:userRoleId}, {userRoleName: userRoleName, features:features }, { new: true})
+            userRole.userRoleName = userRoleName
+            userRole.features = features
+            userRole.updatedBy = req.user._id
+            userRole.ipAddress = getIpAddress(req)
+
+            const response = await userRole.save()
             if(response){
                 return sendResponse({res, status: 200, data: response, message: "user role edited successfully"})
             }
@@ -278,7 +285,7 @@ exports.createUser = async (req, res) => {
         if(!email){
             return sendResponse({res, status: 400, message: "email address not provided"})
         }
-   
+        
         const mobileNumber = mobile.trim().toLowerCase()
         
         let uniqueUserId;
@@ -312,7 +319,8 @@ exports.createUser = async (req, res) => {
             password: hashPassword,
             createdBy: req?.user?._id,
             userRole: userRole,
-            portalId: req?.user?.portalId
+            portalId: req?.user?.portalId,
+            ipAddress: getIpAddress(req)
         })
 
         const savedUser = await newUser.save()
@@ -367,7 +375,8 @@ const getPermission = async (response) => {
         return sendResponse({ res, status:400, message: "Invalid feature type"})
     }
 
-    const featureList = await FeatureList.find({featureType:featureType})
+    const featureListDoc = await FeatureList.find({featureType:featureType})
+    const featureList = JSON.parse(JSON.stringify(featureListDoc))
     const resultArray = JSON.parse(JSON.stringify(response.userRole));
 
     const mergedResultsArray = [];
@@ -377,7 +386,7 @@ const getPermission = async (response) => {
 
       features.forEach((feature) => {
         const existingFeature = mergedResultsArray.find(
-          (mergedFeature) => mergedFeature.featureName === feature.featureName
+          (mergedFeature) => mergedFeature.featureName.toLowerCase() === feature.featureName.toLowerCase()
         );
 
         if (!existingFeature) {
@@ -396,8 +405,7 @@ const getPermission = async (response) => {
           feature.subFeatures.forEach((subFeature) => {
             const matchingSubFeature = existingFeature.subFeatures.find(
               (existingSubFeature) =>
-                existingSubFeature.subFeatureName ===
-                subFeature.subFeatureName
+                existingSubFeature.subFeatureName.toLowerCase() === subFeature.subFeatureName.toLowerCase()
             );
 
             if (matchingSubFeature) {
@@ -536,6 +544,7 @@ exports.editUser = async ( req, res) =>{
         user.userRole = req.body?.userRole;
       }
       const previousUser = await MasterUser.find({_id:userId})
+      user.ipAddress = getIpAddress(req)
       const updatedUser = await user.save()
 
 
@@ -555,7 +564,8 @@ exports.editUser = async ( req, res) =>{
           if (!previousUser.userRole.includes(afterRole)) {
             await UserRole.findOneAndUpdate(
               { _id: afterRole },
-              { $inc: { userAssigned: 1 } }
+              { $inc: { userAssigned: 1 }},
+              
             );
           }
         });

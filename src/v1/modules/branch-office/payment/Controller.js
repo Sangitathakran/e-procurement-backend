@@ -205,6 +205,8 @@ module.exports.associateOrders = async (req, res) => {
         };
 
         const records = { count: 0 };
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
         records.rows = paginate == 1 ? await AssociateOffers.find(query)
             .populate({
                 path: 'seller_id', select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name'
@@ -254,17 +256,14 @@ module.exports.associateOrders = async (req, res) => {
 module.exports.batchList = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
 
         let query = {
-            req_id,
+            associateOffer_id,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
         const records = { count: 0 };
-
-        records.reqDetails = await RequestModel.findOne({ _id: req_id })
-            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
         records.rows = paginate == 1 ? await Batch.find(query)
             .populate({
@@ -272,6 +271,7 @@ module.exports.batchList = async (req, res) => {
             })
             .sort(sortBy)
             .skip(skip)
+            .select('_id procurementCenter_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_approve_by')
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
@@ -355,37 +355,7 @@ module.exports.qcReport = async (req, res) => {
                 path: 'req_id', select: '_id reqNo product address quotedPrice fulfilledQty totalQuantity expectedProcurementDate'
             })
 
-        // return res.status(200).send(new serviceResponse({ status: 200, data: qcReport, message: _query.get('Qc Report') }))
-
-        if (qcReport) {
-
-            let totalamount = 0;
-            let mspPercentage = 1; // The percentage you want to calculate       
-
-            const reqDetails = await Payment.find({
-                $and: [
-                    { req_id: qcReport.req_id },
-                    { user_id: qcReport.seller_id }
-                ]
-            })
-                .select({ _id: 0, amount: 1 });
-
-            const newdata = await Promise.all(reqDetails.map(async record => {
-                totalamount += record.amount;
-            }));
-
-            const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
-
-            let records = { ...qcReport.toObject(), totalamount, mspAmount }
-
-            if (records) {
-                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Qc Report') }))
-            }
-        }
-        else {
-            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Qc Report") }] }))
-        }
-
+        return res.status(200).send(new serviceResponse({ status: 200, data: qcReport, message: _query.get('Qc Report') }))
     }
     catch (error) {
         _handleCatchErrors(error, res);
