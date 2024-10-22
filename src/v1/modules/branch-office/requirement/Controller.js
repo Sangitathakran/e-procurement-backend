@@ -1,5 +1,6 @@
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod } = require("@src/v1/utils/constants");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
@@ -86,7 +87,7 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
 module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
     const { id, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, material_image = [], weight_slip = [], qc_report = [], data, paymentIsApprove = 0 } = req.body;
-    const { user_id, user_type } = req;
+    const { user_id, userType } = req;
 
     const record = await Batch.findOne({ _id: id }).populate("req_id");
 
@@ -119,7 +120,7 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
             const farmerData = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id });
 
-            const paymentData = { payment_collect_by: "Farmer", whomToPay: farmerData.farmer_id, user_type, user_id, qtyProcured: farmer.qty, reqNo: request.reqNo, req_id: request._id, commodity: record.req_id.product.name, amount: farmer.amt, date: new Date(), method: _paymentmethod.bank_transfer }
+            const paymentData = { batch_id: record?._id, payment_collect_by: "Farmer", whomToPay: farmerData.farmer_id, userType, user_id, qtyProcured: farmer.qty, reqNo: request.reqNo, req_id: request._id, commodity: record.req_id.product.name, amount: farmer.amt, date: new Date(), method: _paymentmethod.bank_transfer }
 
             paymentRecords.push(paymentData);
         }
@@ -127,6 +128,14 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
         await Payment.insertMany(paymentRecords);
 
     } else if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
+
+        if (!record.dispatched) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "please dispatched it !!" }] }));
+        }
+
+        if (!record.intransit) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "please intransit it !!" }] }));
+        }
         record.delivered.proof_of_delivery = proof_of_delivery;
         record.delivered.weigh_bridge_slip = weigh_bridge_slip;
         record.delivered.receiving_copy = receiving_copy;

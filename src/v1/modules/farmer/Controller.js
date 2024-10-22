@@ -6,6 +6,7 @@ const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { User } = require("@src/v1/models/app/auth/User");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
@@ -13,7 +14,9 @@ const Readable = require('stream').Readable;
 const { smsService } = require('../../utils/third_party/SMSservices');
 const OTPModel = require("../../models/app/auth/OTP")
 const { generateJwtToken } = require('../../utils/helpers/jwt')
-const _individual_farmer_onboarding_steps = require('@src/v1/utils/constants')
+const stateList=require("../../utils/constants/stateList");
+const _individual_farmer_onboarding_steps = require('@src/v1/utils/constants');
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 module.exports.sendOTP = async (req, res) => {
   try {
     const { mobileNumber, acceptTermCondition } = req.body;
@@ -84,6 +87,7 @@ module.exports.verifyOTP = async (req, res) => {
     if (!individualFormerData) {
       individualFormerData = await new farmer({
         mobile_no: mobileNumber,
+        farmer_type:'Individual',
         is_verify_otp: true
       }).save();
     }
@@ -160,6 +164,17 @@ module.exports.saveFarmerDetails = async (req, res) => {
 
     if (farmerDetails) {
       farmerDetails[screenName] = req.body[screenName];
+
+      if(screenName=='address'){
+        let {state,district}=req.body[screenName];
+        const state_id = await getStateId(state);
+    const district_id = await getDistrictId(district);
+        farmerDetails[screenName]={
+          ...req.body[screenName],
+          state_id,
+          district_id
+        }
+      }
       // farmerDetails.steps = req.body?.steps;
       await farmerDetails.save();
 
@@ -194,16 +209,32 @@ module.exports.getFarmerDetails = async (req, res) => {
     const selectFields = screenName
       ? `${screenName} allStepsCompletedStatus `
       : null;
-
+    
     if (selectFields) {
       farmerDetails = await farmer.findOne({ _id: id }).select(
         selectFields
-      );
+      ).lean();
     } else {
-      farmerDetails = await farmer.findOne({ _id: id });
+      farmerDetails = await farmer.findOne({ _id: id }).lean();
     }
 
     if (farmerDetails) {
+      if(farmerDetails?.address){
+        const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails?.address?.state_id?.toString() } } },{ "states.$": 1 });
+  
+        const districts = state?.states[0]?.districts.find(item=>item._id==farmerDetails?.address?.district_id?.toString())
+        
+              farmerDetails={
+                ...farmerDetails,
+                address:{
+                  ...farmerDetails.address,
+                  state:state?.states[0]?.state_title,
+                  district:districts?.district_title
+                }
+              }
+      }
+     
+      
       return sendResponse({
         res,
         status: 200,
@@ -229,16 +260,20 @@ module.exports.submitForm = async (req, res) => {
     const { id } = req.params;
 
     const farmerDetails = await farmer.findById(id)
+    // .populate('address.state_id')
+    const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails.address.state_id.toString() } } },{ "states.$": 1 });
+  
+  const districts = state.states[0].districts.find(item=>item._id==farmerDetails.address.district_id.toString())
+    
     const generateFarmerId = (farmer) => {
       const stateData = stateList.stateList.find(
         (item) =>
-          item.state.toLowerCase() === farmer.address.state.toLowerCase()
+          item.state.toLowerCase() === state.states[0].state_title.toLowerCase()
       );
-      //console.log("stateData--->", stateData)
+      // console.log("stateData--->", stateData)
       const district = stateData.districts.find(
         (item) =>
-          item.districtName.toLowerCase() ===
-          farmer.address.district.toLowerCase()
+          item.districtName.toLowerCase() ===districts.district_title.toLowerCase()
       );
 
       if (!district) {
@@ -263,31 +298,40 @@ module.exports.submitForm = async (req, res) => {
       return farmerId;
     };
     const farmer_id = await generateFarmerId(farmerDetails);
-
+      console.log(farmer_id)
     if (farmerDetails && farmer_id) {
+      const landDetails = await Land.find({farmer_id:id});
+        const cropDetails=await Crop.find({farmer_id:id})
+        let land_ids=landDetails.map(item=>({land_id:item._id}))
+        let crop_ids=cropDetails.map(item=>({crop_id:item._id}))
+        farmerDetails.land_details=land_ids
+        farmerDetails.crop_details=crop_ids
+        console.log(land_ids,crop_ids)
+        await farmerDetails.save();
       if (farmerDetails.farmer_id == null) {
         farmerDetails.farmer_id = farmer_id;
         farmerDetails.allStepsCompletedStatus = true;
-
+        
         //welcome sms send functionality
         const mobileNumber = req.mobile_no;
         const farmerName = farmerDetails.basic_details.name;
         const farmerId = farmerDetails.farmer_id;
+        
         const isMszSent = await smsService.sendFarmerRegistrationSMS(
           mobileNumber,
           farmerName,
           farmerId
         );
-        //console.log("isMszSent==>",isMszSent)
+       // console.log("isMszSent==>",isMszSent)
         if (isMszSent && isMszSent.response && isMszSent.response.status === 'success') {
           // Message was sent successfully
-          const landDetails = await Land.find({farmer_id:id});
-          let land_ids=landDetails.map(item=>({land_id:item._id}))
+          
           farmerDetails.is_welcome_msg_send = true;
-          farmerDetails.land_details=land_ids
+          
         }
 
         const farmerUpdatedDetails = await farmerDetails.save();
+        console.log(farmerUpdatedDetails)
         return sendResponse({ res, status: 200, data: farmerUpdatedDetails })
       }
 
@@ -486,7 +530,7 @@ module.exports.createFarmer = async (req, res) => {
 
 module.exports.getFarmers = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy, search = '', skip, paginate = 1, is_associated  } = req.query;
+    const { page = 1, limit = 10, sortBy, search = '', skip, paginate = 1, is_associated } = req.query;
     const { user_id } = req
 
     let query = {};
@@ -494,9 +538,10 @@ module.exports.getFarmers = async (req, res) => {
     // query.associate_id = is_associated == 1 ? user_id : null
     if (is_associated == 1) {
       query.associate_id = user_id;
-    } else if(is_associated == 0){
+    }
+    else if (is_associated == 0) {
       query.associate_id = null;
-    }else {
+    } else {
       query = {};
     }
     if (search) {
@@ -528,6 +573,59 @@ module.exports.getFarmers = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+module.exports.getBoFarmer = async (req, res) => {
+  try {
+    const user_id  = req.user.portalId._id;
+    const { page = 1, limit = 10, search = '', sortBy = 'name' } = req.query; 
+
+    const user = await Branches.findById(user_id);
+    if (!user) {
+      return res.status(404).send({ message: "User not found." });
+    }
+
+    const { state, district } = user; 
+    if (!state || !district) {
+      return res.status(400).send({ message: "User's state information is missing." });
+    }
+
+    const state_id = await getStateId(state);
+    const district_id = await getDistrictId(district);
+    if (!state_id || !district_id) {
+      return res.status(400).send({ message: "State ID not found for the user's state." });
+    }
+
+    let query = { 'address.state_id': state_id,  'address.district_id': district_id};
+    if (search) {
+      query.name = { $regex: search, $options: 'i' }; 
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const parsedLimit = parseInt(limit);
+
+    const farmers = await farmer.find(query)
+      .sort({ [sortBy]: 1 })
+      .skip(skip)
+      .limit(parsedLimit)
+      .populate('associate_id', '_id user_code ');
+    const totalFarmers = await farmer.countDocuments(query);
+
+    if (farmers.length === 0) {
+      return res.status(404).send({ message: `No farmers found in state: ${state} and  District: ${district}`  });
+    }
+    return res.status(200).send({
+      status: 200,
+      totalFarmers, 
+      currentPage: page,
+      totalPages: Math.ceil(totalFarmers / parsedLimit),
+      data: farmers,
+      message: `Farmers found in state: ${state} and  District: ${district}`,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send({ message: "An error occurred while fetching farmers." });
+  }
+};
+
 module.exports.editFarmer = async (req, res) => {
   try {
     const { id } = req.params;
@@ -605,11 +703,22 @@ module.exports.deletefarmer = async (req, res) => {
 module.exports.createLand = async (req, res) => {
   try {
     const {
-      farmer_id, area, land_name, cultivation_area, area_unit, state, district,
+      farmer_id,pin_code, area, land_name, area_unit, state, district,land_type,upload_land_document,
       village, block, khtauni_number, khasra_number, khata_number,
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     } = req.body;
-
+    console.log(farmer_id,
+    area,
+    pin_code,
+    state,
+    district,
+    village,
+    block,
+    khasra_number,
+    khtauni_number,
+    area_unit,
+    upload_land_document)
+  
     const existingLand = await Land.findOne({ 'khasra_number': khasra_number });
 
     if (existingLand) {
@@ -620,9 +729,17 @@ module.exports.createLand = async (req, res) => {
     }
     const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
+    
+    let land_address={
+      state_id,
+      block,
+      pin_code,
+      district_id,
+      village
+    }
     const newLand = new Land({
-      area, land_name, cultivation_area, area_unit, state: state_id, district: district_id,
-      village, block, khtauni_number, khasra_number, khata_number,
+      farmer_id,area, land_name, area_unit,land_type,upload_land_document,land_address,
+       khtauni_number, khasra_number, khata_number,
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     });
     const savedLand = await newLand.save();
@@ -648,10 +765,55 @@ module.exports.getLand = async (req, res) => {
     if (farmer_id) {
       query.farmer_id = farmer_id;
     }
+//update
+    let lands = paginate == 1
+      ? await Land.find(query)
+          .limit(parseInt(limit))
+          .skip(parseInt(skip))
+          .sort(sortBy)
+          .populate('farmer_id', 'id name')
+          .lean()
+      : await Land.find(query)
+          .sort(sortBy)
+          .populate('farmer_id', 'id name')
+          .lean();
 
-    records.rows = paginate == 1
-      ? await Land.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
-      : await Land.find(query).sort(sortBy).populate('farmer_id', 'id name').populate('farmer_id', 'id name')
+    const stateIds = [...new Set(lands.map(land => land.land_address.state_id.toString()))];
+    
+    const states = await StateDistrictCity.find(
+      { "states._id": { $in: stateIds } },
+      { "states.$": 1 }
+    ).lean();
+
+    const stateMap = new Map();
+    states.forEach(state => {
+      if (state.states && state.states[0]) {
+        stateMap.set(state.states[0]._id.toString(), {
+          state_title: state.states[0].state_title,
+          districts: state.states[0].districts
+        });
+      }
+    });
+    records.rows = lands.map(land => {
+      const stateInfo = stateMap.get(land.land_address.state_id.toString());
+      if (stateInfo) {
+        const districtInfo = stateInfo.districts.find(
+          district => district._id.toString() === land.land_address.district_id.toString()
+        );
+
+        return {
+          ...land,
+          land_address: {
+            ...land.land_address,
+            state: stateInfo.state_title,
+            district: districtInfo ? districtInfo.district_title : null
+          }
+        };
+      }
+      return land;
+    });
+
+    
 
     records.count = await Land.countDocuments(query);
 
@@ -676,19 +838,25 @@ module.exports.updateLand = async (req, res) => {
   try {
     const { land_id } = req.params;
     const {
-      area, land_name, cultivation_area, area_unit, state, district,
+      area, land_name, cultivation_area,pin_code, area_unit, state, district,land_type,upload_land_document,
       village, block, khtauni_number, khasra_number, khata_number,
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     } = req.body;
 
     const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
-
+    let land_address={
+      state_id,
+      block,
+      pin_code,
+      district_id,
+      village
+    }
     const updatedLand = await Land.findByIdAndUpdate(
       land_id,
       {
-        area, land_name, cultivation_area, area_unit, state: state_id, district: district_id,
-        village, block, khtauni_number, khasra_number, khata_number,
+        area, land_name, cultivation_area, area_unit,land_type,upload_land_document,land_address
+        , khtauni_number, khasra_number, khata_number,
         soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
       },
       { new: true }
@@ -742,20 +910,43 @@ module.exports.deleteLand = async (req, res) => {
 module.exports.createCrop = async (req, res) => {
   try {
     const {
-      farmer_id, crop_season, crop_name, crops_name, crop_variety,
+      farmer_id,land_id, crop_season, crop_name, crops_name, crop_variety,kharif_crops,rabi_crops,zaid_crops,
       sowing_date, harvesting_date, production_quantity, selling_price, yield, land_name
       , crop_growth_stage, crop_disease, crop_rotation, previous_crop_details, marketing_and_output, input_details, seeds
     } = req.body;
 
-    const sowingdate = parseMonthyear(sowing_date);
-    const harvestingdate = parseMonthyear(harvesting_date);
-    const newCrop = new Crop({
-      farmer_id, crop_season, crop_name, crops_name, crop_variety,
+   
+    const farmerDetails=await farmer.findById(farmer_id);
+    console.log(farmerDetails)
+    const sowingdate = (farmerDetails?.farmer_type=='Individual')?'':parseMonthyear(sowing_date);
+    const harvestingdate = (farmerDetails?.farmer_type=='Individual')?'':parseMonthyear(harvesting_date); 
+    let fieldSets=[]
+    let fieldSet={
+      farmer_id, crop_season, crop_name, crops_name, crop_variety,land_id,
       sowing_date: sowingdate, harvesting_date: harvestingdate, production_quantity, selling_price, yield, land_name
       , crop_growth_stage, crop_disease, crop_rotation, previous_crop_details, marketing_and_output, input_details, seeds
-    });
-
-    const savedCrop = await newCrop.save();
+    }
+    if(farmerDetails && farmerDetails?.farmer_type=='Individual'){
+     
+      for(item of kharif_crops){
+        console.log('fieldSet',fieldSet)
+        fieldSets.push({...fieldSet,crop_season:"kharif",crop_name:item})
+        
+      }
+      for(item of rabi_crops){
+        fieldSets.push({...fieldSet,crop_season:"rabi",crop_name:item})
+        
+      }
+      for(item of zaid_crops){
+        fieldSets.push({...fieldSet,crop_season:"zaid",crop_name:item})
+      }
+      
+    }else{
+      fieldSets.push(fieldSet)
+    }
+   
+    console.log(fieldSets)
+   let savedCrop= await Crop.insertMany(fieldSets)
 
     return res.status(200).send(new serviceResponse({
       status: 201,
@@ -767,18 +958,82 @@ module.exports.createCrop = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+module.exports.getLandDetails=async(req,res)=>{
+  try {
+    const { id} = req.params;
 
+    let fetchLandDetails = await Land.findById(id).lean()
+    if(!fetchLandDetails){
+      return sendResponse({res,status:404,message:"Land details not found"})
+     }
+    const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": fetchLandDetails.land_address.state_id.toString() } } },{ "states.$": 1 });
+  
+  const districts = state.states[0].districts.find(item=>item._id==fetchLandDetails.land_address.district_id.toString())
+   let land_address={
+    ...fetchLandDetails.land_address,
+    state:state.states[0].state_title,
+    district:districts.district_title
+   }
+  fetchLandDetails={
+    ...fetchLandDetails,
+    land_address
+  }
+     
+   
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: fetchLandDetails,
+      message: _response_message.found("Land")
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+}
+module.exports.getIndCropDetails = async (req, res) => {
+  try {
+    const { farmer_id,land_id } = req.query;
+    
+    if(!farmer_id && !land_id) return sendResponse({res,status:400,message:"Please provide farmer Id and land Id"})
+    const query = farmer_id ? { farmer_id,land_id } : {};
+
+    const fetchCrops = await Crop.find(query).populate('farmer_id', 'id name')
+    let crops={
+      farmer_id:fetchCrops[0]?.farmer_id,
+      land_id:fetchCrops[0]?.land_id,
+      kharif_crops:[],rabi_crops:[],zaid_crops:[]
+    }
+      if(fetchCrops){
+        crops.kharif_crops=fetchCrops.filter(item=>item.crop_season=='kharif').map(item=>item.crop_name)
+        crops.rabi_crops=fetchCrops.filter(item=>item.crop_season=='rabi').map(item=>item.crop_name)
+        crops.zaid_crops=fetchCrops.filter(item=>item.crop_season=='zaid').map(item=>item.crop_name)
+      }
+
+
+
+    
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: crops,
+      message: _response_message.found("Crops")
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
 module.exports.getCrop = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy = 'crops_name', paginate = 1, farmer_id } = req.query;
+    const { page = 1, limit = 10, sortBy = 'crop_name', paginate = 1, farmer_id } = req.query;
     const skip = (page - 1) * limit;
     const currentDate = new Date();
     const query = farmer_id ? { farmer_id } : {};
     const records = { pastCrops: {}, upcomingCrops: {} };
-
-    const fetchCrops = async (cropQuery) => paginate == 1
-      ? Crop.find(cropQuery).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
-      : Crop.find(cropQuery).sort(sortBy).populate('farmer_id', 'id name');
+    
+    const fetchCrops = async (query) => paginate == 1
+      ? Crop.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
+      : Crop.find(query).sort(sortBy).populate('farmer_id', 'id name');
 
     const [pastCrops, upcomingCrops] = await Promise.all([
       fetchCrops({ ...query, sowing_date: { $lt: currentDate } }),
@@ -809,7 +1064,50 @@ module.exports.getCrop = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
-
+module.exports.updateIndCrop=async(req,res)=>{
+             try{
+            
+            
+             const { farmer_id } = req.params;
+             const {
+              land_id,kharif_crops,rabi_crops,zaid_crops
+            } = req.body;
+            const cropDetails=await Crop.deleteMany({farmer_id,land_id});
+          
+            let fieldSets=[]
+            let fieldSet={land_id,farmer_id}
+            for(item of kharif_crops){
+              console.log('fieldSet',fieldSet)
+              fieldSets.push({...fieldSet,crop_season:"kharif",crop_name:item})
+              
+            }
+            for(item of rabi_crops){
+              fieldSets.push({...fieldSet,crop_season:"rabi",crop_name:item})
+              
+            }
+            for(item of zaid_crops){
+              fieldSets.push({...fieldSet,crop_season:"zaid",crop_name:item})
+            }
+            
+            let saveCrops= await Crop.insertMany(fieldSets)
+            if (!cropDetails) {
+              return res.status(200).send(new serviceResponse({
+                status: 404,
+                message: _response_message.notFound("Crop")
+              }));
+            }
+        
+            return res.status(200).send(new serviceResponse({
+              status: 200,
+              data: {farmer_id,land_id,kharif_crops,rabi_crops,zaid_crops},
+              message: _response_message.updated("Crop")
+            }));
+          
+          }catch(err){
+            console.log('Error',err)
+            _handleCatchErrors(err, res);
+           }        
+}
 
 module.exports.updateCrop = async (req, res) => {
   try {
@@ -1131,8 +1429,8 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const email = rec["EMAIL ID"];
       const total_area = rec["TOTAL AREA"];
       const area_unit = toLowerCaseIfExists(rec["AREA UNIT"]);
-      const khasra_no = rec["KHASRA NUMBER"];
-      const khatauni = rec["KHATAUNI"];
+      const khasra_number = rec["KHASRA NUMBER"];
+      const khtauni_number = rec["KHATAUNI"];
       const sow_area = rec["SOW AREA"];
       const state = rec["STATE"];
       const district = rec["DISTRICT"];
@@ -1145,7 +1443,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const lab_distance_unit = toLowerCaseIfExists(rec["LAB DISTANCE UNIT"]);
       const sowingdate = rec["SOWING DATE(MM-YYYY)*"];
       const harvestingdate = rec["HARVESTING DATE(MM-YYYY)*"];
-      const crops_name = rec["CROPS NAME*"];
+      const crop_name = rec["CROPS NAME*"];
       const production_quantity = rec["PRODUCTION QUANTITY*"];
       const productivity = rec["PRODUCTIVITY"];
       const selling_price = rec["SELLING PRICE"];
@@ -1164,7 +1462,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const crop_insurance = toLowerCaseIfExists(rec["CROP INSURANCE"]);
       const insurance_company = rec["INSURANCE COMPANY"];
       const insurance_worth = rec["INSURANCE WORTH"];
-      const crop_seasons = toLowerCaseIfExists(rec["CROP SEASONS"]);
+      const crop_season = toLowerCaseIfExists(rec["CROP SEASONS"]);
       const bank_name = rec["BANK NAME"];
       const account_no = rec["ACCOUNT NUMBER"];
       const branch_name = rec["BRANCH"];
@@ -1218,7 +1516,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           });
           // Update land and bank details if present
           await updateRelatedRecords(farmerRecord._id, {
-            farmer_id: farmerRecord._id, total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, village:landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
+            farmer_id: farmerRecord._id, total_area, khasra_number, area_unit, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, village: landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crop_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_season,
           });
         } else {
           // Insert new farmer record
@@ -1226,7 +1524,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
             associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name,
           });
           await insertNewRelatedRecords(farmerRecord._id, {
-            total_area, khasra_no, area_unit, khatauni, sow_area, state_id: land_state_id, district_id: land_district_id, village:landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crops_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_seasons,
+            total_area, khasra_number, area_unit, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, village: landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crop_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_season,
           });
         }
 
@@ -1266,10 +1564,18 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 module.exports.exportFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = '-createdAt', search = '', isExport = 0 } = req.query;
+    const { user_id, user_type } = req;
     let query = {};
-    if (search) {
-      query = { name: { $regex: search, $options: 'i' } };
+
+    if (user_type === 4) {
+      query.associate_id = user_id;
+    } else {
+      query = {};
     }
+    if (search) {
+      query.name = { $regex: search, $options: 'i' };
+    }
+
     let aggregationPipeline = [
       { $match: query },
       {
@@ -1280,9 +1586,7 @@ module.exports.exportFarmers = async (req, res) => {
           as: 'state'
         }
       },
-      {
-        $unwind: { path: '$state', preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: '$state', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: 'statedistrictcities',
@@ -1291,9 +1595,7 @@ module.exports.exportFarmers = async (req, res) => {
           as: 'district'
         }
       },
-      {
-        $unwind: { path: '$district', preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: '$district', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: 'lands',
@@ -1302,9 +1604,7 @@ module.exports.exportFarmers = async (req, res) => {
           as: 'land'
         }
       },
-      {
-        $unwind: { path: '$land', preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: '$land', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: 'crops',
@@ -1313,39 +1613,40 @@ module.exports.exportFarmers = async (req, res) => {
           as: 'crops'
         }
       },
-      {
-        $unwind: { path: '$crops', preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: '$crops', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
-          from: 'banks',
+          from: 'users',
           localField: '_id',
-          foreignField: 'farmer_id',
-          as: 'bank'
+          foreignField: 'associate_id',
+          as: 'user'
         }
       },
-      {
-        $unwind: { path: '$bank', preserveNullAndEmptyArrays: true }
-      },
-      { $sort: { createdAt: sortBy === '-createdAt' ? -1 : 1 } },
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+      { $sort: { createdAt: sortBy === '-createdAt' ? -1 : 1 } }
     ];
-    if (isExport == 0) {
+
+    if (isExport == 0 && paginate == 1) {
       aggregationPipeline.push(
-        { $skip: paginate == 1 ? (parseInt(skip)) : 0 },
-        { $limit: paginate == 1 ? parseInt(limit) : 10000 }
+        { $skip: parseInt(skip) }, 
+        { $limit: parseInt(limit) }
       );
     }
+
     const farmersData = await farmer.aggregate(aggregationPipeline);
-    const totalFarmersCount = await farmer.countDocuments(query);
+    const totalFarmersCount = await farmer.countDocuments(query); 
+
     const records = {
       rows: farmersData,
       count: totalFarmersCount,
     };
+
     if (paginate == 1 && isExport == 0) {
       records.page = parseInt(page);
       records.limit = parseInt(limit);
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
+
     if (isExport == 1) {
       const record = farmersData.map((item) => {
         return {
@@ -1409,8 +1710,9 @@ module.exports.exportFarmers = async (req, res) => {
           "IFSC Code": item?.bank?.ifsc_code || 'NA',
           "Account Holder Name": item?.bank?.account_holder_name || 'NA',
           "Branch Address": `${item?.bank?.branch_address?.city || 'NA'}, ${item?.bank?.branch_address?.bank_block || 'NA'}, ${item?.bank?.branch_address?.bank_pincode || 'NA'}`,
-        }
+        };
       });
+
       if (record.length > 0) {
         dumpJSONToExcel(req, res, {
           data: record,
@@ -1435,7 +1737,6 @@ module.exports.exportFarmers = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
-
 
 module.exports.individualfarmerList = async (req, res) => {
   try {
@@ -1620,8 +1921,8 @@ const getState = async (stateId) => {
 }
 module.exports.makeAssociateFarmer = async (req, res) => {
   try {
-    const { farmer_id } = req.body; 
-    const { user_id } = req; 
+    const { farmer_id } = req.body;
+    const { user_id } = req;
 
     if (!Array.isArray(farmer_id) || farmer_id.length === 0 || !user_id) {
       return res.status(400).send(new serviceResponse({
@@ -1633,7 +1934,7 @@ module.exports.makeAssociateFarmer = async (req, res) => {
     let updatedFarmers = [];
     let notFoundFarmers = [];
 
-    for (const id of farmer_id) { 
+    for (const id of farmer_id) {
       const localFarmer = await farmer.findOne({ _id: id, associate_id: null });
 
       if (localFarmer) {
@@ -1660,5 +1961,81 @@ module.exports.makeAssociateFarmer = async (req, res) => {
 
   } catch (error) {
     _handleCatchErrors(error, res);
+  }
+};
+module.exports.getAllFarmers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, sortBy, search = '', paginate = 1 } = req.query;
+
+    let associatedQuery = { associate_id: { $ne: null } }; 
+    let localQuery = { associate_id: null };
+
+    if (search) {
+      const searchCondition = { name: { $regex: search, $options: 'i' } };
+      associatedQuery = { ...associatedQuery, ...searchCondition };
+      localQuery = { ...localQuery, ...searchCondition };
+    }
+
+    const records = {
+      associatedFarmers: [],
+      localFarmers: [],
+      associatedFarmersCount: 0,
+      localFarmersCount: 0,
+    };
+
+    const skip = (page - 1) * limit;
+    const parsedLimit = parseInt(limit);
+
+    if (paginate == 1) {
+      records.associatedFarmers = await farmer
+        .find(associatedQuery)
+        .populate('associate_id', '_id user_code')
+        .sort(sortBy ? { [sortBy]: 1 } : {})
+        .skip(skip)
+        .limit(parsedLimit);
+
+      records.localFarmers = await farmer
+        .find(localQuery)
+        .sort(sortBy ? { [sortBy]: 1 } : {})
+        .skip(skip)
+        .limit(parsedLimit);
+
+      records.associatedFarmersCount = await farmer.countDocuments(associatedQuery);
+      records.localFarmersCount = await farmer.countDocuments(localQuery);
+    } else {
+      records.associatedFarmers = await farmer
+        .find(associatedQuery)
+        .populate('associate_id', '_id user_code')
+        .sort(sortBy ? { [sortBy]: 1 } : {});
+
+      records.localFarmers = await farmer
+        .find(localQuery)
+        .sort(sortBy ? { [sortBy]: 1 } : {});
+
+      // Count total associated and local farmers
+      records.associatedFarmersCount = await farmer.countDocuments(associatedQuery);
+      records.localFarmersCount = await farmer.countDocuments(localQuery);
+    }
+
+    // Prepare response data
+    const responseData = {
+      associatedFarmersCount: records.associatedFarmersCount,
+      localFarmersCount: records.localFarmersCount,
+      associatedFarmers: records.associatedFarmers,
+      localFarmers: records.localFarmers,
+    };
+
+    return res.status(200).send({
+      status: 200,
+      data: responseData,
+      message: "Farmers data retrieved successfully.",
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send({
+      status: 500,
+      message: "An error occurred while fetching farmers data.",
+    });
   }
 };

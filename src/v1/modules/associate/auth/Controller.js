@@ -8,7 +8,7 @@ const { smsService } = require('@src/v1/utils/third_party/SMSservices');
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
-const { verifyJwtToken, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
+const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
@@ -60,7 +60,7 @@ module.exports.sendOtp = async (req, res) => {
 module.exports.loginOrRegister = async (req, res) => {
     try {
         const { userInput, inputOTP } = req.body;
-        
+
         if (!userInput || !inputOTP) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('otp_required') }] }));
         }
@@ -95,9 +95,15 @@ module.exports.loginOrRegister = async (req, res) => {
             }
             userExist = await User.create(newUser);
         }
+
+        if (userExist.active == false) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "you are not an active user!" }] }));
+        }
+
         const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
         const expiresIn = 24 * 60 * 60; // 24 hour in seconds
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
@@ -105,7 +111,7 @@ module.exports.loginOrRegister = async (req, res) => {
         });
         const data = {
             token: token,
-            user_type: userExist.user_type,
+            userType: userExist.user_type,
             is_approved: userExist.is_approved,
             phone: userExist.basic_details.associate_details.phone,
             associate_code: userExist.user_code,
@@ -134,7 +140,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
         switch (formName) {
             case 'organization':
                 user.basic_details.associate_details.organization_name = formData.organization_name;
-                
+
                 break;
             case 'basic_details':
                 if (formData.associate_details && formData.associate_details.phone) {
@@ -181,7 +187,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
                 return res.status(200).send(new serviceResponse({ status: 400, message: `Invalid form name: ${formName}` }));
         }
         await user.save();
-        
+
         const response = { user_code: user.user_code, user_id: user._id };
         return res.status(200).send(new serviceResponse({ message: _response_message.updated(formName), data: response }));
     } catch (error) {
@@ -238,7 +244,7 @@ module.exports.findUserStatus = async (req, res) => {
         if (!user) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         }
-        
+
         const response = await User.findById({ _id: userId });
         if (!response) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
@@ -262,7 +268,7 @@ module.exports.finalFormSubmit = async (req, res) => {
         if (!user) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         }
-        
+
         user.is_form_submitted = true;
 
         const allDetailsFilled = (
@@ -288,7 +294,7 @@ module.exports.finalFormSubmit = async (req, res) => {
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, message: _query.update("data"), data: user.is_form_submitted }));
-        
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }

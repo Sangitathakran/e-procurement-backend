@@ -33,6 +33,17 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
         if (!userExist) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("User") }] }));
         }
+
+        if (userExist.active == false) {
+            res.clearCookie('token', {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
+                sameSite: 'strict',
+                maxAge: 0,
+            });
+
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Logged out successfully" }] }));
+        }
         Object.entries(decodedToken).forEach(([key, value]) => {
             req[key] = value
         })

@@ -4,9 +4,13 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { User } = require("@src/v1/models/app/auth/User");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const bcrypt = require('bcrypt');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
+const { TypesModel } = require('@src/v1/models/master/Types');
+const { MasterUser } = require('@src/v1/models/master/MasterUser');
+const UserRole = require('@src/v1/models/master/UserRole');
+const getIpAddress = require('@src/v1/utils/helpers/getIPAddress');
 
 
 module.exports.getHo = async (req, res) => {
@@ -16,6 +20,10 @@ module.exports.getHo = async (req, res) => {
         let query = {
             ...(search ? { 'company_details.name': { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
+
+        if (paginate == 0) {
+            query.active = true
+        }
         const records = { count: 0 };
         records.rows = await HeadOffice.aggregate([
             { $match: query },
@@ -33,23 +41,36 @@ module.exports.getHo = async (req, res) => {
                 }
             },
             {
-                $project: {
-                    _id: 1,
-                    office_id: 1,
-                    'company_details.name': 1,
-                    registered_time: 1,
-                    branchCount: 1,
-                    'point_of_contact.name': 1,
-                    'point_of_contact.email': 1,
-                    'point_of_contact.mobile': 1,
-                    'point_of_contact.designation': 1,
-                    registered_time: 1,
-                    head_office_code: 1,
-                    active: 1,
-                    address: 1,
-                    createdAt: 1,
-                    updatedAt: 1
-                }
+                ...(paginate == 1 && {
+                    $project: {
+                        _id: 1,
+                        office_id: 1,
+                        'company_details.name': 1,
+                        registered_time: 1,
+                        branchCount: 1,
+                        'point_of_contact.name': 1,
+                        'point_of_contact.email': 1,
+                        'point_of_contact.mobile': 1,
+                        'point_of_contact.designation': 1,
+                        registered_time: 1,
+                        head_office_code: 1,
+                        active: 1,
+                        address: 1,
+                        createdAt: 1,
+                        updatedAt: 1
+                    }
+                }),
+                ...(paginate == 0 && {
+                    $project: {
+                        _id: 1,
+                        office_id: 1,
+                        'company_details.name': 1,
+                        'point_of_contact.name': 1,
+                        'point_of_contact.email': 1,
+                        'point_of_contact.designation': 1,
+                        head_office_code: 1,
+                    }
+                })
             },
             { $sort: sortBy },
             ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []) // Pagination if required
@@ -86,16 +107,25 @@ module.exports.saveHeadOffice = async (req, res) => {
         const { company_details, point_of_contact, address, authorised } = req.body;
         const password = generateRandomPassword();
 
+        // this is to get the type object of head office
+        const type = await TypesModel.findOne({ _id: "671100dbf1cae6b6aadc2423" })
+
         const hashedPassword = await bcrypt.hash(password, 10);
         const headOffice = new HeadOffice({
             password: hashedPassword,
             email_verified: false,
-            user_ype: "5",
+            user_type: type.userType,
             company_details,
             point_of_contact,
             address,
             authorised,
         });
+        
+        // checking the existing user in Master User collection
+        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:authorised.mobile},{email:authorised.email}]})
+        if(isUserAlreadyExist){
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("already existed with this mobile number or email in Master") }] }))
+        }
 
         const savedHeadOffice = await headOffice.save();
         const hoPocData = {
@@ -109,6 +139,24 @@ module.exports.saveHeadOffice = async (req, res) => {
             password: password,
         }
         await emailService.sendHoCredentialsEmail(hoAuthorisedData);
+
+
+
+
+        const masterUser = new MasterUser({
+            firstName : authorised.name,
+            isAdmin : true,
+            email : authorised.email,
+            mobile : authorised.mobile,
+            password: hashedPassword,
+            userType: type.userType,
+            userRole: [type.adminUserRoleId],
+            createdBy: req.user._id,
+            portalId: savedHeadOffice._id,
+            ipAddress: getIpAddress(req)
+        });
+
+        await masterUser.save();
 
         return res.status(200).send(new serviceResponse({ message: _response_message.created('Head Office'), data: savedHeadOffice }));
     } catch (error) {

@@ -52,6 +52,11 @@ const branchSchema = new mongoose.Schema({
     trim: true,
     maxLength: 100, // Max 100 characters
   },
+  district: {
+    type: String,
+    trim: true,
+    maxLength: 100, // Max 100 characters
+  },
   state: {
     type: String,
     required: true,
@@ -66,7 +71,7 @@ const branchSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    default: _status.inactive,
+    default: _status.active,
     enum: Object.keys(_status),
   },
   headOfficeId: {
@@ -99,13 +104,7 @@ branchSchema.pre('save', async function (next) {
     }
   
     next();
-  });
-
-// Indexes for search optimization
-branchSchema.index({ emailAddress: 1 }, { unique: true });  
-branchSchema.index({ branchName: 1 }); 
-branchSchema.index({ branchId: 1 }); 
-branchSchema.index({ pointOfContact: 1 });  
+  }); 
 
 const Branches = mongoose.model(_collectionName.Branch, branchSchema);
 

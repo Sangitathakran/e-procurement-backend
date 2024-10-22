@@ -3,6 +3,7 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
 const { Branches } = require('@src/v1/models/app/branchManagement/Branches');
+const { _status } = require('@src/v1/utils/constants');
 
 
 module.exports.getBo = asyncErrorHandler(async (req, res) => {
@@ -20,12 +21,15 @@ module.exports.getBo = asyncErrorHandler(async (req, res) => {
     if (ho_id) {
         query.headOfficeId = new mongoose.Types.ObjectId(ho_id)
     }
+    if (paginate == 0) {
+        query.status = _status.active
+    }
 
     const records = { count: 0 };
     records.rows = paginate == 1 ? await Branches.find(query)
         .skip(skip)
         .sort(sortBy) :
-        await Branches.find(query).select('_id branchName')
+        await Branches.find(query).select('_id branchName status').sort(sortBy)
 
     records.count = await Branches.countDocuments(query);
 
