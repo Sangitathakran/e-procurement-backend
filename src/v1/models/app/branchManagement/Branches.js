@@ -71,7 +71,7 @@ const branchSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    default: _status.inactive,
+    default: _status.active,
     enum: Object.keys(_status),
   },
   headOfficeId: {

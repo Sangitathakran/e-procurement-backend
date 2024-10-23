@@ -167,6 +167,17 @@ module.exports.saveFarmerDetails = async (req, res) => {
 
     if (farmerDetails) {
       farmerDetails[screenName] = req.body[screenName];
+
+      if(screenName=='address'){
+        let {state,district}=req.body[screenName];
+        const state_id = await getStateId(state);
+    const district_id = await getDistrictId(district);
+        farmerDetails[screenName]={
+          ...req.body[screenName],
+          state_id,
+          district_id
+        }
+      }
       // farmerDetails.steps = req.body?.steps;
       await farmerDetails.save();
 
@@ -211,10 +222,10 @@ module.exports.getFarmerDetails = async (req, res) => {
     }
 
     if (farmerDetails) {
-      if(screenName=='address'){
-        const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails?.address.state_id.toString() } } },{ "states.$": 1 });
+      if(farmerDetails?.address){
+        const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails?.address?.state_id?.toString() } } },{ "states.$": 1 });
   
-        const districts = state?.states[0]?.districts.find(item=>item._id==farmerDetails?.address.district_id.toString())
+        const districts = state?.states[0]?.districts.find(item=>item._id==farmerDetails?.address?.district_id?.toString())
         
               farmerDetails={
                 ...farmerDetails,
@@ -290,31 +301,40 @@ module.exports.submitForm = async (req, res) => {
       return farmerId;
     };
     const farmer_id = await generateFarmerId(farmerDetails);
-
+      console.log(farmer_id)
     if (farmerDetails && farmer_id) {
+      const landDetails = await Land.find({farmer_id:id});
+        const cropDetails=await Crop.find({farmer_id:id})
+        let land_ids=landDetails.map(item=>({land_id:item._id}))
+        let crop_ids=cropDetails.map(item=>({crop_id:item._id}))
+        farmerDetails.land_details=land_ids
+        farmerDetails.crop_details=crop_ids
+        console.log(land_ids,crop_ids)
+        await farmerDetails.save();
       if (farmerDetails.farmer_id == null) {
         farmerDetails.farmer_id = farmer_id;
         farmerDetails.allStepsCompletedStatus = true;
-
+        
         //welcome sms send functionality
         const mobileNumber = req.mobile_no;
         const farmerName = farmerDetails.basic_details.name;
         const farmerId = farmerDetails.farmer_id;
+        
         const isMszSent = await smsService.sendFarmerRegistrationSMS(
           mobileNumber,
           farmerName,
           farmerId
         );
-        //console.log("isMszSent==>",isMszSent)
+       // console.log("isMszSent==>",isMszSent)
         if (isMszSent && isMszSent.response && isMszSent.response.status === 'success') {
           // Message was sent successfully
-          const landDetails = await Land.find({farmer_id:id});
-          let land_ids=landDetails.map(item=>({land_id:item._id}))
+          
           farmerDetails.is_welcome_msg_send = true;
-          farmerDetails.land_details=land_ids
+          
         }
 
         const farmerUpdatedDetails = await farmerDetails.save();
+        console.log(farmerUpdatedDetails)
         return sendResponse({ res, status: 200, data: farmerUpdatedDetails })
       }
 

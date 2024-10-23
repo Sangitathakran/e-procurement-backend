@@ -54,12 +54,6 @@ farmerRoutes.put('/onboarding-details/:id',
     saveFarmerDetails);
 
 farmerRoutes.get('/getFarmerDetails/:id',
-    // verifyJwtToken, 
-    getFarmerDetails);
-
-
-
-farmerRoutes.get('/getFarmerDetails/:id',
     verifyJwtToken,
     getFarmerDetails);
 
