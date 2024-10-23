@@ -242,7 +242,7 @@ module.exports.auditTrail = asyncErrorHandler(async (req, res) => {
         {
             name: "Final QC Check",
             status: dispatched.qc_report.received_qc_status == received_qc_status.accepted ? "completed" : dispatched.qc_report.received_qc_status == received_qc_status.rejected ? "rejected" : "pending",
-            date: dispatched.qc_report.received.on ? dispatched.qc_report.received.on : null
+            date: dispatched.qc_report.received[dispatched.qc_report.received.length - 1].on ? dispatched.qc_report.received[dispatched.qc_report.received.length - 1].on : null
         },
         {
             name: "Payment Approval Date",
