@@ -125,6 +125,21 @@ module.exports.editTrackDelivery = async (req, res) => {
                 }
 
                 if (material_img && weight_slip && procurementExp && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && storageExp && commission && qc_report && lab_report) {
+                    const RateOfProcurement = 840.00
+                    const RateOfDriage = 100.00
+                    const RateOfStorage = 160.00
+
+                    const sumOfqty = record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + parseFloat(currentValue.qty),
+                        0)
+
+                    if (parseFloat(procurementExp) > (sumOfqty * RateOfProcurement)) {
+                        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Procurement Expenses should be less that ${(sumOfqty * RateOfProcurement)}` }] }));
+                    } else if (parseFloat(driage) > (sumOfqty * RateOfDriage)) {
+                        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Driage Expenses should be less that ${(sumOfqty * RateOfDriage)}` }] }));
+                    } else if (parseFloat(storageExp) > (sumOfqty * RateOfStorage)) {
+                        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Storage Expenses should be less that ${(sumOfqty * RateOfStorage)}` }] }));
+                    }
+
                     record.dispatched.material_img.inital.push(...material_img.map(i => { return { img: i, on: moment() } }));
                     record.dispatched.weight_slip.inital.push(...weight_slip.map(i => { return { img: i, on: moment() } }));
                     record.dispatched.bills.procurementExp = procurementExp;
