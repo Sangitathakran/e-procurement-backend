@@ -17,6 +17,9 @@ const { generateJwtToken } = require('../../utils/helpers/jwt')
 const stateList=require("../../utils/constants/stateList");
 const _individual_farmer_onboarding_steps = require('@src/v1/utils/constants');
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
+const { log } = require("console");
+const { ObjectId } = require('mongodb'); 
+
 module.exports.sendOTP = async (req, res) => {
   try {
     const { mobileNumber, acceptTermCondition } = req.body;
@@ -1541,21 +1544,16 @@ module.exports.bulkUploadFarmers = async (req, res) => {
   }
 };
 
+
 module.exports.exportFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = '-createdAt', search = '', isExport = 0 } = req.query;
     const { user_id, user_type } = req;
+
     let query = {};
-
-    if (user_type === 4) {
-      query.associate_id = user_id;
-    } else {
-      query = {};
+    if (user_id && user_type === "4") {
+      query.associate_id = new ObjectId(user_id);
     }
-    if (search) {
-      query.name = { $regex: search, $options: 'i' };
-    }
-
     let aggregationPipeline = [
       { $match: query },
       {
@@ -1603,18 +1601,20 @@ module.exports.exportFarmers = async (req, res) => {
         }
       },
       { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
-      { $sort: { createdAt: sortBy === '-createdAt' ? -1 : 1 } }
+      {
+        $sort: { createdAt: sortBy === '-createdAt' ? -1 : 1 }
+      }
     ];
 
     if (isExport == 0 && paginate == 1) {
       aggregationPipeline.push(
-        { $skip: parseInt(skip) }, 
+        { $skip: parseInt(skip) },
         { $limit: parseInt(limit) }
       );
     }
-
     const farmersData = await farmer.aggregate(aggregationPipeline);
-    const totalFarmersCount = await farmer.countDocuments(query); 
+
+    const totalFarmersCount = await farmer.countDocuments(query);
 
     const records = {
       rows: farmersData,
@@ -1631,65 +1631,44 @@ module.exports.exportFarmers = async (req, res) => {
       const record = farmersData.map((item) => {
         return {
           "Farmer Name": item?.name || 'NA',
-          "Farmer Contact": item?.mobile_no || 'NA',
+          "Farmer Contact": item?.basic_details?.mobile_no || 'NA',
           "Father Name": item?.parents?.father_name || 'NA',
           "Mother Name": item?.parents?.mother_name || 'NA',
-          "Date of Birth": item?.dob || 'NA',
-          "Gender": item?.gender || 'NA',
+          "Date of Birth": item?.basic_details?.dob || 'NA',
+          "Gender": item?.basic_details.gender || 'NA',
           "Marital Status": item?.marital_status || 'NA',
           "Religion": item?.religion || 'NA',
-          "Category": item?.category || 'NA',
+          "Category": item?.basic_details.category || 'NA',
           "Highest Education": item?.education?.highest_edu || 'NA',
           "Education Details": item?.education?.edu_details || 'NA',
           "Proof Type": item?.proof?.type || 'NA',
           "Aadhar Number": item?.proof?.aadhar_no || 'NA',
           "Address Line": item?.address?.address_line || 'NA',
           "Country": item?.address?.country || 'NA',
-          "State": item?.state?.state_title || 'NA',
-          "District": item?.district?.district_title || 'NA',
+          "State": item?.address.state?.state_title || 'NA',
+          "District": item?.address.district?.district_title || 'NA',
           "Block": item?.address?.block || 'NA',
           "Village": item?.address?.village || 'NA',
-          "PinCode": item?.address?.pinCode || 'NA',
+          "PinCode": item?.address?.pin_code || 'NA',
+          "Bank name": item?.bank_details?.bank_name || 'NA',
+          "Branch Name": item?.bank_details?.branch_name || 'NA',
+          "Account Holder Name": item?.bank_details?.account_holder_name || 'NA',
+          "IFSC code": item?.bank_details?.ifsc_code || 'NA',
+          "Account Number": item?.bank_details?.account_no || 'NA',
           "Total Area": item?.land?.total_area || 'NA',
           "Area Unit": item?.land?.area_unit || 'NA',
-          "Khasra No": item?.land?.khasra_no || 'NA',
-          "Khatauni": item?.land?.khatauni || 'NA',
-          "Sow Area": item?.land?.sow_area || 'NA',
-          "Land Address": item?.land?.land_address?.country || 'NA',
+          "Khasra No": item?.land?.khasra_number || 'NA',
+          "Khatauni Number": item?.land?.khtauni_number || 'NA',
+          "Land Address": item?.land?.land_address?.village || 'NA',
           "Soil Type": item?.land?.soil_type || 'NA',
           "Soil Tested": item?.land?.soil_tested || 'NA',
-          "Soil Health Card": item?.land?.soil_health_card || 'NA',
-          "Soil Health Card Document": item?.land?.soil_health_card_doc || 'NA',
-          "Soil Testing Lab Name": item?.land?.soil_testing_lab_name || 'NA',
-          "Lab Distance Unit": item?.land?.lab_distance_unit || 'NA',
-          "Expected Production": item?.land?.expected_production || 'NA',
-          "Crop Name": item?.crops?.crops_name || 'NA',
+          "Crop Name": item?.crops?.crop_name || 'NA',
           "Sowing Date": item?.crops?.sowing_date ? item?.crops?.sowing_date.toISOString().split('T')[0] : 'NA',
           "Harvesting Date": item?.crops?.harvesting_date ? item?.crops?.harvesting_date.toISOString().split('T')[0] : 'NA',
           "Production Quantity": item?.crops?.production_quantity || 'NA',
-          "Productivity": item?.crops?.productivity || 'NA',
           "Selling Price": item?.crops?.selling_price || 'NA',
-          "Market Price": item?.crops?.market_price || 'NA',
           "YIELD": item?.crops?.yield || 'NA',
-          "Seed Used": item?.crops?.seed_used || 'NA',
-          "Fertilizer Used": item?.crops?.fertilizer_used || 'NA',
-          "Fertilizer Name": item?.crops?.fertilizer_name || 'NA',
-          "Fertilizer Dose": item?.crops?.fertilizer_dose || 'NA',
-          "Pesticide Used": item?.crops?.pesticide_used || 'NA',
-          "Pesticide Name": item?.crops?.pesticide_name || 'NA',
-          "Pesticide Dose": item?.crops?.pesticide_dose || 'NA',
-          "Insecticide Used": item?.crops?.insecticide_used || 'NA',
-          "Insecticide Name": item?.crops?.insecticide_name || 'NA',
-          "Insecticide Dose": item?.crops?.insecticide_dose || 'NA',
-          "Crop Insurance": item?.crops?.crop_insurance || 'NA',
-          "Insurance Company": item?.crops?.insurance_company || 'NA',
-          "Insurance Worth": item?.crops?.insurance_worth || 'NA',
-          "Crop Seasons": item?.crops?.crop_seasons || 'NA',
-          "Bank Name": item?.bank?.bank_name || 'NA',
-          "Account Number": item?.bank?.account_no || 'NA',
-          "IFSC Code": item?.bank?.ifsc_code || 'NA',
-          "Account Holder Name": item?.bank?.account_holder_name || 'NA',
-          "Branch Address": `${item?.bank?.branch_address?.city || 'NA'}, ${item?.bank?.branch_address?.bank_block || 'NA'}, ${item?.bank?.branch_address?.bank_pincode || 'NA'}`,
+          "Crop Seasons": item?.crops?.crop_season || 'NA',
         };
       });
 
@@ -1717,6 +1696,7 @@ module.exports.exportFarmers = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 
 module.exports.individualfarmerList = async (req, res) => {
   try {
