@@ -1,7 +1,8 @@
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod } = require("@src/v1/utils/constants");
+const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod, _userType } = require("@src/v1/utils/constants");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
@@ -9,7 +10,7 @@ const moment = require("moment");
 
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
 
-    const { user_id } = req;
+    const { user_id, portalId } = req;
     const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query;
 
     let query = search ? {
@@ -19,7 +20,7 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
         ]
     } : {};
 
-    query.branch_id = user_id;
+    query.branch_id = { $in: [user_id, portalId] };
 
     const records = {};
     const selectValues = "reqNo product quotedPrice createdAt expectedProcurementDate deliveryDate address";
@@ -98,38 +99,56 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
         record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
         record.dispatched.qc_report.received_qc_status = received_qc_status.rejected;
         record.reason = { text: data, on: moment() }
-    } else if (qc_report.length > 0 && material_image.length > 0) {
-        record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
-        record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
-    } else if (material_image.length > 0) {
-        record.dispatched.material_img.received.push(...material_image.map(i => { return { img: i, on: moment() } }))
+    } else if (qc_report.length > 0 || material_image.length > 0) {
+        if (material_image.length > 0) {
+            record.dispatched.material_img.received.push(...material_image.map(i => { return { img: i, on: moment() } }))
+        }
+        if (qc_report.length > 0) {
+            record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+            record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
+
+            const { farmerOrderIds } = record;
+
+            const paymentRecords = [];
+
+            const request = await RequestModel.findOne({ _id: record?.req_id });
+
+            for (let farmer of farmerOrderIds) {
+
+                const farmerData = await FarmerOrders.findOne({ _id: farmer?.farmerOrder_id });
+
+                const paymentData = {
+                    req_id: request?._id,
+                    farmer_id: farmerData.farmer_id,
+                    farmer_order_id: farmer.farmerOrder_id,
+                    ho_id: request?.head_office_id,
+                    bo_id: request?.branch_id,
+                    associateOffers_id: farmerData?.associateOffers_id,
+                    batch_id: record?._id,
+                    qtyProcured: farmer.qty,
+                    amount: farmer.amt,
+                    initiated_at: new Date(),
+                    payment_method: _paymentmethod.bank_transfer
+                }
+
+                paymentRecords.push(paymentData);
+            }
+
+            await Payment.insertMany(paymentRecords);
+        }
     } else if (weight_slip.length > 0) {
         record.dispatched.weight_slip.received.push(...weight_slip.map(i => { return { img: i, on: moment() } }))
-    } else if (qc_report.length > 0) {
-        record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
-        record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
-
-        const { farmerOrderIds } = record;
-
-        const paymentRecords = [];
-
-        const request = await RequestModel.findOne({ _id: record?.req_id });
-
-        for (let farmer of farmerOrderIds) {
-
-            const farmerData = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id });
-
-            const paymentData = { payment_collect_by: "Farmer", whomToPay: farmerData.farmer_id, user_type, user_id, qtyProcured: farmer.qty, reqNo: request.reqNo, req_id: request._id, commodity: record.req_id.product.name, amount: farmer.amt, date: new Date(), method: _paymentmethod.bank_transfer }
-
-            paymentRecords.push(paymentData);
-        }
-
-        await Payment.insertMany(paymentRecords);
-
     } else if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
 
+        if (record.status != _batchStatus.intransit) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "batch should be intransit Please wait!!" }] }));
+        }
+        if (!record.dispatched) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "batch should be intransit Please wait!!" }] }));
+        }
+
         if (!record.intransit) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "please intransit it !!" }] }));
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "batch should be intransit Please wait!!" }] }));
         }
         record.delivered.proof_of_delivery = proof_of_delivery;
         record.delivered.weigh_bridge_slip = weigh_bridge_slip;
@@ -223,7 +242,7 @@ module.exports.auditTrail = asyncErrorHandler(async (req, res) => {
         {
             name: "Final QC Check",
             status: dispatched.qc_report.received_qc_status == received_qc_status.accepted ? "completed" : dispatched.qc_report.received_qc_status == received_qc_status.rejected ? "rejected" : "pending",
-            date: dispatched.qc_report.received.on ? dispatched.qc_report.received.on : null
+            date: dispatched.qc_report.received[dispatched.qc_report.received.length - 1].on ? dispatched.qc_report.received[dispatched.qc_report.received.length - 1].on : null
         },
         {
             name: "Payment Approval Date",

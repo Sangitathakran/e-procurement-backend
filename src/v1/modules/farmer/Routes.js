@@ -14,7 +14,7 @@ farmerRoutes.get("/", verifyJwtToken, getFarmers);
 farmerRoutes.put('/:id', verifyJwtToken, editFarmer);
 farmerRoutes.delete("/", verifyJwtToken, deletefarmer);
 farmerRoutes.post("/createLand", verifyJwtToken,
-    //  [validateLand, validateErrors]
+    //   [validateLand, validateErrors],
       createLand);
 farmerRoutes.get("/get-land", verifyJwtToken, getLand);
 farmerRoutes.get("/get-land-details/:id", verifyJwtToken, getLandDetails);
@@ -38,7 +38,7 @@ farmerRoutes.post("/send-farmerOTP", sendOTP)
 farmerRoutes.post("/verify-farmerOTP", verifyOTP);
 farmerRoutes.post('/register-details', verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
 farmerRoutes.post("/make-associate", verifyAssociate, makeAssociateFarmer);
-farmerRoutes.get("/getbo-farmer", verifyBO, getBoFarmer);
+farmerRoutes.get("/getbo-farmer", Auth, getBoFarmer);
 farmerRoutes.get("/getall-farmer", Auth, getAllFarmers);
 
 /* 
@@ -52,12 +52,6 @@ farmerRoutes.put('/onboarding-details/:id',
     // verifyJwtToken, 
     [validateIndFarmer, validateErrors],
     saveFarmerDetails);
-
-farmerRoutes.get('/getFarmerDetails/:id',
-    // verifyJwtToken, 
-    getFarmerDetails);
-
-
 
 farmerRoutes.get('/getFarmerDetails/:id',
     verifyJwtToken,

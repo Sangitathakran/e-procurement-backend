@@ -23,36 +23,47 @@ const Auth = function (req, res, next) {
         
         jwt.verify(token, JWT_SECRET_KEY, async function (err, decoded) {
             if (err) {
-                return sendResponse({res, status: 403, errors: _auth_module.unAuth });
+                console.log("err-->", err)
+                return sendResponse({res, status: 403,message:"error while token decode", errors: _auth_module.unAuth });
             }
             else {
                  if (decoded) {
-                    
+                    const route = req.baseUrl.split("/")[2]
+                    const user_type = decoded.user_type
+                    const routeCheck = checkUser(route, user_type)
+                    if(!routeCheck){
+                      return sendResponse({res, status: 403,message:"error while routecheck decode", errors: _auth_module.unAuth });
+                    }
                     // Set Your Token Keys In Request
                     Object.entries(decoded).forEach(([key, value]) => {
                         req[key] = value
                     })
-                    const user = await MasterUser.findOne({ email: decoded.email })
+                  
+                    const user = await MasterUser.findOne({ email: decoded.email }).populate("portalId")
                     req.user = user
                     next();
                 } else {
-                    return sendResponse({res, status: 403, errors: _auth_module.tokenExpired });
+                    return sendResponse({res, status: 403,message:"error while decode not found", errors: _auth_module.tokenExpired });
                 }
             }
         });
     }
     else {
-        return sendResponse({res, status: 403, errors: _auth_module.tokenMissing });
+        return sendResponse({res, status: 403,message:"error while verify token", errors: _auth_module.tokenMissing });
     }
 };
 
-// const checkUser=(route,userType)=>{
-//     if(_userType[route]==userType){
-//         return true;
-//     }else{
-//         return false;
-//     }
-// }
+const checkUser=(route,user_type)=>{
+    if(_userType[route]==user_type){
+        return true;
+    }else{
+        const routeList = ['aws','master','modules','agent','helper','user','associate','farmer','ho','bo','auth',]
+        if(routeList.includes(route)){
+          return true
+        }
+        return false;
+    }
+}
 
 const verifyBasicAuth = async function (req, res, next) {
     try {

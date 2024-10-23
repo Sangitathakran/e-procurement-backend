@@ -21,7 +21,11 @@ module.exports.login = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Password') }] }));
         }
 
-        const user = await MasterUser.findOne({ email: email }).populate(["userRole","portalId"])
+        const user = await MasterUser.findOne({ email: email })
+          .populate([
+            {path: "userRole", select: ""},
+            {path: "portalId", select: "organization_name _id email phone"}
+          ]) 
         
         if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('User') }] }));
@@ -33,7 +37,7 @@ module.exports.login = async (req, res) => {
         }
 
 
-        const payload = { email: user.email, userType:user.userType }
+        const payload = { email: user.email,user_id: user?._id, portalId: user?.portalId?._id, user_type:user.user_type }
         const expiresIn = 24 * 60 * 60;
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
@@ -56,12 +60,13 @@ const getPermission = async (response) => {
 
     const typeData = await TypesModel.find()
     const type = typeData.reduce((acc, item)=>[...acc, item.featureType], [])
-    const userType = typeData.find(item=>item.userType===response.userType)
-    const featureType = userType.featureType 
+    const user_type = typeData.find(item=>item.user_type===response.user_type)
+    const featureType = user_type.featureType 
     if(!type.includes(featureType)){
         throw new Error('Invalid feature type')
     }
-    const featureList = await FeatureList.find({featureType:featureType})
+    const featureListDoc = await FeatureList.find({featureType:featureType})
+    const featureList = JSON.parse(JSON.stringify(featureListDoc))
     const resultArray = JSON.parse(JSON.stringify(response.userRole));
 
     const mergedResultsArray = [];
@@ -71,7 +76,7 @@ const getPermission = async (response) => {
 
       features.forEach((feature) => {
         const existingFeature = mergedResultsArray.find(
-          (mergedFeature) => mergedFeature.featureName === feature.featureName
+          (mergedFeature) => mergedFeature.featureName.toLowerCase() === feature.featureName.toLowerCase()
         );
 
         if (!existingFeature) {
@@ -90,8 +95,8 @@ const getPermission = async (response) => {
           feature.subFeatures.forEach((subFeature) => {
             const matchingSubFeature = existingFeature.subFeatures.find(
               (existingSubFeature) =>
-                existingSubFeature.subFeatureName ===
-                subFeature.subFeatureName
+                existingSubFeature.subFeatureName.toLowerCase() ===
+                subFeature.subFeatureName.toLowerCase()
             );
 
             if (matchingSubFeature) {
@@ -180,7 +185,7 @@ const getPermission = async (response) => {
       }
       return convertedPermissions;
     }
-
+    // console.log("arrayC-->", arrayC)
     // to change the userRole obj with short forms
     const transformedUserRole = arrayC.map((role) => {
       const featureName = generateFeatureCode(role.featureName);
@@ -225,7 +230,7 @@ function mergeObjects(obj1, obj2) {
         
         const mergedSubFeatures = obj1[key].map((subFeatureA) => {
           const matchingSubFeatureB = obj2[key].find(
-            (subFeatureB) => subFeatureB.subFeatureName === subFeatureA.subFeatureName
+            (subFeatureB) => subFeatureB.subFeatureName.toLowerCase() === subFeatureA.subFeatureName.toLowerCase()
           );
   
           if (matchingSubFeatureB) {
@@ -257,7 +262,7 @@ function mergeArrays(arrayA, arrayB) {
       
     const mergedArray = arrayA.map((itemA) => {
         
-      const matchingItemB = arrayB.find((itemB) => itemB.featureName === itemA.featureName);
+      const matchingItemB = arrayB.find((itemB) => itemB.featureName.toLowerCase() === itemA.featureName.toLowerCase());
   
       if (matchingItemB) {
           return mergeObjects(itemA, matchingItemB);

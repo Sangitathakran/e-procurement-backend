@@ -83,6 +83,7 @@ const userRoleSchema = new mongoose.Schema({
             ],
         }
     ],
+    ipAddress: {type: String, default: null},
     history: {
         type: [mongoose.Schema.Types.Mixed], 
         default: [] 
@@ -90,6 +91,18 @@ const userRoleSchema = new mongoose.Schema({
 },
     { timestamps : true}
 )
+
+userRoleSchema.pre('save', async function (next) {
+  
+   const historyEntry = { ...this.toObject() };
+   delete historyEntry.history
+   delete historyEntry._id
+   this.history.push(historyEntry);
+   
+
+   next();
+});
+ 
 
 const UserRole = mongoose.model(_collectionName.UserRole, userRoleSchema)
 module.exports = UserRole

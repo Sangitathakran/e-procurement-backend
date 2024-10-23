@@ -58,7 +58,7 @@ const userSchema = new mongoose.Schema({
     password: { 
         type: String,
     },
-    userType: { 
+    user_type: { 
         type:String,
         enum: Object.values(_userType)
     },
@@ -72,6 +72,10 @@ const userSchema = new mongoose.Schema({
     userRole : [ { type: mongoose.Schema.Types.ObjectId , ref: _collectionName.UserRole } ],
 
     createdBy: {type: mongoose.Schema.Types.ObjectId , ref: _collectionName.MasterUser },
+
+    updatedBy: {type: mongoose.Schema.Types.ObjectId , ref: _collectionName.MasterUser , default: null },
+
+    ipAddress: {type: String, default: null},
 
     history: {
         type: [mongoose.Schema.Types.Mixed], 
@@ -88,11 +92,18 @@ userSchema.pre('save', async function (next) {
      const typeData = await getType()
      typeData.forEach(item=> {
         
-        if(this.userType === item.userType){
+        if(this.user_type === item.user_type){
             this.portalRef = item.collectionName;
         }
         
     })
+
+
+    const historyEntry = { ...this.toObject() };
+    delete historyEntry.history
+    delete historyEntry._id
+    this.history.push(historyEntry);
+    
 
     next();
 });
