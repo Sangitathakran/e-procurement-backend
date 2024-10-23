@@ -80,20 +80,26 @@ module.exports.createAgency = async (req, res) => {
 
         const type = await TypesModel.findOne({_id:"67110114f1cae6b6aadc2425"})
 
-        const masterUser = new MasterUser({
-            firstName : agent_name,
-            isAdmin : true,
-            email : email,
-            mobile : phone,
-            password: hashedPassword,
-            user_type : type.user_type,
-            createdBy: req.user._id,
-            userRole: [type.adminUserRoleId],
-            portalId: savedAgency._id,
-            ipAddress:getIpAddress(req) 
-        });
-
-        await masterUser.save();
+        if(savedAgency._id){
+            const masterUser = new MasterUser({
+                firstName : agent_name,
+                isAdmin : true,
+                email : email,
+                mobile : phone,
+                password: hashedPassword,
+                user_type : type.user_type,
+                createdBy: req.user._id,
+                userRole: [type.adminUserRoleId],
+                portalId: savedAgency._id,
+                ipAddress:getIpAddress(req) 
+            });
+    
+            await masterUser.save();
+        }else{
+            await Agency.deleteOne({_id:savedAgency._id})
+            throw new Error('Agency not created ')
+            
+        }
 
         return res.status(200).send(new serviceResponse({ message: _response_message.created('Agency'), data: savedAgency }));
     } catch (error) {

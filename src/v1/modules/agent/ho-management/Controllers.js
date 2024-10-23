@@ -143,20 +143,26 @@ module.exports.saveHeadOffice = async (req, res) => {
 
 
 
-        const masterUser = new MasterUser({
-            firstName : authorised.name,
-            isAdmin : true,
-            email : authorised.email,
-            mobile : authorised.mobile,
-            password: hashedPassword,
-            user_type: type.user_type,
-            userRole: [type.adminUserRoleId],
-            createdBy: req.user._id,
-            portalId: savedHeadOffice._id,
-            ipAddress: getIpAddress(req)
-        });
-
-        await masterUser.save();
+        if(savedHeadOffice._id){
+            const masterUser = new MasterUser({
+                firstName : authorised.name,
+                isAdmin : true,
+                email : authorised.email,
+                mobile : authorised.mobile,
+                password: hashedPassword,
+                user_type: type.user_type,
+                userRole: [type.adminUserRoleId],
+                createdBy: req.user._id,
+                portalId: savedHeadOffice._id,
+                ipAddress: getIpAddress(req)
+            });
+    
+            await masterUser.save();
+        }else{
+            await HeadOffice.deleteOne({_id:savedHeadOffice._id})
+            throw new Error('Head office not created')
+            
+        }
 
         return res.status(200).send(new serviceResponse({ message: _response_message.created('Head Office'), data: savedHeadOffice }));
     } catch (error) {

@@ -781,40 +781,21 @@ module.exports.getLand = async (req, res) => {
           .populate('farmer_id', 'id name')
           .lean();
 
-    const stateIds = [...new Set(lands.map(land => land.land_address.state_id.toString()))];
-    
-    const states = await StateDistrictCity.find(
-      { "states._id": { $in: stateIds } },
-      { "states.$": 1 }
-    ).lean();
-
-    const stateMap = new Map();
-    states.forEach(state => {
-      if (state.states && state.states[0]) {
-        stateMap.set(state.states[0]._id.toString(), {
-          state_title: state.states[0].state_title,
-          districts: state.states[0].districts
-        });
-      }
-    });
-    records.rows = lands.map(land => {
-      const stateInfo = stateMap.get(land.land_address.state_id.toString());
-      if (stateInfo) {
-        const districtInfo = stateInfo.districts.find(
-          district => district._id.toString() === land.land_address.district_id.toString()
-        );
-
-        return {
-          ...land,
-          land_address: {
-            ...land.land_address,
-            state: stateInfo.state_title,
-            district: districtInfo ? districtInfo.district_title : null
-          }
-        };
-      }
+    records.rows =await  Promise.all(lands.map(async land => {
+      const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": land?.land_address?.state_id?.toString() } } },{ "states.$": 1 });
+  
+  const districts = state?.states[0]?.districts?.find(item=>item?._id==land?.land_address?.district_id?.toString())
+   let land_address={
+    ...land?.land_address,
+    state:state?.states[0]?.state_title,
+    district:districts?.district_title
+   }
+   land={
+    ...land,
+    land_address
+  }
       return land;
-    });
+    }));
 
     
 
