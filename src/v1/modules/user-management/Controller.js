@@ -52,7 +52,7 @@ exports.createUserRole = async (req, res) => {
         const newUserRole = new UserRole({ 
             userRoleName: userRole, 
             createdBy: req?.user?._id,
-            userRoleType: req?.user?.userType,
+            userRoleType: req?.user?.user_type,
             features : features,
             ipAddress: getIpAddress(req)
         })
@@ -78,8 +78,8 @@ exports.editUserRolePage = async (req, res) => {
         const response = await UserRole.findOne({_id:userRoleId})
         const typeData = await TypesModel.find()
         const type = typeData.reduce((acc, item)=>[...acc, item.featureType], [])
-        const userType = typeData.find(item=>item.userType===response.userRoleType)
-        const featureType = userType.featureType
+        const user_type = typeData.find(item=>item.user_type===response.userRoleType)
+        const featureType = user_type.featureType
 
         if(!type.includes(featureType)){
           return sendResponse({ res, status:400, message: "Invalid feature type"})
@@ -315,7 +315,7 @@ exports.createUser = async (req, res) => {
             email:email,
             // isSuperAdmin: true,
             userId: uniqueUserId,
-            userType: req?.user?.userType,
+            user_type: req?.user?.user_type,
             password: hashPassword,
             createdBy: req?.user?._id,
             userRole: userRole,
@@ -369,8 +369,8 @@ const getPermission = async (response) => {
 
     const typeData = await TypesModel.find()
     const type = typeData.reduce((acc, item)=>[...acc, item.featureType], [])
-    const userType = typeData.find(item=>item.userType===response.userType)
-    const featureType = userType.featureType 
+    const user_type = typeData.find(item=>item.user_type===response.user_type)
+    const featureType = user_type.featureType 
     if(!type.includes(featureType)){
         return sendResponse({ res, status:400, message: "Invalid feature type"})
     }
@@ -543,7 +543,7 @@ exports.editUser = async ( req, res) =>{
       if(req.body?.userRole.length > 0){
         user.userRole = req.body?.userRole;
       }
-      const previousUser = await MasterUser.find({_id:userId})
+      const previousUser = await MasterUser.findOne({_id:userId})
       user.ipAddress = getIpAddress(req)
       user.updatedBy = req.user._id
       const updatedUser = await user.save()

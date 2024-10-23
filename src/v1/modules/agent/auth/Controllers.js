@@ -86,7 +86,7 @@ module.exports.createAgency = async (req, res) => {
             email : email,
             mobile : phone,
             password: hashedPassword,
-            userType : type.userType,
+            user_type : type.user_type,
             createdBy: req.user._id,
             userRole: [type.adminUserRoleId],
             portalId: savedAgency._id,

@@ -111,7 +111,7 @@ module.exports.loginOrRegister = async (req, res) => {
         });
         const data = {
             token: token,
-            userType: userExist.user_type,
+            user_type: userExist.user_type,
             is_approved: userExist.is_approved,
             phone: userExist.basic_details.associate_details.phone,
             associate_code: userExist.user_code,

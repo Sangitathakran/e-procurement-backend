@@ -156,7 +156,7 @@ module.exports.importBranches = async (req, res) => {
         email : branchData.pointOfContact.email,
         mobile : branchData.pointOfContact.phone,
         password: branchData.hashedPassword,
-        userType : type.userType,
+        user_type : type.user_type,
         createdBy: req.user._id,
         userRole: [type.adminUserRoleId],
         portalId: newBranch._id,
