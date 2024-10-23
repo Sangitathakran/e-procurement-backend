@@ -317,7 +317,7 @@ module.exports.batchApprove = async (req, res) => {
     try {
 
         const { batchIds } = req.body;
-        const { userType } = req;
+        const { userType, portalId } = req;
 
         if (userType != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
@@ -325,7 +325,7 @@ module.exports.batchApprove = async (req, res) => {
 
         const result = await Batch.updateMany(
             { _id: { $in: batchIds } },  // Match any batchIds in the provided array
-            { $set: { status: _batchStatus.paymentApproved } } // Set the new status for matching documents
+            { $set: { status: _batchStatus.paymentApproved, payement_approval_at: new Date(), payment_approve_by: portalId } } // Set the new status for matching documents
         );
 
         if (result.matchedCount === 0) {
@@ -376,7 +376,7 @@ module.exports.paymentApprove = async (req, res) => {
         const paymentList = await Payment.findOne({
             $and: [
                 { req_id },
-                { user_id: associate_id }
+                // { user_id: associate_id }
             ]
         });
 
@@ -412,8 +412,6 @@ module.exports.getBill = async (req, res) => {
 
             const totalamount = billPayment.totalPrice;
             let mspPercentage = 1; // The percentage you want to calculate       
-
-            const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });
 
             const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
             const billQty = (0.8 / 1000);
