@@ -14,7 +14,7 @@ const { PaymentLogs } = require("@src/v1/models/app/procurement/PaymentLogs");
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
 
         const { user_id } = req;
 
@@ -23,10 +23,10 @@ module.exports.payment = async (req, res) => {
             ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
-        if (userType == _userType.farmer) {
+        if (user_type == _userType.farmer) {
             query.user_type = _userType.farmer;
 
-        } else if (userType == _userType.associate) {
+        } else if (user_type == _userType.associate) {
             query.user_type = _userType.associate;
         }
 
@@ -62,8 +62,8 @@ module.exports.payment = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-${userType}.xlsx`,
-                    worksheetName: `Payment-record-${userType}`
+                    fileName: `Payment-${user_type}.xlsx`,
+                    worksheetName: `Payment-record-${user_type}`
                 });
             } else {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
@@ -142,14 +142,14 @@ module.exports.farmerOrders = async (req, res) => {
 module.exports.associateOrders = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
-        if (userType == _userType.farmer) {
+        if (user_type == _userType.farmer) {
             query.user_type = 'farmer';
 
-        } else if (userType == _userType.associate) {
+        } else if (user_type == _userType.associate) {
             query.user_type = 'associate';
         }
 
@@ -185,8 +185,8 @@ module.exports.associateOrders = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-${userType}.xlsx`,
-                    worksheetName: `Payment-record-${userType}`
+                    fileName: `Payment-${user_type}.xlsx`,
+                    worksheetName: `Payment-record-${user_type}`
                 });
             } else {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
@@ -250,8 +250,8 @@ module.exports.batchList = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-${userType}.xlsx`,
-                    worksheetName: `Payment-record-${userType}`
+                    fileName: `Payment-${user_type}.xlsx`,
+                    worksheetName: `Payment-record-${user_type}`
                 });
             } else {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
