@@ -327,6 +327,7 @@ module.exports.batchApprove = async (req, res) => {
             { _id: { $in: batchIds } },  // Match any batchIds in the provided array
             { $set: { status: _batchStatus.paymentApproved, payement_approval_at: new Date(), payment_approve_by: portalId } } // Set the new status for matching documents
         );
+        // await Payment.updateMany()
 
         if (result.matchedCount === 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));

@@ -25,7 +25,7 @@ module.exports = {
 
     handlePagination: (req, res, next) => {
         try {
-            let maxLimit = 20;
+            let maxLimit = 50;
             let { limit, page, paginate = 1, sort_by = 'createdAt', sort_order = -1 } = req.query;
             let skip = 0;
             if (limit && page) {
