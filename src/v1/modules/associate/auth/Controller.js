@@ -158,6 +158,12 @@ module.exports.saveAssociateDetails = async (req, res) => {
                     ...user.basic_details.company_owner_info,
                     ...formData.company_owner_info,
                 };
+                if (formData.implementation_agency) {
+                    user.basic_details.implementation_agency = formData.implementation_agency;
+                }
+                if (formData.cbbo_name) {
+                    user.basic_details.cbbo_name = formData.cbbo_name;
+                }
                 break;
             case 'address':
                 user.address = {
