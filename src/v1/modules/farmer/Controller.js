@@ -1,4 +1,5 @@
 const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const {  _userType } = require('@src/v1/utils/constants');
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
@@ -17,7 +18,6 @@ const { generateJwtToken } = require('../../utils/helpers/jwt')
 const stateList=require("../../utils/constants/stateList");
 const _individual_farmer_onboarding_steps = require('@src/v1/utils/constants');
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
-const { log } = require("console");
 const { ObjectId } = require('mongodb'); 
 
 module.exports.sendOTP = async (req, res) => {
@@ -1571,7 +1571,7 @@ module.exports.exportFarmers = async (req, res) => {
     const { user_id, user_type } = req;
 
     let query = {};
-    if (user_id && user_type === "4") {
+    if (user_id && user_type === _userType.associate) {
       query.associate_id = new ObjectId(user_id);
     }
     let aggregationPipeline = [
@@ -1621,9 +1621,6 @@ module.exports.exportFarmers = async (req, res) => {
         }
       },
       { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
-      {
-        $sort: { createdAt: sortBy === '-createdAt' ? -1 : 1 }
-      }
     ];
 
     if (isExport == 0 && paginate == 1) {
