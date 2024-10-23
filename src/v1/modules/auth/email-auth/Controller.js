@@ -37,7 +37,7 @@ module.exports.login = async (req, res) => {
         }
 
 
-        const payload = { email: user.email,user_id: user?._id, portalId: user?.portalId?._id, userType:user.userType }
+        const payload = { email: user.email,user_id: user?._id, portalId: user?.portalId?._id, user_type:user.user_type }
         const expiresIn = 24 * 60 * 60;
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
@@ -60,8 +60,8 @@ const getPermission = async (response) => {
 
     const typeData = await TypesModel.find()
     const type = typeData.reduce((acc, item)=>[...acc, item.featureType], [])
-    const userType = typeData.find(item=>item.userType===response.userType)
-    const featureType = userType.featureType 
+    const user_type = typeData.find(item=>item.user_type===response.user_type)
+    const featureType = user_type.featureType 
     if(!type.includes(featureType)){
         throw new Error('Invalid feature type')
     }

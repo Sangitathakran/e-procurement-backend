@@ -81,8 +81,8 @@ const batchsSchema = new mongoose.Schema({
     },
     reason: { text: { type: String }, on: { type: Date } },
     payement_approval_at: { type: Date, default: null },
-    payment_approve_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
-    payment_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
+    payment_approve_by: { type: mongoose.Schema.Types.ObjectId, },
+    payment_by: { type: mongoose.Schema.Types.ObjectId, },
     payment_at: { type: Date, default: null },
     status: { type: String, enum: Object.values(_batchStatus), default: _batchStatus.pending }
 }, { timestamps: true });

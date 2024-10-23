@@ -73,7 +73,7 @@ module.exports.loginOrRegister = async (req, res) => {
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
 
-        if ((!userOTP || inputOTP !== userOTP.otp) && inputOTP !== staticOTP) {
+        if ((!userOTP || inputOTP !== userOTP.otp)) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
         }
 
@@ -111,7 +111,7 @@ module.exports.loginOrRegister = async (req, res) => {
         });
         const data = {
             token: token,
-            userType: userExist.user_type,
+            user_type: userExist.user_type,
             is_approved: userExist.is_approved,
             phone: userExist.basic_details.associate_details.phone,
             associate_code: userExist.user_code,

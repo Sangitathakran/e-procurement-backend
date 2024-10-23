@@ -3,7 +3,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType, _paymentstatus, _batchStatus, _associateOfferStatus } = require('@src/v1/utils/constants');
+const { _userType, _paymentstatus, _batchStatus, _associateOfferStatus, _paymentApproval, received_qc_status } = require('@src/v1/utils/constants');
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
@@ -13,21 +13,14 @@ const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOff
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
-        if (userType == _userType.farmer) {
-            query.userType = _userType.farmer;
-        } else if (userType == _userType.associate) {
-            query.userType = _userType.associate;
-        }
-        else if (userType == _userType.agent) {
-            query.userType = _userType.agent;
-        }
+        const { portalId, user_id } = req
 
 
-        const paymentIds = (await Payment.find(query)).map(i => i.req_id)
+        const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] } })).map(i => i.req_id)
 
         const aggregationPipeline = [
             { $match: { _id: { $in: paymentIds } } },
@@ -192,13 +185,16 @@ module.exports.associateOrders = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
 
-        const { userType } = req;
+        const { user_type, portalId, user_id } = req;
 
-        if (userType != _userType.bo) {
+        if (user_type != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
+        const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })).map(i => i.associateOffers_id)
+
         let query = {
+            _id: { $in: paymentIds },
             req_id,
             status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] },
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
@@ -257,8 +253,11 @@ module.exports.batchList = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
-        const { userType } = req
+        const { user_type, portalId, user_id } = req
+
+        const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, associateOffers_id: associateOffer_id })).map(i => i.batch_id)
         let query = {
+            _id: { $in: paymentIds },
             associateOffer_id,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
@@ -297,8 +296,8 @@ module.exports.batchList = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-${userType}.xlsx`,
-                    worksheetName: `Payment-record-${userType}`
+                    fileName: `Payment-${user_type}.xlsx`,
+                    worksheetName: `Payment-record-${user_type}`
                 });
             } else {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
@@ -317,20 +316,29 @@ module.exports.batchApprove = async (req, res) => {
     try {
 
         const { batchIds } = req.body;
-        const { userType } = req;
+        const { portalId } = req;
 
-        if (userType != _userType.bo) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+        const record = await Batch.findOne({
+            _id: { $in: batchIds },
+            "dispatched.qc_report.received_qc_status": { $ne: received_qc_status.accepted }
+        })
+        if (record) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Qc is not done on selected batches" }] }));
         }
+
 
         const result = await Batch.updateMany(
             { _id: { $in: batchIds } },  // Match any batchIds in the provided array
-            { $set: { status: _batchStatus.paymentApproved } } // Set the new status for matching documents
+            { $set: { status: _batchStatus.paymentApproved, payement_approval_at: new Date(), payment_approve_by: portalId } } // Set the new status for matching documents
         );
 
         if (result.matchedCount === 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
         }
+        await Payment.updateMany(
+            { batch_id: { $in: batchIds } },
+            { $set: { payment_approve_status: _paymentApproval.approved, payment_approve_at: new Date(), payment_approve_by: portalId } }
+        )
 
         return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
 
@@ -344,9 +352,9 @@ module.exports.qcReport = async (req, res) => {
 
     try {
         const { id } = req.query;
-        const { userType } = req;
+        const { user_type } = req;
 
-        if (userType != _userType.bo) {
+        if (user_type != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
@@ -367,16 +375,16 @@ module.exports.paymentApprove = async (req, res) => {
     try {
 
         const { req_id, associate_id } = req.body;
-        const { userType } = req;
+        const { user_type } = req;
 
-        if (userType != _userType.bo) {
+        if (user_type != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         const paymentList = await Payment.findOne({
             $and: [
                 { req_id },
-                { user_id: associate_id }
+                // { user_id: associate_id }
             ]
         });
 
@@ -400,9 +408,9 @@ module.exports.getBill = async (req, res) => {
     try {
         const { batchId } = req.query
 
-        const { user_id, userType } = req;
+        const { user_id, user_type } = req;
 
-        if (userType !== _userType.bo) {
+        if (user_type !== _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
@@ -412,8 +420,6 @@ module.exports.getBill = async (req, res) => {
 
             const totalamount = billPayment.totalPrice;
             let mspPercentage = 1; // The percentage you want to calculate       
-
-            const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });
 
             const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
             const billQty = (0.8 / 1000);
@@ -564,9 +570,9 @@ module.exports.agentBill = async (req, res) => {
     try {
         const { req_id } = req.query
 
-        const { userType } = req;
+        const { user_type } = req;
 
-        if (userType != _userType.bo) {
+        if (user_type != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 

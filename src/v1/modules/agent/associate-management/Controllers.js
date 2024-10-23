@@ -134,7 +134,7 @@ module.exports.userStatusUpdate = async (req, res) => {
             email: user.basic_details.associate_details.email,
             mobile: user.basic_details.associate_details.phone,
             password: hashedPassword,
-            userType: _userType.associate,
+            user_type: _userType.associate,
         });
 
         await masterUser.save();
