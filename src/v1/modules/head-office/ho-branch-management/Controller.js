@@ -125,8 +125,9 @@ module.exports.importBranches = async (req, res) => {
 
     // Insert the branches into the database
     for (const branchData of branches) {
-      // checking the existing user in Master User collection
-      const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:branchData.pointOfContact.email},{email:branchData.pointOfContact.phone}]})
+      // checking the existing user in Master User collectio
+
+      const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:branchData.pointOfContact.phone},{email:branchData.pointOfContact.email}]})
       if(isUserAlreadyExist){
         throw new Error("user already existed with this mobile number or email in Master")
       }
