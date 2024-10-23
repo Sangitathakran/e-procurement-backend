@@ -7,6 +7,7 @@ const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { emailService } = require('@src/v1/utils/third_party/EmailServices');
 const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator")
+const bcrypt = require('bcrypt');
 
 
 module.exports.getAssociates = async (req, res) => {
@@ -133,7 +134,7 @@ module.exports.userStatusUpdate = async (req, res) => {
             email: user.basic_details.associate_details.email,
             mobile: user.basic_details.associate_details.phone,
             password: hashedPassword,
-            userType: '4',
+            user_type: _userType.associate,
         });
 
         await masterUser.save();

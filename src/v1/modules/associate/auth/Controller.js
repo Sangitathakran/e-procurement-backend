@@ -60,7 +60,7 @@ module.exports.sendOtp = async (req, res) => {
 module.exports.loginOrRegister = async (req, res) => {
     try {
         const { userInput, inputOTP } = req.body;
-        
+
         if (!userInput || !inputOTP) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('otp_required') }] }));
         }
@@ -73,7 +73,7 @@ module.exports.loginOrRegister = async (req, res) => {
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
 
-        if ((!userOTP || inputOTP !== userOTP.otp) && inputOTP !== staticOTP) {
+        if ((!userOTP || inputOTP !== userOTP.otp)) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
         }
 
@@ -95,9 +95,15 @@ module.exports.loginOrRegister = async (req, res) => {
             }
             userExist = await User.create(newUser);
         }
+
+        if (userExist.active == false) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "you are not an active user!" }] }));
+        }
+
         const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
         const expiresIn = 24 * 60 * 60; // 24 hour in seconds
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
@@ -134,7 +140,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
         switch (formName) {
             case 'organization':
                 user.basic_details.associate_details.organization_name = formData.organization_name;
-                
+
                 break;
             case 'basic_details':
                 if (formData.associate_details && formData.associate_details.phone) {
@@ -152,6 +158,12 @@ module.exports.saveAssociateDetails = async (req, res) => {
                     ...user.basic_details.company_owner_info,
                     ...formData.company_owner_info,
                 };
+                if (formData.implementation_agency) {
+                    user.basic_details.implementation_agency = formData.implementation_agency;
+                }
+                if (formData.cbbo_name) {
+                    user.basic_details.cbbo_name = formData.cbbo_name;
+                }
                 break;
             case 'address':
                 user.address = {
@@ -181,7 +193,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
                 return res.status(200).send(new serviceResponse({ status: 400, message: `Invalid form name: ${formName}` }));
         }
         await user.save();
-        
+
         const response = { user_code: user.user_code, user_id: user._id };
         return res.status(200).send(new serviceResponse({ message: _response_message.updated(formName), data: response }));
     } catch (error) {
@@ -238,7 +250,7 @@ module.exports.findUserStatus = async (req, res) => {
         if (!user) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         }
-        
+
         const response = await User.findById({ _id: userId });
         if (!response) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
@@ -262,7 +274,7 @@ module.exports.finalFormSubmit = async (req, res) => {
         if (!user) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         }
-        
+
         user.is_form_submitted = true;
 
         const allDetailsFilled = (
@@ -288,7 +300,7 @@ module.exports.finalFormSubmit = async (req, res) => {
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, message: _query.update("data"), data: user.is_form_submitted }));
-        
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }

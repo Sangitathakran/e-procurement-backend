@@ -4,7 +4,7 @@ const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { validateIndFarmer, validateRegisterDetail, validateFarmer, validateLand, validateCrop, validateBank } = require("./Validation")
 const { verifyAssociate } = require("../associate/utils/verifyAssociate");
-const { saveFarmerDetails,updateIndCrop, getIndCropDetails,sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, editFarmer, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers } = require("./Controller");
+const { saveFarmerDetails,updateIndCrop,getLandDetails, getIndCropDetails,sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, editFarmer, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers } = require("./Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
 // const { verifyAgent } = require("../agent/utils/verifyAgent");
 const { Auth } = require("@src/v1/middlewares/jwt")
@@ -14,9 +14,10 @@ farmerRoutes.get("/", verifyJwtToken, getFarmers);
 farmerRoutes.put('/:id', verifyJwtToken, editFarmer);
 farmerRoutes.delete("/", verifyJwtToken, deletefarmer);
 farmerRoutes.post("/createLand", verifyJwtToken,
-    //  [validateLand, validateErrors]
+    //   [validateLand, validateErrors],
       createLand);
 farmerRoutes.get("/get-land", verifyJwtToken, getLand);
+farmerRoutes.get("/get-land-details/:id", verifyJwtToken, getLandDetails);
 farmerRoutes.put("/updateLand/:land_id", verifyJwtToken, updateLand);
 farmerRoutes.put("/updateIndCrop/:farmer_id", verifyJwtToken, updateIndCrop);
 farmerRoutes.delete("/deleteLand", verifyJwtToken, deleteLand);
@@ -37,7 +38,7 @@ farmerRoutes.post("/send-farmerOTP", sendOTP)
 farmerRoutes.post("/verify-farmerOTP", verifyOTP);
 farmerRoutes.post('/register-details', verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
 farmerRoutes.post("/make-associate", verifyAssociate, makeAssociateFarmer);
-farmerRoutes.get("/getbo-farmer", verifyBO, getBoFarmer);
+farmerRoutes.get("/getbo-farmer", Auth, getBoFarmer);
 farmerRoutes.get("/getall-farmer", Auth, getAllFarmers);
 
 /* 
@@ -51,12 +52,6 @@ farmerRoutes.put('/onboarding-details/:id',
     // verifyJwtToken, 
     [validateIndFarmer, validateErrors],
     saveFarmerDetails);
-
-farmerRoutes.get('/getFarmerDetails/:id',
-    // verifyJwtToken, 
-    getFarmerDetails);
-
-
 
 farmerRoutes.get('/getFarmerDetails/:id',
     verifyJwtToken,
