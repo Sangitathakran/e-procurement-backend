@@ -692,18 +692,18 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
 module.exports.hoBoList = async (req, res) => {
     try {
-        const { search = '', userType } = req.query
+        const { search = '', user_type } = req.query
 
-        if (!userType) {
+        if (!user_type) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('user_type') }));
         }
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
-        if (userType == _userType.ho) {
+        if (user_type == _userType.ho) {
             query.user_type = _userType.ho;
 
-        } else if (userType == _userType.bo) {
+        } else if (user_type == _userType.bo) {
             query.user_type = _userType.bo;
         }
 

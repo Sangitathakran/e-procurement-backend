@@ -114,7 +114,7 @@ module.exports.saveHeadOffice = async (req, res) => {
         const headOffice = new HeadOffice({
             password: hashedPassword,
             email_verified: false,
-            user_type: type.userType,
+            user_type: type.user_type,
             company_details,
             point_of_contact,
             address,
@@ -149,7 +149,7 @@ module.exports.saveHeadOffice = async (req, res) => {
             email : authorised.email,
             mobile : authorised.mobile,
             password: hashedPassword,
-            userType: type.userType,
+            user_type: type.user_type,
             userRole: [type.adminUserRoleId],
             createdBy: req.user._id,
             portalId: savedHeadOffice._id,

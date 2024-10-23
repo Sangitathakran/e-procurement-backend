@@ -17,16 +17,16 @@ const moment = require("moment")
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', userType, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
-        if (userType == _userType.farmer) {
+        if (user_type == _userType.farmer) {
             query.user_type = _userType.farmer;
-        } else if (userType == _userType.associate) {
+        } else if (user_type == _userType.associate) {
             query.user_type = _userType.associate;
         }
-        else if (userType == _userType.agent) {
+        else if (user_type == _userType.agent) {
             query.user_type = _userType.agent;
         }
 
@@ -200,8 +200,8 @@ module.exports.batchList = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-${userType}.xlsx`,
-                    worksheetName: `Payment-record-${userType}`
+                    fileName: `Payment-${user_type}.xlsx`,
+                    worksheetName: `Payment-record-${user_type}`
                 });
             } else {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
@@ -446,8 +446,8 @@ module.exports.proceedToPay = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-${userType}.xlsx`,
-                    worksheetName: `Payment-record-${userType}`
+                    fileName: `Payment-${user_type}.xlsx`,
+                    worksheetName: `Payment-record-${user_type}`
                 });
             } else {
                 return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
@@ -510,8 +510,8 @@ module.exports.associateOrdersProceedToPay = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-${userType}.xlsx`,
-                    worksheetName: `Payment-record-${userType}`
+                    fileName: `Payment-${user_type}.xlsx`,
+                    worksheetName: `Payment-record-${user_type}`
                 });
             } else {
                 return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
@@ -585,8 +585,8 @@ module.exports.batchListProceedToPay = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-${userType}.xlsx`,
-                    worksheetName: `Payment-record-${userType}`
+                    fileName: `Payment-${user_type}.xlsx`,
+                    worksheetName: `Payment-record-${user_type}`
                 });
             } else {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))

@@ -23,13 +23,14 @@ const Auth = function (req, res, next) {
         
         jwt.verify(token, JWT_SECRET_KEY, async function (err, decoded) {
             if (err) {
+                console.log("err-->", err)
                 return sendResponse({res, status: 403,message:"error while token decode", errors: _auth_module.unAuth });
             }
             else {
                  if (decoded) {
                     const route = req.baseUrl.split("/")[2]
-                    const userType = decoded.userType
-                    const routeCheck = checkUser(route, userType)
+                    const user_type = decoded.user_type
+                    const routeCheck = checkUser(route, user_type)
                     if(!routeCheck){
                       return sendResponse({res, status: 403,message:"error while routecheck decode", errors: _auth_module.unAuth });
                     }
@@ -52,8 +53,8 @@ const Auth = function (req, res, next) {
     }
 };
 
-const checkUser=(route,userType)=>{
-    if(_userType[route]==userType){
+const checkUser=(route,user_type)=>{
+    if(_userType[route]==user_type){
         return true;
     }else{
         const routeList = ['aws','master','modules','agent','helper','user','associate','farmer','ho','bo','auth',]
