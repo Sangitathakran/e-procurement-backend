@@ -58,7 +58,7 @@ const userSchema = new mongoose.Schema({
     password: { 
         type: String,
     },
-    userType: { 
+    user_type: { 
         type:String,
         enum: Object.values(_userType)
     },
@@ -92,7 +92,7 @@ userSchema.pre('save', async function (next) {
      const typeData = await getType()
      typeData.forEach(item=> {
         
-        if(this.userType === item.userType){
+        if(this.user_type === item.user_type){
             this.portalRef = item.collectionName;
         }
         

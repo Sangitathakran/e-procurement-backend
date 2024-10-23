@@ -6,7 +6,7 @@ const typeSchema = new mongoose.Schema({
     featureType: { 
         type: String, 
     },
-    userType: { 
+    user_type: { 
         type: String,
     },
     collectionName: { 

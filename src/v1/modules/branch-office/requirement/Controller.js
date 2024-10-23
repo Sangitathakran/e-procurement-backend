@@ -87,7 +87,7 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
 module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
     const { id, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, material_image = [], weight_slip = [], qc_report = [], data, paymentIsApprove = 0 } = req.body;
-    const { user_id, userType } = req;
+    const { user_id, user_type } = req;
 
     const record = await Batch.findOne({ _id: id }).populate("req_id");
 
