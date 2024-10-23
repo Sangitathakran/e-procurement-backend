@@ -17,17 +17,10 @@ module.exports.payment = async (req, res) => {
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
-        if (user_type == _userType.farmer) {
-            query.user_type = _userType.farmer;
-        } else if (user_type == _userType.associate) {
-            query.user_type = _userType.associate;
-        }
-        else if (user_type == _userType.agent) {
-            query.user_type = _userType.agent;
-        }
+        const { portalId, user_id } = req
 
 
-        const paymentIds = (await Payment.find(query)).map(i => i.req_id)
+        const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] } })).map(i => i.req_id)
 
         const aggregationPipeline = [
             { $match: { _id: { $in: paymentIds } } },
@@ -192,13 +185,13 @@ module.exports.associateOrders = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
 
-        const { user_type } = req;
+        const { user_type, portalId, user_id } = req;
 
         if (user_type != _userType.bo) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
-        const paymentIds = (await Payment.find(query)).map(i => i.associateOffers_id)
+        const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })).map(i => i.associateOffers_id)
 
         let query = {
             _id: { $in: paymentIds },
@@ -260,9 +253,9 @@ module.exports.batchList = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
-        const { user_type } = req
+        const { user_type, portalId, user_id } = req
 
-        const paymentIds = (await Payment.find(query)).map(i => i.batch_id)
+        const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, associateOffers_id: associateOffer_id })).map(i => i.batch_id)
         let query = {
             _id: { $in: paymentIds },
             associateOffer_id,
