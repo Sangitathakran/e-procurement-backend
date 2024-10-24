@@ -210,3 +210,65 @@ module.exports.associateOrders = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+module.exports.batchList = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
+        const { user_type, portalId, user_id } = req
+
+        const paymentIds = (await Payment.find({ ho_id: { $in: [portalId, user_id] }, associateOffers_id: associateOffer_id, bo_approve_status: _paymentApproval.approved })).map(i => i.batch_id)
+        let query = {
+            _id: { $in: paymentIds },
+            associateOffer_id,
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        const records = { count: 0 };
+
+        records.rows = paginate == 1 ? await Batch.find(query)
+            .populate({
+                path: 'procurementCenter_id', select: '_id center_name center_code center_type address'
+            })
+            .sort(sortBy)
+            .skip(skip)
+            .select('_id procurementCenter_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_approve_by')
+            .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
+
+        records.count = await Batch.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+                return {
+                    "Batch ID": item?.batchId || 'NA',
+                    "procurementCenter_id": item?.procurementCenter_id || 'NA',
+                    "Quantity Purchased": item?.qtyProcured || 'NA',
+                    "Status": item?.status ?? 'NA'
+                }
+            })
+
+            if (record.length > 0) {
+
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Payment-${user_type}.xlsx`,
+                    worksheetName: `Payment-record-${user_type}`
+                });
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
