@@ -1,5 +1,5 @@
 const express = require("express");
-const { payment, associateOrders, batchList, batchApprove, qcReport } = require("./Controller");
+const { payment, associateOrders, batchList, batchApprove, qcReport, lot_list } = require("./Controller");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
 const paymentRoutes = express.Router();
