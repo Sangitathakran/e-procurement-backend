@@ -3,7 +3,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType, _paymentApproval, _batchStatus } = require('@src/v1/utils/constants');
+const { _userType, _paymentApproval, _batchStatus, _associateOfferStatus } = require('@src/v1/utils/constants');
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const mongoose = require("mongoose");
@@ -11,7 +11,8 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { PaymentLogs } = require("@src/v1/models/app/procurement/PaymentLogs");
 const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
-const moment = require("moment")
+const moment = require("moment");
+const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 
 
 module.exports.payment = async (req, res) => {
@@ -21,38 +22,132 @@ module.exports.payment = async (req, res) => {
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
-        if (user_type == _userType.farmer) {
-            query.user_type = _userType.farmer;
-        } else if (user_type == _userType.associate) {
-            query.user_type = _userType.associate;
-        }
-        else if (user_type == _userType.agent) {
-            query.user_type = _userType.agent;
-        }
+        const paymentIds = (await Payment.find({})).map(i => i.req_id);
 
-        const records = { count: 0 };
+        const aggregationPipeline = [
+            { $match: { _id: { $in: paymentIds } } },
+            {
+                $lookup: {
+                    from: 'batches',
+                    localField: '_id',
+                    foreignField: 'req_id',
+                    as: 'batches',
+                    pipeline: [{
+                        $lookup: {
+                            from: 'payments',
+                            localField: '_id',
+                            foreignField: 'batch_id',
+                            as: 'payment',
+                        }
+                    }],
+                }
+            },
+            {
+                $match: {
+                    batches: { $ne: [] }
+                }
+            },
+            {
+                $addFields: {
+                    approval_status: {
+                        $cond: {
+                            if: {
+                                $and: [
+                                    { $eq: ['$bo_approve_status', _paymentApproval.accepted] },
+                                    { $eq: ['$ho_approve_status', _paymentApproval.accepted] }
+                                ]
+                            },
+                            then: 'Accepted',
+                            else: {
+                                $cond: {
+                                    if: {
+                                        $or: [
+                                            { $eq: ['$bo_approve_status', _paymentApproval.pending] },
+                                            { $eq: ['$ho_approve_status', _paymentApproval.pending] }
+                                        ]
+                                    },
+                                    then: 'Pending',
+                                    else: 'Pending' // Assuming you want a rejected state if neither is approved
+                                }
+                            }
+                        }
+                    },
+                    qtyPurchased: {
+                        $reduce: {
+                            input: '$batches',
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this.qty'] }  // Sum of qty from batches
+                        }
+                    },
+                    amountPayable: {
+                        $reduce: {
+                            input: '$batches',
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this.totalPrice'] }  // Sum of totalPrice from batches
+                        }
+                    },
+                    payment_status: {
+                        $cond: {
+                            if: {
+                                $anyElementTrue: {
+                                    $map: {
+                                        input: '$batches',
+                                        as: 'batch',
+                                        in: {
+                                            $anyElementTrue: {
+                                                $map: {
+                                                    input: '$$batch.payment',
+                                                    as: 'pay',
+                                                    in: {
+                                                        $eq: ['$$pay.payment_status', 'Pending']  // Assuming status field exists in payments
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            then: 'Pending',
+                            else: 'Approved'
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    reqNo: 1,
+                    product: 1,
+                    // 'batches._id': 1,
+                    // 'batches.qty': 1,
+                    // 'batches.goodsPrice': 1,
+                    // 'batches.totalPrice': 1,
+                    // 'batches.status': 1,
+                    approval_status: 1,
+                    qtyPurchased: 1,
+                    amountPayable: 1,
+                    payment_status: 1
+                }
+            },
+            { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit) }
+        ];
 
-        const rows = paginate == 1 ? await Payment.find(query)
-            .populate({
-                path: 'whomToPay', select: '_id associate_id farmer_code name',
-                path: 'req_id', select: 'product farmer_code name'
-            })
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await Payment.find(query)
-                .sort(sortBy);
+        const records = await RequestModel.aggregate([
+            ...aggregationPipeline,
+            {
+                $facet: {
+                    data: aggregationPipeline, // Aggregate for data
+                    totalCount: [{ $count: 'count' }] // Count the documents
+                }
+            }
+        ]);
 
-        let branchDetails = {}
-
-        records.rows = await Promise.all(rows.map(async record => {
-
-            branchDetails = await RequestModel.findOne({ '_id': record.req_id }).select({ branch_id: 1, _id: 0 })
-                .populate({ path: 'branch_id', select: 'branchName branchId' });
-
-            return { ...record.toObject(), branchDetails }
-        }));
-
-        records.count = await Payment.countDocuments(query);
+        const response = {
+            count: records[0]?.totalCount[0]?.count || 0,
+            rows: records[0]?.data || []
+        };
 
         if (paginate == 1) {
             records.page = page
@@ -97,26 +192,28 @@ module.exports.associateOrders = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
 
+        const paymentIds = (await Payment.find({ req_id })).map(i => i.associateOffers_id)
+
         let query = {
+            _id: { $in: paymentIds },
             req_id,
-            user_type: _userType.associate,
+            status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] },
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await Payment.find(query)
-            .populate({
-                path: 'whomToPay', select: '_id associate_id farmer_code name',
-                path: 'user_id', select: '_id user_code basic_details.associate_details'
-            })
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
 
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+        records.rows = paginate == 1 ? await AssociateOffers.find(query)
+            .populate({
+                path: 'seller_id', select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name'
+            })
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await AssociateOffers.find(query).sort(sortBy);
 
-        records.count = await Payment.countDocuments(query);
+        records.count = await AssociateOffers.countDocuments(query);
 
         if (paginate == 1) {
             records.page = page
@@ -157,27 +254,26 @@ module.exports.associateOrders = async (req, res) => {
 module.exports.batchList = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
+
+        const paymentIds = (await Payment.find({ associateOffers_id: associateOffer_id })).map(i => i.batch_id)
 
         let query = {
-            req_id,
+            _id: { $in: paymentIds },
+            associateOffer_id,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
         const records = { count: 0 };
 
-        records.reqDetails = await RequestModel.findOne({ _id: req_id })
-            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
-
         records.rows = paginate == 1 ? await Batch.find(query)
-            .populate({
-                path: 'procurementCenter_id', select: '_id center_name center_code center_type address'
-            })
             .sort(sortBy)
             .skip(skip)
+            .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by')
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
+
 
         if (paginate == 1) {
             records.page = page
@@ -218,56 +314,16 @@ module.exports.batchList = async (req, res) => {
 module.exports.lot_list = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
+        const { batch_id } = req.query;
 
-        const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
-        let farmerOrderIdsOnly = {}
+        const record = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" });
 
-        if (batchIds && batchIds.length > 0) {
-            farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
-            console.log(farmerOrderIdsOnly);
-        } else {
-            console.log('No Farmer found with this batch.');
+        if (!record) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
         }
 
-        let query = {
-            // _id: farmerOrderId,
-            _id: farmerOrderIdsOnly,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
-        };
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
 
-
-        const records = { count: 0 };
-        records.rows = paginate == 1 ? await FarmerOrders.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await FarmerOrders.find(query)
-                .sort(sortBy);
-
-        let farmerName = {}
-
-        records.rows = await Promise.all(records.rows.map(async record => {
-
-            const farmerDetails = await farmer.findOne({ '_id': record.farmer_id }).select({ name: 1, _id: 0 });
-
-            const farmerName = farmerDetails ? farmerDetails.name : null;
-            return { ...record.toObject(), farmerName }
-        }));
-
-        records.count = await FarmerOrders.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-        if (records) {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
-        }
-        else {
-            return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
-        }
 
     } catch (error) {
         _handleCatchErrors(error, res);
