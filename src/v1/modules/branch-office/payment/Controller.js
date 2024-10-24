@@ -329,7 +329,7 @@ module.exports.batchApprove = async (req, res) => {
 
         const result = await Batch.updateMany(
             { _id: { $in: batchIds } },  // Match any batchIds in the provided array
-            { $set: { status: _batchStatus.paymentApproved, payement_approval_at: new Date(), payment_approve_by: portalId } } // Set the new status for matching documents
+            { $set: { status: _batchStatus.paymentApproved, payement_approval_at: new Date(), payment_approve_by: portalId, bo_approve_status: _paymentApproval.approved } } // Set the new status for matching documents
         );
 
         if (result.matchedCount === 0) {
