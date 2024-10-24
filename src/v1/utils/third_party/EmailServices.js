@@ -5,7 +5,7 @@ const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 const OTPModel = require('@src/v1/models/app/auth/OTP');
 process.env.SMS_SEND_API_KEY;
 APP_URL = process.env.APP_URL;
-LOGO_URL = process.env.LOGO_URL;
+const LOGO_URL = process.env.LOGO_URL;
 FRONTEND_URL = process.env.FRONTEND_URL;
 
 class EmailService {
@@ -76,38 +76,16 @@ class EmailService {
             throw error;
         }
     }
-
-    async sendHoCredentialsEmail(userDetails) {
-        try {
-            const email = userDetails.email;
-            const user_name = userDetails.name;
-            const password = userDetails.password;
-
-            const template = await this.loadTemplate("hoRegistrationTemplate");
-            const html = template
-                .replace("{{app_url}}", FRONTEND_URL)
-                .replace("{{logo_url}}", LOGO_URL)
-                .replace("{{email}}", email)
-                .replace("{{user_name}}", user_name)
-                .replace("{{password}}", password);
-
-            await sendMail(email, '', 'Head Office registration done successfully | NavBazaar Login Credentials ', html);
-
-        } catch (error) {
-            console.error("Error sending welcome email:", error);
-            throw error;
-        }
-    }
-
     async sendUserCredentialsEmail(userDetails) {
         try {
             const email = userDetails.email;
             const userId = userDetails.firstName;
             const password = userDetails.password;
+            const login_url = userDetails.login_url
 
             const template = await this.loadTemplate("hoRegistrationTemplate");
             const html = template
-                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{app_url}}", login_url)
                 .replace("{{logo_url}}", LOGO_URL)
                 .replace("{{email}}", email)
                 .replace("{{user_name}}", userId)
@@ -126,9 +104,10 @@ class EmailService {
             const email = userDetails.email;
             const user_name = userDetails.name;
             const password = userDetails.password;
+            const login_url = userDetails.login_url
             const template = await this.loadTemplate("hoRegistrationTemplate");
             const html = template
-                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{app_url}}", login_url)
                 .replace("{{logo_url}}", LOGO_URL)
                 .replace("{{email}}", email)
                 .replace("{{user_name}}", user_name)
@@ -154,6 +133,53 @@ class EmailService {
                 .replace("{{user_code}}", userCode);
 
             await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+
+        } catch (error) {
+            console.error("Error sending welcome email:", error);
+            throw error;
+        }
+    }
+
+    // head-office first time login and welcome email 
+    async sendHoCredentialsEmail(userDetails) {
+        try {
+            const email = userDetails.email;
+            const user_name = userDetails.name;
+            const password = userDetails.password;
+            const login_url = userDetails.login_url
+
+            const template = await this.loadTemplate("hoRegistrationTemplate");
+            const html = template
+                .replace("{{app_url}}", login_url)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{email}}", email)
+                .replace("{{user_name}}", user_name)
+                .replace("{{password}}", password);
+
+            await sendMail(email, '', 'Head Office registration done successfully | NavBazaar Login Credentials ', html);
+
+        } catch (error) {
+            console.error("Error sending welcome email:", error);
+            throw error;
+        }
+    }
+
+    async sendBoCredentialsEmail(userDetails) {
+        try {
+            const email = userDetails.email;
+            const user_name = userDetails.name;
+            const password = userDetails.password;
+            const login_url = userDetails.login_url
+
+            const template = await this.loadTemplate("hoRegistrationTemplate");
+            const html = template
+                .replace("{{app_url}}", login_url)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{email}}", email)
+                .replace("{{user_name}}", user_name)
+                .replace("{{password}}", password);
+
+            await sendMail(email, '', 'Branch Office registration done successfully | NavBazaar Login Credentials ', html);
 
         } catch (error) {
             console.error("Error sending welcome email:", error);

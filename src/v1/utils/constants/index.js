@@ -377,6 +377,18 @@ const _statusType = {
     inactive: 'inactive'
 }
 
+const _frontendLoginRoutes = {
+    agent: "/agent/sign-in", 
+    ho: "/head-office/sign-in",
+    bo: "/branch-office/sign-in"
+}
+
+const _userTypeFrontendRouteMapping = {
+    "agent": "6",
+    "head-office": "2",
+    "branch-office": "3"
+}
+
 module.exports = {
     _userAction,
     _farmerType,
@@ -428,4 +440,6 @@ module.exports = {
     _featureType,
     _statusType,
     received_qc_status,
+    _frontendLoginRoutes,
+    _userTypeFrontendRouteMapping
 }

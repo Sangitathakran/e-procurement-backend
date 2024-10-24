@@ -4,6 +4,7 @@ module.exports = {
         login: (name) => `${name || "Account"} login successfully.`,
         allReadyExist: (key) => `${key || "Data"} already exist.`,
         unAuth: "Unauthorized access.",
+        Unauthorized: (name) => `Unauthorized access ${name} user`,
         tokenMissing: "Token missing, Please login again.",
         tokenExpired: "Token Expired, Please login again."
     },

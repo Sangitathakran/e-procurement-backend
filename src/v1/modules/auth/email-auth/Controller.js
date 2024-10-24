@@ -7,12 +7,13 @@ const bcrypt = require('bcrypt');
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { FeatureList } = require("@src/v1/models/master/FeatureList");
-const { TypesModel } = require("@src/v1/models/master/Types")
+const { TypesModel } = require("@src/v1/models/master/Types");
+const { _userTypeFrontendRouteMapping } = require("@src/v1/utils/constants");
 
 module.exports.login = async (req, res) => {
     try {
 
-        const { email, password } = req.body;
+        const { email, password, portal_type } = req.body;
         
         if (!email) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Email') }] }));
@@ -34,6 +35,16 @@ module.exports.login = async (req, res) => {
 
         if (!validPassword) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('Credentials') }] }));
+        }
+
+        
+        const portalTypeMapping = Object.fromEntries(
+          Object.entries(_userTypeFrontendRouteMapping).map(([key, value]) => [value, key])
+        );
+
+        const userType = _userTypeFrontendRouteMapping[portal_type];
+        if (userType !== user.user_type) {
+          return res.status(400).send(new serviceResponse({ status: 400, message :  _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
         }
 
 
@@ -251,7 +262,7 @@ function mergeObjects(obj1, obj2) {
   
       } else {
         merged[key] = obj2[key];
-        console.log(merged[key])
+        // console.log(merged[key])
       }
     }
   

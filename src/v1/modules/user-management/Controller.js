@@ -5,9 +5,10 @@ const {MasterUser} = require("@src/v1/models/master/MasterUser")
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const bcrypt = require("bcrypt");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
-const { _featureType } = require("@src/v1/utils/constants");
+const { _featureType, _frontendLoginRoutes, _userType } = require("@src/v1/utils/constants");
 const { TypesModel } = require("@src/v1/models/master/Types");
 const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
+const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator");
 
 
 
@@ -145,7 +146,7 @@ function mergeObjects(obj1, obj2) {
   
       } else {
         merged[key] = obj2[key];
-        console.log(merged[key])
+        // console.log(merged[key])
       }
     }
   
@@ -305,8 +306,9 @@ exports.createUser = async (req, res) => {
           return sendResponse({res, status: 400, message: "user already existed with this mobile number or email"})
         }
 
+        const password = generateRandomPassword();
         const salt = await bcrypt.genSalt(8);
-        const hashPassword = await bcrypt.hash(uniqueUserId, salt); // hashing the uniqueUserId as password
+        const hashPassword = await bcrypt.hash(password, salt); // hashing the uniqueUserId as password
 
         const newUser = new MasterUser({ 
             firstName: firstName, 
@@ -333,7 +335,12 @@ exports.createUser = async (req, res) => {
           );
         });
 
-        await emailService.sendUserCredentialsEmail({email, firstName, password: password = uniqueUserId})
+        const reversedUserType = Object.fromEntries(
+          Object.entries(_userType).map(([key, value]) => [value, key])
+        );
+
+        const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes[reversedUserType[req.user.user_type]]}`
+        await emailService.sendUserCredentialsEmail({email, firstName, password, login_url})
 
         delete savedUser.password
         return sendResponse({res,status: 200, data: savedUser, message: "New user created successfully"})

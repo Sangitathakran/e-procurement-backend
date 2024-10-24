@@ -12,6 +12,7 @@ const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerato
 
 const { TypesModel } = require("@src/v1/models/master/Types");
 const getIpAddress = require('@src/v1/utils/helpers/getIPAddress');
+const { _frontendLoginRoutes } = require('@src/v1/utils/constants');
 
 
 module.exports.getAgency = async (req, res) => {
@@ -70,13 +71,15 @@ module.exports.createAgency = async (req, res) => {
 
         const savedAgency = await agency.save();
 
-        const agencydData = {
+        const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes.agent}`
+        const emailPayload = {
             email: savedAgency.email,
             user_name:savedAgency.first_name,
             name: savedAgency.first_name,
             password: password,
+            login_url:login_url
         }
-        await emailService.sendAgencyCredentialsEmail(agencydData);
+        await emailService.sendAgencyCredentialsEmail(emailPayload);
 
         const type = await TypesModel.findOne({_id:"67110114f1cae6b6aadc2425"})
 
