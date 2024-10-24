@@ -49,7 +49,7 @@ exports.getAddressByPincode = async (req, res) => {
         const url = `https://api.postalpincode.in/pincode/${pincode}`
         const records = await thirdPartyGetApi(url, {})
 
-        return sendResponse({res, status: 200, data: records, message: _response_message.found() })
+        return sendResponse({ res, status: 200, data: records, message: _response_message.found() })
     } catch (error) {
         _handleCatchErrors(error, res)
     }
@@ -75,7 +75,7 @@ exports.createSeeder = async (req, res) => {
                 console.log("seeder not found")
                 break;
         }
-        return res.send(sendResponse({ status: 200, message: _response_message.found() }))
+        return sendResponse({ res, status: 200, message: _response_message.created() })
     } catch (error) {
         _handleCatchErrors(error, res)
     }
