@@ -70,11 +70,11 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
 
 module.exports.requirementById = asyncErrorHandler(async (req, res) => {
   try {
-    const {requirementId} = req.params;
+    const { requirementId } = req.params;
     const { page, limit, skip = 0, paginate, sortBy } = req.query;
     const records = { count: 0 };         
 
-    records.rows = await Batch.find({ req_id:requirementId })
+    records.rows = await Batch.find({ req_id: requirementId })
       .select('batchId qty delivered status')
       .populate({
         path: 'associateOffer_id',
@@ -92,6 +92,7 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
       .sort(sortBy) ?? [];
 
     records.rows = records.rows.map(item => ({
+      _id: item._id,
       batchId: item.batchId,
       associateName: item?.associateOffer_id?.seller_id?.basic_details?.associate_details?.associate_name,
       procurementCenterName: item?.procurementCenter_id?.center_name,
