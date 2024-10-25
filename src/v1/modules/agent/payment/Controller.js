@@ -18,9 +18,9 @@ const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOff
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
 
-        let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
+        // let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
         const paymentIds = (await Payment.find({})).map(i => i.req_id);
 
