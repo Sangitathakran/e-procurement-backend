@@ -483,7 +483,7 @@ module.exports.getBill = async (req, res) => {
             let commission = billPayment.dispatched.bills.commission;
            
             if(commission==0){
-                commission = (billPayment.dispatched.bills.procurementExp + billPayment.dispatched.bills.driage + billPayment.dispatched.bills.storageExp * 1) / 100;
+                commission = (billPayment.dispatched.bills.procurementExp + billPayment.dispatched.bills.driage + billPayment.dispatched.bills.storageExp * 0.5) / 100;
             }
            
             let records = { ...billPayment.toObject(), commission }
