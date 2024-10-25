@@ -42,7 +42,7 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
                 maxAge: 0,
             });
 
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Logged out successfully" }] }));
+            return res.status(401).send(new serviceResponse({ status: 401, errors: [{ message: "Inactive User" }] }));
         }
         Object.entries(decodedToken).forEach(([key, value]) => {
             req[key] = value
