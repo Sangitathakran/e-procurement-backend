@@ -33,6 +33,23 @@ module.exports.getProcurement = async (req, res) => {
         if (status && Object.values(_associateOfferStatus).includes(status)) {
             console.log('status', status)
             // Aggregation pipeline to join with AssociateOffers
+            const conditionPipeline = []
+            if (status == _associateOfferStatus.ordered) {
+                conditionPipeline.push({
+                    $lookup: {
+                        from: 'batches',
+                        localField: '_id',
+                        foreignField: 'req_id',
+                        as: 'batches',
+                    },
+                })
+
+                conditionPipeline.push({
+                    $addFields: {
+                        batchesCount: { $size: '$batches' } // Get the count of batches
+                    }
+                })
+            }
             const pipeline = [
                 { $match: query },
                 {
@@ -43,6 +60,7 @@ module.exports.getProcurement = async (req, res) => {
                         as: 'myoffer',
                     },
                 },
+                ...conditionPipeline,
                 { $unwind: '$myoffer' },
                 {
                     $match: {
