@@ -67,6 +67,67 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
+module.exports.requirementById = asyncErrorHandler(async (req, res) => {
+  try {
+    const {requirementId} = req.params;
+    const { page, limit, skip = 0, paginate, sortBy } = req.query;
+    const records = { count: 0 }; 
+        
+    const request = await RequestModel.findOne({ reqNo: requirementId });
+ 
+    if (!request) {
+      return sendResponse({
+        res,
+        status: 404,
+        message: "Requirement not found",
+      });
+    }
+
+    records.rows = await Batch.find({req_id:request._id})
+      .select('associateOffer_id procurementCenter_id qty delivered')
+      .populate({
+        path: 'req_id',
+        select: 'reqNo'
+      })
+      .select('associateOffer_id procurementCenter_id qty delivered')
+      .populate({
+        path: 'associateOffer_id',
+        populate: {
+          path: 'seller_id',
+          select: 'basic_details.associate_details.associate_name'
+        }
+      })
+      .populate({
+        path: 'procurementCenter_id',
+        select: 'center_name location_url'
+      })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort(sortBy) ?? [];
+
+    records.rows = records.rows.filter(doc => doc.req_id !== null);
+    records.count = records.rows.length;
+
+    if (paginate == 1) {
+      records.page = page;
+      records.limit = limit;
+      records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
+    }
+
+    return sendResponse({
+      res,
+      status: 200,
+      data: records,
+      message: _response_message.found("requirement"),
+    })
+  } catch (error) {
+    console.log("error", error);
+    _handleCatchErrors(error, res);
+  }
+});
+
+
 module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
   try {
     const { page, limit, skip = 0, paginate, sortBy, search = "" } = req.query;
