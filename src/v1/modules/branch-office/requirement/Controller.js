@@ -121,6 +121,7 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
                     req_id: request?._id,
                     farmer_id: farmerData.farmer_id,
                     farmer_order_id: farmer.farmerOrder_id,
+                    associate_id: record?.seller_id,
                     ho_id: request?.head_office_id,
                     bo_id: request?.branch_id,
                     associateOffers_id: farmerData?.associateOffers_id,
