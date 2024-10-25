@@ -72,19 +72,9 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
   try {
     const {requirementId} = req.params;
     const { page, limit, skip = 0, paginate, sortBy } = req.query;
-    const records = { count: 0 }; 
-        
-    const request = await RequestModel.findOne({ reqNo: requirementId });
- 
-    if (!request) {
-      return sendResponse({
-        res,
-        status: 404,
-        message: "Requirement not found",
-      });
-    }
+    const records = { count: 0 };         
 
-    records.rows = await Batch.find({req_id:request._id})
+    records.rows = await Batch.find({ req_id:requirementId })
       .select('associateOffer_id procurementCenter_id qty delivered')
       .populate({
         path: 'req_id',
