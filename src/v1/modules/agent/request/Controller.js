@@ -309,3 +309,43 @@ module.exports.getProcurementById = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("order") }))
 })
+
+
+module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
+
+
+    const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, url, commodity_image } = req.body;
+
+    const record = await RequestModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
+
+    if (!record) {
+        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("request") }));
+    }
+
+    if (!record.branch_id) {
+        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("branch office") }));
+
+    }
+
+    if (!record.head_office_id) {
+        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("head office") }));
+
+    }
+    record.product.name = name;
+    record.product.grade = grade;
+    record.product.quantity = quantity;
+    record.quotedPrice = msp;
+    record.deliveryDate = delivery_date;
+    record.expectedProcurementDate = procurement_date;
+    record.quoteExpiry = expiry_date;
+    record.head_office_id.company_details.name = ho;
+    record.branch_id.branchName = bo;
+    record.address.locationUrl = url;
+    record.product.commodityImage = commodity_image;
+
+    await record.save();
+
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("request") }));
+
+})
