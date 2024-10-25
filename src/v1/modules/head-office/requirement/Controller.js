@@ -25,7 +25,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     const records = { count: 0 };
     records.rows =
       (await RequestModel.find()
-        .select("associatOrder_id head_office_id status reqNo createdAt")
+        // .select("associatOrder_id head_office_id status reqNo createdAt")
         .populate({path:'branch_id',select:'branchName',match:query})
         .skip(skip)
         .limit(parseInt(limit))
