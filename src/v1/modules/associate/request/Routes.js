@@ -2,11 +2,16 @@ const { getProcurement, getProcurementById, createProcurement, updateProcurement
 const express = require("express");
 const { verifyAssociate } = require("../utils/verifyAssociate");
 const requestRoutes = express.Router();
+const { _middleware } = require("@src/v1/utils/constants/messages");
+const { body } = require("express-validator");
+const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 
 requestRoutes.get("/offered-farmer", verifyAssociate, offeredFarmerList);
 requestRoutes.get("/farmer-orders", verifyAssociate, farmerOrderList);
 requestRoutes.get("/associate-offers", verifyAssociate, getAssociateOffers);
-requestRoutes.put("/received-by-farmer", verifyAssociate, editFarmerOffer);
+requestRoutes.put("/received-by-farmer", [
+    body("receving_date", _middleware.require("receving_date")).not().isEmpty().trim(),
+], validateErrors, verifyAssociate, editFarmerOffer,);
 requestRoutes.get("/farmers", verifyAssociate, getFarmerListById);
 requestRoutes.patch("/request", verifyAssociate, requestApprove);
 requestRoutes.post("/associate-offered", verifyAssociate, associateOffer);
