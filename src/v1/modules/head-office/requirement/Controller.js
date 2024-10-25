@@ -75,12 +75,7 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
     const records = { count: 0 };         
 
     records.rows = await Batch.find({ req_id:requirementId })
-      .select('associateOffer_id procurementCenter_id qty delivered')
-      .populate({
-        path: 'req_id',
-        select: 'reqNo'
-      })
-      .select('associateOffer_id procurementCenter_id qty delivered')
+      .select('batchId qty delivered status')
       .populate({
         path: 'associateOffer_id',
         populate: {
@@ -96,7 +91,16 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
       .limit(parseInt(limit))
       .sort(sortBy) ?? [];
 
-    records.rows = records.rows.filter(doc => doc.req_id !== null);
+    records.rows = records.rows.map(item => ({
+      batchId: item.batchId,
+      associateName: item?.associateOffer_id?.seller_id?.basic_details?.associate_details?.associate_name,
+      procurementCenterName: item?.procurementCenter_id?.center_name,
+      quantity: item.qty,
+      deliveredOn: item.delivered.delivered_at,
+      procurementLocationUrl: item?.procurementCenter_id?.location_url,
+      status:item.status
+    }));
+
     records.count = records.rows.length;
 
     if (paginate == 1) {
