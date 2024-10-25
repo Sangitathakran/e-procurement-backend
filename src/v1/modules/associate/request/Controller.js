@@ -643,6 +643,10 @@ module.exports.editFarmerOffer = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }))
         }
 
+        if (record.offeredQty < qtyProcured) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "quantity procured should be less than available quantity" }] }));
+        }
+
         record.receving_date = receving_date;
         record.qtyProcured = qtyProcured;
         record.procurementCenter_id = procurementCenter_id;
