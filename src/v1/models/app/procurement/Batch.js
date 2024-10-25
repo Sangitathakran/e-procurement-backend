@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _batchStatus, received_qc_status } = require('@src/v1/utils/constants');
+const { _collectionName, _batchStatus, received_qc_status, _paymentApproval } = require('@src/v1/utils/constants');
 
 const batchsSchema = new mongoose.Schema({
     seller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
@@ -80,9 +80,13 @@ const batchsSchema = new mongoose.Schema({
         delivered_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch },
     },
     reason: { text: { type: String }, on: { type: Date } },
+    bo_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
     payement_approval_at: { type: Date, default: null },
-    payment_approve_by: { type: mongoose.Schema.Types.ObjectId, },
-    payment_by: { type: mongoose.Schema.Types.ObjectId, },
+    payment_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
+    ho_approval_at: { type: Date, default: null },
+    ho_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
+    ho_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
+    payment_by: { type: mongoose.Schema.Types.ObjectId, default: null },
     payment_at: { type: Date, default: null },
     status: { type: String, enum: Object.values(_batchStatus), default: _batchStatus.pending }
 }, { timestamps: true });

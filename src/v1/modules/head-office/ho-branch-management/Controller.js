@@ -125,8 +125,9 @@ module.exports.importBranches = async (req, res) => {
 
     // Insert the branches into the database
     for (const branchData of branches) {
-      // checking the existing user in Master User collection
-      const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:branchData.pointOfContact.email},{email:branchData.pointOfContact.phone}]})
+      // checking the existing user in Master User collectio
+
+      const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:branchData.pointOfContact.phone},{email:branchData.pointOfContact.email}]})
       if(isUserAlreadyExist){
         throw new Error("user already existed with this mobile number or email in Master")
       }
@@ -150,20 +151,25 @@ module.exports.importBranches = async (req, res) => {
       const newBranch = await branch.save();
       
       
-      const masterUser = new MasterUser({
-        firstName : branchData.pointOfContact.name,
-        isAdmin : true,
-        email : branchData.pointOfContact.email,
-        mobile : branchData.pointOfContact.phone,
-        password: branchData.hashedPassword,
-        user_type : type.user_type,
-        createdBy: req.user._id,
-        userRole: [type.adminUserRoleId],
-        portalId: newBranch._id,
-        ipAddress:getIpAddress(req)
-      });
-
-      await masterUser.save();
+      if(newBranch._id){
+        const masterUser = new MasterUser({
+          firstName : branchData.pointOfContact.name,
+          isAdmin : true,
+          email : branchData.pointOfContact.email,
+          mobile : branchData.pointOfContact.phone,
+          password: branchData.hashedPassword,
+          user_type : type.user_type,
+          createdBy: req.user._id,
+          userRole: [type.adminUserRoleId],
+          portalId: newBranch._id,
+          ipAddress:getIpAddress(req)
+        });
+  
+        await masterUser.save();
+      }else{
+        await Branches.deleteOne({_id:newBranch._id})
+        throw new Error("branch office not created")
+      }
     }
 
      // Send an email to each branch email address notifying them that the branch has been created
@@ -183,7 +189,7 @@ module.exports.importBranches = async (req, res) => {
       new serviceResponse({
         status: 200,
         message: _response_message.importSuccess(),
-        data:branches
+        // data:branches
       })
     );
   } catch (err) {

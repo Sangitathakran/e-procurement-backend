@@ -1,4 +1,4 @@
-const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
@@ -56,8 +56,8 @@ module.exports.payment = async (req, res) => {
                                         as: 'batch',
                                         in: {
                                             $or: [
-                                                { $not: { $ifNull: ['$$batch.payement_approval_at', true] } },  // Check if the field is missing
-                                                { $eq: ['$$batch.payement_approval_at', null] },  // Check for null value
+                                                { $not: { $ifNull: ['$$batch.bo_approval_at', true] } },  // Check if the field is missing
+                                                { $eq: ['$$batch.bo_approval_at', null] },  // Check for null value
                                             ]
                                         }
                                     }
@@ -94,7 +94,7 @@ module.exports.payment = async (req, res) => {
                                                     input: '$$batch.payment',
                                                     as: 'pay',
                                                     in: {
-                                                        $eq: ['$$pay.status', 'Pending']  // Assuming status field exists in payments
+                                                        $eq: ['$$pay.payment_status', 'Pending']  // Assuming status field exists in payments
                                                     }
                                                 }
                                             }
@@ -329,7 +329,7 @@ module.exports.batchApprove = async (req, res) => {
 
         const result = await Batch.updateMany(
             { _id: { $in: batchIds } },  // Match any batchIds in the provided array
-            { $set: { status: _batchStatus.paymentApproved, payement_approval_at: new Date(), payment_approve_by: portalId } } // Set the new status for matching documents
+            { $set: { status: _batchStatus.paymentApproved, payement_approval_at: new Date(), payment_approve_by: portalId, bo_approve_status: _paymentApproval.approved } } // Set the new status for matching documents
         );
 
         if (result.matchedCount === 0) {
@@ -337,7 +337,7 @@ module.exports.batchApprove = async (req, res) => {
         }
         await Payment.updateMany(
             { batch_id: { $in: batchIds } },
-            { $set: { payment_approve_status: _paymentApproval.approved, payment_approve_at: new Date(), payment_approve_by: portalId } }
+            { $set: { bo_approve_status: _paymentApproval.approved, bo_approve_at: new Date(), bo_approve_by: portalId } }
         )
 
         return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
