@@ -421,6 +421,8 @@ module.exports.getBill = async (req, res) => {
             const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
             const billQty = (0.8 / 1000);
 
+            let commission = billPayment.dispatched.bills.commission;
+            
             if(commission==0){
                 commission = (billPayment.dispatched.bills.procurementExp + billPayment.dispatched.bills.driage + billPayment.dispatched.bills.storageExp * 0.5) / 100;
             }
