@@ -133,22 +133,10 @@ module.exports.payment = async (req, res) => {
             { $skip: skip },
             { $limit: parseInt(limit) }
         ];
+        const records = { count: 0 }
+        records.rows = await RequestModel.aggregate(aggregationPipeline);
 
-        const records = await RequestModel.aggregate([
-            ...aggregationPipeline,
-            {
-                $facet: {
-                    data: aggregationPipeline, // Aggregate for data
-                    totalCount: [{ $count: 'count' }] // Count the documents
-                }
-            }
-        ]);
-
-        const response = {
-            count: records[0]?.totalCount[0]?.count || 0,
-            rows: records[0]?.data || []
-        };
-
+        records.count = await RequestModel.countDocuments({ _id: { $in: paymentIds } })
         if (paginate == 1) {
             records.page = page
             records.limit = limit
