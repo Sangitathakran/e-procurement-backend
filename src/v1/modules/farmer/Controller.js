@@ -265,9 +265,9 @@ module.exports.submitForm = async (req, res) => {
     const farmerDetails = await farmer.findById(id)
     // .populate('address.state_id')
     const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails.address.state_id.toString() } } },{ "states.$": 1 });
-  
+  console.log(state.states[0].districts)
   const districts = state.states[0].districts.find(item=>item._id==farmerDetails.address.district_id.toString())
-    
+    console.log('disctrict',districts)
     const generateFarmerId = (farmer) => {
       const stateData = stateList.stateList.find(
         (item) =>
@@ -280,28 +280,31 @@ module.exports.submitForm = async (req, res) => {
       );
 
       if (!district) {
-        return sendResponse({
-          res,
-          status: 400,
-          message: _response_message.notFound(
-            `${farmer.address.district} district`
-          ),
-        })
-      }
-      // console.log("district--->", district)
-      const stateCode = stateData.stateCode;
-      const districtSerialNumber = district.serialNumber;
-      // const districtCode = district.districtCode;
-      const farmer_mongo_id = farmer._id.toString().slice(-3).toUpperCase()
-      const randomNumber = Math.floor(100 + Math.random() * 900);
+        return null
+      }else{
+ // console.log("district--->", district)
+ const stateCode = stateData.stateCode;
+ const districtSerialNumber = district.serialNumber;
+ // const districtCode = district.districtCode;
+ const farmer_mongo_id = farmer._id.toString().slice(-3).toUpperCase()
+ const randomNumber = Math.floor(100 + Math.random() * 900);
 
-      const farmerId =
-        stateCode + districtSerialNumber + farmer_mongo_id + randomNumber;
-      // console.log("farmerId-->", farmerId)
-      return farmerId;
+ const farmerId =
+   stateCode + districtSerialNumber + farmer_mongo_id + randomNumber;
+ // console.log("farmerId-->", farmerId)
+ return farmerId;
+      }
+     
     };
     const farmer_id = await generateFarmerId(farmerDetails);
-      console.log(farmer_id)
+    if(farmer_id==null){
+      return sendResponse({
+        res,
+        status: 400,
+        message: _response_message.notFound("Disrtict"),
+      })
+    }
+      
     if (farmerDetails && farmer_id) {
       const landDetails = await Land.find({farmer_id:id});
         const cropDetails=await Crop.find({farmer_id:id})
