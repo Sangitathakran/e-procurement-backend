@@ -1,4 +1,4 @@
-const { sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse, serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { FeatureList } = require("@src/v1/models/master/FeatureList");
 const UserRole = require("@src/v1/models/master/UserRole");
 const {MasterUser} = require("@src/v1/models/master/MasterUser")
@@ -9,6 +9,10 @@ const { _featureType, _frontendLoginRoutes, _userType } = require("@src/v1/utils
 const { TypesModel } = require("@src/v1/models/master/Types");
 const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator");
+const { Agency } = require("@src/v1/models/app/auth/Agency");
+const { _response_message } = require("@src/v1/utils/constants/messages");
+const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 
 
 
@@ -316,7 +320,7 @@ exports.createUser = async (req, res) => {
             mobile: mobile,
             email:email,
             // isSuperAdmin: true,
-            userId: uniqueUserId,
+            // userId: uniqueUserId,
             user_type: req?.user?.user_type,
             password: hashPassword,
             createdBy: req?.user?._id,
@@ -681,6 +685,162 @@ function generateUserId() {
 
   return getRandomLetters() + getRandomNumbers();
 }
+
+module.exports.getAgency = async (req, res) => {
+
+  try {
+      const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+      let query = {
+          ...(search ? { first_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+      };
+
+      query = {...query, _id: { $ne: req.user.portalId } }
+
+      const records = { count: 0 };
+      records.rows = paginate == 1
+          ? await Agency.find(query).sort(sortBy).skip(skip).limit(parseInt(limit))
+          : await Agency.find(query).sort(sortBy);
+
+      records.count = await Agency.countDocuments(query);
+
+      if (paginate == 1) {
+          records.page = page
+          records.limit = limit
+          records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+      }
+
+      return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Agency") }));
+
+  } catch (error) {
+      _handleCatchErrors(error, res);
+  }
+}
+
+module.exports.getHo = async (req, res) => {
+
+  try {
+      const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+      let query = {
+          ...(search ? { 'company_details.name': { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+      };
+
+      if (paginate == 0) {
+          query.active = true
+      }
+      const records = { count: 0 };
+      records.rows = await HeadOffice.aggregate([
+          { $match: query },
+          {
+              $lookup: {
+                  from: 'branches', // Name of the Branches collection in the database
+                  localField: '_id',
+                  foreignField: 'headOfficeId',
+                  as: 'branches'
+              }
+          },
+          {
+              $addFields: {
+                  branchCount: { $size: '$branches' }
+              }
+          },
+          {
+              ...(paginate == 1 && {
+                  $project: {
+                      _id: 1,
+                      office_id: 1,
+                      'company_details.name': 1,
+                      registered_time: 1,
+                      branchCount: 1,
+                      'point_of_contact.name': 1,
+                      'point_of_contact.email': 1,
+                      'point_of_contact.mobile': 1,
+                      'point_of_contact.designation': 1,
+                      registered_time: 1,
+                      head_office_code: 1,
+                      active: 1,
+                      address: 1,
+                      createdAt: 1,
+                      updatedAt: 1
+                  }
+              }),
+              ...(paginate == 0 && {
+                  $project: {
+                      _id: 1,
+                      office_id: 1,
+                      'company_details.name': 1,
+                      'point_of_contact.name': 1,
+                      'point_of_contact.email': 1,
+                      'point_of_contact.designation': 1,
+                      head_office_code: 1,
+                  }
+              })
+          },
+          { $sort: sortBy },
+          ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []) // Pagination if required
+      ]);
+
+      records.count = await HeadOffice.countDocuments(query);
+
+      if (paginate == 1) {
+          records.page = page
+          records.limit = limit
+          records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+      }
+
+      return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Head Office") }));
+
+  } catch (error) {
+      _handleCatchErrors(error, res);
+  }
+}
+
+module.exports.getBo = async (req, res) => {
+  try {
+    const { limit = 10, skip = 0 , paginate = 1, search = '', page = 1 } = req.query;
+
+    // Adding search filter
+    const searchQuery = search ? {
+      branchName: { $regex: search, $options: 'i' }        // Case-insensitive search for branchName
+     } : {};
+
+    // Count total documents for pagination purposes, applying search filter
+    const totalCount = await Branches.countDocuments(searchQuery);
+
+     // Determine the effective limit
+    const effectiveLimit = Math.min(parseInt(limit), totalCount);
+
+    // Fetch paginated branch data with search and sorting
+    let branches = await Branches.find(searchQuery)
+      .limit(effectiveLimit)    // Limit the number of documents returned
+      .skip(parseInt(skip))      // Skip the first 'n' documents based on pagination
+      .sort({ createdAt: -1 });  // Sort by createdAt in descending order by default
+
+    // If paginate is set to 0, return all branches without paginating
+    if (paginate == 0) {
+      branches = await Branches.find(searchQuery).sort({ createdAt: -1 });
+    }
+
+    // Calculate total pages for pagination
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Return the branches along with pagination info
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        message: "Branches fetched successfully",
+        data: {
+          branches: branches,
+          totalCount: totalCount,
+          totalPages: totalPages,
+          limit: effectiveLimit,
+          page: parseInt(page)
+        },
+      })
+    );
+  } catch (err) {
+    return res.status(500).send(new serviceResponse({ status: 500, errors: [{ message: err.message }] }));
+  }
+};
 
 
 

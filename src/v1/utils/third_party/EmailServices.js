@@ -6,7 +6,7 @@ const OTPModel = require('@src/v1/models/app/auth/OTP');
 process.env.SMS_SEND_API_KEY;
 APP_URL = process.env.APP_URL;
 const LOGO_URL = process.env.LOGO_URL;
-FRONTEND_URL = process.env.FRONTEND_URL;
+const FRONTEND_URL = process.env.FRONTEND_URL;
 
 class EmailService {
     constructor() {
@@ -39,16 +39,16 @@ class EmailService {
         return Math.floor(1000 + Math.random() * 9000);
     }
 
-    async sendForgotPasswordEmail(userEmail, sendMailData) {
+    async sendForgotPasswordEmail(emailPaylod) {
         try {
             const template = await this.loadTemplate("forgotPassword");
-            const resetPasswordLink = `${sendMailData.app_url}forgot-password?token=${sendMailData.createResetToken}`;
+            const resetPasswordLink = `${FRONTEND_URL}/forgot-password?token=${emailPaylod.resetToken}`;
             const html = template
                 .replace("{{resetPasswordLink}}", resetPasswordLink)
-                .replace("{{app_url}}", sendMailData.app_url)
-                .replace("{{logo_url}}", sendMailData.logo_url);
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL);
 
-            await sendMail(userEmail, '', 'Reset Your Password', html);
+            await sendMail(emailPaylod.email, '', 'Reset Your Password', html);
             return { message: 'Forgot Password Link Send successfully' };
         } catch (error) {
             console.error("Error sending forgot password email:", error);

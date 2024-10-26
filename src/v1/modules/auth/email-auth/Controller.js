@@ -9,6 +9,7 @@ const { JWT_SECRET_KEY } = require('@config/index');
 const { FeatureList } = require("@src/v1/models/master/FeatureList");
 const { TypesModel } = require("@src/v1/models/master/Types");
 const { _userTypeFrontendRouteMapping } = require("@src/v1/utils/constants");
+const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 
 module.exports.login = async (req, res) => {
     try {
@@ -290,3 +291,69 @@ function mergeArrays(arrayA, arrayB) {
   
     return mergedArray;
 }
+
+module.exports.forgetPassword = async (req, res) => {
+
+  try {
+
+    const user = await MasterUser.findOne({ email: req.body.email });
+
+    if (!user) return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Email') }] }));
+
+    const payload = { email: user.email,user_id: user?._id, portalId: user?.portalId?._id, user_type:user.user_type }
+    const expiresIn = 24 * 60 * 60;
+    const resetToken = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+
+    const emailData = { 
+      resetToken:resetToken,
+      email: user.email
+    }
+
+    await emailService.sendForgotPasswordEmail(emailData)
+    user.isPasswordChangeEmailSend = true
+    await user.save()
+
+    res.status(200).send(new serviceResponse({ status: 200, message: `Forget password email send successfully to ${user.email}` }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res)
+  }
+}
+
+exports.resetPassword = async (req, res) => {
+
+  try {
+
+    const { resetToken, password } = req.body;
+
+    if (!resetToken) return res.status(400).send(new serviceResponse({ status: 400, message: "reset token missing" }));
+
+    const decodedToken = jwt.verify(resetToken, JWT_SECRET_KEY);
+
+    if (decodedToken.email) {
+
+      const user = await MasterUser.findOne({ email: decodedToken.email });
+
+      const checkComparePassword = await bcrypt.compare(password, user.password);
+
+      if (checkComparePassword) return res.status(400).send(new serviceResponse({ status: 400, message: "new password can not be same as old password" }));
+
+      const salt = await bcrypt.genSalt(8);
+      const hashPasswrods = await bcrypt.hash(password, salt);
+
+      user.password = hashPasswrods;
+      user.passwordChangedAt = new Date()
+      const savedUser = await user.save();
+
+      return res.status(200).send(new serviceResponse({ status: 200, message: "Password changed successfully" }))
+
+    }else{ ;
+      return res.status(400).send(new serviceResponse({ status: 400, message: "Unauthorized access" }))
+    } 
+
+  } catch (error) {
+
+      _handleCatchErrors(error, res)
+    }
+};
+
