@@ -107,7 +107,6 @@ exports._addDays = (days) => {
 
 exports.generateFarmerId = (obj) => {
     try {
-      console.log('Farmer Object:', obj);
   
       const stateData = stateList.stateList.find(
         (item) => item.state.toLowerCase() === obj.address.state.toLowerCase()
@@ -259,13 +258,14 @@ exports.getStateId = async (stateName) => {
             'states.state_title': stateName
         });
         if (stateDoc) {
-            const state = stateDoc.states.find(state => state.state_title === stateName);
-            if (state)
-                myAddress.set(stateName, state._id)
-            return state ? state._id : null;
-        } else {
-            return null;
+            const state = stateDoc.states.find(state => state.state_title == stateName);
+            // console.log('state', state._id);
+            if (state) {
+                myAddress.set(stateName, state._id);
+                return state._id; 
+            }
         }
+        throw new Error(`Farmer State Name Not Found: ${stateName}`);
     } catch (error) {
         throw new Error(`Error fetching state ID: ${error.message}`);
     }
@@ -283,13 +283,14 @@ exports.getDistrictId = async (districtName) => {
         if (stateDoc) {
             for (const state of stateDoc.states) {
                 const district = state.districts.find(district => district.district_title === districtName);
+                // console.log('state', district._id);
                 if (district) {
                     myAddress.set(districtName, district._id)
                     return district._id;
                 }
             }
         }
-        return null;
+        throw new Error(`Farmer District Name Not Found: ${districtName}`);
     } catch (error) {
         throw new Error(`Error fetching district ID: ${error.message}`);
     }

@@ -1452,24 +1452,28 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const branch_name = rec["BRANCH"];
       const ifsc_code = rec["IFSC CODE"];
       const account_holder_name = rec["ACCOUNT HOLDER NAME"];
-
+      
+      const requiredFields = [
+        { field: "NAME*", label: "NAME" },
+        { field: "FATHER NAME*", label: "FATHER NAME" },
+        { field: "GENDER*", label: "GENDER" },
+        { field: "AADHAR NUMBER*", label: "AADHAR NUMBER" },
+        { field: "ADDRESS LINE*", label: "ADDRESS LINE" },
+        { field: "STATE NAME*", label: "STATE NAME" },
+        { field: "DISTRICT NAME*", label: "DISTRICT NAME" },
+        { field: "MOBILE NO*", label: "MOBILE NUMBER" }
+      ];
+    
       let errors = [];
-      if (!name || !father_name || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no) {
-        let missingFields = [];
-        if (!name) missingFields.push('NAME');
-        if (!father_name) missingFields.push('FATHER NAME');
-        if (!gender) missingFields.push('GENDER');
-        if (!aadhar_no) missingFields.push('AADHAR NUMBER');
-        if (!address_line) missingFields.push('ADDRESS LINE');
-        if (!state_name) missingFields.push('STATE NAME');
-        if (!district_name) missingFields.push('DISTRICT NAME');
-        if (!mobile_no) missingFields.push('MOBILE NUMBER');
-
-        errors.push({
-          error: `Required fields missing: ${missingFields.join(', ')}`
-        });
+      let missingFields = [];
+    
+      requiredFields.forEach(({ field, label }) => {
+        if (!rec[field]) missingFields.push(label);
+      });
+    
+      if (missingFields.length > 0) {
+        errors.push({ record: rec, error: `Required fields missing: ${missingFields.join(', ')}` });
       }
-
       if (!/^\d{12}$/.test(aadhar_no)) {
         errors.push({ record: rec, error: "Invalid Aadhar Number" });
       }
@@ -1527,11 +1531,15 @@ module.exports.bulkUploadFarmers = async (req, res) => {
     }
 
     if (errorArray.length > 0) {
-      return res.status(200).json({
-        status: 400,
-        data: { records: errorArray },
-        errors: [{ message: "Partial upload successful. Please check the error records." }]
-      });
+      const errorWorkbook = xlsx.utils.book_new();
+      const errorSheet = xlsx.utils.json_to_sheet(errorArray.map(err => ({ ...err.record, Error: err.error })));
+      xlsx.utils.book_append_sheet(errorWorkbook, errorSheet, "Errors");
+
+      const buffer = xlsx.write(errorWorkbook, { type: "buffer", bookType: "xlsx" });
+
+      res.setHeader("Content-Disposition", "attachment; filename=error_records.xlsx");
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.send(buffer);
     } else {
       return res.status(200).json({
         status: 200,
