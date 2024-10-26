@@ -103,11 +103,38 @@ exports.updateFarmerRecord = async (farmerRecord, data) => {
     farmerRecord.bank_details.account_holder_name = data.account_holder_name;
     farmerRecord.basic_details.mobile_no = data.mobile_no;
     farmerRecord.basic_details.email_id = data.email;
+
+    // const state = await getState(data.state_id);
+    // const district = await getDistrict(data.district_id);
+    // if (!state || !district) {
+    //     throw new Error("State or district not found.");
+    // }
+    // let farmerId;
+    // let uniqueId = true;
+    // let obj = {
+    //     _id: farmerRecord._id,
+    //     address: {
+    //         state: state.state_title,
+    //         district: district.district_title,
+    //     }
+    // };
+    // const uniquefarmerid = async () => {
+    //     farmerId = generateFarmerId(obj);
+    //     const existingFarmerId = await farmer.findOne({ farmer_id: farmerId });
+    //     if (!existingFarmerId) {
+    //         uniqueId = false;
+    //     }
+    // };
+    // while (uniqueId) {
+    //     await uniquefarmerid();
+    // }
+
+    // farmerRecord.farmer_id = farmerId;
     await farmerRecord.save();
     return farmerRecord;
-} catch (error) {
+    } catch (error) {
     return null;
-}
+    }
 };
 
 exports.updateRelatedRecords = async (farmer_id, data) => {
