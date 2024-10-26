@@ -421,7 +421,13 @@ module.exports.getBill = async (req, res) => {
             const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
             const billQty = (0.8 / 1000);
 
-            let records = { ...billPayment.toObject(), totalamount, mspAmount, billQty }
+            let commission = billPayment.dispatched.bills.commission;
+            
+            if(commission==0){
+                commission = (billPayment.dispatched.bills.procurementExp + billPayment.dispatched.bills.driage + billPayment.dispatched.bills.storageExp * 0.5) / 100;
+            }
+           
+            let records = { ...billPayment.toObject(), totalamount, mspAmount, billQty, commission }
 
             if (records) {
                 return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
@@ -430,6 +436,7 @@ module.exports.getBill = async (req, res) => {
         else {
             return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
         }
+        
 
     } catch (error) {
         _handleCatchErrors(error, res);
