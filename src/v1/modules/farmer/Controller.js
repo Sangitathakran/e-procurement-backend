@@ -1397,19 +1397,17 @@ module.exports.bulkUploadFarmers = async (req, res) => {
     const processFarmerRecord = async (rec) => {
       // Utility function to convert to lowercase if value exists
       const toLowerCaseIfExists = (value) => value ? value.toLowerCase() : value;
-
-      const fpo_name = rec["FPO NAME*"];
       const name = rec["NAME*"];
       const father_name = rec["FATHER NAME*"];
       const mother_name = rec["MOTHER NAME"];
       const date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)*"];
       const gender = toLowerCaseIfExists(rec["GENDER*"]);
-      const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS"]);
-      const religion = toLowerCaseIfExists(rec["RELIGION"]);
-      const category = toLowerCaseIfExists(rec["CATEGORY"]);
-      const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL"]);
+      const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS*"]);
+      const religion = toLowerCaseIfExists(rec["RELIGION*"]);
+      const category = toLowerCaseIfExists(rec["CATEGORY*"]);
+      const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL*"]);
       const edu_details = rec["EDU DETAILS"];
-      const type = toLowerCaseIfExists(rec["ID PROOF TYPE"]);
+      const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"]);
       const aadhar_no = rec["AADHAR NUMBER*"];
       const address_line = rec["ADDRESS LINE*"];
       const country = rec["COUNTRY NAME"];
@@ -1417,19 +1415,19 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const district_name = rec["DISTRICT NAME*"];
       const block = rec["BLOCK NAME"];
       const village = rec["VILLAGE NAME"];
-      const pinCode = rec["PINCODE"];
+      const pinCode = rec["PINCODE*"];
       const mobile_no = rec["MOBILE NO*"];
       const email = rec["EMAIL ID"];
-      const total_area = rec["TOTAL AREA"];
+      const total_area = rec["TOTAL AREA*"];
       const area_unit = toLowerCaseIfExists(rec["AREA UNIT"]);
-      const khasra_number = rec["KHASRA NUMBER"];
+      const khasra_number = rec["KHASRA NUMBER*"];
       const khtauni_number = rec["KHATAUNI"];
       const sow_area = rec["SOW AREA"];
       const state = rec["STATE"];
       const district = rec["DISTRICT"];
       const landvillage = rec["ViLLAGE"];
       const expected_production = rec["EXPECTED PRODUCTION"];
-      const soil_type = toLowerCaseIfExists(rec["SOIL TYPE"]);
+      const soil_type = toLowerCaseIfExists(rec["SOIL TYPE*"]);
       const soil_tested = toLowerCaseIfExists(rec["SOIL TESTED"]);
       const soil_health_card = toLowerCaseIfExists(rec["SOIL HEALTH CARD"]);
       const soil_testing_lab_name = rec["SOIL TESTING LAB NAME"];
@@ -1455,9 +1453,9 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const crop_insurance = toLowerCaseIfExists(rec["CROP INSURANCE"]);
       const insurance_company = rec["INSURANCE COMPANY"];
       const insurance_worth = rec["INSURANCE WORTH"];
-      const crop_season = toLowerCaseIfExists(rec["CROP SEASONS"]);
+      const crop_season = toLowerCaseIfExists(rec["CROP SEASONS*"]);
       const bank_name = rec["BANK NAME"];
-      const account_no = rec["ACCOUNT NUMBER"];
+      const account_no = rec["ACCOUNT NUMBER*"];
       const branch_name = rec["BRANCH"];
       const ifsc_code = rec["IFSC CODE"];
       const account_holder_name = rec["ACCOUNT HOLDER NAME"];
