@@ -172,7 +172,7 @@ module.exports.saveFarmerDetails = async (req, res) => {
         let {state,district}=req.body[screenName];
 
         const isStateExist = await isStateAvailable(state)
-        const isDistrictExist = await isDistrictAvailable(district)
+        const isDistrictExist = await isDistrictAvailable(state, district)
 
         if(!isStateExist){
           return res.status(400).send({ message: "State not available"})
@@ -727,7 +727,7 @@ module.exports.createLand = async (req, res) => {
     }
 
     const isStateExist = await isStateAvailable(state)
-    const isDistrictExist = await isDistrictAvailable(district)
+    const isDistrictExist = await isDistrictAvailable(state, district)
 
     if(!isStateExist){
       return res.status(400).send({ message: "State not available"})
