@@ -14,7 +14,7 @@ const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { User } = require("@src/v1/models/app/auth/User");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
-
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
 module.exports.getProcurement = async (req, res) => {
     try {
@@ -103,7 +103,7 @@ module.exports.getProcurement = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
         } else {
             // Find requests that have no offers or are open
-            query.status = _requestStatus.open;
+            query.status = { $in: [_requestStatus.open, _requestStatus.partially_fulfulled] };
             const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
             query._id = { $nin: offerIds };
 
@@ -144,6 +144,8 @@ module.exports.getProcurementById = async (req, res) => {
         }
 
         record.myOffer = await AssociateOffers.findOne({ req_id: id });
+        
+        record.no_of_batch = await Batch.countDocuments({ req_id: id });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("procurement") }))
 

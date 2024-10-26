@@ -9,19 +9,19 @@ const mongoose = require("mongoose");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { PaymentLogs } = require("@src/v1/models/app/procurement/PaymentLogs");
+const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 
 
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', tab = 0, isExport = 0 } = req.query
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
         const { user_id } = req
 
-
-        const paymentIds = (await Payment.find({ associate_id: user_id })).map(i => i.req_id)
+        let paymentIds = tab == 0 ? (await Payment.find({ associate_id: user_id })).map(i => i.req_id) : (await AssociateInvoice.find({ associate_id: user_id })).map(i => i.req_id)
 
         const aggregationPipeline = [
             { $match: { _id: { $in: paymentIds } } },
@@ -149,11 +149,9 @@ module.exports.payment = async (req, res) => {
             const record = response.rows.map((item) => {
                 return {
                     "Order ID": item?.reqNo || 'NA',
-                    "Batch ID": item?.batchId || 'NA',
-                    "Commodity": item?.commodity || 'NA',
-                    "Quantity Purchased": item?.qtyProcured || 'NA',
+                    "Commodity": item?.product.name || 'NA',
+                    "Quantity Purchased": item?.qtyPurchased || 'NA',
                     "Payment Status": item?.payment_status ?? 'NA',
-                    "Approval Status": item?.status ?? 'NA'
                 }
             })
 
@@ -179,10 +177,10 @@ module.exports.payment = async (req, res) => {
 module.exports.batchList = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', tab = 0, req_id, isExport = 0 } = req.query
         const { user_id } = req
 
-        const paymentIds = (await Payment.find({ associate_id: user_id, req_id })).map(i => i.batch_id)
+        const paymentIds = tab == 0 ? (await Payment.find({ associate_id: user_id, req_id })).map(i => i.batch_id) : (await AssociateInvoice.find({ associate_id: user_id, req_id })).map(i => i.batch_id)
         let query = {
             req_id,
             _id: { $in: paymentIds },
@@ -205,7 +203,35 @@ module.exports.batchList = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+
+                return {
+                    "Batch ID": item?.batchId || "NA",
+                    "Delivery Date": item?.delivered.delivered_at || "NA",
+                    "Payment Due Date": item?.payement_approval_at || "NA",
+                    "Quantity Purchased": item.qty || "NA",
+                    "Total Price": item.totalPrice || "NA",
+                    "Payment Status": item.status || "NA",
+                }
+            })
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Batch-${'Batch'}.xlsx`,
+                    worksheetName: `Batch-record-${'Batch'}`
+                });
+
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Batch") }))
+            }
+
+        }
+        else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+        }
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -602,28 +628,9 @@ module.exports.getBill = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
-        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+        const records = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
 
-        if (billPayment) {
-            let totalamount = billPayment.totalPrice;
-
-            const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });
-
-            let commission = billPayment.dispatched.bills.commission;
-
-            if (commission == 0) {
-                commission = (billPayment.dispatched.bills.procurementExp + billPayment.dispatched.bills.driage + billPayment.dispatched.bills.storageExp * 1) / 100;
-            }
-
-            let records = { ...billPayment.toObject(), commission }
-
-            if (records) {
-                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
-            }
-        }
-        else {
-            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
-        }
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
