@@ -16,45 +16,144 @@ module.exports.payment = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
 
-        const { user_id } = req;
+        let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
-        let query = {
-            user_id,
-            ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        const { user_id } = req
+
+
+        const paymentIds = (await Payment.find({ associate_id: user_id })).map(i => i.req_id)
+
+        const aggregationPipeline = [
+            { $match: { _id: { $in: paymentIds } } },
+            {
+                $lookup: {
+                    from: 'batches',
+                    localField: '_id',
+                    foreignField: 'req_id',
+                    as: 'batches',
+                    pipeline: [{
+                        $lookup: {
+                            from: 'payments',
+                            localField: '_id',
+                            foreignField: 'batch_id',
+                            as: 'payment',
+                        }
+                    }],
+                }
+            },
+            {
+                $match: {
+                    batches: { $ne: [] }
+                }
+            },
+            {
+                $addFields: {
+                    approval_status: {
+                        $cond: {
+                            if: {
+                                $anyElementTrue: {
+                                    $map: {
+                                        input: '$batches',
+                                        as: 'batch',
+                                        in: {
+                                            $or: [
+                                                { $not: { $ifNull: ['$$batch.bo_approval_at', true] } },  // Check if the field is missing
+                                                { $eq: ['$$batch.bo_approval_at', null] },  // Check for null value
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            then: 'Pending',
+                            else: 'Approved'
+                        }
+                    },
+                    qtyPurchased: {
+                        $reduce: {
+                            input: '$batches',
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this.qty'] }  // Sum of qty from batches
+                        }
+                    },
+                    amountPayable: {
+                        $reduce: {
+                            input: '$batches',
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this.totalPrice'] }  // Sum of totalPrice from batches
+                        }
+                    },
+                    payment_status: {
+                        $cond: {
+                            if: {
+                                $anyElementTrue: {
+                                    $map: {
+                                        input: '$batches',
+                                        as: 'batch',
+                                        in: {
+                                            $anyElementTrue: {
+                                                $map: {
+                                                    input: '$$batch.payment',
+                                                    as: 'pay',
+                                                    in: {
+                                                        $eq: ['$$pay.payment_status', 'Pending']  // Assuming status field exists in payments
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            then: 'Pending',
+                            else: 'Approved'
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    reqNo: 1,
+                    product: 1,
+                    approval_status: 1,
+                    qtyPurchased: 1,
+                    amountPayable: 1,
+                    payment_status: 1
+                }
+            },
+            { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit) }
+        ];
+        const records = await RequestModel.aggregate([
+            ...aggregationPipeline,
+            {
+                $facet: {
+                    data: aggregationPipeline, // Aggregate for data
+                    totalCount: [{ $count: 'count' }] // Count the documents
+                }
+            }
+        ]);
+
+        const response = {
+            count: records[0]?.totalCount[0]?.count || 0,
+            rows: records[0]?.data || []
         };
-
-        if (user_type == _userType.farmer) {
-            query.user_type = _userType.farmer;
-
-        } else if (user_type == _userType.associate) {
-            query.user_type = _userType.associate;
-        }
-
-        const records = { count: 0 };
-        records.rows = paginate == 1 ? await Payment.find(query)
-            .populate({
-                path: 'whomToPay', select: '_id associate_id farmer_code name'
-            })
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await Payment.find(query).sort(sortBy);
-
-        records.count = await Payment.countDocuments(query);
-
         if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+            response.page = page
+            response.limit = limit
+            response.pages = limit != 0 ? Math.ceil(response.count / limit) : 0
         }
 
         if (isExport == 1) {
 
-            const record = records.rows.map((item) => {
+            const record = response.rows.map((item) => {
                 return {
-                    "Request ID": item?.reqNo || 'NA',
+                    "Order ID": item?.reqNo || 'NA',
+                    "Batch ID": item?.batchId || 'NA',
                     "Commodity": item?.commodity || 'NA',
                     "Quantity Purchased": item?.qtyProcured || 'NA',
-                    "Status": item?.status ?? 'NA'
+                    "Payment Status": item?.payment_status ?? 'NA',
+                    "Approval Status": item?.status ?? 'NA'
                 }
             })
 
@@ -62,14 +161,109 @@ module.exports.payment = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-${user_type}.xlsx`,
-                    worksheetName: `Payment-record-${user_type}`
+                    fileName: `Payment-record.xlsx`,
+                    worksheetName: `Payment-record`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
+                return res.status(200).send(new serviceResponse({ status: 400, data: response, message: _response_message.notFound("Payment") }))
             }
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+            return res.status(200).send(new serviceResponse({ status: 200, data: response, message: _response_message.found("Payment") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.batchList = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
+        const { user_id } = req
+
+        const paymentIds = (await Payment.find({ associate_id: user_id, req_id })).map(i => i.batch_id)
+        let query = {
+            req_id,
+            _id: { $in: paymentIds },
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        const records = { count: 0 };
+
+        records.rows = paginate == 1 ? await Batch.find(query)
+            .sort(sortBy)
+            .skip(skip)
+            .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status status')
+            .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
+
+        records.count = await Batch.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.lotList = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
+
+        const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
+
+        let farmerOrderIdsOnly = {}
+
+        if (batchIds && batchIds.length > 0) {
+            farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
+            console.log(farmerOrderIdsOnly);
+        } else {
+            console.log('No Farmer found with this batch.');
+        }
+
+        let query = {
+            _id: farmerOrderIdsOnly,
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        const records = { count: 0 };
+
+        const rows = paginate == 1 ? await FarmerOrders.find(query)
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await FarmerOrders.find(query)
+                .sort(sortBy);
+
+        records.rows = rows.map((item) => {
+            return {
+                "lotId": item?.metaData.farmer_code || 'NA',
+                "FarmerName": item?.metaData.name || 'NA',
+                "qty_purchased": item?.qtyProcured ?? 'NA',
+                "total_amount": item?.net_pay ?? 'NA',
+                "payment_status": item?.status ?? 'NA'
+            }
+        });
+
+        records.count = await FarmerOrders.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (records) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        }
+        else {
+            return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
         }
 
     } catch (error) {
@@ -176,71 +370,6 @@ module.exports.associateOrders = async (req, res) => {
                 return {
                     "Request ID": item?.reqNo || 'NA',
                     "Commodity": item?.commodity || 'NA',
-                    "Quantity Purchased": item?.qtyProcured || 'NA',
-                    "Status": item?.status ?? 'NA'
-                }
-            })
-
-            if (record.length > 0) {
-
-                dumpJSONToExcel(req, res, {
-                    data: record,
-                    fileName: `Payment-${user_type}.xlsx`,
-                    worksheetName: `Payment-record-${user_type}`
-                });
-            } else {
-                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
-            }
-        } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
-        }
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-}
-
-module.exports.batchList = async (req, res) => {
-
-    try {
-
-        // const { user_id, user_type } = req;
-
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
-
-        let query = {
-            req_id,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
-        };
-
-        const records = { count: 0 };
-
-        records.reqDetails = await RequestModel.findOne({ _id: req_id })
-            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
-
-        records.rows = paginate == 1 ? await Batch.find(query)
-            .populate({
-                path: 'procurementCenter_id', select: '_id center_name center_code center_type address'
-            })
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
-
-        records.count = await Batch.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-
-        if (isExport == 1) {
-
-            const record = records.rows.map((item) => {
-                return {
-                    "Batch ID": item?.batchId || 'NA',
-                    "procurementCenter_id": item?.procurementCenter_id || 'NA',
                     "Quantity Purchased": item?.qtyProcured || 'NA',
                     "Status": item?.status ?? 'NA'
                 }
@@ -473,86 +602,27 @@ module.exports.getBill = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
-        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice:1, totalPrice:1, dispatched:1 });
-        
-        if(billPayment){
+        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+
+        if (billPayment) {
             let totalamount = billPayment.totalPrice;
-            
+
             const reqDetails = await Payment.find({ req_id: billPayment.req_id }).select({ _id: 0, amount: 1 });
-            
+
             let commission = billPayment.dispatched.bills.commission;
-           
-            if(commission==0){
+
+            if (commission == 0) {
                 commission = (billPayment.dispatched.bills.procurementExp + billPayment.dispatched.bills.driage + billPayment.dispatched.bills.storageExp * 1) / 100;
             }
-           
+
             let records = { ...billPayment.toObject(), commission }
-            
+
             if (records) {
                 return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
             }
         }
         else {
             return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
-        }
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-}
-
-module.exports.lotList = async (req, res) => {
-
-    try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
-
-        const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
-        
-        let farmerOrderIdsOnly = {}
-
-        if (batchIds && batchIds.length > 0) {
-            farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
-            console.log(farmerOrderIdsOnly);
-        } else {
-            console.log('No Farmer found with this batch.');
-        }
-
-        let query = {
-            _id: farmerOrderIdsOnly,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
-        };
-        
-        const records = { count: 0 };
-
-        const rows = paginate == 1 ? await FarmerOrders.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await FarmerOrders.find(query)
-            .sort(sortBy);
-
-        records.rows = rows.map((item) => {
-            return {
-                "lotId": item?.metaData.farmer_code || 'NA',
-                "FarmerName": item?.metaData.name || 'NA',
-                "qty_purchased": item?.qtyProcured ?? 'NA',
-                "total_amount": item?.net_pay ?? 'NA',
-                "payment_status": item?.status ?? 'NA'
-            }
-        });
-
-        records.count = await FarmerOrders.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-        if (records) {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
-        }
-        else {
-            return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
         }
 
     } catch (error) {
@@ -585,14 +655,14 @@ module.exports.paymentLogs = async (req, res) => {
             .skip(skip)
             .limit(parseInt(limit)) : await PaymentLogs.find(query).sort(sortBy);
 
-            let role = '';
+        let role = '';
         records.rows = rows.map((item) => {
 
-            if(item?.updated_by.user_type ==3){role = 'BO'}
-            else if(item?.updated_by.user_type ==6){role = 'Agent'}
-            else if(item?.updated_by.user_type ==2){role = 'HO'}
-            else {role = 'Admin'}
-          
+            if (item?.updated_by.user_type == 3) { role = 'BO' }
+            else if (item?.updated_by.user_type == 6) { role = 'Agent' }
+            else if (item?.updated_by.user_type == 2) { role = 'HO' }
+            else { role = 'Admin' }
+
             return {
                 "Log time": item?.createdAt || 'NA',
                 "role": role || 'NA',

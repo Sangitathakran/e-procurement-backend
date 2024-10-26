@@ -11,6 +11,7 @@ const { TypesModel } = require('@src/v1/models/master/Types');
 const { MasterUser } = require('@src/v1/models/master/MasterUser');
 const UserRole = require('@src/v1/models/master/UserRole');
 const getIpAddress = require('@src/v1/utils/helpers/getIPAddress');
+const { _frontendLoginRoutes } = require('@src/v1/utils/constants');
 
 
 module.exports.getHo = async (req, res) => {
@@ -128,17 +129,16 @@ module.exports.saveHeadOffice = async (req, res) => {
         }
 
         const savedHeadOffice = await headOffice.save();
-        const hoPocData = {
-            email: savedHeadOffice.point_of_contact.email,
-            name: savedHeadOffice.point_of_contact.name,
-            password: password,
-        }
-        const hoAuthorisedData = {
+
+        const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes.ho}`
+
+        const emailPayload = {
             email: savedHeadOffice.authorised.email,
             name: savedHeadOffice.authorised.name,
             password: password,
+            login_url: login_url
         }
-        await emailService.sendHoCredentialsEmail(hoAuthorisedData);
+        await emailService.sendHoCredentialsEmail(emailPayload);
 
 
 

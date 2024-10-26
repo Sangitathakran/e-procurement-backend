@@ -1,4 +1,4 @@
-const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel, isStateAvailable, isDistrictAvailable, updateDistrict } = require("@src/v1/utils/helpers")
 const {  _userType } = require('@src/v1/utils/constants');
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
@@ -170,13 +170,24 @@ module.exports.saveFarmerDetails = async (req, res) => {
 
       if(screenName=='address'){
         let {state,district}=req.body[screenName];
-        const state_id = await getStateId(state);
-    const district_id = await getDistrictId(district);
-        farmerDetails[screenName]={
-          ...req.body[screenName],
-          state_id,
-          district_id
+
+        const isStateExist = await isStateAvailable(state)
+        const isDistrictExist = await isDistrictAvailable(district)
+
+        if(!isStateExist){
+          return res.status(400).send({ message: "State not available"})
         }
+
+        if(!isDistrictExist){
+          await updateDistrict(state, district)
+        }
+
+        const state_id = await getStateId(state);
+        const district_id = await getDistrictId(district);
+
+        farmerDetails[screenName]={...req.body[screenName],
+                                      state_id,
+                                      district_id }
       }
       // farmerDetails.steps = req.body?.steps;
       await farmerDetails.save();
@@ -263,45 +274,29 @@ module.exports.submitForm = async (req, res) => {
     const { id } = req.params;
 
     const farmerDetails = await farmer.findById(id)
-    // .populate('address.state_id')
-    const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails.address.state_id.toString() } } },{ "states.$": 1 });
-  
-  const districts = state.states[0].districts.find(item=>item._id==farmerDetails.address.district_id.toString())
+
     
-    const generateFarmerId = (farmer) => {
-      const stateData = stateList.stateList.find(
-        (item) =>
-          item.state.toLowerCase() === state.states[0].state_title.toLowerCase()
-      );
-      // console.log("stateData--->", stateData)
-      const district = stateData.districts.find(
-        (item) =>
-          item.districtName.toLowerCase() ===districts.district_title.toLowerCase()
-      );
 
-      if (!district) {
-        return sendResponse({
-          res,
-          status: 400,
-          message: _response_message.notFound(
-            `${farmer.address.district} district`
-          ),
-        })
+    const state= await getState(farmerDetails.address.state_id);
+    const district = await getDistrict(farmerDetails.address.district_id);
+    let obj = {
+      _id: savedFarmer._id,
+      address: {
+        state: state.state_title,
+        district: district.district_title,
       }
-      // console.log("district--->", district)
-      const stateCode = stateData.stateCode;
-      const districtSerialNumber = district.serialNumber;
-      // const districtCode = district.districtCode;
-      const farmer_mongo_id = farmer._id.toString().slice(-3).toUpperCase()
-      const randomNumber = Math.floor(100 + Math.random() * 900);
-
-      const farmerId =
-        stateCode + districtSerialNumber + farmer_mongo_id + randomNumber;
-      // console.log("farmerId-->", farmerId)
-      return farmerId;
     };
-    const farmer_id = await generateFarmerId(farmerDetails);
-      console.log(farmer_id)
+    
+    const farmer_id = await generateFarmerId(obj);
+
+    if(farmer_id==null){
+      return sendResponse({
+        res,
+        status: 400,
+        message: _response_message.notFound("Disrtict"),
+      })
+    }
+      
     if (farmerDetails && farmer_id) {
       const landDetails = await Land.find({farmer_id:id});
         const cropDetails=await Crop.find({farmer_id:id})
@@ -730,6 +725,19 @@ module.exports.createLand = async (req, res) => {
         errors: [{ message: _response_message.allReadyExist("Land") }]
       }));
     }
+
+    const isStateExist = await isStateAvailable(state)
+    const isDistrictExist = await isDistrictAvailable(district)
+
+    if(!isStateExist){
+      return res.status(400).send({ message: "State not available"})
+    }
+
+    if(!isDistrictExist){
+      await updateDistrict(state, district)
+    }
+
+        
     const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
     
