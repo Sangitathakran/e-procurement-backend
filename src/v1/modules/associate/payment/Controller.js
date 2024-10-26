@@ -606,7 +606,6 @@ module.exports.getBill = async (req, res) => {
 
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
 
-
     } catch (error) {
         _handleCatchErrors(error, res);
     }
