@@ -25,7 +25,7 @@ const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
 module.exports.importBranches = async (req, res) => {
   try {
-    const headOfficeId = req.params.id;
+    const headOfficeId = req.user._id;
     if (!headOfficeId) {
       return res.status(403).json({
         message: "HeadOffice not found",
@@ -263,6 +263,7 @@ module.exports.importBranches = async (req, res) => {
           pointOfContactPhone: '1234567890',
           pointOfContactEmail: 'user1@example.com',
           address: 'Noida',
+          district: 'District 1',
           cityVillageTown: 'Sample Town 1',
           state: 'State 1',
           pincode: '123456'
@@ -274,6 +275,7 @@ module.exports.importBranches = async (req, res) => {
           pointOfContactPhone: '0987654321',
           pointOfContactEmail: 'user2@example.com',
           address: 'New Delhi',
+          district: 'District 2',
           cityVillageTown: 'Sample Town 2',
           state: 'State 2',
           pincode: '654321'

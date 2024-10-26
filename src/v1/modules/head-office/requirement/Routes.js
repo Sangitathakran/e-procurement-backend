@@ -1,9 +1,10 @@
 const express = require("express");
 const requireMentRoutes = express.Router();
 
-const {requireMentList,batchListByRequestId, qcDetailsById } = require("./Controller");
+const {requireMentList,batchListByRequestId, qcDetailsById,requirementById } = require("./Controller");
 const {Auth}=require('../../../middlewares/jwt');
 requireMentRoutes.get('/requirement-list',Auth,requireMentList);
+requireMentRoutes.get('/:requirementId',Auth,requirementById);
 requireMentRoutes.get('/batch-list/:id',Auth,batchListByRequestId)
 requireMentRoutes.get('/qcDetail/:id',Auth,qcDetailsById)
 module.exports = { requireMentRoutes };

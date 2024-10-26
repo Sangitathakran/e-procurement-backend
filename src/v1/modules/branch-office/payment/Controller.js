@@ -265,12 +265,9 @@ module.exports.batchList = async (req, res) => {
         const records = { count: 0 };
 
         records.rows = paginate == 1 ? await Batch.find(query)
-            .populate({
-                path: 'procurementCenter_id', select: '_id center_name center_code center_type address'
-            })
             .sort(sortBy)
             .skip(skip)
-            .select('_id procurementCenter_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_approve_by')
+            .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status')
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
@@ -467,7 +464,6 @@ module.exports.lot_list = async (req, res) => {
             .limit(parseInt(limit)) : await FarmerOrders.find(query)
                 .sort(sortBy);
 
-        let farmerName = {}
 
         records.rows = await Promise.all(records.rows.map(async record => {
 

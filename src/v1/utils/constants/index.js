@@ -310,6 +310,7 @@ const _batchStatus = {
     delivered: "Delivered",
     finalQc: "Final Qc",
     paymentApproved: "Payment Approved",
+    FinalPayApproved: "Final Payment Approved",
     paymentComplete: "Payment Complete"
 }
 
