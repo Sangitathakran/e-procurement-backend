@@ -107,7 +107,7 @@ exports._addDays = (days) => {
 
 const farmerIdGenerator = async (obj) => {
     try {
-      
+      console.log("obj-->", obj)
       // get the state district date from our db
       const stateDistrictList = await StateDistrictCity.findOne({})
 
