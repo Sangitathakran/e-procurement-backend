@@ -103,7 +103,7 @@ module.exports.getProcurement = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
         } else {
             // Find requests that have no offers or are open
-            query.status = _requestStatus.open;
+            query.status = { $in: [_requestStatus.open, _requestStatus.partially_fulfulled] };
             const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
             query._id = { $nin: offerIds };
 
