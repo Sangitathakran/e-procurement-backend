@@ -318,6 +318,12 @@ module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
 
     const record = await RequestModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
 
+    const associateOffer = await AssociateOffers.find({ req_id: id });
+
+    if (associateOffer.length != 0) {
+        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.allReadyExist("associate offer") }));
+    }
+
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("request") }));
     }

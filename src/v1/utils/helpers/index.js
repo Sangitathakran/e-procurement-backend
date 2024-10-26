@@ -115,7 +115,6 @@ const farmerIdGenerator = async (obj) => {
       const stateData = stateDistrictList.states.find(
         (item) => item.state_title.toLowerCase() === obj.address.state.toLowerCase()
       );
-  
       if (!stateData) {
         throw new Error(`State not found for ${obj.address.state}`);
       }
@@ -124,7 +123,6 @@ const farmerIdGenerator = async (obj) => {
       const district = stateData.districts.find(
         (item) => item.district_title.toLowerCase() === obj.address.district.toLowerCase()
       );
-  
       if (!district) {
         throw new Error(`District not found for ${obj.address.district}`);
       }
@@ -135,7 +133,6 @@ const farmerIdGenerator = async (obj) => {
       const randomNumber = Math.floor(100 + Math.random() * 900); 
   
       const farmerId = `${stateCode}${districtSerialNumber}${farmerMongoId}${randomNumber}`;
-  
       return farmerId;
   
     } catch (error) {
@@ -315,13 +312,14 @@ exports.getStateId = async (stateName) => {
             'states.state_title': stateName
         });
         if (stateDoc) {
-            const state = stateDoc.states.find(state => state.state_title === stateName);
-            if (state)
-                myAddress.set(stateName, state._id)
-            return state ? state._id : null;
-        } else {
-            return null;
+            const state = stateDoc.states.find(state => state.state_title == stateName);
+            // console.log('state', state._id);
+            if (state) {
+                myAddress.set(stateName, state._id);
+                return state._id; 
+            }
         }
+        throw new Error(`Farmer State Name Not Found: ${stateName}`);
     } catch (error) {
         throw new Error(`Error fetching state ID: ${error.message}`);
     }
@@ -339,13 +337,14 @@ exports.getDistrictId = async (districtName) => {
         if (stateDoc) {
             for (const state of stateDoc.states) {
                 const district = state.districts.find(district => district.district_title === districtName);
+                // console.log('state', district._id);
                 if (district) {
                     myAddress.set(districtName, district._id)
                     return district._id;
                 }
             }
         }
-        return null;
+        throw new Error(`Farmer District Name Not Found: ${districtName}`);
     } catch (error) {
         throw new Error(`Error fetching district ID: ${error.message}`);
     }

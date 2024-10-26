@@ -153,7 +153,7 @@ module.exports.getProcurementById = async (req, res) => {
 }
 
 module.exports.updateProcurement = async (req, res) => {
-
+    /*TODO : is this controller is in used or not ?  */
     try {
         const { user_id } = req;
         const { id, quotedPrice, deliveryDate, name, category, grade, variety, quantity, deliveryLocation, lat, long } = req.body;
@@ -657,7 +657,7 @@ module.exports.editFarmerOffer = async (req, res) => {
 
         await record.save();
 
-        if (status == _associateOfferStatus.received) {
+        if (status == _procuredStatus.received) {
             const associateOfferRecord = await AssociateOffers.findOne({ _id: record?.associateOffers_id });
             associateOfferRecord.procuredQty += qtyProcured;
             await associateOfferRecord.save();
