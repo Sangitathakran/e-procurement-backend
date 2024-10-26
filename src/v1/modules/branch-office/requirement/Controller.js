@@ -7,6 +7,7 @@ const { _response_message, _middleware } = require("@src/v1/utils/constants/mess
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const moment = require("moment");
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
 
@@ -73,7 +74,7 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
 
 module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query;
+    const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport =0 } = req.query;
 
 
     let query = search ? {
@@ -107,7 +108,35 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
+    
+    if (isExport == 1) {
+
+        const record = records.rows.map((item) => {
+            return {
+                "Batch ID": item?.batchId || 'NA',
+                "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || 'NA',
+                "Procurement Center": item?.procurementCenter_id.center_name || 'NA',
+                "Quantity Procured": item?.qty || 'NA',
+                "Delivered On": item?.delivered.delivered_at ?? 'NA',
+                "Batch Status": item?.status ?? 'NA'
+            }
+        })
+
+        if (record.length > 0) {
+
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Requirement-Batch-record.xlsx`,
+                worksheetName: `Requirement-Batch-record`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
+    }
+    
+    // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
 
 })
 
