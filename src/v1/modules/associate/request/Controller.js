@@ -153,7 +153,7 @@ module.exports.getProcurementById = async (req, res) => {
 }
 
 module.exports.updateProcurement = async (req, res) => {
-
+    /*TODO : is this controller is in used or not ?  */
     try {
         const { user_id } = req;
         const { id, quotedPrice, deliveryDate, name, category, grade, variety, quantity, deliveryLocation, lat, long } = req.body;
