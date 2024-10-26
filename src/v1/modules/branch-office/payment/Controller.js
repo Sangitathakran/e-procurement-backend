@@ -411,32 +411,9 @@ module.exports.getBill = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
-        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+        const records = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
 
-        if (billPayment) {
-
-            const totalamount = billPayment.totalPrice;
-            let mspPercentage = 1; // The percentage you want to calculate       
-
-            const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
-            const billQty = (0.8 / 1000);
-
-            let commission = billPayment.dispatched.bills.commission;
-            
-            if(commission==0){
-                commission = (billPayment.dispatched.bills.procurementExp + billPayment.dispatched.bills.driage + billPayment.dispatched.bills.storageExp * 0.5) / 100;
-            }
-           
-            let records = { ...billPayment.toObject(), totalamount, mspAmount, billQty, commission }
-
-            if (records) {
-                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
-            }
-        }
-        else {
-            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
-        }
-        
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
