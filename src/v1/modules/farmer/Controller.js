@@ -1539,15 +1539,12 @@ module.exports.bulkUploadFarmers = async (req, res) => {
     }
 
     if (errorArray.length > 0) {
-      const errorWorkbook = xlsx.utils.book_new();
-      const errorSheet = xlsx.utils.json_to_sheet(errorArray.map(err => ({ ...err.record, Error: err.error })));
-      xlsx.utils.book_append_sheet(errorWorkbook, errorSheet, "Errors");
-
-      const buffer = xlsx.write(errorWorkbook, { type: "buffer", bookType: "xlsx" });
-
-      res.setHeader("Content-Disposition", "attachment; filename=error_records.xlsx");
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.send(buffer);
+      const errorData = errorArray.map(err => ({ ...err.record, Error: err.error }));
+      dumpJSONToExcel(req, res, {
+        data: errorData,
+        fileName: `Farmer-error_records.xlsx`,
+        worksheetName: `Farmer-record-error_records`
+    });
     } else {
       return res.status(200).json({
         status: 200,
