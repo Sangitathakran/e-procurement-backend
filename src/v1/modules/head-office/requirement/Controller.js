@@ -15,7 +15,8 @@ const {
   Batch,
 } = require("@src/v1/models/app/procurement/Batch");
 const Branches = require("@src/v1/models/app/branchManagement/Branches");
-const {getFilter}=require("@src/v1/utils/helpers/customFilter")
+const {getFilter}=require("@src/v1/utils/helpers/customFilter");
+const { received_qc_status } = require("@src/v1/utils/constants");
 //widget list
 module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
   try {
