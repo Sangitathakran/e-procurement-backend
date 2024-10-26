@@ -149,11 +149,9 @@ module.exports.payment = async (req, res) => {
             const record = response.rows.map((item) => {
                 return {
                     "Order ID": item?.reqNo || 'NA',
-                    "Batch ID": item?.batchId || 'NA',
-                    "Commodity": item?.commodity || 'NA',
-                    "Quantity Purchased": item?.qtyProcured || 'NA',
+                    "Commodity": item?.product.name || 'NA',
+                    "Quantity Purchased": item?.qtyPurchased || 'NA',
                     "Payment Status": item?.payment_status ?? 'NA',
-                    "Approval Status": item?.status ?? 'NA'
                 }
             })
 
@@ -179,7 +177,7 @@ module.exports.payment = async (req, res) => {
 module.exports.batchList = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
         const { user_id } = req
 
         const paymentIds = (await Payment.find({ associate_id: user_id, req_id })).map(i => i.batch_id)
@@ -205,7 +203,35 @@ module.exports.batchList = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+
+                return {
+                    "Batch ID": item?.batchId || "NA",
+                    "Delivery Date": item?.delivered.delivered_at || "NA",
+                    "Payment Due Date": item?.payement_approval_at || "NA",
+                    "Quantity Purchased": item.qty || "NA",
+                    "Total Price": item.totalPrice || "NA",
+                    "Payment Status": item.status || "NA",
+                }
+            })
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Batch-${'Batch'}.xlsx`,
+                    worksheetName: `Batch-record-${'Batch'}`
+                });
+
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Batch") }))
+            }
+
+        }
+        else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+        }
 
     } catch (error) {
         _handleCatchErrors(error, res);
