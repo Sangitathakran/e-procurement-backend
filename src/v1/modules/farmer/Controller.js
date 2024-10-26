@@ -1,4 +1,4 @@
-const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel, isStateAvailable, isDistrictAvailable, updateDistrict } = require("@src/v1/utils/helpers")
 const {  _userType } = require('@src/v1/utils/constants');
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
@@ -170,13 +170,24 @@ module.exports.saveFarmerDetails = async (req, res) => {
 
       if(screenName=='address'){
         let {state,district}=req.body[screenName];
-        const state_id = await getStateId(state);
-    const district_id = await getDistrictId(district);
-        farmerDetails[screenName]={
-          ...req.body[screenName],
-          state_id,
-          district_id
+
+        const isStateExist = await isStateAvailable(state)
+        const isDistrictExist = await isDistrictAvailable(district)
+
+        if(!isStateExist){
+          return res.status(400).send({ message: "State not available"})
         }
+
+        if(!isDistrictExist){
+          await updateDistrict(state, district)
+        }
+
+        const state_id = await getStateId(state);
+        const district_id = await getDistrictId(district);
+
+        farmerDetails[screenName]={...req.body[screenName],
+                                      state_id,
+                                      district_id }
       }
       // farmerDetails.steps = req.body?.steps;
       await farmerDetails.save();
@@ -263,40 +274,21 @@ module.exports.submitForm = async (req, res) => {
     const { id } = req.params;
 
     const farmerDetails = await farmer.findById(id)
-    // .populate('address.state_id')
-    const state = await StateDistrictCity.findOne({ "states": { $elemMatch: { "_id": farmerDetails.address.state_id.toString() } } },{ "states.$": 1 });
-  console.log(state.states[0].districts)
-  const districts = state.states[0].districts.find(item=>item._id==farmerDetails.address.district_id.toString())
-    console.log('disctrict',districts)
-    const generateFarmerId = (farmer) => {
-      const stateData = stateList.stateList.find(
-        (item) =>
-          item.state.toLowerCase() === state.states[0].state_title.toLowerCase()
-      );
-      // console.log("stateData--->", stateData)
-      const district = stateData.districts.find(
-        (item) =>
-          item.districtName.toLowerCase() ===districts.district_title.toLowerCase()
-      );
 
-      if (!district) {
-        return null
-      }else{
- // console.log("district--->", district)
- const stateCode = stateData.stateCode;
- const districtSerialNumber = district.serialNumber;
- // const districtCode = district.districtCode;
- const farmer_mongo_id = farmer._id.toString().slice(-3).toUpperCase()
- const randomNumber = Math.floor(100 + Math.random() * 900);
+    
 
- const farmerId =
-   stateCode + districtSerialNumber + farmer_mongo_id + randomNumber;
- // console.log("farmerId-->", farmerId)
- return farmerId;
+    const state= await getState(farmerDetails.address.state_id);
+    const district = await getDistrict(farmerDetails.address.district_id);
+    let obj = {
+      _id: savedFarmer._id,
+      address: {
+        state: state.state_title,
+        district: district.district_title,
       }
-     
     };
-    const farmer_id = await generateFarmerId(farmerDetails);
+    
+    const farmer_id = await generateFarmerId(obj);
+
     if(farmer_id==null){
       return sendResponse({
         res,
@@ -733,6 +725,19 @@ module.exports.createLand = async (req, res) => {
         errors: [{ message: _response_message.allReadyExist("Land") }]
       }));
     }
+
+    const isStateExist = await isStateAvailable(state)
+    const isDistrictExist = await isDistrictAvailable(district)
+
+    if(!isStateExist){
+      return res.status(400).send({ message: "State not available"})
+    }
+
+    if(!isDistrictExist){
+      await updateDistrict(state, district)
+    }
+
+        
     const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
     
@@ -1455,24 +1460,28 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const branch_name = rec["BRANCH"];
       const ifsc_code = rec["IFSC CODE"];
       const account_holder_name = rec["ACCOUNT HOLDER NAME"];
-
+      
+      const requiredFields = [
+        { field: "NAME*", label: "NAME" },
+        { field: "FATHER NAME*", label: "FATHER NAME" },
+        { field: "GENDER*", label: "GENDER" },
+        { field: "AADHAR NUMBER*", label: "AADHAR NUMBER" },
+        { field: "ADDRESS LINE*", label: "ADDRESS LINE" },
+        { field: "STATE NAME*", label: "STATE NAME" },
+        { field: "DISTRICT NAME*", label: "DISTRICT NAME" },
+        { field: "MOBILE NO*", label: "MOBILE NUMBER" }
+      ];
+    
       let errors = [];
-      if (!name || !father_name || !gender || !aadhar_no || !address_line || !state_name || !district_name || !mobile_no) {
-        let missingFields = [];
-        if (!name) missingFields.push('NAME');
-        if (!father_name) missingFields.push('FATHER NAME');
-        if (!gender) missingFields.push('GENDER');
-        if (!aadhar_no) missingFields.push('AADHAR NUMBER');
-        if (!address_line) missingFields.push('ADDRESS LINE');
-        if (!state_name) missingFields.push('STATE NAME');
-        if (!district_name) missingFields.push('DISTRICT NAME');
-        if (!mobile_no) missingFields.push('MOBILE NUMBER');
-
-        errors.push({
-          error: `Required fields missing: ${missingFields.join(', ')}`
-        });
+      let missingFields = [];
+    
+      requiredFields.forEach(({ field, label }) => {
+        if (!rec[field]) missingFields.push(label);
+      });
+    
+      if (missingFields.length > 0) {
+        errors.push({ record: rec, error: `Required fields missing: ${missingFields.join(', ')}` });
       }
-
       if (!/^\d{12}$/.test(aadhar_no)) {
         errors.push({ record: rec, error: "Invalid Aadhar Number" });
       }
@@ -1530,11 +1539,12 @@ module.exports.bulkUploadFarmers = async (req, res) => {
     }
 
     if (errorArray.length > 0) {
-      return res.status(200).json({
-        status: 400,
-        data: { records: errorArray },
-        errors: [{ message: "Partial upload successful. Please check the error records." }]
-      });
+      const errorData = errorArray.map(err => ({ ...err.record, Error: err.error }));
+      dumpJSONToExcel(req, res, {
+        data: errorData,
+        fileName: `Farmer-error_records.xlsx`,
+        worksheetName: `Farmer-record-error_records`
+    });
     } else {
       return res.status(200).json({
         status: 200,

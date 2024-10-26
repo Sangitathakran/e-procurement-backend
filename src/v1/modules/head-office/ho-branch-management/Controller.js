@@ -13,7 +13,7 @@ const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 
 const xlsx = require("xlsx");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer"); 
-const { _status, _userType } = require("@src/v1/utils/constants");
+const { _status, _userType, _frontendLoginRoutes } = require("@src/v1/utils/constants");
 const { validateBranchData } = require("@src/v1/modules/head-office/ho-branch-management/Validations")
 const { generateRandomPassword } = require('@src/v1/utils/helpers/randomGenerator');
 const bcrypt = require('bcrypt');
@@ -25,7 +25,7 @@ const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
 module.exports.importBranches = async (req, res) => {
   try {
-    const headOfficeId = req.params.id;
+    const headOfficeId = req.user._id;
     if (!headOfficeId) {
       return res.status(403).json({
         message: "HeadOffice not found",
@@ -173,13 +173,16 @@ module.exports.importBranches = async (req, res) => {
     }
 
      // Send an email to each branch email address notifying them that the branch has been created
+     const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes.bo}`
+
      for (const branchData of branches) {
-          const hoAuthorisedData = {
+          const emailPayload = {
             email: branchData.pointOfContact.email,
             name: branchData.pointOfContact.name,
             password: branchData.password,
+            login_url:login_url
         }
-        await emailService.sendHoCredentialsEmail(hoAuthorisedData);
+        await emailService.sendBoCredentialsEmail(emailPayload);
 
     }
 
@@ -260,6 +263,7 @@ module.exports.importBranches = async (req, res) => {
           pointOfContactPhone: '1234567890',
           pointOfContactEmail: 'user1@example.com',
           address: 'Noida',
+          district: 'District 1',
           cityVillageTown: 'Sample Town 1',
           state: 'State 1',
           pincode: '123456'
@@ -271,6 +275,7 @@ module.exports.importBranches = async (req, res) => {
           pointOfContactPhone: '0987654321',
           pointOfContactEmail: 'user2@example.com',
           address: 'New Delhi',
+          district: 'District 2',
           cityVillageTown: 'Sample Town 2',
           state: 'State 2',
           pincode: '654321'
