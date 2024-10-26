@@ -7,7 +7,8 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
-const moment = require("moment")
+const moment = require("moment");
+const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 
 
 module.exports.batch = async (req, res) => {
@@ -67,7 +68,7 @@ module.exports.batch = async (req, res) => {
                 return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "added quantity should not exceed quantity procured" }] }));
             }
             // is the order full fill partially 
-            if ((farmerOrder?.qtyProcured - farmer.qty) != 0) {
+            if ((farmerOrder?.qtyProcured - farmer.qty) > 0) {
                 partiallyFulfulled = 1
             }
             farmer.amt = (farmer.qty * procurementRecord?.quotedPrice)
@@ -83,7 +84,7 @@ module.exports.batch = async (req, res) => {
         // update status based on fullfilment 
         const farmerRecordsPending = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $nin: farmerOrderIds } });
         record.status = (farmerRecordsPending || partiallyFulfulled == 1) ? _associateOfferStatus.partially_ordered : _associateOfferStatus.ordered
-
+        // TODO:check assocaite order
         //create unique batch Number 
         let batchId, isUnique = false;
         while (!isUnique) {
@@ -171,6 +172,7 @@ module.exports.editTrackDelivery = async (req, res) => {
 
                 if (name && contact && license && aadhar && licenseImg && service_name && vehicleNo && vehicle_weight && loaded_weight && gst_number && pan_number && intransit_weight_slip && no_of_bags && weight) {
 
+                    const reqRec = await RequestModel.findOne({ _id: record?._id })
                     record.intransit.driver.name = name;
                     record.intransit.driver.contact = contact;
                     record.intransit.driver.license = license;
@@ -191,6 +193,18 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.intransit.intransit_by = user_id;
 
                     record.status = _batchStatus.intransit;
+                    if (reqRec && !AssociateInvoice.findOne({ batch_id: record?._id })) {
+                        await AssociateInvoice.create({
+                            req_id: reqRec?._id,
+                            ho_id: reqRec?.head_office_id,
+                            bo_id: reqRec?.branch_id,
+                            associate_id: user_id,
+                            batch_id: record?._id,
+                            qtyProcured: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + parseFloat(currentValue.qty), 0),
+                            goodsPrice: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + parseFloat(currentValue.qty), 0),
+                            initiated_at: new Date(),
+                        })
+                    }
                 } else {
                     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
                 }

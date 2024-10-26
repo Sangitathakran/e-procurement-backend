@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _batchStatus, received_qc_status, _paymentApproval } = require('@src/v1/utils/constants');
+const { _collectionName, _batchStatus, received_qc_status, _paymentApproval, _billstatus } = require('@src/v1/utils/constants');
 
 const batchsSchema = new mongoose.Schema({
     seller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
@@ -78,6 +78,19 @@ const batchsSchema = new mongoose.Schema({
         net_weight: { type: Number, trim: true },
         delivered_at: { type: Date, trim: true },
         delivered_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch },
+    },
+    bills: {
+        procurementExp: { type: Number, trim: true },
+        qc_survey: [{ type: String, trim: true }],
+        gunny_bags: [{ type: String, trim: true }],
+        weighing_stiching: [{ type: String, trim: true }],
+        loading_unloading: [{ type: String, trim: true }],
+        transportation: [{ type: String, trim: true }],
+        driage: { type: Number, trim: true },
+        storageExp: { type: Number, trim: true },
+        commission: { type: Number, trim: true },
+        total: { type: Number, trim: true },
+        bill_status: { type: String, enum: Object.values(_billstatus), default: _billstatus.pending }
     },
     reason: { text: { type: String }, on: { type: Date } },
     bo_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
