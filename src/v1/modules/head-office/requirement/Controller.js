@@ -25,7 +25,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     const records = { count: 0 };
     records.rows =
       (await RequestModel.find()
-        .select("associatOrder_id head_office_id status reqNo createdAt")
+        // .select("associatOrder_id head_office_id status reqNo createdAt")
         .populate({path:'branch_id',select:'branchName',match:query})
         .skip(skip)
         .limit(parseInt(limit))
@@ -67,6 +67,62 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
+module.exports.requirementById = asyncErrorHandler(async (req, res) => {
+  try {
+    const { requirementId } = req.params;
+    const { page, limit, skip = 0, paginate, sortBy } = req.query;
+    const records = { count: 0 };         
+
+    records.rows = await Batch.find({ req_id: requirementId })
+      .select('batchId qty delivered status')
+      .populate({
+        path: 'associateOffer_id',
+        populate: {
+          path: 'seller_id',
+          select: 'basic_details.associate_details.associate_name'
+        }
+      })
+      .populate({
+        path: 'procurementCenter_id',
+        select: 'center_name location_url'
+      })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort(sortBy) ?? [];
+
+    records.rows = records.rows.map(item => ({
+      _id: item._id,
+      batchId: item.batchId,
+      associateName: item?.associateOffer_id?.seller_id?.basic_details?.associate_details?.associate_name,
+      procurementCenterName: item?.procurementCenter_id?.center_name,
+      quantity: item.qty,
+      deliveredOn: item.delivered.delivered_at,
+      procurementLocationUrl: item?.procurementCenter_id?.location_url,
+      status:item.status
+    }));
+
+    records.count = records.rows.length;
+
+    if (paginate == 1) {
+      records.page = page;
+      records.limit = limit;
+      records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
+    }
+
+    return sendResponse({
+      res,
+      status: 200,
+      data: records,
+      message: _response_message.found("requirement"),
+    })
+  } catch (error) {
+    console.log("error", error);
+    _handleCatchErrors(error, res);
+  }
+});
+
+
 module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
   try {
     const { page, limit, skip = 0, paginate, sortBy, search = "" } = req.query;
