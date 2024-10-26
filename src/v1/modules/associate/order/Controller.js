@@ -1,4 +1,4 @@
-const { _handleCatchErrors, _generateOrderNumber } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, _generateOrderNumber, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
@@ -216,17 +216,19 @@ module.exports.editTrackDelivery = async (req, res) => {
 module.exports.viewTrackDelivery = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
 
         let query = {
             req_id,
             ...(search ? { name: { $regex: search, $options: "i" } } : {})
         };
+
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await Batch.find(query).populate({
-            path: 'req_id', select: 'product address',
-            path: 'associateOffer_id', select: 'offeredQty procuredQty',
-        })
+        records.rows = paginate == 1 ? await Batch.find(query).populate([
+            { path: 'req_id', select: 'product address' },
+            { path: 'associateOffer_id', select: 'offeredQty procuredQty' },
+            { path: "procurementCenter_id", select: "center_name" },
+        ])
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
@@ -239,8 +241,32 @@ module.exports.viewTrackDelivery = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Track order") }));
+        if (isExport == 1) {
 
+            const record = records.rows.map((item) => {
+                return {
+                    "Batch ID": item?.batchId || 'NA',
+                    "Quantity": item?.qty || 'NA',
+                    "Dispatched On": item?.dispatched.dispatched_at || 'NA',
+                    "Delivered On": item?.delivered.delivered_at || "NA",
+                    "Procurement Center": item?.procurementCenter_id.center_name || "NA",
+                    "Status": item?.status || "NA",
+                }
+            })
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Batch-${'Batch'}.xlsx`,
+                    worksheetName: `Batch-record-${'Batch'}`
+                });
+
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track Order") }] }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Track order") }));
+        }
     } catch (error) {
         _handleCatchErrors(error, res);
     }
