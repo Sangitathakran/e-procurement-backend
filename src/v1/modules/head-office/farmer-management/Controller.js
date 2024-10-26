@@ -27,7 +27,7 @@ module.exports.farmerList = async (req, res) => {
 
         // Get all farmers in one query
         records.rows = await farmer.find(query)
-            .select('farmer_code name parents mobile_no address associate_id')
+            .select('farmer_code farmer_id name parents mobile_no address associate_id')
             .populate({ path: 'associate_id', select: "user_code" })
             .limit(parseInt(limit))
             .skip(parseInt(skip))
@@ -44,7 +44,7 @@ module.exports.farmerList = async (req, res) => {
                 address: address,
                 mobile_no: item?.mobile_no,
                 associate_id: item?.associate_id?.user_code || null,
-                farmer_id: item?.farmer_code,
+                farmer_id: item?.farmer_id,
                 father_spouse_name: item?.parents?.father_name || item?.parents?.mother_name || null
             };
         }));
