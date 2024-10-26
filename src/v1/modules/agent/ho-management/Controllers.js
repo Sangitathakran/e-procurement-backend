@@ -12,6 +12,7 @@ const { MasterUser } = require('@src/v1/models/master/MasterUser');
 const UserRole = require('@src/v1/models/master/UserRole');
 const getIpAddress = require('@src/v1/utils/helpers/getIPAddress');
 const { _frontendLoginRoutes } = require('@src/v1/utils/constants');
+const { generateRandomPassword } = require('@src/v1/utils/helpers/randomGenerator');
 
 
 module.exports.getHo = async (req, res) => {
@@ -92,17 +93,6 @@ module.exports.getHo = async (req, res) => {
     }
 }
 
-
-const generateRandomPassword = () => {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let password = '';
-    for (let i = 0; i < 8; i++) {
-        const randomIndex = Math.floor(Math.random() * characters.length);
-        password += characters[randomIndex];
-    }
-    return password;
-};
-
 module.exports.saveHeadOffice = async (req, res) => {
     try {
         const { company_details, point_of_contact, address, authorised } = req.body;
@@ -123,7 +113,10 @@ module.exports.saveHeadOffice = async (req, res) => {
         });
         
         // checking the existing user in Master User collection
-        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:authorised.mobile},{email:authorised.email}]})
+        const isUserAlreadyExist = await MasterUser.findOne(
+            { $or: [{ mobile: { $exists: true, $eq: authorised?.phone ?? authorised?.mobile} }, { email: { $exists: true, $eq: authorised.email } }] });
+
+
         if(isUserAlreadyExist){
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("already existed with this mobile number or email in Master") }] }))
         }
@@ -138,17 +131,12 @@ module.exports.saveHeadOffice = async (req, res) => {
             password: password,
             login_url: login_url
         }
-        await emailService.sendHoCredentialsEmail(emailPayload);
-
-
-
-
         if(savedHeadOffice._id){
             const masterUser = new MasterUser({
                 firstName : authorised.name,
                 isAdmin : true,
                 email : authorised.email,
-                mobile : authorised.mobile,
+                mobile : authorised?.phone ?? authorised?.mobile,
                 password: hashedPassword,
                 user_type: type.user_type,
                 userRole: [type.adminUserRoleId],
@@ -158,6 +146,8 @@ module.exports.saveHeadOffice = async (req, res) => {
             });
     
             await masterUser.save();
+            await emailService.sendHoCredentialsEmail(emailPayload);
+            
         }else{
             await HeadOffice.deleteOne({_id:savedHeadOffice._id})
             throw new Error('Head office not created')
