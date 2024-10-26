@@ -1,4 +1,4 @@
-const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel, isStateAvailable, isDistrictAvailable, updateDistrict } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel, isStateAvailable, isDistrictAvailable, updateDistrict, generateFarmerId } = require("@src/v1/utils/helpers")
 const {  _userType } = require('@src/v1/utils/constants');
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
@@ -172,7 +172,7 @@ module.exports.saveFarmerDetails = async (req, res) => {
         let {state,district}=req.body[screenName];
 
         const isStateExist = await isStateAvailable(state)
-        const isDistrictExist = await isDistrictAvailable(district)
+        const isDistrictExist = await isDistrictAvailable(state, district)
 
         if(!isStateExist){
           return res.status(400).send({ message: "State not available"})
@@ -279,11 +279,12 @@ module.exports.submitForm = async (req, res) => {
 
     const state= await getState(farmerDetails.address.state_id);
     const district = await getDistrict(farmerDetails.address.district_id);
+
     let obj = {
-      _id: savedFarmer._id,
+      _id: farmerDetails._id,
       address: {
-        state: state.state_title,
-        district: district.district_title,
+        state: state,
+        district: district,
       }
     };
     
@@ -727,7 +728,7 @@ module.exports.createLand = async (req, res) => {
     }
 
     const isStateExist = await isStateAvailable(state)
-    const isDistrictExist = await isDistrictAvailable(district)
+    const isDistrictExist = await isDistrictAvailable(state, district)
 
     if(!isStateExist){
       return res.status(400).send({ message: "State not available"})
@@ -1834,7 +1835,7 @@ const getAddress = async (item) => {
 const getDistrict = async (districtId) => {
   const district = await StateDistrictCity.aggregate([
     {
-      $match: { _id: new ObjectId(`66d8438dddba819889f4d798`) }
+      $match: {}
     },
     {
       $unwind: "$states"
@@ -1861,7 +1862,7 @@ const getDistrict = async (districtId) => {
 const getState = async (stateId) => {
   const state = await StateDistrictCity.aggregate([
     {
-      $match: { _id: new ObjectId(`66d8438dddba819889f4d798`) }
+      $match: {}
     },
     {
       $project: {
