@@ -115,7 +115,6 @@ const farmerIdGenerator = async (obj) => {
       const stateData = stateDistrictList.states.find(
         (item) => item.state_title.toLowerCase() === obj.address.state.toLowerCase()
       );
-  
       if (!stateData) {
         throw new Error(`State not found for ${obj.address.state}`);
       }
@@ -124,7 +123,6 @@ const farmerIdGenerator = async (obj) => {
       const district = stateData.districts.find(
         (item) => item.district_title.toLowerCase() === obj.address.district.toLowerCase()
       );
-  
       if (!district) {
         throw new Error(`District not found for ${obj.address.district}`);
       }
@@ -135,7 +133,6 @@ const farmerIdGenerator = async (obj) => {
       const randomNumber = Math.floor(100 + Math.random() * 900); 
   
       const farmerId = `${stateCode}${districtSerialNumber}${farmerMongoId}${randomNumber}`;
-  
       return farmerId;
   
     } catch (error) {
