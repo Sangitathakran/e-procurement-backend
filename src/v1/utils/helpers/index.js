@@ -159,10 +159,10 @@ exports.isStateAvailable = async (state) => {
   return isAvailable ? true : false
 }
 
-exports.isDistrictAvailable = async (district) => { 
+exports.isDistrictAvailable = async (state, district) => { 
   const stateDistrictList = await StateDistrictCity.findOne({})
-  const state = stateDistrictList.states.find(item=> item.state_title === state)
-  const isDistrictAvailable = state.districts.find(item=>item.district_title === district)
+  const stateItem = stateDistrictList.states.find(item=> item.state_title === state)
+  const isDistrictAvailable = stateItem.districts.find(item=>item.district_title === district)
   return isDistrictAvailable ? true: false
 }
 
