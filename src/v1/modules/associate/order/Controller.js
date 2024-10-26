@@ -150,7 +150,7 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.dispatched.bills.transportation = transportation;
                     record.dispatched.bills.driage = driage;
                     record.dispatched.bills.storageExp = storageExp;
-                    record.dispatched.bills.commission = commission;
+                    record.dispatched.bills.commission = parseFloat((parseFloat(procurementExp) + parseFloat(driage) + parseFloat(storageExp)) * 0.005);
                     record.dispatched.bills.total = parseInt(procurementExp) + parseInt(driage) + parseInt(storageExp) + parseInt(commission);
                     record.dispatched.qc_report.inital.push(...qc_report.map(i => { return { img: i, on: moment() } }));
                     record.dispatched.lab_report.inital.push(...lab_report.map(i => { return { img: i, on: moment() } }));

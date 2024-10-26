@@ -657,7 +657,7 @@ module.exports.editFarmerOffer = async (req, res) => {
 
         await record.save();
 
-        if (status == _associateOfferStatus.received) {
+        if (status == _procuredStatus.received) {
             const associateOfferRecord = await AssociateOffers.findOne({ _id: record?.associateOffers_id });
             associateOfferRecord.procuredQty += qtyProcured;
             await associateOfferRecord.save();
