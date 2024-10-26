@@ -3,7 +3,7 @@ const { importBranches, exportBranches, downloadTemplate, branchList, toggleBran
 const { Auth } = require("@src/v1/middlewares/jwt");
 const hoBranchRoutes = express.Router();
 
-hoBranchRoutes.post("/import/:id", Auth, importBranches);
+hoBranchRoutes.post("/import", Auth, importBranches);
 hoBranchRoutes.get('/export', exportBranches);
 hoBranchRoutes.get('/download-temp', downloadTemplate);
 hoBranchRoutes.get('/branchList', branchList);

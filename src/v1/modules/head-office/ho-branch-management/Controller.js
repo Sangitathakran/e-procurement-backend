@@ -25,7 +25,7 @@ const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
 module.exports.importBranches = async (req, res) => {
   try {
-    const headOfficeId = req.params.id;
+    const headOfficeId = req.user._id;
     if (!headOfficeId) {
       return res.status(403).json({
         message: "HeadOffice not found",
