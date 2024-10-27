@@ -12,6 +12,7 @@ const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOff
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
+const xlsx = require("xlsx")
 
 module.exports.payment = async (req, res) => {
 
@@ -332,15 +333,23 @@ module.exports.lot_list = async (req, res) => {
 module.exports.orderList = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
-        const { portalId, user_id } = req
+        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0, isFinal = 0 } = req.query
+
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
 
         let query = search ? { req_id: { $regex: search, $options: 'i' }, ho_id: { $in: [portalId, user_id] } } : { ho_id: { $in: [portalId, user_id] } };
 
         const records = { count: 0, rows: [] };
 
-        records.rows = await AgentInvoice.find(query).populate({path:"req_id", select: " "})
+        query = {...query, bo_approve_status: _paymentApproval.approved }
 
+        if(isFinal== 1){
+            query = { ...query, ho_approve_status: _paymentApproval.approved}
+        }
+        console.log("query-->", query)
+        records.rows = await AgentInvoice.find(query).populate({path:"req_id", select: " "})
+        console.log('records.rows-->', records.rows)
 
         records.count = await AgentInvoice.countDocuments(query)
 
@@ -353,17 +362,33 @@ module.exports.orderList = async (req, res) => {
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        
+
+        records.rows = records.rows.map(item=>{ 
+            let obj = { 
+
+                _id: item?._id,
+                orderId: item?.req_id?.reqNo,
+                branchNo: item?.batch_id?.branchId,
+                commodity: item?.req_id?.product?.name,
+                quantityPurchased: item?.qtyProcured,
+                billingDate: item?.createdAt,
+                ho_approve_status: item.ho_approve_status
+            }
+
+            return obj
+        })
 
 
         if (isExport == 1) {
 
             const record = records.rows.map((item) => {
                 return {
-                    "Order ID": item?.reqNo || 'NA',
+                    "Order ID": item?.orderId || 'NA',
                     "Commodity": item?.commodity || 'NA',
-                    "Quantity Purchased": item?.qtyProcured || 'NA',
-                    "Billing Date": item?.createdAt ?? 'NA',
-                    "Approval Status": item?.status ?? 'NA'
+                    "Quantity Purchased": item?.quantityPurchased || 'NA',
+                    "Billing Date": item?.billingDate ?? 'NA',
+                    "Approval Status": item?.ho_approve_status ?? 'NA'
                 }
             })
 
@@ -391,7 +416,13 @@ module.exports.agencyInvoiceById = async (req, res) => {
     try {
         const agencyInvoiceId = req.params.id
 
-        const agentBill = await AgentInvoice.findOne({_id: agencyInvoiceId}).select('_id bill')
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+
+
+        const query = {_id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
+
+        const agentBill = await AgentInvoice.findOne(query).select('_id bill')
         if(!agentBill){
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
@@ -403,20 +434,27 @@ module.exports.agencyInvoiceById = async (req, res) => {
     }
 }
 
-module.exports.boBillApproval = async (req, res) => {
+module.exports.hoBillApproval = async (req, res) => {
+
 
     try {
 
         const agencyInvoiceId = req.params.id
 
-        const agentBill = await AgentInvoice.findOne({_id: agencyInvoiceId});
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+
+
+        const query = {_id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
+
+        const agentBill = await AgentInvoice.findOne(query);
         if(!agentBill){
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
 
-        agentBill.status = _paymentstatus.approved;
-        agentBill.bo_approve_by = req.user._id;
-        agentBill.bo_approve_at = new Date()
+        agentBill.ho_approve_status = _paymentApproval.approved;
+        agentBill.ho_approve_by = req.user._id;
+        agentBill.ho_approve_at = new Date()
 
         await agentBill.save();
 
@@ -436,9 +474,15 @@ module.exports.editBillHo = async (req, res) => {
         if(!bill){
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill payload') }] }));
         }
+
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+
+
+        const query = {_id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
         
 
-        const agentBill = await AgentInvoice.findOne({_id: agencyInvoiceId});
+        const agentBill = await AgentInvoice.findOne(query);
         if(!agentBill){
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
@@ -461,17 +505,25 @@ module.exports.payAgent = async (req, res) => {
 
     const agencyInvoiceId = req.params.id
 
-    const agentBill = await AgentInvoice.findOne({_id: agencyInvoiceId}).select('_id bill')
+    const portalId = req.user.portalId._id
+    const user_id = req.user._id
+    const query = {_id: agencyInvoiceId, 
+                    ho_id: { $in: [portalId, user_id] } ,
+                    bo_approve_status: _paymentApproval.approved,
+                    ho_approve_status: _paymentApproval.approved }
+
+    const agentBill = await AgentInvoice.findOne(query).select('_id bill bankfileLastNumber')
     if(!agentBill){
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
     }
+
 
      const paymentFileData = [
         { 
             "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
             "PIR_REF_NO":"",
             "MY_PRODUCT_CODE(It should be Digital Products only)":"",
-            "Amount":"",
+            "Amount":agentBill.bill.total || "No Amount",
             "Acc no(2244102000000055)":"",
             "IFSC Code":"",
             "Account Name":"",
@@ -485,13 +537,13 @@ module.exports.payAgent = async (req, res) => {
       const workbook = xlsx.utils.book_new();
       const worksheet = xlsx.utils.json_to_sheet(paymentFileData);
   
-      xlsx.utils.book_append_sheet(workbook, worksheet, 'Branch Template');
+      xlsx.utils.book_append_sheet(workbook, worksheet, 'Agent Payment');
   
-      const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+      const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'csv' });
 
-      res.setHeader('Content-Disposition', `attachment; filename=${generateFileName('NCCFMAIZER',agentBill.fileLastNumber, )}`);
+      res.setHeader('Content-Disposition', `attachment; filename=${generateFileName('NCCFMAIZER',agentBill.bankfileLastNumber, )}`);
       res.setHeader('Content-Type', 'text/csv');
-  
+      
       return res.status(200).send(excelBuffer);
     } catch (err) {
       _handleCatchErrors(err, res);

@@ -594,6 +594,7 @@ module.exports.orderList = async (req, res) => {
         const records = { count: 0, rows: [] };
 
         records.rows = await AgentInvoice.find(query).populate({path:"req_id", select: " "})
+ 
 
 
         records.count = await AgentInvoice.countDocuments(query)
@@ -609,15 +610,31 @@ module.exports.orderList = async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
 
 
+        records.rows = records.rows.map(item=>{ 
+            let obj = { 
+
+                _id: item?._id,
+                orderId: item?.req_id?.reqNo,
+                // branchNo: item?.batch_id?.branchId,
+                commodity: item?.req_id?.product?.name,
+                quantityPurchased: item?.qtyProcured,
+                billingDate: item?.createdAt,
+                bo_approval_status: item.bo_approve_status
+            }
+
+            return obj
+        })
+
+
         if (isExport == 1) {
 
             const record = records.rows.map((item) => {
                 return {
-                    "Order ID": item?.reqNo || 'NA',
+                    "Order ID": item?.orderId || 'NA',
                     "Commodity": item?.commodity || 'NA',
-                    "Quantity Purchased": item?.qtyProcured || 'NA',
-                    "Billing Date": item?.createdAt ?? 'NA',
-                    "Approval Status": item?.status ?? 'NA'
+                    "Quantity Purchased": item?.quantityPurchased || 'NA',
+                    "Billing Date": item?.billingDate ?? 'NA',
+                    "Approval Status": item?.bo_approval_status ?? 'NA'
                 }
             })
 
@@ -669,7 +686,7 @@ module.exports.boBillApproval = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
 
-        agentBill.status = _paymentstatus.approved;
+        agentBill.bo_approve_status = _paymentApproval.approved;
         agentBill.bo_approve_by = req.user._id;
         agentBill.bo_approve_at = new Date()
 

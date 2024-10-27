@@ -19,12 +19,12 @@ paymentRoutes.get("/qc-report", Auth, qcReport);
 
 // dileep code 
 
-const { orderList, agencyInvoiceById, boBillApproval, editBillHo, payAgent } = require("./Controller");
+const { orderList, agencyInvoiceById, hoBillApproval, editBillHo, payAgent } = require("./Controller");
 
 
 paymentRoutes.get('/order-list' ,Auth,  orderList)
 paymentRoutes.get('/agency-invoice-byId/:id' , Auth, agencyInvoiceById)
-paymentRoutes.put("/bill-approval/:id",Auth,  boBillApproval);
+paymentRoutes.put("/bill-approval/:id",Auth,  hoBillApproval);
 paymentRoutes.put("/edit-bill/:id",Auth,  editBillHo);
 paymentRoutes.get("/pay-agent/:id", Auth, payAgent);
 
