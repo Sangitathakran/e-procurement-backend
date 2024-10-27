@@ -23,7 +23,7 @@ const { orderList, agencyInvoiceById, hoBillApproval, editBillHo, payAgent } = r
 
 
 paymentRoutes.get('/order-list' ,Auth,  orderList)
-paymentRoutes.get('/agency-invoice-byId/:id' , Auth, agencyInvoiceById)
+paymentRoutes.get("/agency-invoice-byId/:id", Auth, agencyInvoiceById)
 paymentRoutes.put("/bill-approval/:id",Auth,  hoBillApproval);
 paymentRoutes.put("/edit-bill/:id",Auth,  editBillHo);
 paymentRoutes.get("/pay-agent/:id", Auth, payAgent);

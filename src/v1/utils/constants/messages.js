@@ -59,6 +59,7 @@ module.exports = {
         importSuccess:() => "Branches created successfully",
         fileMissing:() => "File is not provided",
         notProvided: (key)=> `${key} is not provided`,
-        userNotApproved:() => "User is not Approved"
+        userNotApproved:() => "User is not Approved",
+        canNOtBeEdited:()=> "HO Approved bills can't be edited."
     }
 }

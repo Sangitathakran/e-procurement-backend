@@ -458,7 +458,7 @@ module.exports.hoBillApproval = async (req, res) => {
 
         await agentBill.save();
 
-        return res.status(200).send(new serviceResponse({ status: 200, message: "Bill Approved by BO" }));
+        return res.status(200).send(new serviceResponse({ status: 200, message: "Bill Approved by HO" }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -485,6 +485,10 @@ module.exports.editBillHo = async (req, res) => {
         const agentBill = await AgentInvoice.findOne(query);
         if(!agentBill){
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+        if(agentBill.ho_approve_status === _paymentApproval.approved){
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.canNOtBeEdited() }] }));
         }
 
         agentBill.logs.push({...agentBill.bill, editedBy: req.user._id , editedAt: new Date() })
