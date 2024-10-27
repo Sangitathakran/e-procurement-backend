@@ -780,3 +780,27 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+module.exports.associateBillApprove = async (req, res) => {
+
+    try {
+
+        const { batchIds = [] } = req.body;
+        const { portalId } = req;
+
+        const query = { batch_id: { $in: batchIds } };
+
+        const invoiceRecord = await AssociateInvoice.find(query);
+
+        if (invoiceRecord.length != batchIds.length) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("invoice") }] }));
+        }
+
+        const record = await AssociateInvoice.updateMany(query, { $set: { agent_approve_status: _paymentApproval.approved, agent_approve_by: portalId, agent_approve_at: new Date() } });
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("invoice") }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
