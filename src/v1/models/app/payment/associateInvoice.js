@@ -6,8 +6,22 @@ const AssociateInvoiceSchema = new mongoose.Schema({
     ho_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice, required: true },
     bo_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
     associate_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
+    associateOffer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers },
     batch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch, required: true },
-    qtyProcured: { type: String, required: true },
+    qtyProcured: { type: Number, required: true },
+    bills: {
+        procurementExp: { type: Number, trim: true },
+        qc_survey: [{ type: String, trim: true }],
+        gunny_bags: [{ type: String, trim: true }],
+        weighing_stiching: [{ type: String, trim: true }],
+        loading_unloading: [{ type: String, trim: true }],
+        transportation: [{ type: String, trim: true }],
+        driage: { type: Number, trim: true },
+        storageExp: { type: Number, trim: true },
+        commission: { type: Number, trim: true },
+        total: { type: Number, trim: true }
+
+    },
     goodsPrice: { type: Number, required: true },
     initiated_at: { type: Date, default: null },
     agent_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
@@ -17,6 +31,10 @@ const AssociateInvoiceSchema = new mongoose.Schema({
     payment_id: { type: String, default: null },
     transaction_id: { type: String, default: null },
     payment_method: { type: String, default: null, enum: Object.values(_paymentmethod) },
+    logs: {
+        type: [mongoose.Schema.Types.Mixed],
+        default: []
+    }
 }, { timestamps: true });
 
 const AssociateInvoice = mongoose.model(_collectionName.AssociateInvoice, AssociateInvoiceSchema);

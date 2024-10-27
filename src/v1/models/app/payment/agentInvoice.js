@@ -8,7 +8,7 @@ const AgentInvoiceSchema = new mongoose.Schema({
     bo_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
     agent_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
     batch_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch, required: true }],
-    qtyProcured: { type: String, required: true },
+    qtyProcured: { type: Number, required: true },
     goodsPrice: { type: Number, required: true },
     initiated_at: { type: Date, default: null },
     bo_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
@@ -25,14 +25,14 @@ const AgentInvoiceSchema = new mongoose.Schema({
     bill: {
         precurement_expenses: { type: Number, required: true },
         driage: { type: Number, required: true },
-        storage_expenses:{ type: Number, required: true },
+        storage_expenses: { type: Number, required: true },
         commission: { type: Number, required: true },
-        bill_attachement: { type: String, required: true },
-        total :{ type: Number, required: true }
+        bill_attachement: { type: String, required: false },
+        total: { type: Number, required: true }
     },
     logs: {
-        type: [mongoose.Schema.Types.Mixed], 
-        default: [] 
+        type: [mongoose.Schema.Types.Mixed],
+        default: []
     }
 
 
