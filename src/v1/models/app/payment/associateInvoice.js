@@ -8,7 +8,7 @@ const AssociateInvoiceSchema = new mongoose.Schema({
     associate_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
     associateOffer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers },
     batch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch, required: true },
-    qtyProcured: { type: String, required: true },
+    qtyProcured: { type: Number, required: true },
     bills: {
         procurementExp: { type: Number, trim: true },
         qc_survey: [{ type: String, trim: true }],
