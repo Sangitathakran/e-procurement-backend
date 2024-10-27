@@ -767,13 +767,19 @@ module.exports.AssociateTabBatchApprove = async (req, res) => {
 module.exports.AssociateTabGenrateBill = async (req, res) => {
 
     try {
-
-        const { batchIds } = req.body;
+        const { req_id } = req.query;
         const { portalId } = req
 
+        const associateInvoice = await AssociateInvoice.find({ req_id })
+
+        const agentInvoice = associateInvoice.reduce((acc, curr) => {
+            console.log('acc :>> ', acc);
+            console.log('curr :>> ', curr);
+        }, {})
 
 
-        return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: agentInvoice, message: `Bill Genrated successfully` }));
 
 
     } catch (error) {
