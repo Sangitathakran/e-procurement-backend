@@ -164,8 +164,8 @@ module.exports.userStatusUpdate = async (req, res) => {
             firstName: user.basic_details.associate_details.associate_name,
             lastName: user.basic_details.associate_details.associate_name,
             isAdmin: true,
-            email: user.basic_details.associate_details.email,
-            mobile: user.basic_details.associate_details.phone,
+            email: user.basic_details.associate_details.email.trim(),
+            mobile: user.basic_details.associate_details.phone.trim(),
             password: hashedPassword,
             user_type: _userType.associate,
         });

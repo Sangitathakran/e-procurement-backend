@@ -232,7 +232,7 @@ exports.createUser = async (req, res) => {
         while (true) {
             const userId = generateUserId();
 
-            const isUserAlreadyExist = await MasterUser.findOne({ userId: userId });
+            const isUserAlreadyExist = await MasterUser.findOne({ userId: userId.trim() });
             
             if (!isUserAlreadyExist) {
                 uniqueUserId = userId;
@@ -240,7 +240,7 @@ exports.createUser = async (req, res) => {
             }
         }
 
-        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:mobileNumber},{email:email}]})
+        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:mobileNumber.trim()},{email:email.trim()}]})
         if(isUserAlreadyExist){
           return sendResponse({res, status: 400, message: "user already existed with this mobile number or email"})
         }
@@ -252,8 +252,8 @@ exports.createUser = async (req, res) => {
         const newUser = new MasterUser({ 
             firstName: firstName, 
             lastName:lastName,
-            mobile: mobile,
-            email:email,
+            mobile: mobile.trim(),
+            email:email.trim(),
             // isSuperAdmin: true,
             // userId: uniqueUserId,
             user_type: req?.user?.user_type,
@@ -457,7 +457,7 @@ module.exports.getAgency = async (req, res) => {
           ...(search ? { first_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
       };
 
-      query = {...query, _id: { $ne: req.user.portalId } }
+      query = {...query, _id: { $ne: req.user.portalId._id } }
 
       const records = { count: 0 };
       records.rows = paginate == 1
