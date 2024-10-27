@@ -127,7 +127,7 @@ module.exports.importBranches = async (req, res) => {
     for (const branchData of branches) {
       // checking the existing user in Master User collectio
 
-      const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:branchData.pointOfContact.phone},{email:branchData.pointOfContact.email}]})
+      const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:branchData.pointOfContact.phone.trim()},{email:branchData.pointOfContact.email.trim()}]})
       if(isUserAlreadyExist){
         throw new Error("user already existed with this mobile number or email in Master")
       }
@@ -155,8 +155,8 @@ module.exports.importBranches = async (req, res) => {
         const masterUser = new MasterUser({
           firstName : branchData.pointOfContact.name,
           isAdmin : true,
-          email : branchData.pointOfContact.email,
-          mobile : branchData.pointOfContact.phone,
+          email : branchData.pointOfContact.email.trim(),
+          mobile : branchData.pointOfContact.phone.trim(),
           password: branchData.hashedPassword,
           user_type : type.user_type,
           createdBy: req.user._id,
@@ -304,15 +304,17 @@ module.exports.branchList = async (req, res) => {
       const { limit = 10, skip = 0 , paginate = 1, search = '', page = 1 } = req.query;
   
       // Adding search filter
-      const searchQuery = search ? {
+      let searchQuery = search ? {
         branchName: { $regex: search, $options: 'i' }        // Case-insensitive search for branchName
        } : {};
+
+      searchQuery = {...searchQuery , headOfficeId: req.user.portalId._id }
   
       // Count total documents for pagination purposes, applying search filter
-      const totalCount = await Branches.countDocuments(searchQuery);
+      const totalCount = await Branches.countDocuments(searchQuery); 
 
        // Determine the effective limit
-      const effectiveLimit = Math.min(parseInt(limit), totalCount);
+      const effectiveLimit = Math.min(parseInt(limit), totalCount);  
   
       // Fetch paginated branch data with search and sorting
       let branches = await Branches.find(searchQuery)

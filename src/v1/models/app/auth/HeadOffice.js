@@ -14,7 +14,7 @@ const headOfficeSchema = new mongoose.Schema({
     },
     point_of_contact: {
         name: {type: String, trim: true},
-        email: {type: String, lowercase: true, trim: true, unique: true},
+        email: {type: String, lowercase: true, trim: true},
         mobile: {type: String, trim: true},
         designation: {type: String, trim: true},
         aadhar_number: {type: String, trim: true},
@@ -35,7 +35,7 @@ const headOfficeSchema = new mongoose.Schema({
         name: {type: String, trim: true},
         designation: {type: String, trim: true},
         phone: {type: String, trim: true},
-        email: {type: String, trim: true, unique: true},
+        email: {type: String, trim: true},
         aadhar_number: {type: String, trim: true},
         aadhar_certificate: {
             front: {type: String, trim: true},
@@ -48,7 +48,7 @@ const headOfficeSchema = new mongoose.Schema({
     registered_time: {type: Date, default: Date.now},
     active: {type: Boolean, default: true},
     is_password_change: {type: Boolean, default: false},
-    head_office_code: { type: String, unique: true },
+    head_office_code: { type: String },
 }, {timestamps: true});
 
 
