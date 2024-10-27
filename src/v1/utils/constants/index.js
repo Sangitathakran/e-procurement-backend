@@ -38,7 +38,8 @@ const _collectionName = {
     Associate: "Associate",
     Agency: "Agency",
     Types: "Types",
-    AssociateInvoice: "AssociateInvoice"
+    AssociateInvoice: "AssociateInvoice",
+    AgentInvoice: "AgentInvoice"
 }
 
 const _userType_Feature_Collection = {
