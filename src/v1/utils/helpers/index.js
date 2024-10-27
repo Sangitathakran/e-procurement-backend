@@ -153,6 +153,18 @@ exports.generateFarmerId = async (obj) => {
   }
 };
 
+exports.generateFileName = (clientCode,runningNumber) => {
+
+  const runningNumberPlusOne = runningNumber + 1
+  const date = new Date() 
+  const lastFiveLetters = clientCode.slice(-5).toUpperCase();
+  const formattedDate = date.toISOString().slice(0, 10).split("-").reverse().join("").slice(0, 6);
+  const formattedRunningNumber = String(runningNumberPlusOne).padStart(3, '0');
+  const fileName = `P_${lastFiveLetters}${formattedDate}${formattedRunningNumber}.CSV`;
+
+  return fileName
+}
+
 exports.isStateAvailable = async (state) => { 
   const stateDistrictList = await StateDistrictCity.findOne({})
   const isAvailable = stateDistrictList.states.find(item=> item.state_title === state)
