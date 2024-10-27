@@ -6,6 +6,7 @@ const AssociateInvoiceSchema = new mongoose.Schema({
     ho_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice, required: true },
     bo_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
     associate_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
+    associateOffer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers },
     batch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch, required: true },
     qtyProcured: { type: String, required: true },
     bills: {

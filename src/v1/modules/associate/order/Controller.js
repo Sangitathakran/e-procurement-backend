@@ -204,7 +204,8 @@ module.exports.editTrackDelivery = async (req, res) => {
                             qtyProcured: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + parseFloat(currentValue.qty), 0),
                             goodsPrice: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + parseFloat(currentValue.qty), 0),
                             initiated_at: new Date(),
-                            bills: record?.dispatched?.bills
+                            bills: record?.dispatched?.bills,
+                            associateOffer_id: record?.associateOffer_id,
 
                         })
                     }
