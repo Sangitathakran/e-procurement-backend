@@ -135,7 +135,7 @@ module.exports.saveHeadOffice = async (req, res) => {
                 firstName : authorised.name,
                 isAdmin : true,
                 email : authorised.email.trim(),
-                mobile : authorised?.phone.trim() ?? authorised?.mobile.trim(),
+                mobile : authorised?.phone?.trim() ?? authorised?.mobile.trim(),
                 password: hashedPassword,
                 user_type: type.user_type,
                 userRole: [type.adminUserRoleId],
