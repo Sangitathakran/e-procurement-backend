@@ -1,4 +1,4 @@
-const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToExcel, generateFileName } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
@@ -11,6 +11,8 @@ const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
+const xlsx = require("xlsx")
 
 module.exports.payment = async (req, res) => {
 
@@ -325,3 +327,229 @@ module.exports.lot_list = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+// dileep code 
+
+module.exports.orderList = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0, isFinal = 0 } = req.query
+
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+
+        let query = search ? { req_id: { $regex: search, $options: 'i' }, ho_id: { $in: [portalId, user_id] } } : { ho_id: { $in: [portalId, user_id] } };
+
+        const records = { count: 0, rows: [] };
+
+        query = {...query, bo_approve_status: _paymentApproval.approved }
+
+        if(isFinal== 1){
+            query = { ...query, ho_approve_status: _paymentApproval.approved}
+        }
+        console.log("query-->", query)
+        records.rows = await AgentInvoice.find(query).populate({path:"req_id", select: " "})
+        console.log('records.rows-->', records.rows)
+
+        records.count = await AgentInvoice.countDocuments(query)
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        
+
+        records.rows = records.rows.map(item=>{ 
+            let obj = { 
+
+                _id: item?._id,
+                orderId: item?.req_id?.reqNo,
+                branchNo: item?.batch_id?.branchId,
+                commodity: item?.req_id?.product?.name,
+                quantityPurchased: item?.qtyProcured,
+                billingDate: item?.createdAt,
+                ho_approve_status: item.ho_approve_status
+            }
+
+            return obj
+        })
+
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+                return {
+                    "Order ID": item?.orderId || 'NA',
+                    "Commodity": item?.commodity || 'NA',
+                    "Quantity Purchased": item?.quantityPurchased || 'NA',
+                    "Billing Date": item?.billingDate ?? 'NA',
+                    "Approval Status": item?.ho_approve_status ?? 'NA'
+                }
+            })
+
+            if (record.length > 0) {
+
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `orderId-record.xlsx`,
+                    worksheetName: `orderId-record`
+                });
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Order") }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.agencyInvoiceById = async (req, res) => {
+
+    try {
+        const agencyInvoiceId = req.params.id
+
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+
+
+        const query = {_id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
+
+        const agentBill = await AgentInvoice.findOne(query).select('_id bill')
+        if(!agentBill){
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: agentBill, message: _query.get('Invoice') }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.hoBillApproval = async (req, res) => {
+
+
+    try {
+
+        const agencyInvoiceId = req.params.id
+
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+
+
+        const query = {_id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
+
+        const agentBill = await AgentInvoice.findOne(query);
+        if(!agentBill){
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+        agentBill.ho_approve_status = _paymentApproval.approved;
+        agentBill.ho_approve_by = req.user._id;
+        agentBill.ho_approve_at = new Date()
+
+        await agentBill.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: "Bill Approved by HO" }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.editBillHo = async (req, res) => {
+
+    try {
+
+        const agencyInvoiceId = req.params.id
+        const bill = req.body.bill
+        if(!bill){
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill payload') }] }));
+        }
+
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+
+
+        const query = {_id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
+        
+
+        const agentBill = await AgentInvoice.findOne(query);
+        if(!agentBill){
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+        if(agentBill.ho_approve_status === _paymentApproval.approved){
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.canNOtBeEdited() }] }));
+        }
+
+        agentBill.logs.push({...agentBill.bill, editedBy: req.user._id , editedAt: new Date() })
+        agentBill.bill = bill
+
+        await agentBill.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: "Bill edited by BO" }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.payAgent = async (req, res) => {
+
+    try {
+
+    const agencyInvoiceId = req.params.id
+
+    const portalId = req.user.portalId._id
+    const user_id = req.user._id
+    const query = {_id: agencyInvoiceId, 
+                    ho_id: { $in: [portalId, user_id] } ,
+                    bo_approve_status: _paymentApproval.approved,
+                    ho_approve_status: _paymentApproval.approved }
+
+    const agentBill = await AgentInvoice.findOne(query).select('_id bill bankfileLastNumber')
+    if(!agentBill){
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+    }
+
+
+     const paymentFileData = [
+        { 
+            "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
+            "PIR_REF_NO":"",
+            "MY_PRODUCT_CODE(It should be Digital Products only)":"",
+            "Amount":agentBill.bill.total || "No Amount",
+            "Acc no(2244102000000055)":"",
+            "IFSC Code":"",
+            "Account Name":"",
+            "Account no":"",
+            "PAYMENT_REF":"",
+            "PAYMENT_DETAILS":"",
+        }
+     ]
+  
+  
+      const workbook = xlsx.utils.book_new();
+      const worksheet = xlsx.utils.json_to_sheet(paymentFileData);
+  
+      xlsx.utils.book_append_sheet(workbook, worksheet, 'Agent Payment');
+  
+      const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'csv' });
+
+      res.setHeader('Content-Disposition', `attachment; filename=${generateFileName('NCCFMAIZER',agentBill.bankfileLastNumber, )}`);
+      res.setHeader('Content-Type', 'text/csv');
+      
+      return res.status(200).send(excelBuffer);
+    } catch (err) {
+      _handleCatchErrors(err, res);
+    }
+};
