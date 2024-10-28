@@ -24,5 +24,12 @@ userManagementRoutes.get('/getUsersByUser', Auth , getUsersByUser)
 userManagementRoutes.get('/getSingleUser/:id', Auth , getSingleUser)
 
 
+//portal routes 
+const { getAgency, getHo, getBo } = require("./Controller")
+userManagementRoutes.get('/getAgency', Auth, getAgency)
+userManagementRoutes.get('/getHo', Auth, getHo)
+userManagementRoutes.get('/getBo', Auth, getBo)
+
+
 
 module.exports = { userManagementRoutes }
