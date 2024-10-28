@@ -67,7 +67,7 @@ module.exports.getProcurementCenter = async (req, res) => {
                     worksheetName: `procurement-center`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
