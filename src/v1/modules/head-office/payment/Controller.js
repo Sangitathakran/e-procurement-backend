@@ -45,19 +45,19 @@ module.exports.payment = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: 'branches',
+                    localField: 'branch_id',
+                    foreignField: '_id',
+                    as: 'branch',
+                }
+            },
+            { $unwind: { path: '$branch' } },
+            {
                 $match: {
                     batches: { $ne: [] }
                 }
             },
-            // {
-            //     $lookup: {
-            //         from: 'branches',
-            //         localField: 'branch_id',
-            //         foreignField: '_id',
-            //         as: 'branch',
-            //     }
-            // },
-            // { $unwind: { path: '$branch', preserveNullAndEmptyArrays: true } },
             {
                 $addFields: {
                     approval_status: {
@@ -94,6 +94,13 @@ module.exports.payment = async (req, res) => {
                             in: { $add: ['$$value', '$$this.totalPrice'] }  // Sum of totalPrice from batches
                         }
                     },
+                    amountPaid: {
+                        $reduce: {
+                            input: '$batches',
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this.totalPrice'] }  // Sum of totalPrice from batches
+                        }
+                    },
                     payment_status: {
                         $cond: {
                             if: {
@@ -118,25 +125,25 @@ module.exports.payment = async (req, res) => {
                             then: 'Pending',
                             else: 'Approved'
                         }
-                    }
+                    },
+                    approval_at: {}
                 }
             },
-            // { $unwind: '$branch' },
             {
                 $project: {
                     _id: 1,
                     reqNo: 1,
                     product: 1,
-                    // 'batches._id': 1,
-                    // 'batches.qty': 1,
-                    // 'batches.goodsPrice': 1,
-                    // 'batches.totalPrice': 1,
-                    // 'batches.status': 1,
+                    branch_id: 1,
+                    "branch._id": 1,
+                    "branch.branchName": 1,
+                    approval_at: 1,
                     approval_status: 1,
                     qtyPurchased: 1,
                     amountPayable: 1,
+                    amountPaid: 1,
                     payment_status: 1,
-                    branch: 1
+                    // branch: 1
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
@@ -342,13 +349,13 @@ module.exports.orderList = async (req, res) => {
 
         const records = { count: 0, rows: [] };
 
-        query = {...query, bo_approve_status: _paymentApproval.approved }
+        query = { ...query, bo_approve_status: _paymentApproval.approved }
 
-        if(isFinal== 1){
-            query = { ...query, ho_approve_status: _paymentApproval.approved}
+        if (isFinal == 1) {
+            query = { ...query, ho_approve_status: _paymentApproval.approved }
         }
         console.log("query-->", query)
-        records.rows = await AgentInvoice.find(query).populate({path:"req_id", select: " "})
+        records.rows = await AgentInvoice.find(query).populate({ path: "req_id", select: " " })
         console.log('records.rows-->', records.rows)
 
         records.count = await AgentInvoice.countDocuments(query)
@@ -362,10 +369,10 @@ module.exports.orderList = async (req, res) => {
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-        
 
-        records.rows = records.rows.map(item=>{ 
-            let obj = { 
+
+        records.rows = records.rows.map(item => {
+            let obj = {
 
                 _id: item?._id,
                 orderId: item?.req_id?.reqNo,
@@ -420,10 +427,10 @@ module.exports.agencyInvoiceById = async (req, res) => {
         const user_id = req.user._id
 
 
-        const query = {_id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
+        const query = { _id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
 
         const agentBill = await AgentInvoice.findOne(query).select('_id bill')
-        if(!agentBill){
+        if (!agentBill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
 
@@ -445,10 +452,10 @@ module.exports.hoBillApproval = async (req, res) => {
         const user_id = req.user._id
 
 
-        const query = {_id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
+        const query = { _id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
 
         const agentBill = await AgentInvoice.findOne(query);
-        if(!agentBill){
+        if (!agentBill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
 
@@ -471,7 +478,7 @@ module.exports.editBillHo = async (req, res) => {
 
         const agencyInvoiceId = req.params.id
         const bill = req.body.bill
-        if(!bill){
+        if (!bill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill payload') }] }));
         }
 
@@ -479,19 +486,19 @@ module.exports.editBillHo = async (req, res) => {
         const user_id = req.user._id
 
 
-        const query = {_id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
-        
+        const query = { _id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
+
 
         const agentBill = await AgentInvoice.findOne(query);
-        if(!agentBill){
+        if (!agentBill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
 
-        if(agentBill.ho_approve_status === _paymentApproval.approved){
+        if (agentBill.ho_approve_status === _paymentApproval.approved) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.canNOtBeEdited() }] }));
         }
 
-        agentBill.logs.push({...agentBill.bill, editedBy: req.user._id , editedAt: new Date() })
+        agentBill.logs.push({ ...agentBill.bill, editedBy: req.user._id, editedAt: new Date() })
         agentBill.bill = bill
 
         await agentBill.save();
@@ -507,49 +514,51 @@ module.exports.payAgent = async (req, res) => {
 
     try {
 
-    const agencyInvoiceId = req.params.id
+        const agencyInvoiceId = req.params.id
 
-    const portalId = req.user.portalId._id
-    const user_id = req.user._id
-    const query = {_id: agencyInvoiceId, 
-                    ho_id: { $in: [portalId, user_id] } ,
-                    bo_approve_status: _paymentApproval.approved,
-                    ho_approve_status: _paymentApproval.approved }
-
-    const agentBill = await AgentInvoice.findOne(query).select('_id bill bankfileLastNumber')
-    if(!agentBill){
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
-    }
-
-
-     const paymentFileData = [
-        { 
-            "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
-            "PIR_REF_NO":"",
-            "MY_PRODUCT_CODE(It should be Digital Products only)":"",
-            "Amount":agentBill.bill.total || "No Amount",
-            "Acc no(2244102000000055)":"",
-            "IFSC Code":"",
-            "Account Name":"",
-            "Account no":"",
-            "PAYMENT_REF":"",
-            "PAYMENT_DETAILS":"",
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+        const query = {
+            _id: agencyInvoiceId,
+            ho_id: { $in: [portalId, user_id] },
+            bo_approve_status: _paymentApproval.approved,
+            ho_approve_status: _paymentApproval.approved
         }
-     ]
-  
-  
-      const workbook = xlsx.utils.book_new();
-      const worksheet = xlsx.utils.json_to_sheet(paymentFileData);
-  
-      xlsx.utils.book_append_sheet(workbook, worksheet, 'Agent Payment');
-  
-      const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'csv' });
 
-      res.setHeader('Content-Disposition', `attachment; filename=${generateFileName('NCCFMAIZER',agentBill.bankfileLastNumber, )}`);
-      res.setHeader('Content-Type', 'text/csv');
-      
-      return res.status(200).send(excelBuffer);
+        const agentBill = await AgentInvoice.findOne(query).select('_id bill bankfileLastNumber')
+        if (!agentBill) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+
+        const paymentFileData = [
+            {
+                "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
+                "PIR_REF_NO": "",
+                "MY_PRODUCT_CODE(It should be Digital Products only)": "",
+                "Amount": agentBill.bill.total || "No Amount",
+                "Acc no(2244102000000055)": "",
+                "IFSC Code": "",
+                "Account Name": "",
+                "Account no": "",
+                "PAYMENT_REF": "",
+                "PAYMENT_DETAILS": "",
+            }
+        ]
+
+
+        const workbook = xlsx.utils.book_new();
+        const worksheet = xlsx.utils.json_to_sheet(paymentFileData);
+
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Agent Payment');
+
+        const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'csv' });
+
+        res.setHeader('Content-Disposition', `attachment; filename=${generateFileName('NCCFMAIZER', agentBill.bankfileLastNumber,)}`);
+        res.setHeader('Content-Type', 'text/csv');
+
+        return res.status(200).send(excelBuffer);
     } catch (err) {
-      _handleCatchErrors(err, res);
+        _handleCatchErrors(err, res);
     }
 };
