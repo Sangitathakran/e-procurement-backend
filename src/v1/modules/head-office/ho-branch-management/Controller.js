@@ -25,7 +25,7 @@ const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
 module.exports.importBranches = async (req, res) => {
   try {
-    const headOfficeId = req.user._id;
+    const headOfficeId = req.user.portalId._id;
     if (!headOfficeId) {
       return res.status(403).json({
         message: "HeadOffice not found",
@@ -127,7 +127,7 @@ module.exports.importBranches = async (req, res) => {
     for (const branchData of branches) {
       // checking the existing user in Master User collectio
 
-      const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:branchData.pointOfContact.phone.trim()},{email:branchData.pointOfContact.email.trim()}]})
+      const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:branchData.pointOfContact.phone.toString().trim()},{email:branchData.pointOfContact.email.trim()}]})
       if(isUserAlreadyExist){
         throw new Error("user already existed with this mobile number or email in Master")
       }
@@ -136,7 +136,7 @@ module.exports.importBranches = async (req, res) => {
         emailAddress: branchData.emailAddress,
         pointOfContact: {
           name: branchData.pointOfContact.name,
-          phone: branchData.pointOfContact.phone,
+          phone: branchData.pointOfContact.phone.toString(),
           email: branchData.pointOfContact.email
         },
         address: branchData.address,
@@ -156,7 +156,7 @@ module.exports.importBranches = async (req, res) => {
           firstName : branchData.pointOfContact.name,
           isAdmin : true,
           email : branchData.pointOfContact.email.trim(),
-          mobile : branchData.pointOfContact.phone.trim(),
+          mobile : branchData.pointOfContact.phone.toString().trim(),
           password: branchData.hashedPassword,
           user_type : type.user_type,
           createdBy: req.user._id,

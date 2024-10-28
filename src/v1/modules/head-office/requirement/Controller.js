@@ -20,12 +20,20 @@ const { received_qc_status } = require("@src/v1/utils/constants");
 //widget list
 module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
   try {
+    
     const { page, limit, skip = 0, paginate, sortBy, search = "" } = req.query;
+    
     const filter=await getFilter(req,["status", "reqNo","branchName"]);
-    const query = filter;
+    let query = filter;
     const records = { count: 0 };
+    
+    if(req.user.user_type === 2 || req.user.user_type === '2') {
+      query ={...query, head_office_id:req?.user?.portal?._id}
+    }
+   
     records.rows =
-      (await RequestModel.find()
+      (
+        await RequestModel.find(query)
         // .select("associatOrder_id head_office_id status reqNo createdAt")
         .populate({path:'branch_id',select:'branchName',match:query})
         .skip(skip)
@@ -49,8 +57,6 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
           records.count = await RequestModel.countDocuments(query);
         }
         
-    
-
     if (paginate == 1) {
       records.page = page;
       records.limit = limit;
@@ -226,7 +232,7 @@ module.exports.auditTrail = asyncErrorHandler(async (req, res) => {
   const record = await Batch.findOne({ _id: id });
 
   if (!record) {
-      return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
+      return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
   }
 
   const { dispatched, intransit, delivered, createdAt, payment_at, payement_approval_at } = record;

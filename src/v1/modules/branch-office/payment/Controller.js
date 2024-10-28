@@ -170,7 +170,7 @@ module.exports.payment = async (req, res) => {
                     worksheetName: `Farmer-Payment-records`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: response, message: _response_message.notFound("Payment") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: response, message: _response_message.notFound("Payment") }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: response, message: _response_message.found("Payment") }))
@@ -189,7 +189,7 @@ module.exports.associateOrders = async (req, res) => {
         const { user_type, portalId, user_id } = req;
 
         if (user_type != _userType.bo) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })).map(i => i.associateOffers_id)
@@ -240,7 +240,7 @@ module.exports.associateOrders = async (req, res) => {
                     worksheetName: `Associate-orders`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
@@ -324,7 +324,7 @@ module.exports.batchApprove = async (req, res) => {
             "dispatched.qc_report.received_qc_status": { $ne: received_qc_status.accepted }
         })
         if (record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Qc is not done on selected batches" }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Qc is not done on selected batches" }] }));
         }
 
 
@@ -334,7 +334,7 @@ module.exports.batchApprove = async (req, res) => {
         );
 
         if (result.matchedCount === 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
         }
         await Payment.updateMany(
             { batch_id: { $in: batchIds } },
@@ -356,7 +356,7 @@ module.exports.qcReport = async (req, res) => {
         const { user_type } = req;
 
         if (user_type != _userType.bo) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         const qcReport = await Batch.findOne({ _id: id })
@@ -379,7 +379,7 @@ module.exports.paymentApprove = async (req, res) => {
         const { user_type } = req;
 
         if (user_type != _userType.bo) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         const paymentList = await Payment.findOne({
@@ -390,7 +390,7 @@ module.exports.paymentApprove = async (req, res) => {
         });
 
         if (!paymentList) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Payment") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Payment") }] }))
         }
 
         paymentList.status = _paymentstatus.approved;
@@ -501,7 +501,7 @@ module.exports.agentPaymentList = async (req, res) => {
                     worksheetName: `Payment-record`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
@@ -612,7 +612,7 @@ module.exports.orderList = async (req, res) => {
                     worksheetName: `orderId-record`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Order") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Order") }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }))
