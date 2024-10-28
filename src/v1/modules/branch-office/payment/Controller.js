@@ -496,8 +496,8 @@ module.exports.agentPaymentList = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-record.xlsx`,
-                    worksheetName: `Payment-record`
+                    fileName: `Agency-Payment-record.xlsx`,
+                    worksheetName: `Agency-Payment-record`
                 });
             } else {
                 return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
