@@ -651,6 +651,9 @@ module.exports.AssociateTabBatchList = async (req, res) => {
                     "procurementcenters.center_code": 1,
                     "invoice.initiated_at": 1,
                     "invoice.bills.total": 1,
+                    amountPayable: 1,
+                    qtyPurchased: 1,
+                    amountProposed: 1
                 }
             }
 
