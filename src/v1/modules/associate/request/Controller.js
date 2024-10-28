@@ -106,6 +106,7 @@ module.exports.getProcurement = async (req, res) => {
             query.status = { $in: [_requestStatus.open, _requestStatus.partially_fulfulled] };
             const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
             query._id = { $nin: offerIds };
+            query.quoteExpiry = { $gte: new Date() };
 
 
             const records = { count: 0 };
@@ -144,8 +145,8 @@ module.exports.getProcurementById = async (req, res) => {
         }
 
         record.myOffer = await AssociateOffers.findOne({ req_id: id });
-        
-        record.no_of_batch = await Batch.countDocuments({ req_id: id });
+
+        // record.no_of_batch = await Batch.countDocuments({ req_id: id });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("procurement") }))
 
