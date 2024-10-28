@@ -1,10 +1,13 @@
 const mongoose = require('mongoose');
 const { User } = require("@src/v1/models/app/auth/User");
+const { MasterUser } = require("@src/v1/models/master/MasterUser");
 const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { emailService } = require('@src/v1/utils/third_party/EmailServices');
+const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator")
+const bcrypt = require('bcrypt');
 
 
 module.exports.getAssociates = async (req, res) => {
@@ -119,6 +122,22 @@ module.exports.userStatusUpdate = async (req, res) => {
             user.is_welcome_email_send = true;
         }
         await user.save();
+
+        const password = generateRandomPassword();
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const masterUser = new MasterUser({
+            firstName: user.basic_details.associate_details.associate_name,
+            lastName: user.basic_details.associate_details.associate_name,
+            isAdmin: true,
+            email: user.basic_details.associate_details.email,
+            mobile: user.basic_details.associate_details.phone,
+            password: hashedPassword,
+            user_type: _userType.associate,
+        });
+
+        await masterUser.save();
 
         return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.updated('User status'), data: { userId, user_status: status } }));
     } catch (error) {

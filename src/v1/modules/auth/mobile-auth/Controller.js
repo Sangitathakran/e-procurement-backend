@@ -1,13 +1,12 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
+
+const MasterUser = require("@src/v1/models/master/MasterUser");
+const { _auth_module, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
+const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
-const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
+const bcrypt = require('bcrypt');
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
-const { verifyJwtToken, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-
+const { FeatureList } = require("@src/v1/models/master/FeatureList");
 
 module.exports.login = async (req, res) => {
     try {
@@ -20,34 +19,32 @@ module.exports.login = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Password') }] }));
         }
 
-        const branchUser = await Branches.findOne({ emailAddress: email });
+        const user = await MasterUser.findOne({ email: email }).populate('userRole')
         
-        if (!branchUser) {
+        if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('User') }] }));
         }
-
-        const validPassword = await bcrypt.compare(password, branchUser.password);
+        const validPassword = await bcrypt.compare(password, user.password);
 
         if (!validPassword) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('Credentials') }] }));
         }
 
 
-        const payload = { email: branchUser.emailAddress, user_id: branchUser._id, user_type: branchUser.user_type }
+        const payload = { email: user.email, user_type:user.user_type }
         const expiresIn = 24 * 60 * 60;
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
-            maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
-        });
+
+        const loginUser = JSON.parse(JSON.stringify(user))
+        delete loginUser.password
+        
         const data = {
             token: token,
-            branch_code: branchUser.branchId,
-            user_type: branchUser.user_type
+            user: loginUser
         }
         return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: data }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }
 }
+

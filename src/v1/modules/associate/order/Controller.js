@@ -120,8 +120,26 @@ module.exports.editTrackDelivery = async (req, res) => {
 
         switch (form_type) {
             case _batchStatus.mark_ready:
+                if (record.status != _batchStatus.pending) {
+                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Your batch is already mark ready " }] }));
+                }
 
                 if (material_img && weight_slip && procurementExp && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && storageExp && commission && qc_report && lab_report) {
+                    const RateOfProcurement = 840.00
+                    const RateOfDriage = 100.00
+                    const RateOfStorage = 160.00
+
+                    const sumOfqty = record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + parseFloat(currentValue.qty),
+                        0)
+
+                    if (parseFloat(procurementExp) > (sumOfqty * RateOfProcurement)) {
+                        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Procurement Expenses should be less that ${(sumOfqty * RateOfProcurement)}` }] }));
+                    } else if (parseFloat(driage) > (sumOfqty * RateOfDriage)) {
+                        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Driage Expenses should be less that ${(sumOfqty * RateOfDriage)}` }] }));
+                    } else if (parseFloat(storageExp) > (sumOfqty * RateOfStorage)) {
+                        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Storage Expenses should be less that ${(sumOfqty * RateOfStorage)}` }] }));
+                    }
+
                     record.dispatched.material_img.inital.push(...material_img.map(i => { return { img: i, on: moment() } }));
                     record.dispatched.weight_slip.inital.push(...weight_slip.map(i => { return { img: i, on: moment() } }));
                     record.dispatched.bills.procurementExp = procurementExp;
@@ -139,13 +157,17 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.dispatched.dispatched_at = new Date();
                     record.dispatched.dispatched_by = user_id;
 
-                    record.status = _batchStatus.dispatched
+                    record.status = _batchStatus.mark_ready
                 } else {
                     return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
                 }
                 break;
 
             case _batchStatus.intransit:
+
+                if (record.status != _batchStatus.mark_ready) {
+                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "your batch should be Mark Ready" }] }));
+                }
 
                 if (name && contact && license && aadhar && licenseImg && service_name && vehicleNo && vehicle_weight && loaded_weight && gst_number && pan_number && intransit_weight_slip && no_of_bags && weight) {
 

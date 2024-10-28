@@ -1,16 +1,16 @@
 const express = require("express");
-const { verifyAgent } = require("../utils/verifyAgent");
 const { createProcurement, approveRejectOfferByAgent, getProcurement, getAssociateOffer, getofferedFarmers, associateOfferbyid, getProcurementById } = require("./Controller");
 const requestRoutes = express.Router();
+const { Auth } = require("@src/v1/middlewares/jwt")
 
 
-requestRoutes.put("/offerStatus", verifyAgent, approveRejectOfferByAgent);
-requestRoutes.get("/associateOffers", verifyAgent, getAssociateOffer);
-requestRoutes.get("/associateOffers/:id", verifyAgent, associateOfferbyid);
-requestRoutes.get("/farmerOffers", verifyAgent, getofferedFarmers);
-requestRoutes.post("/", verifyAgent, createProcurement);
-requestRoutes.get("/", verifyAgent, getProcurement);
-requestRoutes.get("/:id", verifyAgent, getProcurementById);
+requestRoutes.put("/offerStatus", Auth, approveRejectOfferByAgent);
+requestRoutes.get("/associateOffers", Auth, getAssociateOffer);
+requestRoutes.get("/associateOffers/:id", Auth, associateOfferbyid);
+requestRoutes.get("/farmerOffers", Auth, getofferedFarmers);
+requestRoutes.post("/", Auth, createProcurement);
+requestRoutes.get("/", Auth, getProcurement);
+requestRoutes.get("/:id", Auth, getProcurementById);
 
 
 

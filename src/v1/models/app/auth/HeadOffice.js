@@ -5,7 +5,7 @@ const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const headOfficeSchema = new mongoose.Schema({
     password: {type: String, required: true},
     email_verified: {type: Boolean, default: false},
-    user_type: {type: String, default: "5"},
+    user_type: {type: String},
     company_details: {
         name: {type: String, trim: true},
         pan_card: {type: String, trim: true},
@@ -58,7 +58,6 @@ headOfficeSchema.pre('save', async function (next) {
             const HeadOffice = mongoose.model(_collectionName.HeadOffice, headOfficeSchema);
 
             const lastUser = await HeadOffice.findOne().sort({ createdAt: -1 });
-
             let nextUserCode = 'HO00001';
 
             if (lastUser && lastUser.head_office_code) {
