@@ -74,7 +74,7 @@ module.exports.getProcurement = asyncErrorHandler(
                 });
 
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Procurement") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Procurement") }))
             }
 
         } else {
@@ -175,7 +175,7 @@ module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
                 worksheetName: `Associate Order-record-${'Associate Order'}`
             });
         } else {
-            return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Order") }))
+            return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Order") }))
         }
 
     } else {
@@ -237,7 +237,7 @@ module.exports.getBatchByAssociateOfferrs = asyncErrorHandler(async (req, res) =
                 worksheetName: `Batch-record-${'Batch'}`
             });
         } else {
-            return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Batch") }))
+            return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Batch") }))
         }
 
     } else {
@@ -262,7 +262,7 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
             });
 
         if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Track order") }));

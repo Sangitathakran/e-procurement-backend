@@ -178,7 +178,7 @@ module.exports.associateOrders = async (req, res) => {
         const { user_type, portalId, user_id } = req;
 
         if (user_type != _userType.ho) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         const paymentIds = (await Payment.find({ ho_id: { $in: [portalId, user_id] }, req_id, bo_approve_status: _paymentApproval.approved })).map(i => i.associateOffers_id)
@@ -262,7 +262,7 @@ module.exports.batchApprove = async (req, res) => {
             bo_approve_status: _paymentApproval.pending
         })
         if (record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Qc is not done and branch approved on selected batches" }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Qc is not done and branch approved on selected batches" }] }));
         }
 
 
@@ -272,7 +272,7 @@ module.exports.batchApprove = async (req, res) => {
         );
 
         if (result.matchedCount === 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
         }
         await Payment.updateMany(
             { batch_id: { $in: batchIds } },
@@ -294,7 +294,7 @@ module.exports.qcReport = async (req, res) => {
         const { user_type } = req;
 
         if (user_type != _userType.ho) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         const qcReport = await Batch.findOne({ _id: id })
@@ -318,7 +318,7 @@ module.exports.lot_list = async (req, res) => {
         const record = await Batch.findOne({ _id: batch_id }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" }).select('_id farmerOrderIds');
 
         if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Farmer") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Farmer") }] }))
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
@@ -400,7 +400,7 @@ module.exports.orderList = async (req, res) => {
                     worksheetName: `orderId-record`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Order") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Order") }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }))

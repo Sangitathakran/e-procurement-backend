@@ -232,7 +232,7 @@ module.exports.auditTrail = asyncErrorHandler(async (req, res) => {
   const record = await Batch.findOne({ _id: id });
 
   if (!record) {
-      return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
+      return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
   }
 
   const { dispatched, intransit, delivered, createdAt, payment_at, payement_approval_at } = record;

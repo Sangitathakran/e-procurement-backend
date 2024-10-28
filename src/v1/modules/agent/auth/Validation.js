@@ -27,7 +27,7 @@ function validateForm(req, res, next) {
     
     const { error, value } = agencySchema.validate(req.body, { abortEarly: false, allowUnknown: true });
     if (error) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: error.details }));
+        return res.status(400).send(new serviceResponse({ status: 400, errors: error.details }));
     }
 
     req.validatedData = value;
