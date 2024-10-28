@@ -534,11 +534,65 @@ module.exports.offeredFarmerList = async (req, res) => {
         query.associateOffers_id = { $in: offerIds };
         const records = { count: 0 };
 
-        records.rows = await FarmerOffers.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .populate("farmer_id")
-            .limit(parseInt(limit))
+        const pipeline = [
+            { $match: query },
+            {
+                $lookup: {
+                    from: "farmers",
+                    localField: "farmer_id",
+                    foreignField: "_id",
+                    as: "farmer_data",
+                },
+            },
+            { $unwind: "$farmer_data" },
+            {
+                $lookup: {
+                    from: "statedistrictcities",
+                    let: { stateId: "$farmer_data.address.state_id", districtId: "$farmer_data.address.district_id" },
+                    pipeline: [
+                        { $unwind: "$states" },
+                        { $match: { $expr: { $eq: ["$states._id", "$$stateId"] } } },
+
+                        { $unwind: "$states.districts" },
+                        { $match: { $expr: { $eq: ["$states.districts._id", "$$districtId"] } } },
+                        {
+                            $project: {
+                                state_title: "$states.state_title",
+                                district_title: "$states.districts.district_title",
+                            },
+                        },
+                    ],
+                    as: "location_data",
+                },
+            },
+
+            { $unwind: { path: "$location_data", preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    farmer_id: "$farmer_data.farmer_id",
+                    farmer_type: "$farmer_data.user_type",
+                    "farmer_data.name": 1,
+                    "farmer_data.mobile_no": 1,
+                    "farmer_data.basic_details": 1,  // Include basic_details field
+                    "farmer_data.address": 1,
+                    "location_data.state_title": 1,
+                    "location_data.district_title": 1,
+                    offeredQty: 1,
+                    metaData: 1,
+                    status: 1,
+                },
+            },
+            { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit) }
+        ]
+
+        // records.rows = await FarmerOffers.find(query)
+        //     .sort(sortBy)
+        //     .skip(skip)
+        //     .limit(parseInt(limit))
+
+        records.rows = await FarmerOffers.aggregate(pipeline);
 
         records.count = await FarmerOffers.countDocuments(query);
         records.page = page
