@@ -3,7 +3,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType, _paymentApproval, _batchStatus, _associateOfferStatus } = require('@src/v1/utils/constants');
+const { _userType, _paymentApproval, _batchStatus, _associateOfferStatus, _paymentstatus } = require('@src/v1/utils/constants');
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const mongoose = require("mongoose");
@@ -14,6 +14,7 @@ const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
 const moment = require("moment");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
+const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 
 
 module.exports.payment = async (req, res) => {
@@ -767,13 +768,51 @@ module.exports.AssociateTabBatchApprove = async (req, res) => {
 module.exports.AssociateTabGenrateBill = async (req, res) => {
 
     try {
+        const { req_id } = req.query;
 
-        const { batchIds } = req.body;
-        const { portalId } = req
+        const existingRecord = await AgentInvoice.findOne({ req_id });
+
+        if (existingRecord) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("bill") }] }))
+        }
+        const associateInvoice = await AssociateInvoice.find({ req_id, agent_approve_status: _paymentApproval.approved })
+
+        const agentInvoice = associateInvoice.reduce((acc, curr) => {
+
+            if (!acc.req_id)
+                acc.req_id = curr.req_id;
+
+            if (!acc.ho_id)
+                acc.ho_id = curr.ho_id;
+
+            if (!acc.bo_id)
+                acc.bo_id = curr.bo_id;
+
+            if (!acc.batch_id) {
+                acc.batch_id = [curr.batch_id];
+            } else {
+                acc.batch_id.push(curr.batch_id);
+            }
+
+            acc.qtyProcured += parseInt(curr.qtyProcured);
+
+            acc.goodsPrice += parseInt(curr.goodsPrice);
+
+            acc.bill.precurement_expenses += parseInt(curr.bills.procurementExp);
+            acc.bill.driage += parseInt(curr.bills.driage);
+            acc.bill.storage_expenses += parseInt(curr.bills.storageExp);
+            acc.bill.commission += parseInt(curr.bills.commission);
+            acc.bill.total += parseInt(curr.bills.total);
+
+            return acc;
+        }, { qtyProcured: 0, goodsPrice: 0, initiated_at: new Date(), bill: { precurement_expenses: 0, driage: 0, storage_expenses: 0, commission: 0, total: 0 } });
+
+
+        const record = await AgentInvoice.create(agentInvoice);
 
 
 
-        return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: `Bill Genrated successfully` }));
 
 
     } catch (error) {
