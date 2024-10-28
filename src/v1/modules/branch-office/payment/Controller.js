@@ -427,54 +427,17 @@ module.exports.getBill = async (req, res) => {
 module.exports.lot_list = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
+        const { batch_id } = req.query;
 
-        const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
+        const record = {}
+        record.rows = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" });
 
-        let farmerOrderIdsOnly = {}
-
-        if (batchIds && batchIds.length > 0) {
-            farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
-            console.log(farmerOrderIdsOnly);
-        } else {
-            console.log('No Farmer found with this batch.');
+        if (!record) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
         }
 
-        let query = {
-            _id: farmerOrderIdsOnly,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
-        };
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
 
-        const records = { count: 0 };
-        records.rows = paginate == 1 ? await FarmerOrders.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await FarmerOrders.find(query)
-                .sort(sortBy);
-
-
-        records.rows = await Promise.all(records.rows.map(async record => {
-
-            const farmerDetails = await farmer.findOne({ '_id': record.farmer_id }).select({ name: 1, _id: 0 });
-
-            const farmerName = farmerDetails ? farmerDetails.name : null;
-            return { ...record.toObject(), farmerName }
-        }));
-
-        records.count = await FarmerOrders.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-        if (records) {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
-        }
-        else {
-            return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
-        }
 
     } catch (error) {
         _handleCatchErrors(error, res);
