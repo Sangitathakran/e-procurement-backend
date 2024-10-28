@@ -172,7 +172,7 @@ module.exports.editTrackDelivery = async (req, res) => {
 
                 if (name && contact && license && aadhar && licenseImg && service_name && vehicleNo && vehicle_weight && loaded_weight && gst_number && pan_number && intransit_weight_slip && no_of_bags && weight) {
 
-                    const reqRec = await RequestModel.findOne({ _id: record?._id })
+                    const reqRec = await RequestModel.findOne({ _id: record?.req_id })
                     record.intransit.driver.name = name;
                     record.intransit.driver.contact = contact;
                     record.intransit.driver.license = license;
@@ -193,7 +193,8 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.intransit.intransit_by = user_id;
 
                     record.status = _batchStatus.intransit;
-                    if (reqRec && !AssociateInvoice.findOne({ batch_id: record?._id })) {
+                    const associateInvoice = await AssociateInvoice.findOne({ batch_id: record?._id })
+                    if (reqRec && !associateInvoice) {
                         await AssociateInvoice.create({
                             req_id: reqRec?._id,
                             ho_id: reqRec?.head_office_id,
@@ -203,6 +204,9 @@ module.exports.editTrackDelivery = async (req, res) => {
                             qtyProcured: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + parseFloat(currentValue.qty), 0),
                             goodsPrice: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + parseFloat(currentValue.qty), 0),
                             initiated_at: new Date(),
+                            bills: record?.dispatched?.bills,
+                            associateOffer_id: record?.associateOffer_id,
+
                         })
                     }
                 } else {
