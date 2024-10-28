@@ -135,7 +135,6 @@ module.exports.saveHeadOffice = async (req, res) => {
                 firstName : authorised.name,
                 isAdmin : true,
                 email : authorised.email.trim(),
-                mobile : authorised?.phone?.trim() ?? authorised?.mobile.trim(),
                 password: hashedPassword,
                 user_type: type.user_type,
                 userRole: [type.adminUserRoleId],
@@ -143,6 +142,11 @@ module.exports.saveHeadOffice = async (req, res) => {
                 portalId: savedHeadOffice._id,
                 ipAddress: getIpAddress(req)
             });
+            if(authorised?.phone){
+                masterUser.mobile = authorised?.phone.trim()
+            }else if(authorised?.mobile){
+                masterUser.mobile = authorised?.mobile.trim()
+            }
     
             await masterUser.save();
             await emailService.sendHoCredentialsEmail(emailPayload);
