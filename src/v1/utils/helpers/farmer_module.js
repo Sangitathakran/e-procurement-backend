@@ -10,7 +10,7 @@ const {  _center_type } = require('@src/v1/utils/constants');
 
 
 
-exports.insertNewFarmerRecord = async (data, stateList) => {
+exports.insertNewFarmerRecord = async (data) => {
     try {
       const newFarmer = new farmer({
         user_type: _center_type.associate,
@@ -50,8 +50,10 @@ exports.insertNewFarmerRecord = async (data, stateList) => {
       });
   
       const savedFarmer = await newFarmer.save();
+
       const state= await getState(savedFarmer.address.state_id);
       const district = await getDistrict(savedFarmer.address.district_id);
+
       let obj = {
         _id: savedFarmer._id,
         address: {
@@ -59,19 +61,8 @@ exports.insertNewFarmerRecord = async (data, stateList) => {
           district: district.district_title,
         }
       };
-      let farmerId;
-      let uniqueId = true;
-     const uniquefarmerid = async () => {
-        farmerId = generateFarmerId(obj);
-        const exitingFarmer_id = await farmer.findOne({farmer_id: farmerId});
-        if(!exitingFarmer_id){
-            uniqueId = false;
-        }
-     }
-      while(uniqueId){
-        await uniquefarmerid()
-      }
-      savedFarmer.farmer_id = farmerId;
+      
+      savedFarmer.farmer_id = await generateFarmerId(obj);
       await savedFarmer.save();
   
       return savedFarmer;
@@ -112,11 +103,38 @@ exports.updateFarmerRecord = async (farmerRecord, data) => {
     farmerRecord.bank_details.account_holder_name = data.account_holder_name;
     farmerRecord.basic_details.mobile_no = data.mobile_no;
     farmerRecord.basic_details.email_id = data.email;
+
+    // const state = await getState(data.state_id);
+    // const district = await getDistrict(data.district_id);
+    // if (!state || !district) {
+    //     throw new Error("State or district not found.");
+    // }
+    // let farmerId;
+    // let uniqueId = true;
+    // let obj = {
+    //     _id: farmerRecord._id,
+    //     address: {
+    //         state: state.state_title,
+    //         district: district.district_title,
+    //     }
+    // };
+    // const uniquefarmerid = async () => {
+    //     farmerId = generateFarmerId(obj);
+    //     const existingFarmerId = await farmer.findOne({ farmer_id: farmerId });
+    //     if (!existingFarmerId) {
+    //         uniqueId = false;
+    //     }
+    // };
+    // while (uniqueId) {
+    //     await uniquefarmerid();
+    // }
+
+    // farmerRecord.farmer_id = farmerId;
     await farmerRecord.save();
     return farmerRecord;
-} catch (error) {
+    } catch (error) {
     return null;
-}
+    }
 };
 
 exports.updateRelatedRecords = async (farmer_id, data) => {

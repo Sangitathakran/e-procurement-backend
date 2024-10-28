@@ -1,13 +1,20 @@
-const { sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { sendResponse, serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { FeatureList } = require("@src/v1/models/master/FeatureList");
 const UserRole = require("@src/v1/models/master/UserRole");
 const {MasterUser} = require("@src/v1/models/master/MasterUser")
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const bcrypt = require("bcrypt");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
-const { _featureType } = require("@src/v1/utils/constants");
+const { _featureType, _frontendLoginRoutes, _userType } = require("@src/v1/utils/constants");
 const { TypesModel } = require("@src/v1/models/master/Types");
 const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
+const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator");
+const { Agency } = require("@src/v1/models/app/auth/Agency");
+const { _response_message } = require("@src/v1/utils/constants/messages");
+const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
+const { getPermission, mergeArrays } = require("./permission");
+const generateUserId = require("@src/v1/utils/helpers/generateUserId");
 
 
 
@@ -105,73 +112,6 @@ exports.editUserRolePage = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
-
-function mergeObjects(obj1, obj2) {
-    const merged = { ...obj1 };
-  
-  
-    for (const key in obj2) {
-      if (typeof obj2[key] === 'object' && !Array.isArray(obj2[key])) {
-        // console.log(obj1[key])
-        // console.log(obj2[key])
-        merged[key] = mergeObjects(obj1[key], obj2[key]);
-      } 
-      
-      else if (key === "subFeatures" && Array.isArray(obj1[key]) && Array.isArray(obj2[key])) 
-      {
-        const subFeatureNames = new Set();
-        
-        const mergedSubFeatures = obj1[key].map((subFeatureA) => {
-          const matchingSubFeatureB = obj2[key].find(
-            (subFeatureB) => subFeatureB.subFeatureName.toLowerCase() === subFeatureA.subFeatureName.toLowerCase()
-          );
-  
-          if (matchingSubFeatureB) {
-            subFeatureNames.add(subFeatureA.subFeatureName);
-            return mergeObjects(subFeatureA, matchingSubFeatureB);
-          } else {
-            return { ...subFeatureA };
-          }
-        });
-  
-        obj2[key].forEach((subFeatureB) => {
-          if (!subFeatureNames.has(subFeatureB.subFeatureName)) {
-            mergedSubFeatures.push({ ...subFeatureB });
-          }
-        });
-  
-        merged[key] = mergedSubFeatures;
-  
-      } else {
-        merged[key] = obj2[key];
-        console.log(merged[key])
-      }
-    }
-  
-    return merged;
-}
-  
-function mergeArrays(arrayA, arrayB) {
-      
-    const mergedArray = arrayA.map((itemA) => {
-        
-      const matchingItemB = arrayB.find((itemB) => itemB.featureName.toLowerCase() === itemA.featureName.toLowerCase());
-  
-      if (matchingItemB) {
-          return mergeObjects(itemA, matchingItemB);
-      } else {
-  
-        // console.log("itemA-->", itemA)
-        // console.log("{...itemA} --> ", { ...itemA})
-  
-        return { ...itemA };
-      
-      }
-  
-    });
-  
-    return mergedArray;
 }
 
 exports.editUserRole = async ( req, res, next) =>{
@@ -292,7 +232,7 @@ exports.createUser = async (req, res) => {
         while (true) {
             const userId = generateUserId();
 
-            const isUserAlreadyExist = await MasterUser.findOne({ userId: userId });
+            const isUserAlreadyExist = await MasterUser.findOne({ userId: userId.trim() });
             
             if (!isUserAlreadyExist) {
                 uniqueUserId = userId;
@@ -300,21 +240,22 @@ exports.createUser = async (req, res) => {
             }
         }
 
-        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:mobileNumber},{email:email}]})
+        const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:mobileNumber.trim()},{email:email.trim()}]})
         if(isUserAlreadyExist){
           return sendResponse({res, status: 400, message: "user already existed with this mobile number or email"})
         }
 
+        const password = generateRandomPassword();
         const salt = await bcrypt.genSalt(8);
-        const hashPassword = await bcrypt.hash(uniqueUserId, salt); // hashing the uniqueUserId as password
+        const hashPassword = await bcrypt.hash(password, salt); // hashing the uniqueUserId as password
 
         const newUser = new MasterUser({ 
             firstName: firstName, 
             lastName:lastName,
-            mobile: mobile,
-            email:email,
+            mobile: mobile.trim(),
+            email:email.trim(),
             // isSuperAdmin: true,
-            userId: uniqueUserId,
+            // userId: uniqueUserId,
             user_type: req?.user?.user_type,
             password: hashPassword,
             createdBy: req?.user?._id,
@@ -333,7 +274,12 @@ exports.createUser = async (req, res) => {
           );
         });
 
-        await emailService.sendUserCredentialsEmail({email, firstName, password: password = uniqueUserId})
+        const reversedUserType = Object.fromEntries(
+          Object.entries(_userType).map(([key, value]) => [value, key])
+        );
+
+        const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes[reversedUserType[req.user.user_type]]}`
+        await emailService.sendUserCredentialsEmail({email, firstName, password, login_url})
 
         delete savedUser.password
         return sendResponse({res,status: 200, data: savedUser, message: "New user created successfully"})
@@ -363,162 +309,6 @@ exports.getUserPermission = async (req, res) => {
       } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
-
-const getPermission = async (response) => { 
-
-    const typeData = await TypesModel.find()
-    const type = typeData.reduce((acc, item)=>[...acc, item.featureType], [])
-    const user_type = typeData.find(item=>item.user_type===response.user_type)
-    const featureType = user_type.featureType 
-    if(!type.includes(featureType)){
-        return sendResponse({ res, status:400, message: "Invalid feature type"})
-    }
-
-    const featureListDoc = await FeatureList.find({featureType:featureType})
-    const featureList = JSON.parse(JSON.stringify(featureListDoc))
-    const resultArray = JSON.parse(JSON.stringify(response.userRole));
-
-    const mergedResultsArray = [];
-
-    resultArray.forEach((resultObject) => {
-      const features = resultObject.features;
-
-      features.forEach((feature) => {
-        const existingFeature = mergedResultsArray.find(
-          (mergedFeature) => mergedFeature.featureName.toLowerCase() === feature.featureName.toLowerCase()
-        );
-
-        if (!existingFeature) {
-          // if the feature doesn't exist in the mergedResultsArray, add it
-          mergedResultsArray.push({
-            featureName: feature.featureName,
-            enabled: feature.enabled,
-            subFeatures: feature.subFeatures,
-          });
-        } else {
-          // if the feature already exists in the mergedResultsArray, update it
-          existingFeature.enabled =
-            existingFeature.enabled || feature.enabled;
-
-          // merge subFeatures by comparing and updating permissions
-          feature.subFeatures.forEach((subFeature) => {
-            const matchingSubFeature = existingFeature.subFeatures.find(
-              (existingSubFeature) =>
-                existingSubFeature.subFeatureName.toLowerCase() === subFeature.subFeatureName.toLowerCase()
-            );
-
-            if (matchingSubFeature) {
-              // Merge permissions for the matching subFeature
-              matchingSubFeature.permissions = mergePermissions(
-                matchingSubFeature.permissions,
-                subFeature.permissions
-              );
-            } else {
-              // if subFeature doesn't exist, add it
-              existingFeature.subFeatures.push(subFeature);
-            }
-          });
-        }
-      });
-    });
-
-    // function to merge permissions for two subFeatures
-    function mergePermissions(existingPermissions, newPermissions) {
-      // set a permission to true if it's true in either set of permissions
-      return Object.keys(newPermissions).reduce((merged, permission) => {
-        merged[permission] =
-          existingPermissions[permission] || newPermissions[permission];
-        return merged;
-      }, existingPermissions);
-    }
-
-    const arrayC = mergeArrays(featureList, mergedResultsArray);
-
-
-  const generateFeatureCode = (featureName) => {
-
-      const featureNameArray = featureName.split(" ")
-      const featureCode = featureNameArray.reduce((code, item)=> code.concat(item.trim().slice(0,2)), '')
-      
-      if(featureCode.length < 3){
-          const modifiedFeatureCode = featureCode.concat('FE')
-          return modifiedFeatureCode.toUpperCase()
-      }else{
-          return featureCode.toUpperCase()
-      }
-  }
-  const generateSubFeatureCode = (subFeatureName) => {  
-      const subFeatureNameArray = subFeatureName.split(" ")
-      const subFeatureCode = subFeatureNameArray.reduce((code, item)=> code.concat(item.trim().slice(0,2)), '')
-      
-      if(subFeatureCode.length < 3){
-          const modifiedSubFeatureCode = subFeatureCode.concat('SF')
-          return modifiedSubFeatureCode.toUpperCase()
-      }else{
-          return subFeatureCode.toUpperCase()
-      }
-  }
-
-    function convertPermissions(permissions) {
-      const convertedPermissions = {};
-      for (const key in permissions) {
-        let newKey;
-        switch (key) {
-          case "view":
-            newKey = "1";
-            break;
-          case "add":
-            newKey = "2";
-            break;
-          case "edit":
-            newKey = "3";
-            break;
-          case "delete":
-            newKey = "4";
-            break;
-          case "export":
-            newKey = "5";
-            break;
-          case "status":
-            newKey = "6";
-            break;
-          case "takeAction":
-            newKey = "7";
-            break;
-          default:
-            newKey = key; // Keep the key as is if not recognized
-        }
-        convertedPermissions[newKey] = permissions[key];
-      }
-      return convertedPermissions;
-    }
-
-    // to change the userRole obj with short forms
-    const transformedUserRole = arrayC.map((role) => {
-      const featureName = generateFeatureCode(role.featureName);
-      const subFeatures = role.subFeatures.map((subFeature) => ({
-        subFeatureName: generateSubFeatureCode(subFeature.subFeatureName),
-        enabled: subFeature.enabled,
-        permissions: convertPermissions(subFeature.permissions),
-      }));
-      return {
-        featureName,
-        enabled: role.enabled,
-        subFeatures,
-      };
-    });
-
-    const plainResponse = JSON.parse(JSON.stringify(response));
-    const newResponse = {
-      ...plainResponse,
-      userRole: transformedUserRole,
-    };
-    delete newResponse.password;
-
-  
-    return newResponse
-
 }
 
 exports.editUser = async ( req, res) =>{
@@ -657,23 +447,163 @@ exports.getSingleUser = async ( req, res) =>{
   }
 }
 
+//// portal get controller
 
-function generateUserId() {
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const getRandomLetters = () => {
-      let result = '';
-      for (let i = 0; i < 3; i++) {
-          result += letters.charAt(Math.floor(Math.random() * letters.length));
+module.exports.getAgency = async (req, res) => {
+
+  try {
+      const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+      let query = {
+          ...(search ? { first_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+      };
+
+      query = {...query, _id: { $ne: req.user.portalId._id } }
+
+      const records = { count: 0 };
+      records.rows = paginate == 1
+          ? await Agency.find(query).sort(sortBy).skip(skip).limit(parseInt(limit))
+          : await Agency.find(query).sort(sortBy);
+
+      records.count = await Agency.countDocuments(query);
+
+      if (paginate == 1) {
+          records.page = page
+          records.limit = limit
+          records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
       }
-      return result;
-  };
 
-  const getRandomNumbers = () => {
-      return Math.floor(1000 + Math.random() * 9000).toString();
-  };
+      return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Agency") }));
 
-  return getRandomLetters() + getRandomNumbers();
+  } catch (error) {
+      _handleCatchErrors(error, res);
+  }
 }
+
+module.exports.getHo = async (req, res) => {
+
+  try {
+      const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+      let query = {
+          ...(search ? { 'company_details.name': { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+      };
+
+      if (paginate == 0) {
+          query.active = true
+      }
+      const records = { count: 0 };
+      records.rows = await HeadOffice.aggregate([
+          { $match: query },
+          {
+              $lookup: {
+                  from: 'branches', // Name of the Branches collection in the database
+                  localField: '_id',
+                  foreignField: 'headOfficeId',
+                  as: 'branches'
+              }
+          },
+          {
+              $addFields: {
+                  branchCount: { $size: '$branches' }
+              }
+          },
+          {
+              ...(paginate == 1 && {
+                  $project: {
+                      _id: 1,
+                      office_id: 1,
+                      'company_details.name': 1,
+                      registered_time: 1,
+                      branchCount: 1,
+                      'point_of_contact.name': 1,
+                      'point_of_contact.email': 1,
+                      'point_of_contact.mobile': 1,
+                      'point_of_contact.designation': 1,
+                      registered_time: 1,
+                      head_office_code: 1,
+                      active: 1,
+                      address: 1,
+                      createdAt: 1,
+                      updatedAt: 1
+                  }
+              }),
+              ...(paginate == 0 && {
+                  $project: {
+                      _id: 1,
+                      office_id: 1,
+                      'company_details.name': 1,
+                      'point_of_contact.name': 1,
+                      'point_of_contact.email': 1,
+                      'point_of_contact.designation': 1,
+                      head_office_code: 1,
+                  }
+              })
+          },
+          { $sort: sortBy },
+          ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []) // Pagination if required
+      ]);
+
+      records.count = await HeadOffice.countDocuments(query);
+
+      if (paginate == 1) {
+          records.page = page
+          records.limit = limit
+          records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+      }
+
+      return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Head Office") }));
+
+  } catch (error) {
+      _handleCatchErrors(error, res);
+  }
+}
+
+module.exports.getBo = async (req, res) => {
+  try {
+    const { limit = 10, skip = 0 , paginate = 1, search = '', page = 1 } = req.query;
+
+    // Adding search filter
+    const searchQuery = search ? {
+      branchName: { $regex: search, $options: 'i' }        // Case-insensitive search for branchName
+     } : {};
+
+    // Count total documents for pagination purposes, applying search filter
+    const totalCount = await Branches.countDocuments(searchQuery);
+
+     // Determine the effective limit
+    const effectiveLimit = Math.min(parseInt(limit), totalCount);
+
+    // Fetch paginated branch data with search and sorting
+    let branches = await Branches.find(searchQuery)
+      .limit(effectiveLimit)    // Limit the number of documents returned
+      .skip(parseInt(skip))      // Skip the first 'n' documents based on pagination
+      .sort({ createdAt: -1 });  // Sort by createdAt in descending order by default
+
+    // If paginate is set to 0, return all branches without paginating
+    if (paginate == 0) {
+      branches = await Branches.find(searchQuery).sort({ createdAt: -1 });
+    }
+
+    // Calculate total pages for pagination
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Return the branches along with pagination info
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        message: "Branches fetched successfully",
+        data: {
+          branches: branches,
+          totalCount: totalCount,
+          totalPages: totalPages,
+          limit: effectiveLimit,
+          page: parseInt(page)
+        },
+      })
+    );
+  } catch (err) {
+    return res.status(500).send(new serviceResponse({ status: 500, errors: [{ message: err.message }] }));
+  }
+};
 
 
 

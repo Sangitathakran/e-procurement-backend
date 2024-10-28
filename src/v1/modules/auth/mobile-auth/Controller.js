@@ -19,7 +19,7 @@ module.exports.login = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Password') }] }));
         }
 
-        const user = await MasterUser.findOne({ email: email }).populate('userRole')
+        const user = await MasterUser.findOne({ email: email.trim() }).populate('userRole')
         
         if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('User') }] }));
