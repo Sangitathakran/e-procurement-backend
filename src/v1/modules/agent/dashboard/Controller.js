@@ -110,11 +110,11 @@ module.exports.getProcurementsStats = async (req, res) => {
         const currentYear = currentDate.getFullYear();
 
         if (month && (isNaN(month) || month < 1 || month > 12)) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("month. It should be between 1 and 12.") }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("month. It should be between 1 and 12.") }] }));
         }
 
         if (year && (isNaN(year) || year > currentYear)) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid(`year. It should not be greater than ${currentYear}`) }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid(`year. It should not be greater than ${currentYear}`) }] }));
         }
 
         const selectedMonth = month ? parseInt(month) - 1 : currentDate.getMonth();

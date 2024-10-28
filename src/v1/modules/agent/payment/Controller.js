@@ -167,7 +167,7 @@ module.exports.payment = async (req, res) => {
                     worksheetName: `Request-record-${'Request'}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Request") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Request") }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
@@ -243,7 +243,7 @@ module.exports.associateOrders = async (req, res) => {
                     worksheetName: `Associate Orders-record-${'Associate Orders'}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
             }
         }
 
@@ -308,7 +308,7 @@ module.exports.batchList = async (req, res) => {
                     worksheetName: `Batch-record-${'Batch'}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Batch") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Batch") }))
             }
 
         } else {
@@ -329,7 +329,7 @@ module.exports.lot_list = async (req, res) => {
         record.rows = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" });
 
         if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
@@ -546,7 +546,7 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
                     worksheetName: `Associate Orders-record-${'Associate Orders'}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
             }
         }
 
@@ -687,7 +687,7 @@ module.exports.AssociateTabBatchList = async (req, res) => {
                     worksheetName: `Associate Orders-record-${'Associate Orders'}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
             }
         }
 
@@ -749,7 +749,7 @@ module.exports.AssociateTabBatchApprove = async (req, res) => {
         );
 
         if (result.matchedCount === 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
         }
         await AssociateInvoice.updateMany(
             { batch_id: { $in: batchIds } },
@@ -773,7 +773,7 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
         const existingRecord = await AgentInvoice.findOne({ req_id });
 
         if (existingRecord) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("bill") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("bill") }] }))
         }
         const associateInvoice = await AssociateInvoice.find({ req_id, agent_approve_status: _paymentApproval.approved })
 
@@ -832,7 +832,7 @@ module.exports.associateBillApprove = async (req, res) => {
         const invoiceRecord = await AssociateInvoice.find(query);
 
         if (invoiceRecord.length != batchIds.length) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("invoice") }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("invoice") }] }));
         }
 
         const record = await AssociateInvoice.updateMany(query, { $set: { agent_approve_status: _paymentApproval.approved, agent_approve_by: portalId, agent_approve_at: new Date() } });

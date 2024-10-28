@@ -21,12 +21,12 @@ module.exports.batch = async (req, res) => {
         //  procurement Request exist or not 
         const procurementRecord = await RequestModel.findOne({ _id: req_id });
         if (!procurementRecord) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
         }
 
         const record = await AssociateOffers.findOne({ seller_id: user_id, req_id: req_id });
         if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
         }
 
         const sumOfQty = farmerData.reduce((acc, curr) => {
@@ -35,7 +35,7 @@ module.exports.batch = async (req, res) => {
         }, 0);
 
         if (sumOfQty > truck_capacity) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "quantity should not exceeds truck capacity" }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "quantity should not exceeds truck capacity" }] }))
         }
 
         const farmerOrderIds = [];
@@ -48,24 +48,24 @@ module.exports.batch = async (req, res) => {
 
             // farmer order exist or not 
             if (!farmerOrder) {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer order") }] }));
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer order") }] }));
             }
 
             // order should be procured from these farmers 
             if (farmerOrder.status != _procuredStatus.received) {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "farmer order should not be pending" }] }));
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "farmer order should not be pending" }] }));
             }
 
             // procurement Center should be same in current batch
             if (!procurementCenter_id) {
                 procurementCenter_id = farmerOrder?.procurementCenter_id.toString();
             } else if (procurementCenter_id && procurementCenter_id != farmerOrder.procurementCenter_id.toString()) {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "procurement center should be same for all the orders" }] }))
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "procurement center should be same for all the orders" }] }))
             }
 
             //qty should not exceed from qty procured 
             if (farmerOrder?.qtyProcured < farmer.qty) {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "added quantity should not exceed quantity procured" }] }));
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "added quantity should not exceed quantity procured" }] }));
             }
             // is the order full fill partially 
             if ((farmerOrder?.qtyProcured - farmer.qty) > 0) {
@@ -78,7 +78,7 @@ module.exports.batch = async (req, res) => {
         // given farmer's order should be in in received state
         const farmerRecords = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $in: farmerOrderIds } });
         if (farmerRecords)
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
 
 
         // update status based on fullfilment 
@@ -116,13 +116,13 @@ module.exports.editTrackDelivery = async (req, res) => {
         const record = await Batch.findOne({ _id: id });
 
         if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
         }
 
         switch (form_type) {
             case _batchStatus.mark_ready:
                 if (record.status != _batchStatus.pending) {
-                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Your batch is already mark ready " }] }));
+                    return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Your batch is already mark ready " }] }));
                 }
 
                 if (material_img && weight_slip && procurementExp && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && storageExp && commission && qc_report && lab_report) {
@@ -134,11 +134,11 @@ module.exports.editTrackDelivery = async (req, res) => {
                         0)
 
                     if (parseFloat(procurementExp) > (sumOfqty * RateOfProcurement)) {
-                        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Procurement Expenses should be less that ${(sumOfqty * RateOfProcurement)}` }] }));
+                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Procurement Expenses should be less that ${(sumOfqty * RateOfProcurement)}` }] }));
                     } else if (parseFloat(driage) > (sumOfqty * RateOfDriage)) {
-                        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Driage Expenses should be less that ${(sumOfqty * RateOfDriage)}` }] }));
+                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Driage Expenses should be less that ${(sumOfqty * RateOfDriage)}` }] }));
                     } else if (parseFloat(storageExp) > (sumOfqty * RateOfStorage)) {
-                        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Storage Expenses should be less that ${(sumOfqty * RateOfStorage)}` }] }));
+                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Storage Expenses should be less that ${(sumOfqty * RateOfStorage)}` }] }));
                     }
 
                     record.dispatched.material_img.inital.push(...material_img.map(i => { return { img: i, on: moment() } }));
@@ -160,14 +160,14 @@ module.exports.editTrackDelivery = async (req, res) => {
 
                     record.status = _batchStatus.mark_ready
                 } else {
-                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
+                    return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
                 }
                 break;
 
             case _batchStatus.intransit:
 
                 if (record.status != _batchStatus.mark_ready) {
-                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "your batch should be Mark Ready" }] }));
+                    return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "your batch should be Mark Ready" }] }));
                 }
 
                 if (name && contact && license && aadhar && licenseImg && service_name && vehicleNo && vehicle_weight && loaded_weight && gst_number && pan_number && intransit_weight_slip && no_of_bags && weight) {
@@ -210,14 +210,14 @@ module.exports.editTrackDelivery = async (req, res) => {
                         })
                     }
                 } else {
-                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
+                    return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
                 }
 
                 break;
 
             default:
 
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "enter correct form_type" }] }));
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "enter correct form_type" }] }));
                 break;
         }
 
@@ -280,7 +280,7 @@ module.exports.viewTrackDelivery = async (req, res) => {
                 });
 
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track Order") }] }))
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track Order") }] }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Track order") }));
@@ -303,7 +303,7 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
             });
 
         if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Track order") }));

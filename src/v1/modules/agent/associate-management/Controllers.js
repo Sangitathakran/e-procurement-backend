@@ -108,7 +108,7 @@ module.exports.getAssociates = async (req, res) => {
                     worksheetName: `Associate-record-${'Associate'}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate") }))
             }
         }
         else {
@@ -135,14 +135,14 @@ module.exports.userStatusUpdate = async (req, res) => {
     try {
         const { userId, status } = req.body;
         if (!userId) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('user id') }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('user id') }] }));
         }
         if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('user id') }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('user id') }] }));
         }
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound('User') }] }));
+            return res.status(404).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound('User') }] }));
         }
 
         if (!Object.values(_userStatus).includes(status)) {
@@ -186,13 +186,13 @@ module.exports.statusUpdate = async (req, res) => {
         const { id, status } = req.body;
 
         if (!id) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notProvided("id") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notProvided("id") }] }))
         }
 
         const existingUser = await User.findOne({ _id: id });
 
         if (!existingUser) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }))
         }
 
         existingUser.active = status;
@@ -252,12 +252,12 @@ module.exports.getAssociatesById = async (req, res) => {
         const { id } = req.params;
 
         if (!id) {
-            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('id') }));
+            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('id') }));
         }
         const response = await User.findById({ _id: id });
 
         if (!response) {
-            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
         }

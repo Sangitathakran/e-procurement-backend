@@ -115,7 +115,7 @@ module.exports.getProcurementCenter = async (req, res) => {
                     worksheetName: `collection-center}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
@@ -133,7 +133,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
         const [file] = req.files;
 
         if (!file) {
-            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('file') }));
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('file') }));
         }
 
         let centers = [];
@@ -146,7 +146,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
             centers = xlsx.utils.sheet_to_json(worksheet);
 
             if (!centers.length) {
-                return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('No data found in the file') }));
+                return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('No data found in the file') }));
             }
 
             headers = Object.keys(centers[0]);
@@ -230,7 +230,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
         }
 
         if (errorArray.length > 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, data: { records: errorArray }, errors: [{ message: "Partial upload successfull ! Please export to view the uploaded data." }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, data: { records: errorArray }, errors: [{ message: "Partial upload successfull ! Please export to view the uploaded data." }] }))
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: {}, message: 'Centers successfully uploaded.' }))
         }
