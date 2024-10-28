@@ -12,6 +12,7 @@ const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerato
 
 const { TypesModel } = require("@src/v1/models/master/Types");
 const getIpAddress = require('@src/v1/utils/helpers/getIPAddress');
+const { _frontendLoginRoutes } = require('@src/v1/utils/constants');
 
 
 module.exports.getAgency = async (req, res) => {
@@ -53,7 +54,7 @@ module.exports.createAgency = async (req, res) => {
 
         // checking the existing user in Master User collection
         const isUserAlreadyExist = await MasterUser.findOne(
-              { $or: [{ mobile: { $exists: true, $eq: phone } }, { email: { $exists: true, $eq: email } }] });
+              { $or: [{ mobile: { $exists: true, $eq: phone.trim() } }, { email: { $exists: true, $eq: email.trim() } }] });
           
         if(isUserAlreadyExist){
           return sendResponse({res, status: 400, message: "user already existed with this mobile number or email in Master"})
@@ -70,13 +71,15 @@ module.exports.createAgency = async (req, res) => {
 
         const savedAgency = await agency.save();
 
-        const agencydData = {
+        const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes.agent}`
+        const emailPayload = {
             email: savedAgency.email,
             user_name:savedAgency.first_name,
             name: savedAgency.first_name,
             password: password,
+            login_url:login_url
         }
-        await emailService.sendAgencyCredentialsEmail(agencydData);
+        await emailService.sendAgencyCredentialsEmail(emailPayload);
 
         const type = await TypesModel.findOne({_id:"67110114f1cae6b6aadc2425"})
 
@@ -84,8 +87,8 @@ module.exports.createAgency = async (req, res) => {
             const masterUser = new MasterUser({
                 firstName : agent_name,
                 isAdmin : true,
-                email : email,
-                mobile : phone,
+                email : email.trim(),
+                mobile : phone.trim(),
                 password: hashedPassword,
                 user_type : type.user_type,
                 createdBy: req.user._id,

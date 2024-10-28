@@ -105,129 +105,196 @@ exports._addDays = (days) => {
     return today.add(days, 'days')
 }
 
-exports.generateFarmerId = (obj) => {
+const farmerIdGenerator = async (obj) => {
     try {
-      console.log('Farmer Object:', obj);
-  
-      const stateData = stateList.stateList.find(
-        (item) => item.state.toLowerCase() === obj.address.state.toLowerCase()
+      console.log("obj-->", obj)
+      // get the state district date from our db
+      const stateDistrictList = await StateDistrictCity.findOne({})
+
+      // find the state
+      const stateData = stateDistrictList.states.find(
+        (item) => item.state_title.toLowerCase() === obj.address.state.toLowerCase()
       );
-  
       if (!stateData) {
         throw new Error(`State not found for ${obj.address.state}`);
       }
-  
+      
+      // find the district in the state 
       const district = stateData.districts.find(
-        (item) => item.districtName.toLowerCase() === obj.address.district.toLowerCase()
+        (item) => item.district_title.toLowerCase() === obj.address.district.toLowerCase()
       );
-  
       if (!district) {
         throw new Error(`District not found for ${obj.address.district}`);
       }
   
-      const stateCode = stateData.stateCode;
+      const stateCode = stateData.state_code;
       const districtSerialNumber = district.serialNumber;
       const farmerMongoId = obj._id.toString().slice(-3).toUpperCase();
       const randomNumber = Math.floor(100 + Math.random() * 900); 
   
       const farmerId = `${stateCode}${districtSerialNumber}${farmerMongoId}${randomNumber}`;
-  
       return farmerId;
   
     } catch (error) {
       console.error('Error generating farmer ID:', error.message);
       throw error; 
     }
-  };
-  
+};
+
+exports.generateFarmerId = async (obj) => {
+  let farmerId;
+
+  while (true) {
+      farmerId = await farmerIdGenerator(obj);
+      const existingFarmer = await farmer.findOne({ farmer_id: farmerId });
+      if (!existingFarmer) {
+          return farmerId;
+      }
+  }
+};
+
+exports.generateFileName = (clientCode,runningNumber) => {
+
+  const newDate = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  const [day, month, year] = newDate.split(",")[0].split("/");
+  const finalDate = `${day}${month}${year.slice(2)}`;
+
+  const runningNumberPlusOne = runningNumber + 1
+  const lastFiveLetters = clientCode.slice(-5).toUpperCase();
+  const formattedRunningNumber = String(runningNumberPlusOne).padStart(3, '0');
+
+  const fileName = `P_${lastFiveLetters}${finalDate}${formattedRunningNumber}.CSV`;
+
+  return fileName
+}
+
+exports.isStateAvailable = async (state) => { 
+  const stateDistrictList = await StateDistrictCity.findOne({})
+  const isAvailable = stateDistrictList.states.find(item=> item.state_title === state)
+  return isAvailable ? true : false
+}
+
+exports.isDistrictAvailable = async (state, district) => { 
+  const stateDistrictList = await StateDistrictCity.findOne({})
+  const stateItem = stateDistrictList.states.find(item=> item.state_title === state)
+  const isDistrictAvailable = stateItem.districts.find(item=>item.district_title === district)
+  return isDistrictAvailable ? true: false
+}
+
+
+// to update the district in district array in particular state in "stateDistrictCity" collection 
+exports.updateDistrict = async (state, district) => {
+
+  const stateDistrictList = await StateDistrictCity.findOne({})
+  stateDistrictList.states.forEach(state=> { 
+
+      if(state.state_title === state){
+
+        const districtCount = state.districts.length
+        const serialNumber = districtCount < 10 ? `0${districtCount + 1}` : `${districtCount + 1}`;
+
+        const districtPayload = { 
+          district_title: district.trim(),
+          serialNumber: serialNumber
+        }
+
+        state.districts.push(districtPayload)
+
+      }
+        
+  })
+
+  await stateDistrictList.save()
+}  
   
 
-  exports.getState = async (stateId) => {
-    const state = await StateDistrictCity.aggregate([
-      {
-        $match: { "states._id": new ObjectId(stateId) } // Match the state by stateId
-      },
-      {
-        $project: {
-          _id: 0,
-          state: {
-            $arrayElemAt: [
-              {
-                $map: {
-                  input: {
-                    $filter: {
-                      input: "$states", // Access the states array
-                      as: "stateItem",
-                      cond: { $eq: ["$$stateItem._id", new ObjectId(stateId)] } // Filter by the stateId
-                    }
-                  },
-                  as: "filteredState",
-                  in: {
-                    state_title: "$$filteredState.state_title", // Retrieve the state title
-                    state_code: "$$filteredState.state_code",   // Retrieve the state code
-                    status: "$$filteredState.status"           // Retrieve the status if needed
+exports.getState = async (stateId) => {
+  const state = await StateDistrictCity.aggregate([
+    {
+      $match: { "states._id": new ObjectId(stateId) } // Match the state by stateId
+    },
+    {
+      $project: {
+        _id: 0,
+        state: {
+          $arrayElemAt: [
+            {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$states", // Access the states array
+                    as: "stateItem",
+                    cond: { $eq: ["$$stateItem._id", new ObjectId(stateId)] } // Filter by the stateId
                   }
+                },
+                as: "filteredState",
+                in: {
+                  state_title: "$$filteredState.state_title", // Retrieve the state title
+                  state_code: "$$filteredState.state_code",   // Retrieve the state code
+                  status: "$$filteredState.status"           // Retrieve the status if needed
                 }
-              },
-              0
-            ]
-          }
+              }
+            },
+            0
+          ]
         }
       }
-    ]);
-  
-    if (state.length === 0 || !state[0].state) {
-      throw new Error("State not found");
     }
-  
-    return state[0].state; // Return the state object
-  };
+  ]);
 
-  exports.getDistrict = async (districtId) => {
-    const district = await StateDistrictCity.aggregate([
-      {
-        $match: { "states.districts._id": new ObjectId(districtId) }  // Match based on districtId
-      },
-      {
-        $project: {
-          _id: 0,
-          district: {
-            $arrayElemAt: [
-              {
-                $map: {
-                  input: {
-                    $filter: {
-                      input: {
-                        $reduce: {
-                          input: "$states",  // Access all states
-                          initialValue: [],
-                          in: { $concatArrays: ["$$value", "$$this.districts"] }  // Extract districts from all states
-                        }
-                      },
-                      as: "districtItem",
-                      cond: { $eq: ["$$districtItem._id", new ObjectId(districtId)] }  // Match district ID
-                    }
-                  },
-                  as: "filteredDistrict",
-                  in: {
-                    district_title: "$$filteredDistrict.district_title",  // Retrieve district title
-                    status: "$$filteredDistrict.status"                   // Retrieve status if needed
+  if (state.length === 0 || !state[0].state) {
+    throw new Error("State not found");
+  }
+
+  return state[0].state; // Return the state object
+};
+
+exports.getDistrict = async (districtId) => {
+  const district = await StateDistrictCity.aggregate([
+    {
+      $match: { "states.districts._id": new ObjectId(districtId) }  // Match based on districtId
+    },
+    {
+      $project: {
+        _id: 0,
+        district: {
+          $arrayElemAt: [
+            {
+              $map: {
+                input: {
+                  $filter: {
+                    input: {
+                      $reduce: {
+                        input: "$states",  // Access all states
+                        initialValue: [],
+                        in: { $concatArrays: ["$$value", "$$this.districts"] }  // Extract districts from all states
+                      }
+                    },
+                    as: "districtItem",
+                    cond: { $eq: ["$$districtItem._id", new ObjectId(districtId)] }  // Match district ID
                   }
+                },
+                as: "filteredDistrict",
+                in: {
+                  district_title: "$$filteredDistrict.district_title",  // Retrieve district title
+                  status: "$$filteredDistrict.status"                   // Retrieve status if needed
                 }
-              },
-              0
-            ]
-          }
+              }
+            },
+            0
+          ]
         }
       }
-    ]);
-  
-    if (district.length === 0 || !district[0].district) {
-      throw new Error("District not found");
     }
-  
-    return district[0].district; // Return the district object
-  };
+  ]);
+
+  if (district.length === 0 || !district[0].district) {
+
+    throw new Error("District not found");
+  }
+
+  return district[0].district; // Return the district object
+};
   
   
 exports._generateFarmerCode = async () => {
@@ -249,6 +316,7 @@ exports._generateFarmerCode = async () => {
         throw new Error('Could not generate a unique Farmer Code');
     }
 }
+
 const myAddress = new Map()
 exports.getStateId = async (stateName) => {
     try {
@@ -259,13 +327,14 @@ exports.getStateId = async (stateName) => {
             'states.state_title': stateName
         });
         if (stateDoc) {
-            const state = stateDoc.states.find(state => state.state_title === stateName);
-            if (state)
-                myAddress.set(stateName, state._id)
-            return state ? state._id : null;
-        } else {
-            return null;
+            const state = stateDoc.states.find(state => state.state_title == stateName);
+            // console.log('state', state._id);
+            if (state) {
+                myAddress.set(stateName, state._id);
+                return state._id; 
+            }
         }
+        throw new Error(`Farmer State Name Not Found: ${stateName}`);
     } catch (error) {
         throw new Error(`Error fetching state ID: ${error.message}`);
     }
@@ -283,17 +352,20 @@ exports.getDistrictId = async (districtName) => {
         if (stateDoc) {
             for (const state of stateDoc.states) {
                 const district = state.districts.find(district => district.district_title === districtName);
+                // console.log('state', district._id);
                 if (district) {
                     myAddress.set(districtName, district._id)
                     return district._id;
                 }
             }
         }
-        return null;
+        throw new Error(`Farmer District Name Not Found: ${districtName}`);
     } catch (error) {
         throw new Error(`Error fetching district ID: ${error.message}`);
     }
 };
+
+
 exports.parseDate = async (dateString) => {
     return moment(dateString, 'DD-MM-YYYY').toDate();;
 };

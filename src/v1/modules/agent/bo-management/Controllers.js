@@ -4,6 +4,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
 const { Branches } = require('@src/v1/models/app/branchManagement/Branches');
 const { _status } = require('@src/v1/utils/constants');
+const { dumpJSONToExcel } = require('@src/v1/utils/helpers');
 
 
 module.exports.getBo = asyncErrorHandler(async (req, res) => {
@@ -39,7 +40,34 @@ module.exports.getBo = asyncErrorHandler(async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
     }
 
-    return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("branch Office") }));
+    if (isExport == 1) {
+
+        const record = records.rows.map((item) => {
+
+            const { cityVillageTown, address, state, pincode } = item;
+
+            return {
+                "Branch Id": item?.branchId || "NA",
+                "Branch Name": item?.branchName || "NA",
+                "Email Address": item?.emailAddress || "NA",
+                "Point of Contact": item?.pointOfContact.name || "NA",
+                "Address": `${cityVillageTown} , ${address} , ${state} , ${pincode}`,
+                "State": item?.status || "NA",
+            }
+        })
+
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `BoList-${'BoList'}.xlsx`,
+                worksheetName: `BoList-record-${'BoList'}`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Bo List") }))
+        }
+    } else {
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("branch Office") }));
+    }
 })
 
 module.exports.updateStatus = asyncErrorHandler(async (req, res) => {

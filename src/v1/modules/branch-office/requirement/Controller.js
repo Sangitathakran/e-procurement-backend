@@ -7,11 +7,12 @@ const { _response_message, _middleware } = require("@src/v1/utils/constants/mess
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const moment = require("moment");
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
 
     const { user_id, portalId } = req;
-    const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query;
+    const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
     let query = search ? {
         $or: [
@@ -38,14 +39,42 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
+    if (isExport == 1) {
+
+        const record = records.rows.map((item) => {
+            return {
+                "Order ID": item?.reqNo || 'NA',
+                "Commodity": item?.product.name || 'NA',
+                "Quantity": item?.product.quantity || 'NA',
+                "MSP": item?.quotedPrice || 'NA',
+                "Created On": item?.createdAt ?? 'NA',
+                "Expected Procurement": item?.expectedProcurementDate ?? 'NA',
+                "Expected Delivery Date": item?.expectedProcurementDate ?? 'NA',
+                "Delivery Location": item?.address.deliveryLocation ?? 'NA'
+            }
+        })
+
+        if (record.length > 0) {
+
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Requirement-record.xlsx`,
+                worksheetName: `Requirement-record`
+            });
+        } else {
+            return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("requirement") }));
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
+    }
+    // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
 
 })
 
 
 module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query;
+    const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport =0 } = req.query;
 
 
     let query = search ? {
@@ -79,7 +108,35 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
+    
+    if (isExport == 1) {
+
+        const record = records.rows.map((item) => {
+            return {
+                "Batch ID": item?.batchId || 'NA',
+                "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || 'NA',
+                "Procurement Center": item?.procurementCenter_id.center_name || 'NA',
+                "Quantity Procured": item?.qty || 'NA',
+                "Delivered On": item?.delivered.delivered_at ?? 'NA',
+                "Batch Status": item?.status ?? 'NA'
+            }
+        })
+
+        if (record.length > 0) {
+
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Requirement-Batch-record.xlsx`,
+                worksheetName: `Requirement-Batch-record`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
+    }
+    
+    // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
 
 })
 
@@ -92,7 +149,7 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
     const record = await Batch.findOne({ _id: id }).populate("req_id");
 
     if (!record) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
     }
 
     if (qc_report.length > 0 && material_image.length > 0 && data) {
@@ -121,6 +178,7 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
                     req_id: request?._id,
                     farmer_id: farmerData.farmer_id,
                     farmer_order_id: farmer.farmerOrder_id,
+                    associate_id: record?.seller_id,
                     ho_id: request?.head_office_id,
                     bo_id: request?.branch_id,
                     associateOffers_id: farmerData?.associateOffers_id,
@@ -141,14 +199,14 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
     } else if (proof_of_delivery && weigh_bridge_slip && receiving_copy && truck_photo && loaded_vehicle_weight && tare_weight && net_weight) {
 
         if (record.status != _batchStatus.intransit) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "batch should be intransit Please wait!!" }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "batch should be intransit Please wait!!" }] }));
         }
         if (!record.dispatched) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "batch should be intransit Please wait!!" }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "batch should be intransit Please wait!!" }] }));
         }
 
         if (!record.intransit) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "batch should be intransit Please wait!!" }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "batch should be intransit Please wait!!" }] }));
         }
         record.delivered.proof_of_delivery = proof_of_delivery;
         record.delivered.weigh_bridge_slip = weigh_bridge_slip;
@@ -167,7 +225,7 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
         record.payment_approve_by = user_id;
     }
     else {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
     }
 
     await record.save();
@@ -184,7 +242,7 @@ module.exports.getBatch = asyncErrorHandler(async (req, res) => {
     let record = await Batch.findOne({ _id: id }).populate("req_id");
 
     if (!record) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
     }
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Batch") }));
@@ -198,7 +256,7 @@ module.exports.getFarmerByBatchId = asyncErrorHandler(async (req, res) => {
     const record = await Batch.findOne({ _id: id }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" });
 
     if (!record) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
     }
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
@@ -213,7 +271,7 @@ module.exports.auditTrail = asyncErrorHandler(async (req, res) => {
     const record = await Batch.findOne({ _id: id });
 
     if (!record) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
     }
 
     const { dispatched, intransit, delivered, createdAt, payment_at, payement_approval_at } = record;

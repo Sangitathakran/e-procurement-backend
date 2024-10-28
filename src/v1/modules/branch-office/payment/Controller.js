@@ -9,6 +9,7 @@ const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
+const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 
 module.exports.payment = async (req, res) => {
 
@@ -153,11 +154,11 @@ module.exports.payment = async (req, res) => {
             const record = response.rows.map((item) => {
                 return {
                     "Order ID": item?.reqNo || 'NA',
-                    "Batch ID": item?.batchId || 'NA',
-                    "Commodity": item?.commodity || 'NA',
-                    "Quantity Purchased": item?.qtyProcured || 'NA',
-                    "Payment Status": item?.payment_status ?? 'NA',
-                    "Approval Status": item?.status ?? 'NA'
+                    "Commodity": item?.product.name || 'NA',
+                    "Quantity Purchased": item?.qtyPurchased || 'NA',
+                    "Amount Payable": item?.amountPayable || 'NA',
+                    "Approval Status": item?.approval_status ?? 'NA',
+                    "Payment Status": item?.payment_status ?? 'NA'                    
                 }
             })
 
@@ -165,11 +166,11 @@ module.exports.payment = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-record.xlsx`,
-                    worksheetName: `Payment-record`
+                    fileName: `Farmer-Payment-records.xlsx`,
+                    worksheetName: `Farmer-Payment-records`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: response, message: _response_message.notFound("Payment") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: response, message: _response_message.notFound("Payment") }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: response, message: _response_message.found("Payment") }))
@@ -188,7 +189,7 @@ module.exports.associateOrders = async (req, res) => {
         const { user_type, portalId, user_id } = req;
 
         if (user_type != _userType.bo) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })).map(i => i.associateOffers_id)
@@ -222,11 +223,12 @@ module.exports.associateOrders = async (req, res) => {
         if (isExport == 1) {
 
             const record = records.rows.map((item) => {
+              
                 return {
-                    "Associate ID": item?.user_id.user_code || 'NA',
-                    "Associate Type": item?.user_id.basic_details.associate_details.associate_name || 'NA',
-                    "Associate Name": item?.user_id.basic_details.associate_details.associate_type || 'NA',
-                    "Quantity Purchased": item?.qtyProcured || 'NA'
+                    "Associate ID": item?.seller_id.user_code || 'NA',
+                    "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || 'NA',
+                    "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || 'NA',
+                    "Quantity Purchased": item?.procuredQty || 'NA'
                 }
             })
 
@@ -238,7 +240,7 @@ module.exports.associateOrders = async (req, res) => {
                     worksheetName: `Associate-orders`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
@@ -265,12 +267,9 @@ module.exports.batchList = async (req, res) => {
         const records = { count: 0 };
 
         records.rows = paginate == 1 ? await Batch.find(query)
-            .populate({
-                path: 'procurementCenter_id', select: '_id center_name center_code center_type address'
-            })
             .sort(sortBy)
             .skip(skip)
-            .select('_id procurementCenter_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_approve_by')
+            .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status')
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
@@ -286,9 +285,11 @@ module.exports.batchList = async (req, res) => {
             const record = records.rows.map((item) => {
                 return {
                     "Batch ID": item?.batchId || 'NA',
-                    "procurementCenter_id": item?.procurementCenter_id || 'NA',
-                    "Quantity Purchased": item?.qtyProcured || 'NA',
-                    "Status": item?.status ?? 'NA'
+                    "Delivey Date": item?.delivered.delivered_at || 'NA',
+                    "Payment Due Date": item?.payment_at || 'NA',
+                    "Quantity Purchased": item?.qty || 'NA',
+                    "Amount Payable": item?.totalPrice || 'NA',
+                    "Approval Status": item?.bo_approve_status ?? 'NA'
                 }
             })
 
@@ -296,8 +297,8 @@ module.exports.batchList = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-${user_type}.xlsx`,
-                    worksheetName: `Payment-record-${user_type}`
+                    fileName: `Associate-Batch-records.xlsx`,
+                    worksheetName: `Associate-Batch-records`
                 });
             } else {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
@@ -323,7 +324,7 @@ module.exports.batchApprove = async (req, res) => {
             "dispatched.qc_report.received_qc_status": { $ne: received_qc_status.accepted }
         })
         if (record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Qc is not done on selected batches" }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Qc is not done on selected batches" }] }));
         }
 
 
@@ -333,7 +334,7 @@ module.exports.batchApprove = async (req, res) => {
         );
 
         if (result.matchedCount === 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
         }
         await Payment.updateMany(
             { batch_id: { $in: batchIds } },
@@ -355,7 +356,7 @@ module.exports.qcReport = async (req, res) => {
         const { user_type } = req;
 
         if (user_type != _userType.bo) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         const qcReport = await Batch.findOne({ _id: id })
@@ -378,7 +379,7 @@ module.exports.paymentApprove = async (req, res) => {
         const { user_type } = req;
 
         if (user_type != _userType.bo) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         const paymentList = await Payment.findOne({
@@ -389,7 +390,7 @@ module.exports.paymentApprove = async (req, res) => {
         });
 
         if (!paymentList) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Payment") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Payment") }] }))
         }
 
         paymentList.status = _paymentstatus.approved;
@@ -414,25 +415,9 @@ module.exports.getBill = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
-        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+        const records = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
 
-        if (billPayment) {
-
-            const totalamount = billPayment.totalPrice;
-            let mspPercentage = 1; // The percentage you want to calculate       
-
-            const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
-            const billQty = (0.8 / 1000);
-
-            let records = { ...billPayment.toObject(), totalamount, mspAmount, billQty }
-
-            if (records) {
-                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
-            }
-        }
-        else {
-            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
-        }
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -442,55 +427,17 @@ module.exports.getBill = async (req, res) => {
 module.exports.lot_list = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
+        const { batch_id } = req.query;
 
-        const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
+        const record = {}
+        record.rows = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" });
 
-        let farmerOrderIdsOnly = {}
-
-        if (batchIds && batchIds.length > 0) {
-            farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
-            console.log(farmerOrderIdsOnly);
-        } else {
-            console.log('No Farmer found with this batch.');
+        if (!record) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
         }
 
-        let query = {
-            _id: farmerOrderIdsOnly,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
-        };
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
 
-        const records = { count: 0 };
-        records.rows = paginate == 1 ? await FarmerOrders.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await FarmerOrders.find(query)
-                .sort(sortBy);
-
-        let farmerName = {}
-
-        records.rows = await Promise.all(records.rows.map(async record => {
-
-            const farmerDetails = await farmer.findOne({ '_id': record.farmer_id }).select({ name: 1, _id: 0 });
-
-            const farmerName = farmerDetails ? farmerDetails.name : null;
-            return { ...record.toObject(), farmerName }
-        }));
-
-        records.count = await FarmerOrders.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-        if (records) {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
-        }
-        else {
-            return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
-        }
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -537,11 +484,10 @@ module.exports.agentPaymentList = async (req, res) => {
 
             const record = records.rows.map((item) => {
                 return {
-                    "Order ID": item?.reqNo || 'NA',
-                    "Batch ID": item?.batchId || 'NA',
-                    "Commodity": item?.commodity || 'NA',
-                    "Quantity Purchased": item?.qtyProcured || 'NA',
-                    "Payment Status": item?.payment_status ?? 'NA',
+                    "Order ID": item?.req_id.reqNo || 'NA',
+                    "Commodity": item?.req_id.product.name || 'NA',
+                    "Quantity Purchased": item?.req_id.product.quantity || 'NA',
+                    "Billing Date": item?.bill_at ?? 'NA',
                     "Approval Status": item?.status ?? 'NA'
                 }
             })
@@ -550,11 +496,11 @@ module.exports.agentPaymentList = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Payment-record.xlsx`,
-                    worksheetName: `Payment-record`
+                    fileName: `Agency-Payment-records.xlsx`,
+                    worksheetName: `Agency-Payment-records`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
@@ -594,6 +540,124 @@ module.exports.agentBill = async (req, res) => {
         else {
             return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
         }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+// dileep code 
+
+module.exports.orderList = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
+        const { portalId, user_id } = req
+
+        let query = search ? { req_id: { $regex: search, $options: 'i' }, bo_id: { $in: [portalId, user_id] } } : { bo_id: { $in: [portalId, user_id] } };
+
+        const records = { count: 0, rows: [] };
+
+        records.rows = await AgentInvoice.find(query).populate({path:"req_id", select: " "})
+ 
+
+
+        records.count = await AgentInvoice.countDocuments(query)
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+
+        records.rows = records.rows.map(item=>{ 
+            let obj = { 
+
+                _id: item?._id,
+                orderId: item?.req_id?.reqNo,
+                // branchNo: item?.batch_id?.branchId,
+                commodity: item?.req_id?.product?.name,
+                quantityPurchased: item?.qtyProcured,
+                billingDate: item?.createdAt,
+                bo_approval_status: item.bo_approve_status
+            }
+
+            return obj
+        })
+
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+                return {
+                    "Order ID": item?.orderId || 'NA',
+                    "Commodity": item?.commodity || 'NA',
+                    "Quantity Purchased": item?.quantityPurchased || 'NA',
+                    "Billing Date": item?.billingDate ?? 'NA',
+                    "Approval Status": item?.bo_approval_status ?? 'NA'
+                }
+            })
+
+            if (record.length > 0) {
+
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `orderId-record.xlsx`,
+                    worksheetName: `orderId-record`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Order") }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+
+module.exports.agencyInvoiceById = async (req, res) => {
+
+    try {
+        const agencyInvoiceId = req.params.id
+
+        const agentBill = await AgentInvoice.findOne({_id: agencyInvoiceId}).select('_id bill')
+        if(!agentBill){
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: agentBill, message: _query.get('Invoice') }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.boBillApproval = async (req, res) => {
+
+    try {
+
+        const agencyInvoiceId = req.params.id
+
+        const agentBill = await AgentInvoice.findOne({_id: agencyInvoiceId});
+        if(!agentBill){
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+        agentBill.bo_approve_status = _paymentApproval.approved;
+        agentBill.bo_approve_by = req.user._id;
+        agentBill.bo_approve_at = new Date()
+
+        await agentBill.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: "Bill Approved by BO" }));
 
     } catch (error) {
         _handleCatchErrors(error, res);

@@ -4,6 +4,7 @@ module.exports = {
         login: (name) => `${name || "Account"} login successfully.`,
         allReadyExist: (key) => `${key || "Data"} already exist.`,
         unAuth: "Unauthorized access.",
+        Unauthorized: (name) => `Unauthorized access ${name} user`,
         tokenMissing: "Token missing, Please login again.",
         tokenExpired: "Token Expired, Please login again."
     },
@@ -58,6 +59,7 @@ module.exports = {
         importSuccess:() => "Branches created successfully",
         fileMissing:() => "File is not provided",
         notProvided: (key)=> `${key} is not provided`,
-        userNotApproved:() => "User is not Approved"
+        userNotApproved:() => "User is not Approved",
+        canNOtBeEdited:()=> "HO Approved bills can't be edited."
     }
 }

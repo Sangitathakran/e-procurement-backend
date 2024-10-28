@@ -37,14 +37,16 @@ const _collectionName = {
     AgentPayment: "AgentPayment",
     Associate: "Associate",
     Agency: "Agency",
-    Types: "Types"
+    Types: "Types",
+    AssociateInvoice: "AssociateInvoice",
+    AgentInvoice: "AgentInvoice"
 }
 
 const _userType_Feature_Collection = {
-    
+
 }
 
-const _userAction = { 
+const _userAction = {
     created: "created",
     deleted: "deleted",
     updated: "updated",
@@ -144,6 +146,11 @@ const _associateOfferStatus = {
     pending: 'Pending',
     partially_ordered: "Partially_Ordered",
     ordered: "Ordered",
+}
+const _farmerOrderDeliverdStatus = {
+    pending: "Pending",
+    partially: "Partially",
+    completed: "Completed",
 }
 
 const _procuredStatus = {
@@ -246,9 +253,9 @@ const _soilType = {
     Other: "other"
 }
 const _landType = {
-    OwnLand:"own land",
-    Partnership:"partnership",
-    Leaser:"leaser",
+    OwnLand: "own land",
+    Partnership: "partnership",
+    Leaser: "leaser",
     Other: "other"
 }
 const _distanceUnit = {
@@ -310,6 +317,7 @@ const _batchStatus = {
     delivered: "Delivered",
     finalQc: "Final Qc",
     paymentApproved: "Payment Approved",
+    FinalPayApproved: "Final Payment Approved",
     paymentComplete: "Payment Complete"
 }
 
@@ -319,6 +327,11 @@ const _paymentmethod = {
 }
 
 const _paymentstatus = {
+    pending: "Pending",
+    completed: "Completed",
+}
+
+const _billstatus = {
     pending: "Pending",
     completed: "Completed",
 }
@@ -372,9 +385,21 @@ const _individual_category = {
     others: "others"
 }
 
-const _statusType = { 
+const _statusType = {
     active: 'active',
     inactive: 'inactive'
+}
+
+const _frontendLoginRoutes = {
+    agent: "/agent/sign-in",
+    ho: "/head-office/sign-in",
+    bo: "/branch-office/sign-in"
+}
+
+const _userTypeFrontendRouteMapping = {
+    "agent": "6",
+    "head-office": "2",
+    "branch-office": "3"
 }
 
 module.exports = {
@@ -428,4 +453,8 @@ module.exports = {
     _featureType,
     _statusType,
     received_qc_status,
+    _frontendLoginRoutes,
+    _userTypeFrontendRouteMapping,
+    _billstatus,
+    _farmerOrderDeliverdStatus
 }

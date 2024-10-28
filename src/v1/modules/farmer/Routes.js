@@ -7,7 +7,8 @@ const { verifyAssociate } = require("../associate/utils/verifyAssociate");
 const { saveFarmerDetails,updateIndCrop,getLandDetails, getIndCropDetails,sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, editFarmer, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers } = require("./Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
 // const { verifyAgent } = require("../agent/utils/verifyAgent");
-const { Auth } = require("@src/v1/middlewares/jwt")
+const { Auth } = require("@src/v1/middlewares/jwt");
+const { farmerList } = require("../head-office/farmer-management/Controller");
 
 farmerRoutes.post("/", verifyJwtToken, verifyAssociate, [validateFarmer, validateErrors], createFarmer);
 farmerRoutes.get("/", verifyJwtToken, getFarmers);
@@ -17,7 +18,8 @@ farmerRoutes.post("/createLand", verifyJwtToken,
     //   [validateLand, validateErrors],
       createLand);
 farmerRoutes.get("/get-land", verifyJwtToken, getLand);
-farmerRoutes.get("/get-land-details/:id", verifyJwtToken, getLandDetails);
+farmerRoutes.get("/get-land-details/:id", 
+    verifyJwtToken, getLandDetails);
 farmerRoutes.put("/updateLand/:land_id", verifyJwtToken, updateLand);
 farmerRoutes.put("/updateIndCrop/:farmer_id", verifyJwtToken, updateIndCrop);
 farmerRoutes.delete("/deleteLand", verifyJwtToken, deleteLand);
@@ -38,7 +40,7 @@ farmerRoutes.post("/send-farmerOTP", sendOTP)
 farmerRoutes.post("/verify-farmerOTP", verifyOTP);
 farmerRoutes.post('/register-details', verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
 farmerRoutes.post("/make-associate", verifyAssociate, makeAssociateFarmer);
-farmerRoutes.get("/getbo-farmer", Auth, getBoFarmer);
+farmerRoutes.get("/getbo-farmer", Auth, farmerList);
 farmerRoutes.get("/getall-farmer", Auth, getAllFarmers);
 
 /* 
@@ -49,7 +51,7 @@ farmerRoutes.post("/send-farmerOTP", sendOTP);
 farmerRoutes.post("/verify-farmerOTP", verifyOTP);
 farmerRoutes.post('/register-details', verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
 farmerRoutes.put('/onboarding-details/:id',
-    // verifyJwtToken, 
+    verifyJwtToken, 
     [validateIndFarmer, validateErrors],
     saveFarmerDetails);
 
