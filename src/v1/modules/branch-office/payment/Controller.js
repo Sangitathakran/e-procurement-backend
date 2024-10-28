@@ -484,11 +484,10 @@ module.exports.agentPaymentList = async (req, res) => {
 
             const record = records.rows.map((item) => {
                 return {
-                    "Order ID": item?.reqNo || 'NA',
-                    "Batch ID": item?.batchId || 'NA',
-                    "Commodity": item?.commodity || 'NA',
-                    "Quantity Purchased": item?.qtyProcured || 'NA',
-                    "Payment Status": item?.payment_status ?? 'NA',
+                    "Order ID": item?.req_id.reqNo || 'NA',
+                    "Commodity": item?.req_id.product.name || 'NA',
+                    "Quantity Purchased": item?.req_id.product.quantity || 'NA',
+                    "Billing Date": item?.bill_at ?? 'NA',
                     "Approval Status": item?.status ?? 'NA'
                 }
             })
