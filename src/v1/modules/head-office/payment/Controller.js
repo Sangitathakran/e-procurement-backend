@@ -126,7 +126,6 @@ module.exports.payment = async (req, res) => {
                             else: 'Approved'
                         }
                     },
-                    approval_at: {}
                 }
             },
             {
@@ -137,7 +136,6 @@ module.exports.payment = async (req, res) => {
                     branch_id: 1,
                     "branch._id": 1,
                     "branch.branchName": 1,
-                    approval_at: 1,
                     approval_status: 1,
                     qtyPurchased: 1,
                     amountPayable: 1,

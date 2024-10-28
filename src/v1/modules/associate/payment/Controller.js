@@ -192,7 +192,8 @@ module.exports.batchList = async (req, res) => {
         records.rows = paginate == 1 ? await Batch.find(query)
             .sort(sortBy)
             .skip(skip)
-            .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status status')
+            .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status procurementCenter_id status')
+            .populate({ path: 'procurementCenter_id', select: '_id center_name center_code' })
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
