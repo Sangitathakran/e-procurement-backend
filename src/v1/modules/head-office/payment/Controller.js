@@ -126,7 +126,6 @@ module.exports.payment = async (req, res) => {
                             else: 'Approved'
                         }
                     },
-                    approval_at: {}
                 }
             },
             {
@@ -137,7 +136,6 @@ module.exports.payment = async (req, res) => {
                     branch_id: 1,
                     "branch._id": 1,
                     "branch.branchName": 1,
-                    approval_at: 1,
                     approval_status: 1,
                     qtyPurchased: 1,
                     amountPayable: 1,
@@ -310,6 +308,42 @@ module.exports.qcReport = async (req, res) => {
             })
 
         return res.status(200).send(new serviceResponse({ status: 200, data: qcReport, message: _query.get('Qc Report') }))
+    }
+    catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.approvedBatchList = async (req, res) => {
+
+    try {
+        const { req_id } = req.query;
+        const { user_type } = req;
+
+        const records = { count: 0 }
+
+        records.rows = [{
+            batchId: "100134",
+            seller_id: { user_code: "AS0123" },
+            delivery_at: "2024-10-28T17:23:02.020+00:00",
+            payment_at: "2024-10-28T17:23:02.020+00:00",
+            qty: 60,
+            amt: "12032390",
+            payment_status: "Pending"
+        }, {
+            batchId: "100134",
+            seller_id: { user_code: "AS0123" },
+            delivery_at: "2024-10-28T17:23:02.020+00:00",
+            payment_at: "2024-10-28T17:23:02.020+00:00",
+            qty: 60,
+            amt: "12032390",
+            payment_status: "Pending"
+        },]
+
+        records.page = 1
+        records.limit = 20
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Qc Report') }))
     }
     catch (error) {
         _handleCatchErrors(error, res);
