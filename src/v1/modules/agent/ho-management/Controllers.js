@@ -149,7 +149,6 @@ module.exports.saveHeadOffice = async (req, res) => {
             } else if (authorised?.mobile) {
                 masterUser.mobile = authorised?.mobile.trim()
             }
-<<<<<<< HEAD
     
             const masterUserCreated = await masterUser.save();
             if(!masterUserCreated){
@@ -158,14 +157,6 @@ module.exports.saveHeadOffice = async (req, res) => {
             await emailService.sendHoCredentialsEmail(emailPayload);
             
         }else{
-=======
-
-            await masterUser.save();
-            await emailService.sendHoCredentialsEmail(emailPayload);
-
-        } else {
-            await HeadOffice.deleteOne({ _id: savedHeadOffice._id })
->>>>>>> 1ae589944b06020ad03647190c0e4f941d3f4d5b
             throw new Error('Head office not created')
 
         }
