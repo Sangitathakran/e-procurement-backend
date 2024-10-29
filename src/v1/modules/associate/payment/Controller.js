@@ -195,7 +195,7 @@ module.exports.batchList = async (req, res) => {
             .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status procurementCenter_id status')
             .populate({ path: 'procurementCenter_id', select: '_id center_name center_code' })
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
-            
+
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
@@ -632,7 +632,7 @@ module.exports.getBill = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
-        const records = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+        const records = await Batch.findOne({ id: batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
 

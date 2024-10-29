@@ -711,7 +711,7 @@ module.exports.getBill = async (req, res) => {
 
         const { user_id, user_type } = req;
 
-        const records = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+        const records = await Batch.findOne({ _id: batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
 
