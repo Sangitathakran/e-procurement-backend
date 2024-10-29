@@ -2,12 +2,13 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
+const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod, _userType } = require("@src/v1/utils/constants");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const moment = require("moment");
-const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { dumpJSONToExcel } = require("@src/v1/utils/helpers")
 
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
 
@@ -74,7 +75,7 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
 
 module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport =0 } = req.query;
+    const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query;
 
 
     let query = search ? {
@@ -108,7 +109,7 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
-    
+
     if (isExport == 1) {
 
         const record = records.rows.map((item) => {
@@ -135,7 +136,7 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
     } else {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
     }
-    
+
     // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
 
 })
@@ -146,7 +147,7 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
     const { id, proof_of_delivery, weigh_bridge_slip, receiving_copy, truck_photo, loaded_vehicle_weight, tare_weight, net_weight, material_image = [], weight_slip = [], qc_report = [], data, paymentIsApprove = 0 } = req.body;
     const { user_id, user_type } = req;
 
-    const record = await Batch.findOne({ _id: id }).populate("req_id");
+    const record = await Batch.findOne({ _id: id }).populate("req_id").populate("seller_id");
 
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
@@ -156,6 +157,26 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
         record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
         record.dispatched.qc_report.received_qc_status = received_qc_status.rejected;
         record.reason = { text: data, on: moment() }
+
+        const subject = `QC Rejected Notification for  Batch ID ${record?.batchId} under order ID ${record?.req_id.reqNo}`;
+        const body = `<p>  Dear ${record?.seller_id?.basic_details.associate_details.associate_name}, </p> <br/>
+        <p> This is to inform you that the Quality Control (QC) for the following batch has been rejected: </p> <br/> 
+          <ul>
+                <li> Order ID : ${record?.req_id.reqNo} </li>
+                <li>Batch ID  : ${record?.batchId} </li>
+                <li>Associate Name : ${record?.seller_id?.basic_details?.associate_details.associate_name}</li>
+                <li> Commodity : ${record?.req_id.product.name} </li>
+                <li>Quantity  : ${record?.req_id.product.quantity}</li> 
+                <li> Rejection Reason: ${data} </li>
+            </ul> <br/> 
+        <p> Please follow the link below for additional information: </p> <br/> 
+        <p> Needs Help </p> <br/> 
+        <p> For queries or any assistance, contact us at ${record?.seller_id.basic_details.associate_details.phone} </p> <br/> 
+        <p> Warm regards,  </p> <br/> 
+        <p> Team Navankur. </p>`
+
+        await sendMail("ashita@navankur.org", "", subject, body);
+
     } else if (qc_report.length > 0 || material_image.length > 0) {
         if (material_image.length > 0) {
             record.dispatched.material_img.received.push(...material_image.map(i => { return { img: i, on: moment() } }))
@@ -193,6 +214,24 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
             }
 
             await Payment.insertMany(paymentRecords);
+
+            const subject = `QC Approved Notification for Batch ID ${record?.batchId} under order ID ${record?.req_id.reqNo}`;
+            const body = `<p>  Dear ${record?.seller_id?.basic_details.associate_details.associate_name}, </p> <br/>
+            <p> This is to inform that you Quality Control (QC) for the following batch has been successfully approved:</p> <br/> 
+             <ul>
+                <li> Order ID : ${record?.req_id.reqNo} </li>
+                <li>Batch ID  : ${record?.batchId} </li>
+                <li>Associate Name : ${record?.seller_id?.basic_details.associate_details.associate_name}</li>
+                <li> Commodity : ${record?.req_id.product.name} </li>
+                <li>Quantity  : ${record?.req_id.product.quantity}</li>
+            </ul> <br/> 
+            <p> Please follow the link below for additional information: </p> <br/> 
+            <p> Needs Help </p> <br/> 
+            <p> For queries or any assistance, contact us at ${record?.seller_id?.basic_details.associate_details.phone} </p> <br/> 
+            <p> Warm regards,  </p> <br/> 
+            <p> Team Navankur. </p>`
+
+            await sendMail("ashita@navankur.org", "", subject, body);
         }
     } else if (weight_slip.length > 0) {
         record.dispatched.weight_slip.received.push(...weight_slip.map(i => { return { img: i, on: moment() } }))
@@ -219,6 +258,25 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
         record.delivered.delivered_by = user_id;
 
         record.status = _batchStatus.delivered;
+
+        const subject = `Confirmation of Successful Batch Delivery for ${record?.batchId} under ${record.req_id.reqNo}`;
+        const body = `<p> Dear  ${record?.seller_id.basic_details.associate_details.associate_name}, </p> <br/>
+            <p> This is to inform you that the batch has been successfully delivered. Below are the details for your records: </p> <br/> 
+            <ul>
+                <li> Order ID : ${record?.req_id.reqNo} </li>
+                <li>Batch ID  : ${record?.batchId} </li>
+                <li>Associate Name : ${record?.seller_id?.basic_details.associate_details.associate_name}</li>
+                <li>Quantity Procured : ${record?.qty}</li>
+                <li>Delivery Date : ${record?.delivered.delivered_at}</li>
+            </ul>
+            <br/>
+            <p> Please follow the link below for additional information:< Insert Link> </p> <br/> 
+            <p> Needs Help </p> <br/> 
+            <p> For queries or any assistance, contact us at ${record?.seller_id?.basic_details.associate_details.phone} </p> <br/> 
+            <p> Warm regards,  </p> <br/> 
+            <p> Navankur. </p> `
+
+        await sendMail("ashita@navankur.org", "", subject, body);
 
     } else if (paymentIsApprove == 1 && record.dispatched.qc_report.received.length > 0 && record.dispatched.qc_report.received_qc_status == received_qc_status.accepted) {
         record.payement_approval_at = new Date();
