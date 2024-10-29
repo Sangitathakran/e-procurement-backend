@@ -62,6 +62,7 @@ module.exports.getProcurementCenter = async (req, res) => {
                     "State": item?.address?.state || 'NA',
                     "City": item?.address?.city || 'NA',
                     "Point Of Contact": item?.point_of_contact?.name || 'NA',
+                    "Location URL": item?.location_url || 'NA',
                     "Status": status || 'NA'
                 }
             })
