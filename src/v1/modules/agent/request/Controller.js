@@ -4,6 +4,8 @@ const { _query, _response_message } = require("@src/v1/utils/constants/messages"
 const { _webSocketEvents, _associateOfferStatus, _status, _requestStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
+const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
@@ -73,6 +75,42 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     );
     
     
+
+    const branchData = await Branches.findOne({ _id: branch_id });
+
+    const subject = `Procurement Requirement ${record?.reqNo} Successfully Added`;
+    const body = `<p> Dear < Name>, </p> <br/>
+                <p> We are delighted to inform you that a procurement requirement has been successfully added under following details: </p> 
+                <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+                <tr>
+                    <th>Order ID</th>
+                    <td> ${record?.reqNo} </td>
+                </tr>
+                <tr>
+                    <th>Branch Office Name</th>
+                    <td> ${branchData?.branchName}</td>
+                </tr>
+                <tr>
+                    <th>Commodity</th>
+                    <td>${record?.product.name} </td>
+                </tr>
+                <tr>
+                    <th>Quantity</th>
+                    <td> ${record?.product.quantity}</td>
+                </tr>
+                <tr>
+                    <th>MSP/Quintal</th>
+                    <td> ${record?.quotedPrice}</td>
+                </tr>
+                </table>
+                <br/>
+                <p>  Please follow the link below for additional Information:<a href="https://ep-testing.navbazar.com/agent/requirements"> Click here </a>  </p> <br/> 
+                <p> Need Help? </p> <br/> 
+                <p> For queries or any assistance, contact us at <9567------> </p> <br/> 
+                <p> Warm regards,  </p> <br/> 
+                <p> Navankur. </p> `
+
+    await sendMail("ashita@navankur.org", null, subject, body);
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("procurement") }));
 })
 
@@ -282,7 +320,7 @@ module.exports.getofferedFarmers = asyncErrorHandler(async (req, res) => {
     records.rows = await FarmerOffers.find(query)
         .sort(sortBy)
         .skip(skip)
-        .populate({ path: 'farmer_id', select: '_id farmer_code parents address' })
+        .populate({ path: 'farmer_id', select: '_id farmer_id farmer_code parents address basic_details.mobile_no' })
         .limit(parseInt(limit))
         .select('_id associateOffers_id farmer_id metaData offeredQty')
 
@@ -300,7 +338,9 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
 
     const { associateOffer_id, status, comments } = req.body;
 
-    const offer = await AssociateOffers.findOne({ _id: associateOffer_id });
+    const offer = await AssociateOffers.findOne({ _id: associateOffer_id })
+        .populate({ path: "req_id", select: "reqNo product" })
+        .populate({ path: "seller_id", select: "basic_details" })
 
     if (!offer) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
@@ -346,6 +386,41 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
     }
 
     await offer.save();
+
+    const subject = `New Approval Request Received for Quantity Proposed`;
+    const body = `<p> Dear <Admin> </p> <br/> 
+                <p> You have received a New Approval request for the quantity proposed by the associate under the following details: </p> <br/> 
+                <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+                <tr>
+                    <th>Order ID</th>
+                    <td> ${offer?.req_id.reqNo} </td>
+                </tr>
+                <tr>
+                    <th> Associate ID </th>
+                    <td> ${offer?.seller_id.user_code}</td>
+                </tr>
+                <tr>
+                    <th> Associate Name </th>
+                    <td> ${offer?.seller_id.basic_details.associate_details.associate_name} </td>
+                </tr>
+                <tr>
+                    <th>Commodity </th>
+                    <td> ${offer?.req_id.product.name}</td>
+                </tr>
+                <tr>
+                    <th> Quantity Proposed </th>
+                    <td> ${offer?.req_id.product.quantity} </td>
+                </tr>
+                </table> <br/>
+                <p> Please review the request and approve or reject it by clicking on the following link: <a href="https://ep-testing.navbazar.com/requirements/requests">Click here</a> </p> <br/> 
+                <p> Thank you for your prompt attention to this matter. </p> <br/> 
+                <p> Need Help?  </p> <br/> 
+                <p> For queries or any assistance, contact us at ${offer?.seller_id.basic_details.associate_details.phone} </p> <br/> 
+                <p> Warm regards,  </p> <br/> 
+                <p> Navankur. </p> `;
+
+
+    await sendMail("ashita@navankur.org", "", subject, body);
 
     return res.status(200).send(new serviceResponse({ status: 200, data: offer, message: _response_message.updated("offer") }))
 

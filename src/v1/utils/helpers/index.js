@@ -9,6 +9,8 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 const stateList =require("@src/v1/utils/constants/stateList");
 const { ObjectId } = require('mongodb'); 
+const ExcelJS = require('exceljs');
+const { Console } = require("console");
 /**
  * 
  * @param {any} error 
@@ -90,6 +92,8 @@ exports.dumpJSONToExcel = (req, res, config = {
         });
     }
 };
+
+
 
 
 exports._generateOrderNumber = () => {
@@ -374,3 +378,4 @@ exports.parseMonthyear = (dateString) => {
     const [month, year] = dateString.split('-').map(Number);
     return new Date(Date.UTC(year, month - 1, 1));
 }
+

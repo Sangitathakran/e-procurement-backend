@@ -18,7 +18,10 @@ const { generateJwtToken } = require('../../utils/helpers/jwt')
 const stateList=require("../../utils/constants/stateList");
 const _individual_farmer_onboarding_steps = require('@src/v1/utils/constants');
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
-const { ObjectId } = require('mongodb'); 
+const { ObjectId } = require('mongodb');
+const { _proofType, _gender, _religion, _maritalStatus, _areaUnit, _seasons, _individual_category, _soilType, _yesNo } = require('@src/v1/utils/constants');
+const XLSX = require('xlsx');
+const fs = require('fs');
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -1423,7 +1426,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const khasra_number = rec["KHASRA NUMBER*"];
       const khtauni_number = rec["KHATAUNI"];
       const sow_area = rec["SOW AREA"];
-      const state = rec["STATE"];
+      const state = (rec["STATE"]);
       const district = rec["DISTRICT"];
       const landvillage = rec["ViLLAGE"];
       const expected_production = rec["EXPECTED PRODUCTION"];
@@ -1470,7 +1473,16 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         { field: "DISTRICT NAME*", label: "DISTRICT NAME" },
         { field: "MOBILE NO*", label: "MOBILE NUMBER" }
       ];
-    
+      let stateName = state_name.replace(/_/g, ' ');
+      if (
+        stateName === 'Dadra and Nagar Haveli' ||
+        stateName === 'Andaman and Nicobar' ||
+        stateName === 'Daman and Diu' ||
+        stateName === 'Jammu and Kashmir'
+      ) {
+        stateName = stateName.replace('and', '&');
+      }
+      console.log(stateName);
       let errors = [];
       let missingFields = [];
     
@@ -1487,11 +1499,36 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       if (!/^\d{10}$/.test(mobile_no)) {
         errors.push({ record: rec, error: "Invalid Mobile Number" });
       }
-
+      if (!Object.values(_gender).includes(gender)) {
+        errors.push({ record: rec, error: `Invalid Gender: ${gender}. Valid options: ${Object.values(_gender).join(', ')}` });
+    }
+    if (!Object.values(_maritalStatus).includes(marital_status)) {
+        errors.push({ record: rec, error: `Invalid Marital Status: ${marital_status}. Valid options: ${Object.values(_maritalStatus).join(', ')}` });
+    }
+    if (!Object.values(_religion).includes(religion)) {
+        errors.push({ record: rec, error: `Invalid Religion: ${religion}. Valid options: ${Object.values(_religion).join(', ')}` });
+    }
+    if (!Object.values(_individual_category).includes(category)) {
+        errors.push({ record: rec, error: `Invalid Category: ${category}. Valid options: ${Object.values(_individual_category).join(', ')}` });
+    }
+    if (!Object.values(_proofType).includes(type)) {
+        errors.push({ record: rec, error: `Invalid Proof type: ${type}. Valid options: ${Object.values(_proofType).join(', ')}` });
+    }
+    if (area_unit && !Object.values(_areaUnit).includes(area_unit)) {
+        errors.push({ record: rec, error: `Invalid Area Unit: ${area_unit}. Valid options: ${Object.values(_areaUnit).join(', ')}` });
+    }
+    if (!Object.values(_seasons).includes(crop_season)) {
+        errors.push({ record: rec, error: `Invalid Crop Season: ${crop_season}. Valid options: ${Object.values(_seasons).join(', ')}` });
+    }
+    if (!Object.values(_yesNo).includes(soil_tested)) {
+        errors.push({ record: rec, error: `Invalid Yes No: ${soil_tested}. Valid options: ${Object.values(_yesNo).join(', ')}` });
+    }
+    
+      
       if (errors.length > 0) return { success: false, errors };
 
       try {
-        const state_id = await getStateId(state_name);
+        const state_id = await getStateId(stateName);
         const district_id = await getDistrictId(district_name);
         const land_state_id = await getStateId(state);
         const land_district_id = await getDistrictId(district);

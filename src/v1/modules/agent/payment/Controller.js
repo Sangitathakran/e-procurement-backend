@@ -711,11 +711,7 @@ module.exports.getBill = async (req, res) => {
 
         const { user_id, user_type } = req;
 
-        if (user_type !== _userType.associate) {
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
-        }
-
-        const records = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+        const records = await Batch.findOne({ _id: batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
 
@@ -864,6 +860,48 @@ module.exports.associateBillApprove = async (req, res) => {
         const record = await AssociateInvoice.updateMany(query, { $set: { agent_approve_status: _paymentApproval.approved, agent_approve_by: portalId, agent_approve_at: new Date() } });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("invoice") }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+
+module.exports.agentPayments = async (req, res) => {
+
+    try {
+
+        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+
+        let query = search ? {
+            $or: [
+                { "req_id.reqNo": { $regex: search, $options: 'i' } },
+                { "bo_id.branchId": { $regex: search, $options: 'i' } },
+                { "req_id.product.name": { $regex: search, $options: 'i' } }
+            ]
+        } : {};
+
+        const records = { count: 0 };
+
+        records.rows = paginate == 1 ? await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
+            .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "reqNo product.name" }])
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await Batch.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
+                .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "reqNo product.name" }])
+                .sort(sortBy)
+
+        records.count = await AgentInvoice.countDocuments(query);
+
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+
 
     } catch (error) {
         _handleCatchErrors(error, res);
