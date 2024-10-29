@@ -5,7 +5,7 @@ const { ProcurementCenter } = require("@src/v1/models/app/procurement/Procuremen
 const { User } = require("@src/v1/models/app/auth/User");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
-const { _userType, _center_type } = require("@src/v1/utils/constants");
+const { _userType, _center_type, _status } = require("@src/v1/utils/constants");
 const Readable = require('stream').Readable;
 
 
@@ -43,19 +43,10 @@ module.exports.getProcurementCenter = async (req, res) => {
         }
 
         if (isExport == 1) {
-            
+
             let status = 'Inactive';
 
             const record = records.rows.map((item) => {
-                
-                console.log(item.active);
-
-                if(item.active == true){
-                    status = 'Active';
-                }else{
-                    status = 'Inactive';
-                }
-
                 return {
                     "Center ID": item?.center_code || 'NA',
                     "Center Name": item?.center_name || 'NA',
@@ -63,7 +54,7 @@ module.exports.getProcurementCenter = async (req, res) => {
                     "City": item?.address?.city || 'NA',
                     "Point Of Contact": item?.point_of_contact?.name || 'NA',
                     "Location URL": item?.location_url || 'NA',
-                    "Status": status || 'NA'
+                    "Status": item.active == true ? _status.active : _status.inactive || 'NA'
                 }
             })
 
@@ -86,6 +77,6 @@ module.exports.getProcurementCenter = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-    
+
 }
 
