@@ -158,7 +158,7 @@ module.exports.payment = async (req, res) => {
                     "Quantity Purchased": item?.qtyPurchased || 'NA',
                     "Amount Payable": item?.amountPayable || 'NA',
                     "Approval Status": item?.approval_status ?? 'NA',
-                    "Payment Status": item?.payment_status ?? 'NA'                    
+                    "Payment Status": item?.payment_status ?? 'NA'
                 }
             })
 
@@ -223,7 +223,7 @@ module.exports.associateOrders = async (req, res) => {
         if (isExport == 1) {
 
             const record = records.rows.map((item) => {
-              
+
                 return {
                     "Associate ID": item?.seller_id.user_code || 'NA',
                     "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || 'NA',
@@ -415,7 +415,7 @@ module.exports.getBill = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
-        const records = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+        const records = await Batch.findOne({ _id: batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
 
@@ -558,8 +558,8 @@ module.exports.orderList = async (req, res) => {
 
         const records = { count: 0, rows: [] };
 
-        records.rows = await AgentInvoice.find(query).populate({path:"req_id", select: " "})
- 
+        records.rows = await AgentInvoice.find(query).populate({ path: "req_id", select: " " })
+
 
 
         records.count = await AgentInvoice.countDocuments(query)
@@ -575,8 +575,8 @@ module.exports.orderList = async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
 
 
-        records.rows = records.rows.map(item=>{ 
-            let obj = { 
+        records.rows = records.rows.map(item => {
+            let obj = {
 
                 _id: item?._id,
                 orderId: item?.req_id?.reqNo,
@@ -628,8 +628,8 @@ module.exports.agencyInvoiceById = async (req, res) => {
     try {
         const agencyInvoiceId = req.params.id
 
-        const agentBill = await AgentInvoice.findOne({_id: agencyInvoiceId}).select('_id bill')
-        if(!agentBill){
+        const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId }).select('_id bill')
+        if (!agentBill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
 
@@ -646,8 +646,8 @@ module.exports.boBillApproval = async (req, res) => {
 
         const agencyInvoiceId = req.params.id
 
-        const agentBill = await AgentInvoice.findOne({_id: agencyInvoiceId});
-        if(!agentBill){
+        const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId });
+        if (!agentBill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
 
