@@ -43,15 +43,26 @@ module.exports.getProcurementCenter = async (req, res) => {
         }
 
         if (isExport == 1) {
+            
+            let status = 'Inactive';
 
             const record = records.rows.map((item) => {
+                
+                console.log(item.active);
+
+                if(item.active == true){
+                    status = 'Active';
+                }else{
+                    status = 'Inactive';
+                }
+
                 return {
                     "Center ID": item?.center_code || 'NA',
                     "Center Name": item?.center_name || 'NA',
                     "State": item?.address?.state || 'NA',
                     "City": item?.address?.city || 'NA',
                     "Point Of Contact": item?.point_of_contact?.name || 'NA',
-                    "Status": item?.active || 'NA'
+                    "Status": status || 'NA'
                 }
             })
 
@@ -59,8 +70,8 @@ module.exports.getProcurementCenter = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `orderId-record.xlsx`,
-                    worksheetName: `orderId-record`
+                    fileName: `Procurement-Center-records.xlsx`,
+                    worksheetName: `Procurement-Center-records`
                 });
             } else {
                 return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("collection center") }))
