@@ -13,6 +13,8 @@ const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOff
 const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { default: mongoose } = require("mongoose");
+const { emailService } = require("@src/v1/utils/third_party/EmailServices");
+const { User } = require("@src/v1/models/app/auth/User");
 
 module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req
@@ -51,6 +53,28 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     });
 
     eventEmitter.emit(_webSocketEvents.procurement, { ...record, method: "created" })
+    const requestData = {
+        order_no : record.reqNo,
+        commodity_name : record.product.name,
+        quantity_request : record.product.quantity,
+        quoteExpiry : record.quoteExpiry,
+        expectedProcurementDate : record.expectedProcurementDate,
+    }
+    const users = await User.find({ 
+            'basic_details.associate_details.email': { $exists: true } 
+        }).select('basic_details.associate_details.email basic_details.associate_details.associate_name');
+    await Promise.all(
+        users.map(user => {
+        const { email, associate_name } = user.basic_details.associate_details;
+        return emailService.sendProposedQuantityEmail({ 
+            ...requestData, 
+            email, 
+            associate_name: associate_name 
+        });
+        })
+    );
+    
+    
 
     const branchData = await Branches.findOne({ _id: branch_id });
 
