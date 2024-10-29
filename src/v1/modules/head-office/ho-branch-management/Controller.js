@@ -345,9 +345,10 @@ module.exports.branchList = async (req, res) => {
 
       if(!fromAgent){
         searchQuery = {...searchQuery , headOfficeId: req.user.portalId._id }
+      }else{ 
+        searchQuery = {...searchQuery , headOfficeId: req.query.ho_id }
       } 
       
-  
       // Count total documents for pagination purposes, applying search filter
       const totalCount = await Branches.countDocuments(searchQuery); 
 

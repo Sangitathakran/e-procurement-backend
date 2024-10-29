@@ -96,7 +96,7 @@ module.exports.getSingleFarmer = async (req, res) => {
         if (!farmerId)
             return sendResponse({ res, status: 400, data: null, message: _response_message.notProvided('Farmer Id') })
         
-        const farmerData = await farmer.findById(farmerId).populate('land_details.land_id')
+        const farmerData = await farmer.findById(farmerId).populate('land_details.land_id crop_details.crop_id')
 
         const state =  await getState(farmerData.address?.state_id)
         const district =  await getDistrict(farmerData.address?.district_id, farmerData.address?.state_id)
