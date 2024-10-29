@@ -865,3 +865,45 @@ module.exports.associateBillApprove = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+
+module.exports.agentPayments = async (req, res) => {
+
+    try {
+
+        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+
+        let query = search ? {
+            $or: [
+                { "req_id.reqNo": { $regex: search, $options: 'i' } },
+                { "bo_id.branchId": { $regex: search, $options: 'i' } },
+                { "req_id.product.name": { $regex: search, $options: 'i' } }
+            ]
+        } : {};
+
+        const records = { count: 0 };
+
+        records.rows = paginate == 1 ? await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
+            .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "reqNo product.name" }])
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await Batch.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
+                .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "reqNo product.name" }])
+                .sort(sortBy)
+
+        records.count = await AgentInvoice.countDocuments(query);
+
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
