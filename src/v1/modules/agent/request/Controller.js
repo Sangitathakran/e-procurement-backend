@@ -258,7 +258,7 @@ module.exports.getofferedFarmers = asyncErrorHandler(async (req, res) => {
     records.rows = await FarmerOffers.find(query)
         .sort(sortBy)
         .skip(skip)
-        .populate({ path: 'farmer_id', select: '_id farmer_code parents address' })
+        .populate({ path: 'farmer_id', select: '_id farmer_id farmer_code parents address basic_details.mobile_no' })
         .limit(parseInt(limit))
         .select('_id associateOffers_id farmer_id metaData offeredQty')
 
