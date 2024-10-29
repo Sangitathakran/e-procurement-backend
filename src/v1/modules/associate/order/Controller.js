@@ -48,13 +48,11 @@ module.exports.batch = async (req, res) => {
         if (existBatch) {
             const addedQty = existBatch.reduce((sum, existBatch) => sum + existBatch.qty, 0);
 
-            console.log(addedQty);
-
             if (addedQty >= record.offeredQty) {
-                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Can't not create more Batch, Offer qty already fulfilled." }] }))
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Can not create more Batch, Offered qty already fulfilled." }] }))
             }
         }
-        
+
         //////////////// End of Sangita code
 
         const farmerOrderIds = [];
