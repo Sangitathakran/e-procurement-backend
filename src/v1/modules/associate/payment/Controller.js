@@ -195,6 +195,9 @@ module.exports.batchList = async (req, res) => {
             .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status procurementCenter_id status')
             .populate({ path: 'procurementCenter_id', select: '_id center_name center_code' })
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
+            
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
         records.count = await Batch.countDocuments(query);
 
