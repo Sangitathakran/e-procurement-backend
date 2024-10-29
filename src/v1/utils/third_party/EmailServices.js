@@ -164,20 +164,22 @@ class EmailService {
         }
     }
 
-    async sendProposedQuantityEmail(userDetails) {
+    async sendProposedQuantityEmail(requestData) {
         try {
-            const email = userDetails.basic_details.associate_details.email;
-            const userName = userDetails.basic_details.associate_details.organization_name;
-            const userCode = userDetails.user_code;
-
+            
+            const { email, associate_name, commodity_name, order_no, quantity_request, quoteExpiry, expectedProcurementDate } = requestData;
             const template = await this.loadTemplate("proposedQuantity");
             const html = template
                 .replace("{{app_url}}", FRONTEND_URL)
                 .replace("{{logo_url}}", LOGO_URL)
-                .replace("{{user_name}}", userName)
-                .replace("{{user_code}}", userCode);
+                .replace("{{associate_name}}", associate_name)
+                .replace("{{commodity_name}}", commodity_name)
+                .replace("{{order_no}}", order_no)
+                .replace("{{quantity_request}}", quantity_request)
+                .replace("{{quoteExpiry}}", quoteExpiry)
+                .replace("{{expectedProcurementDate}}", expectedProcurementDate);
 
-            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+            await sendMail(email, '', `New Order Received (Order ID – ${order_no}) || Navbazar ||`, html);
 
         } catch (error) {
             console.error("Error sending welcome email:", error);
@@ -185,20 +187,15 @@ class EmailService {
         }
     }
 
-    async sendCreateBatchEmail(userDetails) {
+    async sendCreateBatchEmail(email, associate_name) {
         try {
-            const email = userDetails.basic_details.associate_details.email;
-            const userName = userDetails.basic_details.associate_details.organization_name;
-            const userCode = userDetails.user_code;
-
             const template = await this.loadTemplate("createBatch");
             const html = template
                 .replace("{{app_url}}", FRONTEND_URL)
                 .replace("{{logo_url}}", LOGO_URL)
-                .replace("{{user_name}}", userName)
-                .replace("{{user_code}}", userCode);
+                .replace("{{associate_name}}", associate_name);
 
-            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+            await sendMail(email, '', `Reminder to Create Batches of the Quantities procured || Navbazar || `, html);
 
         } catch (error) {
             console.error("Error sending welcome email:", error);
@@ -248,20 +245,22 @@ class EmailService {
         }
     }
 
-    async sendTrackDeliveryInTransitEmail(userDetails) {
+    async sendTrackDeliveryInTransitEmail(emailPayloadData) {
         try {
-            const email = userDetails.basic_details.associate_details.email;
-            const userName = userDetails.basic_details.associate_details.organization_name;
-            const userCode = userDetails.user_code;
+            const {batch_id,order_no,driver_name,driver_phone,transport_service,vehicle_no,email, associate_name} = emailPayloadData;
 
             const template = await this.loadTemplate("trackDeliveryInTransit");
             const html = template
                 .replace("{{app_url}}", FRONTEND_URL)
                 .replace("{{logo_url}}", LOGO_URL)
-                .replace("{{user_name}}", userName)
-                .replace("{{user_code}}", userCode);
-
-            await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
+                .replace("{{batch_id}}", batch_id)
+                .replace("{{order_no}}", order_no)
+                .replace("{{driver_name}}", driver_name)
+                .replace("{{driver_phone}}", driver_phone)
+                .replace("{{transport_service}}", transport_service)
+                .replace("{{associate_name}}", associate_name)
+                .replace("{{vehicle_no}}", vehicle_no);
+            await sendMail(email, '', `In-Transit Notification - Batch ID  – ${batch_id} associated with ${order_no} || Navbazar ||`, html);
 
         } catch (error) {
             console.error("Error sending welcome email:", error);

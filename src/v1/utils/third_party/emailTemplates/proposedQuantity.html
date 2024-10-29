@@ -67,13 +67,21 @@
             <img src="{{logo_url}}" alt="Navbazar Logo" class="logo">
         </div>
         <div class="content">
-            <h2 style="margin-bottom: 20px;">Procurement Request Approved</h2>
-            <p>Dear <strong>{{Associate's Name}}</strong>,</p>
-            <p>Your procurement request has been approved against the Order ID- <strong>{{order_id}}</strong>.</p>
-            <p>Please follow this link to start your procurement journey:</p>
+            <p>Dear <strong>{{associate_name}}</strong>,</p>
+            <p>You have received a new procurement request (Order ID – <strong>{{order_no}}</strong>).</p>
+            <p>Please review the details by visiting the following link:</p>
+            
+            <h3>Order Details:</h3>
+            <p><strong>Commodity Name:</strong> {{commodity_name}}</p>
+            <p><strong>Quantity Requested:</strong> {{quantity_request}} MT</p>
+            <p><strong>Quote Expiry:</strong> {{quoteExpiry}}</li>
+            <p><strong>Expected Procurement Date:</strong> {{expectedProcurementDate}}</p>
+            
+            <p>Please review the details by visiting the following given link and take the necessary actions to process this request. </p>
             <a href="{{app_url}}">
-                <button class="cta-button">Start Your Procurement Journey</button>
+                <button class="cta-button">Review Procurement Request</button>
             </a>
+            <p>Please ensure to confirm the availability and initiate the procurement process at your earliest convenience.  </p>
         </div>
         <div class="footer">
             <p>Best regards,<br>Team Navankur</p>
