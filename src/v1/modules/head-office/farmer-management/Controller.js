@@ -95,19 +95,29 @@ module.exports.getSingleFarmer = async (req, res) => {
         const farmerId = req.params.id
         if (!farmerId)
             return sendResponse({ res, status: 400, data: null, message: _response_message.notProvided('Farmer Id') })
+        
+        const farmerData = await farmer.findById(farmerId).populate('land_details.land_id')
 
-        const type = req.params.type
-        const farmerDetails = await singlefarmerDetails(res, farmerId, type);
+        const state =  await getState(farmerData.address?.state_id)
+        const district =  await getDistrict(farmerData.address?.district_id, farmerData.address?.state_id)
 
+        const response = {...JSON.parse(JSON.stringify(farmerData)),
+                            address:  { ...JSON.parse(JSON.stringify(farmerData.address)) , state, district}}
 
+        if(!farmerData){
+            return sendResponse({
+                res,
+                status: 200,
+                data: response,
+                message: _response_message.notFound("farmer")
+            });
+        }
 
         return sendResponse({
             res,
             status: 200,
-            data: farmerDetails,
-            message: farmerDetails
-                ? _response_message.found("farmer")
-                : _response_message.notFound("farmer")
+            data: response,
+            message:_response_message.found("farmer")
         });
 
 

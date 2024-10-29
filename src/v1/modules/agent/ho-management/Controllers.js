@@ -111,13 +111,13 @@ module.exports.saveHeadOffice = async (req, res) => {
             address,
             authorised,
         });
-        
         // checking the existing user in Master User collection
         const isUserAlreadyExist = await MasterUser.findOne(
-            { $or: [{ mobile: { $exists: true, $eq: authorised?.phone?.trim() ?? authorised?.mobile?.trim()} }, { email: { $exists: true, $eq: authorised.email.trim() } }] });
+            { $or: [{ mobile: { $exists: true, $eq: authorised?.mobile?.trim() } }, { email: { $exists: true, $eq: authorised.email.trim() } }] });
   
         if(isUserAlreadyExist){
-            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("already existed with this mobile number or email in Master") }] }))
+            return res.send(new serviceResponse({ status: 400, message: "already existed with this mobile number or email in Master", 
+                errors: [{ message: _response_message.allReadyExist("already existed with this mobile number or email in Master") }] }))
         }
 
         const savedHeadOffice = await headOffice.save();
@@ -130,12 +130,12 @@ module.exports.saveHeadOffice = async (req, res) => {
             password: password,
             login_url: login_url
         }
-        if(savedHeadOffice._id){
+        if(savedHeadOffice){
             const masterUser = new MasterUser({
                 firstName : authorised.name,
                 isAdmin : true,
                 email : authorised.email.trim(),
-                mobile : authorised?.phone?.trim() ?? authorised?.mobile.trim(),
+                mobile : authorised?.mobile.trim(),
                 password: hashedPassword,
                 user_type: type.user_type,
                 userRole: [type.adminUserRoleId],
@@ -144,11 +144,13 @@ module.exports.saveHeadOffice = async (req, res) => {
                 ipAddress: getIpAddress(req)
             });
     
-            await masterUser.save();
+            const masterUserCreated = await masterUser.save();
+            if(!masterUserCreated){
+                return sendResponse({res, status: 400, message: "master user not created"})
+            }
             await emailService.sendHoCredentialsEmail(emailPayload);
             
         }else{
-            await HeadOffice.deleteOne({_id:savedHeadOffice._id})
             throw new Error('Head office not created')
             
         }

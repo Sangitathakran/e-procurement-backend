@@ -1,5 +1,5 @@
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { MasterUser } = require("@src/v1/models/master/MasterUser");
 
 const {
@@ -27,23 +27,13 @@ module.exports.importBranches = async (req, res) => {
   try {
     const headOfficeId = req.user.portalId._id;
     if (!headOfficeId) {
-      return res.status(403).json({
-        message: "HeadOffice not found",
-        status: 403,
-      });
+      return res.status(403).json({ message: "HeadOffice not found",status: 403});
     }
 
 
     // Check if the file is provided via the global multer setup
     if (!req.files || req.files.length === 0) {
-      return res
-        .status(400)
-        .send(
-          new serviceResponse({
-            status: 400,
-            message: _response_message.fileMissing,
-          })
-        );
+      return res.status(400).send(new serviceResponse({ status: 400,message: _response_message.fileMissing}));
     }
 
     // Access the uploaded file
@@ -54,7 +44,7 @@ module.exports.importBranches = async (req, res) => {
     const workbook = xlsx.read(uploadedFile.buffer, { type: 'buffer' });
     const sheet_name_list = workbook.SheetNames;
     const excelData = xlsx.utils.sheet_to_json(workbook.Sheets[sheet_name_list[0]]); // Convert first sheet to JSON
-    console.log('excelData length-->', excelData)
+
     // Expected headers
     const expectedHeaders = [
       'branchName', 'emailAddress', 'pointOfContactName', 'pointOfContactPhone', 'pointOfContactEmail', 
@@ -66,12 +56,7 @@ module.exports.importBranches = async (req, res) => {
     const missingHeaders = expectedHeaders.filter(header => !fileHeaders.includes(header));
 
     if (missingHeaders.length > 0) {
-      return res.status(400).send(
-        new serviceResponse({
-          status: 400,
-          message: `Missing required headers: ${missingHeaders.join(', ')}`,
-        })
-      );
+      return res.status(400).send(new serviceResponse({status: 400,message: `Missing required headers: ${missingHeaders.join(', ')}`,}));
     }
 
     // Extract all emailAddresses from the Excel data
@@ -93,6 +78,64 @@ module.exports.importBranches = async (req, res) => {
     if (validationError) {
       return res.status(validationError.status).send(new serviceResponse(validationError));
     }
+
+    // checking duplicate email and mobile number in masterUser collection
+    const checkExistingEmailAndPhone = await Promise.all(excelData.map(async (item)=>{ 
+      const existingEmail = await MasterUser.findOne({email:item.pointOfContactEmail})
+      const existingMobile = await MasterUser.findOne({mobile:item.pointOfContactPhone})
+
+
+      if(existingEmail){
+          return { message:  `Email ${existingEmail.email} is already exist in master`, status: true}
+      }
+
+      if(existingMobile){
+        return { message: `Mobile number ${existingMobile.mobile} is already exist in master`, status: true}
+      }
+
+      return { message: null, status : false }
+    }))
+
+    const alreadyExisted = checkExistingEmailAndPhone.find(item=> item.status)
+
+    if(alreadyExisted){
+      return sendResponse({res,status: 400, message: alreadyExisted.message })
+    }
+
+    function checkForDuplicates(data) {
+      const emailSet = new Set();
+      const phoneSet = new Set();
+      const duplicates = [];
+    
+      data.forEach((item, index) => {
+        const { pointOfContactEmail, pointOfContactPhone } = item;
+    
+        if (emailSet.has(pointOfContactEmail)) {
+          duplicates.push(`Duplicate email found: ${pointOfContactEmail} at row ${index}`);
+        } else {
+          emailSet.add(pointOfContactEmail);
+        }
+    
+        if (phoneSet.has(pointOfContactPhone)) {
+          duplicates.push(`Duplicate phone found: ${pointOfContactPhone} at row ${index}`);
+        } else {
+          phoneSet.add(pointOfContactPhone);
+        }
+      });
+    
+      if (duplicates.length > 0) {
+        return duplicates
+      }
+    
+      return null
+    }
+
+    //checking duplicate value in excel data
+    const isDuplicate = checkForDuplicates(excelData)
+    if(isDuplicate !== null){
+      return sendResponse({res,status: 400, message: isDuplicate[0]})
+    }
+
     // Parse the rows into Branch objects, with status set to inactive by default
     const branches = await Promise.all(excelData.map(async (row) => {
       const password = generateRandomPassword();
@@ -120,17 +163,13 @@ module.exports.importBranches = async (req, res) => {
 
     //this is to get the type object of head office  
     const type = await TypesModel.findOne({_id:"67110087f1cae6b6aadc2421"})
-  
+  // Send an email to each branch email address notifying them that the branch has been created
+     const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes.bo}`
     
 
     // Insert the branches into the database
     for (const branchData of branches) {
       // checking the existing user in Master User collectio
-
-      const isUserAlreadyExist = await MasterUser.findOne({ $or: [{mobile:branchData.pointOfContact.phone.toString().trim()},{email:branchData.pointOfContact.email.trim()}]})
-      if(isUserAlreadyExist){
-        throw new Error("user already existed with this mobile number or email in Master")
-      }
       const newBranchPayload = {
         branchName: branchData.branchName,
         emailAddress: branchData.emailAddress,
@@ -166,24 +205,20 @@ module.exports.importBranches = async (req, res) => {
         });
   
         await masterUser.save();
-      }else{
-        await Branches.deleteOne({_id:newBranch._id})
-        throw new Error("branch office not created")
-      }
-    }
 
-     // Send an email to each branch email address notifying them that the branch has been created
-     const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes.bo}`
+        const emailPayload = {
+          email: branchData.pointOfContact.email,
+          name: branchData.pointOfContact.name,
+          password: branchData.password,
+          login_url:login_url
+        } 
 
-     for (const branchData of branches) {
-          const emailPayload = {
-            email: branchData.pointOfContact.email,
-            name: branchData.pointOfContact.name,
-            password: branchData.password,
-            login_url:login_url
-        }
         await emailService.sendBoCredentialsEmail(emailPayload);
 
+      }else{
+
+        throw new Error("branch office not created")
+      }
     }
 
     return res
