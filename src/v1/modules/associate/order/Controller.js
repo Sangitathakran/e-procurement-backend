@@ -38,6 +38,25 @@ module.exports.batch = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "quantity should not exceeds truck capacity" }] }))
         }
 
+        //////////////// Start of Sangita code
+
+        if (sumOfQty > record.offeredQty) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceeds offered Qty." }] }))
+        }
+
+        const existBatch = await Batch.find({ seller_id: user_id, req_id, associateOffer_id: record._id });
+        if (existBatch) {
+            const addedQty = existBatch.reduce((sum, existBatch) => sum + existBatch.qty, 0);
+
+            console.log(addedQty);
+
+            if (addedQty >= record.offeredQty) {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Can't not create more Batch, Offer qty already fulfilled." }] }))
+            }
+        }
+        
+        //////////////// End of Sangita code
+
         const farmerOrderIds = [];
         let partiallyFulfulled = 0
         let procurementCenter_id;
