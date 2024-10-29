@@ -167,7 +167,7 @@ module.exports.payment = async (req, res) => {
                     worksheetName: `Request-record-${'Request'}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Request") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Request") }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
@@ -243,7 +243,7 @@ module.exports.associateOrders = async (req, res) => {
                     worksheetName: `Associate Orders-record-${'Associate Orders'}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
             }
         }
 
@@ -308,7 +308,7 @@ module.exports.batchList = async (req, res) => {
                     worksheetName: `Batch-record-${'Batch'}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Batch") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Batch") }))
             }
 
         } else {
@@ -329,7 +329,7 @@ module.exports.lot_list = async (req, res) => {
         record.rows = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" });
 
         if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
@@ -546,7 +546,7 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
                     worksheetName: `Associate Orders-record-${'Associate Orders'}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
             }
         }
 
@@ -560,7 +560,7 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
 module.exports.AssociateTabBatchList = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, req_id, isExport = 0 } = req.query
 
         const paymentIds = (await AssociateInvoice.find({ associateOffer_id })).map(i => i.batch_id);
 
@@ -594,49 +594,49 @@ module.exports.AssociateTabBatchList = async (req, res) => {
                     as: 'invoice',
                 }
             },
-            // {
-            //     $addFields: {
-            //         qtyPurchased: {
-            //             $reduce: {
-            //                 input: {
-            //                     $map: {
-            //                         input: '$invoice',
-            //                         as: 'inv',
-            //                         in: { $toInt: '$$inv.qtyProcured' }
-            //                     }
-            //                 },
-            //                 initialValue: 0,
-            //                 in: { $add: ['$$value', '$$this'] }
-            //             }
-            //         },
-            //         amountProposed: {
-            //             $reduce: {
-            //                 input: {
-            //                     $map: {
-            //                         input: '$invoice',
-            //                         as: 'inv',
-            //                         in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
-            //                     }
-            //                 },
-            //                 initialValue: 0,
-            //                 in: { $add: ['$$value', '$$this'] }
-            //             }
-            //         },
-            //         amountPayable: {
-            //             $reduce: {
-            //                 input: {
-            //                     $map: {
-            //                         input: '$invoice',
-            //                         as: 'inv',
-            //                         in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
-            //                     }
-            //                 },
-            //                 initialValue: 0,
-            //                 in: { $add: ['$$value', '$$this'] }
-            //             }
-            //         },
-            //     }
-            // },
+            {
+                $addFields: {
+                    qtyPurchased: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: { $toInt: '$$inv.qtyProcured' }
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    amountProposed: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    amountPayable: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                }
+            },
             {
                 $unwind: "$procurementcenters"
             },
@@ -651,6 +651,9 @@ module.exports.AssociateTabBatchList = async (req, res) => {
                     "procurementcenters.center_code": 1,
                     "invoice.initiated_at": 1,
                     "invoice.bills.total": 1,
+                    amountPayable: 1,
+                    qtyPurchased: 1,
+                    amountProposed: 1
                 }
             }
 
@@ -658,6 +661,9 @@ module.exports.AssociateTabBatchList = async (req, res) => {
 
 
         records.rows = await Batch.aggregate(pipeline);
+
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
         records.count = await Batch.countDocuments(query);
 
@@ -687,11 +693,31 @@ module.exports.AssociateTabBatchList = async (req, res) => {
                     worksheetName: `Associate Orders-record-${'Associate Orders'}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
             }
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.getBill = async (req, res) => {
+
+    try {
+        const { batchId } = req.query
+
+        const { user_id, user_type } = req;
+
+        if (user_type !== _userType.associate) {
+            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
+        }
+
+        const records = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -749,7 +775,7 @@ module.exports.AssociateTabBatchApprove = async (req, res) => {
         );
 
         if (result.matchedCount === 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
         }
         await AssociateInvoice.updateMany(
             { batch_id: { $in: batchIds } },
@@ -773,7 +799,7 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
         const existingRecord = await AgentInvoice.findOne({ req_id });
 
         if (existingRecord) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("bill") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("bill") }] }))
         }
         const associateInvoice = await AssociateInvoice.find({ req_id, agent_approve_status: _paymentApproval.approved })
 
@@ -832,7 +858,7 @@ module.exports.associateBillApprove = async (req, res) => {
         const invoiceRecord = await AssociateInvoice.find(query);
 
         if (invoiceRecord.length != batchIds.length) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("invoice") }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("invoice") }] }));
         }
 
         const record = await AssociateInvoice.updateMany(query, { $set: { agent_approve_status: _paymentApproval.approved, agent_approve_by: portalId, agent_approve_at: new Date() } });

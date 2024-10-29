@@ -18,10 +18,10 @@ module.exports.login = async (req, res) => {
         const { email, password, portal_type } = req.body;
         
         if (!email) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Email') }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Email') }] }));
         }
         if (!password) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Password') }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Password') }] }));
         }
 
         const user = await MasterUser.findOne({ email: email.trim() })
@@ -36,7 +36,7 @@ module.exports.login = async (req, res) => {
         const validPassword = await bcrypt.compare(password, user.password);
 
         if (!validPassword) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('Credentials') }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('Credentials') }] }));
         }
 
         
@@ -78,7 +78,7 @@ module.exports.forgetPassword = async (req, res) => {
 
     const user = await MasterUser.findOne({ email: req.body.email.trim() });
 
-    if (!user) return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.notFound('User') }] }));
+    if (!user) return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Email') }] }));
 
     const payload = { email: user.email,user_id: user?._id, portalId: user?.portalId?._id, user_type:user.user_type }
     const expiresIn = 24 * 60 * 60;
