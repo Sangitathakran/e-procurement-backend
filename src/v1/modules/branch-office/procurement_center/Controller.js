@@ -46,36 +46,34 @@ module.exports.getProcurementCenter = async (req, res) => {
 
             const record = records.rows.map((item) => {
                 return {
-                    "Address Line 1": item?.address?.line1 || 'NA',
-                    "Address Line 2": item?.address?.line2 || 'NA',
-                    "Country": item?.address?.country || 'NA',
-                    "State": item?.address?.country || 'NA',
-                    "District": item?.address?.district || 'NA',
+                    "Center ID": item?.center_code || 'NA',
+                    "Center Name": item?.center_name || 'NA',
+                    "State": item?.address?.state || 'NA',
                     "City": item?.address?.city || 'NA',
-                    "PIN Code": item?.address?.postalCode || 'NA',
-                    "Name": item?.point_of_contact?.name || 'NA',
-                    "Email": item?.point_of_contact?.email || 'NA',
-                    "Mobile": item?.point_of_contact?.mobile || 'NA',
-                    "Designation": item?.point_of_contact?.designation || 'NA',
-                    "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
+                    "Point Of Contact": item?.point_of_contact?.name || 'NA',
+                    "Status": item?.active || 'NA'
                 }
             })
+
             if (record.length > 0) {
+
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `procurement-center.xlsx`,
-                    worksheetName: `procurement-center`
+                    fileName: `orderId-record.xlsx`,
+                    worksheetName: `orderId-record`
                 });
             } else {
-                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("collection center") }))
             }
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }))
         }
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
+
+        // return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+    
 }
 
