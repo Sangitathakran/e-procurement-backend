@@ -589,7 +589,6 @@ module.exports.getBoFarmer = async (req, res) => {
     if (!state || !district) {
       return res.status(400).send({ message: "User's state information is missing." });
     }
-
     const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
     if (!state_id || !district_id) {
@@ -604,11 +603,61 @@ module.exports.getBoFarmer = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const parsedLimit = parseInt(limit);
 
-    const farmers = await farmer.find(query)
-      .sort({ [sortBy]: 1 })
-      .skip(skip)
-      .limit(parsedLimit)
-      .populate('associate_id', '_id user_code ');
+    // const farmers = await farmer.find(query)
+    //   .sort({ [sortBy]: 1 })
+    //   .skip(skip)
+    //   .limit(parsedLimit)
+    //   .populate('associate_id', '_id user_code ');
+    const farmers = await farmer.aggregate([
+      { $match: query },
+      { $sort: { [sortBy]: 1 } },
+      { $skip: skip },
+      { $limit: parsedLimit },
+      {
+        $lookup: {
+          from: 'lands',
+          localField: '_id',
+          foreignField: 'farmer_id',
+          as: 'land_details',
+        },
+      },
+      {
+        $lookup: {
+          from: 'crops', 
+          localField: '_id',
+          foreignField: 'farmer_id',
+          as: 'crop_details',
+        },
+      },
+      {
+        $lookup: {
+          from: 'users', 
+          localField: 'associate_id',
+          foreignField: '_id',
+          as: 'associate_info',
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          basic_details:1,
+          address: 1,
+          bank_details:1,
+          infrastructure_needs:1,
+          financial_support:1,
+          parents:1,
+          marital_status:1,
+          education:1,
+          proof:1,
+          status:1,
+          associate_info: { _id: 1, user_code: 1 },
+          land_details: { _id: 1, total_area: 1, area: 1, area_unit:1,khtauni_number:1, khasra_number:1,khata_number:1,soil_type:1,land_address:{village:1,pin_code:1,block:1},soil_tested:1, },
+          crop_details: { _id: 1, crop_name: 1, crop_season: 1,sowing_date:1, harvesting_date:1,production_quantity:1,selling_price:1, yield: 1 }, 
+        },
+      },
+    ]);
+    
+      
     const totalFarmers = await farmer.countDocuments(query);
 
     if (farmers.length === 0) {
@@ -627,6 +676,28 @@ module.exports.getBoFarmer = async (req, res) => {
     return res.status(500).send({ message: "An error occurred while fetching farmers." });
   }
 };
+exports.getBoFarmerPreview = async (req, res) => {
+  try {
+      const farmerId = req.params.id;
+      let farmerdata = await farmer.findById(farmerId); 
+      if (!farmerdata) {
+          return res.status(404).json({ message: 'Farmer not found' });
+      }
+
+      farmerdata = farmerdata.toObject(); 
+      farmerdata.land = await Land.find({ farmer_id: farmerdata._id });
+      farmerdata.crop = await Crop.find({ farmer_id: farmerdata._id });
+      return res.status(200).send({
+          status: 200,
+          data: farmerdata,
+          message:"farmer found successfully.",
+      });
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error' });
+  }
+};
+
 
 module.exports.editFarmer = async (req, res) => {
   try {
