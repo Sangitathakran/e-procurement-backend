@@ -7,6 +7,7 @@ const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const { _userType, _center_type } = require("@src/v1/utils/constants");
+const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const Readable = require('stream').Readable;
 
 
@@ -34,6 +35,21 @@ module.exports.createProcurementCenter = async (req, res) => {
             addressType,
             location_url: location_url
         });
+
+        const subject = `New Procurement Center Successfully Created under Procurement Center ID ${record?.center_code}`;
+        const body = `<p>This to inform you that a new head office has been successfully created under the following details:</p><br/> 
+                <p>Procurement Center Name: ${record?.center_name}</p> <br/> 
+                <p> Procurement Center ID: ${record?.center_code} </p> <br/> 
+                <p>Location: ${record?.address} </p> <br/> 
+                <p> Date of Creation: ${record?.createdAt}</p> <br/>
+                <p> Please follow the link below for additional Information:<a href="https://ep-testing.navbazar.com/procurement-centre/my-procurement-centre"> Click here </a> </p> <br/>
+                <p> Need Help? </p> <br/>
+                <p> For queries or any assistance, contact us at ${record?.point_of_contact.mobile}</p> <br/>
+                <p> Warm regards, </p>  <br/>
+                <p> Navankur. </p>  <br/>` ;
+
+
+        await sendMail("ashita@navankur.org", null, subject, body);
 
         return res.send(new serviceResponse({ status: 200, data: record, message: _response_message.created("Collection Center") }));
 
