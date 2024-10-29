@@ -143,6 +143,11 @@ module.exports.saveHeadOffice = async (req, res) => {
                 portalId: savedHeadOffice._id,
                 ipAddress: getIpAddress(req)
             });
+            if(authorised?.phone){
+                masterUser.mobile = authorised?.phone.trim()
+            }else if(authorised?.mobile){
+                masterUser.mobile = authorised?.mobile.trim()
+            }
     
             const masterUserCreated = await masterUser.save();
             if(!masterUserCreated){
