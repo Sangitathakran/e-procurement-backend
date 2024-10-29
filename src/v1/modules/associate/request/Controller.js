@@ -14,7 +14,7 @@ const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { User } = require("@src/v1/models/app/auth/User");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
-
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
 module.exports.getProcurement = async (req, res) => {
     try {
@@ -33,6 +33,23 @@ module.exports.getProcurement = async (req, res) => {
         if (status && Object.values(_associateOfferStatus).includes(status)) {
             console.log('status', status)
             // Aggregation pipeline to join with AssociateOffers
+            const conditionPipeline = []
+            if (status == _associateOfferStatus.ordered) {
+                conditionPipeline.push({
+                    $lookup: {
+                        from: 'batches',
+                        localField: '_id',
+                        foreignField: 'req_id',
+                        as: 'batches',
+                    },
+                })
+
+                conditionPipeline.push({
+                    $addFields: {
+                        batchesCount: { $size: '$batches' } // Get the count of batches
+                    }
+                })
+            }
             const pipeline = [
                 { $match: query },
                 {
@@ -43,6 +60,7 @@ module.exports.getProcurement = async (req, res) => {
                         as: 'myoffer',
                     },
                 },
+                ...conditionPipeline,
                 { $unwind: '$myoffer' },
                 {
                     $match: {
@@ -85,7 +103,7 @@ module.exports.getProcurement = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
         } else {
             // Find requests that have no offers or are open
-            query.status = _requestStatus.open;
+            query.status = { $in: [_requestStatus.open, _requestStatus.partially_fulfulled] };
             const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
             query._id = { $nin: offerIds };
 
@@ -126,6 +144,8 @@ module.exports.getProcurementById = async (req, res) => {
         }
 
         record.myOffer = await AssociateOffers.findOne({ req_id: id });
+        
+        record.no_of_batch = await Batch.countDocuments({ req_id: id });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("procurement") }))
 
@@ -135,7 +155,7 @@ module.exports.getProcurementById = async (req, res) => {
 }
 
 module.exports.updateProcurement = async (req, res) => {
-
+    /*TODO : is this controller is in used or not ?  */
     try {
         const { user_id } = req;
         const { id, quotedPrice, deliveryDate, name, category, grade, variety, quantity, deliveryLocation, lat, long } = req.body;
@@ -639,7 +659,7 @@ module.exports.editFarmerOffer = async (req, res) => {
 
         await record.save();
 
-        if (status == _associateOfferStatus.received) {
+        if (status == _procuredStatus.received) {
             const associateOfferRecord = await AssociateOffers.findOne({ _id: record?.associateOffers_id });
             associateOfferRecord.procuredQty += qtyProcured;
             await associateOfferRecord.save();

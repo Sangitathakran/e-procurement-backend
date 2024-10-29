@@ -49,7 +49,7 @@ exports.getAddressByPincode = async (req, res) => {
         const url = `https://api.postalpincode.in/pincode/${pincode}`
         const records = await thirdPartyGetApi(url, {})
 
-        return sendResponse({res, status: 200, data: records, message: _response_message.found() })
+        return sendResponse({ res, status: 200, data: records, message: _response_message.found() })
     } catch (error) {
         _handleCatchErrors(error, res)
     }
@@ -75,7 +75,30 @@ exports.createSeeder = async (req, res) => {
                 console.log("seeder not found")
                 break;
         }
-        return res.send(sendResponse({ status: 200, message: _response_message.found() }))
+        return sendResponse({ res, status: 200, message: _response_message.created() })
+    } catch (error) {
+        _handleCatchErrors(error, res)
+    }
+}
+
+exports.updateDistrictCollection = async (req, res) => {
+    try {
+
+        const stateDistrictList = await StateDistrictCity.findOne({})
+        console.log("stateDistrictList-->", stateDistrictList)
+        stateDistrictList.states.forEach(state=>{ 
+                state.districts.forEach((district, index)=>{ 
+
+                    const serialNumber = index < 10 ? `0${index + 1}` : `${index + 1}`;
+
+                    district["serialNumber"] = serialNumber
+                    district['pincode'] = []
+                })
+        })
+
+        const udpated = await stateDistrictList.save()
+
+        return sendResponse({ res, status: 200, message: "serial Number added successfully", data: udpated})
     } catch (error) {
         _handleCatchErrors(error, res)
     }

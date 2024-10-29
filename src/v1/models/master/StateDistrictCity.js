@@ -12,6 +12,8 @@ const districtSchema = new mongoose.Schema({
     district_title: { type: String, required: true, trim: true },
     cities: [citySchema], 
     status: { type: String, enum: Object.values(_status), default: _status.active },
+    serialNumber: { type: String },
+    pincode: [{ type: String }],
     ..._commonKeys,
 }, { timestamps: true });
 

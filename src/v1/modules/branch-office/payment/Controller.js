@@ -9,6 +9,7 @@ const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
+const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 
 module.exports.payment = async (req, res) => {
 
@@ -265,12 +266,9 @@ module.exports.batchList = async (req, res) => {
         const records = { count: 0 };
 
         records.rows = paginate == 1 ? await Batch.find(query)
-            .populate({
-                path: 'procurementCenter_id', select: '_id center_name center_code center_type address'
-            })
             .sort(sortBy)
             .skip(skip)
-            .select('_id procurementCenter_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_approve_by')
+            .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status')
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
@@ -329,7 +327,7 @@ module.exports.batchApprove = async (req, res) => {
 
         const result = await Batch.updateMany(
             { _id: { $in: batchIds } },  // Match any batchIds in the provided array
-            { $set: { status: _batchStatus.paymentApproved, payement_approval_at: new Date(), payment_approve_by: portalId } } // Set the new status for matching documents
+            { $set: { status: _batchStatus.paymentApproved, payement_approval_at: new Date(), payment_approve_by: portalId, bo_approve_status: _paymentApproval.approved } } // Set the new status for matching documents
         );
 
         if (result.matchedCount === 0) {
@@ -414,25 +412,9 @@ module.exports.getBill = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
-        const billPayment = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+        const records = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
 
-        if (billPayment) {
-
-            const totalamount = billPayment.totalPrice;
-            let mspPercentage = 1; // The percentage you want to calculate       
-
-            const mspAmount = (mspPercentage / 100) * totalamount; // Calculate the percentage 
-            const billQty = (0.8 / 1000);
-
-            let records = { ...billPayment.toObject(), totalamount, mspAmount, billQty }
-
-            if (records) {
-                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
-            }
-        }
-        else {
-            return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
-        }
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -467,7 +449,6 @@ module.exports.lot_list = async (req, res) => {
             .limit(parseInt(limit)) : await FarmerOrders.find(query)
                 .sort(sortBy);
 
-        let farmerName = {}
 
         records.rows = await Promise.all(records.rows.map(async record => {
 
@@ -594,6 +575,124 @@ module.exports.agentBill = async (req, res) => {
         else {
             return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
         }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+// dileep code 
+
+module.exports.orderList = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
+        const { portalId, user_id } = req
+
+        let query = search ? { req_id: { $regex: search, $options: 'i' }, bo_id: { $in: [portalId, user_id] } } : { bo_id: { $in: [portalId, user_id] } };
+
+        const records = { count: 0, rows: [] };
+
+        records.rows = await AgentInvoice.find(query).populate({path:"req_id", select: " "})
+ 
+
+
+        records.count = await AgentInvoice.countDocuments(query)
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+
+        records.rows = records.rows.map(item=>{ 
+            let obj = { 
+
+                _id: item?._id,
+                orderId: item?.req_id?.reqNo,
+                // branchNo: item?.batch_id?.branchId,
+                commodity: item?.req_id?.product?.name,
+                quantityPurchased: item?.qtyProcured,
+                billingDate: item?.createdAt,
+                bo_approval_status: item.bo_approve_status
+            }
+
+            return obj
+        })
+
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+                return {
+                    "Order ID": item?.orderId || 'NA',
+                    "Commodity": item?.commodity || 'NA',
+                    "Quantity Purchased": item?.quantityPurchased || 'NA',
+                    "Billing Date": item?.billingDate ?? 'NA',
+                    "Approval Status": item?.bo_approval_status ?? 'NA'
+                }
+            })
+
+            if (record.length > 0) {
+
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `orderId-record.xlsx`,
+                    worksheetName: `orderId-record`
+                });
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Order") }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+
+module.exports.agencyInvoiceById = async (req, res) => {
+
+    try {
+        const agencyInvoiceId = req.params.id
+
+        const agentBill = await AgentInvoice.findOne({_id: agencyInvoiceId}).select('_id bill')
+        if(!agentBill){
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: agentBill, message: _query.get('Invoice') }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.boBillApproval = async (req, res) => {
+
+    try {
+
+        const agencyInvoiceId = req.params.id
+
+        const agentBill = await AgentInvoice.findOne({_id: agencyInvoiceId});
+        if(!agentBill){
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+        agentBill.bo_approve_status = _paymentApproval.approved;
+        agentBill.bo_approve_by = req.user._id;
+        agentBill.bo_approve_at = new Date()
+
+        await agentBill.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: "Bill Approved by BO" }));
 
     } catch (error) {
         _handleCatchErrors(error, res);

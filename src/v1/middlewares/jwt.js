@@ -39,7 +39,7 @@ const Auth = function (req, res, next) {
                         req[key] = value
                     })
                   
-                    const user = await MasterUser.findOne({ email: decoded.email }).populate("portalId")
+                    const user = await MasterUser.findOne({ email: decoded.email.trim() }).populate("portalId")
                     req.user = user
                     next();
                 } else {

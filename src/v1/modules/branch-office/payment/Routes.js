@@ -15,4 +15,15 @@ paymentRoutes.get("/bill-view", Auth, getBill);
 paymentRoutes.get("/agent-payment-list", Auth, agentPaymentList);
 paymentRoutes.get("/agent-bill", Auth, agentBill);
 
+
+/// dileep code 
+
+const { orderList , agencyInvoiceById, boBillApproval } = require("./Controller")
+
+
+paymentRoutes.get('/order-list' ,Auth, orderList)
+paymentRoutes.get('/agency-invoice-byId/:id' ,Auth, agencyInvoiceById)
+paymentRoutes.put("/bill-approval/:id",Auth, boBillApproval);
+
+
 module.exports = { paymentRoutes }; 

@@ -1,6 +1,6 @@
 const express = require("express")
 const helperRoutes = express.Router()
-const { getExcelTemplate, getAddressByPincode, createSeeder } = require("./Controller");
+const { getExcelTemplate, getAddressByPincode, createSeeder , updateDistrictCollection} = require("./Controller");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { query } = require("express-validator");
 const { _middleware } = require("@src/v1/utils/constants/messages");
@@ -15,6 +15,12 @@ helperRoutes.get('/address', [
 helperRoutes.get('/seeder', [
     query('seeder_name', _middleware.require("seeder_name")).notEmpty().trim(),
 ], validateErrors, createSeeder)
+
+
+helperRoutes.get('/updateDistrictCollection', updateDistrictCollection)
+
+
+
 
 
 module.exports = { helperRoutes }

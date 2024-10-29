@@ -2,6 +2,7 @@ const { _collectionName, _userType, _statusType, _userAction } = require("@src/v
 const mongoose = require("mongoose")
 
 const { TypesModel } = require("@src/v1/models/master/Types")
+const generateUserId = require("@src/v1/utils/helpers/generateUserId")
 
 const getType = async () => { 
     const type = await TypesModel.find()
@@ -50,6 +51,9 @@ const userSchema = new mongoose.Schema({
     isPasswordChangeEmailSend: { 
         type: Boolean,
         default: false
+    },
+    passwordChangedAt: { 
+        type: Date
     },
     isInitialPasswordChanged: { 
         type: Boolean, 
@@ -104,10 +108,30 @@ userSchema.pre('save', async function (next) {
     delete historyEntry._id
     this.history.push(historyEntry);
     
-
     next();
 });
-  
+
+userSchema.post('save', async function (doc, next){
+
+    if(!doc.userId){
+        
+        let uniqueUserId;
+        while (true) {
+            const userId = generateUserId();
+            const isUserAlreadyExist = await MasterUser.findOne({ userId: {$exists : true }, userId: { $eq: userId }  } );
+            if (!isUserAlreadyExist) {
+                uniqueUserId = userId;
+                break; 
+            }
+        } 
+        doc.userId = uniqueUserId
+        await doc.save()
+        next()
+    }
+    
+
+})
+
 
 const MasterUser = mongoose.model(_collectionName.MasterUser, userSchema) // need to change the collection name
 
