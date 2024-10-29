@@ -3,7 +3,7 @@ const { User } = require("@src/v1/models/app/auth/User");
 const { MasterUser } = require("@src/v1/models/master/MasterUser");
 const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
-const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { emailService } = require('@src/v1/utils/third_party/EmailServices');
 const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator")
@@ -12,7 +12,7 @@ const bcrypt = require('bcrypt');
 
 module.exports.getAssociates = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search = '', sortBy = { _id: 1 } } = req.query;
+        const { page = 1, limit = 10, search = '', sortBy = { _id: 1 }, isExport = 0 } = req.query;
         const skip = (page - 1) * limit;
 
         // Build the query for searching/filtering associates
@@ -81,17 +81,50 @@ module.exports.getAssociates = async (req, res) => {
         // Pagination information
         const totalPages = Math.ceil(totalRecords / limit);
 
-        return res.status(200).send(new serviceResponse({
-            status: 200,
-            data: {
-                rows: records,
-                count: totalRecords,
-                page: page,
-                limit: limit,
-                pages: totalPages
-            },
-            message: _response_message.found("associates")
-        }));
+
+        if (isExport == 1) {
+
+            const record = records.map((item) => {
+
+                const { name, email, mobile } = item?.basic_details.point_of_contact;
+
+                const { line1, line2, district, state, country } = item.address.registered
+
+                return {
+                    "Associate Id": item?.user_code || "NA",
+                    "Associate Name": item?.basic_details.associate_details.associate_name || "NA",
+                    "Associated Farmer": item?.farmersCount || "NA",
+                    "Procurement Center": item?.procurementCentersCount || "NA",
+                    "Point Of Contact": `${name} , ${email} , ${mobile}` || "NA",
+                    "Address": `${line1} , ${line2} , ${district} , ${state} , ${country}` || "NA",
+                    "Status": item?.active || "NA",
+                }
+            })
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Associate-${'Associate'}.xlsx`,
+                    worksheetName: `Associate-record-${'Associate'}`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate") }))
+            }
+        }
+        else {
+
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: {
+                    rows: records,
+                    count: totalRecords,
+                    page: page,
+                    limit: limit,
+                    pages: totalPages
+                },
+                message: _response_message.found("associates")
+            }));
+        }
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -102,14 +135,14 @@ module.exports.userStatusUpdate = async (req, res) => {
     try {
         const { userId, status } = req.body;
         if (!userId) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('user id') }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('user id') }] }));
         }
         if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('user id') }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('user id') }] }));
         }
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound('User') }] }));
+            return res.status(404).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound('User') }] }));
         }
 
         if (!Object.values(_userStatus).includes(status)) {
@@ -131,8 +164,8 @@ module.exports.userStatusUpdate = async (req, res) => {
             firstName: user.basic_details.associate_details.associate_name,
             lastName: user.basic_details.associate_details.associate_name,
             isAdmin: true,
-            email: user.basic_details.associate_details.email,
-            mobile: user.basic_details.associate_details.phone,
+            email: user.basic_details.associate_details.email.trim(),
+            mobile: user.basic_details.associate_details.phone.trim(),
             password: hashedPassword,
             user_type: _userType.associate,
         });
@@ -153,13 +186,13 @@ module.exports.statusUpdate = async (req, res) => {
         const { id, status } = req.body;
 
         if (!id) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notProvided("id") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notProvided("id") }] }))
         }
 
         const existingUser = await User.findOne({ _id: id });
 
         if (!existingUser) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }))
         }
 
         existingUser.active = status;
@@ -219,12 +252,12 @@ module.exports.getAssociatesById = async (req, res) => {
         const { id } = req.params;
 
         if (!id) {
-            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('id') }));
+            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('id') }));
         }
         const response = await User.findById({ _id: id });
 
         if (!response) {
-            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
         }

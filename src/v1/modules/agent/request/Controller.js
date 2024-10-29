@@ -1,4 +1,4 @@
-const { _generateOrderNumber, _addDays } = require("@src/v1/utils/helpers")
+const { _generateOrderNumber, _addDays, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { _webSocketEvents, _associateOfferStatus, _status, _requestStatus } = require('@src/v1/utils/constants');
@@ -33,7 +33,7 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const delivery_date = moment(deliveryDate).format("YYYY-MM-DD");
 
     if (moment(delivery_date).isBefore(quoteExpiry)) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid_delivery_date("Delivery date") }] }))
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid_delivery_date("Delivery date") }] }))
     }
 
     const record = await RequestModel.create({
@@ -83,7 +83,7 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 })
 
 module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
-    const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query;
+    const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query;
 
     // Building the query
     let query = search ? {
@@ -196,7 +196,35 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
+    if (isExport == 1) {
+
+        const record = records.rows.map((item) => {
+
+            return {
+                "Associate Id": item?.associate.user_code || "NA",
+                "Associate Name": item?.associate.basic_details.associate_details.associate_name || "NA",
+                "Quantity Proposed": item?.offeredQty || "NA",
+                "Number of Farmers": item?.numberOfFarmerOffers || "NA",
+                "Procurement Status": item?.procurementStatus || "NA",
+                "Approval Status": item?.status || "NA",
+            }
+        })
+
+
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `AsscoateOffer-${'AsscoateOffer'}.xlsx`,
+                worksheetName: `AsscoateOffer-record-${'AsscoateOffer'}`
+            });
+        } else {
+            return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Assocaite Offer") }))
+
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
+
+    }
 });
 
 module.exports.associateOfferbyid = asyncErrorHandler(async (req, res) => {
@@ -251,11 +279,11 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
     const offer = await AssociateOffers.findOne({ _id: associateOffer_id });
 
     if (!offer) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
     }
 
     if (!Object.values(_associateOfferStatus).includes(status)) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("status") }] }))
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("status") }] }))
     }
 
     if (status == _associateOfferStatus.rejected && comments) {
@@ -264,7 +292,7 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
         const existingRequest = await RequestModel.findOne({ _id: offer?.req_id });
 
         if (!existingRequest) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
         }
 
         existingRequest.fulfilledQty += offer?.offeredQty;
@@ -274,7 +302,7 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
         } else if (existingRequest.fulfilledQty < existingRequest?.product?.quantity) {
             existingRequest.status = _requestStatus.partially_fulfulled;
         } else {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }))
         }
 
         await existingRequest.save();
@@ -304,7 +332,7 @@ module.exports.getProcurementById = asyncErrorHandler(async (req, res) => {
     const record = await RequestModel.findOne({ _id: id });
 
     if (!record) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
     }
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("order") }))

@@ -1,4 +1,4 @@
-const { _handleCatchErrors, _generateOrderNumber } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, _generateOrderNumber, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
@@ -7,7 +7,8 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
-const moment = require("moment")
+const moment = require("moment");
+const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 
 
 module.exports.batch = async (req, res) => {
@@ -20,12 +21,12 @@ module.exports.batch = async (req, res) => {
         //  procurement Request exist or not 
         const procurementRecord = await RequestModel.findOne({ _id: req_id });
         if (!procurementRecord) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
         }
 
         const record = await AssociateOffers.findOne({ seller_id: user_id, req_id: req_id });
         if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
         }
 
         const sumOfQty = farmerData.reduce((acc, curr) => {
@@ -34,7 +35,7 @@ module.exports.batch = async (req, res) => {
         }, 0);
 
         if (sumOfQty > truck_capacity) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "quantity should not exceeds truck capacity" }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "quantity should not exceeds truck capacity" }] }))
         }
 
         const farmerOrderIds = [];
@@ -47,27 +48,27 @@ module.exports.batch = async (req, res) => {
 
             // farmer order exist or not 
             if (!farmerOrder) {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer order") }] }));
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer order") }] }));
             }
 
             // order should be procured from these farmers 
             if (farmerOrder.status != _procuredStatus.received) {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "farmer order should not be pending" }] }));
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "farmer order should not be pending" }] }));
             }
 
             // procurement Center should be same in current batch
             if (!procurementCenter_id) {
                 procurementCenter_id = farmerOrder?.procurementCenter_id.toString();
             } else if (procurementCenter_id && procurementCenter_id != farmerOrder.procurementCenter_id.toString()) {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "procurement center should be same for all the orders" }] }))
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "procurement center should be same for all the orders" }] }))
             }
 
             //qty should not exceed from qty procured 
             if (farmerOrder?.qtyProcured < farmer.qty) {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "added quantity should not exceed quantity procured" }] }));
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "added quantity should not exceed quantity procured" }] }));
             }
             // is the order full fill partially 
-            if ((farmerOrder?.qtyProcured - farmer.qty) != 0) {
+            if ((farmerOrder?.qtyProcured - farmer.qty) > 0) {
                 partiallyFulfulled = 1
             }
             farmer.amt = (farmer.qty * procurementRecord?.quotedPrice)
@@ -77,13 +78,13 @@ module.exports.batch = async (req, res) => {
         // given farmer's order should be in in received state
         const farmerRecords = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $in: farmerOrderIds } });
         if (farmerRecords)
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
 
 
         // update status based on fullfilment 
         const farmerRecordsPending = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $nin: farmerOrderIds } });
         record.status = (farmerRecordsPending || partiallyFulfulled == 1) ? _associateOfferStatus.partially_ordered : _associateOfferStatus.ordered
-
+        // TODO:check assocaite order
         //create unique batch Number 
         let batchId, isUnique = false;
         while (!isUnique) {
@@ -115,13 +116,13 @@ module.exports.editTrackDelivery = async (req, res) => {
         const record = await Batch.findOne({ _id: id });
 
         if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
         }
 
         switch (form_type) {
             case _batchStatus.mark_ready:
                 if (record.status != _batchStatus.pending) {
-                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Your batch is already mark ready " }] }));
+                    return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Your batch is already mark ready " }] }));
                 }
 
                 if (material_img && weight_slip && procurementExp && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && storageExp && commission && qc_report && lab_report) {
@@ -133,11 +134,11 @@ module.exports.editTrackDelivery = async (req, res) => {
                         0)
 
                     if (parseFloat(procurementExp) > (sumOfqty * RateOfProcurement)) {
-                        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Procurement Expenses should be less that ${(sumOfqty * RateOfProcurement)}` }] }));
+                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Procurement Expenses should be less that ${(sumOfqty * RateOfProcurement)}` }] }));
                     } else if (parseFloat(driage) > (sumOfqty * RateOfDriage)) {
-                        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Driage Expenses should be less that ${(sumOfqty * RateOfDriage)}` }] }));
+                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Driage Expenses should be less that ${(sumOfqty * RateOfDriage)}` }] }));
                     } else if (parseFloat(storageExp) > (sumOfqty * RateOfStorage)) {
-                        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: `Storage Expenses should be less that ${(sumOfqty * RateOfStorage)}` }] }));
+                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Storage Expenses should be less that ${(sumOfqty * RateOfStorage)}` }] }));
                     }
 
                     record.dispatched.material_img.inital.push(...material_img.map(i => { return { img: i, on: moment() } }));
@@ -159,18 +160,19 @@ module.exports.editTrackDelivery = async (req, res) => {
 
                     record.status = _batchStatus.mark_ready
                 } else {
-                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
+                    return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
                 }
                 break;
 
             case _batchStatus.intransit:
 
                 if (record.status != _batchStatus.mark_ready) {
-                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "your batch should be Mark Ready" }] }));
+                    return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "your batch should be Mark Ready" }] }));
                 }
 
                 if (name && contact && license && aadhar && licenseImg && service_name && vehicleNo && vehicle_weight && loaded_weight && gst_number && pan_number && intransit_weight_slip && no_of_bags && weight) {
 
+                    const reqRec = await RequestModel.findOne({ _id: record?.req_id })
                     record.intransit.driver.name = name;
                     record.intransit.driver.contact = contact;
                     record.intransit.driver.license = license;
@@ -191,15 +193,31 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.intransit.intransit_by = user_id;
 
                     record.status = _batchStatus.intransit;
+                    const associateInvoice = await AssociateInvoice.findOne({ batch_id: record?._id })
+                    if (reqRec && !associateInvoice) {
+                        await AssociateInvoice.create({
+                            req_id: reqRec?._id,
+                            ho_id: reqRec?.head_office_id,
+                            bo_id: reqRec?.branch_id,
+                            associate_id: user_id,
+                            batch_id: record?._id,
+                            qtyProcured: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + parseFloat(currentValue.qty), 0),
+                            goodsPrice: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + parseFloat(currentValue.qty), 0),
+                            initiated_at: new Date(),
+                            bills: record?.dispatched?.bills,
+                            associateOffer_id: record?.associateOffer_id,
+
+                        })
+                    }
                 } else {
-                    return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
+                    return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
                 }
 
                 break;
 
             default:
 
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "enter correct form_type" }] }));
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "enter correct form_type" }] }));
                 break;
         }
 
@@ -216,17 +234,19 @@ module.exports.editTrackDelivery = async (req, res) => {
 module.exports.viewTrackDelivery = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
 
         let query = {
             req_id,
             ...(search ? { name: { $regex: search, $options: "i" } } : {})
         };
+
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await Batch.find(query).populate({
-            path: 'req_id', select: 'product address',
-            path: 'associateOffer_id', select: 'offeredQty procuredQty',
-        })
+        records.rows = paginate == 1 ? await Batch.find(query).populate([
+            { path: 'req_id', select: 'product address' },
+            { path: 'associateOffer_id', select: 'offeredQty procuredQty' },
+            { path: "procurementCenter_id", select: "center_name" },
+        ])
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
@@ -239,8 +259,32 @@ module.exports.viewTrackDelivery = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Track order") }));
+        if (isExport == 1) {
 
+            const record = records.rows.map((item) => {
+                return {
+                    "Batch ID": item?.batchId || 'NA',
+                    "Quantity": item?.qty || 'NA',
+                    "Dispatched On": item?.dispatched.dispatched_at || 'NA',
+                    "Delivered On": item?.delivered.delivered_at || "NA",
+                    "Procurement Center": item?.procurementCenter_id.center_name || "NA",
+                    "Status": item?.status || "NA",
+                }
+            })
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Batch-${'Batch'}.xlsx`,
+                    worksheetName: `Batch-record-${'Batch'}`
+                });
+
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track Order") }] }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Track order") }));
+        }
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -259,7 +303,7 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
             });
 
         if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Track order") }));

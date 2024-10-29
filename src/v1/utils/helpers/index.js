@@ -157,6 +157,21 @@ exports.generateFarmerId = async (obj) => {
   }
 };
 
+exports.generateFileName = (clientCode,runningNumber) => {
+
+  const newDate = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  const [day, month, year] = newDate.split(",")[0].split("/");
+  const finalDate = `${day}${month}${year.slice(2)}`;
+
+  const runningNumberPlusOne = runningNumber + 1
+  const lastFiveLetters = clientCode.slice(-5).toUpperCase();
+  const formattedRunningNumber = String(runningNumberPlusOne).padStart(3, '0');
+
+  const fileName = `P_${lastFiveLetters}${finalDate}${formattedRunningNumber}.CSV`;
+
+  return fileName
+}
+
 exports.isStateAvailable = async (state) => { 
   const stateDistrictList = await StateDistrictCity.findOne({})
   const isAvailable = stateDistrictList.states.find(item=> item.state_title === state)

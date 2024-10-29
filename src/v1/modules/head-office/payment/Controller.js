@@ -1,4 +1,4 @@
-const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToExcel, generateFileName } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
@@ -11,6 +11,8 @@ const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
+const xlsx = require("xlsx")
 
 module.exports.payment = async (req, res) => {
 
@@ -43,19 +45,19 @@ module.exports.payment = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: 'branches',
+                    localField: 'branch_id',
+                    foreignField: '_id',
+                    as: 'branch',
+                }
+            },
+            { $unwind: { path: '$branch' } },
+            {
                 $match: {
                     batches: { $ne: [] }
                 }
             },
-            // {
-            //     $lookup: {
-            //         from: 'branches',
-            //         localField: 'branch_id',
-            //         foreignField: '_id',
-            //         as: 'branch',
-            //     }
-            // },
-            // { $unwind: { path: '$branch', preserveNullAndEmptyArrays: true } },
             {
                 $addFields: {
                     approval_status: {
@@ -92,6 +94,13 @@ module.exports.payment = async (req, res) => {
                             in: { $add: ['$$value', '$$this.totalPrice'] }  // Sum of totalPrice from batches
                         }
                     },
+                    amountPaid: {
+                        $reduce: {
+                            input: '$batches',
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this.totalPrice'] }  // Sum of totalPrice from batches
+                        }
+                    },
                     payment_status: {
                         $cond: {
                             if: {
@@ -116,25 +125,23 @@ module.exports.payment = async (req, res) => {
                             then: 'Pending',
                             else: 'Approved'
                         }
-                    }
+                    },
                 }
             },
-            // { $unwind: '$branch' },
             {
                 $project: {
                     _id: 1,
                     reqNo: 1,
                     product: 1,
-                    // 'batches._id': 1,
-                    // 'batches.qty': 1,
-                    // 'batches.goodsPrice': 1,
-                    // 'batches.totalPrice': 1,
-                    // 'batches.status': 1,
+                    branch_id: 1,
+                    "branch._id": 1,
+                    "branch.branchName": 1,
                     approval_status: 1,
                     qtyPurchased: 1,
                     amountPayable: 1,
+                    amountPaid: 1,
                     payment_status: 1,
-                    branch: 1
+                    // branch: 1
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
@@ -176,7 +183,7 @@ module.exports.associateOrders = async (req, res) => {
         const { user_type, portalId, user_id } = req;
 
         if (user_type != _userType.ho) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         const paymentIds = (await Payment.find({ ho_id: { $in: [portalId, user_id] }, req_id, bo_approve_status: _paymentApproval.approved })).map(i => i.associateOffers_id)
@@ -260,7 +267,7 @@ module.exports.batchApprove = async (req, res) => {
             bo_approve_status: _paymentApproval.pending
         })
         if (record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Qc is not done and branch approved on selected batches" }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Qc is not done and branch approved on selected batches" }] }));
         }
 
 
@@ -270,7 +277,7 @@ module.exports.batchApprove = async (req, res) => {
         );
 
         if (result.matchedCount === 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
         }
         await Payment.updateMany(
             { batch_id: { $in: batchIds } },
@@ -292,7 +299,7 @@ module.exports.qcReport = async (req, res) => {
         const { user_type } = req;
 
         if (user_type != _userType.ho) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         const qcReport = await Batch.findOne({ _id: id })
@@ -307,44 +314,85 @@ module.exports.qcReport = async (req, res) => {
     }
 }
 
+module.exports.approvedBatchList = async (req, res) => {
+
+    try {
+        const { req_id } = req.query;
+        const { user_type } = req;
+
+        const records = { count: 0 }
+
+        records.rows = [{
+            batchId: "100134",
+            seller_id: { user_code: "AS0123" },
+            delivery_at: "2024-10-28T17:23:02.020+00:00",
+            payment_at: "2024-10-28T17:23:02.020+00:00",
+            qty: 60,
+            amt: "12032390",
+            payment_status: "Pending"
+        }, {
+            batchId: "100134",
+            seller_id: { user_code: "AS0123" },
+            delivery_at: "2024-10-28T17:23:02.020+00:00",
+            payment_at: "2024-10-28T17:23:02.020+00:00",
+            qty: 60,
+            amt: "12032390",
+            payment_status: "Pending"
+        },]
+
+        records.page = 1
+        records.limit = 20
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Qc Report') }))
+    }
+    catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
 module.exports.lot_list = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
 
-        const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
+        const { batch_id } = req.query;
 
-        let farmerOrderIdsOnly = {}
+        const record = await Batch.findOne({ _id: batch_id }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" }).select('_id farmerOrderIds');
 
-        if (batchIds && batchIds.length > 0) {
-            farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
-            console.log(farmerOrderIdsOnly);
-        } else {
-            console.log('No Farmer found with this batch.');
+        if (!record) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Farmer") }] }))
         }
 
-        let query = {
-            _id: farmerOrderIdsOnly,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
-        };
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
 
-        const records = { count: 0 };
-        records.rows = paginate == 1 ? await FarmerOrders.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await FarmerOrders.find(query)
-                .sort(sortBy);
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
 
+// dileep code 
 
-        records.rows = await Promise.all(records.rows.map(async record => {
+module.exports.orderList = async (req, res) => {
 
-            const farmerDetails = await farmer.findOne({ '_id': record.farmer_id }).select({ name: 1, _id: 0 });
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0, isFinal = 0 } = req.query
 
-            const farmerName = farmerDetails ? farmerDetails.name : null;
-            return { ...record.toObject(), farmerName }
-        }));
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
 
-        records.count = await FarmerOrders.countDocuments(query);
+        let query = search ? { req_id: { $regex: search, $options: 'i' }, ho_id: { $in: [portalId, user_id] } } : { ho_id: { $in: [portalId, user_id] } };
+
+        const records = { count: 0, rows: [] };
+
+        query = { ...query, bo_approve_status: _paymentApproval.approved }
+
+        if (isFinal == 1) {
+            query = { ...query, ho_approve_status: _paymentApproval.approved }
+        }
+        console.log("query-->", query)
+        records.rows = await AgentInvoice.find(query).populate({ path: "req_id", select: " " })
+        console.log('records.rows-->', records.rows)
+
+        records.count = await AgentInvoice.countDocuments(query)
 
         if (paginate == 1) {
             records.page = page
@@ -352,14 +400,199 @@ module.exports.lot_list = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        if (records) {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
-        }
-        else {
-            return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+
+        records.rows = records.rows.map(item => {
+            let obj = {
+
+                _id: item?._id,
+                orderId: item?.req_id?.reqNo,
+                branchNo: item?.batch_id?.branchId,
+                commodity: item?.req_id?.product?.name,
+                quantityPurchased: item?.qtyProcured,
+                billingDate: item?.createdAt,
+                ho_approve_status: item.ho_approve_status
+            }
+
+            return obj
+        })
+
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+                return {
+                    "Order ID": item?.orderId || 'NA',
+                    "Commodity": item?.commodity || 'NA',
+                    "Quantity Purchased": item?.quantityPurchased || 'NA',
+                    "Billing Date": item?.billingDate ?? 'NA',
+                    "Approval Status": item?.ho_approve_status ?? 'NA'
+                }
+            })
+
+            if (record.length > 0) {
+
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `orderId-record.xlsx`,
+                    worksheetName: `orderId-record`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Order") }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }))
         }
 
     } catch (error) {
         _handleCatchErrors(error, res);
     }
 }
+
+module.exports.agencyInvoiceById = async (req, res) => {
+
+    try {
+        const agencyInvoiceId = req.params.id
+
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+
+
+        const query = { _id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
+
+        const agentBill = await AgentInvoice.findOne(query).select('_id bill')
+        if (!agentBill) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: agentBill, message: _query.get('Invoice') }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.hoBillApproval = async (req, res) => {
+
+
+    try {
+
+        const agencyInvoiceId = req.params.id
+
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+
+
+        const query = { _id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
+
+        const agentBill = await AgentInvoice.findOne(query);
+        if (!agentBill) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+        agentBill.ho_approve_status = _paymentApproval.approved;
+        agentBill.ho_approve_by = req.user._id;
+        agentBill.ho_approve_at = new Date()
+
+        await agentBill.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: "Bill Approved by HO" }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.editBillHo = async (req, res) => {
+
+    try {
+
+        const agencyInvoiceId = req.params.id
+        const bill = req.body.bill
+        if (!bill) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill payload') }] }));
+        }
+
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+
+
+        const query = { _id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } }
+
+
+        const agentBill = await AgentInvoice.findOne(query);
+        if (!agentBill) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+        if (agentBill.ho_approve_status === _paymentApproval.approved) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.canNOtBeEdited() }] }));
+        }
+
+        agentBill.logs.push({ ...agentBill.bill, editedBy: req.user._id, editedAt: new Date() })
+        agentBill.bill = bill
+
+        await agentBill.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: "Bill edited by BO" }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.payAgent = async (req, res) => {
+
+    try {
+
+        const agencyInvoiceId = req.params.id
+
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+        const query = {
+            _id: agencyInvoiceId,
+            ho_id: { $in: [portalId, user_id] },
+            bo_approve_status: _paymentApproval.approved,
+            ho_approve_status: _paymentApproval.approved
+        }
+
+        const agentBill = await AgentInvoice.findOne(query).select('_id bill bankfileLastNumber')
+        if (!agentBill) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+
+        const paymentFileData = [
+            {
+                "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
+                "PIR_REF_NO": "",
+                "MY_PRODUCT_CODE(It should be Digital Products only)": "",
+                "Amount": agentBill.bill.total || "No Amount",
+                "Acc no(2244102000000055)": "",
+                "IFSC Code": "",
+                "Account Name": "",
+                "Account no": "",
+                "PAYMENT_REF": "",
+                "PAYMENT_DETAILS": "",
+            }
+        ]
+
+
+        const workbook = xlsx.utils.book_new();
+        const worksheet = xlsx.utils.json_to_sheet(paymentFileData);
+
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Agent Payment');
+
+        const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'csv' });
+
+        res.setHeader('Content-Disposition', `attachment; filename=${generateFileName('NCCFMAIZER', agentBill.bankfileLastNumber,)}`);
+        res.setHeader('Content-Type', 'text/csv');
+
+        return res.status(200).send(excelBuffer);
+    } catch (err) {
+        _handleCatchErrors(err, res);
+    }
+};
