@@ -1,10 +1,13 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
-const { getProcurementCenter } = require("./Controller");
+const { getDashboardStats, getProcurementsStats, getProcurementStatusList, getPendingOffersCountByRequestId } = require("./Controller");
 const express = require("express");
-const { Auth } = require("@src/v1/middlewares/jwt")
-const procurementCenterRoutes = express.Router();
+const { Auth } = require("@src/v1/middlewares/jwt");
+const dashboardRoutes = express.Router();
 
 
-procurementCenterRoutes.get("/", Auth, getProcurementCenter);
+dashboardRoutes.get("/", Auth, getDashboardStats);
+dashboardRoutes.get("/precurement-stats", Auth, getProcurementsStats);
+dashboardRoutes.get("/precurement-list", Auth, getProcurementStatusList);
+dashboardRoutes.get("/pending-precurement-list", Auth, getPendingOffersCountByRequestId);
 
-module.exports = { procurementCenterRoutes }; 
+module.exports = { dashboardRoutes }; 
