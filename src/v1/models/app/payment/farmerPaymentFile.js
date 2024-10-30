@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
-const { _collectionName, _paymentmethod, _paymentstatus, _paymentApproval } = require('@src/v1/utils/constants');
+const { _collectionName } = require('@src/v1/utils/constants');
 
-const AgentPaymentFileSchema = new mongoose.Schema({
+const FarmerPaymentFileSchema = new mongoose.Schema({
 
     client_code: { type: String , required: true },
     pir_ref_no: { type: String },
@@ -20,6 +20,6 @@ const AgentPaymentFileSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-const AgentPaymentFile = mongoose.model(_collectionName.AgentPaymentFile, AgentPaymentFileSchema);
+const FarmerPaymentFile = mongoose.model(_collectionName.FarmerPaymentFile, FarmerPaymentFileSchema);
 
-module.exports = { AgentPaymentFile };
+module.exports = { FarmerPaymentFile } 

@@ -3,7 +3,6 @@ const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
-const IndividualFarmer = require("@src/v1/models/app/farmerDetails/IndividualFarmer");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { wareHouse } = require("@src/v1/models/app/warehouse/warehouseSchema");
 const { User } = require("@src/v1/models/app/auth/User");
