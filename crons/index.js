@@ -1,7 +1,8 @@
 const cron = require('node-cron');
 const { sendLog } = require('./sendLogs');
-
-
+const { default: axios } = require("axios");
+const fs = require('fs');
+const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 main().catch(err => console.log(err));
 
 async function main() {
@@ -9,4 +10,47 @@ async function main() {
     cron.schedule('0 9-17/2 * * 1-5', () => {
         sendLog()
     });
+
+    cron.schedule('*/60 * * * * *', async() => {
+        await downloadFile();
+        
+    });
+
+}
+async function downloadFile(){
+    console.log('file download running')
+    let fileDetails=[{fileName:"P_AIZER301024001.CSV"}]
+    for(let item of fileDetails){
+        const url = `https://testbank.navbazar.com/v1/download-file?fileName=${item.fileName}`; // Replace with your URL
+
+   axios.get(url, { responseType: 'stream' ,headers: {
+    "x-api-key": "6719ec42cddd1222948d48f3"
+  }
+})
+  .then((response) => {
+    const filePath = `./src/v1/download/${item.fileName}`;
+    const writer = fs.createWriteStream(filePath);
+
+    response.data.pipe(writer);
+
+    writer.on('finish', () => {
+      console.log('File downloaded.');
+
+      // Read the file after download
+      fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+          console.error('Error reading the file:', err);
+          return;
+        }
+        console.log('File Content:', data);
+        
+      });
+    });
+  })
+  .catch((error) => {
+    console.error('Error downloading the file:', error);
+  });
+
+          
+    }
 }
