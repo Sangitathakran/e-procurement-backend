@@ -1027,6 +1027,7 @@ module.exports.proceedToPayAssociateTabBatchList = async (req, res) => {
                     "procurementcenters.center_code": 1,
                     "invoice.initiated_at": 1,
                     "invoice.bills.total": 1,
+                    "invoice.payment_status": 1,
                     amountPayable: 1,
                     qtyPurchased: 1,
                     amountProposed: 1
@@ -1209,6 +1210,9 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
 
         const record = await AgentInvoice.create(agentInvoice);
 
+        record.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+
 
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: `Bill Genrated successfully` }));
@@ -1305,5 +1309,29 @@ module.exports.editBill = async (req, res) => {
     await record.save();
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("bill") }))
+
+}
+
+
+module.exports.getBillProceedToPay = async (req, res) => {
+
+
+
+    try {
+        const { id } = req.query
+
+        const billPayment = await AssociateInvoice.findOne({ batch_id: id })
+            .populate({ path: "batch_id", select: "dispatched.bills" })
+
+        if (!billPayment) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("bill") }] }))
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: billPayment, message: _response_message.found("bill") }))
+
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
 
 }
