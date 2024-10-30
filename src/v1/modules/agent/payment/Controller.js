@@ -1173,7 +1173,7 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
         const existingRecord = await AgentInvoice.findOne({ req_id });
 
         if (existingRecord) {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("bill") }))
+            return res.status(200).send(new serviceResponse({ status: 200, data: existingRecord, message: _response_message.found("bill") }))
         }
 
         const associateInvoice = await AssociateInvoice.find({ req_id, agent_approve_status: _paymentApproval.approved })
@@ -1266,7 +1266,7 @@ module.exports.agentPayments = async (req, res) => {
         const records = { count: 0 };
 
         records.rows = paginate == 1 ? await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
-            .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "reqNo product.name" }])
+            .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product deliveryDate quotedPrice" }])
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Batch.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
