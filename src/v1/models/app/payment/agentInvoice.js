@@ -6,7 +6,7 @@ const AgentInvoiceSchema = new mongoose.Schema({
     req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true },
     ho_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice, required: true },
     bo_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
-    agent_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Agency},
+    agent_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Agency },
     batch_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch, required: true }],
     qtyProcured: { type: String, required: true },
     goodsPrice: { type: Number, required: true },
@@ -21,18 +21,19 @@ const AgentInvoiceSchema = new mongoose.Schema({
     payment_id: { type: String, default: null },
     transaction_id: { type: String, default: null },
     payment_method: { type: String, default: null, enum: Object.values(_paymentmethod) },
-    bankfileLastNumber: { type: Number, default: 0},
+    bankfileLastNumber: { type: Number, default: 0 },
     bill: {
         precurement_expenses: { type: Number, required: true },
         driage: { type: Number, required: true },
-        storage_expenses:{ type: Number, required: true },
+        storage_expenses: { type: Number, required: true },
         commission: { type: Number, required: true },
         bill_attachement: { type: String },
-        total :{ type: Number, required: true }
+        total: { type: Number, required: true }
     },
+    payment_change_remarks: { type: String },
     logs: {
-        type: [mongoose.Schema.Types.Mixed], 
-        default: [] 
+        type: [mongoose.Schema.Types.Mixed],
+        default: []
     }
 
 

@@ -602,12 +602,6 @@ module.exports.getBoFarmer = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const parsedLimit = parseInt(limit);
-
-    // const farmers = await farmer.find(query)
-    //   .sort({ [sortBy]: 1 })
-    //   .skip(skip)
-    //   .limit(parsedLimit)
-    //   .populate('associate_id', '_id user_code ');
     const farmers = await farmer.aggregate([
       { $match: query },
       { $sort: { [sortBy]: 1 } },
@@ -638,24 +632,37 @@ module.exports.getBoFarmer = async (req, res) => {
         },
       },
       {
-        $project: {
-          name: 1,
-          basic_details:1,
-          address: 1,
-          bank_details:1,
-          infrastructure_needs:1,
-          financial_support:1,
-          parents:1,
-          marital_status:1,
-          education:1,
-          proof:1,
-          status:1,
-          associate_info: { _id: 1, user_code: 1 },
-          land_details: { _id: 1, total_area: 1, area: 1, area_unit:1,khtauni_number:1, khasra_number:1,khata_number:1,soil_type:1,land_address:{village:1,pin_code:1,block:1},soil_tested:1, },
-          crop_details: { _id: 1, crop_name: 1, crop_season: 1,sowing_date:1, harvesting_date:1,production_quantity:1,selling_price:1, yield: 1 }, 
+      $project: {
+        all_details: {
+          associate_id: "$associate_id",
+          mobile_no: "$mobile_no",
+          name: "$name",
+          is_verify_otp: "$is_verify_otp",
+          farmer_id: "$farmer_id",
+          is_welcome_msg_send: "$is_welcome_msg_send",
+          farmer_type: "$farmer_type",
+          user_type: "$user_type",
+          farmer_code: "$farmer_code",
+          basic_details: "$basic_details",
+          address: "$address",
+          documents: "$documents",
+          bank_details: "$bank_details",
+          land_details: "$land_details",
+          crop_details: "$crop_details",
+          infrastructure_needs: "$infrastructure_needs",
+          financial_support: "$financial_support",
+          parents: "$parents",
+          marital_status: "$marital_status",
+          religion: "$religion",
+          education: "$education",
+          proof: "$proof",
+          status: "$status",
+          all_steps_completed_status: "$all_steps_completed_status",
+          associate_info: "$associate_info",
         },
       },
-    ]);
+    },
+  ]);
     
       
     const totalFarmers = await farmer.countDocuments(query);
@@ -1553,7 +1560,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       ) {
         stateName = stateName.replace('and', '&');
       }
-      console.log(stateName);
       let errors = [];
       let missingFields = [];
     

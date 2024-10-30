@@ -510,6 +510,19 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
+        ////////// start of Sangita code
+
+        records.allBatchApprovalStatus = _paymentApproval.pending;
+
+        const pendingBatch = await Batch.find({ req_id, agent_approve_status: _paymentApproval.pending });
+
+        if (pendingBatch.length > 0) {
+            records.allBatchApprovalStatus = _paymentApproval.pending;
+        } else {
+            records.allBatchApprovalStatus = _paymentApproval.approved;
+        }
+
+        ////////// end of Sangita code
 
         const pipeline = [
             {
@@ -1014,6 +1027,7 @@ module.exports.proceedToPayAssociateTabBatchList = async (req, res) => {
                     "procurementcenters.center_code": 1,
                     "invoice.initiated_at": 1,
                     "invoice.bills.total": 1,
+                    "invoice.payment_status": 1,
                     amountPayable: 1,
                     qtyPurchased: 1,
                     amountProposed: 1
@@ -1158,8 +1172,9 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
         const existingRecord = await AgentInvoice.findOne({ req_id });
 
         if (existingRecord) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("bill") }] }))
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("bill") }))
         }
+
         const associateInvoice = await AssociateInvoice.find({ req_id, agent_approve_status: _paymentApproval.approved })
 
         const agentInvoice = associateInvoice.reduce((acc, curr) => {
@@ -1194,6 +1209,9 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
 
 
         const record = await AgentInvoice.create(agentInvoice);
+
+        record.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
 
 
@@ -1269,4 +1287,51 @@ module.exports.agentPayments = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+}
+
+module.exports.editBill = async (req, res) => {
+
+    const { id, procurement_expenses, driage, storage, commission, bill_attachement, remarks } = req.body;
+
+    const record = await AgentInvoice.findOne({ _id: id });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("payment") }] }));
+    }
+
+    record.bill.precurement_expenses = procurement_expenses;
+    record.bill.driage = driage;
+    record.bill.storage_expenses = storage;
+    record.bill.commission = commission;
+    record.bill.bill_attachement = bill_attachement;
+    record.payment_change_remarks = remarks;
+
+    await record.save();
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("bill") }))
+
+}
+
+
+module.exports.getBillProceedToPay = async (req, res) => {
+
+
+
+    try {
+        const { id } = req.query
+
+        const billPayment = await AssociateInvoice.findOne({ batch_id: id })
+            .populate({ path: "batch_id", select: "dispatched.bills" })
+
+        if (!billPayment) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("bill") }] }))
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: billPayment, message: _response_message.found("bill") }))
+
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+
 }
