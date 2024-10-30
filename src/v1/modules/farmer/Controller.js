@@ -662,9 +662,7 @@ module.exports.getBoFarmer = async (req, res) => {
         },
       },
     },
-  ]);
-    
-      
+  ]);  
     const totalFarmers = await farmer.countDocuments(query);
 
     if (farmers.length === 0) {
