@@ -559,7 +559,7 @@ module.exports.payAgent = async (req, res) => {
             ho_approve_status: _paymentApproval.approved
         }
 
-        const agentBill = await AgentInvoice.findOne(query).select('_id bill bankfileLastNumber')
+        const agentBill = await AgentInvoice.findOne(query).populate('agent_id')
         if (!agentBill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
@@ -569,12 +569,12 @@ module.exports.payAgent = async (req, res) => {
             {
                 "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
                 "PIR_REF_NO": "",
-                "MY_PRODUCT_CODE(It should be Digital Products only)": "",
-                "Amount": agentBill.bill.total || "No Amount",
-                "Acc no(2244102000000055)": "",
-                "IFSC Code": "",
-                "Account Name": "",
-                "Account no": "",
+                "MY_PRODUCT_CODE(It should be Digital Products only)": "Digital Products",
+                "Amount": agentBill.bill.total || 0,
+                "Acc no(2244102000000055)": agentBill.agent_id.bank_details.account_no,
+                "IFSC Code": agentBill.agent_id.bank_details.ifsc_code,
+                "Account Name": agentBill.agent_id.bank_details.account_holder_name,
+                "Account no": agentBill.agent_id.bank_details.account_no,
                 "PAYMENT_REF": "",
                 "PAYMENT_DETAILS": "",
             }
