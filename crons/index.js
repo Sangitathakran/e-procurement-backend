@@ -3,6 +3,7 @@ const { sendLog } = require('./sendLogs');
 const { default: axios } = require("axios");
 const fs = require('fs');
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
+const xlsx = require("xlsx");
 main().catch(err => console.log(err));
 
 async function main() {
@@ -33,18 +34,16 @@ async function downloadFile(){
 
     response.data.pipe(writer);
 
+
     writer.on('finish', () => {
       console.log('File downloaded.');
-
-      // Read the file after downloads
-      fs.readFile(filePath, 'utf8', (err, data) => {
-        if (err) {
-          console.error('Error reading the file:', err);
-          return;
-        }
-        console.log('File Content:', data);
-
-      });
+      const workbook = xlsx.readFile(filePath);
+      const sheetName = workbook.SheetNames[0];
+      const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+      console.log(sheetData);
+      for(let item of sheetData){
+          console.log(item)
+      }
     });
   })
   .catch((error) => {
