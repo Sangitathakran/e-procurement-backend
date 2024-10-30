@@ -516,8 +516,6 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
 
         const pendingBatch = await Batch.find({ req_id, agent_approve_status: _paymentApproval.pending });
 
-        console.log(typeof pendingBatch);
-
         if (pendingBatch.length > 0) {
             records.allBatchApprovalStatus = _paymentApproval.pending;
         }else{
