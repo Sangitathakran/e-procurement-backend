@@ -1287,7 +1287,7 @@ module.exports.agentPayments = async (req, res) => {
 
 module.exports.editBill = async (req, res) => {
 
-    const { id, procurement_expenses, driage, storage, commission, remarks } = req.body;
+    const { id, procurement_expenses, driage, storage, commission, bill_attachement, remarks } = req.body;
 
     const record = await AgentInvoice.findOne({ _id: id });
 
@@ -1299,6 +1299,7 @@ module.exports.editBill = async (req, res) => {
     record.bill.driage = driage;
     record.bill.storage_expenses = storage;
     record.bill.commission = commission;
+    record.bill.bill_attachement = bill_attachement;
     record.payment_change_remarks = remarks;
 
     await record.save();
