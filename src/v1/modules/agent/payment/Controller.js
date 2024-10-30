@@ -1157,9 +1157,6 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
 
         const existingRecord = await AgentInvoice.findOne({ req_id });
 
-        if (existingRecord) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("bill") }] }))
-        }
         const associateInvoice = await AssociateInvoice.find({ req_id, agent_approve_status: _paymentApproval.approved })
 
         const agentInvoice = associateInvoice.reduce((acc, curr) => {
@@ -1269,4 +1266,26 @@ module.exports.agentPayments = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+}
+
+module.exports.editBill = async (req, res) => {
+
+    const { id, procurement_expenses, driage, storage, commission, remarks } = req.body;
+
+    const record = await AgentInvoice.findOne({ _id: id });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("payment") }] }));
+    }
+
+    record.bill.precurement_expenses = procurement_expenses;
+    record.bill.driage = driage;
+    record.bill.storage_expenses = storage;
+    record.bill.commission = commission;
+    record.payment_change_remarks = remarks;
+
+    await record.save();
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("bill") }))
+
 }
