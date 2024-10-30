@@ -36,14 +36,14 @@ async function downloadFile(){
     writer.on('finish', () => {
       console.log('File downloaded.');
 
-      // Read the file after download
+      // Read the file after downloads
       fs.readFile(filePath, 'utf8', (err, data) => {
         if (err) {
           console.error('Error reading the file:', err);
           return;
         }
         console.log('File Content:', data);
-        
+
       });
     });
   })
