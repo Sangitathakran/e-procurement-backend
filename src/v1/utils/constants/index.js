@@ -40,7 +40,8 @@ const _collectionName = {
     Types: "Types",
     AssociateInvoice: "AssociateInvoice",
     AgentInvoice: "AgentInvoice",
-    AgentPaymentFile: "AgentPaymentFile"
+    AgentPaymentFile: "AgentPaymentFile",
+    FarmerPaymentFile: "FarmerPaymentFile"
 }
 
 const _userType_Feature_Collection = {

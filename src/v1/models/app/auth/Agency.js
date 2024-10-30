@@ -8,6 +8,15 @@ const agencySchema = new mongoose.Schema({
     phone: { type: String, trim: true },
     agent_id: { type: String},
     status: { type: String,enum: Object.values(_statusType) ,default: 'inactive' },
+    bank_details: {
+        bank_name: { type: String, trim: true },
+        branch_name: { type: String, trim: true },
+        account_holder_name: { type: String, trim: true },
+        ifsc_code: { type: String, trim: true },
+        account_no: { type: String, trim: true },
+        proof_doc_key: { type: String, trim: true }
+    },
+
     ..._commonKeys
 }, { timestamps: true });
 

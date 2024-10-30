@@ -739,6 +739,7 @@ module.exports.proceedToPayAssociateOrders = async (req, res) => {
                     "amountProposed": 1,
                     "amountPayable": 1,
                     "paymentStatus": 1,
+                    "procuredQty" : 1
                 }
             }
 
