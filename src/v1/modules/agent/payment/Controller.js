@@ -520,7 +520,7 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
 
         if (pendingBatch.length > 0) {
             records.allBatchApprovalStatus = _paymentApproval.pending;
-        }else{
+        } else {
             records.allBatchApprovalStatus = _paymentApproval.approved;
         }
 
@@ -1171,6 +1171,10 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
         const { req_id } = req.query;
 
         const existingRecord = await AgentInvoice.findOne({ req_id });
+
+        if (existingRecord) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("bill") }))
+        }
 
         const associateInvoice = await AssociateInvoice.find({ req_id, agent_approve_status: _paymentApproval.approved })
 
