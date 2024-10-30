@@ -88,7 +88,11 @@ const batchsSchema = new mongoose.Schema({
     ho_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
     payment_by: { type: mongoose.Schema.Types.ObjectId, default: null },
     payment_at: { type: Date, default: null },
-    status: { type: String, enum: Object.values(_batchStatus), default: _batchStatus.pending }
+    status: { type: String, enum: Object.values(_batchStatus), default: _batchStatus.pending },
+    agent_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
+    agent_approve_at: { type: Date, default: null },
+    agent_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
+
 }, { timestamps: true });
 
 const Batch = mongoose.model(_collectionName.Batch, batchsSchema);

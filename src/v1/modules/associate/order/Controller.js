@@ -9,6 +9,9 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const moment = require("moment");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
+const { emailService } = require("@src/v1/utils/third_party/EmailServices");
+const { User } = require("@src/v1/models/app/auth/User");
+
 
 
 module.exports.batch = async (req, res) => {
@@ -37,6 +40,23 @@ module.exports.batch = async (req, res) => {
         if (sumOfQty > truck_capacity) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "quantity should not exceeds truck capacity" }] }))
         }
+
+        //////////////// Start of Sangita code
+
+        if (sumOfQty > record.offeredQty) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceeds offered Qty." }] }))
+        }
+
+        const existBatch = await Batch.find({ seller_id: user_id, req_id, associateOffer_id: record._id });
+        if (existBatch) {
+            const addedQty = existBatch.reduce((sum, existBatch) => sum + existBatch.qty, 0);
+
+            if (addedQty >= record.offeredQty) {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Can not create more Batch, Offered qty already fulfilled." }] }))
+            }
+        }
+
+        //////////////// End of Sangita code
 
         const farmerOrderIds = [];
         let partiallyFulfulled = 0
@@ -97,6 +117,17 @@ module.exports.batch = async (req, res) => {
         procurementRecord.associatOrder_id.push(record._id)
         await record.save();
         await procurementRecord.save()
+
+        const users = await User.find({
+            'basic_details.associate_details.email': { $exists: true }
+        }).select('basic_details.associate_details.email basic_details.associate_details.associate_name');
+        
+        await Promise.all(
+            users.map(({ basic_details: { associate_details } }) => {
+                const { email, associate_name } = associate_details;
+                return emailService.sendCreateBatchEmail(email, associate_name);
+            })
+        );
 
         return res.status(200).send(new serviceResponse({ status: 200, data: batchCreated, message: _response_message.created("batch") }))
 
@@ -193,6 +224,7 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.intransit.intransit_by = user_id;
 
                     record.status = _batchStatus.intransit;
+                    
                     const associateInvoice = await AssociateInvoice.findOne({ batch_id: record?._id })
                     if (reqRec && !associateInvoice) {
                         await AssociateInvoice.create({
@@ -209,6 +241,22 @@ module.exports.editTrackDelivery = async (req, res) => {
 
                         })
                     }
+
+                    const associate_id = record.seller_id;
+                    const associateData = await User.findOne({ _id: associate_id });
+                    
+                    const emailPayloadData = {
+                        batch_id : record.batchId,
+                        order_no : reqRec.reqNo,
+                        driver_name : record.intransit.driver.name,
+                        driver_phone : record.intransit.driver.contact,
+                        transport_service : record.intransit.transport.service_name,
+                        vehicle_no : record.intransit.transport.vehicleNo = vehicleNo,
+                        email : associateData.basic_details.associate_details.email,
+                        associate_name : associateData.basic_details.associate_details.associate_name
+                    } 
+                    
+                    await emailService.sendTrackDeliveryInTransitEmail(emailPayloadData);
                 } else {
                     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
                 }
@@ -295,7 +343,7 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
     try {
 
         const { id } = req.params;
-
+        console.log('check trandsitt', id)
         const record = await Batch.findOne({ _id: id })
             .select({ dispatched: 1, intransit: 1, status: 1, delivered: 1 })
             .populate({
