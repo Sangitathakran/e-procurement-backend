@@ -510,6 +510,21 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
+        ////////// start of Sangita code
+
+        records.allBatchApprovalStatus = _paymentApproval.pending;
+
+        const pendingBatch = await Batch.find({ req_id, agent_approve_status: _paymentApproval.pending });
+
+        console.log(typeof pendingBatch);
+
+        if (pendingBatch.length > 0) {
+            records.allBatchApprovalStatus = _paymentApproval.pending;
+        }else{
+            records.allBatchApprovalStatus = _paymentApproval.approved;
+        }
+
+        ////////// end of Sangita code
 
         const pipeline = [
             {
