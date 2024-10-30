@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Delivery Confirmation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+        }
+        .logo {
+            width: 120px;
+            height: auto;
+        }
+        .content {
+            color: #333333;
+            text-align: center;
+            padding-top: 20px;
+        }
+        a {
+            text-decoration: none;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .cta-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #007bff, #00bfff);
+            background-color: rgb(76, 147, 76);
+            color: #ffffff;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease-in-out;
+        }
+        .cta-button:hover {
+            background: linear-gradient(135deg, #0056b3, #00a2e8);
+            background-color: rgb(60, 130, 60);
+            cursor: pointer;
+        }
+        .footer {
+            text-align: center;
+            padding-top: 20px;
+            color: #777777;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="{{logo_url}}" alt="Navbazar Logo" class="logo">
+        </div>
+        <div class="content">
+            <p>Dear <strong>{{associate_name}}</strong>,</p>
+            <p>I am pleased to inform you that the following batch has been successfully delivered:</p>
+            <p><strong>Batch ID:</strong> {{batch_id}}</p>
+            <p><strong>Order ID:</strong> {{order_id}}</p>
+            <p>Please follow this link for further details regarding the proof of delivery and additional specifics:</p>
+            <a href="{{details_link}}">
+                <button class="cta-button">View Details</button>
+            </a>
+            <p>Warm Regards,<br>Navankur</p>
+        </div>
+        <div class="footer">
+            <p>Best regards,<br>Team</p>
+        </div>
+    </div>
+</body>
+</html>
