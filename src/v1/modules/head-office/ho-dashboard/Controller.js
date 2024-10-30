@@ -43,9 +43,8 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
       procCenter: { total: 0, lastMonth: [] },
       farmer: { total: 0, lastMonth: [] },
     };
-    let individualFCount = (await IndividualFarmer.countDocuments({})) ?? 0;
     let associateFCount = (await farmer.countDocuments({})) ?? 0;
-    widgetDetails.farmer.total = individualFCount + associateFCount;
+    widgetDetails.farmer.total =  associateFCount;
     widgetDetails.associate.total = await User.countDocuments({});
     widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
     let lastMonthUser = await User.aggregate([
@@ -57,10 +56,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
       { $project: { month: { $month: "$createdAt" } } },
       { $group: { _id: "$month", total: { $sum: 1 } } },
     ]);
-    let lastMonthIFarmer = await IndividualFarmer.aggregate([
-      { $project: { month: { $month: "$createdAt" } } },
-      { $group: { _id: "$month", total: { $sum: 1 } } },
-    ]);
+   
     let getReport = (report, data) => {
       return report.map((item) => {
         let details = data?.find((item2) => item2?._id == item.month);
@@ -73,17 +69,8 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
     };
     widgetDetails.associate.lastMonth = getReport(report, lastMonthUser);
     widgetDetails.farmer.lastMonth = getReport(report, lastMonthFarmer);
-    let lastMonthIFarmerDetails = getReport(report, lastMonthIFarmer);
-    widgetDetails.farmer.lastMonth = lastMonthIFarmerDetails.map(
-      (item, index) => {
-        if (item.month == widgetDetails.farmer.lastMonth[index].month) {
-          return {
-            ...item,
-            total: item.total + widgetDetails.farmer.lastMonth[index].total,
-          };
-        }
-      }
-    );
+    
+    
     return sendResponse({
       res,
       status: 200,
