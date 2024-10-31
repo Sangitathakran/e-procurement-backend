@@ -32,6 +32,9 @@ const xlsx = require("xlsx");
 const fs = require("fs/promises");
 const FormData = require("form-data");
 const { default: axios } = require("axios");
+const { AgentPaymentFile } = require("@src/v1/models/app/payment/agentPaymentFile");
+const { default: mongoose } = require("mongoose");
+const { FarmerPaymentFile } = require("@src/v1/models/app/payment/farmerPaymentFile");
 module.exports.payment = async (req, res) => {
   try {
     const { page, limit, skip, paginate = 1, sortBy, search = "" } = req.query;
@@ -788,83 +791,243 @@ module.exports.editBillHo = async (req, res) => {
   }
 };
 
+module.exports.payFarmers = async (req, res) => {
+  try {
+  
+
+        const batchIds = req.body.batchIds
+
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+
+        const query = {
+            batch_id: { $in : batchIds },
+            ho_id: { $in: [portalId, user_id] },
+            bo_approve_status: _paymentApproval.approved,
+            ho_approve_status: _paymentApproval.approved
+        }
+
+        const farmersBill = await Payment.find(query).populate({path:"farmer_id", select:"bank_details"})
+
+        if (!farmersBill) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+        let filename = generateFileName("NCCFMAIZER", 2);
+
+        const workbook = xlsx.utils.book_new();
+        const agentPaymentDataArray = []
+        const worksheetData = [];
+
+        farmersBill.forEach((agentBill) => {
+          const paymentFileData = {
+            "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
+            "PIR_REF_NO": "",
+            "MY_PRODUCT_CODE(It should be Digital Products only)": "Digital Products",
+            "Amount": agentBill.amount || 0,
+            "Acc no(2244102000000055)": agentBill.farmer_id.bank_details.account_no,
+            "IFSC Code": agentBill.farmer_id.bank_details.ifsc_code,
+            "Account Name": agentBill.farmer_id.bank_details.account_holder_name,
+            "Account no": agentBill.farmer_id.bank_details.account_no,
+            "PAYMENT_REF": "",
+            "PAYMENT_DETAILS": "",
+          };
+
+          const agentPaymentFileData = { 
+            client_code: paymentFileData['CLIENT CODE (NCCFMAIZER)'],
+            pir_ref_no: paymentFileData['PIR_REF_NO'],
+            my_product_code: paymentFileData['MY_PRODUCT_CODE(It should be Digital Products only)'],
+            amount: paymentFileData['Amount'],
+            acc_no: paymentFileData['Acc no(2244102000000055)'],
+            ifsc_code: paymentFileData['IFSC Code'],
+            account_name: paymentFileData['Account Name'],
+            account_no: paymentFileData['Account no'],
+            payment_ref: paymentFileData['PAYMENT_REF'],
+            payment_details: paymentFileData['PAYMENT_DETAILS'],
+            fileName: filename,  // assuming `filename` is defined in your context
+            initiatedBy: req.user._id,  // assuming `req.user._id` is available
+            initiatedAt: new Date()
+          };
+
+          agentPaymentDataArray.push(agentPaymentFileData);
+        
+          const values = [
+            paymentFileData['CLIENT CODE (NCCFMAIZER)'],
+            paymentFileData['PIR_REF_NO'],
+            paymentFileData['MY_PRODUCT_CODE(It should be Digital Products only)'],
+            paymentFileData['Amount'],
+            paymentFileData['Acc no(2244102000000055)'],
+            null,
+            paymentFileData['IFSC Code'],
+            paymentFileData['Account Name'],
+            null, null, null, null, null, null,
+            paymentFileData['Account no'],
+            null, null, null, null, null, null, null, null, null, null, null,
+            paymentFileData['PAYMENT_REF'],
+            paymentFileData['PAYMENT_DETAILS']
+          ];
+        
+          // Add the values array as a row in worksheet data
+          worksheetData.push(values);
+        });
+
+        // // Create the worksheet with the specific column placement
+
+        console.log("worksheetData-->", worksheetData)
+        const worksheet = xlsx.utils.aoa_to_sheet(worksheetData);
+
+        xlsx.utils.book_append_sheet(workbook, worksheet, "Farmer Payment");
+
+        
+        let filePath = `./src/v1/upload/${filename}`;
+        await xlsx.writeFile(workbook, filePath, { type: 'buffer', bookType: 'csv' });
+        let fileData = await fs.readFile(filePath);
+        let formData = new FormData();
+        formData.append("uploadFile", fileData, {
+          filename: filename,
+          contentType: "text/csv",
+        });
+        //formData
+        formData.append("uploadFile", fileData);
+
+        let config = {
+          method: "post",
+          maxBodyLength: Infinity,
+          url: "https://testbank.navbazar.com/v1/upload-file",
+          headers: {
+            "x-api-key": "6719ec42cddd1222948d48f3",
+            ...formData.getHeaders(),
+          },
+          data: formData,
+        };
+
+        let response = await axios.request(config);
+        if(response.data.message=="File uploaded Successfully"){
+
+            console.log('agentPaymentDataArray', agentPaymentDataArray)
+
+            
+            await FarmerPaymentFile.insertMany(agentPaymentDataArray)
+
+            return res.status(200).send(response.data);
+        }else{
+            return res.status(400).json({"message":"Something Went wrong"}); 
+        }
+    
+  } catch (err) {
+    _handleCatchErrors(err, res);
+  }
+};
+
 module.exports.payAgent = async (req, res) => {
   try {
-    const agencyInvoiceId = req.params.id;
+  
 
-    const portalId = req.user.portalId._id;
-    const user_id = req.user._id;
-    console.log("userid", portalId, user_id);
-    const query = {
-      // _id: agencyInvoiceId,
-      // ho_id: { $in: [portalId, user_id] },
-      //  bo_approve_status: _paymentApproval.approved,
-      //  ho_approve_status: _paymentApproval.approved
-    };
+        const agencyInvoiceId = req.params.id
 
-    const agentBill = await AgentInvoice.findOne(query).select(
-      "_id bill bankfileLastNumber"
-    );
-    if (!agentBill) {
-      return res
-        .status(400)
-        .send(
-          new serviceResponse({
-            status: 400,
-            errors: [{ message: _response_message.notFound("Bill") }],
-          })
-        );
-    }
+        const portalId = req.user.portalId._id
+        const user_id = req.user._id
+        const query = {
+            _id: agencyInvoiceId,
+            ho_id: { $in: [portalId, user_id] },
+            bo_approve_status: _paymentApproval.approved,
+            ho_approve_status: _paymentApproval.approved
+        }
 
-    const paymentFileData = [
-      {
-        "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
-        PIR_REF_NO: "",
-        "MY_PRODUCT_CODE(It should be Digital Products only)": "",
-        Amount: agentBill.bill.total || "No Amount",
-        "Acc no(2244102000000055)": "",
-        "IFSC Code": "",
-        "Account Name": "",
-        "Account no": "",
-        PAYMENT_REF: "",
-        PAYMENT_DETAILS: "",
-      },
-    ];
+        const agentBill = await AgentInvoice.findOne(query).populate('agent_id')
+        if (!agentBill) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
 
-    const workbook = xlsx.utils.book_new();
-    const worksheet = xlsx.utils.json_to_sheet(paymentFileData);
 
-    xlsx.utils.book_append_sheet(workbook, worksheet, "Agent Payment");
+        const paymentFileData = 
+            {
+                "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
+                "PIR_REF_NO": "",
+                "MY_PRODUCT_CODE(It should be Digital Products only)": "Digital Products",
+                "Amount": agentBill.bill.total || 0,
+                "Acc no(2244102000000055)": agentBill.agent_id.bank_details.account_no,
+                "IFSC Code": agentBill.agent_id.bank_details.ifsc_code,
+                "Account Name": agentBill.agent_id.bank_details.account_holder_name,
+                "Account no": agentBill.agent_id.bank_details.account_no,
+                "PAYMENT_REF": "",
+                "PAYMENT_DETAILS": "",
+            }
+        
 
-    let filename = generateFileName("NCCFMAIZER", agentBill.bankfileLastNumber);
-    let filePath = `./src/v1/upload/${filename}`;
-    await xlsx.writeFile(workbook, filePath, { type: 'buffer', bookType: 'csv' });
-    let fileData = await fs.readFile(filePath);
-    let formData = new FormData();
-    formData.append("uploadFile", fileData, {
-      filename: filename,
-      contentType: "text/csv",
-    });
-    //formData
-    formData.append("uploadFile", fileData);
+        const values = [paymentFileData['CLIENT CODE (NCCFMAIZER)'],
+                         paymentFileData['PIR_REF_NO'],
+                          paymentFileData['MY_PRODUCT_CODE(It should be Digital Products only)'],
+                          paymentFileData['Amount'],
+                          paymentFileData['Acc no(2244102000000055)'],
+                          paymentFileData['IFSC Code'],
+                          paymentFileData['Account Name'],
+                          paymentFileData['Account no'],
+                          paymentFileData['PAYMENT_REF'],
+                          paymentFileData['PAYMENT_DETAILS'] ]
 
-    let config = {
-      method: "post",
-      maxBodyLength: Infinity,
-      url: "https://testbank.navbazar.com/v1/upload-file",
-      headers: {
-        "x-api-key": "6719ec42cddd1222948d48f3",
-        ...formData.getHeaders(),
-      },
-      data: formData,
-    };
+        const workbook = xlsx.utils.book_new();
 
-    let response = await axios.request(config);
-     if(response.data.message=="File uploaded Successfully"){
-        return res.status(200).send(response.data);
-     }else{
-        return res.status(400).json({"message":"Something Went wrong"}); 
-     }
+        const data = [
+          [values[0], values[1], values[2], values[3], values[4], null, values[5], values[6],null,null,null,null,null,null,values[7],null,null,null,null,null,null,null,null,null,null,null,values[8], values[9] ]
+        ];
+        
+        // Create the worksheet with the specific column placement
+
+        // console.log("data-->", data)
+        const worksheet = xlsx.utils.aoa_to_sheet(data);
+
+        xlsx.utils.book_append_sheet(workbook, worksheet, "Agent Payment");
+
+        let filename = generateFileName("NCCFMAIZER", agentBill.bankfileLastNumber);
+        let filePath = `./src/v1/upload/${filename}`;
+        await xlsx.writeFile(workbook, filePath, { type: 'buffer', bookType: 'csv' });
+        let fileData = await fs.readFile(filePath);
+        let formData = new FormData();
+        formData.append("uploadFile", fileData, {
+          filename: filename,
+          contentType: "text/csv",
+        });
+        //formData
+        formData.append("uploadFile", fileData);
+
+        let config = {
+          method: "post",
+          maxBodyLength: Infinity,
+          url: "https://testbank.navbazar.com/v1/upload-file",
+          headers: {
+            "x-api-key": "6719ec42cddd1222948d48f3",
+            ...formData.getHeaders(),
+          },
+          data: formData,
+        };
+
+        let response = await axios.request(config);
+        if(response.data.message=="File uploaded Successfully"){
+
+            const agentPaymentFileData = { 
+              client_code : paymentFileData['CLIENT CODE (NCCFMAIZER)'],
+              pir_ref_no : paymentFileData['PIR_REF_NO'],
+              my_product_code : paymentFileData['MY_PRODUCT_CODE(It should be Digital Products only)'],
+              amount : paymentFileData['Amount'],
+              acc_no :paymentFileData['Acc no(2244102000000055)'],
+              ifsc_code :paymentFileData['IFSC Code'],
+              account_name : paymentFileData['Account Name'],
+              account_no :paymentFileData['Account no'],
+              payment_ref : paymentFileData['PAYMENT_REF'] ,
+              payment_details: paymentFileData['PAYMENT_DETAILS'],
+              fileName: filename,
+              initiatedBy : req.user._id,
+              initiatedAt : new Date()
+            }
+
+            const agentPaymentFilePayload = new AgentPaymentFile(agentPaymentFileData)
+            await agentPaymentFilePayload.save()
+
+            return res.status(200).send(response.data);
+        }else{
+            return res.status(400).json({"message":"Something Went wrong"}); 
+        }
     
   } catch (err) {
     _handleCatchErrors(err, res);
