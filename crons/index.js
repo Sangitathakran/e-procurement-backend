@@ -12,7 +12,7 @@ async function main() {
         sendLog()
     });
 
-    cron.schedule('*/60 * * * * *', async() => {
+    cron.schedule('0 */3 * * *', async() => {
         await downloadFile();
         
     });
@@ -20,7 +20,7 @@ async function main() {
 }
 async function downloadFile(){
     console.log('file download running')
-    let fileDetails=[{fileName:"P_AIZER301024001.CSV"}]
+    let fileDetails=[{fileName:"R_AIZER29102024002.xlsx"}]
     for(let item of fileDetails){
         const url = `https://testbank.navbazar.com/v1/download-file?fileName=${item.fileName}`; // Replace with your URL
 
