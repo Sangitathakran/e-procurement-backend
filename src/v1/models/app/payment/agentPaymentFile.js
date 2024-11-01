@@ -42,7 +42,11 @@ AgentPaymentFileSchema.post('save', async function (doc) {
   try {
       
     
-          await AgentInvoice.findByIdAndUpdate(doc.agent_invoice_id, {payment_status: 'Completed' });
+          await AgentInvoice.findByIdAndUpdate(doc.agent_invoice_id, {
+            payment_status: 'Completed',
+            transaction_id:doc.bank_payment_details[0].UTR_SR_NO ,
+            initiatedAt:doc.bank_payment_details[0].INST_DATE
+          });
           
       
   } catch (error) {

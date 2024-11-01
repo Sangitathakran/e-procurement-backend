@@ -19,7 +19,7 @@ async function main() {
   });
   //0 */3 * * *
   //*/30 * * * * *
-  cron.schedule("0 */3 * * *", async () => {
+  cron.schedule("*/30 * * * * *", async () => {
     await downloadAgentFile();
   });
   cron.schedule("0 */3 * * *", async () => {
@@ -36,7 +36,7 @@ async function downloadAgentFile() {
     const response = await axios.get(url, {
       responseType: "stream",
       headers: {
-        "x-api-key": "6719ec42cddd1222948d48f3",
+        "x-api-key": process.env.API_KEY,
       },
     });
     const filePath = `./src/v1/download/R_${item.fileName}`;
