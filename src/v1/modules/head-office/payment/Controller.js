@@ -802,7 +802,7 @@ module.exports.payFarmers = async (req, res) => {
 
         const query = {
             batch_id: { $in : batchIds },
-            ho_id: { $in: [portalId, user_id] },
+            // ho_id: { $in: [portalId, user_id] },
             bo_approve_status: _paymentApproval.approved,
             ho_approve_status: _paymentApproval.approved
         }
@@ -825,10 +825,10 @@ module.exports.payFarmers = async (req, res) => {
             "PIR_REF_NO": "",
             "MY_PRODUCT_CODE(It should be Digital Products only)": "Digital Products",
             "Amount": agentBill.amount || 0,
-            "Acc no(2244102000000055)": agentBill.farmer_id.bank_details.account_no,
+            "Acc no(2244102000000055)": agentBill.farmer_id.bank_details.account_no||'2244102000000055',
             "IFSC Code": agentBill.farmer_id.bank_details.ifsc_code,
             "Account Name": agentBill.farmer_id.bank_details.account_holder_name,
-            "Account no": agentBill.farmer_id.bank_details.account_no,
+            "Account no": agentBill.farmer_id.bank_details.account_no||'034301539698',
             "PAYMENT_REF": "",
             "PAYMENT_DETAILS": "",
           };
@@ -845,6 +845,7 @@ module.exports.payFarmers = async (req, res) => {
             payment_ref: paymentFileData['PAYMENT_REF'],
             payment_details: paymentFileData['PAYMENT_DETAILS'],
             fileName: filename,  // assuming `filename` is defined in your context
+            file_status:'upload',
             initiatedBy: req.user._id,  // assuming `req.user._id` is available
             initiatedAt: new Date()
           };
@@ -884,7 +885,7 @@ module.exports.payFarmers = async (req, res) => {
         let fileData = await fs.readFile(filePath);
         let formData = new FormData();
         formData.append("uploadFile", fileData, {
-          filename: filename,
+          filename: `P_${filename}`,
           contentType: "text/csv",
         });
         //formData
@@ -985,7 +986,7 @@ module.exports.payAgent = async (req, res) => {
         let fileData = await fs.readFile(filePath);
         let formData = new FormData();
         formData.append("uploadFile", fileData, {
-          filename: filename,
+          filename: `P_${filename}`,
           contentType: "text/csv",
         });
         //formData
@@ -1017,6 +1018,7 @@ module.exports.payAgent = async (req, res) => {
               payment_ref : paymentFileData['PAYMENT_REF'] ,
               payment_details: paymentFileData['PAYMENT_DETAILS'],
               fileName: filename,
+              file_status:'upload',
               initiatedBy : req.user._id,
               initiatedAt : new Date()
             }
