@@ -22,7 +22,6 @@ const AgentInvoiceSchema = new mongoose.Schema({
     transaction_id: { type: String, default: null },
     payment_method: { type: String, default: null, enum: Object.values(_paymentmethod) },
     bankfileLastNumber: { type: Number, default: 0 },
-    payment_file_id:{type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AgentPaymentFile},
     bill: {
         precurement_expenses: { type: Number, required: true },
         driage: { type: Number, required: true },

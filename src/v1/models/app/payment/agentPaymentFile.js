@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { _collectionName, _paymentmethod, _paymentstatus, _paymentApproval } = require('@src/v1/utils/constants');
-
+const {AgentInvoice}=require('../payment/agentInvoice')
 const AgentPaymentFileSchema = new mongoose.Schema({
   
     client_code: { type: String , required: true },
@@ -36,7 +36,19 @@ const AgentPaymentFileSchema = new mongoose.Schema({
 
 
 }, { timestamps: true });
-
+AgentPaymentFileSchema.post('save', async function (doc) {
+    
+    
+  try {
+      
+    
+          await AgentInvoice.findByIdAndUpdate(doc.agent_invoice_id, {payment_status: 'Completed' });
+          
+      
+  } catch (error) {
+      console.error('Error in post-save middleware:', error);
+  }
+});
 const AgentPaymentFile = mongoose.model(_collectionName.AgentPaymentFile, AgentPaymentFileSchema);
 
 module.exports = { AgentPaymentFile };
