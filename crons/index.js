@@ -12,7 +12,7 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const xlsx = require("xlsx");
 main().catch((err) => console.log(err));
-
+//update
 async function main() {
   cron.schedule("0 9-17/2 * * 1-5", () => {
     sendLog();
