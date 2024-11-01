@@ -6,6 +6,8 @@ const {
   AgentPaymentFile,
 } = require("@src/v1/models/app/payment/agentPaymentFile");
 const {FarmerPaymentFile}=require("@src/v1/models/app/payment/farmerPaymentFile");
+const {Payment}=require("@src/v1/models/app/procurement/Payment");
+const {farmer}=require("@src/v1/models/app/farmerDetails/Farmer")
 const xlsx = require("xlsx");
 main().catch((err) => console.log(err));
 
@@ -19,7 +21,7 @@ async function main() {
    
     await downloadAgentFile();
   });
-  cron.schedule("0 */3 * * *", async () => {
+  cron.schedule("*/30 * * * * *", async () => {
     await downloadFarmerFile();
     
   });
@@ -76,15 +78,21 @@ async function downloadAgentFile() {
 async function downloadFarmerFile() {
   console.log("farmer file download running");
   let fileDetails = await FarmerPaymentFile.find({ file_status: "upload" });
-  console.log(fileDetails)
+     
+  // console.log(fileDetails)
   //let fileDetails=[{fileName:"AIZER29102024002.xlsx"}]
   for (let item of fileDetails) {
+        item.fileName=item.fileName;
+       await item.save();
+      let paymentDetails= await Payment.findById(item.payment_id).populate('farmer_id');
+      
+      console.log(paymentDetails)
     const url = `https://testbank.navbazar.com/v1/download-file?fileName=R_${item.fileName}`; // Replace with your URL
 
     const response = await axios.get(url, {
       responseType: "stream",
       headers: {
-        "x-api-key": "6719ec42cddd1222948d48f3",
+        "x-api-key": process.env.API_KEY,
       },
     });
     const filePath = `./src/v1/download/R_${item.fileName}`;
@@ -99,10 +107,15 @@ async function downloadFarmerFile() {
       const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
       console.log(sheetData);
       let rowsDetails = [];
-      console.log("item", item);
+      // console.log("item", item);
       for (let item2 of sheetData) {
         rowsDetails.push({ ...item2 });
+         if(item2.LIQ_STATUS=='Paid' && paymentDetails.farmer_id.bank_details.account_no==item2.BENEF_ACCOUNT_NMBR){
+          paymentDetails.payment_status='Completed';
+          paymentDetails.transaction_id=item2.UTR_SR_NO;
+           await paymentDetails.save(); 
 
+         }
         // CORPORATION_CODE: '101923545',
         // CLIENT_CODE: 'NCCFMAIZER',
         // ACCOUNT_NMBR: '2244102000000055',

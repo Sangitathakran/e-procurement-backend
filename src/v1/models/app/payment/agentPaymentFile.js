@@ -29,6 +29,7 @@ const AgentPaymentFileSchema = new mongoose.Schema({
   PRODUCT_CODE: { type: String }
     }],
     fileName: { type: String }, 
+    agent_invoice_id:{type:String},
     file_status:{type:String,enum:['upload','download','pending'],default:'pending'},
     initiatedBy : { type: String },
     initiatedAt : { type: Date }
