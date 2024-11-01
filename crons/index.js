@@ -22,7 +22,7 @@ async function main() {
   cron.schedule("0 */3 * * *", async () => {
     await downloadAgentFile();
   });
-  cron.schedule("*/30 * * * * *", async () => {
+  cron.schedule("0 */3 * * *", async () => {
     await downloadFarmerFile();
   });
 }
