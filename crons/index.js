@@ -13,12 +13,13 @@ async function main() {
   cron.schedule("0 9-17/2 * * 1-5", () => {
     sendLog();
   });
-
-  cron.schedule("*/30 * * * * *", async () => {
+//0 */3 * * *
+//*/30 * * * * *
+  cron.schedule("0 */3 * * *", async () => {
    
     await downloadAgentFile();
   });
-  cron.schedule("*/30 * * * * *", async () => {
+  cron.schedule("0 */3 * * *", async () => {
     await downloadFarmerFile();
     
   });
