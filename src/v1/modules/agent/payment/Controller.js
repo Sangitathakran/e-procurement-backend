@@ -598,6 +598,7 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
                     "amountProposed": 1,
                     "amountPayable": 1,
                     "paymentStatus": 1,
+                    "offeredQty" : 1
                 }
             }
 
