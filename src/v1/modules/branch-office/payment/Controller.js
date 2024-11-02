@@ -139,10 +139,32 @@ module.exports.payment = async (req, res) => {
             }
         ]);
 
+
         const response = {
             count: records[0]?.totalCount[0]?.count || 0,
-            rows: records[0]?.data || []
+            // row: records[0]?.data || []
         };
+
+         ////////// start of Sangita code
+
+         response.rows = await Promise.all(records[0].data.map(async record => {
+          
+            allBatchApprovalStatus = _paymentApproval.pending;
+
+                const pendingBatch = await Batch.find({ req_id:record._id, bo_approve_status: _paymentApproval.pending });
+
+                if (pendingBatch.length > 0) {
+                    allBatchApprovalStatus = _paymentApproval.pending;
+                }else{
+                    allBatchApprovalStatus = _paymentApproval.approved;
+                }
+            
+                return { ...record, allBatchApprovalStatus }
+        }));
+
+        ////////// end of Sangita code
+        
+
         if (paginate == 1) {
             response.page = page
             response.limit = limit
