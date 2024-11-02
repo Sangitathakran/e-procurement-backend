@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { _collectionName, _paymentmethod, _paymentstatus, _paymentApproval } = require('@src/v1/utils/constants');
-
+const {AgentInvoice}=require('../payment/agentInvoice')
 const AgentPaymentFileSchema = new mongoose.Schema({
   
     client_code: { type: String , required: true },
@@ -29,13 +29,30 @@ const AgentPaymentFileSchema = new mongoose.Schema({
   PRODUCT_CODE: { type: String }
     }],
     fileName: { type: String }, 
+    agent_invoice_id:{type:String},
     file_status:{type:String,enum:['upload','download','pending'],default:'pending'},
     initiatedBy : { type: String },
     initiatedAt : { type: Date }
 
 
 }, { timestamps: true });
-
+AgentPaymentFileSchema.post('save', async function (doc) {
+    
+    
+  try {
+      
+    
+          await AgentInvoice.findByIdAndUpdate(doc.agent_invoice_id, {
+            payment_status: 'Completed',
+            transaction_id:doc.bank_payment_details[0].UTR_SR_NO ,
+            initiatedAt:doc.bank_payment_details[0].INST_DATE
+          });
+          
+      
+  } catch (error) {
+      console.error('Error in post-save middleware:', error);
+  }
+});
 const AgentPaymentFile = mongoose.model(_collectionName.AgentPaymentFile, AgentPaymentFileSchema);
 
 module.exports = { AgentPaymentFile };

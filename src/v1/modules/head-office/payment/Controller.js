@@ -808,6 +808,7 @@ module.exports.payFarmers = async (req, res) => {
         }
 
         const farmersBill = await Payment.find(query).populate({path:"farmer_id", select:"bank_details"})
+                            await Batch.updateMany({_id:{$in:batchIds}},{status:'Payment In Progress'});
 
         if (!farmersBill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
@@ -846,6 +847,8 @@ module.exports.payFarmers = async (req, res) => {
             payment_details: paymentFileData['PAYMENT_DETAILS'],
             fileName: filename,  // assuming `filename` is defined in your context
             file_status:'upload',
+            batch_id:agentBill.batch_id,
+            payment_id:agentBill._id,
             initiatedBy: req.user._id,  // assuming `req.user._id` is available
             initiatedAt: new Date()
           };
@@ -896,7 +899,7 @@ module.exports.payFarmers = async (req, res) => {
           maxBodyLength: Infinity,
           url: "https://testbank.navbazar.com/v1/upload-file",
           headers: {
-            "x-api-key": "6719ec42cddd1222948d48f3",
+            "x-api-key": process.env.API_KEY,
             ...formData.getHeaders(),
           },
           data: formData,
@@ -908,8 +911,7 @@ module.exports.payFarmers = async (req, res) => {
             console.log('agentPaymentDataArray', agentPaymentDataArray)
 
             
-            await FarmerPaymentFile.insertMany(agentPaymentDataArray)
-
+      let payment_file_ids=await FarmerPaymentFile.insertMany(agentPaymentDataArray)
             return res.status(200).send(response.data);
         }else{
             return res.status(400).json({"message":"Something Went wrong"}); 
@@ -997,7 +999,7 @@ module.exports.payAgent = async (req, res) => {
           maxBodyLength: Infinity,
           url: "https://testbank.navbazar.com/v1/upload-file",
           headers: {
-            "x-api-key": "6719ec42cddd1222948d48f3",
+            "x-api-key": process.env.API_KEY,
             ...formData.getHeaders(),
           },
           data: formData,
@@ -1019,6 +1021,7 @@ module.exports.payAgent = async (req, res) => {
               payment_details: paymentFileData['PAYMENT_DETAILS'],
               fileName: filename,
               file_status:'upload',
+              agent_invoice_id:agentBill._id,
               initiatedBy : req.user._id,
               initiatedAt : new Date()
             }
