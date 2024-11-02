@@ -628,7 +628,7 @@ module.exports.agencyInvoiceById = async (req, res) => {
     try {
         const agencyInvoiceId = req.params.id
 
-        const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId }).select('_id bill')
+        const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId }).select('_id bill bo_approve_status')
         if (!agentBill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
