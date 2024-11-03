@@ -668,6 +668,8 @@ module.exports.agencyInvoiceById = async (req, res) => {
 
     const query = { _id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } };
 
+    
+
     const agentBill = await AgentInvoice.findOne(query).select("_id bill");
     if (!agentBill) {
       return res
@@ -680,12 +682,24 @@ module.exports.agencyInvoiceById = async (req, res) => {
         );
     }
 
+    const alreadySubmitted = await AgentPaymentFile.findOne({agent_invoice_id:agencyInvoiceId});
+    // if (!alreadySubmitted) {
+    //   return res
+    //     .status(400)
+    //     .send(
+    //       new serviceResponse({
+    //         status: 400,
+    //         errors: [{ message: "Payment already initiated" }],
+    //       })
+    //     );
+    // }
+
     return res
       .status(200)
       .send(
         new serviceResponse({
           status: 200,
-          data: agentBill,
+          data: {...agentBill, isPaymentInitiated: alreadySubmitted ? true:false},
           message: _query.get("Invoice"),
         })
       );
