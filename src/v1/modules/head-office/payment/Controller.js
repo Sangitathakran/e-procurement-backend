@@ -488,7 +488,7 @@ module.exports.approvedBatchList = async (req, res) => {
       agent_approve_status: _paymentApproval.approved
     }
 
-    records.rows = await Batch.find(query);
+    records.rows = await Batch.find(query).populate({path:"seller_id", select: "_id user_code"});
 
     records.count = await Batch.countDocuments(query);
 
@@ -917,7 +917,16 @@ module.exports.payFarmers = async (req, res) => {
 
             
       let payment_file_ids=await FarmerPaymentFile.insertMany(agentPaymentDataArray)
-            return res.status(200).send(response.data);
+            // return res.status(200).send(response.data);
+            return res
+            .status(200)
+            .send(
+              new serviceResponse({
+                status: 200,
+                data: response.data,
+                message: `Payment initiated successfully`,
+              })
+            );
         }else{
             return res.status(400).json({"message":"Something Went wrong"}); 
         }
