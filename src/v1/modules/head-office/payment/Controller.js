@@ -485,7 +485,7 @@ module.exports.approvedBatchList = async (req, res) => {
       },
       bo_approve_status: _paymentApproval.approved,
       ho_approve_status: _paymentApproval.approved,
-      agent_approve_status: _paymentApproval.approved
+      // agent_approve_status: _paymentApproval.approved
     }
 
     records.rows = await Batch.find(query).populate({path:"seller_id", select: "_id user_code"});
