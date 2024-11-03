@@ -609,6 +609,7 @@ module.exports.orderList = async (req, res) => {
         quantityPurchased: item?.qtyProcured,
         billingDate: item?.createdAt,
         ho_approve_status: item.ho_approve_status,
+        payment_status:item.payment_status
       };
 
       return obj;
