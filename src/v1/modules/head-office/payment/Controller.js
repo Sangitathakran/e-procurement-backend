@@ -1044,7 +1044,16 @@ module.exports.payAgent = async (req, res) => {
             const agentPaymentFilePayload = new AgentPaymentFile(agentPaymentFileData)
             await agentPaymentFilePayload.save()
 
-            return res.status(200).send(response.data);
+            // return res.status(200).send(response.data);
+            return res
+            .status(200)
+            .send(
+              new serviceResponse({
+                status: 200,
+                data: response.data,
+                message: `Payment initiated successfully`,
+              })
+            );
         }else{
             return res.status(400).json({"message":"Something Went wrong"}); 
         }
