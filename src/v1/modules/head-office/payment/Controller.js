@@ -488,7 +488,7 @@ module.exports.approvedBatchList = async (req, res) => {
       agent_approve_status: _paymentApproval.approved
     }
 
-    records.rows = await Batch.findOne(query);
+    records.rows = await Batch.find(query);
 
     records.count = await Batch.countDocuments(query);
 
