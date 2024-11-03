@@ -30,11 +30,14 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const xlsx = require("xlsx");
 const fs = require("fs/promises");
+const fs2 = require("fs")
 const FormData = require("form-data");
 const { default: axios } = require("axios");
 const { AgentPaymentFile } = require("@src/v1/models/app/payment/agentPaymentFile");
 const { default: mongoose } = require("mongoose");
 const { FarmerPaymentFile } = require("@src/v1/models/app/payment/farmerPaymentFile");
+const { listenerCount } = require("@src/v1/models/app/auth/OTP");
+const path = require('path');
 module.exports.payment = async (req, res) => {
   try {
     const { page, limit, skip, paginate = 1, sortBy, search = "" } = req.query;
@@ -470,34 +473,30 @@ module.exports.qcReport = async (req, res) => {
 
 module.exports.approvedBatchList = async (req, res) => {
   try {
-    const { req_id } = req.query;
-    const { user_type } = req;
+
+    const { page,limit,skip, paginate = 1, sortBy,search = "", req_id } = req.query;
 
     const records = { count: 0 };
 
-    records.rows = [
-      {
-        batchId: "100134",
-        seller_id: { user_code: "AS0123" },
-        delivery_at: "2024-10-28T17:23:02.020+00:00",
-        payment_at: "2024-10-28T17:23:02.020+00:00",
-        qty: 60,
-        amt: "12032390",
-        payment_status: "Pending",
+    const query = {
+      req_id: req_id,
+      "dispatched.qc_report.received_qc_status": {
+        $eq: received_qc_status.accepted,
       },
-      {
-        batchId: "100134",
-        seller_id: { user_code: "AS0123" },
-        delivery_at: "2024-10-28T17:23:02.020+00:00",
-        payment_at: "2024-10-28T17:23:02.020+00:00",
-        qty: 60,
-        amt: "12032390",
-        payment_status: "Pending",
-      },
-    ];
+      bo_approve_status: _paymentApproval.approved,
+      ho_approve_status: _paymentApproval.approved,
+      agent_approve_status: _paymentApproval.approved
+    }
 
-    records.page = 1;
-    records.limit = 20;
+    records.rows = await Batch.findOne(query);
+
+    records.count = await Batch.countDocuments(query);
+
+    if (paginate == 1) {
+      records.page = page;
+      records.limit = limit;
+      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+    }
 
     return res
       .status(200)
@@ -505,7 +504,7 @@ module.exports.approvedBatchList = async (req, res) => {
         new serviceResponse({
           status: 200,
           data: records,
-          message: _query.get("Qc Report"),
+          message: `Approved Batch List`,
         })
       );
   } catch (error) {
@@ -878,8 +877,14 @@ module.exports.payFarmers = async (req, res) => {
 
         xlsx.utils.book_append_sheet(workbook, worksheet, "Farmer Payment");
 
-        
         let filePath = `./src/v1/upload/${filename}`;
+        const dir = path.dirname(filePath);
+
+        // Check if the directory exists, and create it if not
+        if (!fs2.existsSync(dir)) {
+          fs2.mkdirSync(dir, { recursive: true });
+        }
+
         await xlsx.writeFile(workbook, filePath, { type: 'buffer', bookType: 'csv' });
         let fileData = await fs.readFile(filePath);
         let formData = new FormData();
