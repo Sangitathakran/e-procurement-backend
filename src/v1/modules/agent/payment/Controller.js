@@ -1205,6 +1205,8 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
             acc.bill.commission += parseInt(curr.bills.commission);
             acc.bill.total += parseInt(curr.bills.total);
 
+            acc.agent_id = req.user.portalId._id
+
             return acc;
         }, { qtyProcured: 0, goodsPrice: 0, initiated_at: new Date(), bill: { precurement_expenses: 0, driage: 0, storage_expenses: 0, commission: 0, total: 0 } });
 
