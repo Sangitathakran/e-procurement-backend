@@ -1302,12 +1302,17 @@ module.exports.editBill = async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("payment") }] }));
     }
 
-    record.bill.precurement_expenses = parseFloat(procurement_expenses) < 0 ? 0 : parseFloat(procurement_expenses);
-    record.bill.driage = parseFloat(driage) < 0 ? 0 : parseFloat(driage);
-    record.bill.storage_expenses = parseFloat(storage) < 0 ? 0 : parseFloat(storage) ;
-    record.bill.commission = parseFloat(commission) < 0 ? 0 : parseFloat(commission) ;
+    const cal_procurement_expenses = parseFloat(procurement_expenses) < 0 ? 0 : parseFloat(parseFloat(procurement_expenses).toFixed(2))
+    const cal_driage = parseFloat(driage) < 0 ? 0 : parseFloat(parseFloat(driage).toFixed(2))
+    const cal_storage = parseFloat(storage) < 0 ? 0 : parseFloat(parseFloat(storage).toFixed(2))
+    const cal_commission = parseFloat(commission) < 0 ? 0 : parseFloat(parseFloat(commission).toFixed(2))
+
+    record.bill.precurement_expenses = cal_procurement_expenses;
+    record.bill.driage = cal_driage;
+    record.bill.storage_expenses = cal_storage ;
+    record.bill.commission = cal_commission ;
     record.bill.bill_attachement = bill_attachement;
-    record.bill.total = ( parseFloat(procurement_expenses) + parseFloat(driage) + parseFloat(storage) + parseFloat(commission) )
+    record.bill.total = parseFloat( (cal_procurement_expenses + cal_driage + cal_storage + cal_commission).toFixed(2) )
     record.payment_change_remarks = remarks;
 
     await record.save();
