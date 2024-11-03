@@ -1302,12 +1302,12 @@ module.exports.editBill = async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("payment") }] }));
     }
 
-    record.bill.precurement_expenses = Number(procurement_expenses) < 0 ? 0 : Number(procurement_expenses);
-    record.bill.driage = Number(driage) < 0 ? 0 : Number(driage);
-    record.bill.storage_expenses = Number(storage) < 0 ? 0 : Number(storage) ;
-    record.bill.commission = Number(commission) < 0 ? 0 : Number(commission) ;
+    record.bill.precurement_expenses = parseFloat(procurement_expenses) < 0 ? 0 : parseFloat(procurement_expenses);
+    record.bill.driage = parseFloat(driage) < 0 ? 0 : parseFloat(driage);
+    record.bill.storage_expenses = parseFloat(storage) < 0 ? 0 : parseFloat(storage) ;
+    record.bill.commission = parseFloat(commission) < 0 ? 0 : parseFloat(commission) ;
     record.bill.bill_attachement = bill_attachement;
-    record.bill.total = (Number(procurement_expenses).toFixed(2)+Number(driage).toFixed(2)+Number(storage).toFixed(2)+Number(commission).toFixed(2))
+    record.bill.total = ( parseFloat(procurement_expenses) + parseFloat(driage) + parseFloat(storage) + parseFloat(commission) )
     record.payment_change_remarks = remarks;
 
     await record.save();
