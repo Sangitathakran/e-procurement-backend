@@ -4,7 +4,7 @@ const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { validateIndFarmer, validateRegisterDetail, validateFarmer, validateLand, validateCrop, validateBank } = require("./Validation")
 const { verifyAssociate } = require("../associate/utils/verifyAssociate");
-const { saveFarmerDetails,updateIndCrop,getLandDetails, getIndCropDetails,sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, editFarmer, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers } = require("./Controller");
+const { saveFarmerDetails,updateIndCrop,getLandDetails, getIndCropDetails,sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, editFarmer, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers, getstatedistrictname, getBoFarmerPreview } = require("./Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
 // const { verifyAgent } = require("../agent/utils/verifyAgent");
 const { Auth } = require("@src/v1/middlewares/jwt");
@@ -40,8 +40,10 @@ farmerRoutes.post("/send-farmerOTP", sendOTP)
 farmerRoutes.post("/verify-farmerOTP", verifyOTP);
 farmerRoutes.post('/register-details', verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
 farmerRoutes.post("/make-associate", verifyAssociate, makeAssociateFarmer);
-farmerRoutes.get("/getbo-farmer", Auth, farmerList);
+farmerRoutes.get("/getbo-farmer", Auth, getBoFarmer);
 farmerRoutes.get("/getall-farmer", Auth, getAllFarmers);
+farmerRoutes.get("/bo-preview/:id", Auth, getBoFarmerPreview);
+
 
 /* 
  individual farmer routes s

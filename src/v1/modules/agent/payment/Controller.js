@@ -416,7 +416,243 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
     }
 }
 
+module.exports.proceedToPayPaymentRequests = async (req, res) => {
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
+        // let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
+        const paymentIds = (await AssociateInvoice.find({})).map(i => i.req_id);
+
+        const aggregationPipeline = [
+            { $match: { _id: { $in: paymentIds } } },
+            {
+                $lookup: {
+                    from: 'associateinvoices',
+                    localField: '_id',
+                    foreignField: 'req_id',
+                    as: 'invoice',
+                }
+            },
+            {
+                $addFields: {
+                    qtyProcuredInInvoice: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: { $toInt: '$$inv.qtyProcured' }
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    paymentStatus: {
+                        $cond: {
+                            if: {
+                                $gt: [
+                                    { $size: { $filter: { input: { $map: { input: '$invoice', as: 'inv', in: '$$inv.payment_status' } }, cond: { $eq: ['$$this', 'Pending'] } } } },
+                                    0
+                                ]
+                            },
+                            then: 'Pending',
+                            else: 'Completed'
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    reqNo: 1,
+                    product: 1,
+                    qtyProcuredInInvoice: 1,
+                    paymentStatus: 1,
+                }
+            },
+            { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit) }
+        ];
+        const records = { count: 0 }
+        records.rows = await RequestModel.aggregate(aggregationPipeline);
+
+        records.count = await RequestModel.countDocuments({ _id: { $in: paymentIds } })
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
 module.exports.AssociateTabassociateOrders = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
+
+        const paymentIds = (await AssociateInvoice.find({ req_id })).map(i => i.associateOffer_id);
+
+        let query = {
+            _id: { $in: paymentIds },
+            req_id: new mongoose.Types.ObjectId(req_id),
+            status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] },
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        const records = { count: 0 };
+
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+
+        ////////// start of Sangita code
+
+        records.allBatchApprovalStatus = _paymentApproval.pending;
+
+        const pendingBatch = await Batch.find({ req_id, agent_approve_status: _paymentApproval.pending });
+
+        if (pendingBatch.length > 0) {
+            records.allBatchApprovalStatus = _paymentApproval.pending;
+        } else {
+            records.allBatchApprovalStatus = _paymentApproval.approved;
+        }
+
+        ////////// end of Sangita code
+
+        const pipeline = [
+            {
+                $match: query,
+            },
+            {
+                $lookup: {
+                    from: 'associateinvoices',
+                    localField: '_id',
+                    foreignField: 'associateOffer_id',
+                    as: 'invoice',
+
+                },
+
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'seller_id',
+                    foreignField: '_id',
+                    as: 'users',
+                }
+            },
+            {
+                $unwind: "$users"
+            },
+            {
+                $addFields: {
+                    amountProposed: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    amountPayable: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    paymentStatus: {
+                        $cond: {
+                            if: {
+                                $gt: [
+                                    { $size: { $filter: { input: { $map: { input: '$invoice', as: 'inv', in: '$$inv.payment_status' } }, cond: { $eq: ['$$this', 'Pending'] } } } },
+                                    0
+                                ]
+                            },
+                            then: 'Pending',
+                            else: 'Completed'
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    "users.user_code": 1,
+                    "users.basic_details.associate_details.associate_name": 1,
+                    "amountProposed": 1,
+                    "amountPayable": 1,
+                    "paymentStatus": 1,
+                    "offeredQty" : 1
+                }
+            },
+            // Start of Sangita code
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
+            }
+            // End of Sangita code
+        ]
+
+
+        records.rows = await AssociateOffers.aggregate(pipeline);
+
+        records.count = await AssociateOffers.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+
+                return {
+                    "Associate Id": item?.seller_id.user_code || "NA",
+                    "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || "NA",
+                    "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || "NA",
+                    "Quantity Purchased": item?.offeredQty || "NA",
+                }
+            })
+
+            if (record.length > 0) {
+
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Associate Orders-${'Associate Orders'}.xlsx`,
+                    worksheetName: `Associate Orders-record-${'Associate Orders'}`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
+            }
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.proceedToPayAssociateOrders = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
@@ -510,8 +746,16 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
                     "amountProposed": 1,
                     "amountPayable": 1,
                     "paymentStatus": 1,
+                    "procuredQty" : 1
                 }
+            },
+            // Start of Sangita code
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
             }
+            // End of Sangita code
 
         ]
 
@@ -560,7 +804,7 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
 module.exports.AssociateTabBatchList = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, req_id, isExport = 0 } = req.query
 
         const paymentIds = (await AssociateInvoice.find({ associateOffer_id })).map(i => i.batch_id);
 
@@ -594,49 +838,49 @@ module.exports.AssociateTabBatchList = async (req, res) => {
                     as: 'invoice',
                 }
             },
-            // {
-            //     $addFields: {
-            //         qtyPurchased: {
-            //             $reduce: {
-            //                 input: {
-            //                     $map: {
-            //                         input: '$invoice',
-            //                         as: 'inv',
-            //                         in: { $toInt: '$$inv.qtyProcured' }
-            //                     }
-            //                 },
-            //                 initialValue: 0,
-            //                 in: { $add: ['$$value', '$$this'] }
-            //             }
-            //         },
-            //         amountProposed: {
-            //             $reduce: {
-            //                 input: {
-            //                     $map: {
-            //                         input: '$invoice',
-            //                         as: 'inv',
-            //                         in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
-            //                     }
-            //                 },
-            //                 initialValue: 0,
-            //                 in: { $add: ['$$value', '$$this'] }
-            //             }
-            //         },
-            //         amountPayable: {
-            //             $reduce: {
-            //                 input: {
-            //                     $map: {
-            //                         input: '$invoice',
-            //                         as: 'inv',
-            //                         in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
-            //                     }
-            //                 },
-            //                 initialValue: 0,
-            //                 in: { $add: ['$$value', '$$this'] }
-            //             }
-            //         },
-            //     }
-            // },
+            {
+                $addFields: {
+                    qtyPurchased: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: { $toInt: '$$inv.qtyProcured' }
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    amountProposed: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    amountPayable: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                }
+            },
             {
                 $unwind: "$procurementcenters"
             },
@@ -651,13 +895,26 @@ module.exports.AssociateTabBatchList = async (req, res) => {
                     "procurementcenters.center_code": 1,
                     "invoice.initiated_at": 1,
                     "invoice.bills.total": 1,
+                    amountPayable: 1,
+                    qtyPurchased: 1,
+                    amountProposed: 1
                 }
+            },
+            // Start of Sangita code
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
             }
+            // End of Sangita code
 
         ]
 
 
         records.rows = await Batch.aggregate(pipeline);
+
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
         records.count = await Batch.countDocuments(query);
 
@@ -692,6 +949,176 @@ module.exports.AssociateTabBatchList = async (req, res) => {
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.proceedToPayAssociateTabBatchList = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, req_id, isExport = 0 } = req.query
+
+        const paymentIds = (await AssociateInvoice.find({ associateOffer_id })).map(i => i.batch_id);
+
+        let query = {
+            _id: { $in: paymentIds },
+            associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        console.log('query', query);
+
+        const records = { count: 0 };
+
+        const pipeline = [
+            {
+                $match: query,
+            },
+            {
+                $lookup: {
+                    from: 'procurementcenters',
+                    localField: 'procurementCenter_id',
+                    foreignField: '_id',
+                    as: 'procurementcenters',
+                }
+            },
+            {
+                $lookup: {
+                    from: 'associateinvoices',
+                    localField: '_id',
+                    foreignField: 'batch_id',
+                    as: 'invoice',
+                }
+            },
+            {
+                $addFields: {
+                    qtyPurchased: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: { $toInt: '$$inv.qtyProcured' }
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    amountProposed: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    amountPayable: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                }
+            },
+            {
+                $unwind: "$procurementcenters"
+            },
+            {
+                $unwind: "$invoice"
+            },
+            {
+                $project: {
+                    "batchId": 1,
+                    "procurementcenters._id": 1,
+                    "procurementcenters.center_name": 1,
+                    "procurementcenters.center_code": 1,
+                    "invoice.initiated_at": 1,
+                    "invoice.bills.total": 1,
+                    "invoice.payment_status": 1,
+                    amountPayable: 1,
+                    qtyPurchased: 1,
+                    amountProposed: 1
+                }
+            },
+            // Start of sangita code
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
+            }
+            // End of Sangita code
+        ]
+
+
+        records.rows = await Batch.aggregate(pipeline);
+
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+
+        records.count = await Batch.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+
+                return {
+                    "Associate Id": item?.seller_id.user_code || "NA",
+                    "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || "NA",
+                    "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || "NA",
+                    "Quantity Purchased": item?.offeredQty || "NA",
+                }
+            })
+
+            if (record.length > 0) {
+
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Associate Orders-${'Associate Orders'}.xlsx`,
+                    worksheetName: `Associate Orders-record-${'Associate Orders'}`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
+            }
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.getBill = async (req, res) => {
+
+    try {
+        const { batchId } = req.query
+
+        const { user_id, user_type } = req;
+
+        const records = await Batch.findOne({ _id: batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -773,8 +1200,9 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
         const existingRecord = await AgentInvoice.findOne({ req_id });
 
         if (existingRecord) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("bill") }] }))
+            return res.status(200).send(new serviceResponse({ status: 200, data: existingRecord, message: _response_message.found("bill") }))
         }
+
         const associateInvoice = await AssociateInvoice.find({ req_id, agent_approve_status: _paymentApproval.approved })
 
         const agentInvoice = associateInvoice.reduce((acc, curr) => {
@@ -804,11 +1232,16 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
             acc.bill.commission += parseInt(curr.bills.commission);
             acc.bill.total += parseInt(curr.bills.total);
 
+            acc.agent_id = req.user.portalId._id
+
             return acc;
         }, { qtyProcured: 0, goodsPrice: 0, initiated_at: new Date(), bill: { precurement_expenses: 0, driage: 0, storage_expenses: 0, commission: 0, total: 0 } });
 
 
         const record = await AgentInvoice.create(agentInvoice);
+
+        record.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
 
 
@@ -842,4 +1275,97 @@ module.exports.associateBillApprove = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+}
+
+
+module.exports.agentPayments = async (req, res) => {
+
+    try {
+
+        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+
+        let query = search ? {
+            $or: [
+                { "req_id.reqNo": { $regex: search, $options: 'i' } },
+                { "bo_id.branchId": { $regex: search, $options: 'i' } },
+                { "req_id.product.name": { $regex: search, $options: 'i' } }
+            ]
+        } : {};
+
+        const records = { count: 0 };
+
+        records.rows = paginate == 1 ? await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
+            .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product deliveryDate quotedPrice reqNo" }])
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await Batch.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
+                .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "reqNo product.name" }])
+                .sort(sortBy)
+
+        records.count = await AgentInvoice.countDocuments(query);
+
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.editBill = async (req, res) => {
+
+    const { id, procurement_expenses, driage, storage, commission, bill_attachement, remarks } = req.body;
+
+    const record = await AgentInvoice.findOne({ _id: id });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("payment") }] }));
+    }
+
+    const cal_procurement_expenses = parseFloat(procurement_expenses) < 0 ? 0 : parseFloat(parseFloat(procurement_expenses).toFixed(2))
+    const cal_driage = parseFloat(driage) < 0 ? 0 : parseFloat(parseFloat(driage).toFixed(2))
+    const cal_storage = parseFloat(storage) < 0 ? 0 : parseFloat(parseFloat(storage).toFixed(2))
+    const cal_commission = parseFloat(commission) < 0 ? 0 : parseFloat(parseFloat(commission).toFixed(2))
+
+    record.bill.precurement_expenses = cal_procurement_expenses;
+    record.bill.driage = cal_driage;
+    record.bill.storage_expenses = cal_storage ;
+    record.bill.commission = cal_commission ;
+    record.bill.bill_attachement = bill_attachement;
+    record.bill.total = parseFloat( (cal_procurement_expenses + cal_driage + cal_storage + cal_commission).toFixed(2) )
+    record.payment_change_remarks = remarks;
+
+    await record.save();
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("bill") }))
+
+}
+
+
+module.exports.getBillProceedToPay = async (req, res) => {
+
+    try {
+        const { id } = req.query
+
+        const billPayment = await AssociateInvoice.findOne({ batch_id: id })
+            .populate({ path: "batch_id", select: "dispatched.bills" })
+
+        if (!billPayment) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("bill") }] }))
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: billPayment, message: _response_message.found("bill") }))
+
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+
 }
