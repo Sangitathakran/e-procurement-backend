@@ -747,6 +747,11 @@ module.exports.proceedToPayAssociateOrders = async (req, res) => {
                     "paymentStatus": 1,
                     "procuredQty" : 1
                 }
+            },
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
             }
 
         ]
