@@ -40,7 +40,8 @@ const _collectionName = {
     Types: "Types",
     AssociateInvoice: "AssociateInvoice",
     AgentInvoice: "AgentInvoice",
-    AgentPaymentFile: "AgentPaymentFile"
+    AgentPaymentFile: "AgentPaymentFile",
+    FarmerPaymentFile: "FarmerPaymentFile"
 }
 
 const _userType_Feature_Collection = {
@@ -319,6 +320,7 @@ const _batchStatus = {
     finalQc: "Final Qc",
     paymentApproved: "Payment Approved",
     FinalPayApproved: "Final Payment Approved",
+    paymentInTransit: "Payment In Progress",
     paymentComplete: "Payment Complete"
 }
 
@@ -329,6 +331,7 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
+    failed:"Failed",
     completed: "Completed",
 }
 
