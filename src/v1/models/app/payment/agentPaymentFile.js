@@ -1,47 +1,58 @@
 const mongoose = require('mongoose');
 const { _collectionName, _paymentmethod, _paymentstatus, _paymentApproval } = require('@src/v1/utils/constants');
-
+const {AgentInvoice}=require('../payment/agentInvoice')
 const AgentPaymentFileSchema = new mongoose.Schema({
-
-    req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true },
-    ho_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice, required: true },
-    bo_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
-    agent_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Agency},
-    batch_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch, required: true }],
-    qtyProcured: { type: String, required: true },
-    goodsPrice: { type: Number, required: true },
-    initiated_at: { type: Date, default: null },
-    bo_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
-    bo_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
-    bo_approve_at: { type: Date, default: null },
-    ho_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
-    ho_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
-    ho_approve_at: { type: Date, default: null },
-    payment_status: { type: String, enum: Object.values(_paymentstatus), default: _paymentstatus.pending },
-    payment_id: { type: String, default: null },
-    transaction_id: { type: String, default: null },
-    payment_method: { type: String, default: null, enum: Object.values(_paymentmethod) },
-    bankfileLastNumber: { type: Number, default: 0},
-    bill: {
-        precurement_expenses: { type: Number, required: true },
-        driage: { type: Number, required: true },
-        storage_expenses:{ type: Number, required: true },
-        commission: { type: Number, required: true },
-        bill_attachement: { type: String },
-        total :{ type: Number, required: true }
-    },
-    logs: {
-        type: [mongoose.Schema.Types.Mixed], 
-        default: [] 
-    },
-
-    fileData: { 
-
-    }
+  
+    client_code: { type: String , required: true },
+    pir_ref_no: { type: String },
+    my_product_code: { type: String , required: true},
+    amount: { type: String, required: true },
+    acc_no: { type: String , required: true },
+    ifsc_code: { type: String, required: true },
+    account_name: { type: String, required: true },
+    account_no: { type: String, required: true },
+    payment_ref: { type: String },
+    payment_details: { type: String },
+    bank_payment_details:[{
+  CORPORATION_CODE: { type: String },
+  CLIENT_CODE: { type: String },
+  ACCOUNT_NMBR: { type: String },
+  BENEF_ACCOUNT_NMBR: { type: String },
+  BENEF_DESCRIPTION: { type: String },
+  INSTRUMENT_AMNT: { type: String },
+  PIR_DATE: { type: String },
+  BENE_IFSC_CODE: { type: String },
+  PIR_REFERENCE_NMBR: { type: String },
+  LIQ_STATUS: { type: String },
+  UTR_SR_NO: { type: String },
+  INST_DATE: { type: String },
+  PRODUCT_CODE: { type: String }
+    }],
+    fileName: { type: String }, 
+    agent_invoice_id:{type:String},
+    file_status:{type:String,enum:['upload','download','pending'],default:'pending'},
+    initiatedBy : { type: String },
+    initiatedAt : { type: Date }
 
 
 }, { timestamps: true });
-
+AgentPaymentFileSchema.post('save', async function (doc) {
+    
+    
+  try {
+      
+    
+          await AgentInvoice.findByIdAndUpdate(doc.agent_invoice_id, {
+            payment_status: 'Completed',
+            transaction_id:doc.bank_payment_details[0].UTR_SR_NO ,
+            initiatedAt:doc.bank_payment_details[0].INST_DATE
+          });
+          
+      
+  } catch (error) {
+      console.error('Error in post-save middleware:', error);
+  }
+});
 const AgentPaymentFile = mongoose.model(_collectionName.AgentPaymentFile, AgentPaymentFileSchema);
 
 module.exports = { AgentPaymentFile };

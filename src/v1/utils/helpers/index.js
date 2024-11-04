@@ -167,7 +167,7 @@ exports.generateFileName = (clientCode,runningNumber) => {
   const lastFiveLetters = clientCode.slice(-5).toUpperCase();
   const formattedRunningNumber = String(runningNumberPlusOne).padStart(3, '0');
 
-  const fileName = `P_${lastFiveLetters}${finalDate}${formattedRunningNumber}.CSV`;
+  const fileName = `${lastFiveLetters}${finalDate}${formattedRunningNumber}.CSV`;
 
   return fileName
 }
