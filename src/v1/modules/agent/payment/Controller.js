@@ -896,6 +896,11 @@ module.exports.AssociateTabBatchList = async (req, res) => {
                     qtyPurchased: 1,
                     amountProposed: 1
                 }
+            },
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
             }
 
         ]
