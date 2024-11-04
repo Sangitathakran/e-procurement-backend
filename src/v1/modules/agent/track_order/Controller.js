@@ -141,11 +141,12 @@ module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
                 req_id: 1
             }
         },
+       
+        ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+        ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
         {
             $limit: limit ? parseInt(limit) : 10
-        },
-        ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
-        ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : [])
+        }
     ]);
 
     records.count = await AssociateOffers.countDocuments(query);
