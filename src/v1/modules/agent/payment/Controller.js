@@ -600,8 +600,14 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
                     "paymentStatus": 1,
                     "offeredQty" : 1
                 }
+            },
+            // Start of Sangita code
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
             }
-
+            // End of Sangita code
         ]
 
 
@@ -742,7 +748,14 @@ module.exports.proceedToPayAssociateOrders = async (req, res) => {
                     "paymentStatus": 1,
                     "procuredQty" : 1
                 }
+            },
+            // Start of Sangita code
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
             }
+            // End of Sangita code
 
         ]
 
@@ -886,7 +899,14 @@ module.exports.AssociateTabBatchList = async (req, res) => {
                     qtyPurchased: 1,
                     amountProposed: 1
                 }
+            },
+            // Start of Sangita code
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
             }
+            // End of Sangita code
 
         ]
 
@@ -1034,8 +1054,14 @@ module.exports.proceedToPayAssociateTabBatchList = async (req, res) => {
                     qtyPurchased: 1,
                     amountProposed: 1
                 }
+            },
+            // Start of sangita code
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
             }
-
+            // End of Sangita code
         ]
 
 
@@ -1324,8 +1350,6 @@ module.exports.editBill = async (req, res) => {
 
 
 module.exports.getBillProceedToPay = async (req, res) => {
-
-
 
     try {
         const { id } = req.query
