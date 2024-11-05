@@ -634,10 +634,17 @@ module.exports.farmerOrderList = async (req, res) => {
 
         query.associateOffers_id = { $in: offerIds };
 
-
         if (status) {
             query.status = status;
         }
+
+        // start of Sangita code
+
+        if (status == _procuredStatus.received) {
+            query.qtyRemaining = { $gt: 0 }
+        }
+
+        // End of Sangita code
 
         const records = { count: 0 };
 
@@ -715,6 +722,12 @@ module.exports.editFarmerOffer = async (req, res) => {
         record.weight_slip = weight_slip;
         record.status = status;
         record.updatedBy = user_id;
+
+        // Start of Sangita code
+
+        record.qtyRemaining = qtyProcured;
+
+        // End of Sangita code
 
         await record.save();
 

@@ -1057,7 +1057,7 @@ module.exports.payAgent = async (req, res) => {
 
             const agentPaymentFilePayload = new AgentPaymentFile(agentPaymentFileData)
             await agentPaymentFilePayload.save()
-
+            await AgentInvoice.findOneAndUpdate({_id:agencyInvoiceId}, { $inc: { bankfileLastNumber : 1}})
             // return res.status(200).send(response.data);
             return res
             .status(200)

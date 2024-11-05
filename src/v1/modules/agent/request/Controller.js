@@ -54,27 +54,27 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
 
     eventEmitter.emit(_webSocketEvents.procurement, { ...record, method: "created" })
     const requestData = {
-        order_no : record.reqNo,
-        commodity_name : record.product.name,
-        quantity_request : record.product.quantity,
-        quoteExpiry : record.quoteExpiry,
-        expectedProcurementDate : record.expectedProcurementDate,
+        order_no: record.reqNo,
+        commodity_name: record.product.name,
+        quantity_request: record.product.quantity,
+        quoteExpiry: record.quoteExpiry,
+        expectedProcurementDate: record.expectedProcurementDate,
     }
-    const users = await User.find({ 
-            'basic_details.associate_details.email': { $exists: true } 
-        }).select('basic_details.associate_details.email basic_details.associate_details.associate_name');
+    const users = await User.find({
+        'basic_details.associate_details.email': { $exists: true }
+    }).select('basic_details.associate_details.email basic_details.associate_details.associate_name');
     await Promise.all(
         users.map(user => {
-        const { email, associate_name } = user.basic_details.associate_details;
-        return emailService.sendProposedQuantityEmail({ 
-            ...requestData, 
-            email, 
-            associate_name: associate_name 
-        });
+            const { email, associate_name } = user.basic_details.associate_details;
+            return emailService.sendProposedQuantityEmail({
+                ...requestData,
+                email,
+                associate_name: associate_name
+            });
         })
     );
-    
-    
+
+
 
     const branchData = await Branches.findOne({ _id: branch_id });
 
@@ -378,11 +378,12 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
     const farmerOffer = await FarmerOffers.find({ associateOffers_id: associateOffer_id, status: _status.active });
 
     for (let offered of farmerOffer) {
-
         const { associateOffers_id, farmer_id, metaData, offeredQty } = offered;
-        const newFarmerOrder = new FarmerOrders({ associateOffers_id, farmer_id, metaData, offeredQty, order_no: "OD" + _generateOrderNumber() });
-
-        await newFarmerOrder.save();
+        const ExistFarmerOrders = await FarmerOrders.findOne({ associateOffers_id, farmer_id })
+        if (!ExistFarmerOrders) {
+            const newFarmerOrder = new FarmerOrders({ associateOffers_id, farmer_id, metaData, offeredQty, order_no: "OD" + _generateOrderNumber() });
+            await newFarmerOrder.save();
+        }
     }
 
     await offer.save();
