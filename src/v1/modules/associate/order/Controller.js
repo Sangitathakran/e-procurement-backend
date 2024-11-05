@@ -65,7 +65,7 @@ module.exports.batch = async (req, res) => {
         for (let farmer of farmerData) {
 
             const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).lean();
-
+            
             // farmer order exist or not 
             if (!farmerOrder) {
                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer order") }] }));
@@ -93,6 +93,16 @@ module.exports.batch = async (req, res) => {
             }
             farmer.amt = (farmer.qty * procurementRecord?.quotedPrice)
             farmerOrderIds.push(farmer.farmerOrder_id);
+
+            // Start of Sangita code            
+            // Update the quantity remaining
+            await FarmerOrders.updateOne(
+                { _id: farmer.farmerOrder_id },
+                { $set: { qtyRemaining: farmerOrder.qtyProcured - farmer.qty } }
+            );
+
+            // End of Sangita code
+
         }
 
         // given farmer's order should be in in received state
@@ -114,6 +124,9 @@ module.exports.batch = async (req, res) => {
 
         const batchCreated = await Batch.create({ seller_id: user_id, req_id, associateOffer_id: record._id, batchId, farmerOrderIds: farmerData, procurementCenter_id, qty: sumOfQty, goodsPrice: (sumOfQty * procurementRecord?.quotedPrice), totalPrice: (sumOfQty * procurementRecord?.quotedPrice) })
 
+
+
+
         procurementRecord.associatOrder_id.push(record._id)
         await record.save();
         await procurementRecord.save()
@@ -121,7 +134,7 @@ module.exports.batch = async (req, res) => {
         const users = await User.find({
             'basic_details.associate_details.email': { $exists: true }
         }).select('basic_details.associate_details.email basic_details.associate_details.associate_name');
-        
+
         await Promise.all(
             users.map(({ basic_details: { associate_details } }) => {
                 const { email, associate_name } = associate_details;
@@ -224,7 +237,7 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.intransit.intransit_by = user_id;
 
                     record.status = _batchStatus.intransit;
-                    
+
                     const associateInvoice = await AssociateInvoice.findOne({ batch_id: record?._id })
                     if (reqRec && !associateInvoice) {
                         await AssociateInvoice.create({
@@ -244,18 +257,18 @@ module.exports.editTrackDelivery = async (req, res) => {
 
                     const associate_id = record.seller_id;
                     const associateData = await User.findOne({ _id: associate_id });
-                    
+
                     const emailPayloadData = {
-                        batch_id : record.batchId,
-                        order_no : reqRec.reqNo,
-                        driver_name : record.intransit.driver.name,
-                        driver_phone : record.intransit.driver.contact,
-                        transport_service : record.intransit.transport.service_name,
-                        vehicle_no : record.intransit.transport.vehicleNo = vehicleNo,
-                        email : associateData.basic_details.associate_details.email,
-                        associate_name : associateData.basic_details.associate_details.associate_name
-                    } 
-                    
+                        batch_id: record.batchId,
+                        order_no: reqRec.reqNo,
+                        driver_name: record.intransit.driver.name,
+                        driver_phone: record.intransit.driver.contact,
+                        transport_service: record.intransit.transport.service_name,
+                        vehicle_no: record.intransit.transport.vehicleNo = vehicleNo,
+                        email: associateData.basic_details.associate_details.email,
+                        associate_name: associateData.basic_details.associate_details.associate_name
+                    }
+
                     await emailService.sendTrackDeliveryInTransitEmail(emailPayloadData);
                 } else {
                     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));

@@ -191,9 +191,14 @@ module.exports.getBatchByAssociateOfferrs = asyncErrorHandler(async (req, res) =
     const { page, limit, skip, sortBy, search = '', paginate = 1, associateOffer_id, isExport = 0 } = req.query;
 
     let query = search ? {
-        $or: []
-    } : {};
-
+        $or: [
+            // start of Sangita code
+            { batchId: { $regex: search, $options: 'i' } },            
+            { status: { $regex: search, $options: 'i' } }       
+            // End of Sangita code     
+        ]
+    } : {};      
+    
     query.associateOffer_id = associateOffer_id;
 
     const records = {};
