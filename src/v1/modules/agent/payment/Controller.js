@@ -23,11 +23,28 @@ module.exports.payment = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
 
         // let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
-
+        
         const paymentIds = (await Payment.find({})).map(i => i.req_id);
 
+        // start of Sangita code
+        
+        let query = search ? {
+            _id: { $in: paymentIds },
+            $or: [
+                { "product.name": { $regex: search, $options: 'i' } },
+                { "reqNo": { $regex: search, $options: 'i' } },            
+                { "payment_status": { $regex: search, $options: 'i' } }
+            ]
+        } : {};
+
+        // End of Sangita code 
+
         const aggregationPipeline = [
-            { $match: { _id: { $in: paymentIds } } },
+            // start of Sangita code
+            { $match: query },
+            // End of Sangita code 
+            
+            // { $match: { _id: { $in: paymentIds } } },            
             {
                 $lookup: {
                     from: 'batches',
@@ -138,7 +155,14 @@ module.exports.payment = async (req, res) => {
         const records = { count: 0 }
         records.rows = await RequestModel.aggregate(aggregationPipeline);
 
-        records.count = await RequestModel.countDocuments({ _id: { $in: paymentIds } })
+        // records.count = await RequestModel.countDocuments({ _id: { $in: paymentIds } })
+        
+        // start of Sangita code
+      
+        records.count = await RequestModel.countDocuments(query)
+         
+        // End of Sangita code 
+
         if (paginate == 1) {
             records.page = page
             records.limit = limit
