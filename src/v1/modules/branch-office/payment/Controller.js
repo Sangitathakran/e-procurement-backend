@@ -582,8 +582,6 @@ module.exports.orderList = async (req, res) => {
 
         records.rows = await AgentInvoice.find(query).populate({ path: "req_id", select: " " })
 
-
-
         records.count = await AgentInvoice.countDocuments(query)
 
         if (paginate == 1) {
@@ -595,7 +593,6 @@ module.exports.orderList = async (req, res) => {
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-
 
         records.rows = records.rows.map(item => {
             let obj = {

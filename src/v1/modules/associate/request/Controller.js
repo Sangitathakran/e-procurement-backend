@@ -716,6 +716,12 @@ module.exports.editFarmerOffer = async (req, res) => {
         record.status = status;
         record.updatedBy = user_id;
 
+        // Start of Sangita code
+        
+        record.qtyRemaining = qtyProcured;
+
+        // End of Sangita code
+
         await record.save();
 
         if (status == _procuredStatus.received) {
