@@ -23,11 +23,28 @@ module.exports.payment = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
 
         // let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
-
+        
         const paymentIds = (await Payment.find({})).map(i => i.req_id);
 
+        // start of Sangita code
+        
+        let query = search ? {
+            _id: { $in: paymentIds },
+            $or: [
+                { "product.name": { $regex: search, $options: 'i' } },
+                { "reqNo": { $regex: search, $options: 'i' } },            
+                { "payment_status": { $regex: search, $options: 'i' } }
+            ]
+        } : {};
+
+        // End of Sangita code 
+
         const aggregationPipeline = [
-            { $match: { _id: { $in: paymentIds } } },
+            // start of Sangita code
+            { $match: query },
+            // End of Sangita code 
+            
+            // { $match: { _id: { $in: paymentIds } } },            
             {
                 $lookup: {
                     from: 'batches',
@@ -138,7 +155,14 @@ module.exports.payment = async (req, res) => {
         const records = { count: 0 }
         records.rows = await RequestModel.aggregate(aggregationPipeline);
 
-        records.count = await RequestModel.countDocuments({ _id: { $in: paymentIds } })
+        // records.count = await RequestModel.countDocuments({ _id: { $in: paymentIds } })
+        
+        // start of Sangita code
+      
+        records.count = await RequestModel.countDocuments(query)
+         
+        // End of Sangita code 
+
         if (paginate == 1) {
             records.page = page
             records.limit = limit
@@ -598,9 +622,16 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
                     "amountProposed": 1,
                     "amountPayable": 1,
                     "paymentStatus": 1,
+                    "offeredQty" : 1
                 }
+            },
+            // Start of Sangita code
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
             }
-
+            // End of Sangita code
         ]
 
 
@@ -741,7 +772,14 @@ module.exports.proceedToPayAssociateOrders = async (req, res) => {
                     "paymentStatus": 1,
                     "procuredQty" : 1
                 }
+            },
+            // Start of Sangita code
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
             }
+            // End of Sangita code
 
         ]
 
@@ -885,7 +923,14 @@ module.exports.AssociateTabBatchList = async (req, res) => {
                     qtyPurchased: 1,
                     amountProposed: 1
                 }
+            },
+            // Start of Sangita code
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
             }
+            // End of Sangita code
 
         ]
 
@@ -1033,8 +1078,14 @@ module.exports.proceedToPayAssociateTabBatchList = async (req, res) => {
                     qtyPurchased: 1,
                     amountProposed: 1
                 }
+            },
+            // Start of sangita code
+            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
             }
-
+            // End of Sangita code
         ]
 
 
@@ -1205,6 +1256,8 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
             acc.bill.commission += parseInt(curr.bills.commission);
             acc.bill.total += parseInt(curr.bills.total);
 
+            acc.agent_id = req.user.portalId._id
+
             return acc;
         }, { qtyProcured: 0, goodsPrice: 0, initiated_at: new Date(), bill: { precurement_expenses: 0, driage: 0, storage_expenses: 0, commission: 0, total: 0 } });
 
@@ -1266,7 +1319,7 @@ module.exports.agentPayments = async (req, res) => {
         const records = { count: 0 };
 
         records.rows = paginate == 1 ? await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
-            .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product deliveryDate quotedPrice" }])
+            .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product deliveryDate quotedPrice reqNo" }])
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Batch.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
@@ -1300,11 +1353,17 @@ module.exports.editBill = async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("payment") }] }));
     }
 
-    record.bill.precurement_expenses = procurement_expenses;
-    record.bill.driage = driage;
-    record.bill.storage_expenses = storage;
-    record.bill.commission = commission;
+    const cal_procurement_expenses = parseFloat(procurement_expenses) < 0 ? 0 : parseFloat(parseFloat(procurement_expenses).toFixed(2))
+    const cal_driage = parseFloat(driage) < 0 ? 0 : parseFloat(parseFloat(driage).toFixed(2))
+    const cal_storage = parseFloat(storage) < 0 ? 0 : parseFloat(parseFloat(storage).toFixed(2))
+    const cal_commission = parseFloat(commission) < 0 ? 0 : parseFloat(parseFloat(commission).toFixed(2))
+
+    record.bill.precurement_expenses = cal_procurement_expenses;
+    record.bill.driage = cal_driage;
+    record.bill.storage_expenses = cal_storage ;
+    record.bill.commission = cal_commission ;
     record.bill.bill_attachement = bill_attachement;
+    record.bill.total = parseFloat( (cal_procurement_expenses + cal_driage + cal_storage + cal_commission).toFixed(2) )
     record.payment_change_remarks = remarks;
 
     await record.save();
@@ -1315,8 +1374,6 @@ module.exports.editBill = async (req, res) => {
 
 
 module.exports.getBillProceedToPay = async (req, res) => {
-
-
 
     try {
         const { id } = req.query

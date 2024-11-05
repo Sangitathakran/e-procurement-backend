@@ -30,11 +30,14 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const xlsx = require("xlsx");
 const fs = require("fs/promises");
+const fs2 = require("fs")
 const FormData = require("form-data");
 const { default: axios } = require("axios");
 const { AgentPaymentFile } = require("@src/v1/models/app/payment/agentPaymentFile");
 const { default: mongoose } = require("mongoose");
 const { FarmerPaymentFile } = require("@src/v1/models/app/payment/farmerPaymentFile");
+const { listenerCount } = require("@src/v1/models/app/auth/OTP");
+const path = require('path');
 module.exports.payment = async (req, res) => {
   try {
     const { page, limit, skip, paginate = 1, sortBy, search = "" } = req.query;
@@ -470,34 +473,30 @@ module.exports.qcReport = async (req, res) => {
 
 module.exports.approvedBatchList = async (req, res) => {
   try {
-    const { req_id } = req.query;
-    const { user_type } = req;
+
+    const { page,limit,skip, paginate = 1, sortBy,search = "", req_id } = req.query;
 
     const records = { count: 0 };
 
-    records.rows = [
-      {
-        batchId: "100134",
-        seller_id: { user_code: "AS0123" },
-        delivery_at: "2024-10-28T17:23:02.020+00:00",
-        payment_at: "2024-10-28T17:23:02.020+00:00",
-        qty: 60,
-        amt: "12032390",
-        payment_status: "Pending",
+    const query = {
+      req_id: req_id,
+      "dispatched.qc_report.received_qc_status": {
+        $eq: received_qc_status.accepted,
       },
-      {
-        batchId: "100134",
-        seller_id: { user_code: "AS0123" },
-        delivery_at: "2024-10-28T17:23:02.020+00:00",
-        payment_at: "2024-10-28T17:23:02.020+00:00",
-        qty: 60,
-        amt: "12032390",
-        payment_status: "Pending",
-      },
-    ];
+      bo_approve_status: _paymentApproval.approved,
+      ho_approve_status: _paymentApproval.approved,
+      // agent_approve_status: _paymentApproval.approved
+    }
 
-    records.page = 1;
-    records.limit = 20;
+    records.rows = await Batch.find(query).populate({path:"seller_id", select: "_id user_code"});
+
+    records.count = await Batch.countDocuments(query);
+
+    if (paginate == 1) {
+      records.page = page;
+      records.limit = limit;
+      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+    }
 
     return res
       .status(200)
@@ -505,7 +504,7 @@ module.exports.approvedBatchList = async (req, res) => {
         new serviceResponse({
           status: 200,
           data: records,
-          message: _query.get("Qc Report"),
+          message: `Approved Batch List`,
         })
       );
   } catch (error) {
@@ -610,6 +609,7 @@ module.exports.orderList = async (req, res) => {
         quantityPurchased: item?.qtyProcured,
         billingDate: item?.createdAt,
         ho_approve_status: item.ho_approve_status,
+        payment_status:item.payment_status
       };
 
       return obj;
@@ -668,6 +668,8 @@ module.exports.agencyInvoiceById = async (req, res) => {
 
     const query = { _id: agencyInvoiceId, ho_id: { $in: [portalId, user_id] } };
 
+    
+
     const agentBill = await AgentInvoice.findOne(query).select("_id bill");
     if (!agentBill) {
       return res
@@ -680,12 +682,24 @@ module.exports.agencyInvoiceById = async (req, res) => {
         );
     }
 
+    const alreadySubmitted = await AgentPaymentFile.findOne({agent_invoice_id:agencyInvoiceId});
+    // if (!alreadySubmitted) {
+    //   return res
+    //     .status(400)
+    //     .send(
+    //       new serviceResponse({
+    //         status: 400,
+    //         errors: [{ message: "Payment already initiated" }],
+    //       })
+    //     );
+    // }
+
     return res
       .status(200)
       .send(
         new serviceResponse({
           status: 200,
-          data: agentBill,
+          data: {...agentBill, isPaymentInitiated: alreadySubmitted ? true:false},
           message: _query.get("Invoice"),
         })
       );
@@ -802,12 +816,13 @@ module.exports.payFarmers = async (req, res) => {
 
         const query = {
             batch_id: { $in : batchIds },
-            ho_id: { $in: [portalId, user_id] },
+            // ho_id: { $in: [portalId, user_id] },
             bo_approve_status: _paymentApproval.approved,
             ho_approve_status: _paymentApproval.approved
         }
 
         const farmersBill = await Payment.find(query).populate({path:"farmer_id", select:"bank_details"})
+                            await Batch.updateMany({_id:{$in:batchIds}},{status:'Payment In Progress'});
 
         if (!farmersBill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
@@ -825,10 +840,10 @@ module.exports.payFarmers = async (req, res) => {
             "PIR_REF_NO": "",
             "MY_PRODUCT_CODE(It should be Digital Products only)": "Digital Products",
             "Amount": agentBill.amount || 0,
-            "Acc no(2244102000000055)": agentBill.farmer_id.bank_details.account_no,
+            "Acc no(2244102000000055)": agentBill.farmer_id.bank_details.account_no||'2244102000000055',
             "IFSC Code": agentBill.farmer_id.bank_details.ifsc_code,
             "Account Name": agentBill.farmer_id.bank_details.account_holder_name,
-            "Account no": agentBill.farmer_id.bank_details.account_no,
+            "Account no": agentBill.farmer_id.bank_details.account_no||'034301539698',
             "PAYMENT_REF": "",
             "PAYMENT_DETAILS": "",
           };
@@ -845,6 +860,9 @@ module.exports.payFarmers = async (req, res) => {
             payment_ref: paymentFileData['PAYMENT_REF'],
             payment_details: paymentFileData['PAYMENT_DETAILS'],
             fileName: filename,  // assuming `filename` is defined in your context
+            file_status:'upload',
+            batch_id:agentBill.batch_id,
+            payment_id:agentBill._id,
             initiatedBy: req.user._id,  // assuming `req.user._id` is available
             initiatedAt: new Date()
           };
@@ -878,13 +896,19 @@ module.exports.payFarmers = async (req, res) => {
 
         xlsx.utils.book_append_sheet(workbook, worksheet, "Farmer Payment");
 
-        
         let filePath = `./src/v1/upload/${filename}`;
+        const dir = path.dirname(filePath);
+
+        // Check if the directory exists, and create it if not
+        if (!fs2.existsSync(dir)) {
+          fs2.mkdirSync(dir, { recursive: true });
+        }
+
         await xlsx.writeFile(workbook, filePath, { type: 'buffer', bookType: 'csv' });
         let fileData = await fs.readFile(filePath);
         let formData = new FormData();
         formData.append("uploadFile", fileData, {
-          filename: filename,
+          filename: `P_${filename}`,
           contentType: "text/csv",
         });
         //formData
@@ -895,7 +919,7 @@ module.exports.payFarmers = async (req, res) => {
           maxBodyLength: Infinity,
           url: "https://testbank.navbazar.com/v1/upload-file",
           headers: {
-            "x-api-key": "6719ec42cddd1222948d48f3",
+            "x-api-key": process.env.API_KEY,
             ...formData.getHeaders(),
           },
           data: formData,
@@ -907,9 +931,17 @@ module.exports.payFarmers = async (req, res) => {
             console.log('agentPaymentDataArray', agentPaymentDataArray)
 
             
-            await FarmerPaymentFile.insertMany(agentPaymentDataArray)
-
-            return res.status(200).send(response.data);
+      let payment_file_ids=await FarmerPaymentFile.insertMany(agentPaymentDataArray)
+            // return res.status(200).send(response.data);
+            return res
+            .status(200)
+            .send(
+              new serviceResponse({
+                status: 200,
+                data: response.data,
+                message: `Payment initiated successfully`,
+              })
+            );
         }else{
             return res.status(400).json({"message":"Something Went wrong"}); 
         }
@@ -985,7 +1017,7 @@ module.exports.payAgent = async (req, res) => {
         let fileData = await fs.readFile(filePath);
         let formData = new FormData();
         formData.append("uploadFile", fileData, {
-          filename: filename,
+          filename: `P_${filename}`,
           contentType: "text/csv",
         });
         //formData
@@ -996,7 +1028,7 @@ module.exports.payAgent = async (req, res) => {
           maxBodyLength: Infinity,
           url: "https://testbank.navbazar.com/v1/upload-file",
           headers: {
-            "x-api-key": "6719ec42cddd1222948d48f3",
+            "x-api-key": process.env.API_KEY,
             ...formData.getHeaders(),
           },
           data: formData,
@@ -1017,6 +1049,8 @@ module.exports.payAgent = async (req, res) => {
               payment_ref : paymentFileData['PAYMENT_REF'] ,
               payment_details: paymentFileData['PAYMENT_DETAILS'],
               fileName: filename,
+              file_status:'upload',
+              agent_invoice_id:agentBill._id,
               initiatedBy : req.user._id,
               initiatedAt : new Date()
             }
@@ -1024,7 +1058,16 @@ module.exports.payAgent = async (req, res) => {
             const agentPaymentFilePayload = new AgentPaymentFile(agentPaymentFileData)
             await agentPaymentFilePayload.save()
 
-            return res.status(200).send(response.data);
+            // return res.status(200).send(response.data);
+            return res
+            .status(200)
+            .send(
+              new serviceResponse({
+                status: 200,
+                data: response.data,
+                message: `Payment initiated successfully`,
+              })
+            );
         }else{
             return res.status(400).json({"message":"Something Went wrong"}); 
         }

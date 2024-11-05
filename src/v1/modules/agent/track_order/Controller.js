@@ -34,15 +34,15 @@ module.exports.getProcurement = asyncErrorHandler(
             },
             { $unwind: '$myoffer' },
             { $match: { 'myoffer.status': { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } } },
-            { $limit: limit ? parseInt(limit) : 10 },
             ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
-            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []) // Pagination if required
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []), // Pagination if required
+            { $limit: limit ? parseInt(limit) : 10 }
         ];
 
         const records = {};
-        records.rows = await RequestModel.aggregate(pipeline);
         records.count = await RequestModel.countDocuments(query);
-
+        records.rows = await RequestModel.aggregate(pipeline);
+       
 
         if (paginate == 1) {
             records.page = page;
@@ -141,11 +141,12 @@ module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
                 req_id: 1
             }
         },
+       
+        ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
+        ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
         {
             $limit: limit ? parseInt(limit) : 10
-        },
-        ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
-        ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : [])
+        }
     ]);
 
     records.count = await AssociateOffers.countDocuments(query);
@@ -190,9 +191,14 @@ module.exports.getBatchByAssociateOfferrs = asyncErrorHandler(async (req, res) =
     const { page, limit, skip, sortBy, search = '', paginate = 1, associateOffer_id, isExport = 0 } = req.query;
 
     let query = search ? {
-        $or: []
-    } : {};
-
+        $or: [
+            // start of Sangita code
+            { batchId: { $regex: search, $options: 'i' } },            
+            { status: { $regex: search, $options: 'i' } }       
+            // End of Sangita code     
+        ]
+    } : {};      
+    
     query.associateOffer_id = associateOffer_id;
 
     const records = {};
