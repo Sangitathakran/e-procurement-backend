@@ -641,7 +641,7 @@ module.exports.farmerOrderList = async (req, res) => {
         // start of Sangita code
 
         if (status == _procuredStatus.received) {
-            query.qtyRemaining = { $ne: 0, $gte: 0 }
+            query.qtyRemaining = { $gt: 0 }
         }
 
         // End of Sangita code
