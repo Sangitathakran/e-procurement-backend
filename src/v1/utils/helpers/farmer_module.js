@@ -17,6 +17,8 @@ exports.insertNewFarmerRecord = async (data) => {
         associate_id: data.associate_id,
         basic_details: {
           dob: data.dob,
+          age: data.age,
+          farmer_type: data.farmer_category,
           gender: data.gender,
           mobile_no: data.mobile_no,
           email: data.email,
@@ -32,13 +34,16 @@ exports.insertNewFarmerRecord = async (data) => {
           edu_details: data.edu_details,
         },
         address: {
-          address_line: data.address_line,
+          address_line_1: data.address_line,
           country: data.country,
           state_id: data.state_id,
           district_id: data.district_id,
+          tahshil: data.tahshil,
           block: data.block,
           village: data.village,
           pin_code: data.pinCode,
+          lat: data.lat,
+          long: data.long,
         },
         bank_details: {
           bank_name: data.bank_name,
@@ -46,6 +51,18 @@ exports.insertNewFarmerRecord = async (data) => {
           branch_name: data.branch_name,
           ifsc_code: data.ifsc_code,
           account_holder_name: data.account_holder_name,
+        },
+        infrastructure_needs: {
+          warehouse: data.warehouse,
+          cold_storage: data.cold_storage,
+          processing_unit: data.processing_unit,
+          transportation_facilities: data.transportation_facilities,
+        },
+        financial_support: {
+          credit_facilities: data.credit_facilities, 
+          source_of_credit:data.source_of_credit, 
+          financial_challenges:data.financial_challenges, 
+          support_required: data.support_required,
         },
       });
   
@@ -81,21 +98,26 @@ exports.updateFarmerRecord = async (farmerRecord, data) => {
     farmerRecord.parents.father_name = data.father_name;
     farmerRecord.parents.mother_name = data.mother_name;
     farmerRecord.basic_details.dob = data.dob;
+    farmerRecord.basic_details.age = data.age;
     farmerRecord.basic_details.gender = data.gender;
     farmerRecord.marital_status = data.marital_status;
     farmerRecord.religion = data.religion;
     farmerRecord.category = data.category;
+    farmerRecord.farmer_type = data.farmer_category;
     farmerRecord.education.highest_edu = data.highest_edu;
     farmerRecord.education.edu_details = data.edu_details;
     farmerRecord.proof.type = data.type;
     farmerRecord.proof.aadhar_no = data.aadhar_no;
-    farmerRecord.address.address_line = data.address_line;
+    farmerRecord.address.address_line_1 = data.address_line;
     farmerRecord.address.country = data.country;
     farmerRecord.address.state_id = data.state_id;
     farmerRecord.address.district_id = data.district_id;
+    farmerRecord.address.tahshil = data.tahshil;
     farmerRecord.address.block = data.block;
     farmerRecord.address.village = data.village;
     farmerRecord.address.pinCode = data.pinCode;
+    farmerRecord.address.lat = data.lat;
+    farmerRecord.address.long = data.long;
     farmerRecord.bank_details.bank_name = data.bank_name;
     farmerRecord.bank_details.account_no = data.account_no;
     farmerRecord.bank_details.branch_name = data.branch_name;
@@ -103,6 +125,14 @@ exports.updateFarmerRecord = async (farmerRecord, data) => {
     farmerRecord.bank_details.account_holder_name = data.account_holder_name;
     farmerRecord.basic_details.mobile_no = data.mobile_no;
     farmerRecord.basic_details.email_id = data.email;
+    farmerRecord.infrastructure_needs.warehouse = data.warehouse;
+    farmerRecord.infrastructure_needs.cold_storage = data.cold_storage;
+    farmerRecord.infrastructure_needs.processing_unit = data.processing_unit;
+    farmerRecord.infrastructure_needs.transportation_facilities = data.transportation_facilities;
+    farmerRecord.financial_support.credit_facilities=  data.credit_facilities, 
+    farmerRecord.financial_support.source_of_credit=  data.source_of_credit,
+    farmerRecord.financial_support.financial_challenges=  data.financial_challenges,
+    farmerRecord.financial_support.support_required=  data.support_required,
 
     // const state = await getState(data.state_id);
     // const district = await getDistrict(data.district_id);
@@ -143,22 +173,25 @@ exports.updateRelatedRecords = async (farmer_id, data) => {
         { farmer_id },
         {
             farmer_id: data.farmer_id,
+            land_name: data.land_name,
+            cultivation_area: data.cultivation_area,
             total_area: data.total_area,
             khasra_number: data.khasra_number,
             area_unit: data.area_unit,
+            khata_number: data.khata_number,
+            land_type: data.land_type,
             khtauni_number: data.khtauni_number,
             soil_type: data.soil_type,
             soil_tested: data.soil_tested,
             land_address: {
                 state_id: data.state_id,
                 district_id: data.district_id,
-                village: data.village,
+                block: data.LandBlock,
+                village: data.landvillage,
+                pin_code: data.landPincode,
             },
-            // sow_area: data.sow_area,
-            // expected_production: data.expected_production,
-            // soil_health_card: data.soil_health_card,
-            // soil_testing_lab_name: data.soil_testing_lab_name,
-            // lab_distance_unit: data.lab_distance_unit,
+            soil_testing_agencies:data.soil_testing_agencies,
+            upload_geotag: data.upload_geotag,
         }
     );
     await Crop.updateOne(
@@ -169,25 +202,34 @@ exports.updateRelatedRecords = async (farmer_id, data) => {
             sowing_date: data.sowing_date,
             harvesting_date: data.harvesting_date,
             crop_name: data.crop_name,
+            crop_variety: data.crop_variety,
             production_quantity: data.production_quantity,
             selling_price: data.selling_price,
             yield: data.yield,
             crop_season: data.crop_season,
-            // productivity: data.productivity,
-            // market_price: data.market_price,
-            // seed_used: data.seed_used,
-            // fertilizer_name: data.fertilizer_name,
-            // fertilizer_dose: data.fertilizer_dose,
-            // fertilizer_used: data.fertilizer_used,
-            // pesticide_name: data.pesticide_name,
-            // pesticide_dose: data.pesticide_dose,
-            // pesticide_used: data.pesticide_used,
-            // insecticide_name: data.insecticide_name,
-            // insecticide_dose: data.insecticide_dose,
-            // insecticide_used: data.insecticide_used,
-            // crop_insurance: data.crop_insurance,
-            // insurance_company: data.insurance_company,
-            // insurance_worth: data.insurance_worth,
+            land_name: data.crop_land_name,
+            crop_growth_stage: data.crop_growth_stage,
+            crop_disease: data.crop_disease,
+            crop_rotation: data.crop_rotation,
+            previous_crop_details:{
+                  crop_season: data.previous_crop_session,
+                  crop_name: data.previous_crop_name,
+            },
+            marketing_and_output:{
+              crop_sold: data.crop_sold,
+              quantity_sold: data.quantity_sold,
+              average_selling_price: data.average_selling_price,
+              marketing_channels_used: data.marketing_channels_used,
+              challenges_faced: data. challenges_faced,
+    
+            },
+            insurance_details: {
+              insurance_company: data.insurance_company,
+              insurance_worth: data.insurance_worth,
+              insurance_premium: data.insurance_premium,
+              insurance_start_date: data.insurance_start_date,
+              insurance_end_date: data.insurance_end_date,
+            },
         }
     );
 } catch (error) {
@@ -199,22 +241,25 @@ exports.insertNewRelatedRecords = async (farmer_id, data, res) => {
     try{
     const newLand = new Land({
         farmer_id,
+        land_name: data.land_name,
+        cultivation_area: data.cultivation_area,
         total_area: data.total_area,
         khasra_number: data.khasra_number,
         area_unit: data.area_unit,
+        khata_number: data.khata_number,
+        land_type: data.land_type,
         khtauni_number: data.khtauni_number,
         soil_type: data.soil_type,
         soil_tested: data.soil_tested,
         land_address: {
             state_id: data.state_id,
             district_id: data.district_id,
-            village: data.village,
+            block: data.LandBlock,
+            village: data.landvillage,
+            pin_code: data.landPincode,
         },
-        // sow_area: data.sow_area,
-        // expected_production: data.expected_production,
-        // soil_health_card: data.soil_health_card,
-        // soil_testing_lab_name: data.soil_testing_lab_name,
-        // lab_distance_unit: data.lab_distance_unit,
+        soil_testing_agencies:data.soil_testing_agencies,
+        upload_geotag: data.upload_geotag,
     });
      await newLand.save();
 
@@ -224,25 +269,33 @@ exports.insertNewRelatedRecords = async (farmer_id, data, res) => {
         sowing_date: data.sowing_date,
         harvesting_date: data.harvesting_date,
         crop_name: data.crop_name,
+        crop_variety: data.crop_variety,
         production_quantity: data.production_quantity,
         selling_price: data.selling_price,
         yield: data.yield,
         crop_season: data.crop_season,
-        // productivity: data.productivity,
-        // market_price: data.market_price,
-        // seed_used: data.seed_used,
-        // fertilizer_name: data.fertilizer_name,
-        // fertilizer_dose: data.fertilizer_dose,
-        // fertilizer_used: data.fertilizer_used,
-        // pesticide_name: data.pesticide_name,
-        // pesticide_dose: data.pesticide_dose,
-        // pesticide_used: data.pesticide_used,
-        // insecticide_name: data.insecticide_name,
-        // insecticide_dose: data.insecticide_dose,
-        // insecticide_used: data.insecticide_used,
-        // crop_insurance: data.crop_insurance,
-        // insurance_company: data.insurance_company,
-        // insurance_worth: data.insurance_worth,
+        land_name: data.crop_land_name,
+        crop_growth_stage:data.crop_growth_stage,
+        crop_disease: data.crop_disease,
+        crop_rotation: data.crop_rotation,
+        previous_crop_details:{
+          crop_season: data.previous_crop_session,
+          crop_name: data.previous_crop_name,
+        },
+        marketing_and_output:{
+          crop_sold: data.crop_sold,
+          quantity_sold: data.quantity_sold,
+          average_selling_price: data.average_selling_price,
+          marketing_channels_used: data.marketing_channels_used,
+          challenges_faced: data. challenges_faced,
+        },
+        insurance_details: {
+          insurance_company: data.insurance_company,
+          insurance_worth: data.insurance_worth,
+          insurance_premium: data.insurance_premium,
+          insurance_start_date: data.insurance_start_date,
+          insurance_end_date: data.insurance_end_date,
+        },
     });
     await newCrop.save();
     return { newLand, newCrop };
