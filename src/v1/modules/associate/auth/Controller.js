@@ -116,7 +116,7 @@ module.exports.loginOrRegister = async (req, res) => {
             phone: userExist.basic_details.associate_details.phone,
             associate_code: userExist.user_code,
             organization_name: userExist.basic_details.associate_details.organization_name || null,
-            is_form_submitted,
+            is_form_submitted: userExist.is_form_submitted,
             onboarding: (userExist?.basic_details?.associate_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details && userExist.is_form_submitted == true) ? true : false
         }
         return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: data }));
