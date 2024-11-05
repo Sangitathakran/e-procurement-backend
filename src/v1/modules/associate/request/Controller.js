@@ -717,7 +717,7 @@ module.exports.editFarmerOffer = async (req, res) => {
         record.updatedBy = user_id;
 
         // Start of Sangita code
-        
+
         record.qtyRemaining = qtyProcured;
 
         // End of Sangita code
