@@ -161,6 +161,9 @@ exports.generateFileName = (clientCode,runningNumber) => {
 
   const newDate = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
   const [day, month, year] = newDate.split(",")[0].split("/");
+  if(day<10){
+    day.padStart(2,'0')
+  }
   const finalDate = `${day}${month}${year.slice(2)}`;
 
   const runningNumberPlusOne = runningNumber + 1
