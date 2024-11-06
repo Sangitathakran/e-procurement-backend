@@ -722,7 +722,7 @@ module.exports.pendingFarmer = async (req, res) => {
 
         let query = {
             _id: farmerOrderIdsOnly,
-            // payment_status:'pending',
+            payment_status:'pending',
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
