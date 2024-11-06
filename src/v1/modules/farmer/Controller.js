@@ -1,4 +1,4 @@
-const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel, isStateAvailable, isDistrictAvailable, updateDistrict, generateFarmerId } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel, isStateAvailable, isDistrictAvailable, updateDistrict, generateFarmerId, calculateAge } = require("@src/v1/utils/helpers")
 const {  _userType } = require('@src/v1/utils/constants');
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
@@ -632,6 +632,31 @@ module.exports.getBoFarmer = async (req, res) => {
         },
       },
       {
+    $lookup: {
+      from: "statedistrictcities", // Collection name for states, districts, and cities
+      let: { stateId: "$address.state_id", districtId: "$address.district_id" },
+      pipeline: [
+        { $unwind: "$states" },
+        { $match: { $expr: { $eq: ["$states._id", "$$stateId"] } } },
+        { $unwind: "$states.districts" },
+        { $match: { $expr: { $eq: ["$states.districts._id", "$$districtId"] } } },
+        {
+          $project: {
+            state_title: "$states.state_title",
+            district_title: "$states.districts.district_title"
+          }
+        }
+      ],
+      as: "location_details"
+    }
+  },
+  {
+    $addFields: {
+      "address.state_title": { $arrayElemAt: ["$location_details.state_title", 0] },
+      "address.district_title": { $arrayElemAt: ["$location_details.district_title", 0] }
+    }
+  },
+      {
       $project: {
         all_details: {
           associate_id: "$associate_id",
@@ -662,9 +687,7 @@ module.exports.getBoFarmer = async (req, res) => {
         },
       },
     },
-  ]);
-    
-      
+  ]);  
     const totalFarmers = await farmer.countDocuments(query);
 
     if (farmers.length === 0) {
@@ -1482,6 +1505,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const father_name = rec["FATHER NAME*"];
       const mother_name = rec["MOTHER NAME"];
       const date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)*"];
+      const farmer_category = rec["FARMER CATEGORY"];
       const gender = toLowerCaseIfExists(rec["GENDER*"]);
       const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS*"]);
       const religion = toLowerCaseIfExists(rec["RELIGION*"]);
@@ -1494,47 +1518,65 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const country = rec["COUNTRY NAME"];
       const state_name = rec["STATE NAME*"];
       const district_name = rec["DISTRICT NAME*"];
+      const tahshil = rec["TAHSHIL"];
       const block = rec["BLOCK NAME"];
       const village = rec["VILLAGE NAME"];
       const pinCode = rec["PINCODE*"];
+      const lat = rec["LATITUDE"];
+      const long = rec["LONGITUDE"];
       const mobile_no = rec["MOBILE NO*"];
       const email = rec["EMAIL ID"];
+      const warehouse = rec["WAREHOUSE"] && rec["WAREHOUSE"].toLowerCase() === 'yes';
+      const cold_storage = rec["COLD STORAGE"] && rec["COLD STORAGE"].toLowerCase() === 'yes';
+      const processing_unit = rec["PROCESSING UNIT"] && rec["PROCESSING UNIT"].toLowerCase() === 'yes';
+      const transportation_facilities = rec["TRANSPORTATION FACILITIES"] && rec["TRANSPORTATION FACILITIES"].toLowerCase() === 'yes';
+      const credit_facilities = rec["CREDIT FACILITIES"] && rec["CREDIT FACILITIES"].toLowerCase() === 'yes';
+      const source_of_credit = rec["SOURCE OF CREDIT"];
+      const financial_challenges = rec["FINANCIAL CHALLENGE"];
+      const support_required = rec["SUPPORT REQUIRED"];
       const total_area = rec["TOTAL AREA*"];
+      const land_name = rec["LAND NAME"];
+      const cultivation_area = rec["CULTIVATION AREA"];
       const area_unit = toLowerCaseIfExists(rec["AREA UNIT"]);
       const khasra_number = rec["KHASRA NUMBER*"];
       const khtauni_number = rec["KHATAUNI"];
+      const khata_number = rec["KHATA NUMBER"];
+      const land_type = rec["LAND TYPE"];
       const sow_area = rec["SOW AREA"];
       const state = (rec["STATE"]);
       const district = rec["DISTRICT"];
       const landvillage = rec["ViLLAGE"];
+      const LandBlock = rec["LAND BLOCK"];
+      const landPincode = rec["LAND PINCODE"];
       const expected_production = rec["EXPECTED PRODUCTION"];
       const soil_type = toLowerCaseIfExists(rec["SOIL TYPE*"]);
       const soil_tested = toLowerCaseIfExists(rec["SOIL TESTED"]);
-      const soil_health_card = toLowerCaseIfExists(rec["SOIL HEALTH CARD"]);
-      const soil_testing_lab_name = rec["SOIL TESTING LAB NAME"];
-      const lab_distance_unit = toLowerCaseIfExists(rec["LAB DISTANCE UNIT"]);
+      const soil_testing_agencies = rec["SOIL TESTING AGENCY"];
+      const upload_geotag = rec["UPLOD GEOTAG"]
       const sowingdate = rec["SOWING DATE(MM-YYYY)*"];
       const harvestingdate = rec["HARVESTING DATE(MM-YYYY)*"];
       const crop_name = rec["CROPS NAME*"];
+      const crop_variety = rec["CROP VARITY"];
       const production_quantity = rec["PRODUCTION QUANTITY*"];
-      const productivity = rec["PRODUCTIVITY"];
       const selling_price = rec["SELLING PRICE"];
-      const market_price = rec["MARKETABLE PRICE"];
       const yield = rec["YIELD(KG)"];
-      const seed_used = toLowerCaseIfExists(rec["SEED USED"]);
-      const fertilizer_used = toLowerCaseIfExists(rec["FERTILIZER USED"])
-      const fertilizer_name = rec["FERTILIZER NAME"];
-      const fertilizer_dose = rec["FERTILIZER DOSE"];
-      const pesticide_used = toLowerCaseIfExists(rec["PESTICIDE USED"]);
-      const pesticide_name = rec["PESTICIDE NAME"];
-      const pesticide_dose = rec["PESTICIDE DOSE"];
-      const insecticide_used = toLowerCaseIfExists(rec["INSECTICIDE USED"]);
-      const insecticide_name = rec["INSECTICIDE NAME"];
-      const insecticide_dose = rec["INSECTICIDE DOSE"];
-      const crop_insurance = toLowerCaseIfExists(rec["CROP INSURANCE"]);
+      const crop_land_name = rec["CROP LAND NAME"];
+      const crop_growth_stage = rec["CROP GROWTH STAGE"];
+      const crop_disease = rec["CROP DISEASE"];
+      const crop_rotation = rec["CROP ROTATION"];
+      const previous_crop_session = rec["PREVIOUS CROP SESSION"];
+      const previous_crop_name = rec["PREVIOUS CROP NAME"];
+      const crop_season = toLowerCaseIfExists(rec["CROP SEASONS*"]);
+      const crop_sold = rec["CROP SOLD"];
+      const quantity_sold = rec["QUANTITY SOLD"];
+      const average_selling_price = rec["AVERAGE SELLING PRICE"];
+      const marketing_channels_used = rec["MARKETING CHANNELS USED"];
+      const challenges_faced = rec["CHALLENGES FACED"];
       const insurance_company = rec["INSURANCE COMPANY"];
       const insurance_worth = rec["INSURANCE WORTH"];
-      const crop_season = toLowerCaseIfExists(rec["CROP SEASONS*"]);
+      const insurance_premium = rec["INSURANCE PREMIUM"];
+      const insurance_start_date = rec["INSURANCE START DATE(DD-MM-YYYY)"];
+      const insurance_end_date = rec["INSURANCE END DATE(DD-MM-YYYY)"];
       const bank_name = rec["BANK NAME"];
       const account_no = rec["ACCOUNT NUMBER*"];
       const branch_name = rec["BRANCH"];
@@ -1549,7 +1591,10 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         { field: "ADDRESS LINE*", label: "ADDRESS LINE" },
         { field: "STATE NAME*", label: "STATE NAME" },
         { field: "DISTRICT NAME*", label: "DISTRICT NAME" },
-        { field: "MOBILE NO*", label: "MOBILE NUMBER" }
+        { field: "MOBILE NO*", label: "MOBILE NUMBER" },
+        { field: "ACCOUNT NUMBER*", label: "ACCOUNT NUMBER"},
+        { field: "CROPS NAME*", label: "CROP NAME"},
+        { field: "CROP SEASONS*", label: "CROP SESSION"},
       ];
       let stateName = state_name.replace(/_/g, ' ');
       if (
@@ -1576,8 +1621,24 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       if (!/^\d{10}$/.test(mobile_no)) {
         errors.push({ record: rec, error: "Invalid Mobile Number" });
       }
+      if (date_of_birth) {
+        const dob = new Date(date_of_birth.split("-").reverse().join("-"));
+        if (dob > new Date()) {
+          errors.push({ record: rec, error: "Invalid Date of Birth: Cannot be in the future." });
+        }
+      }
+      if (!/^\d{10,18}$/.test(account_no)) {
+        errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 10 and 18 digits." });
+      }
       if (!Object.values(_gender).includes(gender)) {
         errors.push({ record: rec, error: `Invalid Gender: ${gender}. Valid options: ${Object.values(_gender).join(', ')}` });
+    }
+    if (sowingdate && harvestingdate) {
+      const sowing = new Date(sowingdate.split("-").reverse().join("-"));
+      const harvesting = new Date(harvestingdate.split("-").reverse().join("-"));
+      if (sowing > harvesting) {
+        errors.push({ record: rec, error: "Invalid Dates: Sowing date cannot be later than harvesting date." });
+      }
     }
     if (!Object.values(_maritalStatus).includes(marital_status)) {
         errors.push({ record: rec, error: `Invalid Marital Status: ${marital_status}. Valid options: ${Object.values(_maritalStatus).join(', ')}` });
@@ -1603,7 +1664,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
     
       
       if (errors.length > 0) return { success: false, errors };
-
+      const calulateage = calculateAge(date_of_birth);
       try {
         const state_id = await getStateId(stateName);
         const district_id = await getDistrictId(district_name);
@@ -1621,19 +1682,20 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         if (farmerRecord) {
           // Update existing farmer record
           farmerRecord = await updateFarmerRecord(farmerRecord, {
-            associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, gender, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name,
+            associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, age:calulateage, gender, farmer_category, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
           });
           // Update land and bank details if present
           await updateRelatedRecords(farmerRecord._id, {
-            farmer_id: farmerRecord._id, total_area, khasra_number, area_unit, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, village: landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crop_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_season,
+            farmer_id: farmerRecord._id, land_name, cultivation_area, total_area, khasra_number, area_unit, khata_number, land_type, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, landvillage, LandBlock, landPincode, expected_production, soil_type, soil_tested,soil_testing_agencies, upload_geotag, sowing_date, harvesting_date, crop_name, production_quantity, selling_price, yield, insurance_company, insurance_worth, crop_season,  crop_land_name, crop_growth_stage, crop_disease, crop_rotation, previous_crop_session, previous_crop_name, crop_sold, quantity_sold, average_selling_price, marketing_channels_used, challenges_faced, insurance_premium, insurance_start_date, insurance_end_date, crop_variety,
           });
         } else {
           // Insert new farmer record
           farmerRecord = await insertNewFarmerRecord({
-            associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, gender, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, block, village, pinCode, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name,
+            associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, age:calulateage, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities,credit_facilities, source_of_credit, financial_challenges, support_required,
           });
           await insertNewRelatedRecords(farmerRecord._id, {
-            total_area, khasra_number, area_unit, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, village: landvillage, expected_production, soil_type, soil_tested, soil_health_card, soil_testing_lab_name, lab_distance_unit, sowing_date, harvesting_date, crop_name, production_quantity, productivity, selling_price, market_price, yield, seed_used, fertilizer_name, fertilizer_dose, fertilizer_used, pesticide_name, pesticide_dose, pesticide_used, insecticide_name, insecticide_dose, insecticide_used, crop_insurance, insurance_company, insurance_worth, crop_season,
+            total_area, khasra_number, land_name, cultivation_area, area_unit, khata_number, land_type, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, landvillage, LandBlock, landPincode, expected_production, soil_type, soil_tested, soil_testing_agencies, upload_geotag, sowing_date, harvesting_date, crop_name, production_quantity, selling_price,  yield, insurance_company, insurance_worth, crop_season, crop_land_name, crop_growth_stage, crop_disease, crop_rotation, previous_crop_session, previous_crop_name, crop_sold, quantity_sold, average_selling_price,
+            marketing_channels_used, challenges_faced, insurance_premium, insurance_start_date, insurance_end_date, crop_variety,
           });
         }
 
