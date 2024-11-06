@@ -704,3 +704,66 @@ module.exports.paymentLogs = async (req, res) => {
     }
 
 }
+
+
+module.exports.pendingFarmer = async (req, res) => {
+    
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
+
+        const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
+
+        let farmerOrderIdsOnly = {}
+
+        if (batchIds && batchIds.length > 0) {
+            farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
+            // console.log(farmerOrderIdsOnly);
+        } else {
+            console.log('No Farmer found with this batch.');
+        }
+
+        let query = {
+            _id: farmerOrderIdsOnly,
+            payment_status:'pending',
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        const records = { count: 0 };
+
+        const rows = paginate == 1 ? await FarmerOrders.find(query).populate({path:'farmer_id',select:'name bank_details'})
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await FarmerOrders.find(query)
+                .sort(sortBy);
+
+        records.rows = rows.map((item) => {
+            return {
+                "Farmer ID": item?.farmer_id || 'NA',
+                "lotId": item?.metaData.farmer_code || 'NA',
+                "FarmerName": item?.metaData.name || 'NA',
+                "qty_purchased": item?.qtyProcured ?? 'NA',
+                "total_amount": item?.net_pay ?? 'NA',
+                "payment_status": item?.status ?? 'NA'
+            }
+        });
+
+        records.count = await FarmerOrders.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (records) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        }
+        else {
+            return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+
+};
