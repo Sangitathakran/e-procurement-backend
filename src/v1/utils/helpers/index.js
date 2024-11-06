@@ -161,6 +161,8 @@ exports.generateFileName = (clientCode,runningNumber) => {
 
   const newDate = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
   const [day, month, year] = newDate.split(",")[0].split("/");
+  day = day.padStart(2, '0');
+  month = month.padStart(2, '0');
   const finalDate = `${day}${month}${year.slice(2)}`;
 
   const runningNumberPlusOne = runningNumber + 1
@@ -377,5 +379,21 @@ exports.parseDate = async (dateString) => {
 exports.parseMonthyear = (dateString) => {
     const [month, year] = dateString.split('-').map(Number);
     return new Date(Date.UTC(year, month - 1, 1));
+}
+
+exports.calculateAge = (birthdate) => {
+  const birthDate = new Date(birthdate);
+  const today = new Date();
+
+  let age = today.getFullYear() - birthDate.getFullYear();
+
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  const dayDiff = today.getDate() - birthDate.getDate();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    age--;
+  }
+
+  return age;
 }
 

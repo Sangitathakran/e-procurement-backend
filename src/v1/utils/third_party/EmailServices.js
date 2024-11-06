@@ -305,6 +305,26 @@ class EmailService {
         }
     }
 
+    async sendBoCredentialsEmail(userDetails) {
+        try {
+            const email = userDetails.email;
+            const user_name = userDetails.name;
+            const password = userDetails.password;
+            const login_url = userDetails.login_url
+            const template = await this.loadTemplate("hoRegistrationTemplate");
+            const html = template
+                .replace("{{app_url}}", login_url)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{email}}", email)
+                .replace("{{user_name}}", user_name)
+                .replace("{{password}}", password);
+            await sendMail(email, '', 'Branch Office registration done successfully | NavBazaar Login Credentials ', html);
+        } catch (error) {
+            console.error("Error sending welcome email:", error);
+            throw error;
+        }
+    }
+
 }
 
 const emailService = new EmailService;

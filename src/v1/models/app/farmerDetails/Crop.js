@@ -24,7 +24,7 @@ const cropSchema = new mongoose.Schema({
     crop_disease: { type: String },
     crop_rotation: { type: Boolean, required: false },
     previous_crop_details: {
-        crop_season: { type: String },
+        crop_season: { type: String, enum: Object.values(_seasons), },
         crop_name: { type: String }
     },
     marketing_and_output: [{
@@ -38,8 +38,8 @@ const cropSchema = new mongoose.Schema({
         insurance_company: { type: String, required: false },
         insurance_worth: { type: Number, required: false },
         insurance_premium: { type: Number, required: false },
-        insurance_start_date: { type: Date, required: false },
-        insurance_end_date: { type: Date, required: false }
+        insurance_start_date: { type: String, required: false },
+        insurance_end_date: { type: String, required: false }
     }],
     input_details: [{
         input_type: { 
