@@ -23,16 +23,16 @@ module.exports.payment = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
 
         // let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
-        
+
         const paymentIds = (await Payment.find({})).map(i => i.req_id);
 
         // start of Sangita code
-        
+
         let query = search ? {
             _id: { $in: paymentIds },
             $or: [
                 { "product.name": { $regex: search, $options: 'i' } },
-                { "reqNo": { $regex: search, $options: 'i' } },            
+                { "reqNo": { $regex: search, $options: 'i' } },
                 { "payment_status": { $regex: search, $options: 'i' } }
             ]
         } : {};
@@ -43,7 +43,7 @@ module.exports.payment = async (req, res) => {
             // start of Sangita code
             { $match: query },
             // End of Sangita code 
-            
+
             // { $match: { _id: { $in: paymentIds } } },            
             {
                 $lookup: {
@@ -156,11 +156,11 @@ module.exports.payment = async (req, res) => {
         records.rows = await RequestModel.aggregate(aggregationPipeline);
 
         // records.count = await RequestModel.countDocuments({ _id: { $in: paymentIds } })
-        
+
         // start of Sangita code
-      
+
         records.count = await RequestModel.countDocuments(query)
-         
+
         // End of Sangita code 
 
         if (paginate == 1) {
@@ -622,7 +622,7 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
                     "amountProposed": 1,
                     "amountPayable": 1,
                     "paymentStatus": 1,
-                    "offeredQty" : 1
+                    "offeredQty": 1
                 }
             },
             // Start of Sangita code
@@ -770,7 +770,7 @@ module.exports.proceedToPayAssociateOrders = async (req, res) => {
                     "amountProposed": 1,
                     "amountPayable": 1,
                     "paymentStatus": 1,
-                    "procuredQty" : 1
+                    "procuredQty": 1
                 }
             },
             // Start of Sangita code
@@ -1284,6 +1284,24 @@ module.exports.associateBillApprove = async (req, res) => {
         const { batchIds = [] } = req.body;
         const { portalId } = req;
 
+        // Start of Sangita code
+
+        const batchQuery = {
+             _id: { $in: batchIds },
+             $or: [
+                { "bo_approve_status": _paymentApproval.pending },
+                { "ho_approve_status": _paymentApproval.pending },
+            ]
+            };
+
+        const batchApprovalStatus = await Batch.find(batchQuery);
+
+        if (batchApprovalStatus.length > 0) {         
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notApproved("Payment") }] }));
+        }
+
+        //End of sangita code
+
         const query = { batch_id: { $in: batchIds } };
 
         const invoiceRecord = await AssociateInvoice.find(query);
@@ -1360,10 +1378,10 @@ module.exports.editBill = async (req, res) => {
 
     record.bill.precurement_expenses = cal_procurement_expenses;
     record.bill.driage = cal_driage;
-    record.bill.storage_expenses = cal_storage ;
-    record.bill.commission = cal_commission ;
+    record.bill.storage_expenses = cal_storage;
+    record.bill.commission = cal_commission;
     record.bill.bill_attachement = bill_attachement;
-    record.bill.total = parseFloat( (cal_procurement_expenses + cal_driage + cal_storage + cal_commission).toFixed(2) )
+    record.bill.total = parseFloat((cal_procurement_expenses + cal_driage + cal_storage + cal_commission).toFixed(2))
     record.payment_change_remarks = remarks;
 
     await record.save();
