@@ -7,10 +7,12 @@ const xlsx = require('xlsx');
 const moment = require("moment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
-const stateList =require("@src/v1/utils/constants/stateList");
-const { ObjectId } = require('mongodb'); 
+const stateList = require("@src/v1/utils/constants/stateList");
+const { ObjectId } = require('mongodb');
 const ExcelJS = require('exceljs');
 const { Console } = require("console");
+const PDFDocument = require('pdfkit');
+
 /**
  * 
  * @param {any} error 
@@ -18,146 +20,197 @@ const { Console } = require("console");
  * @param {import("express").NextFunction} next 
  */
 exports._handleCatchErrors = async (error, res, next) => {
-    console.log('error',error)
-    //  errorLogger.error({ message: error.message, stack: error.stack }) 
-    return res.status(500).json({status: 500, errors: [{ message: error.message, stack: error.stack }] })
+  console.log('error', error)
+  //  errorLogger.error({ message: error.message, stack: error.stack }) 
+  return res.status(500).json({ status: 500, errors: [{ message: error.message, stack: error.stack }] })
 }
 
 
 exports.dumpJSONToCSV = (req, res, config = {
-    data: [],
-    fileName: 'Default CSV',
-    columnNames: [],
+  data: [],
+  fileName: 'Default CSV',
+  columnNames: [],
 }) => {
-    try {
-        const filename = config.fileName;
-        const json2csvParser = new Parser({ fields: config.columnNames });
-        const csv = json2csvParser.parse(config.data);
+  try {
+    const filename = config.fileName;
+    const json2csvParser = new Parser({ fields: config.columnNames });
+    const csv = json2csvParser.parse(config.data);
 
-        fs.writeFileSync(filename, csv);
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
-        res.setHeader('Content-Type', 'text/csv');
+    fs.writeFileSync(filename, csv);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
+    res.setHeader('Content-Type', 'text/csv');
 
-        const fileStream = fs.createReadStream(filename);
+    const fileStream = fs.createReadStream(filename);
 
-        fileStream.pipe(res);
+    fileStream.pipe(res);
 
-        fileStream.on('end', () => {
-            fs.unlinkSync(filename);
-        });
+    fileStream.on('end', () => {
+      fs.unlinkSync(filename);
+    });
 
 
-    } catch (error) {
-        return sendResponse({ res, status: 500, errors: [{ message: `${error.message}` }] });
-    }
+  } catch (error) {
+    return sendResponse({ res, status: 500, errors: [{ message: `${error.message}` }] });
+  }
 };
 
 
 exports.dumpJSONToExcel = (req, res, config = {
-    data: [],
-    fileName: 'Default.xlsx',
-    sheetName: 'Sheet1',
+  data: [],
+  fileName: 'Default.xlsx',
+  sheetName: 'Sheet1',
 }) => {
-    try {
-        const { data, fileName, sheetName } = config;
+  try {
+    const { data, fileName, sheetName } = config;
 
-        // Convert JSON data to worksheet
-        const ws = xlsx.utils.json_to_sheet(data);
+    // Convert JSON data to worksheet
+    const ws = xlsx.utils.json_to_sheet(data);
 
-        // Create a new workbook and add the worksheet to it
-        const wb = xlsx.utils.book_new();
-        xlsx.utils.book_append_sheet(wb, ws, sheetName);
+    // Create a new workbook and add the worksheet to it
+    const wb = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(wb, ws, sheetName);
 
-        // Write the workbook to a file
-        xlsx.writeFile(wb, fileName);
+    // Write the workbook to a file
+    xlsx.writeFile(wb, fileName);
 
-        // Set response headers
-        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-        res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    // Set response headers
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
-        // Create a read stream from the file and pipe it to the response
-        const fileStream = fs.createReadStream(fileName);
-        fileStream.pipe(res);
+    // Create a read stream from the file and pipe it to the response
+    const fileStream = fs.createReadStream(fileName);
+    fileStream.pipe(res);
 
-        fileStream.on('end', () => {
-            fs.unlinkSync(fileName); // Delete the file after sending the response
-        });
+    fileStream.on('end', () => {
+      fs.unlinkSync(fileName); // Delete the file after sending the response
+    });
 
-    } catch (error) {
-        return res.status(500).send({
-            status: 500,
-            errors: [{ message: `${error.message}` }]
-        });
-    }
+  } catch (error) {
+    return res.status(500).send({
+      status: 500,
+      errors: [{ message: `${error.message}` }]
+    });
+  }
 };
 
+// start to sangita code
 
+
+exports.dumpJSONToPdf = (req, res, config = {
+  data: [],
+  fileName: 'Default.pdf',
+  sheetName: 'Sheet1',
+}) => {
+  try {
+    const { billPayment, fileName, sheetName } = config;
+
+    // Create a new PDF document
+    const doc = new PDFDocument();
+
+    // Set the response headers to indicate a PDF file download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Agency-bill-${id}.pdf"`);
+
+    // Pipe the PDF document to the response
+    doc.pipe(res);
+
+    // Add content to the PDF
+    doc.fontSize(20).text('Agency Bill', { align: 'center' });
+    doc.moveDown();
+
+    // Add bill details (customize this section based on your data structure)
+    doc.fontSize(12).text(`Request Number: ${billPayment.req_id.reqNo || "NA"}`);
+    doc.text(`Product: ${billPayment.req_id.product.name || "NA"}`);
+    doc.text(`Quoted Price: ${billPayment.req_id.product.quotedPrice || "NA"}`);
+    doc.text(`Delivery Date: ${billPayment.req_id.product.deliveryDate || "NA"}`);
+    doc.text(`Status: ${billPayment.req_id.product.status || "NA"}`);
+    doc.moveDown();
+
+    // Add financial details
+    doc.text(`Procurement Expenses: ${billPayment.bill.procurement_expenses || "NA"}`);
+    doc.text(`Storage Expenses: ${billPayment.bill.storage_expenses || "NA"}`);
+    doc.text(`Driage: ${billPayment.bill.driage || "NA"}`);
+    doc.text(`Commission: ${billPayment.bill.commission || "NA"}`);
+    doc.text(`Total: ${billPayment.bill.total || "NA"}`);
+
+    // End and send the PDF document
+    doc.end();
+
+
+  } catch (error) {
+    return res.status(500).send({
+      status: 500,
+      errors: [{ message: `${error.message}` }]
+    });
+  }
+};
+// end of sangita code
 
 
 exports._generateOrderNumber = () => {
-    const min = 100000;
-    const max = 999999;
-    const orderNumber = Math.floor(Math.random() * (max - min + 1)) + min;
-    return orderNumber.toString(); // Convert it to a string if needed
+  const min = 100000;
+  const max = 999999;
+  const orderNumber = Math.floor(Math.random() * (max - min + 1)) + min;
+  return orderNumber.toString(); // Convert it to a string if needed
 }
 
 
 exports._addDays = (days) => {
-    const today = moment()
-    return today.add(days, 'days')
+  const today = moment()
+  return today.add(days, 'days')
 }
 
 const farmerIdGenerator = async (obj) => {
-    try {
-      console.log("obj-->", obj)
-      // get the state district date from our db
-      const stateDistrictList = await StateDistrictCity.findOne({})
+  try {
+    console.log("obj-->", obj)
+    // get the state district date from our db
+    const stateDistrictList = await StateDistrictCity.findOne({})
 
-      // find the state
-      const stateData = stateDistrictList.states.find(
-        (item) => item.state_title.toLowerCase() === obj.address.state.toLowerCase()
-      );
-      if (!stateData) {
-        throw new Error(`State not found for ${obj.address.state}`);
-      }
-      
-      // find the district in the state 
-      const district = stateData.districts.find(
-        (item) => item.district_title.toLowerCase() === obj.address.district.toLowerCase()
-      );
-      if (!district) {
-        throw new Error(`District not found for ${obj.address.district}`);
-      }
-  
-      const stateCode = stateData.state_code;
-      const districtSerialNumber = district.serialNumber;
-      const farmerMongoId = obj._id.toString().slice(-3).toUpperCase();
-      const randomNumber = Math.floor(100 + Math.random() * 900); 
-  
-      const farmerId = `${stateCode}${districtSerialNumber}${farmerMongoId}${randomNumber}`;
-      return farmerId;
-  
-    } catch (error) {
-      console.error('Error generating farmer ID:', error.message);
-      throw error; 
+    // find the state
+    const stateData = stateDistrictList.states.find(
+      (item) => item.state_title.toLowerCase() === obj.address.state.toLowerCase()
+    );
+    if (!stateData) {
+      throw new Error(`State not found for ${obj.address.state}`);
     }
+
+    // find the district in the state 
+    const district = stateData.districts.find(
+      (item) => item.district_title.toLowerCase() === obj.address.district.toLowerCase()
+    );
+    if (!district) {
+      throw new Error(`District not found for ${obj.address.district}`);
+    }
+
+    const stateCode = stateData.state_code;
+    const districtSerialNumber = district.serialNumber;
+    const farmerMongoId = obj._id.toString().slice(-3).toUpperCase();
+    const randomNumber = Math.floor(100 + Math.random() * 900);
+
+    const farmerId = `${stateCode}${districtSerialNumber}${farmerMongoId}${randomNumber}`;
+    return farmerId;
+
+  } catch (error) {
+    console.error('Error generating farmer ID:', error.message);
+    throw error;
+  }
 };
 
 exports.generateFarmerId = async (obj) => {
   let farmerId;
 
   while (true) {
-      farmerId = await farmerIdGenerator(obj);
-      const existingFarmer = await farmer.findOne({ farmer_id: farmerId });
-      if (!existingFarmer) {
-          return farmerId;
-      }
+    farmerId = await farmerIdGenerator(obj);
+    const existingFarmer = await farmer.findOne({ farmer_id: farmerId });
+    if (!existingFarmer) {
+      return farmerId;
+    }
   }
 };
 
-exports.generateFileName = (clientCode,runningNumber) => {
+exports.generateFileName = (clientCode, runningNumber) => {
 
   const newDate = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
   let [day, month, year] = newDate.split(",")[0].split("/");
@@ -174,17 +227,17 @@ exports.generateFileName = (clientCode,runningNumber) => {
   return fileName
 }
 
-exports.isStateAvailable = async (state) => { 
+exports.isStateAvailable = async (state) => {
   const stateDistrictList = await StateDistrictCity.findOne({})
-  const isAvailable = stateDistrictList.states.find(item=> item.state_title === state)
+  const isAvailable = stateDistrictList.states.find(item => item.state_title === state)
   return isAvailable ? true : false
 }
 
-exports.isDistrictAvailable = async (state, district) => { 
+exports.isDistrictAvailable = async (state, district) => {
   const stateDistrictList = await StateDistrictCity.findOne({})
-  const stateItem = stateDistrictList.states.find(item=> item.state_title === state)
-  const isDistrictAvailable = stateItem.districts.find(item=>item.district_title === district)
-  return isDistrictAvailable ? true: false
+  const stateItem = stateDistrictList.states.find(item => item.state_title === state)
+  const isDistrictAvailable = stateItem.districts.find(item => item.district_title === district)
+  return isDistrictAvailable ? true : false
 }
 
 
@@ -192,27 +245,27 @@ exports.isDistrictAvailable = async (state, district) => {
 exports.updateDistrict = async (state, district) => {
 
   const stateDistrictList = await StateDistrictCity.findOne({})
-  stateDistrictList.states.forEach(state=> { 
+  stateDistrictList.states.forEach(state => {
 
-      if(state.state_title === state){
+    if (state.state_title === state) {
 
-        const districtCount = state.districts.length
-        const serialNumber = districtCount < 10 ? `0${districtCount + 1}` : `${districtCount + 1}`;
+      const districtCount = state.districts.length
+      const serialNumber = districtCount < 10 ? `0${districtCount + 1}` : `${districtCount + 1}`;
 
-        const districtPayload = { 
-          district_title: district.trim(),
-          serialNumber: serialNumber
-        }
-
-        state.districts.push(districtPayload)
-
+      const districtPayload = {
+        district_title: district.trim(),
+        serialNumber: serialNumber
       }
-        
+
+      state.districts.push(districtPayload)
+
+    }
+
   })
 
   await stateDistrictList.save()
-}  
-  
+}
+
 
 exports.getState = async (stateId) => {
   const state = await StateDistrictCity.aggregate([
@@ -301,84 +354,84 @@ exports.getDistrict = async (districtId) => {
 
   return district[0].district; // Return the district object
 };
-  
-  
+
+
 exports._generateFarmerCode = async () => {
-    const prefix = 'FA';
-    let uniqueId;
-    let farmerCode;
-    let existingFarmer;
+  const prefix = 'FA';
+  let uniqueId;
+  let farmerCode;
+  let existingFarmer;
 
-    try {
-        do {
-            uniqueId = Math.floor(Math.random() * 900000) + 100000;
-            farmerCode = `${prefix}${uniqueId}`;
-            existingFarmer = await farmer.findOne({ farmer_code: farmerCode });
-        } while (existingFarmer);
+  try {
+    do {
+      uniqueId = Math.floor(Math.random() * 900000) + 100000;
+      farmerCode = `${prefix}${uniqueId}`;
+      existingFarmer = await farmer.findOne({ farmer_code: farmerCode });
+    } while (existingFarmer);
 
-        return farmerCode;
-    } catch (error) {
-        console.error('Error generating Farmer Code:', error);
-        throw new Error('Could not generate a unique Farmer Code');
-    }
+    return farmerCode;
+  } catch (error) {
+    console.error('Error generating Farmer Code:', error);
+    throw new Error('Could not generate a unique Farmer Code');
+  }
 }
 
 const myAddress = new Map()
 exports.getStateId = async (stateName) => {
-    try {
-        if (myAddress.get(stateName)) {
-            return myAddress.get(stateName)
-        }
-        const stateDoc = await StateDistrictCity.findOne({
-            'states.state_title': stateName
-        });
-        if (stateDoc) {
-            const state = stateDoc.states.find(state => state.state_title == stateName);
-            // console.log('state', state._id);
-            if (state) {
-                myAddress.set(stateName, state._id);
-                return state._id; 
-            }
-        }
-        throw new Error(`Farmer State Name Not Found: ${stateName}`);
-    } catch (error) {
-        throw new Error(`Error fetching state ID: ${error.message}`);
+  try {
+    if (myAddress.get(stateName)) {
+      return myAddress.get(stateName)
     }
+    const stateDoc = await StateDistrictCity.findOne({
+      'states.state_title': stateName
+    });
+    if (stateDoc) {
+      const state = stateDoc.states.find(state => state.state_title == stateName);
+      // console.log('state', state._id);
+      if (state) {
+        myAddress.set(stateName, state._id);
+        return state._id;
+      }
+    }
+    throw new Error(`Farmer State Name Not Found: ${stateName}`);
+  } catch (error) {
+    throw new Error(`Error fetching state ID: ${error.message}`);
+  }
 };
 
 exports.getDistrictId = async (districtName) => {
-    try {
-        if (myAddress.get(districtName)) {
-            return myAddress.get(districtName)
-        }
-        const stateDoc = await StateDistrictCity.findOne({
-            'states.districts.district_title': districtName
-        });
-
-        if (stateDoc) {
-            for (const state of stateDoc.states) {
-                const district = state.districts.find(district => district.district_title === districtName);
-                // console.log('state', district._id);
-                if (district) {
-                    myAddress.set(districtName, district._id)
-                    return district._id;
-                }
-            }
-        }
-        throw new Error(`Farmer District Name Not Found: ${districtName}`);
-    } catch (error) {
-        throw new Error(`Error fetching district ID: ${error.message}`);
+  try {
+    if (myAddress.get(districtName)) {
+      return myAddress.get(districtName)
     }
+    const stateDoc = await StateDistrictCity.findOne({
+      'states.districts.district_title': districtName
+    });
+
+    if (stateDoc) {
+      for (const state of stateDoc.states) {
+        const district = state.districts.find(district => district.district_title === districtName);
+        // console.log('state', district._id);
+        if (district) {
+          myAddress.set(districtName, district._id)
+          return district._id;
+        }
+      }
+    }
+    throw new Error(`Farmer District Name Not Found: ${districtName}`);
+  } catch (error) {
+    throw new Error(`Error fetching district ID: ${error.message}`);
+  }
 };
 
 
 exports.parseDate = async (dateString) => {
-    return moment(dateString, 'DD-MM-YYYY').toDate();;
+  return moment(dateString, 'DD-MM-YYYY').toDate();;
 };
 
 exports.parseMonthyear = (dateString) => {
-    const [month, year] = dateString.split('-').map(Number);
-    return new Date(Date.UTC(year, month - 1, 1));
+  const [month, year] = dateString.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, 1));
 }
 
 exports.calculateAge = (birthdate) => {
@@ -389,7 +442,7 @@ exports.calculateAge = (birthdate) => {
 
   const monthDiff = today.getMonth() - birthDate.getMonth();
   const dayDiff = today.getDate() - birthDate.getDate();
-  
+
   if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
     age--;
   }
