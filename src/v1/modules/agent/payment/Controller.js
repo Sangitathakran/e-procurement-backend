@@ -1287,16 +1287,16 @@ module.exports.associateBillApprove = async (req, res) => {
         // Start of Sangita code
 
         const batchQuery = {
-             _id: { $in: batchIds },
-             $or: [
+            _id: { $in: batchIds },
+            $or: [
                 { "bo_approve_status": _paymentApproval.pending },
                 { "ho_approve_status": _paymentApproval.pending },
             ]
-            };
+        };
 
         const batchApprovalStatus = await Batch.find(batchQuery);
 
-        if (batchApprovalStatus.length > 0) {         
+        if (batchApprovalStatus.length > 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notApproved("Payment") }] }));
         }
 
@@ -1405,6 +1405,27 @@ module.exports.getBillProceedToPay = async (req, res) => {
 
         return res.status(200).send(new serviceResponse({ status: 200, data: billPayment, message: _response_message.found("bill") }))
 
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+
+}
+
+
+module.exports.agencyBill = async (req, res) => {
+
+    try {
+        const { id } = req.query;
+
+        const billPayment = await AgentInvoice.findOne({ _id: id }).select({ bill:1})
+            .populate({ path: "req_id", select: "reqNo product.name product.grade product.quantity quotedPrice deliveryDate status" })
+
+        if (!billPayment) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("bill") }] }))
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: billPayment, message: _response_message.found("bill") }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
