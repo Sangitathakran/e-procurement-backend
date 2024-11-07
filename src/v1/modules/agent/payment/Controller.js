@@ -296,13 +296,17 @@ module.exports.batchList = async (req, res) => {
         records.rows = paginate == 1 ? await Batch.find(query)
             .sort(sortBy)
             .skip(skip)
-            .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status')
+            .select('_id req_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status')
             .limit(parseInt(limit)) : await Batch.find(query)
                 .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status')
                 .sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
-
+      
+        // start of sangita code        
+        records.reqDetails = await RequestModel.findOne({ _id: records.rows[0]?.req_id })
+        .select({ _id: 0, reqNo: 1, product: 1, quotedPrice: 1, deliveryDate: 1, expectedProcurementDate: 1, fulfilledQty:1, totalQuantity:1, status: 1 });
+        // end of sangita code
 
         if (paginate == 1) {
             records.page = page
@@ -933,7 +937,6 @@ module.exports.AssociateTabBatchList = async (req, res) => {
             // End of Sangita code
 
         ]
-
 
         records.rows = await Batch.aggregate(pipeline);
 
