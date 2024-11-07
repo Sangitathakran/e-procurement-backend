@@ -1,5 +1,5 @@
 const express = require("express");
-const { payment, associateOrders, batchList, lot_list, AssociateTabPaymentRequests, AssociateTabassociateOrders, AssociateTabBatchApprove, AssociateTabGenrateBill, AssociateTabBatchList, associateBillApprove, getBill, agentPayments, proceedToPayPaymentRequests, proceedToPayAssociateOrders, proceedToPayAssociateTabBatchList, editBill, getBillProceedToPay } = require("./Controller");
+const { payment, associateOrders, batchList, lot_list, AssociateTabPaymentRequests, AssociateTabassociateOrders, AssociateTabBatchApprove, AssociateTabGenrateBill, AssociateTabBatchList, associateBillApprove, getBill, agentPayments, proceedToPayPaymentRequests, proceedToPayAssociateOrders, proceedToPayAssociateTabBatchList, editBill, getBillProceedToPay, agencyBill } = require("./Controller");
 const { verifyAgent } = require("../utils/verifyAgent");
 const { Auth } = require("@src/v1/middlewares/jwt")
 const paymentRoutes = express.Router();
@@ -30,5 +30,6 @@ paymentRoutes.put("/associate-req/batch-approve", Auth, associateBillApprove);
 paymentRoutes.get("/associate-req/genrate-bill", Auth, AssociateTabGenrateBill);
 paymentRoutes.get("/proceed-to-pay-bill-view", Auth, getBillProceedToPay);
 paymentRoutes.patch("/edit-bill", Auth, editBill);
+paymentRoutes.get("/agency-bill", Auth, agencyBill);
 
 module.exports = { paymentRoutes }; 
