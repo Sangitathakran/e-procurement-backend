@@ -253,7 +253,7 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
     records.count = await AssociateOffers.countDocuments(query);
      
     // start of Sangita code
-    records.requestDetails = await RequestModel.findOne({_id:req_id}).select({ _id:0, reqNo:1, product:1, quotedPrice:1, deliveryDate:1, expectedProcurementDate:1, fulfilledQty:1, totalQuantity:1}); 
+    records.reqDetails = await RequestModel.findOne({_id:req_id}).select({ _id:0, reqNo:1, product:1, quotedPrice:1, deliveryDate:1, expectedProcurementDate:1, fulfilledQty:1, totalQuantity:1}); 
     // end of sangita code   
 
     if (paginate == 1) {
