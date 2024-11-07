@@ -2,7 +2,7 @@ const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel } = require("@src/v1/
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType } = require('@src/v1/utils/constants');
+const { _userType, _webSocketEvents } = require('@src/v1/utils/constants');
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const mongoose = require("mongoose");
@@ -10,7 +10,7 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { PaymentLogs } = require("@src/v1/models/app/procurement/PaymentLogs");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
-
+const { eventEmitter } = require("@src/v1/utils/websocket/server");
 
 module.exports.payment = async (req, res) => {
 
@@ -703,4 +703,81 @@ module.exports.paymentLogs = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 
+}
+
+module.exports.pendingFarmer = async (req, res) => {
+    
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
+
+        const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
+
+        let farmerOrderIdsOnly = {}
+
+        if (batchIds && batchIds.length > 0) {
+            farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
+        } else {
+            console.log('No Farmer found with this batch.');
+        }
+
+        let query = {
+            _id: farmerOrderIdsOnly,
+            payment_status:'pending',
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        const records = { count: 0 };
+
+        records.rows = paginate == 1 ? await FarmerOrders.find(query).select({ _id:0, total_amount:1, FarmerName:1,farmer_id:1}).populate({path:'farmer_id',select:'name bank_details'})
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await FarmerOrders.find(query)
+                .sort(sortBy);
+
+        records.count = await FarmerOrders.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (records) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        }
+        else {
+            return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+
+}
+
+module.exports.updateFarmerBankDetail = async (req, res) => {
+    try {
+        const { user_id } = req;
+        const { farmer_id, account_no, ifsc_code } = req.body;
+
+        const existingRecord = await farmer.findOne({ _id: farmer_id });
+        console.log(existingRecord)
+        if (!existingRecord) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Farmer") }] }))
+        }
+
+        const update = {
+            'bank_details.ifsc_code': ifsc_code,
+            'bank_details.account_no': account_no
+        }
+
+        const updatedFarmer = await farmer.findOneAndUpdate({ _id: farmer_id }, update, { new: true });
+
+        eventEmitter.emit(_webSocketEvents.procurement, { ...updatedFarmer, method: "updated" })
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: updatedFarmer.bank_details, message: _response_message.updated("Bank details") }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
 }
