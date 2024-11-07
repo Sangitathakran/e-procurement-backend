@@ -1422,7 +1422,7 @@ module.exports.agencyBill = async (req, res) => {
         const { id } = req.query;
 
         const billPayment = await AgentInvoice.findOne({ _id: id }).select({ bill:1})
-            .populate({ path: "req_id", select: "reqNo product.name product.grade product.quantity quotedPrice deliveryDate status" })
+            .populate({ path: "req_id", select: "reqNo product quotedPrice deliveryDate status" })
 
         if (!billPayment) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("bill") }] }))
