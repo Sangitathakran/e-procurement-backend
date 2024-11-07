@@ -398,12 +398,12 @@ exports.getUsersByUser = async (req, res) => {
       const searchFields = ['firstName']
 
       const makeSearchQuery = (searchFields) => {
-          let query = { createdBy : req.user._id }
+          let query = { createdBy : req.user._id , isAdmin: false }
           query['$or'] = searchFields.map(item => ({ [item]: { $regex: search, $options: 'i' } }))
           return query
       }
 
-      const query = search ? makeSearchQuery(searchFields) : {createdBy : req.user._id}
+      const query = search ? makeSearchQuery(searchFields) : {createdBy : req.user._id, isAdmin: false }
       const records = { count: 0, rows: [] };
       const userRoles = await MasterUser.find(query,{password: 0}).populate({path:"userRole", select: "_id userRoleName"}).skip(skip).limit(parseInt(limit))
       if(userRoles.length < 1){

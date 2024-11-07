@@ -699,7 +699,7 @@ module.exports.agencyInvoiceById = async (req, res) => {
       .send(
         new serviceResponse({
           status: 200,
-          data: {...agentBill, isPaymentInitiated: alreadySubmitted ? true:false},
+          data: {...JSON.parse(JSON.stringify(agentBill)), isPaymentInitiated: alreadySubmitted ? true:false},
           message: _query.get("Invoice"),
         })
       );
@@ -811,6 +811,10 @@ module.exports.payFarmers = async (req, res) => {
 
         const batchIds = req.body.batchIds
 
+        if(batchIds.length < 0){
+          return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('batch Id') }] }));
+        }
+
         const portalId = req.user.portalId._id
         const user_id = req.user._id
 
@@ -828,7 +832,7 @@ module.exports.payFarmers = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
 
-        let filename = generateFileName("NCCFMAIZER", 2);
+        let filename = generateFileName("NCCFMAIZER", 3);
 
         const workbook = xlsx.utils.book_new();
         const agentPaymentDataArray = []
@@ -1057,7 +1061,7 @@ module.exports.payAgent = async (req, res) => {
 
             const agentPaymentFilePayload = new AgentPaymentFile(agentPaymentFileData)
             await agentPaymentFilePayload.save()
-
+            await AgentInvoice.findOneAndUpdate({_id:agencyInvoiceId}, { $inc: { bankfileLastNumber : 1}})
             // return res.status(200).send(response.data);
             return res
             .status(200)
