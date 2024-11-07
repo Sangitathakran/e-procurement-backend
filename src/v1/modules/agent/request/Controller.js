@@ -259,6 +259,9 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
                  'requestDetails.product': 1,
                  'requestDetails.quotedPrice': 1,
                  'requestDetails.deliveryDate': 1,
+                 'requestDetails.expectedProcurementDate':1,
+                 'requestDetails.fulfilledQty':1,
+                 'requestDetails.totalQuantity':1
                  // end of sangita code
 
             }
