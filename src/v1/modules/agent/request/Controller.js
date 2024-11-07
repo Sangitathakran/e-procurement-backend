@@ -229,17 +229,6 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
                 }
             }
         },        
-        // start of Sangita code
-        {
-            $lookup: {
-                from: 'requests',
-                localField: 'req_id',
-                foreignField: '_id',
-                as: 'requestDetails'
-            }
-        },
-        // end of sangita code 
-
         { $unwind: '$associate' },
         {
             $project: {
@@ -253,17 +242,6 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
                 'associate._id': 1,
                 'associate.user_code': 1,
                 'associate.basic_details.associate_details.associate_name': 1,
-                                
-                // Start of sangita code 
-                 'requestDetails.reqNo': 1,
-                 'requestDetails.product': 1,
-                 'requestDetails.quotedPrice': 1,
-                 'requestDetails.deliveryDate': 1,
-                 'requestDetails.expectedProcurementDate':1,
-                 'requestDetails.fulfilledQty':1,
-                 'requestDetails.totalQuantity':1
-                 // end of sangita code
-
             }
         },
         { $match: query }, // Apply query
@@ -273,6 +251,10 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
     ]);
 
     records.count = await AssociateOffers.countDocuments(query);
+     
+    // start of Sangita code
+    records.requestDetails = await RequestModel.findOne({_id:req_id}).select({ _id:0, reqNo:1, product:1, quotedPrice:1, deliveryDate:1, expectedProcurementDate:1, fulfilledQty:1, totalQuantity:1}); 
+    // end of sangita code   
 
     if (paginate == 1) {
         records.page = page;
