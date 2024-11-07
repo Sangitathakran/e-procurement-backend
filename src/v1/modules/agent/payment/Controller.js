@@ -297,6 +297,9 @@ module.exports.batchList = async (req, res) => {
             .sort(sortBy)
             .skip(skip)
             .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status')
+            // start of sangita code
+            .populate({ path:'req_id', select:'reqNo product quotedPrice deliveryDate expectedProcurementDate fulfilledQty totalQuantity quotedPrice'})
+            // end of sangita code
             .limit(parseInt(limit)) : await Batch.find(query)
                 .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status')
                 .sort(sortBy);
