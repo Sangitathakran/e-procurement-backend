@@ -1,4 +1,4 @@
-const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, dumpJSONToPdf } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
@@ -15,7 +15,7 @@ const moment = require("moment");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
-
+const PDFDocument = require('pdfkit');
 
 module.exports.payment = async (req, res) => {
 
@@ -302,10 +302,10 @@ module.exports.batchList = async (req, res) => {
                 .sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
-      
+
         // start of sangita code        
         records.reqDetails = await RequestModel.findOne({ _id: records.rows[0]?.req_id })
-        .select({ _id: 0, reqNo: 1, product: 1, quotedPrice: 1, deliveryDate: 1, expectedProcurementDate: 1, fulfilledQty:1, totalQuantity:1, status: 1 });
+            .select({ _id: 0, reqNo: 1, product: 1, quotedPrice: 1, deliveryDate: 1, expectedProcurementDate: 1, fulfilledQty: 1, totalQuantity: 1, status: 1 });
         // end of sangita code
 
         if (paginate == 1) {
@@ -1421,9 +1421,9 @@ module.exports.agencyBill = async (req, res) => {
     try {
         const { id, isExport = 0 } = req.query;
 
-        const billPayment = await AgentInvoice.findOne({ _id: id }).select({ bill:1})
+        const billPayment = await AgentInvoice.findOne({ _id: id }).select({ bill: 1 })
             .populate({ path: "req_id", select: "reqNo product quotedPrice deliveryDate status" })
-            
+
         if (isExport == 1) {
 
             const record = {
@@ -1442,11 +1442,9 @@ module.exports.agencyBill = async (req, res) => {
                 "total": billPayment?.bill.total || "NA",
             }
 
-            console.log(record);
-
             if (record) {
-
-                dumpJSONToExcel(req, res, {
+                
+                dumpJSONToPdf(req, res, {
                     data: [record],
                     fileName: `Agency-bill.xlsx`,
                     worksheetName: `Agency-bill`
@@ -1461,5 +1459,5 @@ module.exports.agencyBill = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-
 }
+
