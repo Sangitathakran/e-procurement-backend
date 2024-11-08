@@ -15,7 +15,7 @@ const moment = require("moment");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
-const PDFDocument = require('pdfkit');
+
 
 module.exports.payment = async (req, res) => {
 
