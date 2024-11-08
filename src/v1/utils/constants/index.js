@@ -223,6 +223,7 @@ const _gender = {
 const _maritalStatus = {
     Married: "married",
     Unmarried: "unmarried",
+    "N/A": "N/A",
 }
 const _religion = {
     Hindu: "hindu",
@@ -230,6 +231,7 @@ const _religion = {
     Sikh: "sikh",
     Isai: "isai",
     Parsi: "parsi",
+    "N/A": "N/A",
 }
 const _category = {
     GEN: "gen",
@@ -243,6 +245,7 @@ const _areaUnit = {
     Hectares: "hectares",
     Acres: "acres",
     Bigha: "bigha",
+    "N/A": "N/A",
 }
 const _soilType = {
     Sandy: "sandy",
@@ -382,7 +385,8 @@ const _individual_category = {
     sc: "sc",
     st: "st",
     women: "women",
-    others: "others"
+    others: "others",
+    "N/A": "N/A",
 }
 
 const _statusType = {
