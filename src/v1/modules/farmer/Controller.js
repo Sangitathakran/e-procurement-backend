@@ -1402,10 +1402,10 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const mother_name = rec["MOTHER NAME"];
       const date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)*"];
       const gender = toLowerCaseIfExists(rec["GENDER*"]);
-      const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS*"]);
-      const religion = toLowerCaseIfExists(rec["RELIGION*"]);
-      const category = toLowerCaseIfExists(rec["CATEGORY*"]);
-      const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL*"]);
+      const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS"])?toLowerCaseIfExists(rec["MARITAL STATUS"]): 'N/A';
+      const religion = toLowerCaseIfExists(rec["RELIGION"])? toLowerCaseIfExists(rec["RELIGION"]) : 'N/A';
+      const category = toLowerCaseIfExists(rec["CATEGORY"])? toLowerCaseIfExists(rec["CATEGORY"]) : 'N/A';
+      const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL"]);
       const edu_details = rec["EDU DETAILS"];
       const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"]);
       const aadhar_no = rec["AADHAR NUMBER*"];
@@ -1418,24 +1418,24 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const pinCode = rec["PINCODE*"];
       const mobile_no = rec["MOBILE NO*"];
       const email = rec["EMAIL ID"];
-      const total_area = rec["TOTAL AREA*"];
+      const total_area = rec["TOTAL AREA"];
       const area_unit = toLowerCaseIfExists(rec["AREA UNIT"]);
       const khasra_number = rec["KHASRA NUMBER*"];
       const khtauni_number = rec["KHATAUNI"];
       const sow_area = rec["SOW AREA"];
-      const state = rec["STATE"];
-      const district = rec["DISTRICT"];
+      const state = rec["STATE*"];
+      const district = rec["DISTRICT*"];
       const landvillage = rec["ViLLAGE"];
       const expected_production = rec["EXPECTED PRODUCTION"];
-      const soil_type = toLowerCaseIfExists(rec["SOIL TYPE*"]);
-      const soil_tested = toLowerCaseIfExists(rec["SOIL TESTED"]);
+      const soil_type = toLowerCaseIfExists(rec["SOIL TYPE"])? toLowerCaseIfExists(rec["SOIL TYPE"]): 'other';
+      const soil_tested = toLowerCaseIfExists(rec["SOIL TESTED"])?toLowerCaseIfExists(rec["SOIL TESTED"]): 'yes';
       const soil_health_card = toLowerCaseIfExists(rec["SOIL HEALTH CARD"]);
       const soil_testing_lab_name = rec["SOIL TESTING LAB NAME"];
       const lab_distance_unit = toLowerCaseIfExists(rec["LAB DISTANCE UNIT"]);
       const sowingdate = rec["SOWING DATE(MM-YYYY)*"];
       const harvestingdate = rec["HARVESTING DATE(MM-YYYY)*"];
       const crop_name = rec["CROPS NAME*"];
-      const production_quantity = rec["PRODUCTION QUANTITY*"];
+      const production_quantity = rec["PRODUCTION QUANTITY"];
       const productivity = rec["PRODUCTIVITY"];
       const selling_price = rec["SELLING PRICE"];
       const market_price = rec["MARKETABLE PRICE"];
@@ -1453,22 +1453,39 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const crop_insurance = toLowerCaseIfExists(rec["CROP INSURANCE"]);
       const insurance_company = rec["INSURANCE COMPANY"];
       const insurance_worth = rec["INSURANCE WORTH"];
-      const crop_season = toLowerCaseIfExists(rec["CROP SEASONS*"]);
-      const bank_name = rec["BANK NAME"];
+      const crop_season = toLowerCaseIfExists(rec["CROP SEASONS*"])? toLowerCaseIfExists(rec["CROP SEASONS*"]): 'others';
+      const bank_name = rec["BANK NAME*"];
       const account_no = rec["ACCOUNT NUMBER*"];
       const branch_name = rec["BRANCH"];
-      const ifsc_code = rec["IFSC CODE"];
-      const account_holder_name = rec["ACCOUNT HOLDER NAME"];
+      const ifsc_code = rec["IFSC CODE*"];
+      const account_holder_name = rec["ACCOUNT HOLDER NAME*"];
       
+
       const requiredFields = [
         { field: "NAME*", label: "NAME" },
         { field: "FATHER NAME*", label: "FATHER NAME" },
+        { field: "DATE OF BIRTH(DD-MM-YYYY)*", label: "DATE OF BIRTH" },
         { field: "GENDER*", label: "GENDER" },
+        { field: "ID PROOF TYPE*", label: "ID PROOF TYPE" },
         { field: "AADHAR NUMBER*", label: "AADHAR NUMBER" },
         { field: "ADDRESS LINE*", label: "ADDRESS LINE" },
         { field: "STATE NAME*", label: "STATE NAME" },
         { field: "DISTRICT NAME*", label: "DISTRICT NAME" },
-        { field: "MOBILE NO*", label: "MOBILE NUMBER" }
+        { field: "MOBILE NO*", label: "MOBILE NUMBER" },
+        { field: "ACCOUNT NUMBER*", label: "ACCOUNT NUMBER"},
+        { field: "KHASRA NUMBER*", label: "KHASRA NUMBER"},
+        { field: "CROPS NAME*", label: "CROP NAME"},
+        { field: "CROP SEASONS*", label: "CROP SESSION"},
+        { field: "PINCODE*", label: "PINCODE"},
+        { field: "SOWING DATE(MM-YYYY)*",label: "SOWING DATE(MM-YYYY)" },
+        { field: "HARVESTING DATE(MM-YYYY)*",label: "HARVESTING DATE(MM-YYYY)" },
+        { field: "STATE*",label: " LAND STATE" },
+        { field: "DISTRICT*",label: "LAND DISTRICT" },
+        { field: "BANK NAME*", label: "BANK NAME"},
+        { field: "IFSC CODE*", label: "IFSC CODE"},
+        { field: "ACCOUNT HOLDER NAME*", label: "ACCOUNT HOLDER NAME"}
+        
+        
       ];
     
       let errors = [];
@@ -1484,6 +1501,11 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       if (!/^\d{12}$/.test(aadhar_no)) {
         errors.push({ record: rec, error: "Invalid Aadhar Number" });
       }
+
+      if (!/^\d{6,18}$/.test(account_no)) {
+        errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 18 digits." });
+      }
+
       if (!/^\d{10}$/.test(mobile_no)) {
         errors.push({ record: rec, error: "Invalid Mobile Number" });
       }
