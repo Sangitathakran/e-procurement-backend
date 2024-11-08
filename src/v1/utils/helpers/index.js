@@ -118,6 +118,18 @@ exports.dumpJSONToPdf = (req, res, config = {
   // Add content to the PDF
   doc.fontSize(20).text(data[0]?.name, { align: 'center' });
   doc.moveDown().fontSize(12).text(data[0]?.reqNo);
+  doc.moveDown().fontSize(12).text(data[0]?.name);
+  doc.moveDown().fontSize(12).text(data[0]?.commodityImage);
+  doc.moveDown().fontSize(12).text(data[0]?.grade);
+  doc.moveDown().fontSize(12).text(data[0]?.qantity);
+  doc.moveDown().fontSize(12).text(data[0]?.quotedPrice);
+  doc.moveDown().fontSize(12).text(data[0]?.deliveryDate);
+  doc.moveDown().fontSize(12).text(data[0]?.status);
+  doc.moveDown().fontSize(12).text(data[0]?.precurement_expenses);
+  doc.moveDown().fontSize(12).text(data[0]?.storage_expenses);
+  doc.moveDown().fontSize(12).text(data[0]?.driage);
+  doc.moveDown().fontSize(12).text(data[0]?.commission);
+
 
   // Finalize the PDF
   doc.end();
