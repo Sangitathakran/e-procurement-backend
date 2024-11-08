@@ -808,7 +808,10 @@ module.exports.editBillHo = async (req, res) => {
 module.exports.payFarmers = async (req, res) => {
   try {
   
-
+        const NCCF_BANK_ACCOUNT_NUMBER = process.env.NCCF_BANK_ACCOUNT_NUMBER
+        if(!NCCF_BANK_ACCOUNT_NUMBER){
+          return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "NCCF BANK DETAIL MISSING" }] }));
+        }
         const batchIds = req.body.batchIds
 
         if(batchIds.length < 0){
@@ -832,10 +835,11 @@ module.exports.payFarmers = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
 
-        let filename = generateFileName("NCCFMAIZER", 3);
+        let filename = await generateFileName("NCCFMAIZER");
+        console.log("filename-->", filename)
 
         const workbook = xlsx.utils.book_new();
-        const agentPaymentDataArray = []
+        const send_file_details = []
         const worksheetData = [];
 
         farmersBill.forEach((agentBill) => {
@@ -844,34 +848,33 @@ module.exports.payFarmers = async (req, res) => {
             "PIR_REF_NO": "",
             "MY_PRODUCT_CODE(It should be Digital Products only)": "Digital Products",
             "Amount": agentBill.amount || 0,
-            "Acc no(2244102000000055)": agentBill.farmer_id.bank_details.account_no||'2244102000000055',
+            "Acc no(2244102000000055)": NCCF_BANK_ACCOUNT_NUMBER,
             "IFSC Code": agentBill.farmer_id.bank_details.ifsc_code,
             "Account Name": agentBill.farmer_id.bank_details.account_holder_name,
-            "Account no": agentBill.farmer_id.bank_details.account_no||'034301539698',
-            "PAYMENT_REF": "",
+            "Account no": agentBill.farmer_id.bank_details.account_no,
+            "PAYMENT_REF": agentBill._id,
             "PAYMENT_DETAILS": "",
           };
 
-          const agentPaymentFileData = { 
-            client_code: paymentFileData['CLIENT CODE (NCCFMAIZER)'],
-            pir_ref_no: paymentFileData['PIR_REF_NO'],
-            my_product_code: paymentFileData['MY_PRODUCT_CODE(It should be Digital Products only)'],
-            amount: paymentFileData['Amount'],
-            acc_no: paymentFileData['Acc no(2244102000000055)'],
-            ifsc_code: paymentFileData['IFSC Code'],
-            account_name: paymentFileData['Account Name'],
-            account_no: paymentFileData['Account no'],
-            payment_ref: paymentFileData['PAYMENT_REF'],
-            payment_details: paymentFileData['PAYMENT_DETAILS'],
-            fileName: filename,  // assuming `filename` is defined in your context
-            file_status:'upload',
-            batch_id:agentBill.batch_id,
-            payment_id:agentBill._id,
-            initiatedBy: req.user._id,  // assuming `req.user._id` is available
-            initiatedAt: new Date()
-          };
+            send_file_details.push({ 
 
-          agentPaymentDataArray.push(agentPaymentFileData);
+              client_code: paymentFileData['CLIENT CODE (NCCFMAIZER)'],
+              pir_ref_no: paymentFileData['PIR_REF_NO'],
+              my_product_code: paymentFileData['MY_PRODUCT_CODE(It should be Digital Products only)'],
+              amount: paymentFileData['Amount'],
+              acc_no: paymentFileData['Acc no(2244102000000055)'],
+              ifsc_code: paymentFileData['IFSC Code'],
+              account_name: paymentFileData['Account Name'],
+              account_no: paymentFileData['Account no'],
+              payment_ref: paymentFileData['PAYMENT_REF'],
+              payment_details: paymentFileData['PAYMENT_DETAILS'],
+              batch_id:agentBill.batch_id,
+              payment_id:agentBill._id,
+
+            })
+        
+
+          // agentPaymentDataArray.push(agentPaymentFileData);
         
           const values = [
             paymentFileData['CLIENT CODE (NCCFMAIZER)'],
@@ -932,10 +935,16 @@ module.exports.payFarmers = async (req, res) => {
         let response = await axios.request(config);
         if(response.data.message=="File uploaded Successfully"){
 
-            console.log('agentPaymentDataArray', agentPaymentDataArray)
 
+        const FarmerPaymentFilePayload = {
+          send_file_details: send_file_details,
+          fileName: filename, 
+          file_status:'upload',
+          initiatedBy: req.user._id,  
+          initiatedAt: new Date()
+        }  
             
-      let payment_file_ids=await FarmerPaymentFile.insertMany(agentPaymentDataArray)
+          await FarmerPaymentFile.create(FarmerPaymentFilePayload)
             // return res.status(200).send(response.data);
             return res
             .status(200)
@@ -957,7 +966,13 @@ module.exports.payFarmers = async (req, res) => {
 
 module.exports.payAgent = async (req, res) => {
   try {
-  
+
+        const NCCF_BANK_ACCOUNT_NUMBER = process.env.NCCF_BANK_ACCOUNT_NUMBER
+        if(!NCCF_BANK_ACCOUNT_NUMBER){
+          return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "NCCF BANK DETAIL MISSING" }] }));
+        }
+
+        console.log("bank account number-->", NCCF_BANK_ACCOUNT_NUMBER)
 
         const agencyInvoiceId = req.params.id
 
@@ -982,11 +997,11 @@ module.exports.payAgent = async (req, res) => {
                 "PIR_REF_NO": "",
                 "MY_PRODUCT_CODE(It should be Digital Products only)": "Digital Products",
                 "Amount": agentBill.bill.total || 0,
-                "Acc no(2244102000000055)": agentBill.agent_id.bank_details.account_no,
+                "Acc no(2244102000000055)": NCCF_BANK_ACCOUNT_NUMBER,
                 "IFSC Code": agentBill.agent_id.bank_details.ifsc_code,
                 "Account Name": agentBill.agent_id.bank_details.account_holder_name,
                 "Account no": agentBill.agent_id.bank_details.account_no,
-                "PAYMENT_REF": "",
+                "PAYMENT_REF": agentBill._id,
                 "PAYMENT_DETAILS": "",
             }
         
@@ -1015,7 +1030,7 @@ module.exports.payAgent = async (req, res) => {
 
         xlsx.utils.book_append_sheet(workbook, worksheet, "Agent Payment");
 
-        let filename = generateFileName("NCCFMAIZER", agentBill.bankfileLastNumber);
+        let filename = await generateFileName("NCCFMAIZER");
         let filePath = `./src/v1/upload/${filename}`;
         await xlsx.writeFile(workbook, filePath, { type: 'buffer', bookType: 'csv' });
         let fileData = await fs.readFile(filePath);
