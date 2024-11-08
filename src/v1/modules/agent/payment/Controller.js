@@ -1419,12 +1419,12 @@ module.exports.getBillProceedToPay = async (req, res) => {
 module.exports.agencyBill = async (req, res) => {
 
     try {
-        const { id, isExport = 0 } = req.query;
+        const { id, isPdf = 0 } = req.query;
 
         const billPayment = await AgentInvoice.findOne({ _id: id }).select({ bill: 1 })
             .populate({ path: "req_id", select: "reqNo product quotedPrice deliveryDate status" })
 
-        if (isExport == 1) {
+        if (isPdf == 1) {
 
             const record = {
                 "reqNo": billPayment?.req_id.reqNo || "NA",
