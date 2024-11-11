@@ -745,6 +745,95 @@ module.exports.hoBillApproval = async (req, res) => {
   }
 };
 
+module.exports.hoBillRejection = async (req, res) => {
+  try {
+
+    const {agencyInvoiceId, comment} = req.body
+    const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId });
+    if (!agentBill) {
+      return res
+        .status(400)
+        .send(
+          new serviceResponse({
+            status: 400,
+            errors: [{ message: _response_message.notFound("Bill") }],
+          })
+        );
+    }
+
+    await updateAgentInvoiceLogs(agencyInvoiceId)
+
+    agentBill.ho_approve_status = _paymentApproval.rejected;
+    agentBill.ho_approve_by = null;
+    agentBill.ho_approve_at = null;
+
+    agentBill.bill.ho_reject_by = req.user._id
+    agentBill.bill.ho_reject_at = new Date()
+    agentBill.bill.ho_reason_to_reject = comment
+
+    await agentBill.save();
+
+    return res
+      .status(200)
+      .send(
+        new serviceResponse({ status: 200, message: "Bill Approved by HO" })
+      );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+
+const updateAgentInvoiceLogs = async (agencyInvoiceId) => { 
+
+  try {
+      const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId });
+
+      const log = {
+          bo_approve_status: agentBill.bo_approve_status,
+          bo_approve_by: agentBill.bo_approve_by,
+          bo_approve_at: agentBill.bo_approve_at,
+          ho_approve_status: agentBill.ho_approve_status,
+          ho_approve_by: agentBill.ho_approve_by,
+          ho_approve_at: agentBill.ho_approve_at,
+          payment_status: agentBill.payment_status,
+          payment_id: agentBill.payment_id,
+          transaction_id: agentBill.transaction_id,
+          payment_method: agentBill.payment_method,
+      
+          bill: {
+              precurement_expenses: agentBill.bill.precurement_expenses,
+              driage: agentBill.bill.driage,
+              storage_expenses: agentBill.bill.storage_expenses,
+              commission: agentBill.bill.commission,
+              bill_attachement: agentBill.bill.bill_attachement,
+              total: agentBill.bill.total,
+      
+              // bo rejection case
+              bo_reject_by: agentBill.bill.bo_reject_by,
+              bo_reject_at: agentBill.bill.bo_reject_at,
+              bo_reason_to_reject: agentBill.bill.bo_reason_to_reject,
+      
+              // ho rejection case
+              ho_reject_by: agentBill.bill.ho_reject_by,
+              ho_reject_at: agentBill.bill.ho_reject_at,
+              ho_reason_to_reject: agentBill.bill.ho_reason_to_reject
+          },
+          payment_change_remarks: agentBill.payment_change_remarks
+      };
+      
+
+      agentBill.logs.push(log)
+      await agentBill.save()
+      
+  
+  return true
+  } catch (error) {
+      throw error
+  }
+
+}
+
+
 module.exports.editBillHo = async (req, res) => {
   try {
     const agencyInvoiceId = req.params.id;
@@ -808,7 +897,10 @@ module.exports.editBillHo = async (req, res) => {
 module.exports.payFarmers = async (req, res) => {
   try {
   
-
+        const NCCF_BANK_ACCOUNT_NUMBER = process.env.NCCF_BANK_ACCOUNT_NUMBER
+        if(!NCCF_BANK_ACCOUNT_NUMBER){
+          return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "NCCF BANK DETAIL MISSING" }] }));
+        }
         const batchIds = req.body.batchIds
 
         if(batchIds.length < 0){
@@ -822,7 +914,10 @@ module.exports.payFarmers = async (req, res) => {
             batch_id: { $in : batchIds },
             // ho_id: { $in: [portalId, user_id] },
             bo_approve_status: _paymentApproval.approved,
-            ho_approve_status: _paymentApproval.approved
+            ho_approve_status: _paymentApproval.approved,
+
+            // only the unpaid farmers will be paid by this
+            payment_status: { $in : [ _paymentstatus.failed , _paymentstatus.pending ] }
         }
 
         const farmersBill = await Payment.find(query).populate({path:"farmer_id", select:"bank_details"})
@@ -832,10 +927,11 @@ module.exports.payFarmers = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
 
-        let filename = generateFileName("NCCFMAIZER", 3);
+        let filename = await generateFileName("NCCFMAIZER");
+        console.log("filename-->", filename)
 
         const workbook = xlsx.utils.book_new();
-        const agentPaymentDataArray = []
+        const send_file_details = []
         const worksheetData = [];
 
         farmersBill.forEach((agentBill) => {
@@ -844,34 +940,33 @@ module.exports.payFarmers = async (req, res) => {
             "PIR_REF_NO": "",
             "MY_PRODUCT_CODE(It should be Digital Products only)": "Digital Products",
             "Amount": agentBill.amount || 0,
-            "Acc no(2244102000000055)": agentBill.farmer_id.bank_details.account_no||'2244102000000055',
+            "Acc no(2244102000000055)": NCCF_BANK_ACCOUNT_NUMBER,
             "IFSC Code": agentBill.farmer_id.bank_details.ifsc_code,
             "Account Name": agentBill.farmer_id.bank_details.account_holder_name,
-            "Account no": agentBill.farmer_id.bank_details.account_no||'034301539698',
-            "PAYMENT_REF": "",
+            "Account no": agentBill.farmer_id.bank_details.account_no,
+            "PAYMENT_REF": agentBill._id.toString(),
             "PAYMENT_DETAILS": "",
           };
 
-          const agentPaymentFileData = { 
-            client_code: paymentFileData['CLIENT CODE (NCCFMAIZER)'],
-            pir_ref_no: paymentFileData['PIR_REF_NO'],
-            my_product_code: paymentFileData['MY_PRODUCT_CODE(It should be Digital Products only)'],
-            amount: paymentFileData['Amount'],
-            acc_no: paymentFileData['Acc no(2244102000000055)'],
-            ifsc_code: paymentFileData['IFSC Code'],
-            account_name: paymentFileData['Account Name'],
-            account_no: paymentFileData['Account no'],
-            payment_ref: paymentFileData['PAYMENT_REF'],
-            payment_details: paymentFileData['PAYMENT_DETAILS'],
-            fileName: filename,  // assuming `filename` is defined in your context
-            file_status:'upload',
-            batch_id:agentBill.batch_id,
-            payment_id:agentBill._id,
-            initiatedBy: req.user._id,  // assuming `req.user._id` is available
-            initiatedAt: new Date()
-          };
+            send_file_details.push({ 
 
-          agentPaymentDataArray.push(agentPaymentFileData);
+              client_code: paymentFileData['CLIENT CODE (NCCFMAIZER)'],
+              pir_ref_no: paymentFileData['PIR_REF_NO'],
+              my_product_code: paymentFileData['MY_PRODUCT_CODE(It should be Digital Products only)'],
+              amount: paymentFileData['Amount'],
+              acc_no: paymentFileData['Acc no(2244102000000055)'],
+              ifsc_code: paymentFileData['IFSC Code'],
+              account_name: paymentFileData['Account Name'],
+              account_no: paymentFileData['Account no'],
+              payment_ref: paymentFileData['PAYMENT_REF'],
+              payment_details: paymentFileData['PAYMENT_DETAILS'],
+              batch_id:agentBill.batch_id,
+              payment_id:agentBill._id,
+
+            })
+        
+
+          // agentPaymentDataArray.push(agentPaymentFileData);
         
           const values = [
             paymentFileData['CLIENT CODE (NCCFMAIZER)'],
@@ -932,10 +1027,16 @@ module.exports.payFarmers = async (req, res) => {
         let response = await axios.request(config);
         if(response.data.message=="File uploaded Successfully"){
 
-            console.log('agentPaymentDataArray', agentPaymentDataArray)
 
+        const FarmerPaymentFilePayload = {
+          send_file_details: send_file_details,
+          fileName: filename, 
+          file_status:'upload',
+          initiatedBy: req.user._id,  
+          initiatedAt: new Date()
+        }  
             
-      let payment_file_ids=await FarmerPaymentFile.insertMany(agentPaymentDataArray)
+          await FarmerPaymentFile.create(FarmerPaymentFilePayload)
             // return res.status(200).send(response.data);
             return res
             .status(200)
@@ -957,7 +1058,13 @@ module.exports.payFarmers = async (req, res) => {
 
 module.exports.payAgent = async (req, res) => {
   try {
-  
+
+        const NCCF_BANK_ACCOUNT_NUMBER = process.env.NCCF_BANK_ACCOUNT_NUMBER
+        if(!NCCF_BANK_ACCOUNT_NUMBER){
+          return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "NCCF BANK DETAIL MISSING" }] }));
+        }
+
+        console.log("bank account number-->", NCCF_BANK_ACCOUNT_NUMBER)
 
         const agencyInvoiceId = req.params.id
 
@@ -965,9 +1072,12 @@ module.exports.payAgent = async (req, res) => {
         const user_id = req.user._id
         const query = {
             _id: agencyInvoiceId,
-            ho_id: { $in: [portalId, user_id] },
+            // ho_id: { $in: [portalId, user_id] },
             bo_approve_status: _paymentApproval.approved,
-            ho_approve_status: _paymentApproval.approved
+            ho_approve_status: _paymentApproval.approved,
+
+            // only the unpaid agent bill will be paid by this
+            payment_status: { $in : [ _paymentstatus.failed , _paymentstatus.pending ] }
         }
 
         const agentBill = await AgentInvoice.findOne(query).populate('agent_id')
@@ -982,11 +1092,11 @@ module.exports.payAgent = async (req, res) => {
                 "PIR_REF_NO": "",
                 "MY_PRODUCT_CODE(It should be Digital Products only)": "Digital Products",
                 "Amount": agentBill.bill.total || 0,
-                "Acc no(2244102000000055)": agentBill.agent_id.bank_details.account_no,
+                "Acc no(2244102000000055)": NCCF_BANK_ACCOUNT_NUMBER,
                 "IFSC Code": agentBill.agent_id.bank_details.ifsc_code,
                 "Account Name": agentBill.agent_id.bank_details.account_holder_name,
                 "Account no": agentBill.agent_id.bank_details.account_no,
-                "PAYMENT_REF": "",
+                "PAYMENT_REF": agentBill._id.toString(),
                 "PAYMENT_DETAILS": "",
             }
         
@@ -1015,7 +1125,7 @@ module.exports.payAgent = async (req, res) => {
 
         xlsx.utils.book_append_sheet(workbook, worksheet, "Agent Payment");
 
-        let filename = generateFileName("NCCFMAIZER", agentBill.bankfileLastNumber);
+        let filename = await generateFileName("NCCFMAIZER");
         let filePath = `./src/v1/upload/${filename}`;
         await xlsx.writeFile(workbook, filePath, { type: 'buffer', bookType: 'csv' });
         let fileData = await fs.readFile(filePath);

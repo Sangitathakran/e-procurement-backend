@@ -13,21 +13,25 @@ const AgentPaymentFileSchema = new mongoose.Schema({
     account_no: { type: String, required: true },
     payment_ref: { type: String },
     payment_details: { type: String },
-    bank_payment_details:[{
-  CORPORATION_CODE: { type: String },
-  CLIENT_CODE: { type: String },
-  ACCOUNT_NMBR: { type: String },
-  BENEF_ACCOUNT_NMBR: { type: String },
-  BENEF_DESCRIPTION: { type: String },
-  INSTRUMENT_AMNT: { type: String },
-  PIR_DATE: { type: String },
-  BENE_IFSC_CODE: { type: String },
-  PIR_REFERENCE_NMBR: { type: String },
-  LIQ_STATUS: { type: String },
-  UTR_SR_NO: { type: String },
-  INST_DATE: { type: String },
-  PRODUCT_CODE: { type: String }
-    }],
+
+    received_file_details:{
+
+      CORPORATION_CODE: { type: String },
+      CLIENT_CODE: { type: String },
+      ACCOUNT_NMBR: { type: String },
+      BENEF_ACCOUNT_NMBR: { type: String },
+      BENEF_DESCRIPTION: { type: String },
+      INSTRUMENT_AMNT: { type: String },
+      PIR_DATE: { type: String },
+      BENE_IFSC_CODE: { type: String },
+      PIR_REFERENCE_NMBR: { type: String },
+      LIQ_STATUS: { type: String },
+      UTR_SR_NO: { type: String },
+      INST_DATE: { type: String },
+      PRODUCT_CODE: { type: String },
+      PAYMENT_REF:{ type: String}
+    },
+
     fileName: { type: String }, 
     agent_invoice_id:{type:String},
     file_status:{type:String,enum:['upload','download','pending'],default:'pending'},
@@ -36,23 +40,26 @@ const AgentPaymentFileSchema = new mongoose.Schema({
 
 
 }, { timestamps: true });
+
 AgentPaymentFileSchema.post('save', async function (doc) {
     
     
   try {
       
-    
-          await AgentInvoice.findByIdAndUpdate(doc.agent_invoice_id, {
-            payment_status: 'Completed',
-            transaction_id:doc.bank_payment_details[0].UTR_SR_NO ,
-            initiatedAt:doc.bank_payment_details[0].INST_DATE
-          });
+          if(received_file_details.LIQ_STATUS==='Paid'){
+            await AgentInvoice.findByIdAndUpdate(doc.agent_invoice_id, {
+              payment_status: 'Completed',
+              transaction_id:doc.received_file_details.UTR_SR_NO ,
+              initiatedAt:doc.received_file_details.INST_DATE
+            });
+          }
           
       
   } catch (error) {
       console.error('Error in post-save middleware:', error);
   }
 });
+
 const AgentPaymentFile = mongoose.model(_collectionName.AgentPaymentFile, AgentPaymentFileSchema);
 
 module.exports = { AgentPaymentFile };

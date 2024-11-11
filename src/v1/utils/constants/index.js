@@ -346,6 +346,7 @@ const _billstatus = {
 const _paymentApproval = {
     pending: "Pending",
     approved: "Approved",
+    rejected: "Rejected"
 }
 
 const received_qc_status = {

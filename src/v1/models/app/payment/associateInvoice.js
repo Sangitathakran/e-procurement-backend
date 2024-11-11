@@ -9,6 +9,7 @@ const AssociateInvoiceSchema = new mongoose.Schema({
     associateOffer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers },
     batch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch, required: true },
     qtyProcured: { type: Number, required: true },
+    goodsPrice: { type: Number, required: true },
     bills: {
         procurementExp: { type: Number, trim: true },
         qc_survey: [{ type: String, trim: true }],
@@ -19,10 +20,15 @@ const AssociateInvoiceSchema = new mongoose.Schema({
         driage: { type: Number, trim: true },
         storageExp: { type: Number, trim: true },
         commission: { type: Number, trim: true },
-        total: { type: Number, trim: true }
+        total: { type: Number, trim: true },
+
+        // rejection case
+        agent_reject_by: { type: mongoose.Schema.Types.ObjectId, default: null },
+        agent_reject_at: { type: Date, default: null },
+        reason_to_reject: { type: String, default: null }
 
     },
-    goodsPrice: { type: Number, required: true },
+    payment_change_remarks: { type: String , default: null},
     initiated_at: { type: Date, default: null },
     agent_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
     agent_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },

@@ -12,7 +12,7 @@ const { ObjectId } = require('mongodb');
 const ExcelJS = require('exceljs');
 const { Console } = require("console");
 const PDFDocument = require('pdfkit');
-
+const FileCounter = require("@src/v1/models/app/payment/fileCounter");
 /**
  * 
  * @param {any} error 
@@ -198,7 +198,7 @@ exports.generateFarmerId = async (obj) => {
   }
 };
 
-exports.generateFileName = (clientCode, runningNumber) => {
+exports.generateFileName = async (clientCode) => {
 
   const newDate = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
   let [day, month, year] = newDate.split(",")[0].split("/");
@@ -206,11 +206,23 @@ exports.generateFileName = (clientCode, runningNumber) => {
   month = month.padStart(2, '0');
   const finalDate = `${day}${month}${year.slice(2)}`;
 
-  const runningNumberPlusOne = runningNumber + 1
-  const lastFiveLetters = clientCode.slice(-5).toUpperCase();
-  const formattedRunningNumber = String(runningNumberPlusOne).padStart(3, '0');
+  const currentDate = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }).split(",")[0];
+  let counterDoc = await FileCounter.findOne({date:currentDate});
 
-  const fileName = `${lastFiveLetters}${finalDate}${formattedRunningNumber}.CSV`;
+  if(!counterDoc){
+    counterDoc = await FileCounter.create({ 
+        date: currentDate,
+        count: [1]
+    })
+  }
+
+  let runningNumber = counterDoc.count.length > 0 ? Math.max(...counterDoc.count) : 1;
+  await FileCounter.updateOne({ _id: counterDoc._id }, { $push: { count: runningNumber+1 } });
+
+  const lastFiveLetters = clientCode.slice(-5).toUpperCase();
+  const formattedRunningNumber = String(runningNumber).padStart(3, '0');
+
+  const fileName = `${lastFiveLetters}${finalDate}${formattedRunningNumber}.csv`;
 
   return fileName
 }

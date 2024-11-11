@@ -1322,6 +1322,102 @@ module.exports.associateBillApprove = async (req, res) => {
     }
 }
 
+const updateAssociateLogs = async (batchIds) => { 
+
+    const invoiceRecord = await AssociateInvoice.find({ batch_id: { $in: fetchedBatchIds } });
+    const updatedLogs = await Promise.all(invoiceRecord.map(async(invoice)=> { 
+
+        let log = {
+            bills: {
+                procurementExp: invoice.bills.procurementExp,
+                qc_survey: invoice.bills.qc_survey,
+                gunny_bags: invoice.bills.gunny_bags,
+                weighing_stiching: invoice.bills.weighing_stiching,
+                loading_unloading: invoice.bills.loading_unloading,
+                transportation: invoice.bills.transportation,
+                driage: invoice.bills.driage,
+                storageExp: invoice.bills.storageExp,
+                commission: invoice.bills.commission,
+                total: invoice.bills.total,
+    
+                // Rejection case
+                agent_reject_by: invoice.bills.agent_reject_by || null,
+                agent_reject_at: invoice.bills.agent_reject_at || null ,
+                reason_to_reject: invoice.bills.reason_to_reject || null
+            },
+            payment_change_remarks:invoice.payment_change_remarks || null,
+            initiated_at: invoice.initiated_at,
+            agent_approve_status: invoice.agent_approve_status,
+            agent_approve_by: invoice.agent_approve_by,
+            agent_approve_at: invoice.agent_approve_at,
+            payment_status: invoice.payment_status,
+            payment_id: invoice.payment_id,
+            transaction_id: invoice.transaction_id,
+            payment_method: invoice.payment_method
+        };
+
+        invoice.logs.push(log)
+        await invoice.save()
+        
+    }))
+    
+    return true
+
+}
+
+module.exports.associateBillReject = async (req, res) => {
+
+    try {
+
+        const { batchIds = [], comment = "No reject reason given" } = req.body;
+        const { portalId , user } = req;
+
+        const batchQuery = {_id: { $in: batchIds }}
+
+        const batchList = await Batch.find(batchQuery);
+
+        if (batchList.length < 0) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Batch') }] }));
+        }
+
+        const fetchedBatchIds = batchList.map(item=>item._id)
+
+        const query = { batch_id: { $in: fetchedBatchIds } };
+
+        const invoiceRecord = await AssociateInvoice.find(query);
+
+        if (invoiceRecord.length != batchIds.length) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("invoice") }] }));
+        }
+
+        // update logs with current bill and approval statuses 
+        await updateAssociateLogs(batchIds)
+
+        const record = await AssociateInvoice.updateMany(query, { $set: { agent_approve_status: _paymentApproval.rejected, 
+                                                                            agent_approve_by: null, 
+                                                                            agent_approve_at: null,
+                                                                            
+                                                                            "bills.agent_reject_by":user._id,
+                                                                            "bills.agent_reject_at": new Date(),
+                                                                            "bills.reason_to_reject": comment      
+
+                                                                        } });
+
+        const batchRejected = await Batch.updateMany(
+            {_id: { $in: fetchedBatchIds } },
+            { $set: { agent_approve_status: _paymentApproval.rejected, 
+            agent_approve_by: null, 
+            agent_approve_at: null,    
+
+        } });
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("invoice") }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
 
 module.exports.agentPayments = async (req, res) => {
 
@@ -1387,9 +1483,64 @@ module.exports.editBill = async (req, res) => {
     record.bill.total = parseFloat((cal_procurement_expenses + cal_driage + cal_storage + cal_commission).toFixed(2))
     record.payment_change_remarks = remarks;
 
+    record.bo_approve_status = _paymentApproval.pending
+    record.ho_approve_status = _paymentApproval.pending
+
+    await updateAgentInvoiceLogs(id)
+
     await record.save();
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("bill") }))
+
+}
+
+const updateAgentInvoiceLogs = async (agencyInvoiceId) => { 
+
+    try {
+        const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId });
+
+        const log = {
+            bo_approve_status: agentBill.bo_approve_status,
+            bo_approve_by: agentBill.bo_approve_by,
+            bo_approve_at: agentBill.bo_approve_at,
+            ho_approve_status: agentBill.ho_approve_status,
+            ho_approve_by: agentBill.ho_approve_by,
+            ho_approve_at: agentBill.ho_approve_at,
+            payment_status: agentBill.payment_status,
+            payment_id: agentBill.payment_id,
+            transaction_id: agentBill.transaction_id,
+            payment_method: agentBill.payment_method,
+        
+            bill: {
+                precurement_expenses: agentBill.bill.precurement_expenses,
+                driage: agentBill.bill.driage,
+                storage_expenses: agentBill.bill.storage_expenses,
+                commission: agentBill.bill.commission,
+                bill_attachement: agentBill.bill.bill_attachement,
+                total: agentBill.bill.total,
+        
+                // bo rejection case
+                bo_reject_by: agentBill.bill.bo_reject_by,
+                bo_reject_at: agentBill.bill.bo_reject_at,
+                bo_reason_to_reject: agentBill.bill.bo_reason_to_reject,
+        
+                // ho rejection case
+                ho_reject_by: agentBill.bill.ho_reject_by,
+                ho_reject_at: agentBill.bill.ho_reject_at,
+                ho_reason_to_reject: agentBill.bill.ho_reason_to_reject
+            },
+            payment_change_remarks: agentBill.payment_change_remarks
+        };
+        
+
+        agentBill.logs.push(log)
+        await agentBill.save()
+        
+    
+    return true
+    } catch (error) {
+        throw error
+    }
 
 }
 
