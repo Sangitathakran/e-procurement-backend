@@ -745,6 +745,95 @@ module.exports.hoBillApproval = async (req, res) => {
   }
 };
 
+module.exports.hoBillRejection = async (req, res) => {
+  try {
+
+    const {agencyInvoiceId, comment} = req.body
+    const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId });
+    if (!agentBill) {
+      return res
+        .status(400)
+        .send(
+          new serviceResponse({
+            status: 400,
+            errors: [{ message: _response_message.notFound("Bill") }],
+          })
+        );
+    }
+
+    await updateAgentInvoiceLogs(agencyInvoiceId)
+
+    agentBill.ho_approve_status = _paymentApproval.rejected;
+    agentBill.ho_approve_by = null;
+    agentBill.ho_approve_at = null;
+
+    agentBill.bill.ho_reject_by = req.user._id
+    agentBill.bill.ho_reject_at = new Date()
+    agentBill.bill.ho_reason_to_reject = comment
+
+    await agentBill.save();
+
+    return res
+      .status(200)
+      .send(
+        new serviceResponse({ status: 200, message: "Bill Approved by HO" })
+      );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+
+const updateAgentInvoiceLogs = async (agencyInvoiceId) => { 
+
+  try {
+      const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId });
+
+      const log = {
+          bo_approve_status: agentBill.bo_approve_status,
+          bo_approve_by: agentBill.bo_approve_by,
+          bo_approve_at: agentBill.bo_approve_at,
+          ho_approve_status: agentBill.ho_approve_status,
+          ho_approve_by: agentBill.ho_approve_by,
+          ho_approve_at: agentBill.ho_approve_at,
+          payment_status: agentBill.payment_status,
+          payment_id: agentBill.payment_id,
+          transaction_id: agentBill.transaction_id,
+          payment_method: agentBill.payment_method,
+      
+          bill: {
+              precurement_expenses: agentBill.bill.precurement_expenses,
+              driage: agentBill.bill.driage,
+              storage_expenses: agentBill.bill.storage_expenses,
+              commission: agentBill.bill.commission,
+              bill_attachement: agentBill.bill.bill_attachement,
+              total: agentBill.bill.total,
+      
+              // bo rejection case
+              bo_reject_by: agentBill.bill.bo_reject_by,
+              bo_reject_at: agentBill.bill.bo_reject_at,
+              bo_reason_to_reject: agentBill.bill.bo_reason_to_reject,
+      
+              // ho rejection case
+              ho_reject_by: agentBill.bill.ho_reject_by,
+              ho_reject_at: agentBill.bill.ho_reject_at,
+              ho_reason_to_reject: agentBill.bill.ho_reason_to_reject
+          },
+          payment_change_remarks: agentBill.payment_change_remarks
+      };
+      
+
+      agentBill.logs.push(log)
+      await agentBill.save()
+      
+  
+  return true
+  } catch (error) {
+      throw error
+  }
+
+}
+
+
 module.exports.editBillHo = async (req, res) => {
   try {
     const agencyInvoiceId = req.params.id;
@@ -825,7 +914,10 @@ module.exports.payFarmers = async (req, res) => {
             batch_id: { $in : batchIds },
             // ho_id: { $in: [portalId, user_id] },
             bo_approve_status: _paymentApproval.approved,
-            ho_approve_status: _paymentApproval.approved
+            ho_approve_status: _paymentApproval.approved,
+
+            // only the unpaid farmers will be paid by this
+            payment_status: { $in : [ _paymentstatus.failed , _paymentstatus.pending ] }
         }
 
         const farmersBill = await Payment.find(query).populate({path:"farmer_id", select:"bank_details"})
@@ -852,7 +944,7 @@ module.exports.payFarmers = async (req, res) => {
             "IFSC Code": agentBill.farmer_id.bank_details.ifsc_code,
             "Account Name": agentBill.farmer_id.bank_details.account_holder_name,
             "Account no": agentBill.farmer_id.bank_details.account_no,
-            "PAYMENT_REF": agentBill._id,
+            "PAYMENT_REF": agentBill._id.toString(),
             "PAYMENT_DETAILS": "",
           };
 
@@ -980,9 +1072,12 @@ module.exports.payAgent = async (req, res) => {
         const user_id = req.user._id
         const query = {
             _id: agencyInvoiceId,
-            ho_id: { $in: [portalId, user_id] },
+            // ho_id: { $in: [portalId, user_id] },
             bo_approve_status: _paymentApproval.approved,
-            ho_approve_status: _paymentApproval.approved
+            ho_approve_status: _paymentApproval.approved,
+
+            // only the unpaid agent bill will be paid by this
+            payment_status: { $in : [ _paymentstatus.failed , _paymentstatus.pending ] }
         }
 
         const agentBill = await AgentInvoice.findOne(query).populate('agent_id')
@@ -1001,7 +1096,7 @@ module.exports.payAgent = async (req, res) => {
                 "IFSC Code": agentBill.agent_id.bank_details.ifsc_code,
                 "Account Name": agentBill.agent_id.bank_details.account_holder_name,
                 "Account no": agentBill.agent_id.bank_details.account_no,
-                "PAYMENT_REF": agentBill._id,
+                "PAYMENT_REF": agentBill._id.toString(),
                 "PAYMENT_DETAILS": "",
             }
         
