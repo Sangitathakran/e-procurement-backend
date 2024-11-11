@@ -69,7 +69,7 @@ async function downloadAgentFile() {
         // INST_DATE: '29-10-24',
         // PRODUCT_CODE: 'NEFT'
       }
-      item.bank_payment_details = [...rowsDetails];
+      item.received_file_details = rowsDetails[0];
       item.file_status = "download";
       await item.save();
     });
@@ -79,64 +79,73 @@ async function downloadFarmerFile() {
   console.log("farmer file download running");
   let fileDetails = await FarmerPaymentFile.find({ file_status: "upload" });
 
-  // console.log(fileDetails)
-  //let fileDetails=[{fileName:"AIZER29102024002.xlsx"}]
   for (let item of fileDetails) {
-    item.fileName = item.fileName;
-    await item.save();
-    let paymentDetails = await Payment.findById(item.payment_id).populate(
-      "farmer_id"
-    );
 
-    const url = `https://testbank.navbazar.com/v1/download-file?fileName=R_${item.fileName}`; // Replace with your URL
+    let rowsDetails = []
 
-    const response = await axios.get(url, {
-      responseType: "stream",
-      headers: {
-        "x-api-key": process.env.API_KEY,
-      },
-    });
-    const filePath = `./src/v1/download/R_${item.fileName}`;
-    const writer = fs.createWriteStream(filePath);
+    for ( let farmer of item.send_file_details ){
 
-    response.data.pipe(writer);
-
-    writer.on("finish", async () => {
-      console.log("File downloaded.");
-      const workbook = xlsx.readFile(filePath);
-      const sheetName = workbook.SheetNames[0];
-      const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
-      console.log(sheetData);
-      let rowsDetails = [];
-      // console.log("item", item);
-      for (let item2 of sheetData) {
-        rowsDetails.push({ ...item2 });
-        if (
-          item2.LIQ_STATUS == "Paid" &&
-          paymentDetails.farmer_id.bank_details.account_no ==
-            item2.BENEF_ACCOUNT_NMBR
-        ) {
-          paymentDetails.payment_status = "Completed";
-          paymentDetails.transaction_id = item2.UTR_SR_NO;
-          await paymentDetails.save();
+      let paymentDetails = await Payment.findById(farmer.payment_id).populate(
+        "farmer_id"
+      );
+  
+      const url = `https://testbank.navbazar.com/v1/download-file?fileName=R_${item.fileName}`; // Replace with your URL
+  
+      const response = await axios.get(url, {
+        responseType: "stream",
+        headers: {
+          "x-api-key": process.env.API_KEY,
+        },
+      });
+      const filePath = `./src/v1/download/R_${item.fileName}`;
+      const writer = fs.createWriteStream(filePath);
+  
+      response.data.pipe(writer);
+  
+      writer.on("finish", async () => {
+        console.log("File downloaded.");
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+        console.log(sheetData);
+        ;
+        // console.log("item", item);
+        for (let item2 of sheetData) {
+          rowsDetails.push({ ...item2 });
+          if (
+            item2.LIQ_STATUS == "Paid" &&
+            paymentDetails.farmer_id.bank_details.account_no ==
+              item2.BENEF_ACCOUNT_NMBR
+          ) {
+            paymentDetails.payment_status = "Completed";
+            paymentDetails.transaction_id = item2.UTR_SR_NO;
+            await paymentDetails.save();
+          }
+          // CORPORATION_CODE: '101923545',
+          // CLIENT_CODE: 'NCCFMAIZER',
+          // ACCOUNT_NMBR: '2244102000000055',
+          // BENEF_ACCOUNT_NMBR: '034301539698',
+          // BENEF_DESCRIPTION: 'MANNAVA SRIKANTH',
+          // INSTRUMENT_AMNT: 1,
+          // PIR_DATE: '29-10-24',
+          // BENE_IFSC_CODE: 'HDFC0000982',
+          // PIR_REFERENCE_NMBR: 'rakhi123',
+          // LIQ_STATUS: 'Paid',
+          // UTR_SR_NO: 'ICMS2410300BZA7T',
+          // INST_DATE: '29-10-24',
+          // PRODUCT_CODE: 'NEFT'
         }
-        // CORPORATION_CODE: '101923545',
-        // CLIENT_CODE: 'NCCFMAIZER',
-        // ACCOUNT_NMBR: '2244102000000055',
-        // BENEF_ACCOUNT_NMBR: '034301539698',
-        // BENEF_DESCRIPTION: 'MANNAVA SRIKANTH',
-        // INSTRUMENT_AMNT: 1,
-        // PIR_DATE: '29-10-24',
-        // BENE_IFSC_CODE: 'HDFC0000982',
-        // PIR_REFERENCE_NMBR: 'rakhi123',
-        // LIQ_STATUS: 'Paid',
-        // UTR_SR_NO: 'ICMS2410300BZA7T',
-        // INST_DATE: '29-10-24',
-        // PRODUCT_CODE: 'NEFT'
-      }
-      item.bank_payment_details = [...rowsDetails];
-      item.file_status = "download";
-      await item.save();
-    });
+      
+      });
+
+    }
+
+    item.received_file_details = rowsDetails;
+    item.file_status = "download";
+    await item.save();
+
+    
   }
 }
+
+

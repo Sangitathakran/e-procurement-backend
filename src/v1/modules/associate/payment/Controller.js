@@ -2,7 +2,7 @@ const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel } = require("@src/v1/
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType, _webSocketEvents } = require('@src/v1/utils/constants');
+const { _userType, _webSocketEvents, _paymentApproval } = require('@src/v1/utils/constants');
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const mongoose = require("mongoose");
@@ -780,4 +780,95 @@ module.exports.updateFarmerBankDetail = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+}
+
+module.exports.editBill = async (req, res) => {
+
+    const { invoiceId, procurement_expenses, driage, storage, commission, bill_attachement, remarks } = req.body;
+
+    const record = await AssociateInvoice.findOne({ _id: invoiceId });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Bill") }] }));
+    }
+
+    const cal_procurement_expenses = parseFloat(procurement_expenses) < 0 ? 0 : parseFloat(parseFloat(procurement_expenses).toFixed(2))
+    const cal_driage = parseFloat(driage) < 0 ? 0 : parseFloat(parseFloat(driage).toFixed(2))
+    const cal_storage = parseFloat(storage) < 0 ? 0 : parseFloat(parseFloat(storage).toFixed(2))
+    const cal_commission = parseFloat(commission) < 0 ? 0 : parseFloat(parseFloat(commission).toFixed(2))
+
+    record.bills.procurementExp = cal_procurement_expenses;
+    record.bills.driage = cal_driage;
+    record.bills.storage_expenses = cal_storage;
+    record.bills.commission = cal_commission;
+    record.bills.total = parseFloat((cal_procurement_expenses + cal_driage + cal_storage + cal_commission).toFixed(2))
+    record.payment_change_remarks = remarks;
+
+    record.agent_approve_status = _paymentApproval.pending
+
+    
+
+    const batch = await Batch.findOne({_id:record.batch_id});
+
+    if (!batch) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Batch') }] }));
+    }
+
+    await updateAssociateLogs(invoiceId)
+
+    batch.agent_approve_status = _paymentApproval.pending
+    batch.ho_approve_status = _paymentApproval.pending
+    batch.bo_approve_status = _paymentApproval.pending
+
+    await batch.save()
+
+    await record.save()
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("bill") }))
+
+}
+
+const updateAssociateLogs = async (invoiceId) => { 
+
+   try {
+    const invoice = await AssociateInvoice.findOne({ _id: invoiceId });
+
+    const log = {
+        bills: {
+            procurementExp: invoice.bills.procurementExp,
+            qc_survey: invoice.bills.qc_survey,
+            gunny_bags: invoice.bills.gunny_bags,
+            weighing_stiching: invoice.bills.weighing_stiching,
+            loading_unloading: invoice.bills.loading_unloading,
+            transportation: invoice.bills.transportation,
+            driage: invoice.bills.driage,
+            storageExp: invoice.bills.storageExp,
+            commission: invoice.bills.commission,
+            total: invoice.bills.total,
+
+            // Rejection case
+            agent_reject_by: invoice.bills.agent_reject_by,
+            agent_reject_at: invoice.bills.agent_reject_at,
+            reason_to_reject: invoice.bills.reason_to_reject 
+        },
+        initiated_at: invoice.initiated_at,
+        agent_approve_status: invoice.agent_approve_status,
+        agent_approve_by: invoice.agent_approve_by,
+        agent_approve_at: invoice.agent_approve_at,
+        payment_status: invoice.payment_status,
+        payment_id: invoice.payment_id,
+        transaction_id: invoice.transaction_id,
+        payment_method: invoice.payment_method,
+        payment_change_remarks: invoice.payment_change_remarks || null
+    };
+
+    invoice.logs.push(log)
+    await invoice.save()
+
+    return true
+    
+   } catch (error) {
+        throw error
+   }
+
 }
