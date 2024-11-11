@@ -1,4 +1,4 @@
-const { sendOtp, loginOrRegister, saveAssociateDetails, onboardingStatus, formPreview, findUserStatus, finalFormSubmit } = require("./Controller")
+const { sendOtp, loginOrRegister, saveAssociateDetails, onboardingStatus, formPreview, findUserStatus, finalFormSubmit, editOnboarding } = require("./Controller")
 const { validateForm } = require("@src/v1/modules/associate/auth/Validation")
 const express = require("express");
 const { verifyAssociate } = require("../utils/verifyAssociate");
@@ -12,5 +12,6 @@ userAuthRoutes.get("/onboarding-status", verifyAssociate, onboardingStatus);
 userAuthRoutes.get("/find-user-status", verifyAssociate, findUserStatus);
 userAuthRoutes.patch("/final-submit", verifyAssociate, finalFormSubmit);
 
+userAuthRoutes.get("/editOnboarding", verifyAssociate, editOnboarding);
 
 module.exports = { userAuthRoutes }; 
