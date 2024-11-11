@@ -2,7 +2,7 @@ const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel } = require("@src/v1/
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType } = require('@src/v1/utils/constants');
+const { _userType, _webSocketEvents, _paymentApproval } = require('@src/v1/utils/constants');
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const mongoose = require("mongoose");
@@ -10,7 +10,7 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { PaymentLogs } = require("@src/v1/models/app/procurement/PaymentLogs");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
-
+const { eventEmitter } = require("@src/v1/utils/websocket/server");
 
 module.exports.payment = async (req, res) => {
 
@@ -702,5 +702,173 @@ module.exports.paymentLogs = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+
+}
+
+module.exports.pendingFarmer = async (req, res) => {
+    
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
+
+        const batchIds = await Batch.find({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 });
+
+        let farmerOrderIdsOnly = {}
+
+        if (batchIds && batchIds.length > 0) {
+            farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
+        } else {
+            console.log('No Farmer found with this batch.');
+        }
+
+        let query = {
+            _id: farmerOrderIdsOnly,
+            payment_status:'pending',
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        const records = { count: 0 };
+
+        records.rows = paginate == 1 ? await FarmerOrders.find(query).select({ _id:0, total_amount:1, FarmerName:1,farmer_id:1}).populate({path:'farmer_id',select:'name bank_details'})
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await FarmerOrders.find(query)
+                .sort(sortBy);
+
+        records.count = await FarmerOrders.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (records) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        }
+        else {
+            return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+
+}
+
+module.exports.updateFarmerBankDetail = async (req, res) => {
+    try {
+        const { user_id } = req;
+        const { farmer_id, account_no, ifsc_code } = req.body;
+
+        const existingRecord = await farmer.findOne({ _id: farmer_id });
+        console.log(existingRecord)
+        if (!existingRecord) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Farmer") }] }))
+        }
+
+        const update = {
+            'bank_details.ifsc_code': ifsc_code,
+            'bank_details.account_no': account_no
+        }
+
+        const updatedFarmer = await farmer.findOneAndUpdate({ _id: farmer_id }, update, { new: true });
+
+        eventEmitter.emit(_webSocketEvents.procurement, { ...updatedFarmer, method: "updated" })
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: updatedFarmer.bank_details, message: _response_message.updated("Bank details") }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.editBill = async (req, res) => {
+
+    const { invoiceId, procurement_expenses, driage, storage, commission, bill_attachement, remarks } = req.body;
+
+    const record = await AssociateInvoice.findOne({ _id: invoiceId });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Bill") }] }));
+    }
+
+    const cal_procurement_expenses = parseFloat(procurement_expenses) < 0 ? 0 : parseFloat(parseFloat(procurement_expenses).toFixed(2))
+    const cal_driage = parseFloat(driage) < 0 ? 0 : parseFloat(parseFloat(driage).toFixed(2))
+    const cal_storage = parseFloat(storage) < 0 ? 0 : parseFloat(parseFloat(storage).toFixed(2))
+    const cal_commission = parseFloat(commission) < 0 ? 0 : parseFloat(parseFloat(commission).toFixed(2))
+
+    record.bills.procurementExp = cal_procurement_expenses;
+    record.bills.driage = cal_driage;
+    record.bills.storage_expenses = cal_storage;
+    record.bills.commission = cal_commission;
+    record.bills.total = parseFloat((cal_procurement_expenses + cal_driage + cal_storage + cal_commission).toFixed(2))
+    record.payment_change_remarks = remarks;
+
+    record.agent_approve_status = _paymentApproval.pending
+
+    
+
+    const batch = await Batch.findOne({_id:record.batch_id});
+
+    if (!batch) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Batch') }] }));
+    }
+
+    await updateAssociateLogs(invoiceId)
+
+    batch.agent_approve_status = _paymentApproval.pending
+    batch.ho_approve_status = _paymentApproval.pending
+    batch.bo_approve_status = _paymentApproval.pending
+
+    await batch.save()
+
+    await record.save()
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("bill") }))
+
+}
+
+const updateAssociateLogs = async (invoiceId) => { 
+
+   try {
+    const invoice = await AssociateInvoice.findOne({ _id: invoiceId });
+
+    const log = {
+        bills: {
+            procurementExp: invoice.bills.procurementExp,
+            qc_survey: invoice.bills.qc_survey,
+            gunny_bags: invoice.bills.gunny_bags,
+            weighing_stiching: invoice.bills.weighing_stiching,
+            loading_unloading: invoice.bills.loading_unloading,
+            transportation: invoice.bills.transportation,
+            driage: invoice.bills.driage,
+            storageExp: invoice.bills.storageExp,
+            commission: invoice.bills.commission,
+            total: invoice.bills.total,
+
+            // Rejection case
+            agent_reject_by: invoice.bills.agent_reject_by,
+            agent_reject_at: invoice.bills.agent_reject_at,
+            reason_to_reject: invoice.bills.reason_to_reject 
+        },
+        initiated_at: invoice.initiated_at,
+        agent_approve_status: invoice.agent_approve_status,
+        agent_approve_by: invoice.agent_approve_by,
+        agent_approve_at: invoice.agent_approve_at,
+        payment_status: invoice.payment_status,
+        payment_id: invoice.payment_id,
+        transaction_id: invoice.transaction_id,
+        payment_method: invoice.payment_method,
+        payment_change_remarks: invoice.payment_change_remarks || null
+    };
+
+    invoice.logs.push(log)
+    await invoice.save()
+
+    return true
+    
+   } catch (error) {
+        throw error
+   }
 
 }

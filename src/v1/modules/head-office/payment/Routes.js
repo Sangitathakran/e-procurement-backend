@@ -18,7 +18,7 @@ paymentRoutes.post("/pay-farmers", payFarmers)
 
 // dileep code 
 
-const { orderList, agencyInvoiceById, hoBillApproval, editBillHo, payAgent } = require("./Controller");
+const { orderList, agencyInvoiceById, hoBillApproval, editBillHo, payAgent, hoBillRejection } = require("./Controller");
 
 
 paymentRoutes.get('/order-list', Auth, orderList)
@@ -26,6 +26,9 @@ paymentRoutes.get("/agency-invoice-byId/:id", Auth, agencyInvoiceById)
 paymentRoutes.put("/bill-approval/:id", Auth, hoBillApproval);
 paymentRoutes.put("/edit-bill/:id", Auth, editBillHo);
 paymentRoutes.get("/pay-agent/:id", Auth, payAgent);
+
+//ho bill rejection case
+paymentRoutes.put("/bill-reject/:id", Auth, hoBillRejection)
 
 
 module.exports = { paymentRoutes }; 

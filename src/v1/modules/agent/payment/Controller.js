@@ -23,16 +23,16 @@ module.exports.payment = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
 
         // let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
-        
+
         const paymentIds = (await Payment.find({})).map(i => i.req_id);
 
         // start of Sangita code
-        
+
         let query = search ? {
             _id: { $in: paymentIds },
             $or: [
                 { "product.name": { $regex: search, $options: 'i' } },
-                { "reqNo": { $regex: search, $options: 'i' } },            
+                { "reqNo": { $regex: search, $options: 'i' } },
                 { "payment_status": { $regex: search, $options: 'i' } }
             ]
         } : {};
@@ -43,7 +43,7 @@ module.exports.payment = async (req, res) => {
             // start of Sangita code
             { $match: query },
             // End of Sangita code 
-            
+
             // { $match: { _id: { $in: paymentIds } } },            
             {
                 $lookup: {
@@ -156,11 +156,11 @@ module.exports.payment = async (req, res) => {
         records.rows = await RequestModel.aggregate(aggregationPipeline);
 
         // records.count = await RequestModel.countDocuments({ _id: { $in: paymentIds } })
-        
+
         // start of Sangita code
-      
+
         records.count = await RequestModel.countDocuments(query)
-         
+
         // End of Sangita code 
 
         if (paginate == 1) {
@@ -296,13 +296,17 @@ module.exports.batchList = async (req, res) => {
         records.rows = paginate == 1 ? await Batch.find(query)
             .sort(sortBy)
             .skip(skip)
-            .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status')
+            .select('_id req_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status')
             .limit(parseInt(limit)) : await Batch.find(query)
                 .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status')
                 .sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
-
+      
+        // start of sangita code        
+        records.reqDetails = await RequestModel.findOne({ _id: records.rows[0]?.req_id })
+        .select({ _id: 0, reqNo: 1, product: 1, quotedPrice: 1, deliveryDate: 1, expectedProcurementDate: 1, fulfilledQty:1, totalQuantity:1, status: 1 });
+        // end of sangita code
 
         if (paginate == 1) {
             records.page = page
@@ -622,7 +626,7 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
                     "amountProposed": 1,
                     "amountPayable": 1,
                     "paymentStatus": 1,
-                    "offeredQty" : 1
+                    "offeredQty": 1
                 }
             },
             // Start of Sangita code
@@ -770,7 +774,7 @@ module.exports.proceedToPayAssociateOrders = async (req, res) => {
                     "amountProposed": 1,
                     "amountPayable": 1,
                     "paymentStatus": 1,
-                    "procuredQty" : 1
+                    "procuredQty": 1
                 }
             },
             // Start of Sangita code
@@ -933,7 +937,6 @@ module.exports.AssociateTabBatchList = async (req, res) => {
             // End of Sangita code
 
         ]
-
 
         records.rows = await Batch.aggregate(pipeline);
 
@@ -1284,6 +1287,24 @@ module.exports.associateBillApprove = async (req, res) => {
         const { batchIds = [] } = req.body;
         const { portalId } = req;
 
+        // Start of Sangita code
+
+        const batchQuery = {
+            _id: { $in: batchIds },
+            $or: [
+                { "bo_approve_status": _paymentApproval.pending },
+                { "ho_approve_status": _paymentApproval.pending },
+            ]
+        };
+
+        const batchApprovalStatus = await Batch.find(batchQuery);
+
+        if (batchApprovalStatus.length > 0) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notApproved("Payment") }] }));
+        }
+
+        //End of sangita code
+
         const query = { batch_id: { $in: batchIds } };
 
         const invoiceRecord = await AssociateInvoice.find(query);
@@ -1293,6 +1314,102 @@ module.exports.associateBillApprove = async (req, res) => {
         }
 
         const record = await AssociateInvoice.updateMany(query, { $set: { agent_approve_status: _paymentApproval.approved, agent_approve_by: portalId, agent_approve_at: new Date() } });
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("invoice") }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+const updateAssociateLogs = async (batchIds) => { 
+
+    const invoiceRecord = await AssociateInvoice.find({ batch_id: { $in: fetchedBatchIds } });
+    const updatedLogs = await Promise.all(invoiceRecord.map(async(invoice)=> { 
+
+        let log = {
+            bills: {
+                procurementExp: invoice.bills.procurementExp,
+                qc_survey: invoice.bills.qc_survey,
+                gunny_bags: invoice.bills.gunny_bags,
+                weighing_stiching: invoice.bills.weighing_stiching,
+                loading_unloading: invoice.bills.loading_unloading,
+                transportation: invoice.bills.transportation,
+                driage: invoice.bills.driage,
+                storageExp: invoice.bills.storageExp,
+                commission: invoice.bills.commission,
+                total: invoice.bills.total,
+    
+                // Rejection case
+                agent_reject_by: invoice.bills.agent_reject_by || null,
+                agent_reject_at: invoice.bills.agent_reject_at || null ,
+                reason_to_reject: invoice.bills.reason_to_reject || null
+            },
+            payment_change_remarks:invoice.payment_change_remarks || null,
+            initiated_at: invoice.initiated_at,
+            agent_approve_status: invoice.agent_approve_status,
+            agent_approve_by: invoice.agent_approve_by,
+            agent_approve_at: invoice.agent_approve_at,
+            payment_status: invoice.payment_status,
+            payment_id: invoice.payment_id,
+            transaction_id: invoice.transaction_id,
+            payment_method: invoice.payment_method
+        };
+
+        invoice.logs.push(log)
+        await invoice.save()
+        
+    }))
+    
+    return true
+
+}
+
+module.exports.associateBillReject = async (req, res) => {
+
+    try {
+
+        const { batchIds = [], comment = "No reject reason given" } = req.body;
+        const { portalId , user } = req;
+
+        const batchQuery = {_id: { $in: batchIds }}
+
+        const batchList = await Batch.find(batchQuery);
+
+        if (batchList.length < 0) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Batch') }] }));
+        }
+
+        const fetchedBatchIds = batchList.map(item=>item._id)
+
+        const query = { batch_id: { $in: fetchedBatchIds } };
+
+        const invoiceRecord = await AssociateInvoice.find(query);
+
+        if (invoiceRecord.length != batchIds.length) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("invoice") }] }));
+        }
+
+        // update logs with current bill and approval statuses 
+        await updateAssociateLogs(batchIds)
+
+        const record = await AssociateInvoice.updateMany(query, { $set: { agent_approve_status: _paymentApproval.rejected, 
+                                                                            agent_approve_by: null, 
+                                                                            agent_approve_at: null,
+                                                                            
+                                                                            "bills.agent_reject_by":user._id,
+                                                                            "bills.agent_reject_at": new Date(),
+                                                                            "bills.reason_to_reject": comment      
+
+                                                                        } });
+
+        const batchRejected = await Batch.updateMany(
+            {_id: { $in: fetchedBatchIds } },
+            { $set: { agent_approve_status: _paymentApproval.rejected, 
+            agent_approve_by: null, 
+            agent_approve_at: null,    
+
+        } });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("invoice") }))
 
@@ -1360,15 +1477,70 @@ module.exports.editBill = async (req, res) => {
 
     record.bill.precurement_expenses = cal_procurement_expenses;
     record.bill.driage = cal_driage;
-    record.bill.storage_expenses = cal_storage ;
-    record.bill.commission = cal_commission ;
+    record.bill.storage_expenses = cal_storage;
+    record.bill.commission = cal_commission;
     record.bill.bill_attachement = bill_attachement;
-    record.bill.total = parseFloat( (cal_procurement_expenses + cal_driage + cal_storage + cal_commission).toFixed(2) )
+    record.bill.total = parseFloat((cal_procurement_expenses + cal_driage + cal_storage + cal_commission).toFixed(2))
     record.payment_change_remarks = remarks;
+
+    record.bo_approve_status = _paymentApproval.pending
+    record.ho_approve_status = _paymentApproval.pending
+
+    await updateAgentInvoiceLogs(id)
 
     await record.save();
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("bill") }))
+
+}
+
+const updateAgentInvoiceLogs = async (agencyInvoiceId) => { 
+
+    try {
+        const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId });
+
+        const log = {
+            bo_approve_status: agentBill.bo_approve_status,
+            bo_approve_by: agentBill.bo_approve_by,
+            bo_approve_at: agentBill.bo_approve_at,
+            ho_approve_status: agentBill.ho_approve_status,
+            ho_approve_by: agentBill.ho_approve_by,
+            ho_approve_at: agentBill.ho_approve_at,
+            payment_status: agentBill.payment_status,
+            payment_id: agentBill.payment_id,
+            transaction_id: agentBill.transaction_id,
+            payment_method: agentBill.payment_method,
+        
+            bill: {
+                precurement_expenses: agentBill.bill.precurement_expenses,
+                driage: agentBill.bill.driage,
+                storage_expenses: agentBill.bill.storage_expenses,
+                commission: agentBill.bill.commission,
+                bill_attachement: agentBill.bill.bill_attachement,
+                total: agentBill.bill.total,
+        
+                // bo rejection case
+                bo_reject_by: agentBill.bill.bo_reject_by,
+                bo_reject_at: agentBill.bill.bo_reject_at,
+                bo_reason_to_reject: agentBill.bill.bo_reason_to_reject,
+        
+                // ho rejection case
+                ho_reject_by: agentBill.bill.ho_reject_by,
+                ho_reject_at: agentBill.bill.ho_reject_at,
+                ho_reason_to_reject: agentBill.bill.ho_reason_to_reject
+            },
+            payment_change_remarks: agentBill.payment_change_remarks
+        };
+        
+
+        agentBill.logs.push(log)
+        await agentBill.save()
+        
+    
+    return true
+    } catch (error) {
+        throw error
+    }
 
 }
 
@@ -1387,6 +1559,27 @@ module.exports.getBillProceedToPay = async (req, res) => {
 
         return res.status(200).send(new serviceResponse({ status: 200, data: billPayment, message: _response_message.found("bill") }))
 
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+
+}
+
+
+module.exports.agencyBill = async (req, res) => {
+
+    try {
+        const { id } = req.query;
+
+        const billPayment = await AgentInvoice.findOne({ _id: id }).select({ bill:1})
+            .populate({ path: "req_id", select: "reqNo product quotedPrice deliveryDate status" })
+
+        if (!billPayment) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("bill") }] }))
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: billPayment, message: _response_message.found("bill") }))
 
     } catch (error) {
         _handleCatchErrors(error, res);

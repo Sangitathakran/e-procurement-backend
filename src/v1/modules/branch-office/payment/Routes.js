@@ -1,5 +1,5 @@
 const express = require("express");
-const { payment, associateOrders, batchList, batchApprove, qcReport, paymentApprove, getBill, lot_list, agentPaymentList, agentBill} = require("./Controller");
+const { payment, associateOrders, batchList, batchApprove, qcReport, paymentApprove, getBill, lot_list, agentPaymentList, agentBill, boBillRejection} = require("./Controller");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
 const paymentRoutes = express.Router();
@@ -24,6 +24,9 @@ const { orderList , agencyInvoiceById, boBillApproval } = require("./Controller"
 paymentRoutes.get('/order-list' ,Auth, orderList)
 paymentRoutes.get('/agency-invoice-byId/:id' ,Auth, agencyInvoiceById)
 paymentRoutes.put("/bill-approval/:id",Auth, boBillApproval);
+
+// agent bill rejection case 
+paymentRoutes.put("/bill-reject/:id", Auth, boBillRejection)
 
 
 module.exports = { paymentRoutes }; 
