@@ -179,9 +179,11 @@ module.exports.editTrackDelivery = async (req, res) => {
                 }
 
                 if (material_img && weight_slip && procurementExp && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && storageExp && commission && qc_report && lab_report) {
-                    const RateOfProcurement = 840.00;
-                    const RateOfDriage = 100.00;
+                    // const RateOfProcurement = 840.00;
+                    // const RateOfDriage = 100.00;
                     const RateOfStorage = 160.00;
+                    const RateOfProcurement = 890.00;
+                    const RateOfDriage = 200.00;
 
                     const sumOfqty = record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + handleDecimal(currentValue.qty), 0);
 
