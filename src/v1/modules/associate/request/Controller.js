@@ -1,4 +1,4 @@
-const { _handleCatchErrors, _generateOrderNumber, _addDays } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, _generateOrderNumber, _addDays, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
@@ -217,13 +217,13 @@ module.exports.associateOffer = async (req, res) => {
 
         const sumOfFarmerQty = farmer_data.reduce((acc, curr) => {
 
-            acc = acc + parseInt(curr.qty);
+            acc = acc + handleDecimal(curr.qty);
 
-            return parseInt(acc);
+            return handleDecimal(acc);
 
         }, 0);
 
-        if (sumOfFarmerQty != parseInt(qtyOffered)) {
+        if (sumOfFarmerQty != handleDecimal(qtyOffered)) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "please check details! quantity mismatched" }] }))
         }
 
@@ -707,7 +707,7 @@ module.exports.editFarmerOffer = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }))
         }
 
-        if (record.handleDecimal(offeredQty) < handleDecimal(qtyProcured)) {
+        if (record.offeredQty < handleDecimal(qtyProcured)) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "quantity procured should be less than available quantity" }] }));
         }
 
