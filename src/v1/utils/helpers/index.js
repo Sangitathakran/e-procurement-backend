@@ -410,3 +410,8 @@ exports.calculateAge = (birthdate) => {
   return age;
 }
 
+exports.handleDecimal = (value) => {
+  return parseFloat(value) < 0 ? 0 : parseFloat(parseFloat(value).toFixed(3));
+}
+
+

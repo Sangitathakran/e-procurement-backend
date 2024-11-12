@@ -1,4 +1,4 @@
-const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
@@ -1470,29 +1470,29 @@ module.exports.editBill = async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("payment") }] }));
     }
 
-    const cal_procurement_expenses = parseFloat(procurement_expenses) < 0 ? 0 : parseFloat(parseFloat(procurement_expenses).toFixed(2))
-    const cal_driage = parseFloat(driage) < 0 ? 0 : parseFloat(parseFloat(driage).toFixed(2))
-    const cal_storage = parseFloat(storage) < 0 ? 0 : parseFloat(parseFloat(storage).toFixed(2))
-    const cal_commission = parseFloat(commission) < 0 ? 0 : parseFloat(parseFloat(commission).toFixed(2))
+    const cal_procurement_expenses = handleDecimal(procurement_expenses);
+    const cal_driage = handleDecimal(driage);
+    const cal_storage = handleDecimal(storage);
+    const cal_commission = handleDecimal(commission);
 
-    record.bill.precurement_expenses = cal_procurement_expenses;
+    record.bill.procurement_expenses = cal_procurement_expenses;
     record.bill.driage = cal_driage;
     record.bill.storage_expenses = cal_storage;
     record.bill.commission = cal_commission;
     record.bill.bill_attachement = bill_attachement;
-    record.bill.total = parseFloat((cal_procurement_expenses + cal_driage + cal_storage + cal_commission).toFixed(2))
+    record.bill.total = handleDecimal(cal_procurement_expenses + cal_driage + cal_storage + cal_commission);
     record.payment_change_remarks = remarks;
 
-    record.bo_approve_status = _paymentApproval.pending
-    record.ho_approve_status = _paymentApproval.pending
+    record.bo_approve_status = _paymentApproval.pending;
+    record.ho_approve_status = _paymentApproval.pending;
 
-    await updateAgentInvoiceLogs(id)
+    await updateAgentInvoiceLogs(id);
 
     await record.save();
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("bill") }))
-
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("bill") }));
 }
+
 
 const updateAgentInvoiceLogs = async (agencyInvoiceId) => { 
 

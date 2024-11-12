@@ -1,4 +1,4 @@
-const { _handleCatchErrors, _generateOrderNumber, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, _generateOrderNumber, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
@@ -37,14 +37,18 @@ module.exports.batch = async (req, res) => {
             return acc;
         }, 0);
 
-        if (sumOfQty > truck_capacity) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "quantity should not exceeds truck capacity" }] }))
+        // Apply handleDecimal to sumOfQty and truck_capacity if needed
+        const sumOfQtyDecimal = handleDecimal(sumOfQty);
+        const truckCapacityDecimal = handleDecimal(truck_capacity);
+
+        if (sumOfQtyDecimal > truckCapacityDecimal) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "quantity should not exceed truck capacity" }] }))
         }
 
         //////////////// Start of Sangita code
 
-        if (sumOfQty > record.offeredQty) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceeds offered Qty." }] }))
+        if (sumOfQtyDecimal > record.offeredQty) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceed offered Qty." }] }))
         }
 
         const existBatch = await Batch.find({ seller_id: user_id, req_id, associateOffer_id: record._id });
@@ -52,20 +56,20 @@ module.exports.batch = async (req, res) => {
             const addedQty = existBatch.reduce((sum, existBatch) => sum + existBatch.qty, 0);
 
             if (addedQty >= record.offeredQty) {
-                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Can not create more Batch, Offered qty already fulfilled." }] }))
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Cannot create more Batch, Offered qty already fulfilled." }] }))
             }
         }
 
         //////////////// End of Sangita code
 
         const farmerOrderIds = [];
-        let partiallyFulfulled = 0
+        let partiallyFulfilled = 0;
         let procurementCenter_id;
 
         for (let farmer of farmerData) {
 
             const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).lean();
-            
+
             // farmer order exist or not 
             if (!farmerOrder) {
                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer order") }] }));
@@ -80,56 +84,60 @@ module.exports.batch = async (req, res) => {
             if (!procurementCenter_id) {
                 procurementCenter_id = farmerOrder?.procurementCenter_id.toString();
             } else if (procurementCenter_id && procurementCenter_id != farmerOrder.procurementCenter_id.toString()) {
-                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "procurement center should be same for all the orders" }] }))
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "procurement center should be the same for all the orders" }] }))
             }
 
-            //qty should not exceed from qty procured 
+            // qty should not exceed from qty procured 
             if (farmerOrder?.qtyProcured < farmer.qty) {
                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "added quantity should not exceed quantity procured" }] }));
             }
-            // is the order full fill partially 
+            // is the order full filled partially 
             if ((farmerOrder?.qtyProcured - farmer.qty) > 0) {
-                partiallyFulfulled = 1
+                partiallyFulfilled = 1;
             }
-            farmer.amt = (farmer.qty * procurementRecord?.quotedPrice)
+
+            // Apply handleDecimal to amt for each farmer
+            farmer.amt = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
             farmerOrderIds.push(farmer.farmerOrder_id);
 
-            // Start of Sangita code            
             // Update the quantity remaining
             await FarmerOrders.updateOne(
                 { _id: farmer.farmerOrder_id },
                 { $set: { qtyRemaining: farmerOrder.qtyProcured - farmer.qty } }
             );
-
-            // End of Sangita code
-
         }
 
-        // given farmer's order should be in in received state
+        // given farmer's order should be in received state
         const farmerRecords = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $in: farmerOrderIds } });
         if (farmerRecords)
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
 
-
-        // update status based on fullfilment 
+        // update status based on fulfillment 
         const farmerRecordsPending = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $nin: farmerOrderIds } });
-        record.status = (farmerRecordsPending || partiallyFulfulled == 1) ? _associateOfferStatus.partially_ordered : _associateOfferStatus.ordered
-        // TODO:check assocaite order
-        //create unique batch Number 
+        record.status = (farmerRecordsPending || partiallyFulfilled == 1) ? _associateOfferStatus.partially_ordered : _associateOfferStatus.ordered;
+
+        // create unique batch Number 
         let batchId, isUnique = false;
         while (!isUnique) {
             batchId = _generateOrderNumber();
             if (!(await Batch.findOne({ batchId: batchId }))) isUnique = true;
         }
 
-        const batchCreated = await Batch.create({ seller_id: user_id, req_id, associateOffer_id: record._id, batchId, farmerOrderIds: farmerData, procurementCenter_id, qty: sumOfQty, goodsPrice: (sumOfQty * procurementRecord?.quotedPrice), totalPrice: (sumOfQty * procurementRecord?.quotedPrice) })
+        const batchCreated = await Batch.create({
+            seller_id: user_id,
+            req_id,
+            associateOffer_id: record._id,
+            batchId,
+            farmerOrderIds: farmerData,
+            procurementCenter_id,
+            qty: handleDecimal(sumOfQtyDecimal),  // Apply handleDecimal here
+            goodsPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice), // Apply handleDecimal here
+            totalPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice) // Apply handleDecimal here
+        });
 
-
-
-
-        procurementRecord.associatOrder_id.push(record._id)
+        procurementRecord.associatOrder_id.push(record._id);
         await record.save();
-        await procurementRecord.save()
+        await procurementRecord.save();
 
         const users = await User.find({
             'basic_details.associate_details.email': { $exists: true }
@@ -147,7 +155,8 @@ module.exports.batch = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
+
 
 
 module.exports.editTrackDelivery = async (req, res) => {
@@ -170,39 +179,38 @@ module.exports.editTrackDelivery = async (req, res) => {
                 }
 
                 if (material_img && weight_slip && procurementExp && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && storageExp && commission && qc_report && lab_report) {
-                    const RateOfProcurement = 840.00
-                    const RateOfDriage = 100.00
-                    const RateOfStorage = 160.00
+                    const RateOfProcurement = 840.00;
+                    const RateOfDriage = 100.00;
+                    const RateOfStorage = 160.00;
 
-                    const sumOfqty = record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + parseFloat(currentValue.qty),
-                        0)
+                    const sumOfqty = record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + handleDecimal(currentValue.qty), 0);
 
-                    if (parseFloat(procurementExp) > (sumOfqty * RateOfProcurement)) {
-                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Procurement Expenses should be less that ${(sumOfqty * RateOfProcurement)}` }] }));
-                    } else if (parseFloat(driage) > (sumOfqty * RateOfDriage)) {
-                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Driage Expenses should be less that ${(sumOfqty * RateOfDriage)}` }] }));
-                    } else if (parseFloat(storageExp) > (sumOfqty * RateOfStorage)) {
-                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Storage Expenses should be less that ${(sumOfqty * RateOfStorage)}` }] }));
+                    if (handleDecimal(procurementExp) > (sumOfqty * RateOfProcurement)) {
+                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Procurement Expenses should be less than ${(sumOfqty * RateOfProcurement)}` }] }));
+                    } else if (handleDecimal(driage) > (sumOfqty * RateOfDriage)) {
+                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Driage Expenses should be less than ${(sumOfqty * RateOfDriage)}` }] }));
+                    } else if (handleDecimal(storageExp) > (sumOfqty * RateOfStorage)) {
+                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Storage Expenses should be less than ${(sumOfqty * RateOfStorage)}` }] }));
                     }
 
                     record.dispatched.material_img.inital.push(...material_img.map(i => { return { img: i, on: moment() } }));
                     record.dispatched.weight_slip.inital.push(...weight_slip.map(i => { return { img: i, on: moment() } }));
-                    record.dispatched.bills.procurementExp = procurementExp;
+                    record.dispatched.bills.procurementExp = handleDecimal(procurementExp);
                     record.dispatched.bills.qc_survey = qc_survey;
                     record.dispatched.bills.gunny_bags = gunny_bags;
                     record.dispatched.bills.weighing_stiching = weighing_stiching;
                     record.dispatched.bills.loading_unloading = loading_unloading;
                     record.dispatched.bills.transportation = transportation;
-                    record.dispatched.bills.driage = driage;
-                    record.dispatched.bills.storageExp = storageExp;
-                    record.dispatched.bills.commission = parseFloat((parseFloat(procurementExp) + parseFloat(driage) + parseFloat(storageExp)) * 0.005);
-                    record.dispatched.bills.total = parseInt(procurementExp) + parseInt(driage) + parseInt(storageExp) + parseInt((parseFloat(procurementExp) + parseFloat(driage) + parseFloat(storageExp)) * 0.005);
+                    record.dispatched.bills.driage = handleDecimal(driage);
+                    record.dispatched.bills.storageExp = handleDecimal(storageExp);
+                    record.dispatched.bills.commission = handleDecimal((handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp)) * 0.005);
+                    record.dispatched.bills.total = handleDecimal(parseInt(procurementExp) + parseInt(driage) + parseInt(storageExp) + parseInt((handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp)) * 0.005));
                     record.dispatched.qc_report.inital.push(...qc_report.map(i => { return { img: i, on: moment() } }));
                     record.dispatched.lab_report.inital.push(...lab_report.map(i => { return { img: i, on: moment() } }));
                     record.dispatched.dispatched_at = new Date();
                     record.dispatched.dispatched_by = user_id;
 
-                    record.status = _batchStatus.mark_ready
+                    record.status = _batchStatus.mark_ready;
                 } else {
                     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
                 }
@@ -216,7 +224,7 @@ module.exports.editTrackDelivery = async (req, res) => {
 
                 if (name && contact && license && aadhar && licenseImg && service_name && vehicleNo && vehicle_weight && loaded_weight && gst_number && pan_number && intransit_weight_slip && no_of_bags && weight) {
 
-                    const reqRec = await RequestModel.findOne({ _id: record?.req_id })
+                    const reqRec = await RequestModel.findOne({ _id: record?.req_id });
                     record.intransit.driver.name = name;
                     record.intransit.driver.contact = contact;
                     record.intransit.driver.license = license;
@@ -225,20 +233,20 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.intransit.licenseImg = licenseImg;
                     record.intransit.transport.service_name = service_name;
                     record.intransit.transport.vehicleNo = vehicleNo;
-                    record.intransit.transport.vehicle_weight = vehicle_weight;
-                    record.intransit.transport.loaded_weight = loaded_weight;
+                    record.intransit.transport.vehicle_weight = handleDecimal(vehicle_weight);
+                    record.intransit.transport.loaded_weight = handleDecimal(loaded_weight);
                     record.intransit.transport.gst_number = gst_number;
                     record.intransit.transport.pan_number = pan_number;
 
                     record.intransit.weight_slip = intransit_weight_slip;
                     record.intransit.no_of_bags = no_of_bags;
-                    record.intransit.weight = weight;
+                    record.intransit.weight = handleDecimal(weight);
                     record.intransit.intransit_at = new Date();
                     record.intransit.intransit_by = user_id;
 
                     record.status = _batchStatus.intransit;
 
-                    const associateInvoice = await AssociateInvoice.findOne({ batch_id: record?._id })
+                    const associateInvoice = await AssociateInvoice.findOne({ batch_id: record?._id });
                     if (reqRec && !associateInvoice) {
                         await AssociateInvoice.create({
                             req_id: reqRec?._id,
@@ -246,13 +254,13 @@ module.exports.editTrackDelivery = async (req, res) => {
                             bo_id: reqRec?.branch_id,
                             associate_id: user_id,
                             batch_id: record?._id,
-                            qtyProcured: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + parseFloat(currentValue.qty), 0),
-                            goodsPrice: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + parseFloat(currentValue.qty), 0),
+                            qtyProcured: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + handleDecimal(currentValue.qty), 0),
+                            goodsPrice: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + handleDecimal(currentValue.qty), 0),
                             initiated_at: new Date(),
                             bills: record?.dispatched?.bills,
                             associateOffer_id: record?.associateOffer_id,
 
-                        })
+                        });
                     }
 
                     const associate_id = record.seller_id;
@@ -285,11 +293,11 @@ module.exports.editTrackDelivery = async (req, res) => {
         await record.save();
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("batch") }));
 
-
     } catch (error) {
         _handleCatchErrors(error, res);
     }
 }
+
 
 
 module.exports.viewTrackDelivery = async (req, res) => {
