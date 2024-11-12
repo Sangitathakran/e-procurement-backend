@@ -306,3 +306,22 @@ module.exports.finalFormSubmit = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+module.exports.editOnboarding = async (req, res) => {
+    try {
+        const { user_id } = req;
+        if (!user_id) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
+        }
+       
+        const response = await User.findById({ _id: user_id });
+        
+        if (!response) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
