@@ -518,7 +518,6 @@ module.exports.createFarmer = async (req, res) => {
     });
 
     const savedFarmer = await newFarmer.save();
-
     return res.status(200).send(new serviceResponse({
       status: 201,
       data: savedFarmer,
