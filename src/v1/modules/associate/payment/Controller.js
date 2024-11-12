@@ -792,16 +792,22 @@ module.exports.editBill = async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Bill") }] }));
     }
 
-    const cal_procurement_expenses = parseFloat(procurement_expenses) < 0 ? 0 : parseFloat(parseFloat(procurement_expenses).toFixed(2))
-    const cal_driage = parseFloat(driage) < 0 ? 0 : parseFloat(parseFloat(driage).toFixed(2))
-    const cal_storage = parseFloat(storage) < 0 ? 0 : parseFloat(parseFloat(storage).toFixed(2))
-    const cal_commission = parseFloat(commission) < 0 ? 0 : parseFloat(parseFloat(commission).toFixed(2))
+    // const cal_procurement_expenses = parseFloat(procurement_expenses) < 0 ? 0 : parseFloat(parseFloat(procurement_expenses).toFixed(2))
+    // const cal_driage = parseFloat(driage) < 0 ? 0 : parseFloat(parseFloat(driage).toFixed(2))
+    // const cal_storage = parseFloat(storage) < 0 ? 0 : parseFloat(parseFloat(storage).toFixed(2))
+    // const cal_commission = parseFloat(commission) < 0 ? 0 : parseFloat(parseFloat(commission).toFixed(2))
+
+    const cal_procurement_expenses = handleDecimal(procurement_expenses)
+    const cal_driage = handleDecimal(driage)
+    const cal_storage = handleDecimal(storage)
+    const cal_commission = handleDecimal(commission)
+    const total = handleDecimal(cal_procurement_expenses + cal_driage + cal_storage + cal_commission)
 
     record.bills.procurementExp = cal_procurement_expenses;
     record.bills.driage = cal_driage;
     record.bills.storage_expenses = cal_storage;
     record.bills.commission = cal_commission;
-    record.bills.total = parseFloat((cal_procurement_expenses + cal_driage + cal_storage + cal_commission).toFixed(2))
+    record.bills.total = total;
     record.payment_change_remarks = remarks;
 
     record.agent_approve_status = _paymentApproval.pending
@@ -835,16 +841,16 @@ const updateAssociateLogs = async (invoiceId) => {
 
     const log = {
         bills: {
-            procurementExp: invoice.bills.procurementExp,
+            procurementExp: handleDecimal(invoice.bills.procurementExp),
             qc_survey: invoice.bills.qc_survey,
             gunny_bags: invoice.bills.gunny_bags,
             weighing_stiching: invoice.bills.weighing_stiching,
             loading_unloading: invoice.bills.loading_unloading,
             transportation: invoice.bills.transportation,
-            driage: invoice.bills.driage,
-            storageExp: invoice.bills.storageExp,
-            commission: invoice.bills.commission,
-            total: invoice.bills.total,
+            driage: handleDecimal(invoice.bills.driage),
+            storageExp: handleDecimal(invoice.bills.storageExp),
+            commission: handleDecimal(invoice.bills.commission),
+            total: handleDecimal(invoice.bills.total),
 
             // Rejection case
             agent_reject_by: invoice.bills.agent_reject_by,

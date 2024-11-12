@@ -1249,15 +1249,21 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
                 acc.batch_id.push(curr.batch_id);
             }
 
-            acc.qtyProcured += parseInt(curr.qtyProcured);
+            // acc.qtyProcured += parseInt(curr.qtyProcured);
+            // acc.goodsPrice += parseInt(curr.goodsPrice);
+            // acc.bill.precurement_expenses += parseInt(curr.bills.procurementExp);
+            // acc.bill.driage += parseInt(curr.bills.driage);
+            // acc.bill.storage_expenses += parseInt(curr.bills.storageExp);
+            // acc.bill.commission += parseInt(curr.bills.commission);
+            // acc.bill.total += parseInt(curr.bills.total);
 
-            acc.goodsPrice += parseInt(curr.goodsPrice);
-
-            acc.bill.precurement_expenses += parseInt(curr.bills.procurementExp);
-            acc.bill.driage += parseInt(curr.bills.driage);
-            acc.bill.storage_expenses += parseInt(curr.bills.storageExp);
-            acc.bill.commission += parseInt(curr.bills.commission);
-            acc.bill.total += parseInt(curr.bills.total);
+            acc.qtyProcured += handleDecimal(curr.qtyProcured);
+            acc.goodsPrice += handleDecimal(curr.goodsPrice);
+            acc.bill.precurement_expenses += handleDecimal(curr.bills.procurementExp);
+            acc.bill.driage += handleDecimal(curr.bills.driage);
+            acc.bill.storage_expenses += handleDecimal(curr.bills.storageExp);
+            acc.bill.commission += handleDecimal(curr.bills.commission);
+            acc.bill.total += handleDecimal(curr.bills.total);
 
             acc.agent_id = req.user.portalId._id
 
@@ -1474,8 +1480,9 @@ module.exports.editBill = async (req, res) => {
     const cal_driage = handleDecimal(driage);
     const cal_storage = handleDecimal(storage);
     const cal_commission = handleDecimal(commission);
-
-    record.bill.procurement_expenses = cal_procurement_expenses;
+   
+    
+    record.bill.precurement_expenses = cal_procurement_expenses;
     record.bill.driage = cal_driage;
     record.bill.storage_expenses = cal_storage;
     record.bill.commission = cal_commission;

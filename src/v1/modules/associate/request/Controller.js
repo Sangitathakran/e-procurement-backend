@@ -174,7 +174,7 @@ module.exports.updateProcurement = async (req, res) => {
         }
 
         const update = {
-            quotedPrice,
+            quotedPrice: handleDecimal(quotedPrice),
             deliveryDate: delivery_date,
             product: { name, category, grade, variety, quantity },
             address: { deliveryLocation, lat, long },
@@ -707,12 +707,12 @@ module.exports.editFarmerOffer = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }))
         }
 
-        if (record.offeredQty < qtyProcured) {
+        if (record.handleDecimal(offeredQty) < handleDecimal(qtyProcured)) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "quantity procured should be less than available quantity" }] }));
         }
 
         record.receving_date = receving_date;
-        record.qtyProcured = qtyProcured;
+        record.qtyProcured = handleDecimal(qtyProcured);
         record.procurementCenter_id = procurementCenter_id;
         record.weighbridge_name = weighbridge_name;
         record.weighbridge_no = weighbridge_no;
@@ -725,7 +725,7 @@ module.exports.editFarmerOffer = async (req, res) => {
 
         // Start of Sangita code
 
-        record.qtyRemaining = qtyProcured;
+        record.qtyRemaining = handleDecimal(qtyProcured);
 
         // End of Sangita code
 
@@ -733,7 +733,7 @@ module.exports.editFarmerOffer = async (req, res) => {
 
         if (status == _procuredStatus.received) {
             const associateOfferRecord = await AssociateOffers.findOne({ _id: record?.associateOffers_id });
-            associateOfferRecord.procuredQty += qtyProcured;
+            associateOfferRecord.procuredQty += handleDecimal(qtyProcured);
             await associateOfferRecord.save();
 
         }
