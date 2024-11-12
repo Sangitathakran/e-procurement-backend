@@ -10,7 +10,9 @@ const AgentInvoiceSchema = new mongoose.Schema({
     batch_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch, required: true }],
     qtyProcured: { type: String, required: true },
     goodsPrice: { type: Number, required: true },
+    
     initiated_at: { type: Date, default: null },
+
     bo_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
     bo_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
     bo_approve_at: { type: Date, default: null },
@@ -21,14 +23,25 @@ const AgentInvoiceSchema = new mongoose.Schema({
     payment_id: { type: String, default: null },
     transaction_id: { type: String, default: null },
     payment_method: { type: String, default: null, enum: Object.values(_paymentmethod) },
-    bankfileLastNumber: { type: Number, default: 0 },
+
     bill: {
         precurement_expenses: { type: Number, required: true },
         driage: { type: Number, required: true },
         storage_expenses: { type: Number, required: true },
         commission: { type: Number, required: true },
         bill_attachement: { type: String },
-        total: { type: Number, required: true }
+        total: { type: Number, required: true },
+
+        // bo rejection case
+        bo_reject_by: { type: mongoose.Schema.Types.ObjectId, default: null },
+        bo_reject_at: { type: Date, default: null },
+        bo_reason_to_reject: { type: String, default: null },
+
+        // ho rejection case
+        ho_reject_by: { type: mongoose.Schema.Types.ObjectId, default: null },
+        ho_reject_at: { type: Date, default: null },
+        ho_reason_to_reject: { type: String, default: null }
+
     },
     payment_change_remarks: { type: String },
     logs: {

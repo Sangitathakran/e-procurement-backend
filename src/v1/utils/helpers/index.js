@@ -12,7 +12,7 @@ const { ObjectId } = require('mongodb');
 const ExcelJS = require('exceljs');
 const { Console } = require("console");
 const PDFDocument = require('pdfkit');
-
+const FileCounter = require("@src/v1/models/app/payment/fileCounter");
 /**
  * 
  * @param {any} error 
@@ -97,54 +97,42 @@ exports.dumpJSONToExcel = (req, res, config = {
 
 // start to sangita code
 
-
 exports.dumpJSONToPdf = (req, res, config = {
   data: [],
   fileName: 'Default.pdf',
   sheetName: 'Sheet1',
 }) => {
-  try {
-    const { billPayment, fileName, sheetName } = config;
 
-    // Create a new PDF document
-    const doc = new PDFDocument();
+  const { data, fileName, sheetName } = config;
 
-    // Set the response headers to indicate a PDF file download
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="Agency-bill-${id}.pdf"`);
+  // Create a new PDF document
+  const doc = new PDFDocument();
 
-    // Pipe the PDF document to the response
-    doc.pipe(res);
+  // Set headers to prompt the user for download
+  res.setHeader('Content-Disposition', 'attachment; filename=data.pdf');
+  res.setHeader('Content-Type', 'application/pdf');
 
-    // Add content to the PDF
-    doc.fontSize(20).text('Agency Bill', { align: 'center' });
-    doc.moveDown();
+  // Pipe the document to the response
+  doc.pipe(res);
 
-    // Add bill details (customize this section based on your data structure)
-    doc.fontSize(12).text(`Request Number: ${billPayment.req_id.reqNo || "NA"}`);
-    doc.text(`Product: ${billPayment.req_id.product.name || "NA"}`);
-    doc.text(`Quoted Price: ${billPayment.req_id.product.quotedPrice || "NA"}`);
-    doc.text(`Delivery Date: ${billPayment.req_id.product.deliveryDate || "NA"}`);
-    doc.text(`Status: ${billPayment.req_id.product.status || "NA"}`);
-    doc.moveDown();
-
-    // Add financial details
-    doc.text(`Procurement Expenses: ${billPayment.bill.procurement_expenses || "NA"}`);
-    doc.text(`Storage Expenses: ${billPayment.bill.storage_expenses || "NA"}`);
-    doc.text(`Driage: ${billPayment.bill.driage || "NA"}`);
-    doc.text(`Commission: ${billPayment.bill.commission || "NA"}`);
-    doc.text(`Total: ${billPayment.bill.total || "NA"}`);
-
-    // End and send the PDF document
-    doc.end();
+  // Add content to the PDF
+  doc.fontSize(20).text(data[0]?.name, { align: 'center' });
+  doc.moveDown().fontSize(12).text(data[0]?.reqNo);
+  doc.moveDown().fontSize(12).text(data[0]?.name);
+  doc.moveDown().fontSize(12).text(data[0]?.commodityImage);
+  doc.moveDown().fontSize(12).text(data[0]?.grade);
+  doc.moveDown().fontSize(12).text(data[0]?.qantity);
+  doc.moveDown().fontSize(12).text(data[0]?.quotedPrice);
+  doc.moveDown().fontSize(12).text(data[0]?.deliveryDate);
+  doc.moveDown().fontSize(12).text(data[0]?.status);
+  doc.moveDown().fontSize(12).text(data[0]?.precurement_expenses);
+  doc.moveDown().fontSize(12).text(data[0]?.storage_expenses);
+  doc.moveDown().fontSize(12).text(data[0]?.driage);
+  doc.moveDown().fontSize(12).text(data[0]?.commission);
 
 
-  } catch (error) {
-    return res.status(500).send({
-      status: 500,
-      errors: [{ message: `${error.message}` }]
-    });
-  }
+  // Finalize the PDF
+  doc.end();
 };
 // end of sangita code
 
@@ -210,7 +198,7 @@ exports.generateFarmerId = async (obj) => {
   }
 };
 
-exports.generateFileName = (clientCode, runningNumber) => {
+exports.generateFileName = async (clientCode) => {
 
   const newDate = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
   let [day, month, year] = newDate.split(",")[0].split("/");
@@ -218,11 +206,23 @@ exports.generateFileName = (clientCode, runningNumber) => {
   month = month.padStart(2, '0');
   const finalDate = `${day}${month}${year.slice(2)}`;
 
-  const runningNumberPlusOne = runningNumber + 1
-  const lastFiveLetters = clientCode.slice(-5).toUpperCase();
-  const formattedRunningNumber = String(runningNumberPlusOne).padStart(3, '0');
+  const currentDate = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }).split(",")[0];
+  let counterDoc = await FileCounter.findOne({date:currentDate});
 
-  const fileName = `${lastFiveLetters}${finalDate}${formattedRunningNumber}.CSV`;
+  if(!counterDoc){
+    counterDoc = await FileCounter.create({ 
+        date: currentDate,
+        count: [1]
+    })
+  }
+
+  let runningNumber = counterDoc.count.length > 0 ? Math.max(...counterDoc.count) : 1;
+  await FileCounter.updateOne({ _id: counterDoc._id }, { $push: { count: runningNumber+1 } });
+
+  const lastFiveLetters = clientCode.slice(-5).toUpperCase();
+  const formattedRunningNumber = String(runningNumber).padStart(3, '0');
+
+  const fileName = `${lastFiveLetters}${finalDate}${formattedRunningNumber}.csv`;
 
   return fileName
 }
