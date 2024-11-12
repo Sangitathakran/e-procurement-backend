@@ -207,17 +207,17 @@ exports.generateFileName = async (clientCode) => {
   const finalDate = `${day}${month}${year.slice(2)}`;
 
   const currentDate = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }).split(",")[0];
-  let counterDoc = await FileCounter.findOne({date:currentDate});
+  let counterDoc = await FileCounter.findOne({ date: currentDate });
 
-  if(!counterDoc){
-    counterDoc = await FileCounter.create({ 
-        date: currentDate,
-        count: [1]
+  if (!counterDoc) {
+    counterDoc = await FileCounter.create({
+      date: currentDate,
+      count: [1]
     })
   }
 
   let runningNumber = counterDoc.count.length > 0 ? Math.max(...counterDoc.count) : 1;
-  await FileCounter.updateOne({ _id: counterDoc._id }, { $push: { count: runningNumber+1 } });
+  await FileCounter.updateOne({ _id: counterDoc._id }, { $push: { count: runningNumber + 1 } });
 
   const lastFiveLetters = clientCode.slice(-5).toUpperCase();
   const formattedRunningNumber = String(runningNumber).padStart(3, '0');
@@ -449,4 +449,20 @@ exports.calculateAge = (birthdate) => {
 
   return age;
 }
+
+exports.handleDecimal = (value) => {
+  return parseFloat(value) < 0 ? 0 : parseFloat(parseFloat(value).toFixed(3));
+}
+
+// exports.handleDecimal = (value, message = "Value") => {
+//   const decimalRegex = /^\d+(\.\d{1,3})?$/;
+
+//   // Check if value matches the required format
+//   if (!decimalRegex.test(value)) {
+//     throw new Error(`${message} must be either integers or have up to 3 decimal places.`);
+//   }
+
+//   return parseFloat(value) < 0 ? 0 : parseFloat(parseFloat(value).toFixed(3));
+// };
+
 
