@@ -476,8 +476,10 @@ module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
     record.deliveryDate = delivery_date;
     record.expectedProcurementDate = procurement_date;
     record.quoteExpiry = expiry_date;
-    record.head_office_id.company_details.name = ho;
-    record.branch_id.branchName = bo;
+    // record.head_office_id.company_details.name = ho;
+    // record.branch_id.branchName = bo;
+    record.head_office_id = ho;
+    record.branch_id = bo;
     record.address.locationUrl = url;
     record.product.commodityImage = commodity_image;
 

@@ -1,4 +1,4 @@
-const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, dumpJSONToPdf } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
@@ -302,10 +302,10 @@ module.exports.batchList = async (req, res) => {
                 .sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
-      
+
         // start of sangita code        
         records.reqDetails = await RequestModel.findOne({ _id: records.rows[0]?.req_id })
-        .select({ _id: 0, reqNo: 1, product: 1, quotedPrice: 1, deliveryDate: 1, expectedProcurementDate: 1, fulfilledQty:1, totalQuantity:1, status: 1 });
+            .select({ _id: 0, reqNo: 1, product: 1, quotedPrice: 1, deliveryDate: 1, expectedProcurementDate: 1, fulfilledQty: 1, totalQuantity: 1, status: 1 });
         // end of sangita code
 
         if (paginate == 1) {
@@ -1570,19 +1570,45 @@ module.exports.getBillProceedToPay = async (req, res) => {
 module.exports.agencyBill = async (req, res) => {
 
     try {
-        const { id } = req.query;
+        const { id, isPdf = 0 } = req.query;
 
-        const billPayment = await AgentInvoice.findOne({ _id: id }).select({ bill:1})
+        const billPayment = await AgentInvoice.findOne({ _id: id }).select({ bill: 1 })
             .populate({ path: "req_id", select: "reqNo product quotedPrice deliveryDate status" })
 
-        if (!billPayment) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("bill") }] }))
-        }
+        if (isPdf == 1) {
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: billPayment, message: _response_message.found("bill") }))
+            const record = {
+                "reqNo": billPayment?.req_id.reqNo || "NA",
+                "name": billPayment?.req_id.product.name || "NA",
+                "commodityImage": billPayment?.req_id.product.commodityImage || "NA",
+                "grade": billPayment?.req_id.product.grade || "NA",
+                "qantity": billPayment?.req_id.product.qantity || "NA",
+                "quotedPrice": billPayment?.req_id.product.quotedPrice || "NA",
+                "deliveryDate": billPayment?.req_id.product.deliveryDate || "NA",
+                "status": billPayment?.req_id.product.status || "NA",
+                "precurement_expenses": billPayment?.bill.precurement_expenses || "NA",
+                "storage_expenses": billPayment?.bill.storage_expenses || "NA",
+                "driage": billPayment?.bill.driage || "NA",
+                "commission": billPayment?.bill.commission || "NA",
+                "total": billPayment?.bill.total || "NA",
+            }
+
+            if (record) {
+                
+                dumpJSONToPdf(req, res, {
+                    data: [record],
+                    fileName: `Agency-bill.xlsx`,
+                    worksheetName: `Agency-bill`
+                });
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("bill") }] }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: billPayment, message: _response_message.found("bill") }))
+        }
 
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-
 }
+

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Successful Payment Notification - Navbazar</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+        }
+        .logo {
+            width: 120px;
+            height: auto;
+        }
+        .content {
+            color: #333333;
+            padding-top: 20px;
+        }
+        .cta-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #007bff, #00bfff);
+            color: #ffffff;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            text-decoration: none;
+            transition: background 0.3s ease-in-out;
+        }
+        .cta-button:hover {
+            background: linear-gradient(135deg, #0056b3, #00a2e8);
+        }
+        .footer {
+            text-align: center;
+            padding-top: 20px;
+            color: #777777;
+        }
+        .info-list {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+        .info-list li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="{{logo_url}}" alt="Navbazar Logo" class="logo">
+        </div>
+        <div class="content">
+            <h2 style="margin-bottom: 20px;">Successful Payment Processed for <strong>{{batch_id}}</strong> Under <strong>{{order_id}}</strong></h2>
+            <p>Dear <strong>{{head_office_admin_name}}</strong>,</p>
+            <p>This is to inform you that the payments for the following batches under Order ID <strong>{{order_id}}</strong> have been successfully processed:</p>
+            <ul class="info-list">
+                {{batch_details}}
+            </ul>
+            <p>Please follow the link below for additional information:</p>
+            <a href="{{app_url}}" class="cta-button">View Details</a>
+            <p style="margin-top: 20px;">Need Help?<br>
+            For queries or any assistance, contact us on <strong>9567------</strong>.</p>
+        </div>
+        <div class="footer">
+            <p>Warm Regards,<br>Team Navankur</p>
+        </div>
+    </div>
+</body>
+</html>
