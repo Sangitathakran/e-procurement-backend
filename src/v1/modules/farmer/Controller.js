@@ -358,7 +358,6 @@ module.exports.submitForm = async (req, res) => {
   }
 };
 
-
 //convert url into zip file
 module.exports.createZip = async (req, res) => {
   try {
@@ -451,6 +450,7 @@ const validateMobileNumber = async (mobile) => {
   let pattern = /^[0-9]{10}$/;
   return pattern.test(mobile);
 };
+
 /*            associate Farmer                                
  Below are the associate farmer functions 
 
@@ -576,6 +576,7 @@ module.exports.getFarmers = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 module.exports.getBoFarmer = async (req, res) => {
   try {
     const user_id = req.user.portalId._id;
@@ -707,6 +708,7 @@ module.exports.getBoFarmer = async (req, res) => {
     return res.status(500).send({ message: "An error occurred while fetching farmers." });
   }
 };
+
 exports.getBoFarmerPreview = async (req, res) => {
   try {
     const farmerId = req.params.id;
@@ -874,6 +876,7 @@ module.exports.createLand = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 module.exports.getLand = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy = 'khasra_no', search = '', paginate = 1, farmer_id } = req.query;
@@ -980,7 +983,6 @@ module.exports.updateLand = async (req, res) => {
   }
 };
 
-
 module.exports.deleteLand = async (req, res) => {
   try {
     const { id } = req.query;
@@ -1058,6 +1060,7 @@ module.exports.createCrop = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 module.exports.getLandDetails = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1090,6 +1093,7 @@ module.exports.getLandDetails = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 }
+
 module.exports.getIndCropDetails = async (req, res) => {
   try {
     const { farmer_id, land_id } = req.query;
@@ -1123,6 +1127,7 @@ module.exports.getIndCropDetails = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 module.exports.getCrop = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy = 'crop_name', paginate = 1, farmer_id } = req.query;
@@ -1164,6 +1169,7 @@ module.exports.getCrop = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 module.exports.updateIndCrop = async (req, res) => {
   try {
 
@@ -1273,6 +1279,7 @@ module.exports.deleteCrop = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 module.exports.createBank = async (req, res) => {
   try {
     const {
@@ -1327,6 +1334,7 @@ module.exports.createBank = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 module.exports.getBank = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy = 'bank_name', search = '', paginate = 1, farmer_id } = req.query;
@@ -1425,6 +1433,7 @@ module.exports.updateBank = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 module.exports.deleteBank = async (req, res) => {
   try {
     const { id } = req.query;
@@ -1747,7 +1756,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
   }
 };
 
-
 module.exports.exportFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = '-createdAt', search = '', isExport = 0 } = req.query;
@@ -1920,7 +1928,6 @@ module.exports.exportFarmers = async (req, res) => {
   }
 };
 
-
 module.exports.individualfarmerList = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy = 'name', search = '', isExport = 0 } = req.query;
@@ -2022,7 +2029,6 @@ module.exports.individualfarmerList = async (req, res) => {
   }
 };
 
-
 const getAddress = async (item) => {
   return {
     address_line: item?.address?.address_line || (`${item?.address?.address_line_1} ${item?.address?.address_line_2}`),
@@ -2102,6 +2108,7 @@ const getState = async (stateId) => {
   ])
   return state[0].state
 }
+
 module.exports.makeAssociateFarmer = async (req, res) => {
   try {
     const { farmer_id } = req.body;
@@ -2146,6 +2153,7 @@ module.exports.makeAssociateFarmer = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 module.exports.getAllFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy, search = '', paginate = 1 } = req.query;
@@ -2173,6 +2181,7 @@ module.exports.getAllFarmers = async (req, res) => {
       records.associatedFarmers = await farmer
         .find(associatedQuery)
         .populate('associate_id', '_id user_code')
+        .populate('farmer_id', '_id upload_land_document')
         .sort(sortBy ? { [sortBy]: 1 } : {})
         .skip(skip)
         .limit(parsedLimit);
@@ -2189,6 +2198,7 @@ module.exports.getAllFarmers = async (req, res) => {
       records.associatedFarmers = await farmer
         .find(associatedQuery)
         .populate('associate_id', '_id user_code')
+        .populate('farmer_id', '_id upload_land_document')
         .sort(sortBy ? { [sortBy]: 1 } : {});
 
       records.localFarmers = await farmer
@@ -2223,13 +2233,13 @@ module.exports.getAllFarmers = async (req, res) => {
   }
 };
 
-
 module.exports.uploadFarmerDocument = async (req, res) => {
 
   try {
-    const { farmer_id, aadhar_front_doc_key, aadhar_back_doc_key, proof_doc_key, upload_land_document } = req.body;
+    const { farmer_id, aadhar_front_doc_key, aadhar_back_doc_key, bank_document, upload_land_document } = req.body;
 
     const existingFarmer = await farmer.findById(farmer_id);
+    
     if (!existingFarmer) {
       return res.status(404).send(new serviceResponse({
         status: 404,
@@ -2247,7 +2257,7 @@ module.exports.uploadFarmerDocument = async (req, res) => {
 
     existingFarmer.documents.aadhar_front_doc_key = aadhar_front_doc_key || existingFarmer.documents.aadhar_front_doc_key;
     existingFarmer.documents.aadhar_back_doc_key = aadhar_back_doc_key || existingFarmer.documents.aadhar_back_doc_key;
-    existingFarmer.bank_details.proof_doc_key = proof_doc_key || existingFarmer.bank_details.proof_doc_key;
+    existingFarmer.bank_details.proof_doc_key = bank_document || existingFarmer.bank_details.proof_doc_key;
 
     const updatedFarmer = await existingFarmer.save();
 
@@ -2266,3 +2276,35 @@ module.exports.uploadFarmerDocument = async (req, res) => {
 
 };
 
+module.exports.getFarmerDocument = async (req, res) => {
+
+  try {
+
+    const { farmer_id } = req.query;
+
+    const farmerDetails = await farmer.findOne({ _id: farmer_id }).select({ documents: 1, bank_details: 1 });
+    let records = {}
+
+    if (farmerDetails) {
+      const landDocument = await Land.findOne({ "farmer_id": farmer_id }).select({ upload_land_document: 1 });
+      records = { ...farmerDetails.toObject(), landDocument }
+
+      return sendResponse({
+        res,
+        status: 200,
+        data: records,
+        message: _response_message.found("Farmer")
+      })
+
+    } else {
+      return sendResponse({
+        res,
+        status: 400,
+        message: _response_message.notFound("Farmer"),
+      })
+    }
+  } catch (err) {
+    console.log("error", err);
+    _handleCatchErrors(err, res);
+  }
+};
