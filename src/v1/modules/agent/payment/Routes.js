@@ -3,7 +3,7 @@ const { payment, associateOrders, batchList, lot_list, AssociateTabPaymentReques
                  AssociateTabBatchApprove, AssociateTabGenrateBill, AssociateTabBatchList, associateBillApprove,
                   getBill, agentPayments, proceedToPayPaymentRequests, proceedToPayAssociateOrders,
                    proceedToPayAssociateTabBatchList, editBill, getBillProceedToPay, agencyBill,
-                   associateBillReject } = require("./Controller");
+                   associateBillReject, editAssociateBill } = require("./Controller");
                    
 const { verifyAgent } = require("../utils/verifyAgent");
 const { Auth } = require("@src/v1/middlewares/jwt")
@@ -39,5 +39,7 @@ paymentRoutes.get("/agency-bill", Auth, agencyBill);
 
 // reject case
 paymentRoutes.put("/associate-req/batch-reject", Auth, associateBillReject);
+
+paymentRoutes.put("/edit-associate-bill/", Auth, editAssociateBill)
 
 module.exports = { paymentRoutes }; 

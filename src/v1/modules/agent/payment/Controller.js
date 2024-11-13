@@ -13,9 +13,9 @@ const { PaymentLogs } = require("@src/v1/models/app/procurement/PaymentLogs");
 const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
 const moment = require("moment");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
-const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
+// const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
-
+const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 
 module.exports.payment = async (req, res) => {
 
@@ -1152,45 +1152,6 @@ module.exports.getBill = async (req, res) => {
     }
 }
 
-// module.exports.AssociateTabBatchList = async (req, res) => {
-
-//     try {
-//         const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
-
-//         const paymentIds = (await AssociateInvoice.find({ associateOffers_id: associateOffer_id })).map(i => i.batch_id)
-
-//         let query = {
-//             _id: { $in: paymentIds },
-//             associateOffer_id,
-//             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
-//         };
-
-//         const records = { count: 0 };
-
-//         records.rows = paginate == 1 ? await Batch.find(query)
-//             .sort(sortBy)
-//             .skip(skip)
-//             .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status')
-//             .limit(parseInt(limit)) : await Batch.find(query)
-//                 .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status')
-//                 .sort(sortBy);
-
-//         records.count = await Batch.countDocuments(query);
-
-
-//         if (paginate == 1) {
-//             records.page = page
-//             records.limit = limit
-//             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-//         }
-
-//         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
-
-//     } catch (error) {
-//         _handleCatchErrors(error, res);
-//     }
-// }
-
 module.exports.AssociateTabBatchApprove = async (req, res) => {
 
     try {
@@ -1217,7 +1178,6 @@ module.exports.AssociateTabBatchApprove = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
 
 module.exports.AssociateTabGenrateBill = async (req, res) => {
 
@@ -1617,5 +1577,96 @@ module.exports.agencyBill = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+}
+
+
+module.exports.editAssociateBill = async (req, res) => {
+
+    const { invoiceId, procurement_expenses, driage, storage, bill_attachement, remarks } = req.body;
+
+    const record = await AssociateInvoice.findOne({ _id: invoiceId });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Bill") }] }));
+    }
+
+    const cal_procurement_expenses = handleDecimal(procurement_expenses)
+    const cal_driage = handleDecimal(driage)
+    const cal_storage = handleDecimal(storage)    
+    const commission = (procurement_expenses+driage+storage * 0.5) / 100;
+    const cal_commission = handleDecimal(commission);
+    const total = handleDecimal(cal_procurement_expenses + cal_driage + cal_storage + cal_commission)
+
+    record.bills.procurementExp = cal_procurement_expenses;
+    record.bills.driage = cal_driage;
+    record.bills.storageExp = cal_storage;
+    record.bills.commission = cal_commission;
+    record.bills.total = total;
+    record.payment_change_remarks = remarks;
+    record.agent_approve_status = _paymentApproval.pending
+    
+    const batch = await Batch.findOne({_id:record.batch_id});
+
+    if (!batch) {
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Batch') }] }));
+    }
+
+    await updateAssociateBillLogs(invoiceId)
+
+    batch.agent_approve_status = _paymentApproval.pending
+    batch.ho_approve_status = _paymentApproval.pending
+    batch.bo_approve_status = _paymentApproval.pending
+
+    await batch.save()
+
+    await record.save()
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("bill") }))
+
+}
+
+const updateAssociateBillLogs = async (invoiceId) => { 
+
+   try {
+    const invoice = await AssociateInvoice.findOne({ _id: invoiceId });
+
+    const log = {
+        bills: {
+            procurementExp: handleDecimal(invoice.bills.procurementExp),
+            qc_survey: invoice.bills.qc_survey,
+            gunny_bags: invoice.bills.gunny_bags,
+            weighing_stiching: invoice.bills.weighing_stiching,
+            loading_unloading: invoice.bills.loading_unloading,
+            transportation: invoice.bills.transportation,
+            driage: handleDecimal(invoice.bills.driage),
+            storageExp: handleDecimal(invoice.bills.storageExp),
+            commission: handleDecimal(invoice.bills.commission),
+            total: handleDecimal(invoice.bills.total),
+
+            // Rejection case
+            agent_reject_by: invoice.bills.agent_reject_by,
+            agent_reject_at: invoice.bills.agent_reject_at,
+            reason_to_reject: invoice.bills.reason_to_reject 
+        },
+        initiated_at: invoice.initiated_at,
+        agent_approve_status: invoice.agent_approve_status,
+        agent_approve_by: invoice.agent_approve_by,
+        agent_approve_at: invoice.agent_approve_at,
+        payment_status: invoice.payment_status,
+        payment_id: invoice.payment_id,
+        transaction_id: invoice.transaction_id,
+        payment_method: invoice.payment_method,
+        payment_change_remarks: invoice.payment_change_remarks || null
+    };
+
+    invoice.logs.push(log)
+    await invoice.save()
+
+    return true
+    
+   } catch (error) {
+        throw error
+   }
+
 }
 
