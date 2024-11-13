@@ -348,6 +348,54 @@ class EmailService {
             throw error;
         }
     }
+    async approvehoFarmerPayment(emailData) {
+        try {
+            const { adminName, orderId, batches, email } = emailData;
+            if (!email) {
+                throw new Error("Email not provided");
+            }
+            const template = await this.loadTemplate("approveHoFamerPayment");
+            let batchDetailsHtml = batches.map((batch, index) => `
+                <li><strong>Batch ID ${batch.id}:</strong> Amount Paid: ${batch.amount}</li>
+            `).join('');
+            const html = template
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{head_office_admin_name}}", adminName)
+                .replace(/{{order_id}}/g, orderId) 
+                .replace("{{batch_details}}", batchDetailsHtml);
+    
+            await sendMail(email, '', 'Payment Approval Notification | NavBazaar', html);
+    
+        } catch (error) {
+            console.error("Error sending process to pay email:", error);
+            throw error;
+        }
+    }
+
+    async agencyHoPayment(emailData) { 
+        try {
+            const { adminName, orderId, amount, email } = emailData;
+    
+            if (!email) {
+                throw new Error("Email not provided");
+            }
+    
+            const template = await this.loadTemplate("agencyhoPayment");
+            const html = template
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{head_office_admin_name}}", adminName)
+                .replace("{{order_id}}", orderId)
+                .replace("{{amount}}", amount)
+    
+            await sendMail(email, '', 'Payment Approval Notification | NavBazaar', html);
+    
+        } catch (error) {
+            console.error("Error sending payment approval email:", error);
+            throw error;
+        }
+    }
     
     
 }
