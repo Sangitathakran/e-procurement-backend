@@ -28,7 +28,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     const records = { count: 0 };
     
     if(req.user.user_type === 2 || req.user.user_type === '2') {
-      query ={...query, head_office_id:req?.user?.portal?._id}
+      query ={...query, head_office_id:req?.user?.portalId?._id}
     }
    
     records.rows =
