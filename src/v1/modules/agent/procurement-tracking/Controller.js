@@ -171,10 +171,16 @@ module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
 
     records.rows = paginate == 1 ? await FarmerOrders.find(query)
         .populate("procurementCenter_id")
+        .populate({
+            path: "farmer_id", 
+            select: "farmer_id " 
+        })
         .sort(sortBy)
         .skip(skip)
-        .limit(parseInt(limit)) : await FarmerOrders.find(query).populate("procurementCenter_id").sort(sortBy);
-
+        .limit(parseInt(limit)) : await FarmerOrders.find(query).populate("procurementCenter_id").populate({
+            path: "farmer_id",
+            select: "farmer_id"
+        }).sort(sortBy);
     records.count = await FarmerOrders.countDocuments(query);
 
     if (paginate == 1) {
