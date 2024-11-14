@@ -757,7 +757,7 @@ module.exports.failedPaymentFarmer = async (req, res) => {
 
         const records = { count: 0 };
 
-        records.rows = paginate == 1 ? await FarmerOrders.find(query).select({ _id:0, total_amount:1, FarmerName:1,farmer_id:1}).populate({path:'farmer_id',select:'name bank_details'})
+        records.rows = paginate == 1 ? await FarmerOrders.find(query).select({ _id:0, total_amount:1, FarmerName:1,farmer_id:1, net_pay: 1}).populate({path:'farmer_id',select:'name bank_details'})
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await FarmerOrders.find(query)
@@ -766,9 +766,10 @@ module.exports.failedPaymentFarmer = async (req, res) => {
         records.rows = records.rows.map(item=>{
                 return {
                     batchId: batch_id,
-                    bankDetails: {...JSON.parse(JSON.stringify(item.farmer_id.bank_details))},
+                    ...JSON.parse(JSON.stringify(item.farmer_id.bank_details)),
                     farmer_id : item.farmer_id._id,
-                    farmerName: item.farmer_id.name
+                    farmerName: item.farmer_id.name,
+                    amount_payable: item.net_pay
                 
                 }
         })
