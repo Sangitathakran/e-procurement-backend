@@ -206,7 +206,7 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.dispatched.bills.driage = handleDecimal(driage);
                     record.dispatched.bills.storageExp = handleDecimal(storageExp);
                     record.dispatched.bills.commission = handleDecimal((handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp)) * 0.005);
-                    record.dispatched.bills.total = handleDecimal(parseInt(procurementExp) + parseInt(driage) + parseInt(storageExp) + parseInt((handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp)) * 0.005));
+                    record.dispatched.bills.total = handleDecimal(handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp) + handleDecimal((handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp)) * 0.005));
                     record.dispatched.qc_report.inital.push(...qc_report.map(i => { return { img: i, on: moment() } }));
                     record.dispatched.lab_report.inital.push(...lab_report.map(i => { return { img: i, on: moment() } }));
                     record.dispatched.dispatched_at = new Date();

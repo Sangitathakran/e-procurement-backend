@@ -393,7 +393,8 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
                                 $map: {
                                     input: '$invoice',
                                     as: 'inv',
-                                    in: { $toInt: '$$inv.qtyProcured' }
+                                    // in: { $toInt: '$$inv.qtyProcured' }
+                                    in: '$$inv.qtyProcured' // Removed $toInt conversion
                                 }
                             },
                             initialValue: 0,
@@ -468,7 +469,8 @@ module.exports.proceedToPayPaymentRequests = async (req, res) => {
                                 $map: {
                                     input: '$invoice',
                                     as: 'inv',
-                                    in: { $toInt: '$$inv.qtyProcured' }
+                                    // in: { $toInt: '$$inv.qtyProcured' }
+                                    in: '$$inv.qtyProcured' // Removed $toInt conversion
                                 }
                             },
                             initialValue: 0,
@@ -585,7 +587,8 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
                                 $map: {
                                     input: '$invoice',
                                     as: 'inv',
-                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    // in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    in: '$$inv.bills.total' // remove Conversion
                                 }
                             },
                             initialValue: 0,
@@ -598,7 +601,8 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
                                 $map: {
                                     input: '$invoice',
                                     as: 'inv',
-                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    // in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    in: '$$inv.bills.total' // remove Conversion
                                 }
                             },
                             initialValue: 0,
@@ -733,7 +737,9 @@ module.exports.proceedToPayAssociateOrders = async (req, res) => {
                                 $map: {
                                     input: '$invoice',
                                     as: 'inv',
-                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    // in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    in: '$$inv.bills.total' // remove $toDouble Conversion
+                                    
                                 }
                             },
                             initialValue: 0,
@@ -746,7 +752,8 @@ module.exports.proceedToPayAssociateOrders = async (req, res) => {
                                 $map: {
                                     input: '$invoice',
                                     as: 'inv',
-                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    // in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    in: '$$inv.bills.total' // remove $toDouble Conversion
                                 }
                             },
                             initialValue: 0,
@@ -874,7 +881,8 @@ module.exports.AssociateTabBatchList = async (req, res) => {
                                 $map: {
                                     input: '$invoice',
                                     as: 'inv',
-                                    in: { $toInt: '$$inv.qtyProcured' }
+                                    // in: { $toInt: '$$inv.qtyProcured' }
+                                    in: '$$inv.qtyProcured' // Removed $toInt conversion
                                 }
                             },
                             initialValue: 0,
@@ -887,7 +895,8 @@ module.exports.AssociateTabBatchList = async (req, res) => {
                                 $map: {
                                     input: '$invoice',
                                     as: 'inv',
-                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    // in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    in: '$$inv.bills.total' // remove $toDouble Conversion
                                 }
                             },
                             initialValue: 0,
@@ -900,7 +909,8 @@ module.exports.AssociateTabBatchList = async (req, res) => {
                                 $map: {
                                     input: '$invoice',
                                     as: 'inv',
-                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    // in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    in: '$$inv.bills.total' // remove $toDouble Conversion
                                 }
                             },
                             initialValue: 0,
@@ -1027,7 +1037,8 @@ module.exports.proceedToPayAssociateTabBatchList = async (req, res) => {
                                 $map: {
                                     input: '$invoice',
                                     as: 'inv',
-                                    in: { $toInt: '$$inv.qtyProcured' }
+                                    // in: { $toInt: '$$inv.qtyProcured' }
+                                    in: '$$inv.qtyProcured' // Removed $toInt conversion
                                 }
                             },
                             initialValue: 0,
@@ -1040,7 +1051,8 @@ module.exports.proceedToPayAssociateTabBatchList = async (req, res) => {
                                 $map: {
                                     input: '$invoice',
                                     as: 'inv',
-                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    // in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    in: '$$inv.bills.total' // remove $toDouble Conversion
                                 }
                             },
                             initialValue: 0,
@@ -1053,7 +1065,8 @@ module.exports.proceedToPayAssociateTabBatchList = async (req, res) => {
                                 $map: {
                                     input: '$invoice',
                                     as: 'inv',
-                                    in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    // in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
+                                    in: '$$inv.bills.total' // remove $toDouble Conversion
                                 }
                             },
                             initialValue: 0,
@@ -1441,13 +1454,14 @@ module.exports.editBill = async (req, res) => {
     const cal_storage = handleDecimal(storage);
     const commission = (procurement_expenses+driage+storage * 1) / 100;
     const cal_commission = handleDecimal(commission);
-
+    
     record.bill.precurement_expenses = cal_procurement_expenses;
     record.bill.driage = cal_driage;
     record.bill.storage_expenses = cal_storage;
     record.bill.commission = cal_commission;
     record.bill.bill_attachement = bill_attachement;
     record.bill.total = handleDecimal(cal_procurement_expenses + cal_driage + cal_storage + cal_commission);
+
     record.payment_change_remarks = remarks;
 
     record.bo_approve_status = _paymentApproval.pending;
