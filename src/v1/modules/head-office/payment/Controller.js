@@ -917,7 +917,7 @@ module.exports.payFarmers = async (req, res) => {
             ho_approve_status: _paymentApproval.approved,
 
             // only the unpaid farmers will be paid by this
-            payment_status: { $in : [ _paymentstatus.failed , _paymentstatus.pending ] }
+            payment_status:  _paymentstatus.pending 
         }
 
         const farmersBill = await Payment.find(query).populate({path:"farmer_id", select:"bank_details"})
