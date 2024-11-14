@@ -180,6 +180,7 @@ const _trader_type = {
     TRUST: 'Trust',
     INDIVIDUAL: 'Individual',
     PROPRIETOR: 'Proprietor',
+    PACS: 'PACS',
 }
 
 const _center_type = {
@@ -336,6 +337,7 @@ const _paymentstatus = {
     pending: "Pending",
     failed:"Failed",
     completed: "Completed",
+    rejected: "Rejected"
 }
 
 const _billstatus = {
