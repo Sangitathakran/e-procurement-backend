@@ -180,6 +180,7 @@ const _trader_type = {
     TRUST: 'Trust',
     INDIVIDUAL: 'Individual',
     PROPRIETOR: 'Proprietor',
+    PACS: 'PACS',
 }
 
 const _center_type = {
