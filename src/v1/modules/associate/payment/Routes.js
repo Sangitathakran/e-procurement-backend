@@ -1,5 +1,5 @@
 const express = require("express");
-const { payment, farmerOrders, associateOrders, getFarmerListById, getBill, batchList, lotList, paymentLogs, pendingFarmer, updateFarmerBankDetail, editBill } = require("./Controller");
+const { payment, farmerOrders, associateOrders, getFarmerListById, getBill, batchList, lotList, paymentLogs, failedPaymentFarmer, updateFarmerBankDetail, editBill } = require("./Controller");
 const { verifyAssociate } = require("../utils/verifyAssociate");
 
 const paymentRoutes = express.Router();
@@ -13,7 +13,7 @@ paymentRoutes.get("/bill-view", verifyAssociate, getBill);
 paymentRoutes.get("/lot-list", verifyAssociate, lotList);
 paymentRoutes.get("/payment-logs", verifyAssociate, paymentLogs);
 
-paymentRoutes.get("/pending-farmer", verifyAssociate, pendingFarmer);
+paymentRoutes.get("/failed-payment-farmer", verifyAssociate, failedPaymentFarmer);
 paymentRoutes.put("/farmer-bank-details", verifyAssociate, updateFarmerBankDetail);
 
 paymentRoutes.put("/edit-bill/:id", verifyAssociate, editBill)
