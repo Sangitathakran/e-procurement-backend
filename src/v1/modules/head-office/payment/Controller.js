@@ -1158,6 +1158,13 @@ module.exports.payAgent = async (req, res) => {
 
         let filename = await generateFileName("NCCFMAIZER");
         let filePath = `./src/v1/upload/${filename}`;
+
+        const dir = path.dirname(filePath);
+        // Check if the directory exists, and create it if not
+        if (!fs2.existsSync(dir)) {
+          fs2.mkdirSync(dir, { recursive: true });
+        }
+
         await xlsx.writeFile(workbook, filePath, { type: 'buffer', bookType: 'csv' });
         let fileData = await fs.readFile(filePath);
         let formData = new FormData();
