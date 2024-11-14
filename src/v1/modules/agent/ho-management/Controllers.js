@@ -13,6 +13,7 @@ const UserRole = require('@src/v1/models/master/UserRole');
 const getIpAddress = require('@src/v1/utils/helpers/getIPAddress');
 const { _frontendLoginRoutes } = require('@src/v1/utils/constants');
 const { generateRandomPassword } = require('@src/v1/utils/helpers/randomGenerator');
+const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 
 
 module.exports.getHo = async (req, res) => {
@@ -111,13 +112,13 @@ module.exports.saveHeadOffice = async (req, res) => {
             address,
             authorised,
         });
-        
         // checking the existing user in Master User collection
         const isUserAlreadyExist = await MasterUser.findOne(
-            { $or: [{ mobile: { $exists: true, $eq: authorised?.phone?.trim() ?? authorised?.mobile?.trim()} }, { email: { $exists: true, $eq: authorised.email.trim() } }] });
+            { $or: [{ mobile: { $exists: true, $eq: authorised?.mobile?.trim() } }, { email: { $exists: true, $eq: authorised.email.trim() } }] });
   
         if(isUserAlreadyExist){
-            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("already existed with this mobile number or email in Master") }] }))
+            return res.send(new serviceResponse({ status: 400, message: "already existed with this mobile number or email in Master", 
+                errors: [{ message: _response_message.allReadyExist("already existed with this mobile number or email in Master") }] }))
         }
 
         const savedHeadOffice = await headOffice.save();
@@ -130,11 +131,12 @@ module.exports.saveHeadOffice = async (req, res) => {
             password: password,
             login_url: login_url
         }
-        if(savedHeadOffice._id){
+        if(savedHeadOffice){
             const masterUser = new MasterUser({
                 firstName : authorised.name,
                 isAdmin : true,
                 email : authorised.email.trim(),
+                mobile : authorised?.mobile.trim(),
                 password: hashedPassword,
                 user_type: type.user_type,
                 userRole: [type.adminUserRoleId],
@@ -142,20 +144,37 @@ module.exports.saveHeadOffice = async (req, res) => {
                 portalId: savedHeadOffice._id,
                 ipAddress: getIpAddress(req)
             });
-            if(authorised?.phone){
+            if (authorised?.phone) {
                 masterUser.mobile = authorised?.phone.trim()
-            }else if(authorised?.mobile){
+            } else if (authorised?.mobile) {
                 masterUser.mobile = authorised?.mobile.trim()
             }
     
-            await masterUser.save();
+            const masterUserCreated = await masterUser.save();
+            if(!masterUserCreated){
+                return sendResponse({res, status: 400, message: "master user not created"})
+            }
             await emailService.sendHoCredentialsEmail(emailPayload);
             
         }else{
-            await HeadOffice.deleteOne({_id:savedHeadOffice._id})
             throw new Error('Head office not created')
-            
+
         }
+
+        const subject = `New Head Office Successfully Created under Head Office ID ${savedHeadOffice?.head_office_code}`
+        const { line1, line2, state, district, city, pinCode } = savedHeadOffice.address;
+        const body = `<p>Dear Admin <Name> </p> <br/>
+            <p>This to inform you that a new head office has been successfully created under the following details:</p> <br/>
+            <p>Head Office Name: ${savedHeadOffice?.company_details.name} </p> <br/>
+            <p>Head Office ID: ${savedHeadOffice?.head_office_code}</p> <br/>
+            <p> Location: ${line1} , ${line2}, ${city} , ${district} , ${state} , ${pinCode} </p> <br/>
+            <p>Date of Creation: ${savedHeadOffice?.createdAt} </p> <br/>
+            <p>Need Help? </p> <br/>
+            <p>For queries or any assistance, contact us at ${savedHeadOffice?.point_of_contact.mobile} </p> <br/>
+            <p>Warm regards, </p> <br/>
+            <p>Navankur</p>`
+
+        await sendMail("ashita@navankur.org", "", subject, body);
 
         return res.status(200).send(new serviceResponse({ message: _response_message.created('Head Office'), data: savedHeadOffice }));
     } catch (error) {

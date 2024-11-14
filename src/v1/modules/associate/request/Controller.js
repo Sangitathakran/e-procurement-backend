@@ -1,4 +1,4 @@
-const { _handleCatchErrors, _generateOrderNumber, _addDays } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, _generateOrderNumber, _addDays, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
@@ -174,7 +174,7 @@ module.exports.updateProcurement = async (req, res) => {
         }
 
         const update = {
-            quotedPrice,
+            quotedPrice: handleDecimal(quotedPrice),
             deliveryDate: delivery_date,
             product: { name, category, grade, variety, quantity },
             address: { deliveryLocation, lat, long },
@@ -217,13 +217,13 @@ module.exports.associateOffer = async (req, res) => {
 
         const sumOfFarmerQty = farmer_data.reduce((acc, curr) => {
 
-            acc = acc + parseInt(curr.qty);
+            acc = acc + handleDecimal(curr.qty);
 
-            return parseInt(acc);
+            return handleDecimal(acc);
 
         }, 0);
 
-        if (sumOfFarmerQty != parseInt(qtyOffered)) {
+        if (sumOfFarmerQty != handleDecimal(qtyOffered)) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "please check details! quantity mismatched" }] }))
         }
 
@@ -537,11 +537,65 @@ module.exports.offeredFarmerList = async (req, res) => {
         query.associateOffers_id = { $in: offerIds };
         const records = { count: 0 };
 
-        records.rows = await FarmerOffers.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .populate("farmer_id")
-            .limit(parseInt(limit))
+        const pipeline = [
+            { $match: query },
+            {
+                $lookup: {
+                    from: "farmers",
+                    localField: "farmer_id",
+                    foreignField: "_id",
+                    as: "farmer_data",
+                },
+            },
+            { $unwind: "$farmer_data" },
+            {
+                $lookup: {
+                    from: "statedistrictcities",
+                    let: { stateId: "$farmer_data.address.state_id", districtId: "$farmer_data.address.district_id" },
+                    pipeline: [
+                        { $unwind: "$states" },
+                        { $match: { $expr: { $eq: ["$states._id", "$$stateId"] } } },
+
+                        { $unwind: "$states.districts" },
+                        { $match: { $expr: { $eq: ["$states.districts._id", "$$districtId"] } } },
+                        {
+                            $project: {
+                                state_title: "$states.state_title",
+                                district_title: "$states.districts.district_title",
+                            },
+                        },
+                    ],
+                    as: "location_data",
+                },
+            },
+
+            { $unwind: { path: "$location_data", preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    farmer_id: "$farmer_data.farmer_id",
+                    farmer_type: "$farmer_data.user_type",
+                    "farmer_data.name": 1,
+                    "farmer_data.mobile_no": 1,
+                    "farmer_data.basic_details": 1,  // Include basic_details field
+                    "farmer_data.address": 1,
+                    "location_data.state_title": 1,
+                    "location_data.district_title": 1,
+                    offeredQty: 1,
+                    metaData: 1,
+                    status: 1,
+                },
+            },
+            { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit) }
+        ]
+
+        // records.rows = await FarmerOffers.find(query)
+        //     .sort(sortBy)
+        //     .skip(skip)
+        //     .limit(parseInt(limit))
+
+        records.rows = await FarmerOffers.aggregate(pipeline);
 
         records.count = await FarmerOffers.countDocuments(query);
         records.page = page
@@ -580,10 +634,17 @@ module.exports.farmerOrderList = async (req, res) => {
 
         query.associateOffers_id = { $in: offerIds };
 
-
         if (status) {
             query.status = status;
         }
+
+        // start of Sangita code
+
+        if (status == _procuredStatus.received) {
+            query.qtyRemaining = { $gt: 0 }
+        }
+
+        // End of Sangita code
 
         const records = { count: 0 };
 
@@ -646,8 +707,12 @@ module.exports.editFarmerOffer = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }))
         }
 
+        if (record.offeredQty < handleDecimal(qtyProcured)) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "quantity procured should be less than available quantity" }] }));
+        }
+
         record.receving_date = receving_date;
-        record.qtyProcured = qtyProcured;
+        record.qtyProcured = handleDecimal(qtyProcured);
         record.procurementCenter_id = procurementCenter_id;
         record.weighbridge_name = weighbridge_name;
         record.weighbridge_no = weighbridge_no;
@@ -658,11 +723,17 @@ module.exports.editFarmerOffer = async (req, res) => {
         record.status = status;
         record.updatedBy = user_id;
 
+        // Start of Sangita code
+
+        record.qtyRemaining = handleDecimal(qtyProcured);
+
+        // End of Sangita code
+
         await record.save();
 
         if (status == _procuredStatus.received) {
             const associateOfferRecord = await AssociateOffers.findOne({ _id: record?.associateOffers_id });
-            associateOfferRecord.procuredQty += qtyProcured;
+            associateOfferRecord.procuredQty += handleDecimal(qtyProcured);
             await associateOfferRecord.save();
 
         }

@@ -8,6 +8,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { emailService } = require('@src/v1/utils/third_party/EmailServices');
 const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator")
 const bcrypt = require('bcrypt');
+const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 
 
 module.exports.getAssociates = async (req, res) => {
@@ -171,6 +172,17 @@ module.exports.userStatusUpdate = async (req, res) => {
         });
 
         await masterUser.save();
+
+        const subject = `New Onboarding Request ${user?.user_code} Received `;
+        const body = `<p> Dear <Name> </p> <br/>
+            <p>You have received a new onboarding request from:  </p> <br/> 
+            <p> Associate Name: ${user?.basic_details.associate_details.associate_name}  </p> <br/> 
+            <p> Associate ID: ${user?.user_code}  </p> <br/>
+            <p> Please review the request and take action by approving or rejecting it. Click on the following link to take action- <a href="https://ep-testing.navbazar.com/associate-details"> Click here </a> </p> <br/> 
+            <p> Warm regards,  </p> <br/> 
+            <p> Navankur.</p> ` ;
+
+        await sendMail("ashita@navankur.org", null, subject, body);
 
         return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.updated('User status'), data: { userId, user_status: status } }));
     } catch (error) {

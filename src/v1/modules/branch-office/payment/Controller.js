@@ -139,10 +139,32 @@ module.exports.payment = async (req, res) => {
             }
         ]);
 
+
         const response = {
             count: records[0]?.totalCount[0]?.count || 0,
-            rows: records[0]?.data || []
+            // row: records[0]?.data || []
         };
+
+         ////////// start of Sangita code
+
+         response.rows = await Promise.all(records[0].data.map(async record => {
+          
+            allBatchApprovalStatus = _paymentApproval.pending;
+
+                const pendingBatch = await Batch.find({ req_id:record._id, bo_approve_status: _paymentApproval.pending });
+
+                if (pendingBatch.length > 0) {
+                    allBatchApprovalStatus = _paymentApproval.pending;
+                }else{
+                    allBatchApprovalStatus = _paymentApproval.approved;
+                }
+            
+                return { ...record, allBatchApprovalStatus }
+        }));
+
+        ////////// end of Sangita code
+        
+
         if (paginate == 1) {
             response.page = page
             response.limit = limit
@@ -158,7 +180,7 @@ module.exports.payment = async (req, res) => {
                     "Quantity Purchased": item?.qtyPurchased || 'NA',
                     "Amount Payable": item?.amountPayable || 'NA',
                     "Approval Status": item?.approval_status ?? 'NA',
-                    "Payment Status": item?.payment_status ?? 'NA'                    
+                    "Payment Status": item?.payment_status ?? 'NA'
                 }
             })
 
@@ -223,7 +245,7 @@ module.exports.associateOrders = async (req, res) => {
         if (isExport == 1) {
 
             const record = records.rows.map((item) => {
-              
+
                 return {
                     "Associate ID": item?.seller_id.user_code || 'NA',
                     "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || 'NA',
@@ -415,7 +437,7 @@ module.exports.getBill = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
         }
 
-        const records = await Batch.findOne({ batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+        const records = await Batch.findOne({ _id: batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
 
@@ -558,9 +580,7 @@ module.exports.orderList = async (req, res) => {
 
         const records = { count: 0, rows: [] };
 
-        records.rows = await AgentInvoice.find(query).populate({path:"req_id", select: " "})
- 
-
+        records.rows = await AgentInvoice.find(query).populate({ path: "req_id", select: " " })
 
         records.count = await AgentInvoice.countDocuments(query)
 
@@ -574,9 +594,8 @@ module.exports.orderList = async (req, res) => {
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
 
-
-        records.rows = records.rows.map(item=>{ 
-            let obj = { 
+        records.rows = records.rows.map(item => {
+            let obj = {
 
                 _id: item?._id,
                 orderId: item?.req_id?.reqNo,
@@ -628,8 +647,8 @@ module.exports.agencyInvoiceById = async (req, res) => {
     try {
         const agencyInvoiceId = req.params.id
 
-        const agentBill = await AgentInvoice.findOne({_id: agencyInvoiceId}).select('_id bill')
-        if(!agentBill){
+        const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId }).select('_id bill bo_approve_status')
+        if (!agentBill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
 
@@ -646,8 +665,8 @@ module.exports.boBillApproval = async (req, res) => {
 
         const agencyInvoiceId = req.params.id
 
-        const agentBill = await AgentInvoice.findOne({_id: agencyInvoiceId});
-        if(!agentBill){
+        const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId });
+        if (!agentBill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
 
@@ -662,4 +681,84 @@ module.exports.boBillApproval = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+}
+
+module.exports.boBillRejection = async (req, res) => {
+
+    try {
+
+        const {agencyInvoiceId, comment} = req.body
+
+        const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId });
+        if (!agentBill) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
+        }
+
+        await updateAgentInvoiceLogs(agencyInvoiceId)
+
+        agentBill.bo_approve_status = _paymentApproval.rejected;
+        agentBill.bo_approve_by = null;
+        agentBill.bo_approve_at = null
+
+        agentBill.bill.bo_reject_by = req.user._id
+        agentBill.bill.bo_reject_at = new Date()
+        agentBill.bill.bo_reason_to_reject = comment
+
+        await agentBill.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: "Bill Approved by BO" }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+const updateAgentInvoiceLogs = async (agencyInvoiceId) => { 
+
+    try {
+        const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId });
+
+        const log = {
+            bo_approve_status: agentBill.bo_approve_status,
+            bo_approve_by: agentBill.bo_approve_by,
+            bo_approve_at: agentBill.bo_approve_at,
+            ho_approve_status: agentBill.ho_approve_status,
+            ho_approve_by: agentBill.ho_approve_by,
+            ho_approve_at: agentBill.ho_approve_at,
+            payment_status: agentBill.payment_status,
+            payment_id: agentBill.payment_id,
+            transaction_id: agentBill.transaction_id,
+            payment_method: agentBill.payment_method,
+        
+            bill: {
+                precurement_expenses: agentBill.bill.precurement_expenses,
+                driage: agentBill.bill.driage,
+                storage_expenses: agentBill.bill.storage_expenses,
+                commission: agentBill.bill.commission,
+                bill_attachement: agentBill.bill.bill_attachement,
+                total: agentBill.bill.total,
+        
+                // bo rejection case
+                bo_reject_by: agentBill.bill.bo_reject_by,
+                bo_reject_at: agentBill.bill.bo_reject_at,
+                bo_reason_to_reject: agentBill.bill.bo_reason_to_reject,
+        
+                // ho rejection case
+                ho_reject_by: agentBill.bill.ho_reject_by,
+                ho_reject_at: agentBill.bill.ho_reject_at,
+                ho_reason_to_reject: agentBill.bill.ho_reason_to_reject
+            },
+            payment_change_remarks: agentBill.payment_change_remarks
+        };
+        
+
+        agentBill.logs.push(log)
+        await agentBill.save()
+        
+    
+    return true
+    } catch (error) {
+        throw error
+    }
+
 }

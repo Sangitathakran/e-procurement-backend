@@ -39,7 +39,9 @@ const _collectionName = {
     Agency: "Agency",
     Types: "Types",
     AssociateInvoice: "AssociateInvoice",
-    AgentInvoice: "AgentInvoice"
+    AgentInvoice: "AgentInvoice",
+    AgentPaymentFile: "AgentPaymentFile",
+    FarmerPaymentFile: "FarmerPaymentFile"
 }
 
 const _userType_Feature_Collection = {
@@ -178,6 +180,7 @@ const _trader_type = {
     TRUST: 'Trust',
     INDIVIDUAL: 'Individual',
     PROPRIETOR: 'Proprietor',
+    PACS: 'PACS',
 }
 
 const _center_type = {
@@ -321,6 +324,7 @@ const _batchStatus = {
     finalQc: "Final Qc",
     paymentApproved: "Payment Approved",
     FinalPayApproved: "Final Payment Approved",
+    paymentInTransit: "Payment In Progress",
     paymentComplete: "Payment Complete"
 }
 
@@ -331,7 +335,9 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
+    failed:"Failed",
     completed: "Completed",
+    rejected: "Rejected"
 }
 
 const _billstatus = {
@@ -342,6 +348,7 @@ const _billstatus = {
 const _paymentApproval = {
     pending: "Pending",
     approved: "Approved",
+    rejected: "Rejected"
 }
 
 const received_qc_status = {

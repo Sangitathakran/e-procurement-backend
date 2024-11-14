@@ -28,6 +28,7 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.invalid("token") }] }))
 
         }
+      
         const userExist = await User.findOne({ _id: decodedToken.user_id })
 
         if (!userExist) {

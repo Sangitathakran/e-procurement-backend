@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
 const { User } = require("@src/v1/models/app/auth/User");
@@ -11,6 +11,8 @@ const { JWT_SECRET_KEY } = require('@config/index');
 const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const xlsx = require('xlsx');
+const csv = require("csv-parser");
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
 const findUser = async (input, type) => {
@@ -116,7 +118,8 @@ module.exports.loginOrRegister = async (req, res) => {
             phone: userExist.basic_details.associate_details.phone,
             associate_code: userExist.user_code,
             organization_name: userExist.basic_details.associate_details.organization_name || null,
-            onboarding: (userExist?.basic_details?.associate_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details) ? true : false
+            is_form_submitted: userExist.is_form_submitted,
+            onboarding: (userExist?.basic_details?.associate_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details && userExist.is_form_submitted == 'true') ? true : false
         }
         return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: data }));
     } catch (error) {
@@ -305,3 +308,186 @@ module.exports.finalFormSubmit = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+module.exports.editOnboarding = async (req, res) => {
+    try {
+        const { user_id } = req;
+        if (!user_id) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
+        }
+       
+        const response = await User.findById({ _id: user_id });
+        
+        if (!response) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+  module.exports.associateBulkuplod = async (req, res) => {
+    try {
+        const { isxlsx = 1 } = req.body;
+        const [file] = req.files;
+
+        if (!file) {
+            return res.status(400).json({
+                message: _response_message.notFound("file"),
+                status: 400
+            });
+        }
+
+        let Associates = [];
+        let headers = [];
+
+        if (isxlsx) {
+            const workbook = xlsx.read(file.buffer, { type: 'buffer' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            Associates = xlsx.utils.sheet_to_json(worksheet);
+            headers = Object.keys(Associates[0]);
+        } else {
+            const csvContent = file.buffer.toString('utf8');
+            const lines = csvContent.split('\n');
+            headers = lines[0].trim().split(',');
+            const dataContent = lines.slice(1).join('\n');
+
+            const parser = csv({ headers });
+            const readableStream = Readable.from(dataContent);
+
+            readableStream.pipe(parser);
+            parser.on('data', async (data) => {
+                if (Object.values(data).some(val => val !== '')) {
+                    const result = await processFarmerRecord(data);
+                    if (!result.success) {
+                        errorArray = errorArray.concat(result.errors);
+                    }
+                }
+            });
+
+            parser.on('end', () => {
+                console.log("Stream end");
+            });
+            parser.on('error', (err) => {
+                console.log("Stream error", err);
+            });
+        }
+
+        let errorArray = [];
+        const procesAssociateRecord = async (rec) => {
+            const associate_type = rec["Aggregator Type (PACS)"];
+            const email = rec["Email ID"];
+            const mobile_no = rec["Mobile No."];
+            const associate_name = rec["Associate Name (Name of PACS)"];
+            const state = rec["State"];
+            const district = rec["District"];
+            const country = rec["Country"];
+            const taluka = rec["City"];
+            const pinCode = rec["Pin Code"];
+            const gst_no = rec["GST No."];
+            const cin_number = rec["Registration No. of PACS"];
+            const pacs_reg_date = rec["Registration Date of PACS"];
+            const name = rec["Contact Person"];
+            const line1 = rec["Address of PACS"];
+            const bank_name = rec["Bank Name"];
+            const branch_name = rec["Bank Branch"];
+            const account_number = rec["Bank Account No."];
+            const ifsc_code = rec["IFSC Code"];
+            let errors = [];
+            let missingFields = [];
+            if (!mobile_no) {
+                missingFields.push("Mobile No.");
+            }
+
+            if (missingFields.length > 0) {
+                errors.push({ record: rec, error: `Required fields missing: ${missingFields.join(', ')}` });
+            }
+
+            if (!/^\d{10}$/.test(mobile_no)) {
+                errors.push({ record: rec, error: "Invalid Mobile Number" });
+            }
+            if (!/^\d{6,18}$/.test(account_number)) {
+                errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 18 digits." });
+            }
+            if (errors.length > 0) return { success: false, errors };
+
+            try {
+                let existingRecord = await User.findOne({ 'basic_details.associate_details.phone': mobile_no });
+                if (existingRecord) {
+                    return { success: false, errors: [{ record: rec, error: `Associate with Mobile No. ${mobile_no} already registered.` }] };
+                } else {
+                    const newUser = new User({ 
+                        client_id: '9876',
+                        basic_details: {
+                            associate_details: {
+                                phone: mobile_no,
+                                associate_type,
+                                email,
+                                organization_name: associate_name,
+                            },
+                            point_of_contact: {
+                                name,
+                            }
+                        },
+                        address: {
+                            registered: {
+                                line1,
+                                country,
+                                state,
+                                district,
+                                taluka,
+                                pinCode,
+                            }
+                        },
+                        company_details: {
+                            gst_no,
+                            cin_number,
+                            pacs_reg_date,
+                        },
+                        bank_details: {
+                            bank_name,
+                            branch_name,
+                            account_number,
+                            ifsc_code,
+                        },
+                        user_type: _userType.associate,
+                    });
+
+                    await newUser.save();
+                }
+            } catch (error) {
+                console.log(error);
+                errors.push({ record: rec, error: error.message });
+            }
+
+            return { success: errors.length === 0, errors };
+        };
+
+        for (const Associate of Associates) {
+            const result = await procesAssociateRecord(Associate);
+            if (!result.success) {
+                errorArray = errorArray.concat(result.errors);
+            }
+        }
+
+        if (errorArray.length > 0) {
+            const errorData = errorArray.map(err => ({ ...err.record, Error: err.error }));
+            dumpJSONToExcel(req, res, {
+                data: errorData,
+                fileName: `associate-error_records.xlsx`,
+                worksheetName: `associate-record-error_records`
+            });
+        } else {
+            return res.status(200).json({
+                status: 200,
+                data: {},
+                message: "Associate successfully uploaded."
+            });
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};

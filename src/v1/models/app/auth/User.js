@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { _collectionName, _userType, _trader_type, _userStatus } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
+const { string } = require('joi');
 const userSchema = new mongoose.Schema({
 
     client_id: { type: String, required: true, trim: true, },
@@ -70,7 +71,9 @@ const userSchema = new mongoose.Schema({
         aadhar_certificate: {
             front: { type: String, trim: true },
             back: { type: String, trim: true },
-        }
+        },
+        gst_no: { type: String, trim: true, },
+        pacs_reg_date: { type: String, trim: true, },
     },
     authorised: {
         name: { type: String, trim: true, },
