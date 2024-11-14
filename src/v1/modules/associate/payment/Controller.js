@@ -805,7 +805,7 @@ module.exports.editBill = async (req, res) => {
 
     record.bills.procurementExp = cal_procurement_expenses;
     record.bills.driage = cal_driage;
-    record.bills.storage_expenses = cal_storage;
+    record.bills.storageExp = cal_storage;
     record.bills.commission = cal_commission;
     record.bills.total = total;
     record.payment_change_remarks = remarks;
