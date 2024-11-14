@@ -214,7 +214,8 @@ module.exports.batchList = async (req, res) => {
 
             let paidFarmer = 0
             let unPaidFarmer = 0
-            let rejectedFarmer = 0   
+            let rejectedFarmer = 0
+            let totalFarmer = 0   
             const paymentData = await Payment.find({ associate_id: user_id, req_id, batch_id:item._id })
 
             paymentData.forEach(item=> { 
@@ -227,9 +228,11 @@ module.exports.batchList = async (req, res) => {
                     if(item.payment_status===_paymentstatus.rejected) {
                         rejectedFarmer += 1
                     }
+
+                    totalFarmer += 1
             })
 
-            return {...JSON.parse(JSON.stringify(item)), paidFarmer, unPaidFarmer, rejectedFarmer}
+            return {...JSON.parse(JSON.stringify(item)), paidFarmer, unPaidFarmer, rejectedFarmer, totalFarmer}
 
         }))
 
@@ -731,7 +734,7 @@ module.exports.paymentLogs = async (req, res) => {
 
 }
 
-module.exports.pendingFarmer = async (req, res) => {
+module.exports.failedPaymentFarmer = async (req, res) => {
     
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
@@ -748,7 +751,7 @@ module.exports.pendingFarmer = async (req, res) => {
 
         let query = {
             _id: farmerOrderIdsOnly,
-            payment_status:'Failed',
+            payment_status:_paymentstatus.failed,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
@@ -759,6 +762,16 @@ module.exports.pendingFarmer = async (req, res) => {
             .skip(skip)
             .limit(parseInt(limit)) : await FarmerOrders.find(query)
                 .sort(sortBy);
+
+        records.rows = records.rows.map(item=>{
+                return {
+                    batchId: batch_id,
+                    bankDetails: {...JSON.parse(JSON.stringify(item.farmer_id.bank_details))},
+                    farmer_id : item.farmer_id._id,
+                    farmerName: item.farmer_id.name
+                
+                }
+        })
 
         records.count = await FarmerOrders.countDocuments(query);
 

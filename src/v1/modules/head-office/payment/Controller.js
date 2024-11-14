@@ -341,6 +341,37 @@ module.exports.batchList = async (req, res) => {
 
     records.count = await Batch.countDocuments(query);
 
+    records.rows = await Promise.all(records.rows.map(async (item)=>{
+
+      let paidFarmer = 0
+      let unPaidFarmer = 0
+      let rejectedFarmer = 0
+      let totalFarmer = 0   
+      const paymentData = await Payment.find({
+        ho_id: { $in: [portalId, user_id] },
+        associateOffers_id: associateOffer_id,
+        bo_approve_status: _paymentApproval.approved,
+      })
+
+      paymentData.forEach(item=> { 
+              if(item.payment_status===_paymentstatus.completed) {
+                  paidFarmer += 1
+              }
+              if(item.payment_status===_paymentstatus.pending || item.payment_status===_paymentstatus.rejected) {
+                  unPaidFarmer += 1
+              }
+              if(item.payment_status===_paymentstatus.rejected) {
+                  rejectedFarmer += 1
+              }
+
+              totalFarmer += 1
+      })
+
+      return {...JSON.parse(JSON.stringify(item)), paidFarmer, unPaidFarmer, rejectedFarmer, totalFarmer}
+
+    }))
+
+
     if (paginate == 1) {
       records.page = page;
       records.limit = limit;
