@@ -409,18 +409,9 @@ module.exports.editOnboarding = async (req, res) => {
             if (!/^\d{10}$/.test(mobile_no)) {
                 errors.push({ record: rec, error: "Invalid Mobile Number" });
             }
-
-            if (pacs_reg_date) {
-                const regDate = new Date(pacs_reg_date.split("-").reverse().join("-"));
-                if (regDate > new Date()) {
-                    errors.push({ record: rec, error: "Invalid Registration Date: Cannot be in the future." });
-                }
-            }
-
             if (!/^\d{6,18}$/.test(account_number)) {
                 errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 18 digits." });
             }
-
             if (errors.length > 0) return { success: false, errors };
 
             try {
