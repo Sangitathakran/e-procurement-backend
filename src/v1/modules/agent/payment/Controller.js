@@ -1613,7 +1613,7 @@ module.exports.editAssociateBill = async (req, res) => {
     const cal_procurement_expenses = handleDecimal(procurement_expenses)
     const cal_driage = handleDecimal(driage)
     const cal_storage = handleDecimal(storage)
-    const commission = (procurement_expenses + driage + storage * 0.5) / 100;
+    const commission = (cal_procurement_expenses + cal_driage + cal_storage * 0.5) / 100;
     const cal_commission = handleDecimal(commission);
     const total = handleDecimal(cal_procurement_expenses + cal_driage + cal_storage + cal_commission)
 
