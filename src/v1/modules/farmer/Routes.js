@@ -4,7 +4,7 @@ const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { validateIndFarmer, validateRegisterDetail, validateFarmer, validateLand, validateCrop, validateBank } = require("./Validation")
 const { verifyAssociate } = require("../associate/utils/verifyAssociate");
-const { saveFarmerDetails,updateIndCrop,getLandDetails, getIndCropDetails,sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, editFarmer, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers, getstatedistrictname, getBoFarmerPreview } = require("./Controller");
+const { saveFarmerDetails,updateIndCrop,getLandDetails, getIndCropDetails,sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers, getstatedistrictname, getBoFarmerPreview, uploadFarmerDocument, getFarmerDocument } = require("./Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
 // const { verifyAgent } = require("../agent/utils/verifyAgent");
 const { Auth } = require("@src/v1/middlewares/jwt");
@@ -12,7 +12,7 @@ const { farmerList } = require("../head-office/farmer-management/Controller");
 
 farmerRoutes.post("/", verifyJwtToken, verifyAssociate, [validateFarmer, validateErrors], createFarmer);
 farmerRoutes.get("/", verifyJwtToken, getFarmers);
-farmerRoutes.put('/:id', verifyJwtToken, editFarmer);
+// farmerRoutes.put('/:id', verifyJwtToken, editFarmer);
 farmerRoutes.delete("/", verifyJwtToken, deletefarmer);
 farmerRoutes.post("/createLand", verifyJwtToken,
     //   [validateLand, validateErrors],
@@ -44,6 +44,8 @@ farmerRoutes.get("/getbo-farmer", Auth, getBoFarmer);
 farmerRoutes.get("/getall-farmer", Auth, getAllFarmers);
 farmerRoutes.get("/bo-preview/:id", Auth, getBoFarmerPreview);
 
+farmerRoutes.put("/upload-farmer-document", Auth, uploadFarmerDocument);
+farmerRoutes.get("/farmer-document", Auth, getFarmerDocument);
 
 /* 
  individual farmer routes s

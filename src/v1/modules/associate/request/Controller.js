@@ -1,4 +1,4 @@
-const { _handleCatchErrors, _generateOrderNumber, _addDays } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, _generateOrderNumber, _addDays, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
@@ -174,7 +174,7 @@ module.exports.updateProcurement = async (req, res) => {
         }
 
         const update = {
-            quotedPrice,
+            quotedPrice: handleDecimal(quotedPrice),
             deliveryDate: delivery_date,
             product: { name, category, grade, variety, quantity },
             address: { deliveryLocation, lat, long },
@@ -217,13 +217,13 @@ module.exports.associateOffer = async (req, res) => {
 
         const sumOfFarmerQty = farmer_data.reduce((acc, curr) => {
 
-            acc = acc + parseInt(curr.qty);
+            acc = acc + handleDecimal(curr.qty);
 
-            return parseInt(acc);
+            return handleDecimal(acc);
 
         }, 0);
 
-        if (sumOfFarmerQty != parseInt(qtyOffered)) {
+        if (sumOfFarmerQty != handleDecimal(qtyOffered)) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "please check details! quantity mismatched" }] }))
         }
 
@@ -707,12 +707,12 @@ module.exports.editFarmerOffer = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }))
         }
 
-        if (record.offeredQty < qtyProcured) {
+        if (record.offeredQty < handleDecimal(qtyProcured)) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "quantity procured should be less than available quantity" }] }));
         }
 
         record.receving_date = receving_date;
-        record.qtyProcured = qtyProcured;
+        record.qtyProcured = handleDecimal(qtyProcured);
         record.procurementCenter_id = procurementCenter_id;
         record.weighbridge_name = weighbridge_name;
         record.weighbridge_no = weighbridge_no;
@@ -725,7 +725,7 @@ module.exports.editFarmerOffer = async (req, res) => {
 
         // Start of Sangita code
 
-        record.qtyRemaining = qtyProcured;
+        record.qtyRemaining = handleDecimal(qtyProcured);
 
         // End of Sangita code
 
@@ -733,7 +733,7 @@ module.exports.editFarmerOffer = async (req, res) => {
 
         if (status == _procuredStatus.received) {
             const associateOfferRecord = await AssociateOffers.findOne({ _id: record?.associateOffers_id });
-            associateOfferRecord.procuredQty += qtyProcured;
+            associateOfferRecord.procuredQty += handleDecimal(qtyProcured);
             await associateOfferRecord.save();
 
         }
