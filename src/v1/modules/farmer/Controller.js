@@ -1640,6 +1640,11 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       if (!/^\d{12}$/.test(aadhar_no)) {
         errors.push({ record: rec, error: "Invalid Aadhar Number" });
       }
+
+      if (!/^\d{6,18}$/.test(account_no)) {
+        errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 18 digits." });
+      }
+
       if (!/^\d{10}$/.test(mobile_no)) {
         errors.push({ record: rec, error: "Invalid Mobile Number" });
       }
