@@ -739,7 +739,7 @@ module.exports.proceedToPayAssociateOrders = async (req, res) => {
                                     as: 'inv',
                                     // in: { $toDouble: '$$inv.bills.total' } // Convert to double if needed
                                     in: '$$inv.bills.total' // remove $toDouble Conversion
-                                    
+
                                 }
                             },
                             initialValue: 0,
@@ -1301,10 +1301,10 @@ module.exports.associateBillApprove = async (req, res) => {
     }
 }
 
-const updateAssociateLogs = async (batchIds) => { 
+const updateAssociateLogs = async (batchIds) => {
 
     const invoiceRecord = await AssociateInvoice.find({ batch_id: { $in: fetchedBatchIds } });
-    const updatedLogs = await Promise.all(invoiceRecord.map(async(invoice)=> { 
+    const updatedLogs = await Promise.all(invoiceRecord.map(async (invoice) => {
 
         let log = {
             bills: {
@@ -1318,13 +1318,13 @@ const updateAssociateLogs = async (batchIds) => {
                 storageExp: invoice.bills.storageExp,
                 commission: invoice.bills.commission,
                 total: invoice.bills.total,
-    
+
                 // Rejection case
                 agent_reject_by: invoice.bills.agent_reject_by || null,
-                agent_reject_at: invoice.bills.agent_reject_at || null ,
+                agent_reject_at: invoice.bills.agent_reject_at || null,
                 reason_to_reject: invoice.bills.reason_to_reject || null
             },
-            payment_change_remarks:invoice.payment_change_remarks || null,
+            payment_change_remarks: invoice.payment_change_remarks || null,
             initiated_at: invoice.initiated_at,
             agent_approve_status: invoice.agent_approve_status,
             agent_approve_by: invoice.agent_approve_by,
@@ -1337,9 +1337,9 @@ const updateAssociateLogs = async (batchIds) => {
 
         invoice.logs.push(log)
         await invoice.save()
-        
+
     }))
-    
+
     return true
 
 }
@@ -1349,9 +1349,9 @@ module.exports.associateBillReject = async (req, res) => {
     try {
 
         const { batchIds = [], comment = "No reject reason given" } = req.body;
-        const { portalId , user } = req;
+        const { portalId, user } = req;
 
-        const batchQuery = {_id: { $in: batchIds }}
+        const batchQuery = { _id: { $in: batchIds } }
 
         const batchList = await Batch.find(batchQuery);
 
@@ -1359,7 +1359,7 @@ module.exports.associateBillReject = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Batch') }] }));
         }
 
-        const fetchedBatchIds = batchList.map(item=>item._id)
+        const fetchedBatchIds = batchList.map(item => item._id)
 
         const query = { batch_id: { $in: fetchedBatchIds } };
 
@@ -1372,23 +1372,29 @@ module.exports.associateBillReject = async (req, res) => {
         // update logs with current bill and approval statuses 
         await updateAssociateLogs(batchIds)
 
-        const record = await AssociateInvoice.updateMany(query, { $set: { agent_approve_status: _paymentApproval.rejected, 
-                                                                            agent_approve_by: null, 
-                                                                            agent_approve_at: null,
-                                                                            
-                                                                            "bills.agent_reject_by":user._id,
-                                                                            "bills.agent_reject_at": new Date(),
-                                                                            "bills.reason_to_reject": comment      
+        const record = await AssociateInvoice.updateMany(query, {
+            $set: {
+                agent_approve_status: _paymentApproval.rejected,
+                agent_approve_by: null,
+                agent_approve_at: null,
 
-                                                                        } });
+                "bills.agent_reject_by": user._id,
+                "bills.agent_reject_at": new Date(),
+                "bills.reason_to_reject": comment
+
+            }
+        });
 
         const batchRejected = await Batch.updateMany(
-            {_id: { $in: fetchedBatchIds } },
-            { $set: { agent_approve_status: _paymentApproval.rejected, 
-            agent_approve_by: null, 
-            agent_approve_at: null,    
+            { _id: { $in: fetchedBatchIds } },
+            {
+                $set: {
+                    agent_approve_status: _paymentApproval.rejected,
+                    agent_approve_by: null,
+                    agent_approve_at: null,
 
-        } });
+                }
+            });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("invoice") }))
 
@@ -1452,9 +1458,9 @@ module.exports.editBill = async (req, res) => {
     const cal_procurement_expenses = handleDecimal(procurement_expenses);
     const cal_driage = handleDecimal(driage);
     const cal_storage = handleDecimal(storage);
-    const commission = (procurement_expenses+driage+storage * 1) / 100;
+    const commission = (cal_procurement_expenses + cal_driage + cal_storage * 1) / 100;
     const cal_commission = handleDecimal(commission);
-    
+
     record.bill.precurement_expenses = cal_procurement_expenses;
     record.bill.driage = cal_driage;
     record.bill.storage_expenses = cal_storage;
@@ -1475,7 +1481,7 @@ module.exports.editBill = async (req, res) => {
 }
 
 
-const updateAgentInvoiceLogs = async (agencyInvoiceId) => { 
+const updateAgentInvoiceLogs = async (agencyInvoiceId) => {
 
     try {
         const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId });
@@ -1491,7 +1497,7 @@ const updateAgentInvoiceLogs = async (agencyInvoiceId) => {
             payment_id: agentBill.payment_id,
             transaction_id: agentBill.transaction_id,
             payment_method: agentBill.payment_method,
-        
+
             bill: {
                 precurement_expenses: agentBill.bill.precurement_expenses,
                 driage: agentBill.bill.driage,
@@ -1499,12 +1505,12 @@ const updateAgentInvoiceLogs = async (agencyInvoiceId) => {
                 commission: agentBill.bill.commission,
                 bill_attachement: agentBill.bill.bill_attachement,
                 total: agentBill.bill.total,
-        
+
                 // bo rejection case
                 bo_reject_by: agentBill.bill.bo_reject_by,
                 bo_reject_at: agentBill.bill.bo_reject_at,
                 bo_reason_to_reject: agentBill.bill.bo_reason_to_reject,
-        
+
                 // ho rejection case
                 ho_reject_by: agentBill.bill.ho_reject_by,
                 ho_reject_at: agentBill.bill.ho_reject_at,
@@ -1512,13 +1518,13 @@ const updateAgentInvoiceLogs = async (agencyInvoiceId) => {
             },
             payment_change_remarks: agentBill.payment_change_remarks
         };
-        
+
 
         agentBill.logs.push(log)
         await agentBill.save()
-        
-    
-    return true
+
+
+        return true
     } catch (error) {
         throw error
     }
@@ -1575,7 +1581,7 @@ module.exports.agencyBill = async (req, res) => {
             }
 
             if (record) {
-                
+
                 dumpJSONToPdf(req, res, {
                     data: [record],
                     fileName: `Agency-bill.xlsx`,
@@ -1606,8 +1612,8 @@ module.exports.editAssociateBill = async (req, res) => {
 
     const cal_procurement_expenses = handleDecimal(procurement_expenses)
     const cal_driage = handleDecimal(driage)
-    const cal_storage = handleDecimal(storage)    
-    const commission = (procurement_expenses+driage+storage * 0.5) / 100;
+    const cal_storage = handleDecimal(storage)
+    const commission = (cal_procurement_expenses + cal_driage + cal_storage * 0.5) / 100;
     const cal_commission = handleDecimal(commission);
     const total = handleDecimal(cal_procurement_expenses + cal_driage + cal_storage + cal_commission)
 
@@ -1618,8 +1624,8 @@ module.exports.editAssociateBill = async (req, res) => {
     record.bills.total = total;
     record.payment_change_remarks = remarks;
     record.agent_approve_status = _paymentApproval.pending
-    
-    const batch = await Batch.findOne({_id:record.batch_id});
+
+    const batch = await Batch.findOne({ _id: record.batch_id });
 
     if (!batch) {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Batch') }] }));
@@ -1639,48 +1645,48 @@ module.exports.editAssociateBill = async (req, res) => {
 
 }
 
-const updateAssociateBillLogs = async (invoiceId) => { 
+const updateAssociateBillLogs = async (invoiceId) => {
 
-   try {
-    const invoice = await AssociateInvoice.findOne({ _id: invoiceId });
+    try {
+        const invoice = await AssociateInvoice.findOne({ _id: invoiceId });
 
-    const log = {
-        bills: {
-            procurementExp: handleDecimal(invoice.bills.procurementExp),
-            qc_survey: invoice.bills.qc_survey,
-            gunny_bags: invoice.bills.gunny_bags,
-            weighing_stiching: invoice.bills.weighing_stiching,
-            loading_unloading: invoice.bills.loading_unloading,
-            transportation: invoice.bills.transportation,
-            driage: handleDecimal(invoice.bills.driage),
-            storageExp: handleDecimal(invoice.bills.storageExp),
-            commission: handleDecimal(invoice.bills.commission),
-            total: handleDecimal(invoice.bills.total),
+        const log = {
+            bills: {
+                procurementExp: handleDecimal(invoice.bills.procurementExp),
+                qc_survey: invoice.bills.qc_survey,
+                gunny_bags: invoice.bills.gunny_bags,
+                weighing_stiching: invoice.bills.weighing_stiching,
+                loading_unloading: invoice.bills.loading_unloading,
+                transportation: invoice.bills.transportation,
+                driage: handleDecimal(invoice.bills.driage),
+                storageExp: handleDecimal(invoice.bills.storageExp),
+                commission: handleDecimal(invoice.bills.commission),
+                total: handleDecimal(invoice.bills.total),
 
-            // Rejection case
-            agent_reject_by: invoice.bills.agent_reject_by,
-            agent_reject_at: invoice.bills.agent_reject_at,
-            reason_to_reject: invoice.bills.reason_to_reject 
-        },
-        initiated_at: invoice.initiated_at,
-        agent_approve_status: invoice.agent_approve_status,
-        agent_approve_by: invoice.agent_approve_by,
-        agent_approve_at: invoice.agent_approve_at,
-        payment_status: invoice.payment_status,
-        payment_id: invoice.payment_id,
-        transaction_id: invoice.transaction_id,
-        payment_method: invoice.payment_method,
-        payment_change_remarks: invoice.payment_change_remarks || null
-    };
+                // Rejection case
+                agent_reject_by: invoice.bills.agent_reject_by,
+                agent_reject_at: invoice.bills.agent_reject_at,
+                reason_to_reject: invoice.bills.reason_to_reject
+            },
+            initiated_at: invoice.initiated_at,
+            agent_approve_status: invoice.agent_approve_status,
+            agent_approve_by: invoice.agent_approve_by,
+            agent_approve_at: invoice.agent_approve_at,
+            payment_status: invoice.payment_status,
+            payment_id: invoice.payment_id,
+            transaction_id: invoice.transaction_id,
+            payment_method: invoice.payment_method,
+            payment_change_remarks: invoice.payment_change_remarks || null
+        };
 
-    invoice.logs.push(log)
-    await invoice.save()
+        invoice.logs.push(log)
+        await invoice.save()
 
-    return true
-    
-   } catch (error) {
+        return true
+
+    } catch (error) {
         throw error
-   }
+    }
 
 }
 
