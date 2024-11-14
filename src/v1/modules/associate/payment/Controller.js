@@ -2,7 +2,7 @@ const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal } = re
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType, _webSocketEvents, _paymentApproval } = require('@src/v1/utils/constants');
+const { _userType, _webSocketEvents, _paymentApproval, _paymentstatus } = require('@src/v1/utils/constants');
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const mongoose = require("mongoose");
@@ -180,7 +180,10 @@ module.exports.batchList = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '', tab = 0, req_id, isExport = 0 } = req.query
         const { user_id } = req
 
-        const paymentIds = tab == 0 ? (await Payment.find({ associate_id: user_id, req_id })).map(i => i.batch_id) : (await AssociateInvoice.find({ associate_id: user_id, req_id })).map(i => i.batch_id)
+        const paymentIds = tab == 0 ? (await Payment.find({ associate_id: user_id, req_id })).map(i => i.batch_id) : 
+        (await AssociateInvoice.find({ associate_id: user_id, req_id })).map(i => i.batch_id)
+
+
         let query = {
             req_id,
             _id: { $in: paymentIds },
@@ -206,6 +209,29 @@ module.exports.batchList = async (req, res) => {
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
+
+        records.rows = await Promise.all(records.rows.map(async (item)=>{
+
+            let paidFarmer = 0
+            let unPaidFarmer = 0
+            let rejectedFarmer = 0   
+            const paymentData = await Payment.find({ associate_id: user_id, req_id, batch_id:item._id })
+
+            paymentData.forEach(item=> { 
+                    if(item.payment_status===_paymentstatus.completed) {
+                        paidFarmer += 1
+                    }
+                    if(item.payment_status===_paymentstatus.pending || item.payment_status===_paymentstatus.rejected) {
+                        unPaidFarmer += 1
+                    }
+                    if(item.payment_status===_paymentstatus.rejected) {
+                        rejectedFarmer += 1
+                    }
+            })
+
+            return {...JSON.parse(JSON.stringify(item)), paidFarmer, unPaidFarmer, rejectedFarmer}
+
+        }))
 
         if (isExport == 1) {
 
@@ -722,7 +748,7 @@ module.exports.pendingFarmer = async (req, res) => {
 
         let query = {
             _id: farmerOrderIdsOnly,
-            payment_status:'pending',
+            payment_status:'Failed',
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
@@ -758,7 +784,7 @@ module.exports.pendingFarmer = async (req, res) => {
 module.exports.updateFarmerBankDetail = async (req, res) => {
     try {
         const { user_id } = req;
-        const { farmer_id, account_no, ifsc_code } = req.body;
+        const { farmer_id, account_no, ifsc_code, batch_id } = req.body;
 
         const existingRecord = await farmer.findOne({ _id: farmer_id });
         console.log(existingRecord)
@@ -772,6 +798,11 @@ module.exports.updateFarmerBankDetail = async (req, res) => {
         }
 
         const updatedFarmer = await farmer.findOneAndUpdate({ _id: farmer_id }, update, { new: true });
+        
+        // to update the payment status of the farmer in payment collection
+        const paymentDetail = await Payment.findOne({farmer_id:farmer_id, batch_id: batch_id, associate_id: user_id })
+        paymentDetail.payment_status = _paymentstatus.pending
+        await paymentDetail.save()
 
         eventEmitter.emit(_webSocketEvents.procurement, { ...updatedFarmer, method: "updated" })
 

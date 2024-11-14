@@ -11,6 +11,7 @@ const {
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const xlsx = require("xlsx");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 main().catch((err) => console.log(err));
 //update
 async function main() {
@@ -120,6 +121,22 @@ async function downloadFarmerFile() {
             paymentDetails.payment_status = "Completed";
             paymentDetails.transaction_id = item2.UTR_SR_NO;
             await paymentDetails.save();
+
+            //updateing the FarmerOrders collection 
+            const farmerOrder = await FarmerOrders.find({_id:paymentDetails.farmer_order_id})
+            farmerOrder.payment_status = "Completed"
+            await farmerOrder.save()
+          }
+
+          else{
+            paymentDetails.payment_status = "Failed";
+            paymentDetails.transaction_id = item2.UTR_SR_NO;
+            await paymentDetails.save();
+
+            //updateing the FarmerOrders collection 
+            const farmerOrder = await FarmerOrders.find({_id:paymentDetails.farmer_order_id})
+            farmerOrder.payment_status = "Failed"
+            await farmerOrder.save()
           }
           // CORPORATION_CODE: '101923545',
           // CLIENT_CODE: 'NCCFMAIZER',

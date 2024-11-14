@@ -336,6 +336,7 @@ const _paymentstatus = {
     pending: "Pending",
     failed:"Failed",
     completed: "Completed",
+    rejected: "Rejected"
 }
 
 const _billstatus = {
