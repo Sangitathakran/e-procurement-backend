@@ -393,7 +393,8 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
                                 $map: {
                                     input: '$invoice',
                                     as: 'inv',
-                                    in: { $toInt: '$$inv.qtyProcured' }
+                                    // in: { $toInt: '$$inv.qtyProcured' }
+                                    in: '$$inv.qtyProcured' // Removed $toInt conversion
                                 }
                             },
                             initialValue: 0,
