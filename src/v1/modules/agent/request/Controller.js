@@ -379,7 +379,8 @@ module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) =>
         if (existingRequest.fulfilledQty == handleDecimal(existingRequest?.product?.quantity)) {
             existingRequest.status = _requestStatus.fulfilled;
         } else if (existingRequest.fulfilledQty < handleDecimal(existingRequest?.product?.quantity)) {
-            existingRequest.status = _requestStatus.partially_fulfilled;
+            // existingRequest.status = _requestStatus.partially_fulfilled;
+            existingRequest.status = _requestStatus.partially_fulfulled;
         } else {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }));
         }
