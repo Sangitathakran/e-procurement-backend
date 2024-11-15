@@ -26,7 +26,7 @@ paymentRoutes.get('/agency-invoice-byId/:id' ,Auth, agencyInvoiceById)
 paymentRoutes.put("/bill-approval/:id",Auth, boBillApproval);
 
 // agent bill rejection case 
-paymentRoutes.put("/bill-reject/:id", Auth, boBillRejection)
+paymentRoutes.put("/bill-reject", Auth, boBillRejection)
 
 
 module.exports = { paymentRoutes }; 

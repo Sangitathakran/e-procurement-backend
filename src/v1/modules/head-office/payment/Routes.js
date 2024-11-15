@@ -28,7 +28,7 @@ paymentRoutes.put("/edit-bill/:id", Auth, editBillHo);
 paymentRoutes.get("/pay-agent/:id", Auth, payAgent);
 
 //ho bill rejection case
-paymentRoutes.put("/bill-reject/:id", Auth, hoBillRejection)
+paymentRoutes.put("/bill-reject", Auth, hoBillRejection)
 
 
 module.exports = { paymentRoutes }; 
