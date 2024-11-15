@@ -647,7 +647,7 @@ module.exports.agencyInvoiceById = async (req, res) => {
     try {
         const agencyInvoiceId = req.params.id
 
-        const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId }).select('_id bill bo_approve_status')
+        const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId })
         if (!agentBill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
         }
@@ -706,7 +706,7 @@ module.exports.boBillRejection = async (req, res) => {
 
         await agentBill.save();
 
-        return res.status(200).send(new serviceResponse({ status: 200, message: "Bill Approved by BO" }));
+        return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.rejectedSuccessfully("Bill") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);

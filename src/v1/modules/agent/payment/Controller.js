@@ -1156,9 +1156,11 @@ module.exports.getBill = async (req, res) => {
 
         const { user_id, user_type } = req;
 
-        const records = await Batch.findOne({ _id: batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+        const associateInvoiceRecord = await AssociateInvoice.findOne({batch_id:batchId}) 
+        const batchRecord = await Batch.findOne({ _id: batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
+        const response = {...JSON.parse(JSON.stringify(batchRecord)), logs: associateInvoiceRecord.logs }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+        return res.status(200).send(new serviceResponse({ status: 200, data: response, message: _query.get('Payment') }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -1303,7 +1305,7 @@ module.exports.associateBillApprove = async (req, res) => {
 
 const updateAssociateLogs = async (batchIds) => {
 
-    const invoiceRecord = await AssociateInvoice.find({ batch_id: { $in: fetchedBatchIds } });
+    const invoiceRecord = await AssociateInvoice.find({ batch_id: { $in: batchIds } });
     const updatedLogs = await Promise.all(invoiceRecord.map(async (invoice) => {
 
         let log = {
@@ -1355,7 +1357,7 @@ module.exports.associateBillReject = async (req, res) => {
 
         const batchList = await Batch.find(batchQuery);
 
-        if (batchList.length < 0) {
+        if (batchList.length < 1) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Batch') }] }));
         }
 
@@ -1396,7 +1398,7 @@ module.exports.associateBillReject = async (req, res) => {
                 }
             });
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("invoice") }))
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.rejectedSuccessfully("Batches") }))
 
     } catch (error) {
         _handleCatchErrors(error, res);

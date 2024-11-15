@@ -701,7 +701,7 @@ module.exports.agencyInvoiceById = async (req, res) => {
 
     
 
-    const agentBill = await AgentInvoice.findOne(query).select("_id bill");
+    const agentBill = await AgentInvoice.findOne(query);
     if (!agentBill) {
       return res
         .status(400)
@@ -807,7 +807,7 @@ module.exports.hoBillRejection = async (req, res) => {
     return res
       .status(200)
       .send(
-        new serviceResponse({ status: 200, message: "Bill Approved by HO" })
+        new serviceResponse({ status: 200, message: _response_message.rejectedSuccessfully("Bill") })
       );
   } catch (error) {
     _handleCatchErrors(error, res);

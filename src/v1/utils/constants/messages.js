@@ -60,6 +60,7 @@ module.exports = {
         fileMissing:() => "File is not provided",
         notProvided: (key)=> `${key} is not provided`,
         userNotApproved:() => "User is not Approved",
-        canNOtBeEdited:()=> "HO Approved bills can't be edited."
+        canNOtBeEdited:()=> "HO Approved bills can't be edited.",
+        rejectedSuccessfully: (key) => `${key} rejected successfully.`
     }
 }

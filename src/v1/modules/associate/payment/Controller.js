@@ -225,7 +225,7 @@ module.exports.batchList = async (req, res) => {
                     if(item.payment_status===_paymentstatus.pending || item.payment_status===_paymentstatus.rejected) {
                         unPaidFarmer += 1
                     }
-                    if(item.payment_status===_paymentstatus.rejected) {
+                    if(item.payment_status===_paymentstatus.failed) {
                         rejectedFarmer += 1
                     }
 
@@ -769,7 +769,8 @@ module.exports.failedPaymentFarmer = async (req, res) => {
                     ...JSON.parse(JSON.stringify(item.farmer_id.bank_details)),
                     farmer_id : item.farmer_id._id,
                     farmerName: item.farmer_id.name,
-                    amount_payable: item.net_pay
+                    amount_payable: item.net_pay,
+                    farmer_order_id: item._id
                 
                 }
         })
@@ -798,7 +799,7 @@ module.exports.failedPaymentFarmer = async (req, res) => {
 module.exports.updateFarmerBankDetail = async (req, res) => {
     try {
         const { user_id } = req;
-        const { farmer_id, account_no, ifsc_code, batch_id } = req.body;
+        const { farmer_id, account_no, ifsc_code, batch_id , farmer_order_id } = req.body;
 
         const existingRecord = await farmer.findOne({ _id: farmer_id });
         console.log(existingRecord)
@@ -812,6 +813,12 @@ module.exports.updateFarmerBankDetail = async (req, res) => {
         }
 
         const updatedFarmer = await farmer.findOneAndUpdate({ _id: farmer_id }, update, { new: true });
+
+        // to update the payment status in farmer order collection 
+        const farmerOrder = await FarmerOrders.findOne({_id: farmer_order_id })
+        farmerOrder.payment_status = _paymentstatus.pending
+        await farmerOrder.save()
+        
         
         // to update the payment status of the farmer in payment collection
         const paymentDetail = await Payment.findOne({farmer_id:farmer_id, batch_id: batch_id, associate_id: user_id })
