@@ -1305,7 +1305,7 @@ module.exports.associateBillApprove = async (req, res) => {
 
 const updateAssociateLogs = async (batchIds) => {
 
-    const invoiceRecord = await AssociateInvoice.find({ batch_id: { $in: fetchedBatchIds } });
+    const invoiceRecord = await AssociateInvoice.find({ batch_id: { $in: batchIds } });
     const updatedLogs = await Promise.all(invoiceRecord.map(async (invoice) => {
 
         let log = {
@@ -1357,7 +1357,7 @@ module.exports.associateBillReject = async (req, res) => {
 
         const batchList = await Batch.find(batchQuery);
 
-        if (batchList.length < 0) {
+        if (batchList.length < 1) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Batch') }] }));
         }
 
@@ -1398,7 +1398,7 @@ module.exports.associateBillReject = async (req, res) => {
                 }
             });
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("invoice") }))
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.rejectedSuccessfully("Batches") }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
