@@ -13,6 +13,4 @@ requestRoutes.get("/", Auth, getProcurement);
 requestRoutes.get("/:id", Auth, getProcurementById);
 requestRoutes.patch("/", Auth, updateRequirement);
 
-
-
 module.exports = { requestRoutes }; 
