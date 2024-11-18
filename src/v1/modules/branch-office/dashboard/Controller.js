@@ -209,7 +209,7 @@ module.exports.getProcurementStatusList = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        if(!records) {
+        if (!records) {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Procurement") }));
         }
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Procurement") }));
@@ -280,8 +280,8 @@ module.exports.getPendingOffersCountByRequestId = async (req, res) => {
 
 }
 
-module.exports.farmerPayments = async(req, res) => {
-    
+module.exports.farmerPayments = async (req, res) => {
+
     try {
         const { page, limit = 6, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
 
@@ -290,7 +290,7 @@ module.exports.farmerPayments = async(req, res) => {
         };
 
         const records = { count: 0 };
-        const selectedFields = 'reqNo product.name product.quantity totalQuantity fulfilledQty';
+        const selectedFields = 'reqNo product.name product.quantity deliveryDate fulfilledQty';
         const fetchedRecords = paginate == 1
             ? await RequestModel.find(query)
                 .select(selectedFields)
@@ -300,13 +300,18 @@ module.exports.farmerPayments = async(req, res) => {
 
             : await RequestModel.find(query).sort(sortBy);
 
-        records.rows = fetchedRecords.map(record => ({
-            orderId: record?.reqNo,
-            commodity: record?.product.name,
-            quantityRequired: record?.product.quantity,
-            totalQuantity: record?.product.quantity,
-            fulfilledQty: record?.fulfilledQty
-        }));
+        records.rows = fetchedRecords.map(record => {
+            
+            // let requestCount = await FarmerOrders.find({ order_no: record.reqNo }).countDocuments()
+            let requestCount = '23'
+            return {
+                'orderId': record?.reqNo,
+                'quantityRequired': record?.product.quantity,
+                'deliveryDate': record?.deliveryDate,
+                'requestCount': requestCount
+            }
+
+        });
 
         records.count = await RequestModel.countDocuments(query);
 
@@ -316,37 +321,10 @@ module.exports.farmerPayments = async(req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        if (isExport == 1) {
-
-            const record = records.rows.map((item) => {
-                return {
-                    "Address Line 1": item?.address?.line1 || 'NA',
-                    "Address Line 2": item?.address?.line2 || 'NA',
-                    "Country": item?.address?.country || 'NA',
-                    "State": item?.address?.country || 'NA',
-                    "District": item?.address?.district || 'NA',
-                    "City": item?.address?.city || 'NA',
-                    "PIN Code": item?.address?.postalCode || 'NA',
-                    "Name": item?.point_of_contact?.name || 'NA',
-                    "Email": item?.point_of_contact?.email || 'NA',
-                    "Mobile": item?.point_of_contact?.mobile || 'NA',
-                    "Designation": item?.point_of_contact?.designation || 'NA',
-                    "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
-                }
-            })
-            if (record.length > 0) {
-                dumpJSONToExcel(req, res, {
-                    data: record,
-                    fileName: `procurement-center.xlsx`,
-                    worksheetName: `procurement-center`
-                });
-            } else {
-                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
-            }
-        } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
+        if (!records) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Payment") }));
         }
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -358,7 +336,7 @@ module.exports.agentPayments = async (req, res) => {
 
     try {
 
-        const { page, limit=5, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+        const { page, limit = 5, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
 
         let query = search ? {
             $or: [
@@ -377,8 +355,8 @@ module.exports.agentPayments = async (req, res) => {
             .limit(parseInt(limit)) : await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
                 .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "reqNo product.name" }])
                 .sort(sortBy)
-            
-        records.rows = fetchedRecords.map(record => ({            
+
+        records.rows = fetchedRecords.map(record => ({
             orderId: record?.req_id.reqNo,
             qtyProcured: record?.qtyProcured,
             billingDate: record.req_id.deliveryDate,
@@ -386,7 +364,6 @@ module.exports.agentPayments = async (req, res) => {
         }));
 
         records.count = await AgentInvoice.countDocuments(query);
-
 
         if (paginate == 1) {
             records.page = page
@@ -400,4 +377,5 @@ module.exports.agentPayments = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+
 }
