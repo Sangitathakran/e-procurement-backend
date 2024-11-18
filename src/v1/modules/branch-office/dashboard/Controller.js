@@ -11,6 +11,7 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType, _userStatus, _status, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
 
 module.exports.getDashboardStats = async (req, res) => {
@@ -300,18 +301,28 @@ module.exports.farmerPayments = async (req, res) => {
 
             : await RequestModel.find(query).sort(sortBy);
 
-        records.rows = fetchedRecords.map(record => {
-            
-            // let requestCount = await FarmerOrders.find({ order_no: record.reqNo }).countDocuments()
-            let requestCount = '23'
+        let requestCount = 0;
+
+        records.rows = await Promise.all(fetchedRecords.map(async record => {
+
+            const batchIds = await Batch.find({ req_id: record._id }).select({ _id: 0, farmerOrderIds: 1 }).lean();
+
+            let farmerOrderIdsOnly = {}
+
+            if (batchIds && batchIds.length > 0) {
+                farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
+                let query = { farmer_id: { $in: farmerOrderIdsOnly } };
+                requestCount = await FarmerOrders.countDocuments(query);
+                // console.log(query);
+            }
             return {
                 'orderId': record?.reqNo,
                 'quantityRequired': record?.product.quantity,
                 'deliveryDate': record?.deliveryDate,
-                'requestCount': requestCount
+                'requestCount': requestCount?.requestCount
             }
-
-        });
+            // return { ...record.toObject(), branchDetails }
+        }));
 
         records.count = await RequestModel.countDocuments(query);
 
