@@ -181,6 +181,9 @@ const _trader_type = {
     INDIVIDUAL: 'Individual',
     PROPRIETOR: 'Proprietor',
     PACS: 'PACS',
+    MULTIPURPOSE: 'MULTIPURPOSE',
+    CAMPS: 'CAMPS',
+    Agricultural: 'Agricultural',
 }
 
 const _center_type = {
