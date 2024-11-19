@@ -397,6 +397,7 @@ module.exports.editOnboarding = async (req, res) => {
             const branch_name = rec["Bank Branch"];
             const account_number = rec["Bank Account No."];
             const ifsc_code = rec["IFSC Code"];
+            const ar_circle = rec["AR Circle"];
             let errors = [];
             let missingFields = [];
             if (!mobile_no) {
@@ -441,6 +442,7 @@ module.exports.editOnboarding = async (req, res) => {
                                 district,
                                 taluka,
                                 pinCode,
+                                ar_circle,
                             }
                         },
                         company_details: {
