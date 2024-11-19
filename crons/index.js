@@ -2,6 +2,7 @@ const cron = require("node-cron");
 const { sendLog } = require("./sendLogs");
 const { default: axios } = require("axios");
 const fs = require("fs");
+const path = require('path');
 const {
   AgentPaymentFile,
 } = require("@src/v1/models/app/payment/agentPaymentFile");
@@ -20,17 +21,28 @@ async function main() {
   });
   //0 */3 * * *
   //*/30 * * * * *
+
   cron.schedule("0 */3 * * *", async () => {
     await downloadAgentFile();
   });
   cron.schedule("0 */3 * * *", async () => {
     await downloadFarmerFile();
   });
+
+  // cron.schedule("*/30 * * * * *", async () => {
+  //   await downloadAgentFile();
+  // });
+  // cron.schedule("*/30 * * * * *", async () => {
+  //   await downloadFarmerFile();
+  // });
+  
 }
 async function downloadAgentFile() {
   console.log("Agent file download running");
   let fileDetails = await AgentPaymentFile.find({ file_status: "upload" });
-  //let fileDetails=[{fileName:"AIZER29102024002.xlsx"}]
+  // let fileDetails = await AgentPaymentFile.find({ _id:"673b09983e809c62989a9731" });
+  console.log("fileDetails--->", fileDetails)
+  // let fileDetails=[{fileName:"AIZER181124004.csv"}]
   for (let item of fileDetails) {
     const url = `https://testbank.navbazar.com/v1/download-file?fileName=R_${item.fileName}`; // Replace with your URL
 
@@ -40,7 +52,15 @@ async function downloadAgentFile() {
         "x-api-key": process.env.API_KEY,
       },
     });
+    // console.log("response-->", response.data)
     const filePath = `./src/v1/download/R_${item.fileName}`;
+
+    // Check if the directory exists, and create it if not
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
     const writer = fs.createWriteStream(filePath);
 
     response.data.pipe(writer);
@@ -70,7 +90,7 @@ async function downloadAgentFile() {
         // INST_DATE: '29-10-24',
         // PRODUCT_CODE: 'NEFT'
       }
-      item.received_file_details = rowsDetails[0];
+      item["received_file_details"] = rowsDetails[0];
       item.file_status = "download";
       await item.save();
     });
@@ -99,6 +119,14 @@ async function downloadFarmerFile() {
         },
       });
       const filePath = `./src/v1/download/R_${item.fileName}`;
+
+      // Check if the directory exists, and create it if not
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+
       const writer = fs.createWriteStream(filePath);
   
       response.data.pipe(writer);

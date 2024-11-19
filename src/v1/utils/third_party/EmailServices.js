@@ -91,8 +91,8 @@ class EmailService {
                 .replace("{{user_name}}", userId)
                 .replace("{{password}}", password);
 
-            await sendMail(email, '', 'User registration done successfully | NavBazaar Login Credentials ', html);
-
+            const data = await sendMail(email, '', 'User registration done successfully | NavBazaar Login Credentials ', html);
+            console.log("data-->", data)
         } catch (error) {
             console.error("Error sending welcome email:", error);
             throw error;
