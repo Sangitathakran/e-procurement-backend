@@ -70,21 +70,6 @@ module.exports.getProcurement = async (req, res) => {
                         ...(status == _associateOfferStatus.ordered && { 'myoffer.status': { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } }),
                     }
                 },
-                // {
-                //     $project: {
-                //         _id: 1,
-                //         reqNo: 1,
-                //         product: 1,
-                //         quotedPrice: 1,
-                //         deliveryDate: 1,
-                //         expectedProcurementDate: 1,
-                //         fulfilledQty: 1,
-                //         status: 1,
-                //         address: 1,
-                //         'myoffer.offeredQty': 1,
-                //         'myoffer.status': 1,
-                //     },
-                // },
                 { $sort: sortBy ? sortBy : { createdAt: -1 } },
                 { $skip: skip ? parseInt(skip) : 0 },
                 { $limit: limit ? parseInt(limit) : 10 }
@@ -292,7 +277,7 @@ module.exports.getFarmerListById = async (req, res) => {
             { $match: query }, // Match by associate_id and optional search
             {
                 // $sort: { [sortBy]: 1 } // Sort by the `sortBy` field, default to `name`
-                 $sort: sortBy ? sortBy : { createdAt: -1 } ,
+                $sort: sortBy ? sortBy : { createdAt: -1 },
             }
         ];
 
@@ -308,28 +293,6 @@ module.exports.getFarmerListById = async (req, res) => {
         // Fetch count of farmers
         const countPipeline = [
             { $match: query },
-            // {
-            //     $lookup: {
-            //         from: 'crops',
-            //         localField: '_id',
-            //         foreignField: 'farmer_id',
-            //         as: 'crops'
-            //     }
-            // },
-            // {
-            //     $lookup: {
-            //         from: 'banks',
-            //         localField: '_id',
-            //         foreignField: 'farmer_id',
-            //         as: 'bankDetails'
-            //     }
-            // },
-            // {
-            //     $match: {
-            //         'crops.0': { $exists: true }, // Farmers with crops
-            //         'bankDetails.0': { $exists: true } // Farmers with bank details
-            //     }
-            // },
             { $count: 'total' } // Count total records matching the criteria
         ];
 
@@ -485,11 +448,6 @@ module.exports.offeredFarmerList = async (req, res) => {
             { $skip: skip },
             { $limit: parseInt(limit) }
         ]
-
-        // records.rows = await FarmerOffers.find(query)
-        //     .sort(sortBy)
-        //     .skip(skip)
-        //     .limit(parseInt(limit))
 
         records.rows = await FarmerOffers.aggregate(pipeline);
 
