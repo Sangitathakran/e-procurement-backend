@@ -46,8 +46,8 @@ AgentPaymentFileSchema.post('save', async function (doc) {
     
   try {
       
-          if(received_file_details.LIQ_STATUS==='Paid'){
-            await AgentInvoice.findByIdAndUpdate(doc.agent_invoice_id, {
+          if(doc.received_file_details.LIQ_STATUS==='Paid'){
+            await AgentInvoice.findByIdAndUpdate({_id: doc.agent_invoice_id}, {
               payment_status: 'Completed',
               transaction_id:doc.received_file_details.UTR_SR_NO ,
               initiatedAt:doc.received_file_details.INST_DATE
