@@ -32,12 +32,14 @@ const FarmerPaymentFileSchema = new mongoose.Schema({
         CLIENT_CODE: { type: String },
         ACCOUNT_NMBR: { type: String },
         BENEF_ACCOUNT_NMBR: { type: String },
+        BENEF_BRANCH_CODE:{ type: String },
         BENEF_DESCRIPTION: { type: String },
         INSTRUMENT_AMNT: { type: String },
         PIR_DATE: { type: String },
         BENE_IFSC_CODE: { type: String },
         PIR_REFERENCE_NMBR: { type: String },
         LIQ_STATUS: { type: String },
+        ADDR_5: { type: String },
         UTR_SR_NO: { type: String },
         INST_DATE: { type: String },
         PRODUCT_CODE: { type: String },
@@ -59,7 +61,7 @@ FarmerPaymentFileSchema.post('save', async function (doc) {
         for(const batchId of batchIds) {
 
             const farmerPaymentCount = await this.constructor.countDocuments({
-                "received_file_details.LIQ_STATUS": 'Paid',
+                "received_file_details.ADDR_5": 'Paid',
                 // "send_file_details.batch_id": batchId
             });
 
