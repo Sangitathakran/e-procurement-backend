@@ -1512,88 +1512,88 @@ module.exports.bulkUploadFarmers = async (req, res) => {
     let errorArray = [];
     const processFarmerRecord = async (rec) => {
       // Utility function to convert to lowercase if value exists
-      const toLowerCaseIfExists = (value) => value ? value.toLowerCase() : value;
+      const toLowerCaseIfExists = (value) => value ? value.toLowerCase().trim() : value;
       const name = rec["NAME*"];
       const father_name = rec["FATHER NAME*"];
-      const mother_name = rec["MOTHER NAME"];
+      const mother_name = rec["MOTHER NAME"]?rec["MOTHER NAME"]:null;
       const date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)*"];
-      const farmer_category = rec["FARMER CATEGORY"];
+      const farmer_category = rec["FARMER CATEGORY"]?rec["FARMER CATEGORY"]:null;
       const gender = toLowerCaseIfExists(rec["GENDER*"]);
       const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS"]) ? toLowerCaseIfExists(rec["MARITAL STATUS"]) : 'N/A';
       const religion = toLowerCaseIfExists(rec["RELIGION"]) ? toLowerCaseIfExists(rec["RELIGION"]) : 'N/A';
       const category = toLowerCaseIfExists(rec["CATEGORY"]) ? toLowerCaseIfExists(rec["CATEGORY"]) : 'N/A';
       const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL"]);
-      const edu_details = rec["EDU DETAILS"];
+      const edu_details = rec["EDU DETAILS"]?rec["EDU DETAILS"]:null;
       const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"]);
       const aadhar_no = rec["AADHAR NUMBER*"];
       const address_line = rec["ADDRESS LINE*"];
-      const country = rec["COUNTRY NAME"];
+      const country = rec["COUNTRY NAME"]?rec["COUNTRY NAME"]:null;
       const state_name = rec["STATE NAME*"];
       const district_name = rec["DISTRICT NAME*"];
-      const tahshil = rec["TAHSHIL"];
-      const block = rec["BLOCK NAME"];
-      const village = rec["VILLAGE NAME"];
+      const tahshil = rec["TAHSHIL*"];
+      const block = rec["BLOCK NAME*"];
+      const village = rec["VILLAGE NAME*"];
       const pinCode = rec["PINCODE*"];
-      const lat = rec["LATITUDE"];
-      const long = rec["LONGITUDE"];
+      const lat = rec["LATITUDE"]?rec["LATITUDE"]:null;
+      const long = rec["LONGITUDE"]?rec["LONGITUDE"]:null;
       const mobile_no = rec["MOBILE NO*"];
-      const email = rec["EMAIL ID"];
+      const email = rec["EMAIL ID"]?rec["EMAIL ID"]:null;
       const warehouse = rec["WAREHOUSE"] && rec["WAREHOUSE"].toLowerCase() === 'yes' ? 'yes' : null;
       const cold_storage = rec["COLD STORAGE"] && rec["COLD STORAGE"].toLowerCase() === 'yes' ? 'yes' : null;
       const processing_unit = rec["PROCESSING UNIT"] && rec["PROCESSING UNIT"].toLowerCase() === 'yes' ? 'yes' : null;
       const transportation_facilities = rec["TRANSPORTATION FACILITIES"] && rec["TRANSPORTATION FACILITIES"].toLowerCase() === 'yes' ? 'yes' : null;
       const credit_facilities = rec["CREDIT FACILITIES"] && rec["CREDIT FACILITIES"].toLowerCase() === 'yes' ? 'yes' : null;
-      const source_of_credit = rec["SOURCE OF CREDIT"];
-      const financial_challenges = rec["FINANCIAL CHALLENGE"];
-      const support_required = rec["SUPPORT REQUIRED"];
-      const total_area = rec["TOTAL AREA"];
-      const land_name = rec["LAND NAME"];
-      const cultivation_area = rec["CULTIVATION AREA"];
+      const source_of_credit = rec["SOURCE OF CREDIT"]?rec["SOURCE OF CREDIT"]:null;
+      const financial_challenges = rec["FINANCIAL CHALLENGE"]?rec["FINANCIAL CHALLENGE"]:null;
+      const support_required = rec["SUPPORT REQUIRED"]?rec["SUPPORT REQUIRED"]:null;
+      const total_area = rec["TOTAL AREA"]?rec["TOTAL AREA"]:null;
+      const land_name = rec["LAND NAME"]?rec["LAND NAME"]:null;
+      const cultivation_area = rec["CULTIVATION AREA"]?rec["CULTIVATION AREA"]:null;
       const area_unit = toLowerCaseIfExists(rec["AREA UNIT"]);
       const khasra_number = rec["KHASRA NUMBER*"];
-      const khtauni_number = rec["KHATAUNI"];
-      const khata_number = rec["KHATA NUMBER"];
+      const khtauni_number = rec["KHATAUNI"]?rec["KHATAUNI"]:null;
+      const khata_number = rec["KHATA NUMBER"]?rec["KHATA NUMBER"]:null;
       const land_type = rec["LAND TYPE"] ? rec["LAND TYPE"] : 'other';
-      const sow_area = rec["SOW AREA"];
+      const sow_area = rec["SOW AREA"]?rec["SOW AREA"]:null;
       const state = (rec["STATE*"]);
       const district = rec["DISTRICT*"];
-      const landvillage = rec["ViLLAGE"];
-      const LandBlock = rec["LAND BLOCK"];
-      const landPincode = rec["LAND PINCODE"];
-      const expected_production = rec["EXPECTED PRODUCTION"];
+      const landvillage = rec["ViLLAGE"]?rec["ViLLAGE"]:null;
+      const LandBlock = rec["LAND BLOCK"]?rec["LAND BLOCK"]:null;
+      const landPincode = rec["LAND PINCODE"]?rec["LAND PINCODE"]:null;
+      const expected_production = rec["EXPECTED PRODUCTION"]?rec["EXPECTED PRODUCTION"]:null;
       const soil_type = toLowerCaseIfExists(rec["SOIL TYPE"]) ? toLowerCaseIfExists(rec["SOIL TYPE"]) : 'other';
       const soil_tested = toLowerCaseIfExists(rec["SOIL TESTED"]) ? toLowerCaseIfExists(rec["SOIL TESTED"]) : 'yes';
-      const soil_testing_agencies = rec["SOIL TESTING AGENCY"];
-      const upload_geotag = rec["UPLOD GEOTAG"]
+      const soil_testing_agencies = rec["SOIL TESTING AGENCY"]?rec["SOIL TESTING AGENCY"]:null;
+      const upload_geotag = rec["UPLOD GEOTAG"]?rec["UPLOD GEOTAG"]:null;
       const sowingdate = rec["SOWING DATE(MM-YYYY)*"];
       const harvestingdate = rec["HARVESTING DATE(MM-YYYY)*"];
       const crop_name = rec["CROPS NAME*"];
-      const crop_variety = rec["CROP VARITY"];
+      const crop_variety = rec["CROP VARITY"]?rec["CROP VARITY"]:null;
       const production_quantity = rec["PRODUCTION QUANTITY*"];
-      const selling_price = rec["SELLING PRICE"];
-      const yield = rec["YIELD(KG)"];
-      const crop_land_name = rec["CROP LAND NAME"];
+      const selling_price = rec["SELLING PRICE"]?rec["SELLING PRICE"]:null;
+      const yield = rec["YIELD(KG)"]? rec["YIELD(KG)"] : null;
+      const crop_land_name = rec["CROP LAND NAME"]? rec["CROP LAND NAME"] :null;
       const crop_growth_stage = rec["CROP GROWTH STAGE"] ? rec["CROP GROWTH STAGE"] : 'Stage1';
-      const crop_disease = rec["CROP DISEASE"];
-      const crop_rotation = rec["CROP ROTATION"];
+      const crop_disease = rec["CROP DISEASE"]?rec["CROP DISEASE"]:null;
+      const crop_rotation = rec["CROP ROTATION"]?rec["CROP ROTATION"]:null;
       const previous_crop_session = rec["PREVIOUS CROP SESSION"] ? rec["PREVIOUS CROP SESSION"] : 'others';
-      const previous_crop_name = rec["PREVIOUS CROP NAME"];
+      const previous_crop_name = rec["PREVIOUS CROP NAME"]?rec["PREVIOUS CROP NAME"]:null;
       const crop_season = toLowerCaseIfExists(rec["CROP SEASONS*"]) ? toLowerCaseIfExists(rec["CROP SEASONS*"]) : 'others';
-      const crop_sold = rec["CROP SOLD"];
-      const quantity_sold = rec["QUANTITY SOLD"];
-      const average_selling_price = rec["AVERAGE SELLING PRICE"];
-      const marketing_channels_used = rec["MARKETING CHANNELS USED"];
-      const challenges_faced = rec["CHALLENGES FACED"];
-      const insurance_company = rec["INSURANCE COMPANY"];
-      const insurance_worth = rec["INSURANCE WORTH"];
-      const insurance_premium = rec["INSURANCE PREMIUM"];
-      const insurance_start_date = rec["INSURANCE START DATE(DD-MM-YYYY)"];
-      const insurance_end_date = rec["INSURANCE END DATE(DD-MM-YYYY)"];
-      const bank_name = rec["BANK NAME"];
+      const crop_sold = rec["CROP SOLD"]?rec["CROP SOLD"]:null;
+      const quantity_sold = rec["QUANTITY SOLD"]?rec["QUANTITY SOLD"]:null;
+      const average_selling_price = rec["AVERAGE SELLING PRICE"]?rec["AVERAGE SELLING PRICE"]:null;
+      const marketing_channels_used = rec["MARKETING CHANNELS USED"]?rec["MARKETING CHANNELS USED"]:null;
+      const challenges_faced = rec["CHALLENGES FACED"]?rec["CHALLENGES FACED"]:null;
+      const insurance_company = rec["INSURANCE COMPANY"]?rec["INSURANCE COMPANY"]:null;
+      const insurance_worth = rec["INSURANCE WORTH"]?rec["INSURANCE WORTH"]:null;
+      const insurance_premium = rec["INSURANCE PREMIUM"]?rec["INSURANCE PREMIUM"]:null;
+      const insurance_start_date = rec["INSURANCE START DATE(DD-MM-YYYY)"]?rec["INSURANCE START DATE(DD-MM-YYYY)"]:null;
+      const insurance_end_date = rec["INSURANCE END DATE(DD-MM-YYYY)"]?rec["INSURANCE END DATE(DD-MM-YYYY)"]:null;
+      const bank_name = rec["BANK NAME*"];
       const account_no = rec["ACCOUNT NUMBER*"];
-      const branch_name = rec["BRANCH"];
-      const ifsc_code = rec["IFSC CODE"];
-      const account_holder_name = rec["ACCOUNT HOLDER NAME"];
+      const branch_name = rec["BRANCH NAME*"];
+      const ifsc_code = rec["IFSC CODE*"];
+      const account_holder_name = rec["ACCOUNT HOLDER NAME*"];
 
       const requiredFields = [
         { field: "NAME*", label: "NAME" },
@@ -1605,6 +1605,9 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         { field: "ADDRESS LINE*", label: "ADDRESS LINE" },
         { field: "STATE NAME*", label: "STATE NAME" },
         { field: "DISTRICT NAME*", label: "DISTRICT NAME" },
+        { field: "BLOCK NAME*", label: "BLOCK NAME" },
+        { field: "TAHSHIL*", label: "TAHSHIL" },
+        { field: "VILLAGE NAME*", label: "VILLAGE NAME" },
         { field: "MOBILE NO*", label: "MOBILE NUMBER" },
         { field: "ACCOUNT NUMBER*", label: "ACCOUNT NUMBER" },
         { field: "KHASRA NUMBER*", label: "KHASRA NUMBER" },
@@ -1615,6 +1618,10 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         { field: "HARVESTING DATE(MM-YYYY)*", label: "HARVESTING DATE(MM-YYYY)" },
         { field: "STATE*", label: " LAND STATE" },
         { field: "DISTRICT*", label: "LAND DISTRICT" },
+        { field: "BANK NAME*", label: "BANK NAME"},
+        { field: "BRANCH NAME*", label: "BRANCH NAME"},
+        { field: "IFSC CODE*", label: "IFSC CODE"},
+        { field: "ACCOUNT HOLDER NAME*", label: "ACCOUNT HOLDER NAME"},
 
 
       ];
@@ -1640,11 +1647,12 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       if (!/^\d{12}$/.test(aadhar_no)) {
         errors.push({ record: rec, error: "Invalid Aadhar Number" });
       }
-
-      if (!/^\d{6,18}$/.test(account_no)) {
-        errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 18 digits." });
+      if (!/^\d{6,20}$/.test(account_no)) {
+        errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 20 digits." });
       }
-
+      if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc_code)) {
+        errors.push({ record: rec, error: "Invalid IFSC CODE: Must start with 4 uppercase letters, followed by 0, and end with 6 alphanumeric characters." });
+      }
       if (!/^\d{10}$/.test(mobile_no)) {
         errors.push({ record: rec, error: "Invalid Mobile Number" });
       }
@@ -1653,9 +1661,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         if (dob > new Date()) {
           errors.push({ record: rec, error: "Invalid Date of Birth: Cannot be in the future." });
         }
-      }
-      if (!/^\d{6,18}$/.test(account_no)) {
-        errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 18 digits." });
       }
       if (!Object.values(_gender).includes(gender)) {
         errors.push({ record: rec, error: `Invalid Gender: ${gender}. Valid options: ${Object.values(_gender).join(', ')}` });
@@ -1711,7 +1716,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           farmerRecord = await updateFarmerRecord(farmerRecord, {
             associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, age: calulateage, gender, farmer_category, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
           });
-          // Update land and bank details if present
+          // Update land and crop details if present
           await updateRelatedRecords(farmerRecord._id, {
             farmer_id: farmerRecord._id, land_name, cultivation_area, total_area, khasra_number, area_unit, khata_number, land_type, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, landvillage, LandBlock, landPincode, expected_production, soil_type, soil_tested, soil_testing_agencies, upload_geotag, sowing_date, harvesting_date, crop_name, production_quantity, selling_price, yield, insurance_company, insurance_worth, crop_season, crop_land_name, crop_growth_stage, crop_disease, crop_rotation, previous_crop_session, previous_crop_name, crop_sold, quantity_sold, average_selling_price, marketing_channels_used, challenges_faced, insurance_premium, insurance_start_date, insurance_end_date, crop_variety,
           });
