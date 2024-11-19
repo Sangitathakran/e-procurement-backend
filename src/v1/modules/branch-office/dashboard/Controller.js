@@ -1,6 +1,6 @@
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
+const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
@@ -10,6 +10,8 @@ const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType, _userStatus, _status, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
+const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
 
 module.exports.getDashboardStats = async (req, res) => {
@@ -175,14 +177,14 @@ module.exports.getProcurementsStats = async (req, res) => {
 module.exports.getProcurementStatusList = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', } = req.query
+        const { page, limit = 6, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
 
         let query = {
             ...(search ? { reqNo: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
 
         const records = { count: 0 };
-        const selectedFields = 'reqNo quoteExpiry product.name quotedPrice totalQuantity fulfilledQty deliveryDate expectedProcurementDate';
+        const selectedFields = 'reqNo product.name product.quantity totalQuantity fulfilledQty';
         const fetchedRecords = paginate == 1
             ? await RequestModel.find(query)
                 .select(selectedFields)
@@ -193,14 +195,11 @@ module.exports.getProcurementStatusList = async (req, res) => {
             : await RequestModel.find(query).sort(sortBy);
 
         records.rows = fetchedRecords.map(record => ({
-            orderId: record.reqNo,
-            quoteExpiry: record.quoteExpiry,
-            productName: record.product.name,
-            quotedPrice: record.quotedPrice,
-            deliveryDate: record.deliveryDate,
-            expectedProcurementDate: record.expectedProcurementDate,
-            totalQuantity: record.totalQuantity,
-            fulfilledQty: record.fulfilledQty
+            orderId: record?.reqNo,
+            commodity: record?.product.name,
+            quantityRequired: record?.product.quantity,
+            totalQuantity: record?.product.quantity,
+            fulfilledQty: record?.fulfilledQty
         }));
 
         records.count = await RequestModel.countDocuments(query);
@@ -211,37 +210,10 @@ module.exports.getProcurementStatusList = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        if (isExport == 1) {
-
-            const record = records.rows.map((item) => {
-                return {
-                    "Address Line 1": item?.address?.line1 || 'NA',
-                    "Address Line 2": item?.address?.line2 || 'NA',
-                    "Country": item?.address?.country || 'NA',
-                    "State": item?.address?.country || 'NA',
-                    "District": item?.address?.district || 'NA',
-                    "City": item?.address?.city || 'NA',
-                    "PIN Code": item?.address?.postalCode || 'NA',
-                    "Name": item?.point_of_contact?.name || 'NA',
-                    "Email": item?.point_of_contact?.email || 'NA',
-                    "Mobile": item?.point_of_contact?.mobile || 'NA',
-                    "Designation": item?.point_of_contact?.designation || 'NA',
-                    "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
-                }
-            })
-            if (record.length > 0) {
-                dumpJSONToExcel(req, res, {
-                    data: record,
-                    fileName: `procurement-center.xlsx`,
-                    worksheetName: `procurement-center`
-                });
-            } else {
-                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
-            }
-        } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
+        if (!records) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Procurement") }));
         }
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Procurement") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -302,6 +274,116 @@ module.exports.getPendingOffersCountByRequestId = async (req, res) => {
         }
 
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Procurement") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+
+}
+
+module.exports.farmerPayments = async (req, res) => {
+
+    try {
+        const { page, limit = 6, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+
+        let query = {
+            ...(search ? { reqNo: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+        };
+
+        const records = { count: 0 };
+        const selectedFields = 'reqNo product.name product.quantity deliveryDate fulfilledQty';
+        const fetchedRecords = paginate == 1
+            ? await RequestModel.find(query)
+                .select(selectedFields)
+                .sort(sortBy)
+                .skip(skip)
+                .limit(parseInt(limit))
+
+            : await RequestModel.find(query).sort(sortBy);
+
+        let requestCount = 0;
+
+        records.rows = await Promise.all(fetchedRecords.map(async record => {
+
+            const batchIds = await Batch.find({ req_id: record._id }).select({ _id: 0, farmerOrderIds: 1 }).lean();
+
+            let farmerOrderIdsOnly = {}
+
+            if (batchIds && batchIds.length > 0) {
+                farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
+                let query = { farmer_id: { $in: farmerOrderIdsOnly } };
+                requestCount = await FarmerOrders.countDocuments(query);
+                // console.log(query);
+            }
+            return {
+                'orderId': record?.reqNo,
+                'quantityRequired': record?.product.quantity,
+                'deliveryDate': record?.deliveryDate,
+                'requestCount': requestCount?.requestCount
+            }
+            // return { ...record.toObject(), branchDetails }
+        }));
+
+        records.count = await RequestModel.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (!records) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Payment") }));
+        }
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+
+}
+
+module.exports.agentPayments = async (req, res) => {
+
+    try {
+
+        const { page, limit = 5, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+
+        let query = search ? {
+            $or: [
+                { "req_id.reqNo": { $regex: search, $options: 'i' } },
+                { "bo_id.branchId": { $regex: search, $options: 'i' } },
+                { "req_id.product.name": { $regex: search, $options: 'i' } }
+            ]
+        } : {};
+
+        const records = { count: 0 };
+
+        fetchedRecords = paginate == 1 ? await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
+            .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product deliveryDate quotedPrice reqNo" }])
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
+                .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "reqNo product.name" }])
+                .sort(sortBy)
+
+        records.rows = fetchedRecords.map(record => ({
+            orderId: record?.req_id.reqNo,
+            qtyProcured: record?.qtyProcured,
+            billingDate: record.req_id.deliveryDate,
+            paymentStatus: record?.payment_status
+        }));
+
+        records.count = await AgentInvoice.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+
 
     } catch (error) {
         _handleCatchErrors(error, res);
