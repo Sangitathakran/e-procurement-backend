@@ -2187,44 +2187,52 @@ module.exports.getAllFarmers = async (req, res) => {
     const skip = (page - 1) * limit;
     const parsedLimit = parseInt(limit);
 
+    records.associatedFarmers = paginate == 1
+    ? await farmer
+      .find(associatedQuery)
+      .populate('associate_id', '_id user_code')
+      .populate('farmer_id', '_id upload_land_document')
+      .sort(sortBy ? { [sortBy]: 1 } : {})
+      .skip(skip)
+      .limit(parsedLimit) 
+
+    : await farmer
+      .find(associatedQuery)
+      .populate('associate_id', '_id user_code')
+      .populate('farmer_id', '_id upload_land_document')
+      .sort(sortBy ? { [sortBy]: 1 } : {})
+
+      records.localFarmersCount = paginate == 1
+      ? await farmer
+        .find(localQuery)
+        .populate('associate_id', '_id user_code')
+        .populate('farmer_id', '_id upload_land_document')
+        .sort(sortBy ? { [sortBy]: 1 } : {})
+        .skip(skip)
+        .limit(parsedLimit) 
+  
+      : await farmer
+        .find(localQuery)
+        .populate('associate_id', '_id user_code')
+        .populate('farmer_id', '_id upload_land_document')
+        .sort(sortBy ? { [sortBy]: 1 } : {})
+    
+  
+    records.count = await farmer.countDocuments(associatedQuery);
+    records.localFarmersCount = await farmer.countDocuments(localQuery);
+
     if (paginate == 1) {
-      records.associatedFarmers = await farmer
-        .find(associatedQuery)
-        .populate('associate_id', '_id user_code')
-        .populate('farmer_id', '_id upload_land_document')
-        .sort(sortBy ? { [sortBy]: 1 } : {})
-        .skip(skip)
-        .limit(parsedLimit);
-
-      records.localFarmers = await farmer
-        .find(localQuery)
-        .sort(sortBy ? { [sortBy]: 1 } : {})
-        .skip(skip)
-        .limit(parsedLimit);
-
-      records.associatedFarmersCount = await farmer.countDocuments(associatedQuery);
-      records.localFarmersCount = await farmer.countDocuments(localQuery);
-    } else {
-      records.associatedFarmers = await farmer
-        .find(associatedQuery)
-        .populate('associate_id', '_id user_code')
-        .populate('farmer_id', '_id upload_land_document')
-        .sort(sortBy ? { [sortBy]: 1 } : {});
-
-      records.localFarmers = await farmer
-        .find(localQuery)
-        .sort(sortBy ? { [sortBy]: 1 } : {});
-
-      // Count total associated and local farmers
-      records.associatedFarmersCount = await farmer.countDocuments(associatedQuery);
-      records.localFarmersCount = await farmer.countDocuments(localQuery);
+        records.page = page
+        records.limit = limit
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
     }
+
 
     // Prepare response data
     const responseData = {
-      associatedFarmersCount: records.associatedFarmersCount,
+      associatedFarmersCount: records.count,
       localFarmersCount: records.localFarmersCount,
-      associatedFarmers: records.associatedFarmers,
+      associatedFarmers: records,
       localFarmers: records.localFarmers,
     };
 
@@ -2242,6 +2250,7 @@ module.exports.getAllFarmers = async (req, res) => {
     });
   }
 };
+
 
 module.exports.uploadFarmerDocument = async (req, res) => {
 
