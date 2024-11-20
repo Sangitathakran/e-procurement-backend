@@ -2,6 +2,7 @@ const cron = require("node-cron");
 const { sendLog } = require("./sendLogs");
 const { default: axios } = require("axios");
 const fs = require("fs");
+const path = require('path');
 const {
   AgentPaymentFile,
 } = require("@src/v1/models/app/payment/agentPaymentFile");
@@ -20,18 +21,36 @@ async function main() {
   });
   //0 */3 * * *
   //*/30 * * * * *
+
   cron.schedule("0 */3 * * *", async () => {
     await downloadAgentFile();
   });
   cron.schedule("0 */3 * * *", async () => {
     await downloadFarmerFile();
   });
+
+  // cron.schedule("*/30 * * * * *", async () => {
+  //   await downloadAgentFile();
+  // });
+  // cron.schedule("*/30 * * * * *", async () => {
+  //   await downloadFarmerFile();
+  // });
+  
 }
+
 async function downloadAgentFile() {
+  try{
+
+ 
   console.log("Agent file download running");
   let fileDetails = await AgentPaymentFile.find({ file_status: "upload" });
-  //let fileDetails=[{fileName:"AIZER29102024002.xlsx"}]
+  // let fileDetails = await AgentPaymentFile.find({ _id:"673b09983e809c62989a9731" });
+  console.log("fileDetails--->", fileDetails)
+  // let fileDetails=[{fileName:"AIZER181124004.csv"}]
   for (let item of fileDetails) {
+    try{
+
+   
     const url = `https://testbank.navbazar.com/v1/download-file?fileName=R_${item.fileName}`; // Replace with your URL
 
     const response = await axios.get(url, {
@@ -40,9 +59,17 @@ async function downloadAgentFile() {
         "x-api-key": process.env.API_KEY,
       },
     });
+    // console.log("response-->", response.data)
     const filePath = `./src/v1/download/R_${item.fileName}`;
-    const writer = fs.createWriteStream(filePath);
 
+    // Check if the directory exists, and create it if not
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    const writer = fs.createWriteStream(filePath);
+        
     response.data.pipe(writer);
 
     writer.on("finish", async () => {
@@ -70,18 +97,29 @@ async function downloadAgentFile() {
         // INST_DATE: '29-10-24',
         // PRODUCT_CODE: 'NEFT'
       }
-      item.received_file_details = rowsDetails[0];
+      item["received_file_details"] = rowsDetails[0];
       item.file_status = "download";
       await item.save();
     });
+  }catch(err){
+    if (err.response && err.response.status === 400) {
+      console.error(`Error Skipping to next index.`);
+    } else {
+      console.error(`Error at index ${i}:`, err.message);
+    }
+    continue
   }
+  }
+}catch(err){
+  console.log('error',err)
+}
 }
 async function downloadFarmerFile() {
   console.log("farmer file download running");
   let fileDetails = await FarmerPaymentFile.find({ file_status: "upload" });
-
+    console.log('fileDetails',fileDetails)
   for (let item of fileDetails) {
-
+    try{
     let rowsDetails = []
 
     for ( let farmer of item.send_file_details ){
@@ -89,7 +127,7 @@ async function downloadFarmerFile() {
       let paymentDetails = await Payment.findById(farmer.payment_id).populate(
         "farmer_id"
       );
-  
+      console.log('paymentDetails',paymentDetails)
       const url = `https://testbank.navbazar.com/v1/download-file?fileName=R_${item.fileName}`; // Replace with your URL
   
       const response = await axios.get(url, {
@@ -99,6 +137,14 @@ async function downloadFarmerFile() {
         },
       });
       const filePath = `./src/v1/download/R_${item.fileName}`;
+
+      // Check if the directory exists, and create it if not
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+
       const writer = fs.createWriteStream(filePath);
   
       response.data.pipe(writer);
@@ -114,16 +160,18 @@ async function downloadFarmerFile() {
         for (let item2 of sheetData) {
           rowsDetails.push({ ...item2 });
           if (
-            item2.LIQ_STATUS == "Paid" &&
+            item2.ADDR_5 == "Paid" &&
             paymentDetails.farmer_id.bank_details.account_no ==
-              item2.BENEF_ACCOUNT_NMBR
+              item2.BENEF_BRANCH_CODE
           ) {
             paymentDetails.payment_status = "Completed";
             paymentDetails.transaction_id = item2.UTR_SR_NO;
             await paymentDetails.save();
 
             //updateing the FarmerOrders collection 
-            const farmerOrder = await FarmerOrders.find({_id:paymentDetails.farmer_order_id})
+            console.log('farmer_order_id',paymentDetails.farmer_order_id)
+            const farmerOrder = await FarmerOrders.findOne({_id:paymentDetails.farmer_order_id});
+            
             farmerOrder.payment_status = "Completed"
             await farmerOrder.save()
           }
@@ -134,7 +182,7 @@ async function downloadFarmerFile() {
             await paymentDetails.save();
 
             //updateing the FarmerOrders collection 
-            const farmerOrder = await FarmerOrders.find({_id:paymentDetails.farmer_order_id})
+            const farmerOrder = await FarmerOrders.findOne({_id:paymentDetails.farmer_order_id})
             farmerOrder.payment_status = "Failed"
             await farmerOrder.save()
           }
@@ -160,7 +208,14 @@ async function downloadFarmerFile() {
     item.received_file_details = rowsDetails;
     item.file_status = "download";
     await item.save();
-
+  }catch(err){
+    if (err.response && err.response.status === 400) {
+      console.error(`Error Skipping to next index.`);
+    } else {
+      console.error(`Error at`, err.message);
+    }
+    continue
+  }
     
   }
 }
