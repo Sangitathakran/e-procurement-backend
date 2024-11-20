@@ -397,6 +397,7 @@ module.exports.editOnboarding = async (req, res) => {
             const branch_name = rec["Bank Branch"];
             const account_number = rec["Bank Account No."];
             const ifsc_code = rec["IFSC Code"];
+            const account_holder_name =rec["Account Holder Name"];
             const ar_circle = rec["AR Circle"];
             let errors = [];
             let missingFields = [];
@@ -455,6 +456,7 @@ module.exports.editOnboarding = async (req, res) => {
                             branch_name,
                             account_number,
                             ifsc_code,
+                            account_holder_name,
                         },
                         user_type: _userType.associate,
                     });
