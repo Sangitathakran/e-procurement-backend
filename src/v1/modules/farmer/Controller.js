@@ -580,7 +580,7 @@ module.exports.getFarmers = async (req, res) => {
 module.exports.getBoFarmer = async (req, res) => {
   try {
     const user_id = req.user.portalId._id;
-    const { page = 1, limit = 10, search = '', sortBy = 'name' } = req.query;
+    const { page = 1, limit = 10, search = '', sortBy} = req.query;
 
     const user = await Branches.findById(user_id);
     if (!user) {
@@ -2232,10 +2232,9 @@ module.exports.getAllFarmers = async (req, res) => {
     const responseData = {
       associatedFarmersCount: records.count,
       localFarmersCount: records.localFarmersCount,
-      associatedFarmers: records,
+      associatedFarmers: records.associatedFarmers,
       localFarmers: records.localFarmers,
     };
-
     return res.status(200).send({
       status: 200,
       data: responseData,
