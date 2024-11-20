@@ -2244,7 +2244,7 @@ module.exports.uploadFarmerDocument = async (req, res) => {
     const { farmer_id, aadhar_front_doc_key, aadhar_back_doc_key, bank_document, upload_land_document } = req.body;
 
     const existingFarmer = await farmer.findById(farmer_id);
-    
+
     if (!existingFarmer) {
       return res.status(404).send(new serviceResponse({
         status: 404,
@@ -2252,13 +2252,13 @@ module.exports.uploadFarmerDocument = async (req, res) => {
       }));
     }
 
-    const existingFarmerLand = await Land.findOne({ farmer_id });
-    if (!existingFarmerLand) {
-      return res.status(404).send(new serviceResponse({
-        status: 404,
-        errors: [{ message: _response_message.notFound("farmer land") }]
-      }));
-    }
+    // const existingFarmerLand = await Land.findOne({ farmer_id });
+    // if (!existingFarmerLand) {
+    //   return res.status(404).send(new serviceResponse({
+    //     status: 404,
+    //     errors: [{ message: _response_message.notFound("farmer land") }]
+    //   }));
+    // }
 
     existingFarmer.documents.aadhar_front_doc_key = aadhar_front_doc_key || existingFarmer.documents.aadhar_front_doc_key;
     existingFarmer.documents.aadhar_back_doc_key = aadhar_back_doc_key || existingFarmer.documents.aadhar_back_doc_key;
@@ -2266,8 +2266,13 @@ module.exports.uploadFarmerDocument = async (req, res) => {
 
     const updatedFarmer = await existingFarmer.save();
 
-    existingFarmerLand.upload_land_document = upload_land_document || existingFarmerLand.upload_land_document;
-    const updatedFarmerLand = await existingFarmerLand.save();
+    // existingFarmerLand.upload_land_document = upload_land_document || existingFarmerLand.upload_land_document;
+    // const updatedFarmerLand = await existingFarmerLand.save();
+    const result = await Land.findOneAndUpdate(
+      { farmer_id }, // Query condition
+      { farmer_id, upload_land_document }, // Update data
+      { upsert: true, new: true } // Options: insert if not found, return the updated/inserted document
+    );
 
     return res.status(200).send(new serviceResponse({
       status: 200,
