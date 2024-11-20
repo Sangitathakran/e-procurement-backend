@@ -579,10 +579,16 @@ module.exports.getFarmers = async (req, res) => {
 
 module.exports.getBoFarmer = async (req, res) => {
   try {
-    const user_id = req.user.portalId._id;
-    const { page = 1, limit = 10, search = '', sortBy = 'name' } = req.query;
+    // const user_id = req.user.portalId._id;
+    // const { page = 1, limit = 10, search = '', sortBy = 'name' } = req.query;
+    // const user = await Branches.findById(user_id);
 
-    const user = await Branches.findById(user_id);
+    const { portalId, user_id } = req  
+    const { page = 1, limit = 10, search = '', sortBy} = req.query;
+
+    // const user = await Branches.findById(user_id);
+    const user = await Branches.findOne({_id:portalId });
+
     if (!user) {
       return res.status(404).send({ message: "User not found." });
     }
@@ -606,7 +612,8 @@ module.exports.getBoFarmer = async (req, res) => {
     const parsedLimit = parseInt(limit);
     const farmers = await farmer.aggregate([
       { $match: query },
-      { $sort: { [sortBy]: 1 } },
+      // { $sort: { [sortBy]: 1 } },
+      { $sort: sortBy ? sortBy : { createdAt: -1 } },
       { $skip: skip },
       { $limit: parsedLimit },
       {
@@ -688,7 +695,7 @@ module.exports.getBoFarmer = async (req, res) => {
             associate_info: "$associate_info",
           },
         },
-      },
+      }
     ]);
     const totalFarmers = await farmer.countDocuments(query);
 
@@ -2258,7 +2265,7 @@ module.exports.uploadFarmerDocument = async (req, res) => {
     const { farmer_id, aadhar_front_doc_key, aadhar_back_doc_key, bank_document, upload_land_document } = req.body;
 
     const existingFarmer = await farmer.findById(farmer_id);
-    
+
     if (!existingFarmer) {
       return res.status(404).send(new serviceResponse({
         status: 404,
@@ -2277,11 +2284,13 @@ module.exports.uploadFarmerDocument = async (req, res) => {
       { farmer_id, upload_land_document }, // Update data
       { upsert: true, new: true } // Options: insert if not found, return the updated/inserted document
     );
+<<<<<<< HEAD
 
+=======
+>>>>>>> 10e91d0a23eba10de45275075ff011af57bf9922
 
     return res.status(200).send(new serviceResponse({
       status: 200,
-      data: updatedFarmer,
       message: _response_message.updated("Farmer Document")
     }));
 
