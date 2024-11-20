@@ -2239,10 +2239,9 @@ module.exports.getAllFarmers = async (req, res) => {
     const responseData = {
       associatedFarmersCount: records.count,
       localFarmersCount: records.localFarmersCount,
-      associatedFarmers: records,
+      associatedFarmers: records.associatedFarmers,
       localFarmers: records.localFarmers,
     };
-
     return res.status(200).send({
       status: 200,
       data: responseData,
