@@ -2276,7 +2276,7 @@ module.exports.uploadFarmerDocument = async (req, res) => {
 
     return res.status(200).send(new serviceResponse({
       status: 200,
-      data: updatedFarmer,
+      // data: updatedFarmer,
       message: _response_message.updated("Farmer Document")
     }));
 
