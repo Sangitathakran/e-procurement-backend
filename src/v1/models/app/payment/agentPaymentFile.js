@@ -20,12 +20,14 @@ const AgentPaymentFileSchema = new mongoose.Schema({
       CLIENT_CODE: { type: String },
       ACCOUNT_NMBR: { type: String },
       BENEF_ACCOUNT_NMBR: { type: String },
+      BENEF_BRANCH_CODE:{ type: String },
       BENEF_DESCRIPTION: { type: String },
       INSTRUMENT_AMNT: { type: String },
       PIR_DATE: { type: String },
       BENE_IFSC_CODE: { type: String },
       PIR_REFERENCE_NMBR: { type: String },
       LIQ_STATUS: { type: String },
+      ADDR_5:{ type: String },
       UTR_SR_NO: { type: String },
       INST_DATE: { type: String },
       PRODUCT_CODE: { type: String },
@@ -46,10 +48,18 @@ AgentPaymentFileSchema.post('save', async function (doc) {
     
   try {
       
-          if(received_file_details.LIQ_STATUS==='Paid'){
-            await AgentInvoice.findByIdAndUpdate(doc.agent_invoice_id, {
+          if(doc.received_file_details?.LIQ_STATUS==='Paid' || doc.received_file_details?.ADDR_5==='Paid'){
+            await AgentInvoice.findByIdAndUpdate({_id: doc.agent_invoice_id}, {
               payment_status: 'Completed',
-              transaction_id:doc.received_file_details.UTR_SR_NO ,
+              payment_id:doc.received_file_details.UTR_SR_NO ,
+              initiatedAt:doc.received_file_details.INST_DATE
+            });
+          }
+
+          if(doc.received_file_details?.LIQ_STATUS==='Failed' || doc.received_file_details?.ADDR_5==='Failed'){ 
+            await AgentInvoice.findByIdAndUpdate({_id: doc.agent_invoice_id}, {
+              payment_status: 'Failed',
+              payment_id:doc.received_file_details.UTR_SR_NO ,
               initiatedAt:doc.received_file_details.INST_DATE
             });
           }

@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName } = require('@src/v1/utils/constants');
+const { _collectionName, _batchStatus, _paymentstatus } = require('@src/v1/utils/constants');
 const { Payment } = require('../procurement/Payment');
 const {Batch}=require('../procurement/Batch')
 
@@ -32,12 +32,14 @@ const FarmerPaymentFileSchema = new mongoose.Schema({
         CLIENT_CODE: { type: String },
         ACCOUNT_NMBR: { type: String },
         BENEF_ACCOUNT_NMBR: { type: String },
+        BENEF_BRANCH_CODE:{ type: String },
         BENEF_DESCRIPTION: { type: String },
         INSTRUMENT_AMNT: { type: String },
         PIR_DATE: { type: String },
         BENE_IFSC_CODE: { type: String },
         PIR_REFERENCE_NMBR: { type: String },
         LIQ_STATUS: { type: String },
+        ADDR_5: { type: String },
         UTR_SR_NO: { type: String },
         INST_DATE: { type: String },
         PRODUCT_CODE: { type: String },
@@ -58,18 +60,14 @@ FarmerPaymentFileSchema.post('save', async function (doc) {
 
         for(const batchId of batchIds) {
 
-            const farmerPaymentCount = await this.constructor.countDocuments({
-                "received_file_details.LIQ_STATUS": 'Paid',
-                // "send_file_details.batch_id": batchId
-            });
-
             const paymentCount = await Payment.countDocuments({ batch_id: batchId });
+            const paidPaymentCount = await Payment.countDocuments({batch_id: batchId, payment_status: _paymentstatus.completed})
 
             // Calculate final count
-            const finalCount = Math.max(Number(paymentCount) - Number(farmerPaymentCount), 0);
+            const finalCount = Math.max(Number(paymentCount) - Number(paidPaymentCount), 0);
 
             if (finalCount === 0) {
-                await Batch.findByIdAndUpdate(batchId, { status: 'Payment Complete' });
+                await Batch.findByIdAndUpdate({_id:batchId}, {$set:{ status: _batchStatus.paymentComplete }});
                 console.log(`Batch ${batchId} status updated to Payment Completed`);
             }
         }
