@@ -1518,8 +1518,12 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 
     let errorArray = [];
     const processFarmerRecord = async (rec) => {
-      // Utility function to convert to lowercase if value exists
       const toLowerCaseIfExists = (value) => value ? value.toLowerCase().trim() : value;
+      const parseBooleanYesNo = (value) => {
+        if (value === true || value?.toLowerCase() === 'yes') return true;
+        if (value === false || value?.toLowerCase() === 'no') return false;
+        return null;
+      };
       const name = rec["NAME*"];
       const father_name = rec["FATHER NAME*"];
       const mother_name = rec["MOTHER NAME"]?rec["MOTHER NAME"]:null;
@@ -1556,7 +1560,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const total_area = rec["TOTAL AREA"]?rec["TOTAL AREA"]:null;
       const land_name = rec["LAND NAME"]?rec["LAND NAME"]:null;
       const cultivation_area = rec["CULTIVATION AREA"]?rec["CULTIVATION AREA"]:null;
-      const area_unit = toLowerCaseIfExists(rec["AREA UNIT"]);
+      const area_unit = toLowerCaseIfExists(rec["AREA UNIT"]) ? toLowerCaseIfExists(rec["AREA UNIT"]) : 'Other';
       const khasra_number = rec["KHASRA NUMBER*"];
       const khtauni_number = rec["KHATAUNI"]?rec["KHATAUNI"]:null;
       const khata_number = rec["KHATA NUMBER"]?rec["KHATA NUMBER"]:null;
@@ -1576,13 +1580,13 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const harvestingdate = rec["HARVESTING DATE(MM-YYYY)*"];
       const crop_name = rec["CROPS NAME*"];
       const crop_variety = rec["CROP VARITY"]?rec["CROP VARITY"]:null;
-      const production_quantity = rec["PRODUCTION QUANTITY*"];
+      const production_quantity = rec["PRODUCTION QUANTITY"]?rec["PRODUCTION QUANTITY"]:null;
       const selling_price = rec["SELLING PRICE"]?rec["SELLING PRICE"]:null;
       const yield = rec["YIELD(KG)"]? rec["YIELD(KG)"] : null;
       const crop_land_name = rec["CROP LAND NAME"]? rec["CROP LAND NAME"] :null;
       const crop_growth_stage = rec["CROP GROWTH STAGE"] ? rec["CROP GROWTH STAGE"] : 'Stage1';
       const crop_disease = rec["CROP DISEASE"]?rec["CROP DISEASE"]:null;
-      const crop_rotation = rec["CROP ROTATION"]?rec["CROP ROTATION"]:null;
+      const crop_rotation = parseBooleanYesNo(rec["CROP ROTATION"]);
       const previous_crop_session = rec["PREVIOUS CROP SESSION"] ? rec["PREVIOUS CROP SESSION"] : 'others';
       const previous_crop_name = rec["PREVIOUS CROP NAME"]?rec["PREVIOUS CROP NAME"]:null;
       const crop_season = toLowerCaseIfExists(rec["CROP SEASONS*"]) ? toLowerCaseIfExists(rec["CROP SEASONS*"]) : 'others';
