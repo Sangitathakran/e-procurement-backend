@@ -242,7 +242,7 @@ module.exports.batchList = async (req, res) => {
 
                 return {
                     "Batch ID": item?.batchId || "NA",
-                    "Delivery Date": item?.delivered.delivered_at || "NA",
+                    "Delivery Date": item?.delivered?.delivered.delivered_at || "NA",
                     "Payment Due Date": item?.payement_approval_at || "NA",
                     "Quantity Purchased": item.qty || "NA",
                     "Total Price": item.totalPrice || "NA",
