@@ -12,12 +12,14 @@ module.exports = {
     sendMail: async function (to, cc, subject, body, mailAttachments, mailConfig = defaultMailConfig, email_prefix) {
         try {
             return new Promise(function (resolve, reject) {
-                const transporter = nodemailer.createTransport({
-                    service: mailConfig.service || mailer.service,
+                // Looking to send emails in production? Check out our Email API/SMTP product!
+                var transporter = nodemailer.createTransport({
+                    host: mailer.host,
+                    port: mailer.port,
                     auth: {
-                        user: mailConfig.user || mailer.user,
-                        pass: mailConfig.pass || mailer.pass
-                    },
+                        user: defaultMailConfig.user,
+                        pass: defaultMailConfig.pass
+                    }
                 });
 
                 const mailOptions = {
