@@ -969,7 +969,7 @@ module.exports.payFarmers = async (req, res) => {
           const paymentFileData = {
             "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
             "PIR_REF_NO": "",
-            "MY_PRODUCT_CODE(It should be Digital Products only)": "Digital Products",
+            "MY_PRODUCT_CODE(It should be Digital Products only)": "DIGITAL PRODUCTS",
             "Amount": parseFloat(parseFloat(agentBill.amount).toFixed(2)) || 0,  
             "Acc no(2244102000000055)": NCCF_BANK_ACCOUNT_NUMBER,
             "IFSC Code": agentBill.farmer_id.bank_details.ifsc_code,
@@ -1123,7 +1123,7 @@ module.exports.payAgent = async (req, res) => {
             {
                 "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
                 "PIR_REF_NO": "",
-                "MY_PRODUCT_CODE(It should be Digital Products only)": "Digital Products",
+                "MY_PRODUCT_CODE(It should be Digital Products only)": "DIGITAL PRODUCTS",
                 "Amount": parseFloat(parseFloat(agentBill.bill.total).toFixed(2)) || 0,
                 "Acc no(2244102000000055)": NCCF_BANK_ACCOUNT_NUMBER,
                 "IFSC Code": agentBill.agent_id.bank_details.ifsc_code,
