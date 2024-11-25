@@ -13,7 +13,7 @@ const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 
 module.exports.getAssociates = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search = '', sortBy = { _id: 1 }, isExport = 0 } = req.query;
+        const { page = 1, limit = 10, search = '', sortBy, isExport = 0 } = req.query;
         const skip = (page - 1) * limit;
 
         // Build the query for searching/filtering associates
