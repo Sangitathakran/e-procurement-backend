@@ -64,14 +64,6 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
       records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
     }
 
-    // return sendResponse({
-    //   res,
-    //   status: 200,
-    //   data: records,
-    //   message: _response_message.found("requirement"),
-    // })
-
-
     if (isExport == 1) {
 
       const record = records.rows.map((item) => {
@@ -100,7 +92,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
           data: records,
           message: _response_message.notFound("Requirement"),
         })
-        // return res.status(400).send(new serviceResponse({ status: 400, data: response, message: _response_message.notFound("Payment") }))
+
       }
     } else {
       return sendResponse({
@@ -109,10 +101,8 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
         data: records,
         message: _response_message.found("Requirement"),
       })
-      // return res.status(200).send(new serviceResponse({ status: 200, data: response, message: _response_message.found("Payment") }))
+
     }
-
-
 
   } catch (error) {
     console.log("error", error);
@@ -177,7 +167,7 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
 
 module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
   try {
-    const { page, limit, skip = 0, paginate, sortBy, search = "" } = req.query;
+    const { page, limit, skip = 0, paginate, sortBy, search = "", isExport = 0 } = req.query;
     const { id } = req.params;
     const filter = await getFilter(req, ["status", "reqNo", "branchName"]);
     const query = filter;
@@ -223,24 +213,67 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
       batch['batchId'] = item.batchId
       batch['associate_name'] = item?.seller_id?.basic_details?.associate_details?.associate_name ?? null
       batch['procurement_center'] = item?.procurementCenter_id?.center_name ?? null
-      batch['quantity_purchased'] = item?.dispatchedqty ?? null
+      batch['quantity_purchased'] = item?.qty ?? null
       batch['procured_on'] = item?.dispatched_at ?? null
-      batch['delivery_location'] = item?.req_id.address.deliveryLocation ?? null
-      batch['address'] = item.req_id.address
+      batch['delivery_location'] = item?.req_id?.address?.deliveryLocation ?? null
+      batch['address'] = item.req_id?.address ?? null
       batch['status'] = item.status
       batch['lot_ids'] = (item?.farmerOrderIds.reduce((acc, item) => [...acc, item.farmerOrder_id.order_no], [])) ?? []
       batch['_id'] = item._id
-      batch['total_amount'] = item?.total_amount ?? "2 CR"
+      batch['total_amount'] = item?.total_amount ?? "2 CR",
+      batch['delivered_at'] = item?.delivered?.delivered_at
 
       return batch
     })
 
-    return sendResponse({
-      res,
-      status: 200,
-      data: records,
-      message: _response_message.found("order"),
-    })
+    // return sendResponse({
+    //   res,
+    //   status: 200,
+    //   data: records,
+    //   message: _response_message.found("order"),
+    // })
+
+
+    if (isExport == 1) {
+
+      const record = records.rows.map((item) => {
+        return {
+          "Batch ID": item?.batchId || 'NA',
+          "Associate Name": item?.associate_name || 'NA',
+          "Procure Center": item?.procurement_center || 'NA',
+          "quantity purchased": item?.quantity_purchased || 'NA',
+          "Delivered on": item?.delivered_at || 'NA',
+          "delivery location": item?.delivery_location || 'NA',
+          "Batch status": item.status || 'NA'
+        }
+      })
+
+      if (record.length > 0) {
+
+        dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Batch-record.xlsx`,
+          worksheetName: `Batch-record`
+        });
+      } else {
+        return sendResponse({
+          res,
+          status: 400,
+          data: records,
+          message: _response_message.notFound("Batch"),
+        })
+
+      }
+    } else {
+      return sendResponse({
+        res,
+        status: 200,
+        data: records,
+        message: _response_message.found("Batch"),
+      })
+
+    }
+
   } catch (error) {
     console.log("error", error);
     _handleCatchErrors(error, res);
