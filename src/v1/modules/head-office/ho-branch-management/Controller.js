@@ -149,8 +149,8 @@ module.exports.importBranches = async (req, res) => {
         },
         address: row.address,
         cityVillageTown: row.cityVillageTown,
-        state: row.state,
-        district: row.district,
+        state: correctStateName(row.state),
+        district:row.district,
         pincode: row.pincode,
         status: _status.inactive,
         headOfficeId: headOfficeId,
@@ -158,7 +158,6 @@ module.exports.importBranches = async (req, res) => {
         hashedPassword: hashedPassword,
       };
     }));
-
     //this is to get the type object of head office  
     const type = await TypesModel.findOne({ _id: "67110087f1cae6b6aadc2421" })
     // Send an email to each branch email address notifying them that the branch has been created
@@ -233,6 +232,24 @@ module.exports.importBranches = async (req, res) => {
   }
 };
 
+
+  function correctStateName(state) {
+  let correctedState = state.replace(/_/g, ' '); 
+  
+  // Replace "and" with "&" for specific states
+  if (
+    correctedState === 'Dadra and Nagar Haveli' ||
+    correctedState === 'Andaman and Nicobar' ||
+    correctedState === 'Daman and Diu' ||
+    correctedState === 'Jammu and Kashmir'
+  ) {
+    correctedState = correctedState.replace('and', '&');
+  }
+  
+  return correctedState.trim();
+}
+  
+
 module.exports.exportBranches = async (req, res) => {
   try {
     const { search = ''} = req.query;
@@ -242,6 +259,7 @@ module.exports.exportBranches = async (req, res) => {
       headOfficeId: portalId,
       ...(search ? {branchName: { $regex: search, $options: 'i' } } : {})
      };
+
 
     const branches = await Branches.find(query, 'branchId branchName emailAddress pointOfContact address district cityVillageTown state pincode status createdAt');
 
