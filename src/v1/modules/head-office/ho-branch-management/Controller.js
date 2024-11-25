@@ -12,7 +12,7 @@ const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 
 const xlsx = require("xlsx");
-const { sendMail } = require("@src/v1/utils/helpers/node_mailer"); 
+const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { _status, _userType, _frontendLoginRoutes } = require("@src/v1/utils/constants");
 const { validateBranchData } = require("@src/v1/modules/head-office/ho-branch-management/Validations")
 const { generateRandomPassword } = require('@src/v1/utils/helpers/randomGenerator');
@@ -21,23 +21,21 @@ const { TypesModel } = require("@src/v1/models/master/Types");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
-
-
 module.exports.importBranches = async (req, res) => {
   try {
     const headOfficeId = req.user.portalId._id;
     if (!headOfficeId) {
-      return res.status(403).json({ message: "HeadOffice not found",status: 403});
+      return res.status(403).json({ message: "HeadOffice not found", status: 403 });
     }
 
 
     // Check if the file is provided via the global multer setup
     if (!req.files || req.files.length === 0) {
-      return res.status(400).send(new serviceResponse({ status: 400,message: _response_message.fileMissing}));
+      return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.fileMissing }));
     }
 
     // Access the uploaded file
-    const uploadedFile = req.files[0]; 
+    const uploadedFile = req.files[0];
 
 
     // Read the Excel file using xlsx
@@ -47,16 +45,16 @@ module.exports.importBranches = async (req, res) => {
 
     // Expected headers
     const expectedHeaders = [
-      'branchName', 'emailAddress', 'pointOfContactName', 'pointOfContactPhone', 'pointOfContactEmail', 
+      'branchName', 'emailAddress', 'pointOfContactName', 'pointOfContactPhone', 'pointOfContactEmail',
       'address', 'district', 'cityVillageTown', 'state', 'pincode'
     ];
-    
+
     // Validate headers
     const fileHeaders = Object.keys(excelData[0] || {});
     const missingHeaders = expectedHeaders.filter(header => !fileHeaders.includes(header));
 
     if (missingHeaders.length > 0) {
-      return res.status(400).send(new serviceResponse({status: 400,message: `Missing required headers: ${missingHeaders.join(', ')}`,}));
+      return res.status(400).send(new serviceResponse({ status: 400, message: `Missing required headers: ${missingHeaders.join(', ')}`, }));
     }
 
     // Extract all emailAddresses from the Excel data
@@ -80,60 +78,60 @@ module.exports.importBranches = async (req, res) => {
     }
 
     // checking duplicate email and mobile number in masterUser collection
-    const checkExistingEmailAndPhone = await Promise.all(excelData.map(async (item)=>{ 
-      const existingEmail = await MasterUser.findOne({email:item.pointOfContactEmail})
-      const existingMobile = await MasterUser.findOne({mobile:item.pointOfContactPhone})
+    const checkExistingEmailAndPhone = await Promise.all(excelData.map(async (item) => {
+      const existingEmail = await MasterUser.findOne({ email: item.pointOfContactEmail })
+      const existingMobile = await MasterUser.findOne({ mobile: item.pointOfContactPhone })
 
 
-      if(existingEmail){
-          return { message:  `Email ${existingEmail.email} is already exist in master`, status: true}
+      if (existingEmail) {
+        return { message: `Email ${existingEmail.email} is already exist in master`, status: true }
       }
 
-      if(existingMobile){
-        return { message: `Mobile number ${existingMobile.mobile} is already exist in master`, status: true}
+      if (existingMobile) {
+        return { message: `Mobile number ${existingMobile.mobile} is already exist in master`, status: true }
       }
 
-      return { message: null, status : false }
+      return { message: null, status: false }
     }))
 
-    const alreadyExisted = checkExistingEmailAndPhone.find(item=> item.status)
+    const alreadyExisted = checkExistingEmailAndPhone.find(item => item.status)
 
-    if(alreadyExisted){
-      return sendResponse({res,status: 400, message: alreadyExisted.message })
+    if (alreadyExisted) {
+      return sendResponse({ res, status: 400, message: alreadyExisted.message })
     }
 
     function checkForDuplicates(data) {
       const emailSet = new Set();
       const phoneSet = new Set();
       const duplicates = [];
-    
+
       data.forEach((item, index) => {
         const { pointOfContactEmail, pointOfContactPhone } = item;
-    
+
         if (emailSet.has(pointOfContactEmail)) {
           duplicates.push(`Duplicate email found: ${pointOfContactEmail} at row ${index}`);
         } else {
           emailSet.add(pointOfContactEmail);
         }
-    
+
         if (phoneSet.has(pointOfContactPhone)) {
           duplicates.push(`Duplicate phone found: ${pointOfContactPhone} at row ${index}`);
         } else {
           phoneSet.add(pointOfContactPhone);
         }
       });
-    
+
       if (duplicates.length > 0) {
         return duplicates
       }
-    
+
       return null
     }
 
     //checking duplicate value in excel data
     const isDuplicate = checkForDuplicates(excelData)
-    if(isDuplicate !== null){
-      return sendResponse({res,status: 400, message: isDuplicate[0]})
+    if (isDuplicate !== null) {
+      return sendResponse({ res, status: 400, message: isDuplicate[0] })
     }
 
     // Parse the rows into Branch objects, with status set to inactive by default
@@ -151,21 +149,20 @@ module.exports.importBranches = async (req, res) => {
         },
         address: row.address,
         cityVillageTown: row.cityVillageTown,
-        state: row.state,
+        state: correctStateName(row.state),
         district:row.district,
         pincode: row.pincode,
         status: _status.inactive,
         headOfficeId: headOfficeId,
         password: password,
-        hashedPassword:hashedPassword,
-      }; 
+        hashedPassword: hashedPassword,
+      };
     }));
-
     //this is to get the type object of head office  
-    const type = await TypesModel.findOne({_id:"67110087f1cae6b6aadc2421"})
-  // Send an email to each branch email address notifying them that the branch has been created
-     const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes.bo}`
-    
+    const type = await TypesModel.findOne({ _id: "67110087f1cae6b6aadc2421" })
+    // Send an email to each branch email address notifying them that the branch has been created
+    const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes.bo}`
+
 
     // Insert the branches into the database
     for (const branchData of branches) {
@@ -180,7 +177,7 @@ module.exports.importBranches = async (req, res) => {
         },
         address: branchData.address,
         cityVillageTown: branchData.cityVillageTown,
-        district:branchData.district,
+        district: branchData.district,
         state: branchData.state,
         pincode: branchData.pincode,
         headOfficeId: headOfficeId,
@@ -188,219 +185,243 @@ module.exports.importBranches = async (req, res) => {
       }
       const branch = new Branches(newBranchPayload);
       const newBranch = await branch.save();
-      
-      
-      if(newBranch._id){
+
+
+      if (newBranch._id) {
         const masterUser = new MasterUser({
-          firstName : branchData.pointOfContact.name,
-          isAdmin : true,
-          email : branchData.pointOfContact.email.trim(),
-          mobile : branchData.pointOfContact.phone.toString().trim(),
+          firstName: branchData.pointOfContact.name,
+          isAdmin: true,
+          email: branchData.pointOfContact.email.trim(),
+          mobile: branchData.pointOfContact.phone.toString().trim(),
           password: branchData.hashedPassword,
-          user_type : type.user_type,
+          user_type: type.user_type,
           createdBy: req.user._id,
           userRole: [type.adminUserRoleId],
           portalId: newBranch._id,
-          ipAddress:getIpAddress(req)
+          ipAddress: getIpAddress(req)
         });
-  
+
         await masterUser.save();
 
         const emailPayload = {
           email: branchData.pointOfContact.email,
           name: branchData.pointOfContact.name,
           password: branchData.password,
-          login_url:login_url
-        } 
+          login_url: login_url
+        }
 
         await emailService.sendBoCredentialsEmail(emailPayload);
 
-      }else{
+      } else {
 
         throw new Error("branch office not created")
       }
     }
 
     return res
-    .status(200)
-    .send(
-      new serviceResponse({
-        status: 200,
-        message: _response_message.importSuccess(),
-        // data:branches
-      })
-    );
+      .status(200)
+      .send(
+        new serviceResponse({
+          status: 200,
+          message: _response_message.importSuccess(),
+          // data:branches
+        })
+      );
   } catch (err) {
     _handleCatchErrors(err, res);
   }
 };
 
+
+  function correctStateName(state) {
+  let correctedState = state.replace(/_/g, ' '); 
   
+  // Replace "and" with "&" for specific states
+  if (
+    correctedState === 'Dadra and Nagar Haveli' ||
+    correctedState === 'Andaman and Nicobar' ||
+    correctedState === 'Daman and Diu' ||
+    correctedState === 'Jammu and Kashmir'
+  ) {
+    correctedState = correctedState.replace('and', '&');
+  }
+  
+  return correctedState.trim();
+}
   
 
-  module.exports.exportBranches = async (req, res) => {
-    try {
-      const branches = await Branches.find({}, 'branchId branchName emailAddress pointOfContact address district cityVillageTown state pincode status createdAt');
-  
-      // Format the data to be exported
-      const branchData = branches.map((branch) => ({
-        id: branch._id.toString(), 
-        branchId: branch.branchId,
-        name: branch.branchName,
-        email: branch.emailAddress,
-        address: branch.address,
-        district: branch.district,
-        cityVillageTown: branch.cityVillageTown, 
-        state: branch.state,                     
-        pincode: branch.pincode, 
-        pointOfContactName: branch.pointOfContact.name,
-        pointOfContactPhone: branch.pointOfContact.phone,
-        pointOfContactEmail: branch.pointOfContact.email,
-        status: branch.status || _status.inactive,
-        createdAt: new Date(branch.createdAt).toLocaleString('en-GB', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-          })
-      }));
-  
-      const workbook = xlsx.utils.book_new();
-      const worksheet = xlsx.utils.json_to_sheet(branchData);
-
-      xlsx.utils.book_append_sheet(workbook, worksheet, 'Branches');
-  
-      // Write the workbook to a buffer
-      const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-  
-      // Set headers for file download
-      res.setHeader('Content-Disposition', 'attachment; filename="branches.xlsx"');
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  
-      // Send the file buffer to the client
-      return res.status(200).send(excelBuffer);
-    } catch (err) {
-      _handleCatchErrors(err, res);
-    }
-  };
+module.exports.exportBranches = async (req, res) => {
+  try {
+    const { search = ''} = req.query;
+    const { user_id, portalId } = req;
+   
+    let query = { 
+      headOfficeId: portalId,
+      ...(search ? {branchName: { $regex: search, $options: 'i' } } : {})
+     };
 
 
-  module.exports.downloadTemplate = async (req, res) => {
-    try {
+    const branches = await Branches.find(query, 'branchId branchName emailAddress pointOfContact address district cityVillageTown state pincode status createdAt');
 
-      const templateData = [
-        {
-          branchName: 'Example Branch 1',
-          emailAddress: 'example1@domain.com',
-          pointOfContactName: 'User Name 1',
-          pointOfContactPhone: '1234567890',
-          pointOfContactEmail: 'user1@example.com',
-          address: 'Noida',
-          district: 'District 1',
-          cityVillageTown: 'Sample Town 1',
-          state: 'State 1',
-          pincode: '123456'
-        },
-        {
-          branchName: 'Example Branch 2',
-          emailAddress: 'example2@domain.com',
-          pointOfContactName: 'User Name 2',
-          pointOfContactPhone: '0987654321',
-          pointOfContactEmail: 'user2@example.com',
-          address: 'New Delhi',
-          district: 'District 2',
-          cityVillageTown: 'Sample Town 2',
-          state: 'State 2',
-          pincode: '654321'
-        }
-      ];
-  
-  
-      const workbook = xlsx.utils.book_new();
-      const worksheet = xlsx.utils.json_to_sheet(templateData);
-  
-      xlsx.utils.book_append_sheet(workbook, worksheet, 'Branch Template');
-  
-      const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    // Format the data to be exported
+    const branchData = branches.map((branch) => ({
+      id: branch._id.toString(),
+      branchId: branch.branchId,
+      name: branch.branchName,
+      email: branch.emailAddress,
+      address: branch.address,
+      district: branch.district,
+      cityVillageTown: branch.cityVillageTown,
+      state: branch.state,
+      pincode: branch.pincode,
+      pointOfContactName: branch.pointOfContact.name,
+      pointOfContactPhone: branch.pointOfContact.phone,
+      pointOfContactEmail: branch.pointOfContact.email,
+      status: branch.status || _status.inactive,
+      createdAt: new Date(branch.createdAt).toLocaleString('en-GB', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
+    }));
 
-      res.setHeader('Content-Disposition', 'attachment; filename="branch_template.xlsx"');
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  
-      return res.status(200).send(excelBuffer);
-    } catch (err) {
-      _handleCatchErrors(err, res);
-    }
-  };
+    const workbook = xlsx.utils.book_new();
+    const worksheet = xlsx.utils.json_to_sheet(branchData);
+
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Branches');
+
+    // Write the workbook to a buffer
+    const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // Set headers for file download
+    res.setHeader('Content-Disposition', 'attachment; filename="branches.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+    // Send the file buffer to the client
+    return res.status(200).send(excelBuffer);
+  } catch (err) {
+    _handleCatchErrors(err, res);
+  }
+};
+
+
+module.exports.downloadTemplate = async (req, res) => {
+  try {
+
+    const templateData = [
+      {
+        branchName: 'Example Branch 1',
+        emailAddress: 'example1@domain.com',
+        pointOfContactName: 'User Name 1',
+        pointOfContactPhone: '1234567890',
+        pointOfContactEmail: 'user1@example.com',
+        address: 'Noida',
+        district: 'District 1',
+        cityVillageTown: 'Sample Town 1',
+        state: 'State 1',
+        pincode: '123456'
+      },
+      {
+        branchName: 'Example Branch 2',
+        emailAddress: 'example2@domain.com',
+        pointOfContactName: 'User Name 2',
+        pointOfContactPhone: '0987654321',
+        pointOfContactEmail: 'user2@example.com',
+        address: 'New Delhi',
+        district: 'District 2',
+        cityVillageTown: 'Sample Town 2',
+        state: 'State 2',
+        pincode: '654321'
+      }
+    ];
+
+
+    const workbook = xlsx.utils.book_new();
+    const worksheet = xlsx.utils.json_to_sheet(templateData);
+
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Branch Template');
+
+    const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Disposition', 'attachment; filename="branch_template.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+    return res.status(200).send(excelBuffer);
+  } catch (err) {
+    _handleCatchErrors(err, res);
+  }
+};
 
 module.exports.branchList = async (req, res) => {
-    try {
-      const { limit = 10, skip = 0 , paginate = 1, search = '', page = 1, fromAgent = false } = req.query;
-  
-      // Adding search filter
-      let searchQuery = search ? {
-        branchName: { $regex: search, $options: 'i' }        // Case-insensitive search for branchName
-       } : {};
+  try {
+    const { limit = 10, skip = 0, paginate = 1, search = '', page = 1, fromAgent = false } = req.query;
+    const { user_id, portalId } = req;
+   
+    // Adding search filter
+    let searchQuery = search ? {
+      branchName: { $regex: search, $options: 'i' }        // Case-insensitive search for branchName
+    } : {};
 
-      if(!fromAgent){
-        searchQuery = {...searchQuery , headOfficeId: req.user.portalId._id }
-      }else{ 
-        searchQuery = {...searchQuery , headOfficeId: req.query.ho_id }
-      } 
-      
-      // Count total documents for pagination purposes, applying search filter
-      const totalCount = await Branches.countDocuments(searchQuery); 
-
-       // Determine the effective limit
-      const effectiveLimit = Math.min(parseInt(limit), totalCount);  
-  
-      // Fetch paginated branch data with search and sorting
-      let branches = await Branches.find(searchQuery)
-        .limit(effectiveLimit)    // Limit the number of documents returned
-        .skip(parseInt(skip))      // Skip the first 'n' documents based on pagination
-        .sort({ createdAt: -1 });  // Sort by createdAt in descending order by default
-  
-      // If paginate is set to 0, return all branches without paginating
-      if (paginate == 0) {
-        branches = await Branches.find(searchQuery).sort({ createdAt: -1 });
-      }
-  
-      // Calculate total pages for pagination
-      const totalPages = Math.ceil(totalCount / limit);
-  
-      // Return the branches along with pagination info
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          message: "Branches fetched successfully",
-          data: {
-            branches: branches,
-            totalCount: totalCount,
-            totalPages: totalPages,
-            limit: effectiveLimit,
-            page: parseInt(page)
-          },
-        })
-      );
-    } catch (err) {
-      return res.status(500).send(new serviceResponse({ status: 500, errors: [{ message: err.message }] }));
+    if (!fromAgent) {
+      // searchQuery = { ...searchQuery, headOfficeId: req.user.portalId._id }
+      searchQuery = { ...searchQuery, headOfficeId: portalId }
+    } else {
+      // searchQuery = { ...searchQuery, headOfficeId: req.query.ho_id }
+      searchQuery = { ...searchQuery, headOfficeId: user_id }
     }
-  };
-  
+
+    // Count total documents for pagination purposes, applying search filter
+    const totalCount = await Branches.countDocuments(searchQuery);
+
+    // Determine the effective limit
+    const effectiveLimit = Math.min(parseInt(limit), totalCount);
+
+    // Fetch paginated branch data with search and sorting
+    let branches = await Branches.find(searchQuery)
+      .limit(effectiveLimit)    // Limit the number of documents returned
+      .skip(parseInt(skip))      // Skip the first 'n' documents based on pagination
+      .sort({ createdAt: -1 });  // Sort by createdAt in descending order by default
+
+    // If paginate is set to 0, return all branches without paginating
+    if (paginate == 0) {
+      branches = await Branches.find(searchQuery).sort({ createdAt: -1 });
+    }
+
+    // Calculate total pages for pagination
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Return the branches along with pagination info
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        message: "Branches fetched successfully",
+        data: {
+          branches: branches,
+          totalCount: totalCount,
+          totalPages: totalPages,
+          limit: effectiveLimit,
+          page: parseInt(page)
+        },
+      })
+    );
+  } catch (err) {
+    return res.status(500).send(new serviceResponse({ status: 500, errors: [{ message: err.message }] }));
+  }
+};
 
 module.exports.toggleBranchStatus = async (req, res) => {
   try {
-    const { branchId } = req.params; 
+    const { branchId } = req.params;
 
     const branch = await Branches.findById(branchId);
-    console.log({branch})
 
-    
     if (!branch) {
-      return res.status(404).send(new serviceResponse({ 
-        status: 404, 
-        message: 'Branch not found' 
+      return res.status(404).send(new serviceResponse({
+        status: 404,
+        message: 'Branch not found'
       }));
     }
 
