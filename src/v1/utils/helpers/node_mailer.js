@@ -14,11 +14,11 @@ module.exports = {
             return new Promise(function (resolve, reject) {
                 // Looking to send emails in production? Check out our Email API/SMTP product!
                 var transporter = nodemailer.createTransport({
-                    host: mailer.host,
-                    port: mailer.port,
+                    host: "sandbox.smtp.mailtrap.io",
+                    port: 2525,
                     auth: {
-                        user: defaultMailConfig.user,
-                        pass: defaultMailConfig.pass
+                        user: "341de45a1589cf",
+                        pass: "c23328c6818b74"
                     }
                 });
 
