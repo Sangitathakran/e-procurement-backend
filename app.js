@@ -27,6 +27,7 @@ const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { router } = require("./src/v1/routes");
+const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 // application level middlewares
 app.use(helmet());
 app.use(
@@ -52,6 +53,7 @@ require('./crons/index')
 app.get(
   "/",
   asyncErrorHandler(async (req, res) => {
+    await sendMail("stackofhex@gmail.com","","test mail","body")
     res.send(
       `<div align="center" style=""><h1>E-Procurement Server Ready For Requests. <h1><div>`
     );
