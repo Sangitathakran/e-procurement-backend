@@ -17,14 +17,23 @@ module.exports.payment = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', tab = 0, isExport = 0 } = req.query
 
-        let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
+        // let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
         const { user_id } = req
 
         let paymentIds = tab == 0 ? (await Payment.find({ associate_id: user_id })).map(i => i.req_id) : (await AssociateInvoice.find({ associate_id: user_id })).map(i => i.req_id)
 
+        let query = search ? {
+            _id: { $in: paymentIds },
+            $or: [
+                { "product.name": { $regex: search, $options: 'i' } },
+                { "reqNo": { $regex: search, $options: 'i' } }
+            ]
+        } : {};
+
         const aggregationPipeline = [
-            { $match: { _id: { $in: paymentIds } } },
+            // { $match: { _id: { $in: paymentIds } } },
+            { $match: query },
             {
                 $lookup: {
                     from: 'batches',
@@ -242,7 +251,7 @@ module.exports.batchList = async (req, res) => {
 
                 return {
                     "Batch ID": item?.batchId || "NA",
-                    "Delivery Date": item?.delivered.delivered_at || "NA",
+                    "Delivery Date": item?.delivered?.delivered.delivered_at || "NA",
                     "Payment Due Date": item?.payement_approval_at || "NA",
                     "Quantity Purchased": item.qty || "NA",
                     "Total Price": item.totalPrice || "NA",
