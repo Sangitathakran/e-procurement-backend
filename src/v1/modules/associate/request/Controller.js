@@ -1,4 +1,4 @@
-const { _handleCatchErrors, _generateOrderNumber, _addDays } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, _generateOrderNumber, _addDays, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
@@ -14,11 +14,11 @@ const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { User } = require("@src/v1/models/app/auth/User");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
-
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
 module.exports.getProcurement = async (req, res) => {
     try {
-        const { organization_id, user_type, user_id } = req;
+        const { user_id } = req;
         const { page, limit, skip, paginate = 1, sortBy, search = '', status } = req.query;
 
         let query = search ? {
@@ -31,7 +31,25 @@ module.exports.getProcurement = async (req, res) => {
 
         // Handle status filtering based on offers
         if (status && Object.values(_associateOfferStatus).includes(status)) {
+            console.log('status', status)
             // Aggregation pipeline to join with AssociateOffers
+            const conditionPipeline = []
+            if (status == _associateOfferStatus.ordered) {
+                conditionPipeline.push({
+                    $lookup: {
+                        from: 'batches',
+                        localField: '_id',
+                        foreignField: 'req_id',
+                        as: 'batches',
+                    },
+                })
+
+                conditionPipeline.push({
+                    $addFields: {
+                        batchesCount: { $size: '$batches' } // Get the count of batches
+                    }
+                })
+            }
             const pipeline = [
                 { $match: query },
                 {
@@ -42,23 +60,16 @@ module.exports.getProcurement = async (req, res) => {
                         as: 'myoffer',
                     },
                 },
+                ...conditionPipeline,
                 { $unwind: '$myoffer' },
-                { $match: { 'myoffer.seller_id': new mongoose.Types.ObjectId(user_id), 'myoffer.status': status } },
-                // {
-                //     $project: {
-                //         _id: 1,
-                //         reqNo: 1,
-                //         product: 1,
-                //         quotedPrice: 1,
-                //         deliveryDate: 1,
-                //         expectedProcurementDate: 1,
-                //         fulfilledQty: 1,
-                //         status: 1,
-                //         address: 1,
-                //         'myoffer.offeredQty': 1,
-                //         'myoffer.status': 1,
-                //     },
-                // },
+                {
+                    $match: {
+                        'myoffer.seller_id': new mongoose.Types.ObjectId(user_id),
+                        ...((status == _associateOfferStatus.pending || status == _associateOfferStatus.rejected) && { 'myoffer.status': status }),
+                        ...(status == _associateOfferStatus.accepted && { 'myoffer.status': { $in: [_associateOfferStatus.accepted, _associateOfferStatus.partially_ordered] } }),
+                        ...(status == _associateOfferStatus.ordered && { 'myoffer.status': { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } }),
+                    }
+                },
                 { $sort: sortBy ? sortBy : { createdAt: -1 } },
                 { $skip: skip ? parseInt(skip) : 0 },
                 { $limit: limit ? parseInt(limit) : 10 }
@@ -66,14 +77,21 @@ module.exports.getProcurement = async (req, res) => {
 
             const records = {};
             records.rows = await RequestModel.aggregate(pipeline);
-            records.count = records.rows.length;
+            records.count = await RequestModel.countDocuments(query);
+
+            if (paginate == 1) {
+                records.page = page;
+                records.limit = limit;
+                records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+            }
 
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
         } else {
             // Find requests that have no offers or are open
-            query.status = _requestStatus.open;
+            query.status = { $in: [_requestStatus.open, _requestStatus.partially_fulfulled] };
             const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
             query._id = { $nin: offerIds };
+            query.quoteExpiry = { $gte: new Date() };
 
 
             const records = { count: 0 };
@@ -108,10 +126,12 @@ module.exports.getProcurementById = async (req, res) => {
         const record = await RequestModel.findOne({ _id: id }).lean();
 
         if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
         }
 
         record.myOffer = await AssociateOffers.findOne({ req_id: id });
+
+        // record.no_of_batch = await Batch.countDocuments({ req_id: id });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("procurement") }))
 
@@ -121,7 +141,7 @@ module.exports.getProcurementById = async (req, res) => {
 }
 
 module.exports.updateProcurement = async (req, res) => {
-
+    /*TODO : is this controller is in used or not ?  */
     try {
         const { user_id } = req;
         const { id, quotedPrice, deliveryDate, name, category, grade, variety, quantity, deliveryLocation, lat, long } = req.body;
@@ -129,17 +149,17 @@ module.exports.updateProcurement = async (req, res) => {
         const existingRecord = await RequestModel.findOne({ _id: id });
 
         if (!existingRecord) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
         }
 
         const delivery_date = moment(deliveryDate).format("YYYY-MM-DD");
 
         if (moment(delivery_date).isBefore(quote_expiry_date)) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid_delivery_date("Delivery date") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid_delivery_date("Delivery date") }] }))
         }
 
         const update = {
-            quotedPrice,
+            quotedPrice: handleDecimal(quotedPrice),
             deliveryDate: delivery_date,
             product: { name, category, grade, variety, quantity },
             address: { deliveryLocation, lat, long },
@@ -166,36 +186,36 @@ module.exports.associateOffer = async (req, res) => {
         const { req_id, farmer_data = [], qtyOffered } = req.body;
 
         if (farmer_data.length == 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer data") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer data") }] }))
         }
         const existingProcurementRecord = await RequestModel.findOne({ _id: req_id });
 
         if (!existingProcurementRecord) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
         }
 
         const existingRecord = await AssociateOffers.findOne({ seller_id: user_id, req_id: req_id });
 
         if (existingRecord) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("offer") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("offer") }] }))
         }
 
         const sumOfFarmerQty = farmer_data.reduce((acc, curr) => {
 
-            acc = acc + parseInt(curr.qty);
+            acc = acc + handleDecimal(curr.qty);
 
-            return parseInt(acc);
+            return handleDecimal(acc);
 
         }, 0);
 
-        if (sumOfFarmerQty != parseInt(qtyOffered)) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "please check details! quantity mismatched" }] }))
+        if (sumOfFarmerQty != handleDecimal(qtyOffered)) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "please check details! quantity mismatched" }] }))
         }
 
         const { fulfilledQty, product } = existingProcurementRecord;
 
         if (qtyOffered > (product?.quantity - fulfilledQty)) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "incorrect quantity of request" }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "incorrect quantity of request" }] }))
         }
 
         for (let harvester of farmer_data) {
@@ -208,14 +228,11 @@ module.exports.associateOffer = async (req, res) => {
         const dataToBeInserted = [];
 
         for (let harvester of farmer_data) {
-            const farmerBankDetails = await Bank.findOne({ farmer_id: harvester._id });
 
             const existingFarmer = await farmer.findOne({ _id: harvester._id });
-
-            const { account_no, ifsc_code, bank_name, account_holder_name } = farmerBankDetails;
             const { name, father_name, address_line, mobile_no, farmer_code } = existingFarmer;
 
-            const metaData = { name, father_name, address_line, mobile_no, account_no, ifsc_code, bank_name, account_holder_name, bank_name, farmer_code };
+            const metaData = { name, father_name, address_line, mobile_no, farmer_code };
 
             const FarmerOfferData = {
                 associateOffers_id: associateOfferRecord._id,
@@ -241,7 +258,8 @@ module.exports.getFarmerListById = async (req, res) => {
 
     try {
         const { user_id, user_type } = req; // Retrieve user_id and user_type from request
-        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = 'name', search = '' } = req.query;
+        // const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = 'name', search = '' } = req.query;
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '' } = req.query;
 
         // Ensure only `associate` users can access this API
         if (user_type !== _userType.associate) {
@@ -258,113 +276,8 @@ module.exports.getFarmerListById = async (req, res) => {
         let aggregationPipeline = [
             { $match: query }, // Match by associate_id and optional search
             {
-                $lookup: {
-                    from: 'crops',
-                    localField: '_id',
-                    foreignField: 'farmer_id',
-                    as: 'crops',
-                    pipeline: [{
-                        $project: {
-                            _id: 1,
-                            associate_id: 1,
-                            farmer_id: 1,
-                            sowing_date: 1,
-                            harvesting_date: 1,
-                            crops_name: 1,
-                            production_quantity: 1,
-                            yield: 1,
-                            insurance_worth: 1,
-                            status: 1
-                        }
-                    }]
-                }
-            },
-            {
-                $lookup: {
-                    from: 'lands',
-                    localField: '_id',
-                    foreignField: 'farmer_id',
-                    as: 'lands',
-                    pipeline: [{
-                        $project: {
-                            _id: 1,
-                            farmer_id: 1,
-                            associate_id: 1,
-                            total_area: 1,
-                            area_unit: 1,
-                            khasra_no: 1,
-                            khatauni: 1,
-                            sow_area: 1,
-                            land_address: 1,
-                            soil_type: 1,
-                            soil_tested: 1,
-                            soil_health_card: 1,
-                            lab_distance_unit: 1,
-                            status: 1,
-                        }
-                    }]
-                }
-
-            },
-            {
-                $lookup: {
-                    from: 'banks',
-                    localField: '_id',
-                    foreignField: 'farmer_id',
-                    as: 'bankDetails',
-                    pipeline: [{
-                        $project: {
-                            _id: 1,
-                            farmer_id: 1,
-                            associate_id: 1,
-                            bank_name: 1,
-                            account_no: 1,
-                            ifsc_code: 1,
-                            account_holder_name: 1,
-                            branch_address: 1,
-                            status: 1,
-                        }
-                    }]
-                }
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'associate_id',
-                    foreignField: '_id',
-                    as: 'associateDetails',
-                    pipeline: [{
-                        $project: {
-                            organization_name: '$basic_details.associate_details.organization_name', // Project only the required fields
-                        }
-                    }]
-                }
-            },
-            {
-                $match: {
-                    'crops.0': { $exists: true }, // Ensure farmers have at least one crop
-                    'bankDetails.0': { $exists: true } // Ensure farmers have bank details
-                }
-            },
-            { $unwind: '$associateDetails' }, // Unwind to merge associate details
-            { $unwind: '$bankDetails' }, // Unwind to merge bank details
-            {
-                $project: {
-                    farmer_code: 1,
-                    title: 1,
-                    mobile_no: 1,
-                    name: 1,
-                    parents: 1,
-                    dob: 1,
-                    gender: 1,
-                    address: 1,
-                    crops: 1,
-                    bankDetails: 1,
-                    lands: 1
-                }
-            },
-            {
-                $sort: { [sortBy]: 1 } // Sort by the `sortBy` field, default to `name`
+                // $sort: { [sortBy]: 1 } // Sort by the `sortBy` field, default to `name`
+                $sort: sortBy ? sortBy : { createdAt: -1 },
             }
         ];
 
@@ -380,28 +293,6 @@ module.exports.getFarmerListById = async (req, res) => {
         // Fetch count of farmers
         const countPipeline = [
             { $match: query },
-            {
-                $lookup: {
-                    from: 'crops',
-                    localField: '_id',
-                    foreignField: 'farmer_id',
-                    as: 'crops'
-                }
-            },
-            {
-                $lookup: {
-                    from: 'banks',
-                    localField: '_id',
-                    foreignField: 'farmer_id',
-                    as: 'bankDetails'
-                }
-            },
-            {
-                $match: {
-                    'crops.0': { $exists: true }, // Farmers with crops
-                    'bankDetails.0': { $exists: true } // Farmers with bank details
-                }
-            },
             { $count: 'total' } // Count total records matching the criteria
         ];
 
@@ -439,13 +330,13 @@ module.exports.requestApprove = async (req, res) => {
         const { user_type } = req;
 
         if (user_type != _userType.admin) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
         const associateOffered = await AssociateOffers.findOne({ _id: associateOffers_id });
 
         if (!sellerOffered) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("seller offer") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("seller offer") }] }))
         }
 
         if (status == _associateOfferStatus.rejected) {
@@ -456,7 +347,7 @@ module.exports.requestApprove = async (req, res) => {
             const existingRequest = await RequestModel.findOne({ _id: associateOffered.req_id });
 
             if (!existingRequest) {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
             }
 
             existingRequest.fulfilledQty += associateOffered.offeredQty;
@@ -466,7 +357,7 @@ module.exports.requestApprove = async (req, res) => {
             } else if (existingRequest.fulfilledQty < existingRequest?.product?.quantity) {
                 existingRequest.status = _requestStatus.partially_fulfulled;
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }))
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }))
             }
 
             await associateOffered.save();
@@ -491,7 +382,7 @@ module.exports.offeredFarmerList = async (req, res) => {
         const offerIds = (await AssociateOffers.find({ req_id, ...(user_type == _userType.associate && { seller_id: user_id }) })).map((ele) => ele._id);
 
         if (offerIds.length == 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
         }
 
         let query = search ? {
@@ -505,11 +396,60 @@ module.exports.offeredFarmerList = async (req, res) => {
         query.associateOffers_id = { $in: offerIds };
         const records = { count: 0 };
 
-        records.rows = await FarmerOffers.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .populate("farmer_id")
-            .limit(parseInt(limit))
+        const pipeline = [
+            { $match: query },
+            {
+                $lookup: {
+                    from: "farmers",
+                    localField: "farmer_id",
+                    foreignField: "_id",
+                    as: "farmer_data",
+                },
+            },
+            { $unwind: "$farmer_data" },
+            {
+                $lookup: {
+                    from: "statedistrictcities",
+                    let: { stateId: "$farmer_data.address.state_id", districtId: "$farmer_data.address.district_id" },
+                    pipeline: [
+                        { $unwind: "$states" },
+                        { $match: { $expr: { $eq: ["$states._id", "$$stateId"] } } },
+
+                        { $unwind: "$states.districts" },
+                        { $match: { $expr: { $eq: ["$states.districts._id", "$$districtId"] } } },
+                        {
+                            $project: {
+                                state_title: "$states.state_title",
+                                district_title: "$states.districts.district_title",
+                            },
+                        },
+                    ],
+                    as: "location_data",
+                },
+            },
+
+            { $unwind: { path: "$location_data", preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    farmer_id: "$farmer_data.farmer_id",
+                    farmer_type: "$farmer_data.user_type",
+                    "farmer_data.name": 1,
+                    "farmer_data.mobile_no": 1,
+                    "farmer_data.basic_details": 1,  // Include basic_details field
+                    "farmer_data.address": 1,
+                    "location_data.state_title": 1,
+                    "location_data.district_title": 1,
+                    offeredQty: 1,
+                    metaData: 1,
+                    status: 1,
+                },
+            },
+            { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit) }
+        ]
+
+        records.rows = await FarmerOffers.aggregate(pipeline);
 
         records.count = await FarmerOffers.countDocuments(query);
         records.page = page
@@ -530,12 +470,12 @@ module.exports.farmerOrderList = async (req, res) => {
 
     try {
         const { user_id, user_type } = req;
-        const { page, limit, skip, sortBy, search = '', req_id } = req.query
+        const { page, limit, skip, sortBy, search = '', req_id, status } = req.query
 
-        const offerIds = (await AssociateOffers.find({ req_id, ...(user_type == _userType.associate && { seller_id: user_id }) })).map((ele) => ele._id);
+        const offerIds = [(await AssociateOffers.findOne({ req_id, seller_id: user_id }))?._id];
 
         if (offerIds.length == 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }))
         }
 
         let query = search ? {
@@ -547,6 +487,19 @@ module.exports.farmerOrderList = async (req, res) => {
         } : {};
 
         query.associateOffers_id = { $in: offerIds };
+
+        if (status) {
+            query.status = status;
+        }
+
+        // start of Sangita code
+
+        if (status == _procuredStatus.received) {
+            query.qtyRemaining = { $gt: 0 }
+        }
+
+        // End of Sangita code
+
         const records = { count: 0 };
 
         records.rows = await FarmerOrders.find(query)
@@ -605,11 +558,15 @@ module.exports.editFarmerOffer = async (req, res) => {
         const record = await FarmerOrders.findOne({ _id: id });
 
         if (!record) {
-            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound() }] }))
+        }
+
+        if (record.offeredQty < handleDecimal(qtyProcured)) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "quantity procured should be less than available quantity" }] }));
         }
 
         record.receving_date = receving_date;
-        record.qtyProcured = qtyProcured;
+        record.qtyProcured = handleDecimal(qtyProcured);
         record.procurementCenter_id = procurementCenter_id;
         record.weighbridge_name = weighbridge_name;
         record.weighbridge_no = weighbridge_no;
@@ -620,11 +577,17 @@ module.exports.editFarmerOffer = async (req, res) => {
         record.status = status;
         record.updatedBy = user_id;
 
+        // Start of Sangita code
+
+        record.qtyRemaining = handleDecimal(qtyProcured);
+
+        // End of Sangita code
+
         await record.save();
 
-        if (status == _associateOfferStatus.received) {
+        if (status == _procuredStatus.received) {
             const associateOfferRecord = await AssociateOffers.findOne({ _id: record?.associateOffers_id });
-            associateOfferRecord.procuredQty += qtyProcured;
+            associateOfferRecord.procuredQty += handleDecimal(qtyProcured);
             await associateOfferRecord.save();
 
         }
@@ -675,18 +638,18 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
 module.exports.hoBoList = async (req, res) => {
     try {
-        const { search = '', userType } = req.query
+        const { search = '', user_type } = req.query
 
-        if (!userType) {
-            return res.status(200).send(new serviceResponse({ status: 400, message: _middleware.require('user_type') }));
+        if (!user_type) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_type') }));
         }
 
         let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
-        if (userType == _userType.ho) {
+        if (user_type == _userType.ho) {
             query.user_type = _userType.ho;
 
-        } else if (userType == _userType.bo) {
+        } else if (user_type == _userType.bo) {
             query.user_type = _userType.bo;
         }
 

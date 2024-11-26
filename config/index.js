@@ -20,8 +20,8 @@ module.exports = {
 
     mailer: {
         service: 'gmail',
-        host: 'smtp.gmail.com',
-        port: 465,
+        host: 'sandbox.smtp.mailtrap.io',
+        port: 2525,
         type: 'OAuth2',
         user: process.env.EMAIL_USER, /*User for email services*/
         pass: process.env.EMAIL_PASS, /*Password for email services*/
@@ -36,5 +36,6 @@ module.exports = {
         secretKey: process.env.SECRET_ACCESS_KEY,
         region: process.env.REGION,
         bucketName: process.env.BUCKET_NAME
-    }
+    },
+    logEmails: 'imran@radiantinfonet.com , maneesh@radiantinfonet.com ,ayush@navankur.org , dileep@radiantinfonet.com'
 }

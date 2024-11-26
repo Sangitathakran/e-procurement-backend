@@ -1,16 +1,15 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
-const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode, getHoProcurementCenter } = require("./Controller");
+const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode } = require("./Controller");
 const express = require("express");
-const { verifyAgent } = require("../utils/verifyAgent");
 const procurementCenterRoutes = express.Router();
-const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
+const { Auth } = require("@src/v1/middlewares/jwt")
 
-procurementCenterRoutes.get("/", verifyAgent, getProcurementCenter);
-procurementCenterRoutes.post("/import-centers", ImportProcurementCenter);
-procurementCenterRoutes.post("/generateCenterCode", generateCenterCode);
-procurementCenterRoutes.post("/", validateErrors, verifyAgent, createProcurementCenter, [
+procurementCenterRoutes.post("/import-centers", Auth, ImportProcurementCenter);
+procurementCenterRoutes.post("/generateCenterCode", Auth, generateCenterCode);
+procurementCenterRoutes.get("/", Auth, getProcurementCenter);
+procurementCenterRoutes.post("/", validateErrors, Auth, createProcurementCenter, [
     body("center_name", _middleware.require("center_name")).notEmpty().trim(),
     body("center_code", _middleware.require("center_code")).notEmpty().trim(),
     body("line1", _middleware.require("line1")).notEmpty().trim(),
@@ -30,6 +29,5 @@ procurementCenterRoutes.post("/", validateErrors, verifyAgent, createProcurement
     body("addressType", _middleware.require("addressType")).isIn(['Residential', 'Business', 'Billing', 'Shipping']),
     body("isPrimary").optional().isBoolean()
 ]);
-procurementCenterRoutes.get("/ho-list",verifyJwtToken, getHoProcurementCenter);
 
 module.exports = { procurementCenterRoutes }; 

@@ -40,8 +40,9 @@
         .cta-button {
             display: inline-block;
             padding: 12px 24px;
-            background: linear-gradient(135deg, #007bff, #00bfff);
-            color: #ffffff;
+            color: #fff;
+            background-color: #28a745;
+            border-color: #28a745;
             border: none;
             border-radius: 50px;
             cursor: pointer;
@@ -49,7 +50,9 @@
             transition: background 0.3s ease-in-out;
         }
         .cta-button:hover {
-            background: linear-gradient(135deg, #0056b3, #00a2e8);
+            color: #fff;
+            background-color: #218838;
+            border-color: #1e7e34;
         }
         .footer {
             text-align: center;
@@ -66,18 +69,17 @@
         <div class="content">
             <h2 style="margin-bottom: 20px;">Welcome to Navbazar!</h2>
             <p>Dear <strong>{{user_name}},</strong></p>
-            <p>You have been successfully registered with Navbazar.</p>
-            <p>Your login credentials are as follows:</p>
-            <p><strong>Email:</strong> {{email}}</p>
+            <p>We are delighted to inform you that your account has been successfully registered on the NavBazaar portal.</p>
+            <p><strong>Username:</strong> {{email}}</p>
             <p><strong>Password:</strong> {{password}}</p>
-            <p>To begin your procurement journey, please visit the following link:</p>
+            <p>You can access your procurement dashboard and track your journey by visiting the following link:</p>
             <a href="{{app_url}}">
                 <button class="cta-button">Start Your Journey</button>
             </a>
-            <p>We're excited to collaborate with you!</p>
+            <p>We look forward to a productive partnership and achieving great results together! </p>
         </div>
         <div class="footer">
-            <p>Best regards,<br>Team Navbazar</p>
+            <p>Warm regards,<br>Team Navankur</p>
         </div>
     </div>
 </body>

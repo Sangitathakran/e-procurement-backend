@@ -12,19 +12,18 @@ const RequestSchema = new mongoose.Schema({
     deliveryDate: { type: Date, required: true, },
     expectedProcurementDate: { type: Date, required: true, },
     fulfilledQty: { type: Number, default: 0 },
+    totalQuantity: { type: Number, default: 0 },
     product: {
         name: { type: String, required: true },
-        // category: { type: String, required: false },
         commodityImage: { type: String, required: true },
         grade: { type: String, required: true },
-        // variety: { type: String, required: true },
         quantity: { type: Number, required: true },
     },
     address: {
         deliveryLocation: { type: String, required: false },
         lat: { type: String, required: false },
         long: { type: String, required: false },
-        locationUrl: { type: String, required: false}
+        locationUrl: { type: String, required: false }
     },
     comments: [{ user_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true }, comment: { type: String, trim: true } }],
     updatedBy: { type: mongoose.Schema.Types.ObjectId, default: null },

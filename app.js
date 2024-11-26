@@ -27,6 +27,7 @@ const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { router } = require("./src/v1/routes");
+const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 // application level middlewares
 app.use(helmet());
 app.use(
@@ -47,6 +48,7 @@ app.use(cookieParser());
 app.disable("x-powered-by");
 app.use(apiVersion, router);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+require('./crons/index')
 // server status
 app.get(
   "/",

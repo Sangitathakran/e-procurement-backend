@@ -1,6 +1,6 @@
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
+const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { User } = require("@src/v1/models/app/auth/User");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
@@ -50,7 +50,7 @@ module.exports.getProcurementCenter = async (req, res) => {
         const { user_id } = req
         let query = {
             user_id: user_id,
-            ...(search ? { name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+            ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
         const records = { count: 0 };
         records.rows = paginate == 1
@@ -103,7 +103,7 @@ module.exports.getProcurementCenter = async (req, res) => {
                     worksheetName: `collection-center}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
@@ -119,7 +119,7 @@ module.exports.getProcurementCenter = async (req, res) => {
 module.exports.getHoProcurementCenter = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport=0 } = req.query
         let query = {
             ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
@@ -136,9 +136,43 @@ module.exports.getHoProcurementCenter = async (req, res) => {
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-        
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement center") }));
 
+        // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement center") }));
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+                return {
+                    "Address Line 1": item?.address?.line1 || 'NA',
+                    "Address Line 2": item?.address?.line2 || 'NA',
+                    "Country": item?.address?.country || 'NA',
+                    "State": item?.address?.country || 'NA',
+                    "District": item?.address?.district || 'NA',
+                    "City": item?.address?.city || 'NA',
+                    "PIN Code": item?.address?.postalCode || 'NA',
+                    "Name": item?.point_of_contact?.name || 'NA',
+                    "Email": item?.point_of_contact?.email || 'NA',
+                    "Mobile": item?.point_of_contact?.mobile || 'NA',
+                    "Designation": item?.point_of_contact?.designation || 'NA',
+                    "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
+                }
+            })
+                      
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `collection-center.xlsx`,
+                    worksheetName: `collection-center`
+                });
+
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Batch") }))
+            }
+
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
+        }
+        
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -150,7 +184,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
         const [file] = req.files;
 
         if (!file) {
-            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('file') }));
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('file') }));
         }
 
         let centers = [];
@@ -163,7 +197,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
             centers = xlsx.utils.sheet_to_json(worksheet);
 
             if (!centers.length) {
-                return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('No data found in the file') }));
+                return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('No data found in the file') }));
             }
 
             headers = Object.keys(centers[0]);
@@ -247,7 +281,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
         }
 
         if (errorArray.length > 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, data: { records: errorArray }, errors: [{ message: "Partial upload successfull ! Please export to view the uploaded data." }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, data: { records: errorArray }, errors: [{ message: "Partial upload successfull ! Please export to view the uploaded data." }] }))
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: {}, message: 'Centers successfully uploaded.' }))
         }
@@ -260,7 +294,6 @@ module.exports.ImportProcurementCenter = async (req, res) => {
 module.exports.generateCenterCode = async (req, res) => {
     try {
         const lastCenter = await ProcurementCenter.findOne({ center_code: { $exists: true } }).sort({ center_code: -1 });
-
         let CenterCode = '';
 
         if (lastCenter && lastCenter.center_code) {

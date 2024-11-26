@@ -1,30 +1,55 @@
 const mongoose = require('mongoose');
-const { _collectionName, _status, _areaUnit, _soilType, _distanceUnit, _yesNo } = require('@src/v1/utils/constants');
+const { _collectionName, _status, _areaUnit, _soilType, _landType,_distanceUnit, _yesNo } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
-const landSchema = new mongoose.Schema({
-    farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true, },
-    total_area: { type: Number, required: false, },
-    area_unit: { type: String, enum: Object.values(_areaUnit), default: null, trim: true, },
-    khasra_no: { type: String, trim: true, },
-    khatauni: { type: String, trim: true, },
-    ghat_no: { type: String, trim: true, },
-    sow_area: { type: String, trim: true, },
+const landSchema = new mongoose.Schema({ 
+    total_area: { type: Number, required: false },
+    land_name: { type: String, required: false },
+    farmer_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: _collectionName.farmers, default: null },
+    cultivation_area: { 
+        type: Number, 
+        // validate: {
+        //     validator: function(value) {
+        //         return value <= this.land_details.totalArea;
+        //     },
+        //     message: 'Cultivation area must not exceed total land area'
+        // }, 
+        required: false 
+    },
+    area: { 
+        type: String, 
+        required: false 
+    },
+    area_unit: { 
+        type: String, 
+        enum: Object.values(_areaUnit).slice(0, 2), 
+        required: false 
+    },
+    khtauni_number: { type: String },
+    khasra_number: { type: String },
+    khata_number: { type: String },
+    soil_type: { 
+        type: String, 
+        enum: Object.values(_soilType), 
+        required: false 
+    },
+    land_type: { 
+        type: String, 
+        enum: Object.values(_landType), 
+        required: false 
+    },
+    upload_land_document: { type: String },
     land_address: {
-        country: { type: String, trim:true, default: 'India', },
         state_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity' },
         district_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity.districts' },
-        sub_district: { type: String, trim: true, },
+        village: { type: String, required: false },
+        pin_code:{type:String,required:false},
+        block: { type: String, required: false },
     },
-    document: { type: String, required: false, },
-    expected_production: { type: String, required: false, },
-    soil_type: { type: String, enum: Object.values(_soilType), default: null, trim: true, },
-    soil_tested: { type: String, enum: Object.values(_yesNo), default: null, trim: true, },
-    soil_health_card: { type: String, enum: Object.values(_yesNo), default: null, trim: true, },
-    soil_health_card_doc: { type: String, trim: true, },
-    soil_testing_lab_name: { type: String, trim: true, },
-    lab_distance_unit: { type: String, enum: Object.values(_distanceUnit), default: null, trim: true, },
-    status: { type: String, enum: Object.values(_status), default: _status.active, },
-    ..._commonKeys,
+    soil_tested: { type: String, enum: Object.values(_yesNo), required: false },
+    uploadSoil_health_card: { type: String }, // if soilTested is true
+    opt_for_soil_testing: { type: Boolean, required: false },
+    soil_testing_agencies: { type: [String] },
+    upload_geotag: { type: String, required: false } // file upload URL/path
 }, { timestamps: true });
 const Land = mongoose.model(_collectionName.Lands, landSchema);
 module.exports = { Land };

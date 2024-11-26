@@ -5,7 +5,7 @@ const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const headOfficeSchema = new mongoose.Schema({
     password: {type: String, required: true},
     email_verified: {type: Boolean, default: false},
-    user_type: {type: String, default: "5"},
+    user_type: {type: String},
     company_details: {
         name: {type: String, trim: true},
         pan_card: {type: String, trim: true},
@@ -14,7 +14,7 @@ const headOfficeSchema = new mongoose.Schema({
     },
     point_of_contact: {
         name: {type: String, trim: true},
-        email: {type: String, lowercase: true, trim: true, unique: true},
+        email: {type: String, lowercase: true, trim: true},
         mobile: {type: String, trim: true},
         designation: {type: String, trim: true},
         aadhar_number: {type: String, trim: true},
@@ -35,7 +35,7 @@ const headOfficeSchema = new mongoose.Schema({
         name: {type: String, trim: true},
         designation: {type: String, trim: true},
         phone: {type: String, trim: true},
-        email: {type: String, trim: true, unique: true},
+        email: {type: String, trim: true},
         aadhar_number: {type: String, trim: true},
         aadhar_certificate: {
             front: {type: String, trim: true},
@@ -48,27 +48,30 @@ const headOfficeSchema = new mongoose.Schema({
     registered_time: {type: Date, default: Date.now},
     active: {type: Boolean, default: true},
     is_password_change: {type: Boolean, default: false},
-    head_office_code: {type: String, unique: true},
+    head_office_code: { type: String },
 }, {timestamps: true});
 
 
 headOfficeSchema.pre('save', async function (next) {
-    if (!this.isNew) return next();
+    if (this.isNew && !this.head_office_code) {
+        try {
+            const HeadOffice = mongoose.model(_collectionName.HeadOffice, headOfficeSchema);
 
-    const HeadOffice = mongoose.model(_collectionName.HeadOffice, headOfficeSchema);
-    try {
-        const lastUser = await HeadOffice.findOne().sort({ createdAt: -1 });
-        let nextUserCode = 'HO00001';
+            const lastUser = await HeadOffice.findOne().sort({ createdAt: -1 });
+            let nextUserCode = 'HO00001';
 
-        if (lastUser && lastUser.head_office_code) {  
-            const lastCodeNumber = parseInt(lastUser.head_office_code.slice(2), 10);
-            nextUserCode = 'HO' + String(lastCodeNumber + 1).padStart(5, '0');
+            if (lastUser && lastUser.head_office_code) {
+                const lastCodeNumber = parseInt(lastUser.head_office_code.slice(2), 10);
+                nextUserCode = 'HO' + String(lastCodeNumber + 1).padStart(5, '0');
+            }
+
+            this.head_office_code = nextUserCode;
+            next();
+        } catch (err) {
+            next(err);
         }
-
-        this.head_office_code = nextUserCode;
+    } else {
         next();
-    } catch (err) {
-        next(err);
     }
 });
 

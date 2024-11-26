@@ -4,7 +4,7 @@ const farmerManagementRoutes = express.Router();
 const {farmerList, getSingleFarmer } = require("./Controller")
 
 farmerManagementRoutes.get("/farmer-list",farmerList);
-farmerManagementRoutes.get("/single-farmer/:id/:associate",getSingleFarmer);
+farmerManagementRoutes.get("/single-farmer/:id",getSingleFarmer);
 
 
 

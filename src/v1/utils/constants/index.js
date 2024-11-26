@@ -4,9 +4,10 @@ const _collectionName = {
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",
+    agency: "agency",
     individualFarmers: "individual_farmers",
     Users: "Users",
-    HeadOffice: "headoffices",
+    HeadOffice: "HeadOffice", // change headoffices to HeadOffice
     Category: "Category",
     Variety: "variety",
     Unit: "unit",
@@ -29,7 +30,40 @@ const _collectionName = {
     Branch: "Branch",
     DummyWarehouse: "DummyWarehouse",
     FarmerOrder: "FarmerOrder",
+    PaymentLog: "PaymentLog",
+    FeatureList: "FeatureList",  // need to change to Features
+    UserRole: "UserRoles",
+    MasterUser: "MasterUser",
+    AgentPayment: "AgentPayment",
+    Associate: "Associate",
+    Agency: "Agency",
+    Types: "Types",
+    AssociateInvoice: "AssociateInvoice",
+    AgentInvoice: "AgentInvoice",
+    AgentPaymentFile: "AgentPaymentFile",
+    FarmerPaymentFile: "FarmerPaymentFile"
 }
+
+const _userType_Feature_Collection = {
+
+}
+
+const _userAction = {
+    created: "created",
+    deleted: "deleted",
+    updated: "updated",
+    disabled: "disabled",
+    enabled: "enabled"
+}
+
+const _featureType = {
+    branchOffice: "BranchOffice",
+    headOffice: "HeadOffice",
+    agency: "Agency",
+    associate: "Associate"
+
+}
+
 const _status = {
     active: "active",
     inactive: "inactive",
@@ -112,7 +146,13 @@ const _associateOfferStatus = {
     accepted: 'Accepted',
     rejected: 'Rejected',
     pending: 'Pending',
+    partially_ordered: "Partially_Ordered",
     ordered: "Ordered",
+}
+const _farmerOrderDeliverdStatus = {
+    pending: "Pending",
+    partially: "Partially",
+    completed: "Completed",
 }
 
 const _procuredStatus = {
@@ -128,12 +168,19 @@ const _userType = {
     agent: "6",
 }
 
+const _userStatus = {
+    approved: 'approved',
+    rejected: 'rejected',
+    pending: 'pending',
+}
+
 const _trader_type = {
     ORGANISATION: 'Organisation',
     SOCIETY: 'Society',
     TRUST: 'Trust',
     INDIVIDUAL: 'Individual',
-    PROPRITER: 'Propriter',
+    PROPRIETOR: 'Proprietor',
+    PACS: 'PACS',
 }
 
 const _center_type = {
@@ -161,14 +208,14 @@ const _user_status = {
 
 }
 const _proofType = {
-    Aadhar: "Aadhar",
-    Pancard: "Pancard",
-    VoterId: "VoterId",
+    Aadhar: "aadhar",
+    Pancard: "pancard",
+    VoterId: "voterId",
 }
 const _titles = {
-    Mr: "Mr",
-    Mrs: "Mrs",
-    Miss: "Miss",
+    Mr: "mr",
+    Mrs: "mrs",
+    Miss: "miss",
 }
 const _gender = {
     male: "male",
@@ -177,62 +224,71 @@ const _gender = {
     other: "others",
 }
 const _maritalStatus = {
-    Married: "Married",
-    Unmarried: "Unmarried",
+    Married: "married",
+    Unmarried: "unmarried",
+    "N/A": "N/A",
 }
 const _religion = {
-    Hindu: "Hindu",
-    Muslim: "Muslim",
-    Sikh: "Sikh",
-    Isai: "Isai",
-    Parsi: "Parsi",
+    Hindu: "hindu",
+    Muslim: "muslim",
+    Sikh: "sikh",
+    Isai: "isai",
+    Parsi: "parsi",
+    "N/A": "N/A",
 }
 const _category = {
-    GEN: "GEN",
-    OBC: "OBC",
-    SC: "SC",
-    ST: "ST",
-    Others: "Others",
+    GEN: "gen",
+    OBC: "obc",
+    SC: "sc",
+    ST: "st",
+    Others: "others",
 }
 
 const _areaUnit = {
-    Hectares: "Hectares",
-    Acres: "Acres",
-    Bigha: "Bigha",
-}
-const _soilType = {
-    Sandy: "Sandy",
-    Loamy: "Loamy",
-    Clayey: "Clayey",
-    Red_soil: "Red_soil",
-    Alkaline: "Alkaline",
+    Hectares: "hectares",
+    Acres: "acres",
+    Bigha: "bigha",
     Other: "Other",
 }
+const _soilType = {
+    Sandy: "sandy",
+    Loamy: "loamy",
+    Clayey: "clayey",
+    Red_soil: "red_soil",
+    Alkaline: "alkaline",
+    Other: "other"
+}
+const _landType = {
+    OwnLand: "own land",
+    Partnership: "partnership",
+    Leaser: "leaser",
+    Other: "other"
+}
 const _distanceUnit = {
-    Km: "Km",
-    Metre: "Metre",
+    Km: "km",
+    Metre: "metre",
 }
 const _seedUsed = {
-    farmseved: "Farmseved",
-    Company: "Company",
+    farmseved: "farmseved",
+    Company: "company",
 }
 const _yesNo = {
-    Yes: "Yes",
-    No: "No",
+    Yes: "yes",
+    No: "no",
 }
 const _seasons = {
-    Rabi: "Rabi",
-    Kharif: "Kharif",
-    Zaid: "Zaid",
-    Others: "Others",
+    Rabi: "rabi",
+    Kharif: "kharif",
+    Zaid: "zaid",
+    Others: "others",
 }
 const _education = {
-    Nonmatric: "Nonmatric",
-    Matric: "Matric",
-    Intermidiate: "Intermidiate",
-    Graduate: "Graduate",
-    Postgraduate: "Postgraduate",
-    Others: "Others",
+    Nonmatric: "nonmatric",
+    Matric: "matric",
+    Intermidiate: "intermidiate",
+    Graduate: "graduate",
+    Postgraduate: "postgraduate",
+    Others: "others",
 }
 
 const _khaifCrops = {
@@ -262,9 +318,14 @@ const _zaidCrops = {
 
 const _batchStatus = {
     pending: "Pending",
-    dispatched: "Dispatched",
+    mark_ready: "Mark-Ready",
     intransit: "In-Transit",
     delivered: "Delivered",
+    finalQc: "Final Qc",
+    paymentApproved: "Payment Approved",
+    FinalPayApproved: "Final Payment Approved",
+    paymentInTransit: "Payment In Progress",
+    paymentComplete: "Payment Complete"
 }
 
 const _paymentmethod = {
@@ -274,8 +335,26 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
-    approved: "Approved",
+    failed:"Failed",
     completed: "Completed",
+    rejected: "Rejected"
+}
+
+const _billstatus = {
+    pending: "Pending",
+    completed: "Completed",
+}
+
+const _paymentApproval = {
+    pending: "Pending",
+    approved: "Approved",
+    rejected: "Rejected"
+}
+
+const received_qc_status = {
+    accepted: "Accepted",
+    rejected: "Rejected",
+    pending: "Pending",
 }
 
 const _individual_farmer_onboarding_steps = [
@@ -313,10 +392,29 @@ const _individual_category = {
     sc: "sc",
     st: "st",
     women: "women",
-    others: "others"
+    others: "others",
+    "N/A": "N/A",
+}
+
+const _statusType = {
+    active: 'active',
+    inactive: 'inactive'
+}
+
+const _frontendLoginRoutes = {
+    agent: "/agent/sign-in",
+    ho: "/head-office/sign-in",
+    bo: "/branch-office/sign-in"
+}
+
+const _userTypeFrontendRouteMapping = {
+    "agent": "6",
+    "head-office": "2",
+    "branch-office": "3"
 }
 
 module.exports = {
+    _userAction,
     _farmerType,
     _collectionName,
     _status,
@@ -341,6 +439,7 @@ module.exports = {
     _category,
     _areaUnit,
     _soilType,
+    _landType,
     _distanceUnit,
     _seedUsed,
     _yesNo,
@@ -357,7 +456,16 @@ module.exports = {
     _batchStatus,
     _paymentmethod,
     _paymentstatus,
+    _paymentApproval,
     _center_type,
     _address_type,
-    _individual_category
+    _individual_category,
+    _userStatus,
+    _featureType,
+    _statusType,
+    received_qc_status,
+    _frontendLoginRoutes,
+    _userTypeFrontendRouteMapping,
+    _billstatus,
+    _farmerOrderDeliverdStatus
 }

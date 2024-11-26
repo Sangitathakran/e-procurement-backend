@@ -2463,7 +2463,7 @@
             "type": "string"
           },
           {
-            "name": "userType",
+            "name": "user_type",
             "in": "query",
             "type": "string"
           },
@@ -2579,7 +2579,7 @@
             "type": "string"
           },
           {
-            "name": "userType",
+            "name": "user_type",
             "in": "query",
             "type": "string"
           },

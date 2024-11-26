@@ -7,6 +7,7 @@ const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const { _userType, _center_type } = require("@src/v1/utils/constants");
+const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const Readable = require('stream').Readable;
 
 
@@ -14,7 +15,7 @@ module.exports.createProcurementCenter = async (req, res) => {
     try {
         const { user_id, user_type } = req
         const { center_name, center_code, line1, line2, state, district, city, name, email, mobile, designation, aadhar_number, aadhar_image, postalCode, lat, long, addressType, location_url } = req.body;
-        
+
         let center_type;
         if (user_type == '4') {
             center_type = _center_type.associate;
@@ -35,6 +36,21 @@ module.exports.createProcurementCenter = async (req, res) => {
             location_url: location_url
         });
 
+        const subject = `New Procurement Center Successfully Created under Procurement Center ID ${record?.center_code}`;
+        const body = `<p>This to inform you that a new head office has been successfully created under the following details:</p><br/> 
+                <p>Procurement Center Name: ${record?.center_name}</p> <br/> 
+                <p> Procurement Center ID: ${record?.center_code} </p> <br/> 
+                <p>Location: ${record?.address} </p> <br/> 
+                <p> Date of Creation: ${record?.createdAt}</p> <br/>
+                <p> Please follow the link below for additional Information:<a href="https://ep-testing.navbazar.com/procurement-centre/my-procurement-centre"> Click here </a> </p> <br/>
+                <p> Need Help? </p> <br/>
+                <p> For queries or any assistance, contact us at ${record?.point_of_contact.mobile}</p> <br/>
+                <p> Warm regards, </p>  <br/>
+                <p> Navankur. </p>  <br/>` ;
+
+
+        await sendMail("ashita@navankur.org", null, subject, body);
+
         return res.send(new serviceResponse({ status: 200, data: record, message: _response_message.created("Collection Center") }));
 
     } catch (error) {
@@ -46,15 +62,20 @@ module.exports.createProcurementCenter = async (req, res) => {
 module.exports.getProcurementCenter = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, centerType } = req.query
-        
+        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, centerType = 'self' } = req.query
+
         const { user_id } = req
-        
+
         let query = {
-            ...(search ? { name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+            ...(search ? {
+                $or: [
+                    { center_name: { $regex: search, $options: "i" } },
+                    { center_code: { $regex: search, $options: "i" } }
+                ], deletedAt: null
+            } : { deletedAt: null })
         };
         if (centerType === 'self') {
-            query.user_id = user_id; 
+            query.user_id = user_id;
         } else if (centerType === 'associate') {
             query.user_id = { $ne: user_id };
         }
@@ -110,41 +131,12 @@ module.exports.getProcurementCenter = async (req, res) => {
                     worksheetName: `collection-center}`
                 });
             } else {
-                return res.status(200).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
             }
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
         }
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-}
-
-
-module.exports.getHoProcurementCenter = async (req, res) => {
-
-    try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
-        let query = {
-            ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
-        };
-        const records = { count: 0 };
-        records.rows = paginate == 1 ? await ProcurementCenter.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await ProcurementCenter.find(query).sort(sortBy);
-
-        records.count = await ProcurementCenter.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-        
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement center") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -157,7 +149,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
         const [file] = req.files;
 
         if (!file) {
-            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('file') }));
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('file') }));
         }
 
         let centers = [];
@@ -170,7 +162,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
             centers = xlsx.utils.sheet_to_json(worksheet);
 
             if (!centers.length) {
-                return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.notFound('No data found in the file') }));
+                return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('No data found in the file') }));
             }
 
             headers = Object.keys(centers[0]);
@@ -254,7 +246,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
         }
 
         if (errorArray.length > 0) {
-            return res.status(200).send(new serviceResponse({ status: 400, data: { records: errorArray }, errors: [{ message: "Partial upload successfull ! Please export to view the uploaded data." }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, data: { records: errorArray }, errors: [{ message: "Partial upload successfull ! Please export to view the uploaded data." }] }))
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: {}, message: 'Centers successfully uploaded.' }))
         }

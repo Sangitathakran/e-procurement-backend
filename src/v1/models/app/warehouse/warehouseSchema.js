@@ -17,10 +17,27 @@ const warehouseSchema = new mongoose.Schema({
         required : true,
         trim: true 
     },
+    state:{
+        type:String,
+        default:'Uttar Pradesh',
+        required:true
+    },
+    district:{
+        type:String,
+        required:true
+    },
+    location:{
+        type:String,
+        required:true
+    },
     authorized_personName: {
         type: String,
         required : true,
         trim: true
+    },
+    weight_bridge: {
+        type: Boolean,
+        default:false
     },
     pointOfContact: {
         name: {type: String, required: true},
@@ -36,4 +53,3 @@ const warehouseSchema = new mongoose.Schema({
 
 const wareHouse = mongoose.model(_collectionName.DummyWarehouse, warehouseSchema);
 module.exports = {wareHouse};
-
