@@ -455,14 +455,14 @@ const validateMobileNumber = async (mobile) => {
 module.exports.getLocationOfIpaddress = async (req,res) =>{
   try{
     
-    const { email, device, browser, latitude, longitude, addreiss } =
+    const { email, device, browser, latitude, longitude, ipAddress } =
     req.body;
   
-    if (!addreiss) {
+    if (!ipAddress) {
       return sendResponse({res, status: 400, message:"Ip address not provided"});
     }
      // Fetch location data based on IP address
-     const response = await axios.get(`http://ip-api.com/json/${addreiss}`);
+     const response = await axios.get(`http://ip-api.com/json/${ipAddress}`);
 
      //console.log("response==>",response)
      if (response.data.status === 'success') {
