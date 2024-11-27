@@ -203,7 +203,7 @@ class EmailService {
 
         } catch (error) {
             console.error("Error sending welcome email:", error);
-            throw error;
+            // throw error;
         }
     }
 

@@ -143,12 +143,16 @@ module.exports.batch = async (req, res) => {
             'basic_details.associate_details.email': { $exists: true }
         }).select('basic_details.associate_details.email basic_details.associate_details.associate_name');
 
-        await Promise.all(
-            users.map(({ basic_details: { associate_details } }) => {
-                const { email, associate_name } = associate_details;
-                return emailService.sendCreateBatchEmail(email, associate_name);
-            })
-        );
+        // try {
+            await Promise.all(
+                users.map(({ basic_details: { associate_details } }) => {
+                    const { email, associate_name } = associate_details;
+                    return emailService.sendCreateBatchEmail(email, associate_name);
+                })
+            );
+        // } catch (error) {
+        //     _handleCatchErrors(error, res);
+        // }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: batchCreated, message: _response_message.created("batch") }))
 
