@@ -2178,7 +2178,6 @@ module.exports.makeAssociateFarmer = async (req, res) => {
 module.exports.getAllFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy, search = '', paginate = 1 } = req.query;
-
     let associatedQuery = { associate_id: { $ne: null } };
     let localQuery = { associate_id: null };
 
@@ -2197,7 +2196,6 @@ module.exports.getAllFarmers = async (req, res) => {
 
     const skip = (page - 1) * limit;
     const parsedLimit = parseInt(limit);
-
     records.associatedFarmers = paginate == 1
     ? await farmer
       .find(associatedQuery)
@@ -2227,8 +2225,6 @@ module.exports.getAllFarmers = async (req, res) => {
         .populate('associate_id', '_id user_code')
         .populate('farmer_id', '_id upload_land_document')
         .sort(sortBy ? { [sortBy]: 1 } : {})
-    
-  
     records.count = await farmer.countDocuments(associatedQuery);
     records.localFarmersCount = await farmer.countDocuments(localQuery);
 
