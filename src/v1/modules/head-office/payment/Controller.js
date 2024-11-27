@@ -951,8 +951,8 @@ module.exports.payFarmers = async (req, res) => {
             payment_status:  _paymentstatus.pending 
         }
 
-        const farmersBill = await Payment.find(query).populate({path:"farmer_id", select:"bank_details"})
-                            await Batch.updateMany({_id:{$in:batchIds}},{status:'Payment In Progress'});
+        const farmersBill = await Payment.find(query).populate({path:"farmer_id", select:"name farmer_id bank_details"})
+                            
 
         if (!farmersBill) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
@@ -964,6 +964,64 @@ module.exports.payFarmers = async (req, res) => {
         const workbook = xlsx.utils.book_new();
         const send_file_details = []
         const worksheetData = [];
+
+        const farmerBankDetailsCheck = farmersBill.map((farmer)=>{
+
+            let obj = { 
+              farmer_id: farmer.farmer_id.farmer_id,
+              farmer_name: farmer.farmer_id.name,
+              farmer_mongo_id: farmer.farmer_id._id,
+              IS_IFSC: false, 
+              IS_ACCOUNT_HOLDER_NAME: false,
+              IS_ACCOUNT_NO: false,
+              bank_detail_missing: false
+            }
+
+            if(farmer.farmer_id.bank_details.ifsc_code){
+              obj.IS_IFSC = true
+            }
+            if(farmer.farmer_id.bank_details.account_holder_name){
+              obj.IS_ACCOUNT_HOLDER_NAME = true
+            }
+            if(farmer.farmer_id.bank_details.account_no){
+              obj.IS_ACCOUNT_NO = true
+            }
+
+            if(!obj.IS_IFSC || !obj.IS_ACCOUNT_HOLDER_NAME || !obj.IS_ACCOUNT_NO){
+              obj.bank_detail_missing = true
+            }
+
+            return obj
+        })
+
+
+        for (let item of farmerBankDetailsCheck) {
+          if (item.bank_detail_missing) {
+              let missingFields = [];
+              
+              if (!item.IS_IFSC) {
+                  missingFields.push("IFSC Code");
+              }
+              if (!item.IS_ACCOUNT_HOLDER_NAME) {
+                  missingFields.push("Account Holder Name");
+              }
+              if (!item.IS_ACCOUNT_NO) {
+                  missingFields.push("Account Number");
+              }
+      
+              if (missingFields.length > 0) {
+                  const singular_plural = missingFields.length > 1 ? "are": 'is'
+                  const errorMessage = `${missingFields.join(", ")} ${singular_plural} missing in ${item.farmer_name} (${item.farmer_id})`;
+                  return res
+                      .status(400)
+                      .send(new serviceResponse({ 
+                          status: 400, 
+                          errors: [{ message: errorMessage }] 
+                      }));
+              }
+          }
+        }
+      
 
         farmersBill.forEach((agentBill) => {
           const paymentFileData = {
@@ -1071,6 +1129,8 @@ module.exports.payFarmers = async (req, res) => {
             
           await FarmerPaymentFile.create(FarmerPaymentFilePayload)
             // return res.status(200).send(response.data);
+            await Batch.updateMany({_id:{$in:batchIds}},{status:'Payment In Progress'});
+
             return res
             .status(200)
             .send(
