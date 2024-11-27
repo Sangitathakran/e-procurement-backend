@@ -35,8 +35,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     records.rows =
       (
         await RequestModel.find(query)
-          // .select("associatOrder_id head_office_id status reqNo createdAt")
-          .populate({ path: 'branch_id', select: 'branchName', match: query })
+          .populate({ path: 'branch_id', select: 'branchName'})
           .skip(skip)
           .limit(parseInt(limit))
           .sort(sortBy)) ?? [];
