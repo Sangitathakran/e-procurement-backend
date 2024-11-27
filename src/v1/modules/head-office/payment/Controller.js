@@ -1015,7 +1015,8 @@ module.exports.payFarmers = async (req, res) => {
                   return res
                       .status(400)
                       .send(new serviceResponse({ 
-                          status: 400, 
+                          status: 400,
+                          data: item, 
                           errors: [{ message: errorMessage }] 
                       }));
               }
