@@ -31,7 +31,7 @@ class EmailService {
             console.log(`Email sent to ${to}`);
         } catch (error) {
             console.error("Error sending email:", error);
-            throw error;
+            // throw error;
         }
     }
 
@@ -52,7 +52,7 @@ class EmailService {
             return { message: 'Forgot Password Link Send successfully' };
         } catch (error) {
             console.error("Error sending forgot password email:", error);
-            throw error;
+            // throw error;
         }
     }
 
@@ -73,7 +73,7 @@ class EmailService {
             await sendMail(newUserEmail, '', 'OTP', html);
         } catch (error) {
             console.error("Error sending otp email:", error);
-            throw error;
+            // throw error;
         }
     }
     async sendUserCredentialsEmail(userDetails) {
@@ -95,7 +95,7 @@ class EmailService {
            
         } catch (error) {
             console.error("Error sending welcome email:", error);
-            throw error;
+            // throw error;
         }
     }
 
@@ -115,7 +115,7 @@ class EmailService {
             await sendMail(email, '', 'Agency registration done successfully | NavBazaar Login Credentials ', html);
         } catch (error) {
             console.error("Error sending welcome email:", error);
-            throw error;
+            // throw error;
         }
     }
 
@@ -136,7 +136,7 @@ class EmailService {
 
         } catch (error) {
             console.error("Error sending welcome email:", error);
-            throw error;
+            // throw error;
         }
     }
 
@@ -164,7 +164,7 @@ class EmailService {
 
         } catch (error) {
             console.error("Error sending welcome email:", error);
-            throw error;
+            // throw error;
         }
     }
 
@@ -187,7 +187,7 @@ class EmailService {
 
         } catch (error) {
             console.error("Error sending welcome email:", error);
-            throw error;
+            // throw error;
         }
     }
 
@@ -224,7 +224,7 @@ class EmailService {
 
         } catch (error) {
             console.error("Error sending welcome email:", error);
-            throw error;
+            // throw error;
         }
     }
 
@@ -245,7 +245,7 @@ class EmailService {
 
         } catch (error) {
             console.error("Error sending welcome email:", error);
-            throw error;
+            // throw error;
         }
     }
 
@@ -268,7 +268,7 @@ class EmailService {
 
         } catch (error) {
             console.error("Error sending welcome email:", error);
-            throw error;
+            // throw error;
         }
     }
 
@@ -289,7 +289,7 @@ class EmailService {
 
         } catch (error) {
             console.error("Error sending welcome email:", error);
-            throw error;
+            // throw error;
         }
     }
 
@@ -301,7 +301,7 @@ class EmailService {
             return templateContent;
         } catch (error) {
             console.error(`Error loading email template ${templateName}:`, error);
-            throw error;
+            // throw error;
         }
     }
 
@@ -321,7 +321,7 @@ class EmailService {
             await sendMail(email, '', 'Branch Office registration done successfully | NavBazaar Login Credentials ', html);
         } catch (error) {
             console.error("Error sending welcome email:", error);
-            throw error;
+            // throw error;
         }
     }
     async processToPayEmail(emailData) {
@@ -345,7 +345,7 @@ class EmailService {
     
         } catch (error) {
             console.error("Error sending process to pay email:", error);
-            throw error;
+            // throw error;
         }
     }
     async approvehoFarmerPayment(emailData) {
@@ -369,7 +369,7 @@ class EmailService {
     
         } catch (error) {
             console.error("Error sending process to pay email:", error);
-            throw error;
+            // throw error;
         }
     }
 
@@ -393,7 +393,7 @@ class EmailService {
     
         } catch (error) {
             console.error("Error sending payment approval email:", error);
-            throw error;
+            // throw error;
         }
     }
     
