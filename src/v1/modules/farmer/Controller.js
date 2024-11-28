@@ -2251,7 +2251,7 @@ module.exports.getAllFarmers = async (req, res) => {
       .limit(parsedLimit)
 
 
-    records.localFarmersCount = await farmer
+    records.localFarmers = await farmer
       .find(localQuery)
       .populate('associate_id', '_id user_code')
       .sort(sortCriteria)
