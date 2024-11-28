@@ -22,6 +22,7 @@ const { ObjectId } = require('mongodb');
 const { _proofType, _gender, _religion, _maritalStatus, _areaUnit, _seasons, _individual_category, _soilType, _yesNo } = require('@src/v1/utils/constants');
 const XLSX = require('xlsx');
 const fs = require('fs');
+const axios = require('axios')
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -451,6 +452,48 @@ const validateMobileNumber = async (mobile) => {
   return pattern.test(mobile);
 };
 
+module.exports.getLocationOfIpaddress = async (req,res) =>{
+  try{
+    
+    const { email, device, browser, latitude, longitude, ipAddress } =
+    req.body;
+  
+    if (!ipAddress) {
+      return sendResponse({res, status: 400, message:"Ip address not provided"});
+    }
+     // Fetch location data based on IP address
+     const response = await axios.get(`http://ip-api.com/json/${ipAddress}`);
+
+     //console.log("response==>",response)
+     if (response.data.status === 'success') {
+       const { regionName: state } = response.data;
+
+       return sendResponse({
+        res,
+        status: 200,
+        data: state,
+        message: 'Location found successfully.',
+      })
+     } else {
+      return sendResponse({
+        res,
+        status: 400,
+        data: null,
+        message: 'Unable to determine location from the provided IP address.',
+      })
+     }
+
+  }
+  catch(error){
+    return sendResponse({
+      res: res,
+      status: 500,
+      message: error.message,
+      errors: error.message
+    });
+  }
+}
+
 /*            associate Farmer                                
  Below are the associate farmer functions 
 
@@ -593,17 +636,16 @@ module.exports.getBoFarmer = async (req, res) => {
       return res.status(404).send({ message: "User not found." });
     }
 
-    const { state, district } = user;
-    if (!state || !district) {
+    const { state } = user;
+    if (!state) {
       return res.status(400).send({ message: "User's state information is missing." });
     }
     const state_id = await getStateId(state);
-    const district_id = await getDistrictId(district);
-    if (!state_id || !district_id) {
+    if (!state_id ) {
       return res.status(400).send({ message: "State ID not found for the user's state." });
     }
 
-    let query = { 'address.state_id': state_id, 'address.district_id': district_id };
+    let query = { 'address.state_id': state_id };
     if (search) {
       query.name = { $regex: search, $options: 'i' };
     }
@@ -700,7 +742,7 @@ module.exports.getBoFarmer = async (req, res) => {
     const totalFarmers = await farmer.countDocuments(query);
 
     if (farmers.length === 0) {
-      return res.status(404).send({ message: `No farmers found in state: ${state} and  District: ${district}` });
+      return res.status(404).send({ message: `No farmers found in state: ${state}` });
     }
     return res.status(200).send({
       status: 200,
@@ -708,7 +750,7 @@ module.exports.getBoFarmer = async (req, res) => {
       currentPage: page,
       totalPages: Math.ceil(totalFarmers / parsedLimit),
       data: farmers,
-      message: `Farmers found in state: ${state} and  District: ${district}`,
+      message: `Farmers found in state: ${state} `,
     });
   } catch (error) {
     console.error(error);

@@ -359,7 +359,7 @@ module.exports.branchList = async (req, res) => {
   try {
     const { limit = 10, skip = 0, paginate = 1, search = '', page = 1, fromAgent = false } = req.query;
     const { user_id, portalId } = req;
-   
+  
     // Adding search filter
     let searchQuery = search ? {
       branchName: { $regex: search, $options: 'i' }        // Case-insensitive search for branchName
@@ -369,8 +369,8 @@ module.exports.branchList = async (req, res) => {
       // searchQuery = { ...searchQuery, headOfficeId: req.user.portalId._id }
       searchQuery = { ...searchQuery, headOfficeId: portalId }
     } else {
-      // searchQuery = { ...searchQuery, headOfficeId: req.query.ho_id }
-      searchQuery = { ...searchQuery, headOfficeId: user_id }
+      searchQuery = { ...searchQuery, headOfficeId: req.query.ho_id }
+      // searchQuery = { ...searchQuery, headOfficeId: user_id }
     }
 
     // Count total documents for pagination purposes, applying search filter

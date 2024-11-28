@@ -53,7 +53,6 @@ require('./crons/index')
 app.get(
   "/",
   asyncErrorHandler(async (req, res) => {
-    await sendMail("stackofhex@gmail.com","","test mail","body")
     res.send(
       `<div align="center" style=""><h1>E-Procurement Server Ready For Requests. <h1><div>`
     );
