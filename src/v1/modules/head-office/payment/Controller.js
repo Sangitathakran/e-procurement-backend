@@ -41,7 +41,7 @@ const path = require('path');
 
 module.exports.payment = async (req, res) => {
   try {
-    const { page, limit, skip, paginate = 1, sortBy, search = "" } = req.query;
+    const { page, limit, skip, paginate = 1, sortBy, search = "", isExport=0 } = req.query;
 
     // let query = search ? { reqNo: { $regex: search, $options: "i" } } : {};
 
@@ -204,7 +204,48 @@ module.exports.payment = async (req, res) => {
       response.pages = limit != 0 ? Math.ceil(response.count / limit) : 0;
     }
 
-    return res
+    // return res
+    //   .status(200)
+    //   .send(
+    //     new serviceResponse({
+    //       status: 200,
+    //       data: response,
+    //       message: _response_message.found("Payment"),
+    //     })
+    //   );
+
+    
+    if (isExport == 1) {
+      const record = response.rows.map((item) => {
+        return {
+          "Order ID": item?.reqNo || "NA",
+          "Branch Name": item?.branch?.branchName || "NA",
+          "Commodity": item?.product?.name || "NA",
+          "Quantity Purchased": item?.qtyPurchased || "NA",
+          "Approval Status": item?.approval_status ?? "NA",
+          "Payment Status": item?.payment_status ?? "NA",
+        };
+      });
+
+      if (record.length > 0) {
+        dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `HO-Payment-record.xlsx`,
+          worksheetName: `HO-Payment-record`,
+        });
+      } else {
+        return res
+          .status(400)
+          .send(
+            new serviceResponse({
+              status: 400,
+              data: records,
+              message: _response_message.notFound("Payment"),
+            })
+          );
+      }
+    } else {
+      return res
       .status(200)
       .send(
         new serviceResponse({
@@ -213,6 +254,8 @@ module.exports.payment = async (req, res) => {
           message: _response_message.found("Payment"),
         })
       );
+    }
+
   } catch (error) {
     _handleCatchErrors(error, res);
   }
