@@ -626,11 +626,11 @@ module.exports.getBoFarmer = async (req, res) => {
     // const { page = 1, limit = 10, search = '', sortBy = 'name' } = req.query;
     // const user = await Branches.findById(user_id);
 
-    const { portalId, user_id } = req  
-    const { page = 1, limit = 10, search = '', sortBy} = req.query;
+    const { portalId, user_id } = req
+    const { page = 1, limit = 10, search = '', sortBy } = req.query;
 
     // const user = await Branches.findById(user_id);
-    const user = await Branches.findOne({_id:portalId });
+    const user = await Branches.findOne({ _id: portalId });
 
     if (!user) {
       return res.status(404).send({ message: "User not found." });
@@ -1568,80 +1568,80 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       };
       const name = rec["NAME*"];
       const father_name = rec["FATHER NAME*"];
-      const mother_name = rec["MOTHER NAME"]?rec["MOTHER NAME"]:null;
+      const mother_name = rec["MOTHER NAME"] ? rec["MOTHER NAME"] : null;
       const date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)*"];
-      const farmer_category = rec["FARMER CATEGORY"]?rec["FARMER CATEGORY"]:null;
+      const farmer_category = rec["FARMER CATEGORY"] ? rec["FARMER CATEGORY"] : null;
       const gender = toLowerCaseIfExists(rec["GENDER*"]);
       const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS"]) ? toLowerCaseIfExists(rec["MARITAL STATUS"]) : 'N/A';
       const religion = toLowerCaseIfExists(rec["RELIGION"]) ? toLowerCaseIfExists(rec["RELIGION"]) : 'N/A';
       const category = toLowerCaseIfExists(rec["CATEGORY"]) ? toLowerCaseIfExists(rec["CATEGORY"]) : 'N/A';
       const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL"]);
-      const edu_details = rec["EDU DETAILS"]?rec["EDU DETAILS"]:null;
+      const edu_details = rec["EDU DETAILS"] ? rec["EDU DETAILS"] : null;
       const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"]);
       const aadhar_no = rec["AADHAR NUMBER*"];
       const address_line = rec["ADDRESS LINE*"];
-      const country = rec["COUNTRY NAME"]?rec["COUNTRY NAME"]:null;
+      const country = rec["COUNTRY NAME"] ? rec["COUNTRY NAME"] : null;
       const state_name = rec["STATE NAME*"];
       const district_name = rec["DISTRICT NAME*"];
       const tahshil = rec["TAHSHIL*"];
       const block = rec["BLOCK NAME*"];
       const village = rec["VILLAGE NAME*"];
       const pinCode = rec["PINCODE*"];
-      const lat = rec["LATITUDE"]?rec["LATITUDE"]:null;
-      const long = rec["LONGITUDE"]?rec["LONGITUDE"]:null;
+      const lat = rec["LATITUDE"] ? rec["LATITUDE"] : null;
+      const long = rec["LONGITUDE"] ? rec["LONGITUDE"] : null;
       const mobile_no = rec["MOBILE NO*"];
-      const email = rec["EMAIL ID"]?rec["EMAIL ID"]:null;
+      const email = rec["EMAIL ID"] ? rec["EMAIL ID"] : null;
       const warehouse = rec["WAREHOUSE"] && rec["WAREHOUSE"].toLowerCase() === 'yes' ? 'yes' : null;
       const cold_storage = rec["COLD STORAGE"] && rec["COLD STORAGE"].toLowerCase() === 'yes' ? 'yes' : null;
       const processing_unit = rec["PROCESSING UNIT"] && rec["PROCESSING UNIT"].toLowerCase() === 'yes' ? 'yes' : null;
       const transportation_facilities = rec["TRANSPORTATION FACILITIES"] && rec["TRANSPORTATION FACILITIES"].toLowerCase() === 'yes' ? 'yes' : null;
       const credit_facilities = rec["CREDIT FACILITIES"] && rec["CREDIT FACILITIES"].toLowerCase() === 'yes' ? 'yes' : null;
-      const source_of_credit = rec["SOURCE OF CREDIT"]?rec["SOURCE OF CREDIT"]:null;
-      const financial_challenges = rec["FINANCIAL CHALLENGE"]?rec["FINANCIAL CHALLENGE"]:null;
-      const support_required = rec["SUPPORT REQUIRED"]?rec["SUPPORT REQUIRED"]:null;
-      const total_area = rec["TOTAL AREA"]?rec["TOTAL AREA"]:null;
-      const land_name = rec["LAND NAME"]?rec["LAND NAME"]:null;
-      const cultivation_area = rec["CULTIVATION AREA"]?rec["CULTIVATION AREA"]:null;
+      const source_of_credit = rec["SOURCE OF CREDIT"] ? rec["SOURCE OF CREDIT"] : null;
+      const financial_challenges = rec["FINANCIAL CHALLENGE"] ? rec["FINANCIAL CHALLENGE"] : null;
+      const support_required = rec["SUPPORT REQUIRED"] ? rec["SUPPORT REQUIRED"] : null;
+      const total_area = rec["TOTAL AREA"] ? rec["TOTAL AREA"] : null;
+      const land_name = rec["LAND NAME"] ? rec["LAND NAME"] : null;
+      const cultivation_area = rec["CULTIVATION AREA"] ? rec["CULTIVATION AREA"] : null;
       const area_unit = toLowerCaseIfExists(rec["AREA UNIT"]) ? toLowerCaseIfExists(rec["AREA UNIT"]) : 'Other';
       const khasra_number = rec["KHASRA NUMBER*"];
-      const khtauni_number = rec["KHATAUNI"]?rec["KHATAUNI"]:null;
-      const khata_number = rec["KHATA NUMBER"]?rec["KHATA NUMBER"]:null;
+      const khtauni_number = rec["KHATAUNI"] ? rec["KHATAUNI"] : null;
+      const khata_number = rec["KHATA NUMBER"] ? rec["KHATA NUMBER"] : null;
       const land_type = rec["LAND TYPE"] ? rec["LAND TYPE"] : 'other';
-      const sow_area = rec["SOW AREA"]?rec["SOW AREA"]:null;
+      const sow_area = rec["SOW AREA"] ? rec["SOW AREA"] : null;
       const state = (rec["STATE*"]);
       const district = rec["DISTRICT*"];
-      const landvillage = rec["ViLLAGE"]?rec["ViLLAGE"]:null;
-      const LandBlock = rec["LAND BLOCK"]?rec["LAND BLOCK"]:null;
-      const landPincode = rec["LAND PINCODE"]?rec["LAND PINCODE"]:null;
-      const expected_production = rec["EXPECTED PRODUCTION"]?rec["EXPECTED PRODUCTION"]:null;
+      const landvillage = rec["ViLLAGE"] ? rec["ViLLAGE"] : null;
+      const LandBlock = rec["LAND BLOCK"] ? rec["LAND BLOCK"] : null;
+      const landPincode = rec["LAND PINCODE"] ? rec["LAND PINCODE"] : null;
+      const expected_production = rec["EXPECTED PRODUCTION"] ? rec["EXPECTED PRODUCTION"] : null;
       const soil_type = toLowerCaseIfExists(rec["SOIL TYPE"]) ? toLowerCaseIfExists(rec["SOIL TYPE"]) : 'other';
       const soil_tested = toLowerCaseIfExists(rec["SOIL TESTED"]) ? toLowerCaseIfExists(rec["SOIL TESTED"]) : 'yes';
-      const soil_testing_agencies = rec["SOIL TESTING AGENCY"]?rec["SOIL TESTING AGENCY"]:null;
-      const upload_geotag = rec["UPLOD GEOTAG"]?rec["UPLOD GEOTAG"]:null;
+      const soil_testing_agencies = rec["SOIL TESTING AGENCY"] ? rec["SOIL TESTING AGENCY"] : null;
+      const upload_geotag = rec["UPLOD GEOTAG"] ? rec["UPLOD GEOTAG"] : null;
       const sowingdate = rec["SOWING DATE(MM-YYYY)*"];
       const harvestingdate = rec["HARVESTING DATE(MM-YYYY)*"];
       const crop_name = rec["CROPS NAME*"];
-      const crop_variety = rec["CROP VARITY"]?rec["CROP VARITY"]:null;
-      const production_quantity = rec["PRODUCTION QUANTITY"]?rec["PRODUCTION QUANTITY"]:null;
-      const selling_price = rec["SELLING PRICE"]?rec["SELLING PRICE"]:null;
-      const yield = rec["YIELD(KG)"]? rec["YIELD(KG)"] : null;
-      const crop_land_name = rec["CROP LAND NAME"]? rec["CROP LAND NAME"] :null;
+      const crop_variety = rec["CROP VARITY"] ? rec["CROP VARITY"] : null;
+      const production_quantity = rec["PRODUCTION QUANTITY"] ? rec["PRODUCTION QUANTITY"] : null;
+      const selling_price = rec["SELLING PRICE"] ? rec["SELLING PRICE"] : null;
+      const yield = rec["YIELD(KG)"] ? rec["YIELD(KG)"] : null;
+      const crop_land_name = rec["CROP LAND NAME"] ? rec["CROP LAND NAME"] : null;
       const crop_growth_stage = rec["CROP GROWTH STAGE"] ? rec["CROP GROWTH STAGE"] : 'Stage1';
-      const crop_disease = rec["CROP DISEASE"]?rec["CROP DISEASE"]:null;
+      const crop_disease = rec["CROP DISEASE"] ? rec["CROP DISEASE"] : null;
       const crop_rotation = parseBooleanYesNo(rec["CROP ROTATION"]);
       const previous_crop_session = rec["PREVIOUS CROP SESSION"] ? rec["PREVIOUS CROP SESSION"] : 'others';
-      const previous_crop_name = rec["PREVIOUS CROP NAME"]?rec["PREVIOUS CROP NAME"]:null;
+      const previous_crop_name = rec["PREVIOUS CROP NAME"] ? rec["PREVIOUS CROP NAME"] : null;
       const crop_season = toLowerCaseIfExists(rec["CROP SEASONS*"]) ? toLowerCaseIfExists(rec["CROP SEASONS*"]) : 'others';
-      const crop_sold = rec["CROP SOLD"]?rec["CROP SOLD"]:null;
-      const quantity_sold = rec["QUANTITY SOLD"]?rec["QUANTITY SOLD"]:null;
-      const average_selling_price = rec["AVERAGE SELLING PRICE"]?rec["AVERAGE SELLING PRICE"]:null;
-      const marketing_channels_used = rec["MARKETING CHANNELS USED"]?rec["MARKETING CHANNELS USED"]:null;
-      const challenges_faced = rec["CHALLENGES FACED"]?rec["CHALLENGES FACED"]:null;
-      const insurance_company = rec["INSURANCE COMPANY"]?rec["INSURANCE COMPANY"]:null;
-      const insurance_worth = rec["INSURANCE WORTH"]?rec["INSURANCE WORTH"]:null;
-      const insurance_premium = rec["INSURANCE PREMIUM"]?rec["INSURANCE PREMIUM"]:null;
-      const insurance_start_date = rec["INSURANCE START DATE(DD-MM-YYYY)"]?rec["INSURANCE START DATE(DD-MM-YYYY)"]:null;
-      const insurance_end_date = rec["INSURANCE END DATE(DD-MM-YYYY)"]?rec["INSURANCE END DATE(DD-MM-YYYY)"]:null;
+      const crop_sold = rec["CROP SOLD"] ? rec["CROP SOLD"] : null;
+      const quantity_sold = rec["QUANTITY SOLD"] ? rec["QUANTITY SOLD"] : null;
+      const average_selling_price = rec["AVERAGE SELLING PRICE"] ? rec["AVERAGE SELLING PRICE"] : null;
+      const marketing_channels_used = rec["MARKETING CHANNELS USED"] ? rec["MARKETING CHANNELS USED"] : null;
+      const challenges_faced = rec["CHALLENGES FACED"] ? rec["CHALLENGES FACED"] : null;
+      const insurance_company = rec["INSURANCE COMPANY"] ? rec["INSURANCE COMPANY"] : null;
+      const insurance_worth = rec["INSURANCE WORTH"] ? rec["INSURANCE WORTH"] : null;
+      const insurance_premium = rec["INSURANCE PREMIUM"] ? rec["INSURANCE PREMIUM"] : null;
+      const insurance_start_date = rec["INSURANCE START DATE(DD-MM-YYYY)"] ? rec["INSURANCE START DATE(DD-MM-YYYY)"] : null;
+      const insurance_end_date = rec["INSURANCE END DATE(DD-MM-YYYY)"] ? rec["INSURANCE END DATE(DD-MM-YYYY)"] : null;
       const bank_name = rec["BANK NAME*"];
       const account_no = rec["ACCOUNT NUMBER*"];
       const branch_name = rec["BRANCH NAME*"];
@@ -1671,10 +1671,10 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         { field: "HARVESTING DATE(MM-YYYY)*", label: "HARVESTING DATE(MM-YYYY)" },
         { field: "STATE*", label: " LAND STATE" },
         { field: "DISTRICT*", label: "LAND DISTRICT" },
-        { field: "BANK NAME*", label: "BANK NAME"},
-        { field: "BRANCH NAME*", label: "BRANCH NAME"},
-        { field: "IFSC CODE*", label: "IFSC CODE"},
-        { field: "ACCOUNT HOLDER NAME*", label: "ACCOUNT HOLDER NAME"},
+        { field: "BANK NAME*", label: "BANK NAME" },
+        { field: "BRANCH NAME*", label: "BRANCH NAME" },
+        { field: "IFSC CODE*", label: "IFSC CODE" },
+        { field: "ACCOUNT HOLDER NAME*", label: "ACCOUNT HOLDER NAME" },
 
 
       ];
@@ -2219,7 +2219,9 @@ module.exports.makeAssociateFarmer = async (req, res) => {
 
 module.exports.getAllFarmers = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy, search = '', paginate = 1 } = req.query;
+    const { page = 1, limit = 10, sortBy = '_id', search = '', paginate = 1 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const parsedLimit = parseInt(limit);
 
     let associatedQuery = { associate_id: { $ne: null } };
     let localQuery = { associate_id: null };
@@ -2236,49 +2238,38 @@ module.exports.getAllFarmers = async (req, res) => {
       associatedFarmersCount: 0,
       localFarmersCount: 0,
     };
-
-    const skip = (page - 1) * limit;
-    const parsedLimit = parseInt(limit);
-
-    records.associatedFarmers = paginate == 1
-    ? await farmer
+    const sortCriteria = {
+      [sortBy]: 1,
+      _id: 1,      
+    };
+    if (paginate) {
+    records.associatedFarmers = await farmer
       .find(associatedQuery)
       .populate('associate_id', '_id user_code')
-      .populate('farmer_id', '_id upload_land_document')
-      .sort(sortBy ? { [sortBy]: 1 } : {})
+      .sort(sortCriteria)
       .skip(skip)
-      .limit(parsedLimit) 
+      .limit(parsedLimit)
 
-    : await farmer
-      .find(associatedQuery)
+
+    records.localFarmers = await farmer
+      .find(localQuery)
       .populate('associate_id', '_id user_code')
-      .populate('farmer_id', '_id upload_land_document')
-      .sort(sortBy ? { [sortBy]: 1 } : {})
+      .sort(sortCriteria)
+      .skip(skip)
+      .limit(parsedLimit);
+    } else {
+      records.associatedFarmers = await farmer
+        .find(associatedQuery)
+        .populate('associate_id', '_id user_code')
+        .sort(sortCriteria);
 
-      records.localFarmersCount = paginate == 1
-      ? await farmer
+      records.localFarmers = await farmer
         .find(localQuery)
         .populate('associate_id', '_id user_code')
-        .populate('farmer_id', '_id upload_land_document')
-        .sort(sortBy ? { [sortBy]: 1 } : {})
-        .skip(skip)
-        .limit(parsedLimit) 
-  
-      : await farmer
-        .find(localQuery)
-        .populate('associate_id', '_id user_code')
-        .populate('farmer_id', '_id upload_land_document')
-        .sort(sortBy ? { [sortBy]: 1 } : {})
-    
-  
+        .sort(sortCriteria);
+    }
     records.count = await farmer.countDocuments(associatedQuery);
     records.localFarmersCount = await farmer.countDocuments(localQuery);
-
-    if (paginate == 1) {
-        records.page = page
-        records.limit = limit
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-    }
 
 
     // Prepare response data
@@ -2287,6 +2278,9 @@ module.exports.getAllFarmers = async (req, res) => {
       localFarmersCount: records.localFarmersCount,
       associatedFarmers: records.associatedFarmers,
       localFarmers: records.localFarmers,
+      page: parseInt(page),
+      limit: parsedLimit,
+      totalPages: limit != 0 ? Math.ceil(records.associatedFarmersCount / limit) : 0,
     };
     return res.status(200).send({
       status: 200,

@@ -27,7 +27,7 @@ module.exports.farmerList = async (req, res) => {
 
         // Get all farmers in one query
         records.rows = await farmer.find(query)
-            .select('farmer_code farmer_id name parents mobile_no address associate_id')
+            .select('farmer_code farmer_id name parents mobile_no address basic_details associate_id')
             .populate({ path: 'associate_id', select: "user_code" })
             .limit(parseInt(limit))
             .skip(parseInt(skip))
@@ -35,13 +35,14 @@ module.exports.farmerList = async (req, res) => {
             .lean();
 
         const data = await Promise.all(records.rows.map(async (item) => {
-            console.log("item", item)
             let address = await getAddress(item);
+            let basicDetails = item?.basic_details || {};
 
             return {
                 _id: item?._id,
                 farmer_name: item?.name,
                 address: address,
+                basic_details: basicDetails,
                 mobile_no: item?.mobile_no,
                 associate_id: item?.associate_id?.user_code || null,
                 farmer_id: item?.farmer_id,
