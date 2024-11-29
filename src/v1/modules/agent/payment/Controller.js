@@ -1315,36 +1315,6 @@ module.exports.associateBillApprove = async (req, res) => {
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("invoice") }))
         
-        // const query = { batch_id: { $in: batchIds } };
-        // console.log("Query:", query);
-
-        // const invoiceRecord = await AssociateInvoice.find(query);
-        // console.log("Invoice Records Found:", invoiceRecord);
-
-        // if (invoiceRecord.length != batchIds.length) {
-        //     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("invoice") }] }));
-        // }
-       
-        // const record = await AssociateInvoice.updateMany(query, { 
-        //     $set: { 
-        //         agent_approve_status: _paymentApproval.approved, 
-        //         agent_approve_by: portalId, 
-        //         agent_approve_at: new Date() 
-        //     }
-        // });
-
-        // console.log("Update Result:", record);
-
-        // if (record.matchedCount === 0) {
-        //     return res.status(400).send(new serviceResponse({ 
-        //         status: 400, 
-        //         errors: [{ message: "No matching records found for the update." }] 
-        //     }));
-        // }
-
-        // return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("invoice") }));
-
-
     } catch (error) {
         _handleCatchErrors(error, res);
     }
