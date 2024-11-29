@@ -15,7 +15,6 @@ const { _frontendLoginRoutes } = require('@src/v1/utils/constants');
 const { generateRandomPassword } = require('@src/v1/utils/helpers/randomGenerator');
 const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 
-
 module.exports.getHo = async (req, res) => {
 
     try {
@@ -196,3 +195,21 @@ module.exports.updateStatus = asyncErrorHandler(async (req, res) => {
 
     return res.send(new serviceResponse({ status: 200, data: record, message: _response_message.updated() }))
 })
+
+module.exports.deleteHO = asyncErrorHandler(async (req, res) => {
+    const { id } = req.params;
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid item ID" });
+    }
+
+    const record = await HeadOffice.findOne({ _id: id });
+
+    if (!record) {
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Head Office") }] }))
+    }
+
+    await record.deleteOne();
+
+    return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.deleted("Head Office") }));
+});
