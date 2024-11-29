@@ -153,7 +153,8 @@ module.exports.payment = async (req, res) => {
                     qtyPurchased: 1,
                     amountPayable: 1,
                     payment_status: 1,
-                    'branchDetails.branchName':1
+                    'branchDetails.branchName':1,
+                    'branchDetails.branchId':1
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
@@ -512,7 +513,8 @@ module.exports.proceedToPayPaymentRequests = async (req, res) => {
                     product: 1,
                     qtyProcuredInInvoice: 1,
                     paymentStatus: 1,
-                    'branchDetails.branchName':1
+                    'branchDetails.branchName':1,
+                    'branchDetails.branchId':1
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
