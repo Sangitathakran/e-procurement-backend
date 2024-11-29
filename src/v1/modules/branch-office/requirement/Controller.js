@@ -148,7 +148,7 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
 
     const record = await Batch.findOne({ _id: id }).populate("req_id").populate("seller_id");
-
+   
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
     }

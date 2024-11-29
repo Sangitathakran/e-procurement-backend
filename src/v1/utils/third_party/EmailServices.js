@@ -163,7 +163,7 @@ class EmailService {
             await sendMail(email, '', 'Head Office registration done successfully | NavBazaar Login Credentials ', html);
 
         } catch (error) {
-            console.error("Error sending welcome email:", error);
+            console.log("Error sending welcome email:", error);
             // throw error;
         }
     }
@@ -186,7 +186,7 @@ class EmailService {
             await sendMail(email, '', `New Order Received (Order ID – ${order_no}) || Navbazar ||`, html);
 
         } catch (error) {
-            console.error("Error sending welcome email:", error);
+            console.log("Error sending welcome email:", error);
             // throw error;
         }
     }
@@ -202,7 +202,7 @@ class EmailService {
             await sendMail(email, '', `Reminder to Create Batches of the Quantities procured || Navbazar || `, html);
 
         } catch (error) {
-            console.error("Error sending welcome email:", error);
+            console.log("Error sending welcome email:", error);
             // throw error;
         }
     }
@@ -223,7 +223,7 @@ class EmailService {
             await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
 
         } catch (error) {
-            console.error("Error sending welcome email:", error);
+            console.log("Error sending welcome email:", error);
             // throw error;
         }
     }
@@ -244,7 +244,7 @@ class EmailService {
             await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
 
         } catch (error) {
-            console.error("Error sending welcome email:", error);
+            console.log("Error sending welcome email:", error);
             // throw error;
         }
     }
@@ -267,7 +267,7 @@ class EmailService {
             await sendMail(email, '', `In-Transit Notification - Batch ID  – ${batch_id} associated with ${order_no} || Navbazar ||`, html);
 
         } catch (error) {
-            console.error("Error sending welcome email:", error);
+            console.log("Error sending welcome email:", error);
             // throw error;
         }
     }
@@ -288,7 +288,7 @@ class EmailService {
             await sendMail(email, '', 'Registration done successfully || Navbazar || ', html);
 
         } catch (error) {
-            console.error("Error sending welcome email:", error);
+            console.log("Error sending welcome email:", error);
             // throw error;
         }
     }
@@ -300,7 +300,7 @@ class EmailService {
             const templateContent = await fs.promises.readFile(templatePath, { encoding: "utf8" });
             return templateContent;
         } catch (error) {
-            console.error(`Error loading email template ${templateName}:`, error);
+            console.log(`Error loading email template ${templateName}:`, error);
             // throw error;
         }
     }
@@ -320,7 +320,7 @@ class EmailService {
                 .replace("{{password}}", password);
             await sendMail(email, '', 'Branch Office registration done successfully | NavBazaar Login Credentials ', html);
         } catch (error) {
-            console.error("Error sending welcome email:", error);
+            console.log("Error sending welcome email:", error);
             // throw error;
         }
     }
