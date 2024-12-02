@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { _collectionName, _paymentmethod, _paymentstatus, _paymentApproval } = require('@src/v1/utils/constants');
 const {AgentInvoice}=require('../payment/agentInvoice')
 const AgentPaymentFileSchema = new mongoose.Schema({
-  
+    
     client_code: { type: String , required: true },
     pir_ref_no: { type: String },
     my_product_code: { type: String , required: true},
