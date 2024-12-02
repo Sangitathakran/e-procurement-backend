@@ -1,7 +1,7 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
-const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode } = require("./Controller");
+const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode ,deleteProcurementCenter} = require("./Controller");
 const express = require("express");
 const procurementCenterRoutes = express.Router();
 const { Auth } = require("@src/v1/middlewares/jwt")
@@ -29,5 +29,7 @@ procurementCenterRoutes.post("/", validateErrors, Auth, createProcurementCenter,
     body("addressType", _middleware.require("addressType")).isIn(['Residential', 'Business', 'Billing', 'Shipping']),
     body("isPrimary").optional().isBoolean()
 ]);
+
+procurementCenterRoutes.delete('/:id', deleteProcurementCenter);
 
 module.exports = { procurementCenterRoutes }; 
