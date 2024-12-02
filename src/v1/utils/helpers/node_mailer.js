@@ -1,6 +1,7 @@
 'use strict';
 const { mailer } = require('@config/index');
 const nodemailer = require('nodemailer');
+const { MailtrapTransport } = require('mailtrap');
 
 const defaultMailConfig = {
     user: mailer.user,
@@ -12,16 +13,17 @@ module.exports = {
     sendMail: async function (to, cc, subject, body, mailAttachments, mailConfig = defaultMailConfig, email_prefix) {
         try {
             return new Promise(function (resolve, reject) {
-                const transporter = nodemailer.createTransport({
-                    service: mailConfig.service || mailer.service,
-                    auth: {
-                        user: mailConfig.user || mailer.user,
-                        pass: mailConfig.pass || mailer.pass
-                    },
-                });
+                // Looking to send emails in production? Check out our Email API/SMTP product!
+                var transporter = nodemailer.createTransport(MailtrapTransport({
+                    token: mailer.pass,
+                }));
 
                 const mailOptions = {
-                    from: email_prefix ? `${email_prefix} ${mailer.user}` : `Radiant Infonet ${mailer.user}`,
+                    from: {
+                        address: mailer.user, // Fallback to .env sender email
+                        name: "NavBazar"
+                    },
+                    // from: email_prefix ? `${email_prefix} ${mailer.user}` : `Radiant Infonet ${mailer.user}`,
                     to: to,
                     cc: cc,
                     subject: subject,
@@ -33,18 +35,20 @@ module.exports = {
                 }
 
                 try {
-                    transporter.verify(function (error, success) {
-                        if (error) {
-                            console.log(error);
-                        } else {
-                            console.log("Server is ready send E-mails", success);
-                        }
-                    });
+                    // transporter.verify(function (error, success) {
+                    //     if (error) {
+                    //         console.log(error);
+                    //     } else {
+                    //         console.log("Server is ready send E-mails", success);
+                    //     }
+                    // });
                     transporter.sendMail(mailOptions, function (err, info) {
                         if (err) {
-                            //reject(err.message);
-                            resolve(err); //temporary changes
+                            console.log("Error on sending E-mails", err);
+                            // reject(err.message);
+                            resolve(err.message);
                         } else {
+                            console.log("Server is ready send E-mails");
                             resolve(info);
                         }
                     });
@@ -53,7 +57,9 @@ module.exports = {
                 }
             });
         } catch (err) {
-            return Promise.reject(err)
+            // return Promise.reject(err)            
+            // return Promise.resolve(err)
+            console.log(err);
         }
     }
 }

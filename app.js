@@ -27,6 +27,7 @@ const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { router } = require("./src/v1/routes");
+const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 // application level middlewares
 app.use(helmet());
 app.use(
