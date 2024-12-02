@@ -92,7 +92,7 @@ class EmailService {
                 .replace("{{password}}", password);
 
             await sendMail(email, '', 'User registration done successfully | NavBazaar Login Credentials ', html);
-
+           
         } catch (error) {
             console.error("Error sending welcome email:", error);
             throw error;

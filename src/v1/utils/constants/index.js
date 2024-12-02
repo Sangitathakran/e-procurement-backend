@@ -251,7 +251,7 @@ const _areaUnit = {
     Hectares: "hectares",
     Acres: "acres",
     Bigha: "bigha",
-    "N/A": "N/A",
+    Other: "Other",
 }
 const _soilType = {
     Sandy: "sandy",
@@ -340,6 +340,7 @@ const _paymentstatus = {
     pending: "Pending",
     failed:"Failed",
     completed: "Completed",
+    rejected: "Rejected"
 }
 
 const _billstatus = {

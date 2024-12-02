@@ -163,7 +163,7 @@ module.exports.editTrackDelivery = async (req, res) => {
 
     try {
 
-        const { form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching, loading_unloading, transportation, driage, storageExp, commission, qc_report = [], lab_report = [], name, contact, license, aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number, intransit_weight_slip, no_of_bags, weight } = req.body;
+        const { form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching, loading_unloading, transportation, driage, storageExp,  qc_report = [], lab_report = [], name, contact, license, aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number, intransit_weight_slip, no_of_bags, weight } = req.body;
         const { user_id } = req
 
         const record = await Batch.findOne({ _id: id });
@@ -178,7 +178,7 @@ module.exports.editTrackDelivery = async (req, res) => {
                     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Your batch is already mark ready " }] }));
                 }
 
-                if (material_img && weight_slip && procurementExp && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && storageExp && commission && qc_report && lab_report) {
+                if (material_img && weight_slip && procurementExp && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && storageExp  && qc_report && lab_report) {
                     // const RateOfProcurement = 840.00;
                     // const RateOfDriage = 100.00;
                     const RateOfStorage = 160.00;
@@ -206,7 +206,7 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.dispatched.bills.driage = handleDecimal(driage);
                     record.dispatched.bills.storageExp = handleDecimal(storageExp);
                     record.dispatched.bills.commission = handleDecimal((handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp)) * 0.005);
-                    record.dispatched.bills.total = handleDecimal(parseInt(procurementExp) + parseInt(driage) + parseInt(storageExp) + parseInt((handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp)) * 0.005));
+                    record.dispatched.bills.total = handleDecimal(handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp) + handleDecimal((handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp)) * 0.005));
                     record.dispatched.qc_report.inital.push(...qc_report.map(i => { return { img: i, on: moment() } }));
                     record.dispatched.lab_report.inital.push(...lab_report.map(i => { return { img: i, on: moment() } }));
                     record.dispatched.dispatched_at = new Date();
