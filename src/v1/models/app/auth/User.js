@@ -48,6 +48,7 @@ const userSchema = new mongoose.Schema({
             taluka: { type: String, trim: true },
             pinCode: { type: String, trim: true },
             village: { type: String, trim: true },
+            ar_circle: { type: String, trim: true },
         },
         operational: {
             line1: { type: String, trim: true },
