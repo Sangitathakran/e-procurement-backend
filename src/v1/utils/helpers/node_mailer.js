@@ -44,7 +44,9 @@ module.exports = {
                     // });
                     transporter.sendMail(mailOptions, function (err, info) {
                         if (err) {
-                            reject(err.message);
+                            console.log("Error on sending E-mails", err);
+                            // reject(err.message);
+                            resolve(err.message);
                         } else {
                             console.log("Server is ready send E-mails");
                             resolve(info);
@@ -55,7 +57,9 @@ module.exports = {
                 }
             });
         } catch (err) {
-            return Promise.reject(err)
+            // return Promise.reject(err)            
+            // return Promise.resolve(err)
+            console.log(err);
         }
     }
 }
