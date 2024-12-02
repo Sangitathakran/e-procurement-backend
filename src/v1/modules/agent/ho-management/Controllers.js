@@ -213,3 +213,60 @@ module.exports.deleteHO = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.deleted("Head Office") }));
 });
+
+module.exports.updateHeadOffice = async (req, res) => {
+    try {
+        const { id } = req.params; // ID of the HeadOffice to update
+        const { company_details, point_of_contact, address, authorised } = req.body;
+
+        // Find the HeadOffice by ID
+        const headOffice = await HeadOffice.findById(id);
+
+        if (!headOffice) {
+            return res.status(404).send(new serviceResponse({
+                status: 404,
+                message: "HeadOffice not found",
+                errors: [{ message: "No HeadOffice found with the given ID" }]
+            }));
+        }
+
+        // Check if the new authorised details conflict with an existing MasterUser
+        const isUserAlreadyExist = await MasterUser.findOne({
+            $or: [
+                { mobile: { $exists: true, $eq: authorised?.mobile?.trim() } },
+                { email: { $exists: true, $eq: authorised.email.trim() } }
+            ],
+            _id: { $ne: headOffice._id } // Exclude current HeadOffice from conflict check
+        });
+
+        if (isUserAlreadyExist) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: "Conflict: Mobile number or email already exists in Master",
+                errors: [{ message: "A MasterUser with this mobile or email already exists" }]
+            }));
+        }
+
+        // Update fields if provided in the request body
+        if (company_details) headOffice.company_details = company_details;
+        if (point_of_contact) headOffice.point_of_contact = point_of_contact;
+        if (address) headOffice.address = address;
+        if (authorised) headOffice.authorised = authorised;
+
+        // Save the updated document
+        const updatedHeadOffice = await headOffice.save();
+
+        return res.send(new serviceResponse({
+            status: 200,
+            message: "HeadOffice updated successfully",
+            data: updatedHeadOffice
+        }));
+    } catch (error) {
+        console.error("Error updating HeadOffice:", error);
+        return res.status(500).send(new serviceResponse({
+            status: 500,
+            message: "Internal Server Error",
+            errors: [{ message: error.message }]
+        }));
+    }
+};
