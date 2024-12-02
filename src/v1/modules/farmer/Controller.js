@@ -1840,6 +1840,7 @@ module.exports.exportFarmers = async (req, res) => {
         return {
           "Farmer Name": item?.name || 'NA',
           "Farmer Contact": item?.basic_details?.mobile_no || 'NA',
+          "Farmer id": item?.farmer_id || 'NA',
           "Father Name": item?.parents?.father_name || 'NA',
           "Mother Name": item?.parents?.mother_name || 'NA',
           "Date of Birth": item?.basic_details?.dob || 'NA',
