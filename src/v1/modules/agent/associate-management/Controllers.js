@@ -9,7 +9,7 @@ const { emailService } = require('@src/v1/utils/third_party/EmailServices');
 const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator")
 const bcrypt = require('bcrypt');
 const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
-
+//const AssociateModel = require('@src/v1/models/AssociateModel');
 
 module.exports.getAssociates = async (req, res) => {
     try {
@@ -277,3 +277,113 @@ module.exports.getAssociatesById = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+const associateSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    role: { type: String, required: true },
+    department: { type: String, required: true },
+  });
+  
+  const AssociateModel = mongoose.model('Associate', associateSchema);
+  // @src/v1/controllers/associates.js
+  module.exports.createAssociate = async (req, res) => {
+      try {
+        const { name, email, role, department } = req.body;
+    
+        // Validate inputs
+        if (!name || !email || !role || !department) {
+          return res.status(400).json({ message: 'All fields are required' });
+        }
+    
+        // Logic to create an associate, for example, using a database model:
+        const newAssociate = await AssociateModel.create({
+          name,
+          email,
+          role,
+          department,
+        });
+        // Send response with the created associate
+        return res.status(201).json({
+          message: 'Associate created successfully',
+          associate: newAssociate,
+        });
+      } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: 'Server error' });
+      }
+    };
+
+module.exports.updateAssociateDetails = async (req, res) => {
+
+        try {
+            const { id } = req.params;
+    
+            // Validate MongoDB ID
+            if (!mongoose.Types.ObjectId.isValid(id)) {
+                return res.status(400).json({ message: 'Invalid Associate ID' });
+            }
+    
+            const updates = req.body;
+    
+            const updatedAssociate = await AssociateModel.findByIdAndUpdate(id, updates, {
+                new: true, // Return the updated document
+                runValidators: true, // Apply schema validations
+            });
+    
+            if (!updatedAssociate) {
+                return res.status(404).json({ message: 'Associate not found' });
+            }
+    
+            return res.status(200).json({
+                message: 'Associate updated successfully',
+                data: updatedAssociate,
+            });
+        } catch (error) {
+            return res.status(500).json({
+                message: 'Error updating associate',
+                error: error.message,
+            });
+        }
+    };
+    
+    module.exports.deleteAssociate = async (req, res) => {
+        try {
+            const { id } = req.params; // Extract the associate ID from request params
+    
+            if (!id) {
+                return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require("id") }));
+            }
+    
+            if (!mongoose.Types.ObjectId.isValid(id)) {
+                return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.invalid("id") }));
+            }
+    
+            // Log the ID for debugging
+            console.log('Attempting to delete associate with ID:', id);
+    
+            const associate = await AssociateModel.findByIdAndDelete(id);
+    
+            if (!associate) {
+                return res.status(404).send(new serviceResponse({ status: 404, message: _response_message.notFound("Associate") }));
+            }
+    
+            // Log successful deletion
+            console.log('Successfully deleted associate:', associate);
+    
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                message: _response_message.deleted("Associate"),
+                data: { id },
+            }));
+        } catch (error) {
+            _handleCatchErrors(error, res);
+        }
+    };
+
+
+
+
+  
+  
+  
