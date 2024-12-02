@@ -233,7 +233,7 @@ module.exports.associateOrders = async (req, res) => {
         records.rows = paginate == 1 ? await AssociateOffers.find(query)
             .populate({
                 path: "seller_id",
-                select: "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name"
+                select: "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name"
             })
             .sort(sortBy)
             .skip(skip)
@@ -795,6 +795,7 @@ module.exports.proceedToPayAssociateOrders = async (req, res) => {
                 $project: {
                     "users.user_code": 1,
                     "users.basic_details.associate_details.associate_name": 1,
+                    "users.basic_details.associate_details.organization_name": 1,
                     "amountProposed": 1,
                     "amountPayable": 1,
                     "paymentStatus": 1,
