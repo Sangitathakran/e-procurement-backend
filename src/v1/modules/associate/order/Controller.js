@@ -13,7 +13,6 @@ const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { User } = require("@src/v1/models/app/auth/User");
 
 
-
 module.exports.batch = async (req, res) => {
 
     try {
@@ -159,8 +158,6 @@ module.exports.batch = async (req, res) => {
     }
 };
 
-
-
 module.exports.editTrackDelivery = async (req, res) => {
 
     try {
@@ -301,8 +298,6 @@ module.exports.editTrackDelivery = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
-
 
 module.exports.viewTrackDelivery = async (req, res) => {
 
