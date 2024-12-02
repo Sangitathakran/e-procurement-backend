@@ -348,6 +348,7 @@ module.exports.editOnboarding = async (req, res) => {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             Associates = xlsx.utils.sheet_to_json(worksheet);
+            // console.log(Associates); return false;
             headers = Object.keys(Associates[0]);
         } else {
             const csvContent = file.buffer.toString('utf8');
@@ -396,6 +397,8 @@ module.exports.editOnboarding = async (req, res) => {
             const branch_name = rec["Bank Branch"];
             const account_number = rec["Bank Account No."];
             const ifsc_code = rec["IFSC Code"];
+            const account_holder_name =rec["Account Holder Name"];
+            const ar_circle = rec["AR Circle"];
             let errors = [];
             let missingFields = [];
             if (!mobile_no) {
@@ -409,9 +412,9 @@ module.exports.editOnboarding = async (req, res) => {
             if (!/^\d{10}$/.test(mobile_no)) {
                 errors.push({ record: rec, error: "Invalid Mobile Number" });
             }
-            if (!/^\d{6,18}$/.test(account_number)) {
-                errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 18 digits." });
-            }
+            // if (!/^\d{6,40}$/.test(account_number)) {
+            //     errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 18 digits." });
+            // }
             if (errors.length > 0) return { success: false, errors };
 
             try {
@@ -440,6 +443,7 @@ module.exports.editOnboarding = async (req, res) => {
                                 district,
                                 taluka,
                                 pinCode,
+                                ar_circle,
                             }
                         },
                         company_details: {
@@ -452,6 +456,7 @@ module.exports.editOnboarding = async (req, res) => {
                             branch_name,
                             account_number,
                             ifsc_code,
+                            account_holder_name,
                         },
                         user_type: _userType.associate,
                     });
