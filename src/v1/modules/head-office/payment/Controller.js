@@ -41,7 +41,7 @@ const path = require('path');
 
 module.exports.payment = async (req, res) => {
   try {
-    const { page, limit, skip, paginate = 1, sortBy, search = "" } = req.query;
+    const { page, limit, skip, paginate = 1, sortBy, search = "", isExport=0 } = req.query;
 
     // let query = search ? { reqNo: { $regex: search, $options: "i" } } : {};
 
@@ -55,13 +55,13 @@ module.exports.payment = async (req, res) => {
     ).map((i) => i.req_id);
 
     let query = {
-       _id: { $in: paymentIds },
-      ...(search ? { reqNo: { $regex: search, $options: "i" } } : {})      
+      _id: { $in: paymentIds },
+      ...(search ? { reqNo: { $regex: search, $options: "i" } } : {})
     };
 
     const aggregationPipeline = [
       // { $match: { _id: { $in: paymentIds } } },
-      { $match: query},
+      { $match: query },
       {
         $lookup: {
           from: "batches",
@@ -204,7 +204,48 @@ module.exports.payment = async (req, res) => {
       response.pages = limit != 0 ? Math.ceil(response.count / limit) : 0;
     }
 
-    return res
+    // return res
+    //   .status(200)
+    //   .send(
+    //     new serviceResponse({
+    //       status: 200,
+    //       data: response,
+    //       message: _response_message.found("Payment"),
+    //     })
+    //   );
+
+    
+    if (isExport == 1) {
+      const record = response.rows.map((item) => {
+        return {
+          "Order ID": item?.reqNo || "NA",
+          "Branch Name": item?.branch?.branchName || "NA",
+          "Commodity": item?.product?.name || "NA",
+          "Quantity Purchased": item?.qtyPurchased || "NA",
+          "Approval Status": item?.approval_status ?? "NA",
+          "Payment Status": item?.payment_status ?? "NA",
+        };
+      });
+
+      if (record.length > 0) {
+        dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `HO-Payment-record.xlsx`,
+          worksheetName: `HO-Payment-record`,
+        });
+      } else {
+        return res
+          .status(400)
+          .send(
+            new serviceResponse({
+              status: 400,
+              data: records,
+              message: _response_message.notFound("Payment"),
+            })
+          );
+      }
+    } else {
+      return res
       .status(200)
       .send(
         new serviceResponse({
@@ -213,6 +254,8 @@ module.exports.payment = async (req, res) => {
           message: _response_message.found("Payment"),
         })
       );
+    }
+
   } catch (error) {
     _handleCatchErrors(error, res);
   }
@@ -957,8 +1000,8 @@ module.exports.payFarmers = async (req, res) => {
       // only the unpaid farmers will be paid by this
       payment_status: _paymentstatus.pending
     }
+    const farmersBill = await Payment.find(query).populate({ path: "farmer_id", select: "name farmer_id bank_details" })
 
-    const farmersBill = await Payment.find(query).populate({ path: "farmer_id", select: "bank_details" })
     await Batch.updateMany({ _id: { $in: batchIds } }, { status: 'Payment In Progress' });
 
     if (!farmersBill) {
@@ -971,12 +1014,84 @@ module.exports.payFarmers = async (req, res) => {
     const workbook = xlsx.utils.book_new();
     const send_file_details = []
     const worksheetData = [];
+    const farmerBankDetailsCheck = farmersBill.map((farmer) => {
+
+      let obj = {
+        farmer_id: farmer.farmer_id.farmer_id,
+        farmer_name: farmer.farmer_id.name,
+        farmer_mongo_id: farmer.farmer_id._id,
+        IS_IFSC: false,
+        IS_ACCOUNT_HOLDER_NAME: false,
+        IS_ACCOUNT_NO: false,
+        bank_detail_missing: false
+      }
+
+      if (farmer.farmer_id.bank_details.ifsc_code) {
+        obj.IS_IFSC = true
+      }
+      if (farmer.farmer_id.bank_details.account_holder_name) {
+        obj.IS_ACCOUNT_HOLDER_NAME = true
+      }
+      if (farmer.farmer_id.bank_details.account_no) {
+        obj.IS_ACCOUNT_NO = true
+      }
+
+      if (!obj.IS_IFSC || !obj.IS_ACCOUNT_HOLDER_NAME || !obj.IS_ACCOUNT_NO) {
+        obj.bank_detail_missing = true
+      }
+
+      return obj
+    })
+
+
+    for (let item of farmerBankDetailsCheck) {
+      if (item.bank_detail_missing) {
+        let missingFields = [];
+
+        if (!item.IS_IFSC) {
+          missingFields.push("IFSC Code");
+        }
+        if (!item.IS_ACCOUNT_HOLDER_NAME) {
+          missingFields.push("Account Holder Name");
+        }
+        if (!item.IS_ACCOUNT_NO) {
+          missingFields.push("Account Number");
+        }
+
+        if (missingFields.length > 0) {
+          const singular_plural = missingFields.length > 1 ? "are" : 'is'
+          const errorMessage = `${missingFields.join(", ")} ${singular_plural} missing in ${item.farmer_name} (${item.farmer_id})`;
+          return res
+            .status(400)
+            .send(new serviceResponse({
+              status: 400,
+              data: item,
+              errors: [{ message: errorMessage }]
+            }));
+        }
+      }
+    }
+
+
+    // farmersBill.forEach((agentBill) => {
+    //   const paymentFileData = {
+    //     "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
+    //     "PIR_REF_NO": "",
+    //     "MY_PRODUCT_CODE(It should be Digital Products only)": "DIGITAL PRODUCTS",
+    //     "Amount": parseFloat(parseFloat(agentBill.amount).toFixed(2)) || 0,
+    //     "Acc no(2244102000000055)": NCCF_BANK_ACCOUNT_NUMBER,
+    //     "IFSC Code": agentBill.farmer_id.bank_details.ifsc_code,
+    //     "Account Name": agentBill.farmer_id.bank_details.account_holder_name,
+    //     "Account no": agentBill.farmer_id.bank_details.account_no,
+    //     "PAYMENT_REF": agentBill._id.toString(),
+    //     "PAYMENT_DETAILS": "",
+    //   };
 
     farmersBill.forEach((agentBill) => {
       const paymentFileData = {
         "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
         "PIR_REF_NO": "",
-        "MY_PRODUCT_CODE(It should be Digital Products only)": "Digital Products",
+        "MY_PRODUCT_CODE(It should be Digital Products only)": "DIGITAL PRODUCTS",
         "Amount": parseFloat(parseFloat(agentBill.amount).toFixed(2)) || 0,
         "Acc no(2244102000000055)": NCCF_BANK_ACCOUNT_NUMBER,
         "IFSC Code": agentBill.farmer_id.bank_details.ifsc_code,
@@ -1078,6 +1193,7 @@ module.exports.payFarmers = async (req, res) => {
 
       await FarmerPaymentFile.create(FarmerPaymentFilePayload)
       // return res.status(200).send(response.data);
+      await Batch.updateMany({ _id: { $in: batchIds } }, { status: 'Payment In Progress' });
       return res
         .status(200)
         .send(
@@ -1130,7 +1246,7 @@ module.exports.payAgent = async (req, res) => {
     {
       "CLIENT CODE (NCCFMAIZER)": "NCCFMAIZER",
       "PIR_REF_NO": "",
-      "MY_PRODUCT_CODE(It should be Digital Products only)": "Digital Products",
+      "MY_PRODUCT_CODE(It should be Digital Products only)": "DIGITAL PRODUCTS",
       "Amount": parseFloat(parseFloat(agentBill.bill.total).toFixed(2)) || 0,
       "Acc no(2244102000000055)": NCCF_BANK_ACCOUNT_NUMBER,
       "IFSC Code": agentBill.agent_id.bank_details.ifsc_code,

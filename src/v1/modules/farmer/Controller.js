@@ -637,17 +637,16 @@ module.exports.getBoFarmer = async (req, res) => {
       return res.status(404).send({ message: "User not found." });
     }
 
-    const { state, district } = user;
-    if (!state || !district) {
+    const { state } = user;
+    if (!state) {
       return res.status(400).send({ message: "User's state information is missing." });
     }
     const state_id = await getStateId(state);
-    const district_id = await getDistrictId(district);
-    if (!state_id || !district_id) {
+    if (!state_id ) {
       return res.status(400).send({ message: "State ID not found for the user's state." });
     }
 
-    let query = { 'address.state_id': state_id, 'address.district_id': district_id };
+    let query = { 'address.state_id': state_id };
     if (search) {
       query.name = { $regex: search, $options: 'i' };
     }
@@ -744,7 +743,7 @@ module.exports.getBoFarmer = async (req, res) => {
     const totalFarmers = await farmer.countDocuments(query);
 
     if (farmers.length === 0) {
-      return res.status(404).send({ message: `No farmers found in state: ${state} and  District: ${district}` });
+      return res.status(404).send({ message: `No farmers found in state: ${state}` });
     }
     return res.status(200).send({
       status: 200,
@@ -752,7 +751,7 @@ module.exports.getBoFarmer = async (req, res) => {
       currentPage: page,
       totalPages: Math.ceil(totalFarmers / parsedLimit),
       data: farmers,
-      message: `Farmers found in state: ${state} and  District: ${district}`,
+      message: `Farmers found in state: ${state} `,
     });
   } catch (error) {
     console.error(error);
@@ -1905,6 +1904,7 @@ module.exports.exportFarmers = async (req, res) => {
         return {
           "Farmer Name": item?.name || 'NA',
           "Farmer Contact": item?.basic_details?.mobile_no || 'NA',
+          "Farmer id": item?.farmer_id || 'NA',
           "Father Name": item?.parents?.father_name || 'NA',
           "Mother Name": item?.parents?.mother_name || 'NA',
           "Date of Birth": item?.basic_details?.dob || 'NA',
@@ -2221,7 +2221,9 @@ module.exports.makeAssociateFarmer = async (req, res) => {
 
 module.exports.getAllFarmers = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy, search = '', paginate = 1 } = req.query;
+    const { page = 1, limit = 10, sortBy = '_id', search = '', paginate = 1 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const parsedLimit = parseInt(limit);
 
     let associatedQuery = { associate_id: { $ne: null } };
     let localQuery = { associate_id: null };
@@ -2238,49 +2240,38 @@ module.exports.getAllFarmers = async (req, res) => {
       associatedFarmersCount: 0,
       localFarmersCount: 0,
     };
+    const sortCriteria = {
+      [sortBy]: 1,
+      _id: 1,      
+    };
+    if (paginate) {
+    records.associatedFarmers = await farmer
+      .find(associatedQuery)
+      .populate('associate_id', '_id user_code')
+      .sort(sortCriteria)
+      .skip(skip)
+      .limit(parsedLimit)
 
-    const skip = (page - 1) * limit;
-    const parsedLimit = parseInt(limit);
 
-    records.associatedFarmers = paginate == 1
-      ? await farmer
+    records.localFarmers = await farmer
+      .find(localQuery)
+      .populate('associate_id', '_id user_code')
+      .sort(sortCriteria)
+      .skip(skip)
+      .limit(parsedLimit);
+    } else {
+      records.associatedFarmers = await farmer
         .find(associatedQuery)
         .populate('associate_id', '_id user_code')
-        .populate('farmer_id', '_id upload_land_document')
-        .sort(sortBy ? { [sortBy]: 1 } : {})
-        .skip(skip)
-        .limit(parsedLimit)
+        .sort(sortCriteria);
 
-      : await farmer
-        .find(associatedQuery)
-        .populate('associate_id', '_id user_code')
-        .populate('farmer_id', '_id upload_land_document')
-        .sort(sortBy ? { [sortBy]: 1 } : {})
-
-    records.localFarmersCount = paginate == 1
-      ? await farmer
+      records.localFarmers = await farmer
         .find(localQuery)
         .populate('associate_id', '_id user_code')
-        .populate('farmer_id', '_id upload_land_document')
-        .sort(sortBy ? { [sortBy]: 1 } : {})
-        .skip(skip)
-        .limit(parsedLimit)
-
-      : await farmer
-        .find(localQuery)
-        .populate('associate_id', '_id user_code')
-        .populate('farmer_id', '_id upload_land_document')
-        .sort(sortBy ? { [sortBy]: 1 } : {})
-
-
+        .sort(sortCriteria);
+    }
     records.count = await farmer.countDocuments(associatedQuery);
     records.localFarmersCount = await farmer.countDocuments(localQuery);
-
-    if (paginate == 1) {
-      records.page = page
-      records.limit = limit
-      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-    }
 
 
     // Prepare response data
@@ -2289,6 +2280,9 @@ module.exports.getAllFarmers = async (req, res) => {
       localFarmersCount: records.localFarmersCount,
       associatedFarmers: records.associatedFarmers,
       localFarmers: records.localFarmers,
+      page: parseInt(page),
+      limit: parsedLimit,
+      totalPages: limit != 0 ? Math.ceil(records.associatedFarmersCount / limit) : 0,
     };
     return res.status(200).send({
       status: 200,

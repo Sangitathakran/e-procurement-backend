@@ -15,7 +15,6 @@ const { _frontendLoginRoutes } = require('@src/v1/utils/constants');
 const { generateRandomPassword } = require('@src/v1/utils/helpers/randomGenerator');
 const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 
-
 module.exports.getHo = async (req, res) => {
 
     try {
@@ -123,7 +122,8 @@ module.exports.saveHeadOffice = async (req, res) => {
 
         const savedHeadOffice = await headOffice.save();
 
-        const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes.ho}`
+        // const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes.ho}`
+        const login_url = `${_frontendLoginRoutes.ho}`
 
         const emailPayload = {
             email: savedHeadOffice.authorised.email,
@@ -131,12 +131,13 @@ module.exports.saveHeadOffice = async (req, res) => {
             password: password,
             login_url: login_url
         }
+    
         if(savedHeadOffice){
             const masterUser = new MasterUser({
                 firstName : authorised.name,
                 isAdmin : true,
-                email : authorised.email.trim(),
-                mobile : authorised?.mobile.trim(),
+                email : authorised.email?.trim(),
+                mobile : authorised?.mobile?.trim(),
                 password: hashedPassword,
                 user_type: type.user_type,
                 userRole: [type.adminUserRoleId],
@@ -145,9 +146,9 @@ module.exports.saveHeadOffice = async (req, res) => {
                 ipAddress: getIpAddress(req)
             });
             if (authorised?.phone) {
-                masterUser.mobile = authorised?.phone.trim()
+                masterUser.mobile = authorised?.phone?.trim()
             } else if (authorised?.mobile) {
-                masterUser.mobile = authorised?.mobile.trim()
+                masterUser.mobile = authorised?.mobile?.trim()
             }
     
             const masterUserCreated = await masterUser.save();
@@ -160,7 +161,7 @@ module.exports.saveHeadOffice = async (req, res) => {
             throw new Error('Head office not created')
 
         }
-
+       
         const subject = `New Head Office Successfully Created under Head Office ID ${savedHeadOffice?.head_office_code}`
         const { line1, line2, state, district, city, pinCode } = savedHeadOffice.address;
         const body = `<p>Dear Admin <Name> </p> <br/>
@@ -175,7 +176,7 @@ module.exports.saveHeadOffice = async (req, res) => {
             <p>Navankur</p>`
 
         await sendMail("ashita@navankur.org", "", subject, body);
-
+      
         return res.status(200).send(new serviceResponse({ message: _response_message.created('Head Office'), data: savedHeadOffice }));
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -196,3 +197,21 @@ module.exports.updateStatus = asyncErrorHandler(async (req, res) => {
 
     return res.send(new serviceResponse({ status: 200, data: record, message: _response_message.updated() }))
 })
+
+module.exports.deleteHO = asyncErrorHandler(async (req, res) => {
+    const { id } = req.params;
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid item ID" });
+    }
+
+    const record = await HeadOffice.findOne({ _id: id });
+
+    if (!record) {
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Head Office") }] }))
+    }
+
+    await record.deleteOne();
+
+    return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.deleted("Head Office") }));
+});

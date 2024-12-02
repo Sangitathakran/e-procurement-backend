@@ -60,7 +60,17 @@ module.exports.payment = async (req, res) => {
                         }
                     }],
                 }
+            },      
+            // start of Sangita code      
+            {
+                $lookup: {
+                    from: 'branches',
+                    localField: 'branch_id',
+                    foreignField: '_id',
+                    as: 'branchDetails'
+                }
             },
+            // end of Sangita code
             {
                 $match: {
                     batches: { $ne: [] }
@@ -139,13 +149,12 @@ module.exports.payment = async (req, res) => {
                     product: 1,
                     // 'batches._id': 1,
                     // 'batches.qty': 1,
-                    // 'batches.goodsPrice': 1,
-                    // 'batches.totalPrice': 1,
-                    // 'batches.status': 1,
                     approval_status: 1,
                     qtyPurchased: 1,
                     amountPayable: 1,
-                    payment_status: 1
+                    payment_status: 1,
+                    'branchDetails.branchName':1,
+                    'branchDetails.branchId':1
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
@@ -154,8 +163,6 @@ module.exports.payment = async (req, res) => {
         ];
         const records = { count: 0 }
         records.rows = await RequestModel.aggregate(aggregationPipeline);
-
-        // records.count = await RequestModel.countDocuments({ _id: { $in: paymentIds } })
 
         // start of Sangita code
 
@@ -208,8 +215,6 @@ module.exports.associateOrders = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
 
         const paymentIds = (await Payment.find({ req_id })).map(i => i.associateOffers_id)
-
-        console.log("paymentIds", paymentIds);
 
         let query = {
             _id: { $in: paymentIds },
@@ -461,6 +466,16 @@ module.exports.proceedToPayPaymentRequests = async (req, res) => {
                     as: 'invoice',
                 }
             },
+            // start of Sangita code      
+            {
+                $lookup: {
+                    from: 'branches',
+                    localField: 'branch_id',
+                    foreignField: '_id',
+                    as: 'branchDetails'
+                }
+            },
+            // end of Sangita code
             {
                 $addFields: {
                     qtyProcuredInInvoice: {
@@ -498,6 +513,8 @@ module.exports.proceedToPayPaymentRequests = async (req, res) => {
                     product: 1,
                     qtyProcuredInInvoice: 1,
                     paymentStatus: 1,
+                    'branchDetails.branchName':1,
+                    'branchDetails.branchId':1
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
@@ -1279,7 +1296,7 @@ module.exports.associateBillApprove = async (req, res) => {
         };
 
         const batchApprovalStatus = await Batch.find(batchQuery);
-
+       
         if (batchApprovalStatus.length > 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notApproved("Payment") }] }));
         }
@@ -1295,9 +1312,11 @@ module.exports.associateBillApprove = async (req, res) => {
         }
 
         const record = await AssociateInvoice.updateMany(query, { $set: { agent_approve_status: _paymentApproval.approved, agent_approve_by: portalId, agent_approve_at: new Date() } });
+        
+        await Batch.updateMany({ _id: { $in: batchIds } }, { $set: { agent_approve_status: _paymentApproval.approved } });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("invoice") }))
-
+        
     } catch (error) {
         _handleCatchErrors(error, res);
     }

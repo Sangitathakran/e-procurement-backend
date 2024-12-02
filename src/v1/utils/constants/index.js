@@ -181,6 +181,9 @@ const _trader_type = {
     INDIVIDUAL: 'Individual',
     PROPRIETOR: 'Proprietor',
     PACS: 'PACS',
+    MULTIPURPOSE: 'MULTIPURPOSE',
+    CAMPS: 'CAMPS',
+    Agricultural: 'Agricultural',
 }
 
 const _center_type = {
@@ -402,9 +405,12 @@ const _statusType = {
 }
 
 const _frontendLoginRoutes = {
-    agent: "/agent/sign-in",
-    ho: "/head-office/sign-in",
-    bo: "/branch-office/sign-in"
+    // agent: "/agent/sign-in",
+    // ho: "/head-office/sign-in",
+    // bo: "/branch-office/sign-in"
+    agent: "https://ep.navbazar.com/agent/sign-in",
+    ho: "https://ep.navbazar.com/head-office/sign-in",
+    bo: "https://ep.navbazar.com/branch-office/sign-in"
 }
 
 const _userTypeFrontendRouteMapping = {
