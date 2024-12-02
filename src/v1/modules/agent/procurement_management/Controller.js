@@ -315,3 +315,58 @@ module.exports.deleteProcurementCenter = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.updateProcurementCenter = async (req, res) => {
+    try {
+        const { id } = req.params; // Procurement center ID passed as a parameter
+        const updateData = req.body; // Fields to update
+
+        if (!id) {
+            return res.status(400).send(
+                new serviceResponse({ 
+                    status: 400, 
+                    message: _response_message.notFound("Procurement Center ID") 
+                })
+            );
+        }
+
+        // Validate the data to be updated
+        const requiredFields = ['center_name', 'line1', 'state', 'city', 'postalCode', 'name', 'email', 'mobile'];
+        const missingFields = requiredFields.filter(field => updateData[field] === undefined);
+
+        if (missingFields.length > 0) {
+            return res.status(400).send(
+                new serviceResponse({ 
+                    status: 400, 
+                    message: `Required fields missing: ${missingFields.join(', ')}` 
+                })
+            );
+        }
+
+        // Find the procurement center by ID
+        const center = await ProcurementCenter.findById(id);
+        if (!center) {
+            return res.status(404).send(
+                new serviceResponse({ 
+                    status: 404, 
+                    message: _response_message.notFound("Procurement Center") 
+                })
+            );
+        }
+
+        // Update the procurement center
+        Object.assign(center, updateData);
+        await center.save();
+
+        return res.status(200).send(
+            new serviceResponse({ 
+                status: 200, 
+                data: center, 
+                message: _response_message.updated("Procurement Center") 
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
