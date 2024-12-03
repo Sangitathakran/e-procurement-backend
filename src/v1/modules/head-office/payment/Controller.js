@@ -322,7 +322,7 @@ module.exports.associateOrders = async (req, res) => {
           .populate({
             path: "seller_id",
             select:
-              "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name",
+              "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name",
           })
           .sort(sortBy)
           .skip(skip)

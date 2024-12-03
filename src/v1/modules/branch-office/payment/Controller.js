@@ -228,7 +228,7 @@ module.exports.associateOrders = async (req, res) => {
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
         records.rows = paginate == 1 ? await AssociateOffers.find(query)
             .populate({
-                path: 'seller_id', select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name'
+                path: 'seller_id', select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
             })
             .sort(sortBy)
             .skip(skip)
