@@ -89,8 +89,8 @@ module.exports.getProcurement = async (req, res) => {
         } else {
             // Find requests that have no offers or are open
             query.status = { $in: [_requestStatus.open, _requestStatus.partially_fulfulled] };
-            const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
-            query._id = { $nin: offerIds };
+            // const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
+            // query._id = { $nin: offerIds };
             query.quoteExpiry = { $gte: new Date() };
 
 
@@ -196,9 +196,9 @@ module.exports.associateOffer = async (req, res) => {
 
         const existingRecord = await AssociateOffers.findOne({ seller_id: user_id, req_id: req_id });
 
-        if (existingRecord) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("offer") }] }))
-        }
+        // if (existingRecord) {
+        //     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("offer") }] }))
+        // }
 
         const sumOfFarmerQty = farmer_data.reduce((acc, curr) => {
 
