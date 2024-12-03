@@ -9,5 +9,4 @@ trackDeliveryRoutes.get("/request", Auth, getProcurement);
 trackDeliveryRoutes.get("/batch", Auth, getBatchByAssociateOfferrs);
 trackDeliveryRoutes.get("/batch/:id", Auth, trackDeliveryByBatchId)
 
-
-module.exports = { trackDeliveryRoutes }; 
+module.exports = { trackDeliveryRoutes };
