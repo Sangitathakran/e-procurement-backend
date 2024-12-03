@@ -240,7 +240,7 @@ module.exports.associateOrders = async (req, res) => {
             .limit(parseInt(limit)) : await AssociateOffers.find(query)
                 .populate({
                     path: "seller_id",
-                    select: "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name"
+                    select: "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name"
                 })
                 .sort(sortBy);
 
