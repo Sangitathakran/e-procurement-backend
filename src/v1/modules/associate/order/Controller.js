@@ -140,7 +140,7 @@ module.exports.batch = async (req, res) => {
 
         const users = await User.find({
             'basic_details.associate_details.email': { $exists: true }
-        }).select('basic_details.associate_details.email basic_details.associate_details.associate_name');
+        }).select('basic_details.associate_details.email basic_details.associate_details.associate_name associate.basic_details.associate_details.organization_name');
 
 
         await Promise.all(

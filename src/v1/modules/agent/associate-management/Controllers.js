@@ -9,7 +9,6 @@ const { emailService } = require('@src/v1/utils/third_party/EmailServices');
 const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator")
 const bcrypt = require('bcrypt');
 const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
-//const AssociateModel = require('@src/v1/models/AssociateModel');
 
 module.exports.getAssociates = async (req, res) => {
     try {

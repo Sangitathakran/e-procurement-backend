@@ -93,7 +93,7 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
 
     records.rows = paginate == 1 ? await Batch.find(query)
         .populate([
-            { path: "seller_id", select: "basic_details.associate_details.associate_name" },
+            { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
             { path: "req_id", select: "address.deliveryLocation" },
             { path: "procurementCenter_id", select: "center_name" },
         ])

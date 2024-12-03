@@ -254,6 +254,7 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
                 'associate._id': 1,
                 'associate.user_code': 1,
                 'associate.basic_details.associate_details.associate_name': 1,
+                'associate.basic_details.associate_details.organization_name':1
             }
         },
         { $match: query }, // Apply query
@@ -310,7 +311,7 @@ module.exports.associateOfferbyid = asyncErrorHandler(async (req, res) => {
 
     const record = await AssociateOffers.findOne({ _id: id })
         .populate({ path: 'req_id', select: '_id product.name product.grade product.commodityImage reqNo deliveryDate' })
-        .populate({ path: 'seller_id', select: '_id basic_details.associate_details.associate_name user_code' })
+        .populate({ path: 'seller_id', select: '_id basic_details.associate_details.associate_name user_code basic_details.associate_details.organization_name' })
         .select('_id seller_id req_id offeredQty status procuredQty')
 
     if (!record) {

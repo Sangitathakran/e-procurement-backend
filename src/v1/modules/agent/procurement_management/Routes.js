@@ -3,7 +3,6 @@ const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode } = require("./Controller");
 const express = require("express");
-
 const procurementCenterRoutes = express.Router();
 const { Auth } = require("@src/v1/middlewares/jwt")
 
