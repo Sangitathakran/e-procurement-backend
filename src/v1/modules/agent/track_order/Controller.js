@@ -278,82 +278,55 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
     }
 }
 
+module.exports.updateRecord = asyncErrorHandler(async (req, res) => {
+    const { type, id } = req.params; // `type` can be `procurement`, `offer`, or `batch`
+    const updateData = req.body;
 
-
-// Define the Schema for Tracking Information
-const TrackingSchema = new mongoose.Schema({
-    batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true },
-    dispatched: { dispatched_at: { type: Date } },
-    intransit: { intransit_at: { type: Date } },
-    delivered: { delivered_at: { type: Date } },
-    status: { type: String, required: true, enum: ['Dispatched', 'In-Transit', 'Delivered', 'Failed'] },
-}, { timestamps: true });
-
-// Define the Model
-const Tracking = mongoose.model('Tracking', TrackingSchema);
-// POST Controller - Create Tracking Information
-module.exports.createTrackOrder = async (req, res) => {
-    const { batchId, dispatchedAt, inTransitAt, deliveredAt, status } = req.body;
-
-    if (!batchId || !dispatchedAt || !status) {
-        return res.status(400).send({ status: 400, message: "Missing required fields for tracking." });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res
+            .status(400)
+            .send(new serviceResponse({ status: 400, errors: [{ message: "Invalid ID provided" }] }));
     }
 
-    // Create new Tracking document
-    try {
-        const newTracking = new Tracking({
-            batchId,
-            dispatched: dispatchedAt ? { dispatched_at: dispatchedAt } : undefined,
-            intransit: inTransitAt ? { intransit_at: inTransitAt } : undefined,
-            delivered: deliveredAt ? { delivered_at: deliveredAt } : undefined,
-            status
-        });
-
-        await newTracking.save();
-        return res.status(201).send({ status: 201, data: newTracking, message: "Tracking information created successfully." });
-    } catch (error) {
-        return res.status(500).send({ status: 500, message: "Failed to create tracking information.", error });
+    let model;
+    switch (type) {
+        case "procurement":
+            model = RequestModel;
+            break;
+        case "offer":
+            model = AssociateOffers;
+            break;
+        case "batch":
+            model = Batch;
+            break;
+        default:
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    errors: [{ message: "Invalid update type provided" }],
+                })
+            );
     }
-};
 
-// PUT Controller - Update Tracking Information using findByIdAndUpdate
-module.exports.updateTrackOrder = async (req, res) => {
-    const { id } = req.params;
-    const { dispatchedAt, inTransitAt, deliveredAt, status } = req.body;
+    const record = await model.findByIdAndUpdate(
+        id,
+        { $set: updateData },
+        { new: true, runValidators: true }
+    );
 
-    // Update tracking fields if provided
-    const updateFields = {};
-    if (dispatchedAt) updateFields.dispatched = { dispatched_at: dispatchedAt };
-    if (inTransitAt) updateFields.intransit = { intransit_at: inTransitAt };
-    if (deliveredAt) updateFields.delivered = { delivered_at: deliveredAt };
-    if (status) updateFields.status = status;
-
-    try {
-        const updatedTracking = await Tracking.findByIdAndUpdate(id, updateFields, { new: true });
-
-        if (!updatedTracking) {
-            return res.status(404).send({ status: 404, message: "Tracking information not found." });
-        }
-
-        return res.status(200).send({ status: 200, data: updatedTracking, message: "Tracking information updated successfully." });
-    } catch (error) {
-        return res.status(500).send({ status: 500, message: "Failed to update tracking information.", error });
+    if (!record) {
+        return res
+            .status(404)
+            .send(new serviceResponse({ status: 404, message: _response_message.notFound(type) }));
     }
-};
 
-// DELETE Controller - Delete Tracking Information using findByIdAndDelete
-module.exports.deleteTrackOrder = async (req, res) => {
-    const { id } = req.params;
+    return res
+        .status(200)
+        .send(new serviceResponse({ status: 200, data: record, message: _response_message.updated(type) }));
+});
 
-    try {
-        const deletedTracking = await Tracking.findByIdAndDelete(id);
 
-        if (!deletedTracking) {
-            return res.status(404).send({ status: 404, message: "Tracking information not found." });
-        }
 
-        return res.status(200).send({ status: 200, message: "Tracking information deleted successfully." });
-    } catch (error) {
-        return res.status(500).send({ status: 500, message: "Failed to delete tracking information.", error });
-    }
-};
+
+
+

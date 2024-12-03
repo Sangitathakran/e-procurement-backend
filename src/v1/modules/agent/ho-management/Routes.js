@@ -10,6 +10,6 @@ hoMngmntRoutes.get("/", Auth, getHo);
 hoMngmntRoutes.post("/", Auth, validateForm, saveHeadOffice);
 hoMngmntRoutes.delete("/:id", Auth, deleteHO);
 
-hoMngmntRoutes.put('/:id',Auth, updateHeadOffice);
+hoMngmntRoutes.put("/:id",Auth, updateHeadOffice);
 
 module.exports = { hoMngmntRoutes }; 

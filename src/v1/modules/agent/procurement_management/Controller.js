@@ -275,47 +275,6 @@ module.exports.generateCenterCode = async (req, res) => {
     }
 };
 
-module.exports.deleteProcurementCenter = async (req, res) => {
-    try {
-        const { id } = req.params; // Procurement center ID passed as a parameter
-
-        if (!id) {
-            return res.status(400).send(
-                new serviceResponse({ 
-                    status: 400, 
-                    message: _response_message.notFound("Procurement Center ID") 
-                })
-            );
-        }
-
-        // Find the procurement center by ID and mark as deleted
-        const center = await ProcurementCenter.findOneAndUpdate(
-            { _id: id, deletedAt: null }, // Ensure it hasn't been deleted already
-            { deletedAt: new Date() },    // Soft delete by setting deletedAt timestamp
-            { new: true }                // Return the updated record
-        );
-
-        if (!center) {
-            return res.status(404).send(
-                new serviceResponse({ 
-                    status: 404, 
-                    message: _response_message.notFound("Procurement Center") 
-                })
-            );
-        }
-
-        return res.status(200).send(
-            new serviceResponse({ 
-                status: 200, 
-                data: center, 
-                message: _response_message.deleted("Procurement Center") 
-            })
-        );
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-};
-
 module.exports.updateProcurementCenter = async (req, res) => {
     try {
         const { id } = req.params; // Procurement center ID passed as a parameter
@@ -369,4 +328,47 @@ module.exports.updateProcurementCenter = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.deleteProcurementCenter = async (req, res) => {
+    try {
+        const { id } = req.params; // Procurement center ID passed as a parameter
+
+        if (!id) {
+            return res.status(400).send(
+                new serviceResponse({ 
+                    status: 400, 
+                    message: _response_message.notFound("Procurement Center ID") 
+                })
+            );
+        }
+
+        // Find the procurement center by ID and mark as deleted
+        const center = await ProcurementCenter.findOneAndUpdate(
+            { _id: id, deletedAt: null }, // Ensure it hasn't been deleted already
+            { deletedAt: new Date() },    // Soft delete by setting deletedAt timestamp
+            { new: true }                // Return the updated record
+        );
+
+        if (!center) {
+            return res.status(404).send(
+                new serviceResponse({ 
+                    status: 404, 
+                    message: _response_message.notFound("Procurement Center") 
+                })
+            );
+        }
+
+        return res.status(200).send(
+            new serviceResponse({ 
+                status: 200, 
+                data: center, 
+                message: _response_message.deleted("Procurement Center") 
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+
 

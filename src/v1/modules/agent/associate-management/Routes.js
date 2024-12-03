@@ -1,7 +1,7 @@
 
 
 const express = require("express");
-const { getAssociates, userStatusUpdate, statusUpdate, pendingRequests, getAssociatesById,updateAssociateDetails ,deleteAssociate,createAssociate} = require("./Controllers");
+const { getAssociates, userStatusUpdate, statusUpdate, pendingRequests, getAssociatesById,updateAssociateById,deleteAssociate} = require("./Controllers");
 
 
 const associateMngmntRoutes = express.Router();
@@ -12,15 +12,9 @@ associateMngmntRoutes.patch("/update-approval", userStatusUpdate);
 associateMngmntRoutes.patch("/status", statusUpdate);
 associateMngmntRoutes.get("/pending", pendingRequests);
 associateMngmntRoutes.get("/details/:id", getAssociatesById);
-// Route for creating a new associate
-associateMngmntRoutes.post('/create-associate', createAssociate);
 
-associateMngmntRoutes.put('/:id', updateAssociateDetails);
+associateMngmntRoutes.put('/:id', updateAssociateById);
 
-// DELETE route for deleting an associate
-associateMngmntRoutes.delete("/:id", deleteAssociate);
-
-
-
+associateMngmntRoutes.delete('/:id',deleteAssociate);
 
 module.exports = { associateMngmntRoutes }; 
