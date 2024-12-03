@@ -1,7 +1,7 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
-const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode ,deleteProcurementCenter,updateProcurementCenter} = require("./Controller");
+const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode } = require("./Controller");
 const express = require("express");
 
 const procurementCenterRoutes = express.Router();
@@ -31,9 +31,7 @@ procurementCenterRoutes.post("/", validateErrors, Auth, createProcurementCenter,
     body("isPrimary").optional().isBoolean()
 ]);
 
-procurementCenterRoutes.delete('/:id', deleteProcurementCenter);
 
-procurementCenterRoutes.put('/:id',updateProcurementCenter);
 
 
 module.exports = { procurementCenterRoutes }; 

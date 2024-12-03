@@ -14,5 +14,4 @@ hoMngmntRoutes.put("/:id",Auth, updateHeadOffice);
 
 hoMngmntRoutes.get('/:id',Auth, getHeadOfficeById);
 
-
 module.exports = { hoMngmntRoutes }; 
