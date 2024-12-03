@@ -223,8 +223,25 @@ module.exports.associateOffer = async (req, res) => {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("farmer") }] }))
         }
 
-        const associateOfferRecord = await AssociateOffers.create({ seller_id: user_id, req_id: req_id, offeredQty: sumOfFarmerQty, createdBy: user_id });
+        let associateOfferRecord
+        if (existingRecord) {
+            existingRecord.offeredQty = handleDecimal(sumOfFarmerQty + existingRecord.offeredQty);
+            associateOfferRecord = existingRecord.save()
 
+            if (!existingRecord) {
+                const newFarmerOrder = new FarmerOrders({
+                    associateOffers_id: associateOfferRecord._id,
+                    farmer_id: harvester._id,
+                    metaData,
+                    offeredQty: handleDecimal(harvester.qty),
+                    order_no: "OD" + _generateOrderNumber()
+                });
+                await newFarmerOrder.save();
+            }
+
+        } else {
+            associateOfferRecord = await AssociateOffers.create({ seller_id: user_id, req_id: req_id, offeredQty: sumOfFarmerQty, createdBy: user_id });
+        
         const dataToBeInserted = [];
 
         for (let harvester of farmer_data) {
@@ -246,7 +263,7 @@ module.exports.associateOffer = async (req, res) => {
         }
 
         await FarmerOffers.insertMany(dataToBeInserted);
-
+        }
         return res.status(200).send(new serviceResponse({ status: 200, data: associateOfferRecord, message: "offer submitted" }))
 
     } catch (error) {
