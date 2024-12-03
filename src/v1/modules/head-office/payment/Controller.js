@@ -600,7 +600,7 @@ module.exports.lot_list = async (req, res) => {
     const record = await Batch.findOne({ _id: batch_id })
       .populate({
         path: "farmerOrderIds.farmerOrder_id",
-        select: "metaData.name order_no",
+        select: "metaData.name order_no payment_status",
       })
       .select("_id farmerOrderIds");
 
