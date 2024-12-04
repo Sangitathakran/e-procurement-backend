@@ -198,6 +198,87 @@ module.exports.updateStatus = asyncErrorHandler(async (req, res) => {
     return res.send(new serviceResponse({ status: 200, data: record, message: _response_message.updated() }))
 })
 
+
+module.exports.getHeadOfficeById = async (req, res) => {
+    try {
+        const { id } = req.params; // Get the Head Office ID from the request parameters
+
+        // Validate the Head Office ID
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                message: _response_message.invalid("Head Office ID"),
+            });
+        }
+
+        // Find the head office by ID
+        const headOffice = await HeadOffice.findById(id); // If you want to populate the branches
+
+        if (!headOffice) {
+            return res.status(404).send(
+                new serviceResponse({
+                    status: 404,
+                    message: _response_message.notFound("Head Office"),
+                })
+            );
+        }
+
+        // Return the found head office details in the response
+        return res.status(200).send(
+            new serviceResponse({
+                status: 200,
+                data: headOffice,
+                message: _response_message.found("Head Office"),
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+
+module.exports.updateHeadOffice = asyncErrorHandler(async (req, res) => {
+    const { id } = req.params; // Get the Head Office ID from the request parameters
+    const { company_details, point_of_contact, address, authorised, active } = req.body; // Extract fields to update from the request body
+
+    // Validate the Head Office ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+            message: _response_message.invalid("Head Office ID"),
+        });
+    }
+
+    // Find the head office by ID
+    const headOffice = await HeadOffice.findById(id);
+
+    if (!headOffice) {
+        return res.status(404).send(
+            new serviceResponse({
+                status: 404,
+                message: _response_message.notFound("Head Office"),
+            })
+        );
+    }
+
+    // Update the fields if provided in the request
+    if (company_details) headOffice.company_details = company_details;
+    if (point_of_contact) headOffice.point_of_contact = point_of_contact;
+    if (address) headOffice.address = address;
+    if (authorised) headOffice.authorised = authorised;
+    if (typeof active !== "undefined") headOffice.active = active;
+
+    // Save the updated head office record
+    const updatedHeadOffice = await headOffice.save();
+
+    // Return the updated head office details in the response
+    return res.status(200).send(
+        new serviceResponse({
+            status: 200,
+            data: updatedHeadOffice,
+            message: _response_message.updated("Head Office"),
+        })
+    );
+});
+
 module.exports.deleteHO = asyncErrorHandler(async (req, res) => {
     const { id } = req.params;
     // Validate ObjectId

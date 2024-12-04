@@ -274,4 +274,3 @@ module.exports.generateCenterCode = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
-
