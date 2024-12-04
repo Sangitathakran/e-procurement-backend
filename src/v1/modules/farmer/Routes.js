@@ -4,7 +4,7 @@ const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { validateIndFarmer, validateRegisterDetail, validateFarmer, validateLand, validateCrop, validateBank } = require("./Validation")
 const { verifyAssociate } = require("../associate/utils/verifyAssociate");
-const { saveFarmerDetails,updateIndCrop,getLandDetails, getIndCropDetails,sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers, getstatedistrictname, getBoFarmerPreview, uploadFarmerDocument, getFarmerDocument,getLocationOfIpaddress } = require("./Controller");
+const { saveFarmerDetails,updateIndCrop,getLandDetails, getIndCropDetails,sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers, getstatedistrictname, getBoFarmerPreview, uploadFarmerDocument, getFarmerDocument,getLocationOfIpaddress, editFarmerDocument, getStates, getDistrictByState } = require("./Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
 // const { verifyAgent } = require("../agent/utils/verifyAgent");
 const { Auth } = require("@src/v1/middlewares/jwt");
@@ -34,6 +34,7 @@ farmerRoutes.get("/get-bank", verifyJwtToken, getBank);
 farmerRoutes.put("/updateBank/:bank_id", verifyJwtToken, updateBank);
 farmerRoutes.delete("/deleteBank", verifyJwtToken, deleteBank);
 farmerRoutes.post("/bulk-upload", verifyAssociate, bulkUploadFarmers);
+farmerRoutes.put("/edit-farmer-document", verifyAssociate, editFarmerDocument);
 farmerRoutes.post("/bulk-export", verifyJwtToken, exportFarmers);
 farmerRoutes.get("/localfarmer", verifyAssociate, individualfarmerList);
 farmerRoutes.post("/send-farmerOTP", sendOTP)
@@ -46,10 +47,11 @@ farmerRoutes.get("/bo-preview/:id", Auth, getBoFarmerPreview);
 
 farmerRoutes.put("/upload-farmer-document", Auth, uploadFarmerDocument);
 farmerRoutes.get("/farmer-document", Auth, getFarmerDocument);
+farmerRoutes.get("/get-states", Auth, getStates);
+farmerRoutes.get("/get-district-by-state/:id", Auth, getDistrictByState);
 
 /* 
- individual farmer routes s
-             
+ individual farmer routes 
  */
 farmerRoutes.post("/send-farmerOTP", sendOTP);
 farmerRoutes.post("/verify-farmerOTP", verifyOTP);
