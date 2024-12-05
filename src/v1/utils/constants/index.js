@@ -338,6 +338,7 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
+    inProgress: "In Progress",
     failed:"Failed",
     completed: "Completed",
     rejected: "Rejected"

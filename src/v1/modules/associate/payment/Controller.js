@@ -760,7 +760,7 @@ module.exports.failedPaymentFarmer = async (req, res) => {
 
         let query = {
             _id: farmerOrderIdsOnly,
-            payment_status:_paymentstatus.failed,
+            payment_status:{ $in: [_paymentstatus.failed, _paymentstatus.rejected ] },
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 

@@ -174,7 +174,7 @@ async function downloadFarmerFile() {
                 paymentDetails?.farmer_id?.bank_details?.account_no.toString() === item2.BENEF_ACCOUNT_NMBR.toString()
               ) {
     
-                paymentDetails.payment_status = _paymentstatus.pending;
+
                 paymentDetails.transaction_id = item2.SENDER_TO_RECEIVER_INFO1 
               }
               

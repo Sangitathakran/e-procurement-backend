@@ -50,7 +50,7 @@ AgentPaymentFileSchema.post('save', async function (doc) {
       
           if(doc.received_file_details?.LIQ_STATUS==='Paid' || doc.received_file_details?.ADDR_5==='Paid'){
             await AgentInvoice.findByIdAndUpdate({_id: doc.agent_invoice_id}, {
-              payment_status: 'Completed',
+              payment_status: _paymentstatus.completed,
               payment_id:doc.received_file_details.UTR_SR_NO ,
               initiatedAt:doc.received_file_details.INST_DATE
             });
@@ -58,7 +58,6 @@ AgentPaymentFileSchema.post('save', async function (doc) {
 
           if(doc.received_file_details?.LIQ_STATUS==='Open' || doc.received_file_details?.ADDR_5==='Open'){ 
             await AgentInvoice.findByIdAndUpdate({_id: doc.agent_invoice_id}, {
-              payment_status: 'Pending',
               payment_id:doc.received_file_details.UTR_SR_NO ,
               initiatedAt:doc.received_file_details.INST_DATE
             });
@@ -66,7 +65,7 @@ AgentPaymentFileSchema.post('save', async function (doc) {
 
           if(doc.received_file_details?.LIQ_STATUS==='Rejected' || doc.received_file_details?.ADDR_5==='Rejected'){ 
             await AgentInvoice.findByIdAndUpdate({_id: doc.agent_invoice_id}, {
-              payment_status: 'Rejected',
+              payment_status: _paymentstatus.rejected,
               payment_id:doc.received_file_details.UTR_SR_NO ,
               initiatedAt:doc.received_file_details.INST_DATE
             });
