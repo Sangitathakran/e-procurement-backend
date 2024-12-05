@@ -228,8 +228,21 @@ module.exports.associateOffer = async (req, res) => {
         if (existingRecord) {
 
             existingRecord.offeredQty = handleDecimal(sumOfFarmerQty + existingRecord.offeredQty);
+            existingRecord.procuredQty = handleDecimal(sumOfFarmerQty + existingRecord.procuredQty);
             associateOfferRecord = existingRecord.save()
-    
+
+            const existingRequestModel = await RequestModel.findOne({ _id: req_id });
+            
+            existingRequestModel.fulfilledQty = handleDecimal(existingRequestModel.fulfilledQty + sumOfFarmerQty);
+            if (existingRequestModel.fulfilledQty == handleDecimal(existingRequestModel?.product?.quantity)) {
+                existingRequestModel.status = _requestStatus.fulfilled;
+            } else if (existingRequestModel.fulfilledQty < handleDecimal(existingRequestModel?.product?.quantity)) {
+                existingRequestModel.status = _requestStatus.partially_fulfulled;
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }));
+            }
+            await existingRequestModel.save();
+
             const dataToBeInserted = [];
 
             for (let harvester of farmer_data) {
@@ -244,6 +257,7 @@ module.exports.associateOffer = async (req, res) => {
                     farmer_id: harvester._id,
                     metaData,
                     offeredQty: handleDecimal(harvester.qty),
+                    procuredQty:handleDecimal(harvester.qty),
                     order_no: "OD" + _generateOrderNumber()
                 }
 
@@ -251,9 +265,9 @@ module.exports.associateOffer = async (req, res) => {
             }
 
             await FarmerOrders.insertMany(dataToBeInserted);
-            
+
         } else {
-          
+
             associateOfferRecord = await AssociateOffers.create({ seller_id: user_id, req_id: req_id, offeredQty: sumOfFarmerQty, createdBy: user_id });
 
             const dataToBeInserted = [];
