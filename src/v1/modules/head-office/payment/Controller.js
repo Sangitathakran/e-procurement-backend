@@ -988,6 +988,7 @@ module.exports.payFarmers = async (req, res) => {
       return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('batch Id') }] }));
     }
 
+    // console.log('req.user-->', req.user)
     const portalId = req.user.portalId._id
     const user_id = req.user._id
 
@@ -1145,7 +1146,7 @@ module.exports.payFarmers = async (req, res) => {
 
     // // Create the worksheet with the specific column placement
 
-    console.log("worksheetData-->", worksheetData)
+    // console.log("worksheetData-->", worksheetData)
     const worksheet = xlsx.utils.aoa_to_sheet(worksheetData);
 
     xlsx.utils.book_append_sheet(workbook, worksheet, "Farmer Payment");
@@ -1167,6 +1168,8 @@ module.exports.payFarmers = async (req, res) => {
     });
     //formData
     formData.append("uploadFile", fileData);
+
+    console.log('processkey-->', process.env.API_KEY)
 
     let config = {
       method: "post",

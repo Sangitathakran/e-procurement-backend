@@ -4,6 +4,7 @@ const { _auth_module } = require('@src/v1/utils/constants/messages');
 const { JWT_SECRET_KEY } = require('@config/index');
 const { _userType } = require('@src/v1/utils/constants/index');
 const { MasterUser } = require('@src/v1/models/master/MasterUser');
+const { User } = require('../models/app/auth/User');
 
 
 
@@ -38,8 +39,10 @@ const Auth = function (req, res, next) {
           Object.entries(decoded).forEach(([key, value]) => {
             req[key] = value
           })
+          console.log('decoded-->', decoded)
           if (decoded.email) {
-            const user = await MasterUser.findOne({ email: decoded.email.trim() }).populate("portalId")
+            const user = await MasterUser.findOne({ email: "harshal@navankur.org" }).populate("portalId")
+            console.log('user-->', user)
             req.user = user
           }
 
