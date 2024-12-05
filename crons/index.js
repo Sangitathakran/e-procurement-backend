@@ -13,6 +13,7 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const xlsx = require("xlsx");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const { _paymentstatus } = require("@src/v1/utils/constants");
 main().catch((err) => console.log(err));
 //update
 async function main() {
@@ -35,6 +36,8 @@ async function main() {
   // cron.schedule("*/30 * * * * *", async () => {
   //   await downloadFarmerFile();
   // });
+
+  //await downloadFarmerFile();
   
 }
 
@@ -107,7 +110,7 @@ async function downloadFarmerFile() {
 
   console.log("farmer file download running");
 
-  let fileDetails = await FarmerPaymentFile.find({ file_status: "upload" });
+  let fileDetails = await FarmerPaymentFile.find({ file_status: "upload"});
 
   for (let item of fileDetails) {
 
@@ -123,6 +126,10 @@ async function downloadFarmerFile() {
           });
 
           const filePath = `./src/v1/download/R_${item.fileName}`;
+
+          if (!fs.existsSync(filePath)) {
+            console.error('File does not exist:', filePath);
+          }
           
           // Check if the directory exists, and create it if not
           const dir = path.dirname(filePath);
@@ -140,25 +147,41 @@ async function downloadFarmerFile() {
 
           const workbook = xlsx.readFile(filePath);
           const sheetName = workbook.SheetNames[0];
-          const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
+          const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+    
           let rowsDetails = []
 
           await Promise.all(
             sheetData.map(async (item2) => {
-              let paymentDetails = await Payment.findById(item2.UTR_SR_NO).populate("farmer_id");
-              console.log('paymentDetails-->', paymentDetails)
+
+              let paymentDetails = await Payment.findById(item2.SENDER_TO_RECEIVER_INFO1).populate("farmer_id");
+
               rowsDetails.push({ ...item2 });
       
               if (
-                item2.ADDR_5 === "Paid" &&
-                paymentDetails?.farmer_id?.bank_details?.account_no.toString() === item2.BENEF_BRANCH_CODE.toString()
+                item2.ADDR_5 === "Paid" || item2.LIQ_STATUS === "Paid" &&
+                paymentDetails?.farmer_id?.bank_details?.account_no.toString() === item2.BENEF_ACCOUNT_NMBR.toString()
               ) {
-                paymentDetails.payment_status = "Completed";
-                paymentDetails.transaction_id = item2.UTR_SR_NO;
-              } else {
-                paymentDetails.payment_status = "Failed";
-                paymentDetails.transaction_id = item2.UTR_SR_NO;
+                console.log('item2.SENDER_TO_RECEIVER_INFO1 Paid-->', item2.SENDER_TO_RECEIVER_INFO1 )
+                paymentDetails.payment_status = _paymentstatus.completed;
+                paymentDetails.transaction_id = item2.SENDER_TO_RECEIVER_INFO1 
+              } 
+              
+              // open status case handling 
+              else if (
+                item2.ADDR_5 === "Open" || item2.LIQ_STATUS === "Open" &&
+                paymentDetails?.farmer_id?.bank_details?.account_no.toString() === item2.BENEF_ACCOUNT_NMBR.toString()
+              ) {
+    
+                paymentDetails.payment_status = _paymentstatus.pending;
+                paymentDetails.transaction_id = item2.SENDER_TO_RECEIVER_INFO1 
+              }
+              
+              else {
+     
+                paymentDetails.payment_status = _paymentstatus.rejected;
+                paymentDetails.transaction_id = item2.SENDER_TO_RECEIVER_INFO1 
               }
               await paymentDetails.save();
       
@@ -203,5 +226,3 @@ async function downloadFarmerFile() {
   // UTR_SR_NO: 'ICMS2410300BZA7T',
   // INST_DATE: '29-10-24',
   // PRODUCT_CODE: 'NEFT'
-
-
