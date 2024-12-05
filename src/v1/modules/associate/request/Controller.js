@@ -226,6 +226,7 @@ module.exports.associateOffer = async (req, res) => {
         let associateOfferRecord
 
         if (existingRecord) {
+
             existingRecord.offeredQty = handleDecimal(sumOfFarmerQty + existingRecord.offeredQty);
             associateOfferRecord = existingRecord.save()
     
