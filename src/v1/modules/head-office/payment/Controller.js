@@ -1169,7 +1169,6 @@ module.exports.payFarmers = async (req, res) => {
     //formData
     formData.append("uploadFile", fileData);
 
-    console.log('processkey-->', process.env.API_KEY)
 
     let config = {
       method: "post",

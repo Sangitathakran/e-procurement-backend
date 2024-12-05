@@ -39,10 +39,8 @@ const Auth = function (req, res, next) {
           Object.entries(decoded).forEach(([key, value]) => {
             req[key] = value
           })
-          console.log('decoded-->', decoded)
           if (decoded.email) {
-            const user = await MasterUser.findOne({ email: "harshal@navankur.org" }).populate("portalId")
-            console.log('user-->', user)
+            const user = await MasterUser.findOne({ email: decoded.email.trim() }).populate("portalId")
             req.user = user
           }
 
