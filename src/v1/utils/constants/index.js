@@ -167,7 +167,7 @@ const _userType = {
     associate: "4",
     farmer: "5",
     agent: "6",
-    distiller: "7",
+    distiller: "8",
 }
 
 const _userStatus = {
