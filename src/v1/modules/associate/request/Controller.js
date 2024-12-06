@@ -89,8 +89,8 @@ module.exports.getProcurement = async (req, res) => {
         } else {
             // Find requests that have no offers or are open
             query.status = { $in: [_requestStatus.open, _requestStatus.partially_fulfulled] };
-            const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
-            query._id = { $nin: offerIds };
+            // const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
+            // query._id = { $nin: offerIds };
             query.quoteExpiry = { $gte: new Date() };
 
 
@@ -196,9 +196,9 @@ module.exports.associateOffer = async (req, res) => {
 
         const existingRecord = await AssociateOffers.findOne({ seller_id: user_id, req_id: req_id });
 
-        if (existingRecord) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("offer") }] }))
-        }
+        // if (existingRecord) {
+        //     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("offer") }] }))
+        // }
 
         const sumOfFarmerQty = farmer_data.reduce((acc, curr) => {
 
@@ -223,30 +223,75 @@ module.exports.associateOffer = async (req, res) => {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("farmer") }] }))
         }
 
-        const associateOfferRecord = await AssociateOffers.create({ seller_id: user_id, req_id: req_id, offeredQty: sumOfFarmerQty, createdBy: user_id });
+        let associateOfferRecord
 
-        const dataToBeInserted = [];
+        if (existingRecord) {
 
-        for (let harvester of farmer_data) {
+            existingRecord.offeredQty = handleDecimal(sumOfFarmerQty + existingRecord.offeredQty);
+            existingRecord.procuredQty = handleDecimal(sumOfFarmerQty + existingRecord.procuredQty);
+            associateOfferRecord = existingRecord.save()
 
-            const existingFarmer = await farmer.findOne({ _id: harvester._id });
-            const { name, father_name, address_line, mobile_no, farmer_code } = existingFarmer;
+            const existingRequestModel = await RequestModel.findOne({ _id: req_id });
+            
+            existingRequestModel.fulfilledQty = handleDecimal(existingRequestModel.fulfilledQty + sumOfFarmerQty);
+            if (existingRequestModel.fulfilledQty == handleDecimal(existingRequestModel?.product?.quantity)) {
+                existingRequestModel.status = _requestStatus.fulfilled;
+            } else if (existingRequestModel.fulfilledQty < handleDecimal(existingRequestModel?.product?.quantity)) {
+                existingRequestModel.status = _requestStatus.partially_fulfulled;
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }));
+            }
+            await existingRequestModel.save();
 
-            const metaData = { name, father_name, address_line, mobile_no, farmer_code };
+            const dataToBeInserted = [];
 
-            const FarmerOfferData = {
-                associateOffers_id: associateOfferRecord._id,
-                farmer_id: harvester._id,
-                metaData,
-                offeredQty: harvester.qty,
-                createdBy: user_id,
+            for (let harvester of farmer_data) {
+
+                const existingFarmer = await farmer.findOne({ _id: harvester._id });
+                const { name, father_name, address_line, mobile_no, farmer_code } = existingFarmer;
+
+                const metaData = { name, father_name, address_line, mobile_no, farmer_code };
+
+                const FarmerOfferData = {
+                    associateOffers_id: existingRecord._id,
+                    farmer_id: harvester._id,
+                    metaData,
+                    offeredQty: handleDecimal(harvester.qty),
+                    procuredQty:handleDecimal(harvester.qty),
+                    order_no: "OD" + _generateOrderNumber()
+                }
+
+                dataToBeInserted.push(FarmerOfferData);
             }
 
-            dataToBeInserted.push(FarmerOfferData);
+            await FarmerOrders.insertMany(dataToBeInserted);
+
+        } else {
+
+            associateOfferRecord = await AssociateOffers.create({ seller_id: user_id, req_id: req_id, offeredQty: sumOfFarmerQty, createdBy: user_id });
+
+            const dataToBeInserted = [];
+
+            for (let harvester of farmer_data) {
+
+                const existingFarmer = await farmer.findOne({ _id: harvester._id });
+                const { name, father_name, address_line, mobile_no, farmer_code } = existingFarmer;
+
+                const metaData = { name, father_name, address_line, mobile_no, farmer_code };
+
+                const FarmerOfferData = {
+                    associateOffers_id: associateOfferRecord._id,
+                    farmer_id: harvester._id,
+                    metaData,
+                    offeredQty: harvester.qty,
+                    createdBy: user_id,
+                }
+
+                dataToBeInserted.push(FarmerOfferData);
+            }
+
+            await FarmerOffers.insertMany(dataToBeInserted);
         }
-
-        await FarmerOffers.insertMany(dataToBeInserted);
-
         return res.status(200).send(new serviceResponse({ status: 200, data: associateOfferRecord, message: "offer submitted" }))
 
     } catch (error) {
