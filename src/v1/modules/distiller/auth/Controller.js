@@ -1,0 +1,499 @@
+const mongoose = require('mongoose');
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
+const { User } = require("@src/v1/models/app/auth/User");
+const { Distiller } = require("@src/v1/models/app/auth/Distiller");
+const OTP = require("@src/v1/models/app/auth/OTP");
+const { smsService } = require('@src/v1/utils/third_party/SMSservices');
+const { emailService } = require("@src/v1/utils/third_party/EmailServices");
+const jwt = require("jsonwebtoken");
+const { JWT_SECRET_KEY } = require('@config/index');
+const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
+const { _userType } = require('@src/v1/utils/constants');
+const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const xlsx = require('xlsx');
+const csv = require("csv-parser");
+const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
+const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
+const findUser = async (input, type) => {
+    return type === 'email'
+        ? await Distiller.findOne({ email: input })
+        : await Distiller.findOne({ phone: input });
+};
+const sendEmailOtp = async (email) => {
+    await emailService.sendEmailOTP(email);
+};
+
+const sendSmsOtp = async (phone) => {
+    await smsService.sendOTPSMS(phone);
+};
+
+module.exports.sendOtp = async (req, res) => {
+    try {
+        const { input, term_condition } = req.body;
+        if (!input) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('input') }));
+        }
+        if (!term_condition || term_condition == false) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('term_condition') }));
+        }
+        let inputType;
+        if (isEmail(input)) {
+            inputType = 'email';
+        } else if (isMobileNumber(input)) {
+            inputType = 'mobile';
+        } else {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Invalid input format") }] }));
+        }
+        if (inputType === 'email') {
+            await sendEmailOtp(input);
+            return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Email") }));
+        } else if (inputType === 'mobile') {
+            await sendSmsOtp(input);
+            return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Mobile") }));
+        } else {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Invalid input format") }] }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.loginOrRegister = async (req, res) => {
+    try {
+        const { userInput, inputOTP } = req.body;
+
+        if (!userInput || !inputOTP) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('otp_required') }] }));
+        }
+        const staticOTP = '9999';
+        const isEmailInput = isEmail(userInput);
+        const query = isEmailInput
+            ? { 'basic_details.associate_details.email': userInput }
+            : { 'basic_details.associate_details.phone': userInput };
+
+        const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
+
+
+        if ((!userOTP || inputOTP !== userOTP.otp)) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
+        }
+
+        let userExist = await Distiller.findOne(query).lean();
+
+        if (!userExist) {
+            const newUser = {
+                client_id: isEmailInput ? '1243' : '9876',
+                basic_details: isEmailInput
+                    ? { associate_details: { email: userInput } }
+                    : { associate_details: { phone: userInput } },
+                term_condition: true,
+                user_type: _userType.distiller,
+            };
+            if (isEmailInput) {
+                newUser.is_email_verified = true;
+            } else {
+                newUser.is_mobile_verified = true;
+            }
+            userExist = await Distiller.create(newUser);
+        }
+
+        if (userExist.active == false) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "you are not an active user!" }] }));
+        }
+
+        const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
+        const expiresIn = 24 * 60 * 60; // 24 hour in seconds
+        const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+        });
+        const data = {
+            token: token,
+            user_type: userExist.user_type,
+            is_approved: userExist.is_approved,
+            phone: userExist.basic_details.associate_details.phone,
+            associate_code: userExist.user_code,
+            organization_name: userExist.basic_details.associate_details.organization_name || null,
+            is_form_submitted: userExist.is_form_submitted,
+            onboarding: (userExist?.basic_details?.associate_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details && userExist.is_form_submitted == 'true') ? true : false
+        }
+        return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: data }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.saveAssociateDetails = async (req, res) => {
+    try {
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
+        const decode = await decryptJwtToken(getToken);
+        const userId = decode.data.user_id;
+        const distiller = await Distiller.findById(userId);
+        if (!distiller) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        }
+        const { formName, ...formData } = req.body;
+        switch (formName) {
+            case 'organization':
+                user.basic_details.associate_details.organization_name = formData.organization_name;
+
+                break;
+            case 'basic_details':
+                if (formData.associate_details && formData.associate_details.phone) {
+                    delete formData.associate_details.phone
+                }
+                user.basic_details.associate_details = {
+                    ...user.basic_details.associate_details,
+                    ...formData.associate_details,
+                };
+                user.basic_details.point_of_contact = {
+                    ...user.basic_details.point_of_contact,
+                    ...formData.point_of_contact,
+                };
+                user.basic_details.company_owner_info = {
+                    ...user.basic_details.company_owner_info,
+                    ...formData.company_owner_info,
+                };
+                if (formData.implementation_agency) {
+                    user.basic_details.implementation_agency = formData.implementation_agency;
+                }
+                if (formData.cbbo_name) {
+                    user.basic_details.cbbo_name = formData.cbbo_name;
+                }
+                break;
+            case 'address':
+                user.address = {
+                    ...user.address,
+                    ...formData
+                };
+                break;
+            case 'company_details':
+                user.company_details = {
+                    ...user.company_details,
+                    ...formData
+                };
+                break;
+            case 'authorised':
+                user.authorised = {
+                    ...user.authorised,
+                    ...formData
+                };
+                break;
+            case 'bank_details':
+                user.bank_details = {
+                    ...user.bank_details,
+                    ...formData
+                };
+                break;
+            default:
+                return res.status(400).send(new serviceResponse({ status: 400, message: `Invalid form name: ${formName}` }));
+        }
+        await distiller.save();
+
+        const response = { user_code: user.user_code, user_id: user._id };
+        return res.status(200).send(new serviceResponse({ message: _response_message.updated(formName), data: response }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+
+module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
+    const { user_id } = req;
+    let record = await Distiller.findOne({ _id: user_id }).lean();
+    if (!record) {
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }));
+    }
+
+    const data = [
+        { label: "organization", status: record?.basic_details?.associate_details?.organization_name ? "completed" : "pending" },
+        { label: "Basic Details", status: record?.basic_details?.point_of_contact ? "completed" : "pending" },
+        { label: "Address", status: record.address ? "completed" : "pending" },
+        { label: "Company Details", status: record.company_details ? "completed" : "pending" },
+        { label: "Authorised Person", status: record.authorised ? "completed" : "pending" },
+        { label: "Bank Details", status: record.bank_details ? "completed" : "pending" },
+    ];
+    return res.status(200).send(new serviceResponse({ status: 200, data, message: _response_message.found("status") }));
+})
+
+
+module.exports.formPreview = async (req, res) => {
+    try {
+        const { user_id } = req;
+        if (!user_id) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
+        }
+        const response = await Distiller.findById({ _id: user_id });
+        if (!response) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.findUserStatus = async (req, res) => {
+    try {
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
+        const decode = await decryptJwtToken(getToken);
+        const userId = decode.data.user_id;
+        const user = await Distiller.findById(userId);
+        if (!user) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        }
+
+        const response = await Distiller.findById({ _id: userId });
+        if (!response) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.finalFormSubmit = async (req, res) => {
+    try {
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
+        const decode = await decryptJwtToken(getToken);
+        const userId = decode.data.user_id;
+        const user = await Distiller.findById(userId);
+        if (!user) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        }
+
+        user.is_form_submitted = true;
+
+        const allDetailsFilled = (
+            user?.basic_details?.associate_details?.organization_name &&
+            user?.basic_details?.point_of_contact?.name &&
+            user?.address?.registered?.line1 &&
+            user?.company_details?.cin_number &&
+            user?.authorised?.name &&
+            user?.bank_details?.account_number
+        );
+
+        if (!user.is_welcome_email_send && allDetailsFilled) {
+            await emailService.sendWelcomeEmail(user);
+            user.is_welcome_email_send = true;
+            await distiller.save();
+        }
+
+        if (!user.is_sms_send && allDetailsFilled) {
+            const { phone, organization_name } = user.basic_details.associate_details;
+
+            await smsService.sendWelcomeSMSForAssociate(phone, organization_name, user.user_code);
+            await user.updateOne({ is_sms_send: true });
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: _query.update("data"), data: user.is_form_submitted }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.editOnboarding = async (req, res) => {
+    try {
+        const { user_id } = req;
+        if (!user_id) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
+        }
+       
+        const response = await Distiller.findById({ _id: user_id });
+        
+        if (!response) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+  module.exports.associateBulkuplod = async (req, res) => {
+    try {
+        const { isxlsx = 1 } = req.body;
+        const [file] = req.files;
+
+        if (!file) {
+            return res.status(400).json({
+                message: _response_message.notFound("file"),
+                status: 400
+            });
+        }
+
+        let Associates = [];
+        let headers = [];
+
+        if (isxlsx) {
+            const workbook = xlsx.read(file.buffer, { type: 'buffer' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            Associates = xlsx.utils.sheet_to_json(worksheet);
+            // console.log(Associates); return false;
+            headers = Object.keys(Associates[0]);
+        } else {
+            const csvContent = file.buffer.toString('utf8');
+            const lines = csvContent.split('\n');
+            headers = lines[0].trim().split(',');
+            const dataContent = lines.slice(1).join('\n');
+
+            const parser = csv({ headers });
+            const readableStream = Readable.from(dataContent);
+
+            readableStream.pipe(parser);
+            parser.on('data', async (data) => {
+                if (Object.values(data).some(val => val !== '')) {
+                    const result = await processFarmerRecord(data);
+                    if (!result.success) {
+                        errorArray = errorArray.concat(result.errors);
+                    }
+                }
+            });
+
+            parser.on('end', () => {
+                console.log("Stream end");
+            });
+            parser.on('error', (err) => {
+                console.log("Stream error", err);
+            });
+        }
+
+        let errorArray = [];
+        const procesAssociateRecord = async (rec) => {
+            const associate_type = rec["Aggregator Type (PACS)"];
+            const email = rec["Email ID"];
+            const mobile_no = rec["Mobile No."];
+            const associate_name = rec["Associate Name (Name of PACS)"];
+            const state = rec["State"];
+            const district = rec["District"];
+            const country = rec["Country"];
+            const taluka = rec["City"];
+            const pinCode = rec["Pin Code"];
+            const gst_no = rec["GST No."];
+            const cin_number = rec["Registration No. of PACS"];
+            const pacs_reg_date = rec["Registration Date of PACS"];
+            const name = rec["Contact Person"];
+            const line1 = rec["Address of PACS"];
+            const bank_name = rec["Bank Name"];
+            const branch_name = rec["Bank Branch"];
+            const account_number = rec["Bank Account No."];
+            const ifsc_code = rec["IFSC Code"];
+            const account_holder_name =rec["Account Holder Name"];
+            const ar_circle = rec["AR Circle"];
+            let errors = [];
+            let missingFields = [];
+            if (!mobile_no) {
+                missingFields.push("Mobile No.");
+            }
+
+            if (missingFields.length > 0) {
+                errors.push({ record: rec, error: `Required fields missing: ${missingFields.join(', ')}` });
+            }
+
+            if (!/^\d{10}$/.test(mobile_no)) {
+                errors.push({ record: rec, error: "Invalid Mobile Number" });
+            }
+            // if (!/^\d{6,40}$/.test(account_number)) {
+            //     errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 18 digits." });
+            // }
+            if (errors.length > 0) return { success: false, errors };
+
+            try {
+                let existingRecord = await Distiller.findOne({ 'basic_details.associate_details.phone': mobile_no });
+                if (existingRecord) {
+                    return { success: false, errors: [{ record: rec, error: `Associate with Mobile No. ${mobile_no} already registered.` }] };
+                } else {
+                    const newUser = new Distiller({ 
+                        client_id: '9876',
+                        basic_details: {
+                            associate_details: {
+                                phone: mobile_no,
+                                associate_type,
+                                email,
+                                organization_name: associate_name,
+                            },
+                            point_of_contact: {
+                                name,
+                            }
+                        },
+                        address: {
+                            registered: {
+                                line1,
+                                country,
+                                state,
+                                district,
+                                taluka,
+                                pinCode,
+                                ar_circle,
+                            }
+                        },
+                        company_details: {
+                            gst_no,
+                            cin_number,
+                            pacs_reg_date,
+                        },
+                        bank_details: {
+                            bank_name,
+                            branch_name,
+                            account_number,
+                            ifsc_code,
+                            account_holder_name,
+                        },
+                        user_type: _userType.distiller,
+                    });
+
+                    await newUser.save();
+                }
+            } catch (error) {
+                console.log(error);
+                errors.push({ record: rec, error: error.message });
+            }
+
+            return { success: errors.length === 0, errors };
+        };
+
+        for (const Associate of Associates) {
+            const result = await procesAssociateRecord(Associate);
+            if (!result.success) {
+                errorArray = errorArray.concat(result.errors);
+            }
+        }
+
+        if (errorArray.length > 0) {
+            const errorData = errorArray.map(err => ({ ...err.record, Error: err.error }));
+            dumpJSONToExcel(req, res, {
+                data: errorData,
+                fileName: `Distiller-error_records.xlsx`,
+                worksheetName: `Distiller-record-error_records`
+            });
+        } else {
+            return res.status(200).json({
+                status: 200,
+                data: {},
+                message: "Distiller successfully uploaded."
+            });
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};

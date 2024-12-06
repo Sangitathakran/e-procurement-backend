@@ -41,7 +41,8 @@ const _collectionName = {
     AssociateInvoice: "AssociateInvoice",
     AgentInvoice: "AgentInvoice",
     AgentPaymentFile: "AgentPaymentFile",
-    FarmerPaymentFile: "FarmerPaymentFile"
+    FarmerPaymentFile: "FarmerPaymentFile",
+    Distiller: "Distiller"
 }
 
 const _userType_Feature_Collection = {
@@ -60,8 +61,8 @@ const _featureType = {
     branchOffice: "BranchOffice",
     headOffice: "HeadOffice",
     agency: "Agency",
-    associate: "Associate"
-
+    associate: "Associate",
+    distiller: "Distiller"
 }
 
 const _status = {
@@ -166,6 +167,7 @@ const _userType = {
     associate: "4",
     farmer: "5",
     agent: "6",
+    distiller: "8",
 }
 
 const _userStatus = {
@@ -190,6 +192,7 @@ const _center_type = {
     associate: 'associate',
     agent: 'agent',
     head_office: 'head_office',
+    distiller: 'distiller'
 }
 
 const _address_type = {
