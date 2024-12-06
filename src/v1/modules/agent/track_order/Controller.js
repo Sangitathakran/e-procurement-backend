@@ -137,6 +137,7 @@ module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
                 'associate._id': 1,
                 'associate.user_code': 1,
                 'associate.basic_details.associate_details.associate_name': 1,  // Ensure this path exists in 'users' collection
+                'associate.basic_details.associate_details.organization_name':1,
                 batchcount: 1,
                 req_id: 1
             }

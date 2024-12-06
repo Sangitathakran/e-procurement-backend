@@ -121,7 +121,7 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
         path: 'associateOffer_id',
         populate: {
           path: 'seller_id',
-          select: 'basic_details.associate_details.associate_name'
+          select: 'basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
         }
       })
       .populate({
@@ -136,6 +136,7 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
       _id: item._id,
       batchId: item.batchId,
       associateName: item?.associateOffer_id?.seller_id?.basic_details?.associate_details?.associate_name,
+      organization_name:item?.associateOffer_id?.seller_id?.basic_details?.associate_details?.organization_name,
       procurementCenterName: item?.procurementCenter_id?.center_name,
       quantity: item.qty,
       deliveredOn: item.delivered.delivered_at,
@@ -211,6 +212,7 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
 
       batch['batchId'] = item.batchId
       batch['associate_name'] = item?.seller_id?.basic_details?.associate_details?.associate_name ?? null
+      batch['organization_name'] = item?.seller_id?.basic_details?.associate_details?.organization_name ?? null
       batch['procurement_center'] = item?.procurementCenter_id?.center_name ?? null
       batch['quantity_purchased'] = item?.qty ?? null
       batch['procured_on'] = item?.dispatched_at ?? null

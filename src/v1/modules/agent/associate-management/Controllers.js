@@ -10,7 +10,6 @@ const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerato
 const bcrypt = require('bcrypt');
 const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 
-
 module.exports.getAssociates = async (req, res) => {
     try {
         const { page = 1, limit = 10, search = '', sortBy, isExport = 0 } = req.query;
@@ -276,4 +275,4 @@ module.exports.getAssociatesById = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+} 
