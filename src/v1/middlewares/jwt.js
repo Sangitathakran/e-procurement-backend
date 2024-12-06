@@ -4,6 +4,7 @@ const { _auth_module } = require('@src/v1/utils/constants/messages');
 const { JWT_SECRET_KEY } = require('@config/index');
 const { _userType } = require('@src/v1/utils/constants/index');
 const { MasterUser } = require('@src/v1/models/master/MasterUser');
+const { User } = require('../models/app/auth/User');
 
 
 
