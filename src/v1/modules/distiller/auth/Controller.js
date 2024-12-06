@@ -16,11 +16,13 @@ const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
+
 const findUser = async (input, type) => {
     return type === 'email'
         ? await Distiller.findOne({ email: input })
         : await Distiller.findOne({ phone: input });
 };
+
 const sendEmailOtp = async (email) => {
     await emailService.sendEmailOTP(email);
 };
@@ -70,8 +72,8 @@ module.exports.loginOrRegister = async (req, res) => {
         const staticOTP = '9999';
         const isEmailInput = isEmail(userInput);
         const query = isEmailInput
-            ? { 'basic_details.associate_details.email': userInput }
-            : { 'basic_details.associate_details.phone': userInput };
+            ? { 'basic_details.distiller_details.email': userInput }
+            : { 'basic_details.distiller_details.phone': userInput };
 
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
@@ -86,8 +88,8 @@ module.exports.loginOrRegister = async (req, res) => {
             const newUser = {
                 client_id: isEmailInput ? '1243' : '9876',
                 basic_details: isEmailInput
-                    ? { associate_details: { email: userInput } }
-                    : { associate_details: { phone: userInput } },
+                    ? { distiller_details: { email: userInput } }
+                    : { distiller_details: { phone: userInput } },
                 term_condition: true,
                 user_type: _userType.distiller,
             };
@@ -116,11 +118,11 @@ module.exports.loginOrRegister = async (req, res) => {
             token: token,
             user_type: userExist.user_type,
             is_approved: userExist.is_approved,
-            phone: userExist.basic_details.associate_details.phone,
+            phone: userExist.basic_details.distiller_details.phone,
             associate_code: userExist.user_code,
-            organization_name: userExist.basic_details.associate_details.organization_name || null,
+            organization_name: userExist.basic_details.distiller_details.organization_name || null,
             is_form_submitted: userExist.is_form_submitted,
-            onboarding: (userExist?.basic_details?.associate_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details && userExist.is_form_submitted == 'true') ? true : false
+            onboarding: (userExist?.basic_details?.distiller_details?.organization_name && userExist?.basic_details?.point_of_contact && userExist.address && userExist.company_details && userExist.authorised && userExist.bank_details && userExist.is_form_submitted == 'true') ? true : false
         }
         return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: data }));
     } catch (error) {
@@ -128,7 +130,7 @@ module.exports.loginOrRegister = async (req, res) => {
     }
 }
 
-module.exports.saveAssociateDetails = async (req, res) => {
+module.exports.saveDistillerDetails = async (req, res) => {
     try {
         const getToken = req.headers.token || req.cookies.token;
         if (!getToken) {
@@ -143,53 +145,57 @@ module.exports.saveAssociateDetails = async (req, res) => {
         const { formName, ...formData } = req.body;
         switch (formName) {
             case 'organization':
-                user.basic_details.associate_details.organization_name = formData.organization_name;
+                distiller.basic_details.distiller_details.organization_name = formData.organization_name;
 
                 break;
             case 'basic_details':
-                if (formData.associate_details && formData.associate_details.phone) {
-                    delete formData.associate_details.phone
+                if (formData.distiller_details && formData.distiller_details.phone) {
+                    delete formData.distiller_details.phone
                 }
-                user.basic_details.associate_details = {
-                    ...user.basic_details.associate_details,
-                    ...formData.associate_details,
+                distiller.basic_details.distiller_details = {
+                    ...distiller.basic_details.distiller_details,
+                    ...formData.distiller_details,
                 };
-                user.basic_details.point_of_contact = {
-                    ...user.basic_details.point_of_contact,
+                distiller.basic_details.point_of_contact = {
+                    ...distiller.basic_details.point_of_contact,
                     ...formData.point_of_contact,
                 };
-                user.basic_details.company_owner_info = {
-                    ...user.basic_details.company_owner_info,
+                distiller.basic_details.company_owner_info = {
+                    ...distiller.basic_details.company_owner_info,
                     ...formData.company_owner_info,
                 };
                 if (formData.implementation_agency) {
-                    user.basic_details.implementation_agency = formData.implementation_agency;
+                    distiller.basic_details.implementation_agency = formData.implementation_agency;
                 }
                 if (formData.cbbo_name) {
-                    user.basic_details.cbbo_name = formData.cbbo_name;
+                    distiller.basic_details.cbbo_name = formData.cbbo_name;
                 }
                 break;
-            case 'address':
-                user.address = {
-                    ...user.address,
+            // case 'address':
+            //     distiller.address = {
+            //         ...distiller.address,
+            //         ...formData
+            //     };
+            //     break;
+            case 'company_details':
+                distiller.company_details = {
+                    ...distiller.company_details,
                     ...formData
                 };
-                break;
-            case 'company_details':
-                user.company_details = {
-                    ...user.company_details,
+                distiller.address = {
+                    ...distiller.address,
                     ...formData
                 };
                 break;
             case 'authorised':
-                user.authorised = {
-                    ...user.authorised,
+                distiller.authorised = {
+                    ...distiller.authorised,
                     ...formData
                 };
                 break;
             case 'bank_details':
-                user.bank_details = {
-                    ...user.bank_details,
+                distiller.bank_details = {
+                    ...distiller.bank_details,
                     ...formData
                 };
                 break;
@@ -198,7 +204,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
         }
         await distiller.save();
 
-        const response = { user_code: user.user_code, user_id: user._id };
+        const response = { user_code: distiller.user_code, user_id: distiller._id };
         return res.status(200).send(new serviceResponse({ message: _response_message.updated(formName), data: response }));
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -214,7 +220,7 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
     }
 
     const data = [
-        { label: "organization", status: record?.basic_details?.associate_details?.organization_name ? "completed" : "pending" },
+        { label: "organization", status: record?.basic_details?.distiller_details?.organization_name ? "completed" : "pending" },
         { label: "Basic Details", status: record?.basic_details?.point_of_contact ? "completed" : "pending" },
         { label: "Address", status: record.address ? "completed" : "pending" },
         { label: "Company Details", status: record.company_details ? "completed" : "pending" },
@@ -282,7 +288,7 @@ module.exports.finalFormSubmit = async (req, res) => {
         user.is_form_submitted = true;
 
         const allDetailsFilled = (
-            user?.basic_details?.associate_details?.organization_name &&
+            user?.basic_details?.distiller_details?.organization_name &&
             user?.basic_details?.point_of_contact?.name &&
             user?.address?.registered?.line1 &&
             user?.company_details?.cin_number &&
@@ -297,7 +303,7 @@ module.exports.finalFormSubmit = async (req, res) => {
         }
 
         if (!user.is_sms_send && allDetailsFilled) {
-            const { phone, organization_name } = user.basic_details.associate_details;
+            const { phone, organization_name } = user.basic_details.distiller_details;
 
             await smsService.sendWelcomeSMSForAssociate(phone, organization_name, user.user_code);
             await user.updateOne({ is_sms_send: true });
@@ -329,7 +335,7 @@ module.exports.editOnboarding = async (req, res) => {
     }
 }
 
-  module.exports.associateBulkuplod = async (req, res) => {
+  module.exports.distillerBulkuplod = async (req, res) => {
     try {
         const { isxlsx = 1 } = req.body;
         const [file] = req.files;
@@ -419,14 +425,14 @@ module.exports.editOnboarding = async (req, res) => {
             if (errors.length > 0) return { success: false, errors };
 
             try {
-                let existingRecord = await Distiller.findOne({ 'basic_details.associate_details.phone': mobile_no });
+                let existingRecord = await Distiller.findOne({ 'basic_details.distiller_details.phone': mobile_no });
                 if (existingRecord) {
                     return { success: false, errors: [{ record: rec, error: `Associate with Mobile No. ${mobile_no} already registered.` }] };
                 } else {
                     const newUser = new Distiller({ 
                         client_id: '9876',
                         basic_details: {
-                            associate_details: {
+                            distiller_details: {
                                 phone: mobile_no,
                                 associate_type,
                                 email,
