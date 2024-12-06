@@ -1003,7 +1003,7 @@ module.exports.payFarmers = async (req, res) => {
     }
     const farmersBill = await Payment.find(query).populate({ path: "farmer_id", select: "name farmer_id bank_details" })
 
-    await Batch.updateMany({ _id: { $in: batchIds } }, { status: 'Payment In Progress' });
+    // await Batch.updateMany({ _id: { $in: batchIds } }, { status: 'Payment In Progress' });
 
     if (!farmersBill) {
       return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
