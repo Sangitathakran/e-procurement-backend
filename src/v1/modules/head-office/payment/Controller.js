@@ -1003,7 +1003,7 @@ module.exports.payFarmers = async (req, res) => {
     }
     const farmersBill = await Payment.find(query).populate({ path: "farmer_id", select: "name farmer_id bank_details" })
 
-    await Batch.updateMany({ _id: { $in: batchIds } }, { status: 'Payment In Progress' });
+    // await Batch.updateMany({ _id: { $in: batchIds } }, { status: 'Payment In Progress' });
 
     if (!farmersBill) {
       return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
@@ -1195,6 +1195,10 @@ module.exports.payFarmers = async (req, res) => {
 
       await FarmerPaymentFile.create(FarmerPaymentFilePayload)
       // return res.status(200).send(response.data);
+
+      const farmerIds = farmersBill.map(item=> item._id)
+      await Payment.updateMany({ _id: { $in: farmerIds } }, { status: _paymentstatus.inProgress });
+
       await Batch.updateMany({ _id: { $in: batchIds } }, { status: 'Payment In Progress' });
       return res
         .status(200)
@@ -1235,7 +1239,7 @@ module.exports.payAgent = async (req, res) => {
       ho_approve_status: _paymentApproval.approved,
 
       // only the unpaid agent bill will be paid by this
-      payment_status: { $in: [_paymentstatus.failed, _paymentstatus.pending] }
+      payment_status:  _paymentstatus.pending 
     }
 
     const agentBill = await AgentInvoice.findOne(query).populate('agent_id')
@@ -1336,7 +1340,7 @@ module.exports.payAgent = async (req, res) => {
 
       const agentPaymentFilePayload = new AgentPaymentFile(agentPaymentFileData)
       await agentPaymentFilePayload.save()
-      await AgentInvoice.findOneAndUpdate({ _id: agencyInvoiceId }, { $inc: { bankfileLastNumber: 1 } })
+      await AgentInvoice.findOneAndUpdate({ _id: agencyInvoiceId }, { $set: { payment_status: _paymentstatus.inProgress } })
       // return res.status(200).send(response.data);
       return res
         .status(200)

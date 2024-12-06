@@ -12,7 +12,7 @@ paymentRoutes.get("/lot-list", Auth, lot_list);
 paymentRoutes.get("/qc-report", Auth, qcReport);
 paymentRoutes.get("/approved-batch-list", Auth, approvedBatchList);
 
-paymentRoutes.post("/pay-farmers", payFarmers)
+paymentRoutes.post("/pay-farmers", Auth, payFarmers)
 
 
 
