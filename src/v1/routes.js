@@ -16,6 +16,7 @@ const { farmerRoutes } = require("./modules/farmer/Routes");
 const { authRoutes } = require("./modules/auth/routes");
 const { userManagementRoutes } = require("./modules/user-management/Routes")
 const { FeatureRoutes } = require("@src/v1/modules/Features/Routes")
+const { distillerRoutes } = require("./modules/distiller/Routes");
 
 /* Define Your Routes */
 router.use(handlePagination)
@@ -31,7 +32,7 @@ router.use('/helper', helperRoutes)
 
 router.use('/user', userManagementRoutes)
 
-
+router.use("/distiller", distillerRoutes);
 router.use("/associate", associateRoutes);
 router.use("/farmer", farmerRoutes);
 router.use("/ho", headOfficeRoutes);

@@ -41,6 +41,7 @@ const FarmerPaymentFileSchema = new mongoose.Schema({
         LIQ_STATUS: { type: String },
         ADDR_5: { type: String },
         UTR_SR_NO: { type: String },
+        SENDER_TO_RECEIVER_INFO1: {type: String},
         INST_DATE: { type: String },
         PRODUCT_CODE: { type: String },
         PAYMENT_REF: { type: String }
@@ -80,4 +81,4 @@ FarmerPaymentFileSchema.post('save', async function (doc) {
     
 const FarmerPaymentFile = mongoose.model(_collectionName.FarmerPaymentFile, FarmerPaymentFileSchema);
 
-module.exports = { FarmerPaymentFile } 
+module.exports = { FarmerPaymentFile }
