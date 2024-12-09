@@ -52,7 +52,7 @@ exports.verifyDistiller = asyncErrorHandler(async (req, res, next) => {
         if (req.url === '/onboarding' || req.url === '/onboarding-status' || req.url === '/find-user-status' || req.url === '/final-submit') {
             next();
         } else if (userExist.is_approved == _userStatus.approved) {
-            if (decodedToken.user_type != _userType.associate) {
+            if (decodedToken.user_type != _userType.distiller) {
                 return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
             }
             next();
