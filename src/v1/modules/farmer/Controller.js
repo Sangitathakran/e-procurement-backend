@@ -2454,25 +2454,25 @@ module.exports.editFarmerDocument = async (req, res) => {
       );
     }
 
-    const existingLand = await Land.find({ farmer_id: farmer_id });
-    if (!existingLand.length) {
-      return res.status(404).send(
-        new serviceResponse({
-          status: 404,
-          errors: [{ message: _response_message.notFound("land") }],
-        })
-      );
-    }
+    // const existingLand = await Land.find({ farmer_id: farmer_id });
+    // if (!existingLand.length) {
+    //   return res.status(404).send(
+    //     new serviceResponse({
+    //       status: 404,
+    //       errors: [{ message: _response_message.notFound("land") }],
+    //     })
+    //   );
+    // }
 
-    const existingCrop = await Crop.find({ farmer_id: farmer_id });
-    if (!existingCrop.length) {
-      return res.status(404).send(
-        new serviceResponse({
-          status: 404,
-          errors: [{ message: _response_message.notFound("crop") }],
-        })
-      );
-    }
+    // const existingCrop = await Crop.find({ farmer_id: farmer_id });
+    // if (!existingCrop.length) {
+    //   return res.status(404).send(
+    //     new serviceResponse({
+    //       status: 404,
+    //       errors: [{ message: _response_message.notFound("crop") }],
+    //     })
+    //   );
+    // }
 
     // Update fields conditionally
     if (farmer_type) {
