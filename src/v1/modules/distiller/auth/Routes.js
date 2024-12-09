@@ -1,5 +1,5 @@
 const { sendOtp, loginOrRegister, saveDistillerDetails, onboardingStatus, formPreview, findUserStatus, finalFormSubmit, editOnboarding, distillerBulkuplod } = require("./Controller")
-const { validateForm } = require("@src/v1/modules/associate/auth/Validation")
+const { validateForm } = require("@src/v1/modules/distiller/auth/Validation")
 const express = require("express");
 const { verifyDistiller } = require("../utils/verifyDistiller");
 const distillerAuthRoutes = express.Router();

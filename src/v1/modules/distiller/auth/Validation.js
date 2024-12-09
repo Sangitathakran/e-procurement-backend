@@ -157,18 +157,18 @@ const authorisedSchema = Joi.object({
         'string.empty': _middleware.require('Email'),
         'string.email': _response_message.invalid('email format'),
     }),
-    // aadhar_number: Joi.string().trim().pattern(/^\d{12}$/).messages({
-    //     'string.empty': _middleware.require('aadhar_number'),
-    //     'string.pattern.base': _response_message.invalid('Aadhar number'),
-    // }),
-    // aadhar_certificate: {
-    //     front: Joi.string().messages({
-    //         'string.empty': _middleware.require('Aadhar Front Image'),
-    //     }),
-    //     back: Joi.string().messages({
-    //         'string.empty': _middleware.require('Aadhar back Image'),
-    //     }),
-    // },
+    aadhar_number: Joi.string().trim().pattern(/^\d{12}$/).messages({
+        'string.empty': _middleware.require('aadhar_number'),
+        'string.pattern.base': _response_message.invalid('Aadhar number'),
+    }),
+    aadhar_certificate: {
+        front: Joi.string().messages({
+            'string.empty': _middleware.require('Aadhar Front Image'),
+        }),
+        back: Joi.string().messages({
+            'string.empty': _middleware.require('Aadhar back Image'),
+        }),
+    },
     pan_card: Joi.string().trim().pattern(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/).optional().messages({
         'string.pattern.base': _response_message.invalid('PAN card'),
     }),
