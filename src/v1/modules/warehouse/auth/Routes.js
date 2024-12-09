@@ -3,12 +3,13 @@ const { sendOtp, loginOrRegister, saveWarehouseDetails, onboardingStatus, formPr
 const express = require("express");
 // const { verifyAssociate } = require("../utils/verifyAssociate");
 const wareHouseAuthRoutes = express.Router();
+const { Auth } = require("@src/v1/middlewares/jwt")
 
 wareHouseAuthRoutes.post("/send-otp", sendOtp);
 wareHouseAuthRoutes.post("/register-login", loginOrRegister);
 wareHouseAuthRoutes.put("/onboarding", saveWarehouseDetails);
-wareHouseAuthRoutes.get("/onboarding", formPreview);
-wareHouseAuthRoutes.get("/onboarding-status", onboardingStatus);
+wareHouseAuthRoutes.get("/onboarding", Auth, formPreview);
+wareHouseAuthRoutes.get("/onboarding-status", Auth, onboardingStatus);
 wareHouseAuthRoutes.get("/find-user-status", findUserStatus);
 wareHouseAuthRoutes.patch("/final-submit", finalFormSubmit);
 

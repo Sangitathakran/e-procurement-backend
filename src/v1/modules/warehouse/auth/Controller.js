@@ -204,7 +204,6 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
 
 module.exports.formPreview = async (req, res) => {
     try {
-        console.log(req)
         const { user_id } = req;
         if (!user_id) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
