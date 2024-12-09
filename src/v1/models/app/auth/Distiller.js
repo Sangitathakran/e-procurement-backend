@@ -126,4 +126,4 @@ distillerSchema.pre('save', async function (next) {
 const Distiller = mongoose.model(_collectionName.Distiller, distillerSchema);
 
 
-module.exports = { Distiller,ManufactureingUnit }
+module.exports = { Distiller }
