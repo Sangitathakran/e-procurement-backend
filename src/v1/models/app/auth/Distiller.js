@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const { _collectionName, _userType, _trader_type, _userStatus } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
-const { string } = require('joi');
 const distillerSchema = new mongoose.Schema({
 
     client_id: { type: String, required: true, trim: true, },
@@ -125,4 +124,6 @@ distillerSchema.pre('save', async function (next) {
 });
 
 const Distiller = mongoose.model(_collectionName.Distiller, distillerSchema);
-module.exports = { Distiller }
+
+
+module.exports = { Distiller,ManufactureingUnit }

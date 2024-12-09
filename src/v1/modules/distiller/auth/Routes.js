@@ -14,4 +14,4 @@ distillerAuthRoutes.patch("/final-submit", verifyDistiller, finalFormSubmit);
 
 distillerAuthRoutes.get("/editOnboarding", verifyDistiller, editOnboarding);
 distillerAuthRoutes.post("/associate-bulkuplod", distillerBulkuplod);
-module.exports = { distillerAuthRoutes }; 
+module.exports = { distillerAuthRoutes } ; 

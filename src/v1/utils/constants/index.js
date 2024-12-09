@@ -42,7 +42,10 @@ const _collectionName = {
     AgentInvoice: "AgentInvoice",
     AgentPaymentFile: "AgentPaymentFile",
     FarmerPaymentFile: "FarmerPaymentFile",
-    Distiller: "Distiller"
+    Distiller: "Distiller",
+    ManufacturingUnit:"ManufacturingUnit",
+    StorageFacility:"StorageFacility"
+
 }
 
 const _userType_Feature_Collection = {
