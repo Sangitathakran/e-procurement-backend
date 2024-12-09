@@ -4,10 +4,10 @@ const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const manufacturingUnitSchema = new mongoose.Schema({
     distiller_id: { type: mongoose.Schema.Types.ObjectId,   ref: _collectionName.Distiller, },
-    address_line1: { type: String,  trim: true },
-    address_line2: { type: String,  trim: true },
-    state: { type: String,  trim: true }, 
-    district: {type: String,  trim: true }, 
+    manufacturing_address_line1: { type: String,  trim: true },
+    manufacturing_address_line2: { type: String,  trim: true },
+    manufacturing_state: { type: String,  trim: true }, 
+    manufacturing_district: {type: String,  trim: true }, 
     production_capacity: {
         value: { type: Number, }, 
         unit: { type: String, enum: ['Ltr', 'Kg', 'Ton'], }
@@ -16,5 +16,6 @@ const manufacturingUnitSchema = new mongoose.Schema({
     supply_chain_capabilities: { type: String, trim: true }, 
     ..._commonKeys
 }, { timestamps: true });
+
 const ManufacturingUnit = mongoose.model(_collectionName.ManufacturingUnit, manufacturingUnitSchema);
-module.exports = { Distiller,ManufacturingUnit }
+module.exports = { ManufacturingUnit }
