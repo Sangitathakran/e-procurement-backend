@@ -125,9 +125,4 @@ distillerSchema.pre('save', async function (next) {
 });
 
 const Distiller = mongoose.model(_collectionName.Distiller, distillerSchema);
-<<<<<<< HEAD
-
-
-=======
->>>>>>> d0d55131b6a0004ea77cbbdc0fb8ac87cabe46c4
 module.exports = { Distiller }
