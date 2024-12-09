@@ -287,36 +287,36 @@ module.exports.finalFormSubmit = async (req, res) => {
         }
         const decode = await decryptJwtToken(getToken);
         const userId = decode.data.user_id;
-        const user = await Distiller.findById(userId);
-        if (!user) {
+        const distiller = await Distiller.findById(userId);
+        if (!distiller) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         }
 
-        user.is_form_submitted = true;
+        distiller.is_form_submitted = true;
 
         const allDetailsFilled = (
-            user?.basic_details?.distiller_details?.organization_name &&
-            user?.basic_details?.point_of_contact?.name &&
-            user?.address?.registered?.line1 &&
-            user?.company_details?.cin_number &&
-            user?.authorised?.name &&
-            user?.bank_details?.account_number
+            distiller?.basic_details?.distiller_details?.organization_name &&
+            distiller?.basic_details?.point_of_contact?.name &&
+            distiller?.address?.registered?.line1 &&
+            distiller?.company_details?.cin_number &&
+            distiller?.authorised?.name &&
+            distiller?.bank_details?.account_number
         );
 
-        if (!user.is_welcome_email_send && allDetailsFilled) {
-            await emailService.sendWelcomeEmail(user);
-            user.is_welcome_email_send = true;
+        if (!distiller.is_welcome_email_send && allDetailsFilled) {
+            await emailService.sendWelcomeEmail(distiller);
+            distiller.is_welcome_email_send = true;
             await distiller.save();
         }
 
-        if (!user.is_sms_send && allDetailsFilled) {
-            const { phone, organization_name } = user.basic_details.distiller_details;
+        if (!distiller.is_sms_send && allDetailsFilled) {
+            const { phone, organization_name } = distiller.basic_details.distiller_details;
 
-            await smsService.sendWelcomeSMSForAssociate(phone, organization_name, user.user_code);
-            await user.updateOne({ is_sms_send: true });
+            await smsService.sendWelcomeSMSForAssociate(phone, organization_name, distiller.user_code);
+            await distiller.updateOne({ is_sms_send: true });
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, message: _query.update("data"), data: user.is_form_submitted }));
+        return res.status(200).send(new serviceResponse({ status: 200, message: _query.update("data"), data: distiller.is_form_submitted }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -326,6 +326,7 @@ module.exports.finalFormSubmit = async (req, res) => {
 module.exports.editOnboarding = async (req, res) => {
     try {
         const { user_id } = req;
+        console.log(user_id);
         if (!user_id) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
         }

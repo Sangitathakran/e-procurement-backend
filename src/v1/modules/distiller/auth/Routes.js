@@ -13,5 +13,5 @@ distillerAuthRoutes.get("/find-user-status", verifyDistiller, findUserStatus);
 distillerAuthRoutes.patch("/final-submit", verifyDistiller, finalFormSubmit);
 
 distillerAuthRoutes.get("/editOnboarding", verifyDistiller, editOnboarding);
-distillerAuthRoutes.post("/associate-bulkuplod", distillerBulkuplod);
+distillerAuthRoutes.post("/distiller-bulkuplod", distillerBulkuplod);
 module.exports = { distillerAuthRoutes } ; 
