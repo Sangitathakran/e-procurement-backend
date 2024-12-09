@@ -6,8 +6,8 @@ const storageFacility = new mongoose.Schema({
     distiller_id: { type: mongoose.Schema.Types.ObjectId,required:true, ref: _collectionName.Distiller, },
     address_line1: { type: String,  trim: true },
     address_line2: { type: String,  trim: true },
-    state: { type: mongoose.Schema.Types.ObjectId, ref: 'StateDistrictCity', }, 
-    district: { type: mongoose.Schema.Types.ObjectId, ref: 'StateDistrictCity.districts', }, 
+    state: {type: String,  trim: true }, 
+    district: {type: String,  trim: true }, 
     storage_capacity: {
         value: { type: Number, }, 
         unit: { type: String, enum: ['Ltr', 'Kg', 'Ton'], }

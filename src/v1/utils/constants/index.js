@@ -43,7 +43,7 @@ const _collectionName = {
     AgentPaymentFile: "AgentPaymentFile",
     FarmerPaymentFile: "FarmerPaymentFile",
     Distiller: "Distiller",
-    ManufactureingUnit:"ManufactureingUnit",
+    ManufacturingUnit:"ManufacturingUnit",
     StorageFacility:"StorageFacility"
 
 }
