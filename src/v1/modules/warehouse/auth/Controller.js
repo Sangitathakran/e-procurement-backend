@@ -196,7 +196,6 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
     const data = [
         { label: "Company Details", status: record?.companyDetails?.name ? "completed" : "pending" },
         { label: "Owner Details", status: record?.ownerDetails ? "completed" : "pending" },
-        { label: "Authorised Person", status: record.authorised ? "completed" : "pending" },
         { label: "Bank Details", status: record.bankDetails ? "completed" : "pending" },
     ];
     return res.status(200).send(new serviceResponse({ status: 200, data, message: _response_message.found("status") }));
