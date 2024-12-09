@@ -187,6 +187,13 @@ module.exports.saveDistillerDetails = async (req, res) => {
                     ...formData
                 };
                 break;
+
+                case 'manufactoring_details':
+               
+                break;
+                case 'storage_details':
+                
+                break;
             case 'authorised':
                 distiller.authorised = {
                     ...distiller.authorised,
