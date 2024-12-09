@@ -6,10 +6,9 @@ const distillerSchema = new mongoose.Schema({
 
     client_id: { type: String, required: true, trim: true, },
     basic_details: {
-        associate_details: {
+        distiller_details: {
             associate_type: { type: String, enum: Object.values(_trader_type), default: _trader_type.ORGANISATION },
             organization_name: { type: String, trim: true, },
-            associate_name: { type: String, trim: true, },
             email: { type: String, trim: true, lowercase: true, },
             phone: { type: String, trim: true, },
             company_logo: { type: String, trim: true, },
@@ -68,11 +67,6 @@ const distillerSchema = new mongoose.Schema({
         tan_image: { type: String, trim: true, },
         pan_card: { type: String, trim: true, },
         pan_image: { type: String, trim: true, },
-        aadhar_number: { type: String, trim: true, },
-        aadhar_certificate: {
-            front: { type: String, trim: true },
-            back: { type: String, trim: true },
-        },
         gst_no: { type: String, trim: true, },
         pacs_reg_date: { type: String, trim: true, },
     },
@@ -110,6 +104,7 @@ const distillerSchema = new mongoose.Schema({
     active: { type: Boolean, default: true },
     ..._commonKeys
 }, { timestamps: true });
+
 distillerSchema.pre('save', async function (next) {
     if (!this.isNew) return next();
     const Distiller = mongoose.model(_collectionName.Distiller, distillerSchema);
@@ -126,5 +121,6 @@ distillerSchema.pre('save', async function (next) {
         next(err);
     }
 });
+
 const Distiller = mongoose.model(_collectionName.Distiller, distillerSchema);
 module.exports = { Distiller }

@@ -1,17 +1,17 @@
-const { sendOtp, loginOrRegister, saveAssociateDetails, onboardingStatus, formPreview, findUserStatus, finalFormSubmit, editOnboarding, associateBulkuplod } = require("./Controller")
-const { validateForm } = require("@src/v1/modules/associate/auth/Validation")
+const { sendOtp, loginOrRegister, saveDistillerDetails, onboardingStatus, formPreview, findUserStatus, finalFormSubmit, editOnboarding, distillerBulkuplod } = require("./Controller")
+const { validateForm } = require("@src/v1/modules/distiller/auth/Validation")
 const express = require("express");
-const { verifyAssociate } = require("../utils/verifyAssociate");
+const { verifyDistiller } = require("../utils/verifyDistiller");
 const distillerAuthRoutes = express.Router();
 
 distillerAuthRoutes.post("/send-otp", sendOtp);
 distillerAuthRoutes.post("/register-login", loginOrRegister);
-distillerAuthRoutes.put("/onboarding", verifyAssociate, validateForm, saveAssociateDetails);
-distillerAuthRoutes.get("/onboarding", verifyAssociate, formPreview);
-distillerAuthRoutes.get("/onboarding-status", verifyAssociate, onboardingStatus);
-distillerAuthRoutes.get("/find-user-status", verifyAssociate, findUserStatus);
-distillerAuthRoutes.patch("/final-submit", verifyAssociate, finalFormSubmit);
+distillerAuthRoutes.put("/onboarding", verifyDistiller, validateForm, saveDistillerDetails);
+distillerAuthRoutes.get("/onboarding", verifyDistiller, formPreview);
+distillerAuthRoutes.get("/onboarding-status", verifyDistiller, onboardingStatus);
+distillerAuthRoutes.get("/find-user-status", verifyDistiller, findUserStatus);
+distillerAuthRoutes.patch("/final-submit", verifyDistiller, finalFormSubmit);
 
-distillerAuthRoutes.get("/editOnboarding", verifyAssociate, editOnboarding);
-distillerAuthRoutes.post("/associate-bulkuplod", associateBulkuplod);
+distillerAuthRoutes.get("/editOnboarding", verifyDistiller, editOnboarding);
+distillerAuthRoutes.post("/associate-bulkuplod", distillerBulkuplod);
 module.exports = { distillerAuthRoutes }; 
