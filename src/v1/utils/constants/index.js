@@ -29,6 +29,7 @@ const _collectionName = {
     Payment: "Payment",
     Branch: "Branch",
     DummyWarehouse: "DummyWarehouse",
+    Warehouse: "Warehouse",
     FarmerOrder: "FarmerOrder",
     PaymentLog: "PaymentLog",
     FeatureList: "FeatureList",  // need to change to Features
@@ -170,6 +171,7 @@ const _userType = {
     associate: "4",
     farmer: "5",
     agent: "6",
+    warehouse: "7",
     distiller: "8",
 }
 
@@ -344,7 +346,7 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
-    failed:"Failed",
+    failed: "Failed",
     completed: "Completed",
     rejected: "Rejected"
 }
