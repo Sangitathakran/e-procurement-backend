@@ -140,19 +140,7 @@ const companyDetailsSchema = Joi.object({
         'string.empty': _middleware.require('PAN card'),
         'string.pattern.base': _response_message.invalid('PAN card format'),
     }),
-    pan_image: Joi.string().trim().optional(),
-    aadhar_number: Joi.string().trim().required().pattern(/^\d{12}$/).messages({
-        'string.empty': _middleware.require('Aadhar number'),
-        'string.pattern.base': _response_message.invalid('Aadhar number format'),
-    }),
-    aadhar_certificate: {
-        front: Joi.string().required().messages({
-            'string.empty': _middleware.require('Aadhar Front Image'),
-        }),
-        back: Joi.string().required().messages({
-            'string.empty': _middleware.require('Aadhar back Image'),
-        }),
-    }
+    pan_image: Joi.string().trim().optional()
 });
 
 const authorisedSchema = Joi.object({
@@ -169,15 +157,15 @@ const authorisedSchema = Joi.object({
         'string.empty': _middleware.require('Email'),
         'string.email': _response_message.invalid('email format'),
     }),
-    aadhar_number: Joi.string().trim().pattern(/^\d{12}$/).required().messages({
+    aadhar_number: Joi.string().trim().pattern(/^\d{12}$/).messages({
         'string.empty': _middleware.require('aadhar_number'),
         'string.pattern.base': _response_message.invalid('Aadhar number'),
     }),
     aadhar_certificate: {
-        front: Joi.string().required().messages({
+        front: Joi.string().messages({
             'string.empty': _middleware.require('Aadhar Front Image'),
         }),
-        back: Joi.string().required().messages({
+        back: Joi.string().messages({
             'string.empty': _middleware.require('Aadhar back Image'),
         }),
     },
