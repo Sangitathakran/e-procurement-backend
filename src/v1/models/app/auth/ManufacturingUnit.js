@@ -16,5 +16,6 @@ const manufacturingUnitSchema = new mongoose.Schema({
     supply_chain_capabilities: { type: String, trim: true }, 
     ..._commonKeys
 }, { timestamps: true });
+
 const ManufacturingUnit = mongoose.model(_collectionName.ManufacturingUnit, manufacturingUnitSchema);
 module.exports = { ManufacturingUnit }
