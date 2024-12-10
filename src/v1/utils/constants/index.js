@@ -29,7 +29,8 @@ const _collectionName = {
     Payment: "Payment",
     Branch: "Branch",
     DummyWarehouse: "DummyWarehouse",
-    Warehouse: "Warehouse",
+    Warehouse: "WarehouseV2",
+    WarehouseDetails: "WarehouseDetails",
     FarmerOrder: "FarmerOrder",
     PaymentLog: "PaymentLog",
     FeatureList: "FeatureList",  // need to change to Features
