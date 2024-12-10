@@ -220,7 +220,6 @@ module.exports.saveDistillerDetails = async (req, res) => {
     }
 };
 
-
 module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
     const { user_id } = req;
     let record = await Distiller.findOne({ _id: user_id }).lean();
@@ -238,7 +237,6 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
     ];
     return res.status(200).send(new serviceResponse({ status: 200, data, message: _response_message.found("status") }));
 })
-
 
 module.exports.formPreview = async (req, res) => {
     try {
@@ -583,6 +581,7 @@ module.exports.updateManufacturingUnit = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
 module.exports.getManufacturingUnit = async (req, res) => {
     try {
         const { id, page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
@@ -673,6 +672,7 @@ module.exports.deleteManufacturingUnit = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
 module.exports.updateStorageFacility = async (req, res) => {
     try {
         const { distiller_id, id, ...data } = req.body;
@@ -835,4 +835,3 @@ module.exports.deleteStorageFacility = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
-

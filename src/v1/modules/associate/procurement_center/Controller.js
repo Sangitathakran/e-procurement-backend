@@ -291,6 +291,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
     }
 };
 
+/*
 module.exports.generateCenterCode = async (req, res) => {
     try {
         const lastCenter = await ProcurementCenter.findOne({ center_code: { $exists: true } }).sort({ center_code: -1 });
@@ -308,4 +309,37 @@ module.exports.generateCenterCode = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+*/
 
+module.exports.generateCenterCode = async (req, res) => {
+    try {
+        let CenterCode = '';
+        let isUnique = false;
+
+        // Get the last center code and generate the next one
+        const lastCenter = await ProcurementCenter.findOne({ center_code: { $exists: true } }).sort({ center_code: -1 });
+        
+        if (lastCenter && lastCenter.center_code) {
+            const lastCodeNumber = parseInt(lastCenter.center_code.slice(2), 10);
+            CenterCode = 'CC' + String(lastCodeNumber + 1).padStart(5, '0');
+        } else {
+            CenterCode = 'CC00001';
+        }
+
+        // Check uniqueness and regenerate if needed
+        while (!isUnique) {
+            const existingCenter = await ProcurementCenter.findOne({ center_code: CenterCode });
+            if (!existingCenter) {
+                isUnique = true; // No conflict found, code is unique
+            } else {
+                // Increment the number and regenerate CenterCode
+                const currentCodeNumber = parseInt(CenterCode.slice(2), 10);
+                CenterCode = 'CC' + String(currentCodeNumber + 1).padStart(5, '0');
+            }
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: { CenterCode }, message: _response_message.found("next center code") }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
