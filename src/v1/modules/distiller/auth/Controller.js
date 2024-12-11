@@ -16,6 +16,7 @@ const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const { ManufacturingUnit } = require('@src/v1/models/app/auth/ManufacturingUnit');
 const { StorageFacility } = require('@src/v1/models/app/auth/storageFacility');
+const { StateDistrictCity } = require('@src/v1/models/master/StateDistrictCity');
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
 
@@ -190,11 +191,10 @@ module.exports.saveDistillerDetails = async (req, res) => {
                 };
                 break;
 
-            case 'manufactoring_details':
-
-                break;
-            case 'storage_details':
-
+            case 'manufactoring_storage':
+                distiller.manufactoring_storage={
+                   ...formData.manufactoring_storage
+                }
                 break;
             case 'authorised':
                 distiller.authorised = {
@@ -602,6 +602,62 @@ module.exports.getManufacturingUnit = async (req, res) => {
         }
         const query = { 'distiller_id': id }
         const records = { count: 0 };
+        const getState = async (stateId) => {
+            try {
+                if (!stateId) return "";
+
+                const state = await StateDistrictCity.findOne(
+                    { "states": { $elemMatch: { "_id": stateId.toString() } } },
+                    { "states.$": 1 }
+                );
+
+                return {manufacturing_state:state?.states[0]?.state_title,
+                      manufacturing_state_id:state?.states[0]?._id
+                };
+            } catch (error) {
+                console.error('Error in getState:', error);
+                return "";
+            }
+        };
+
+        const getDistrict = async (districtId, stateId) => {
+            try {
+                if (!districtId || !stateId) return "";
+
+                const state = await StateDistrictCity.findOne(
+                    { "states": { $elemMatch: { "_id": stateId.toString() } } },
+                    { "states.$": 1 }
+                );
+
+                const district = state?.states[0]?.districts?.find(
+                    item => item?._id.toString() === districtId.toString()
+                );
+
+                return {manufacturing_district:district.district_title,
+                    manufacturing_district_id:district._id,
+                 };
+            } catch (error) {
+                console.error('Error in getDistrict:', error);
+                return "";
+            }
+        };
+        const getAddress = async (item) => {
+            try {
+                const state = await getState(item.manufacturing_state);
+                const district = await getDistrict(item.manufacturing_district, item.manufacturing_state);
+
+                return {
+                    ...state,
+                    ...district
+                };
+            } catch (error) {
+                console.error('Error in getAddress:', error);
+                return {
+                    country: "",
+                    state: ""
+                };
+            }
+        };
 
         records.rows = paginate == 1 ? await ManufacturingUnit.find(query)
             .sort(sortBy)
@@ -609,6 +665,7 @@ module.exports.getManufacturingUnit = async (req, res) => {
             .limit(parseInt(limit))
             : await ManufacturingUnit.find(query).sort(sortBy)
 
+       
         if (!records?.rows?.length === 0) {
             return sendResponse({
                 res,
@@ -616,7 +673,21 @@ module.exports.getManufacturingUnit = async (req, res) => {
                 message: _response_message.notFound("Manufacturing Unit"),
             });
         }
-
+        const data = await Promise.all(records.rows.map(async (item) => {
+            let address = await getAddress(item);
+           
+            return {
+                _id:item?._id,
+                distiller_id: item.distiller_id,
+                manufacturing_address_line1: item.manufacturing_address_line1,
+                manufacturing_address_line2: item.manufacturing_address_line2,
+                production_capacity: {value: item.production_capacity?.value, unit:item.production_capacity?.unit},
+                product_produced: item?.product_produced,
+                supply_chain_capabilities: item?.supply_chain_capabilities,
+            ...address
+            };
+        }));
+        records.rows=data
         records.count = await ManufacturingUnit.countDocuments(query);
 
         if (paginate == 1) {
@@ -775,7 +846,76 @@ module.exports.getStorageFacility = async (req, res) => {
                 message: _response_message.notFound("Storage Facility"),
             });
         }
+         const getState = async (stateId) => {
+            try {
+                if (!stateId) return "";
 
+                const state = await StateDistrictCity.findOne(
+                    { "states": { $elemMatch: { "_id": stateId.toString() } } },
+                    { "states.$": 1 }
+                );
+
+                return {storage_state:state?.states[0]?.state_title,
+                    storage_state_id:state?.states[0]?._id
+                };
+            } catch (error) {
+                console.error('Error in getState:', error);
+                return "";
+            }
+        };
+
+        const getDistrict = async (districtId, stateId) => {
+            try {
+                if (!districtId || !stateId) return "";
+
+                const state = await StateDistrictCity.findOne(
+                    { "states": { $elemMatch: { "_id": stateId.toString() } } },
+                    { "states.$": 1 }
+                );
+
+                const district = state?.states[0]?.districts?.find(
+                    item => item?._id.toString() === districtId.toString()
+                );
+
+                return {storage_district:district.district_title,
+                    storage_district_id:district._id,
+                 };
+            } catch (error) {
+                console.error('Error in getDistrict:', error);
+                return "";
+            }
+        };
+        const getAddress = async (item) => {
+            try {
+                const state = await getState(item.storage_state);
+                const district = await getDistrict(item.storage_district, item.storage_state);
+
+                return {
+                    ...state,
+                    ...district
+                };
+            } catch (error) {
+                console.error('Error in getAddress:', error);
+                return {
+                    country: "",
+                    state: ""
+                };
+            }
+        };
+        const data = await Promise.all(records.rows.map(async (item) => {
+            let address = await getAddress(item);
+           
+            return {
+                _id:item?._id,
+                distiller_id: item.distiller_id,
+                storage_address_line1: item.storage_address_line1,
+                storage_address_line2: item.storage_address_line2,
+                storage_capacity: {value: item.storage_capacity?.value, unit:item.storage_capacity?.unit},
+                storage_condition: item?.storage_condition,
+            ...address
+            };
+        }));
+        records.rows=data
         records.count = await StorageFacility.countDocuments(query);
 
         if (paginate == 1) {

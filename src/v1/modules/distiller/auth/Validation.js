@@ -9,6 +9,17 @@ const organizationSchema = Joi.object({
     }),
 });
 
+const manufactoringStorageSchema = Joi.object({
+    manufactoring_storage:Joi.object({
+        manufactoring_details: Joi.boolean().required().messages({
+            'string.empty': _middleware.require('Manufacturing Unit'),
+        }),
+        storage_details: Joi.boolean().required().messages({
+            'string.empty': _middleware.require('Storage Facility'),
+        })
+    })
+});
+
 const basicDetailsSchema = Joi.object({
     associate_details: Joi.object({
         associate_type: Joi.string().required().valid(...Object.values(_trader_type)).default(_trader_type.ORGANISATION),
@@ -224,6 +235,8 @@ function validateForm(req, res, next) {
             break;
         case 'bank_details':
             schema = bankDetailsSchema;
+        case 'manufactoring_storage':
+            schema = manufactoringStorageSchema;
             break;
         default:
             return res.status(400).send(new serviceResponse({ status: 400, errors: `Invalid form name: ${formName}` }));
