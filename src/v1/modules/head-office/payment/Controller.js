@@ -41,10 +41,10 @@ const path = require('path');
 
 module.exports.payment = async (req, res) => {
   try {
-    const { page, limit, skip, paginate = 1, sortBy, search = "", isExport=0 } = req.query;
+    let { page, limit, skip, paginate = 1, sortBy, search = "", isExport=0 } = req.query;
 
     // let query = search ? { reqNo: { $regex: search, $options: "i" } } : {};
-
+    limit = 50
     const { portalId, user_id } = req;
 
     const paymentIds = (
