@@ -8,7 +8,7 @@ const warehouseDetailsSchema = new mongoose.Schema({
         ref: 'WarehouseV2', // Reference to the parent schema
         required: true,
     },
-    warehouseIdentifier: { // Alternative name for warehouse_code
+    warehouseId: {
         type: String,
         unique: true,
         required: true,
@@ -72,7 +72,7 @@ const warehouseDetailsSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 warehouseDetailsSchema.pre('save', async function (next) {
-    if (this.isNew && !this.warehouseIdentifier) {
+    if (this.isNew && !this.warehouseId) {
         try {
             const lastWarehouse = await mongoose
                 .model(_collectionName.WarehouseDetails)
@@ -81,12 +81,12 @@ warehouseDetailsSchema.pre('save', async function (next) {
 
             let nextIdentifier = 'WH001';
 
-            if (lastWarehouse && lastWarehouse.warehouseIdentifier) {
-                const lastCodeNumber = parseInt(lastWarehouse.warehouseIdentifier.slice(2), 10);
+            if (lastWarehouse && lastWarehouse.warehouseId) {
+                const lastCodeNumber = parseInt(lastWarehouse.warehouseId.slice(2), 10);
                 nextIdentifier = 'WH' + String(lastCodeNumber + 1).padStart(3, '0');
             }
 
-            this.warehouseIdentifier = nextIdentifier;
+            this.warehouseId = nextIdentifier;
             next();
         } catch (err) {
             next(err);

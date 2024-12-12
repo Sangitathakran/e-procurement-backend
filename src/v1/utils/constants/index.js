@@ -360,6 +360,12 @@ const _paymentApproval = {
     rejected: "Rejected"
 }
 
+const _wareHouseApproval = {
+    pending: "Pending",
+    approved: "Approved",
+    rejected: "Rejected"
+}
+
 const received_qc_status = {
     accepted: "Accepted",
     rejected: "Rejected",
@@ -479,5 +485,6 @@ module.exports = {
     _frontendLoginRoutes,
     _userTypeFrontendRouteMapping,
     _billstatus,
-    _farmerOrderDeliverdStatus
+    _farmerOrderDeliverdStatus,
+    _wareHouseApproval
 }
