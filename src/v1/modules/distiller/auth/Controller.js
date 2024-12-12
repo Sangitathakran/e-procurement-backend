@@ -839,13 +839,13 @@ module.exports.getStorageFacility = async (req, res) => {
             ? await StorageFacility.find(query).sort(sortBy).skip(skip).limit(parseInt(limit))
             : await StorageFacility.find(query).sort(sortBy);
 
-        if (!records.rows?.length) {
-            return sendResponse({
-                res,
-                status: 404,
-                message: _response_message.notFound("Storage Facility"),
-            });
-        }
+        // if (!records.rows?.length) {
+        //     return sendResponse({
+        //         res,
+        //         status: 404,
+        //         message: _response_message.notFound("Storage Facility"),
+        //     });
+        // }
          const getState = async (stateId) => {
             try {
                 if (!stateId) return "";
