@@ -145,7 +145,6 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
     records.count = await RequestModel.countDocuments(query);
-
     if (paginate == 1) {
         records.page = page
         records.limit = limit
@@ -156,7 +155,10 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
     
     if (isExport == 1) {
 
-        const record = records.rows.map((item) => {
+        const allRecords = await RequestModel.find(query)
+        .sort(sortBy)
+        .populate({ path: "branch_id", select: "_id branchName branchId" });
+        const record = allRecords.map((item) => {
 
             return {
                 "Order Id": item?.reqNo || "NA",
