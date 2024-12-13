@@ -48,7 +48,6 @@ module.exports.getProcurement = asyncErrorHandler(
         const records = {};
         records.count = await RequestModel.countDocuments(query);
         records.rows = await RequestModel.aggregate(pipeline);
-       console.log("count",records.count);
 
         if (paginate == 1) {
             records.page = page;
