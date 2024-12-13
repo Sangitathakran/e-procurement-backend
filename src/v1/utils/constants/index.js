@@ -45,7 +45,8 @@ const _collectionName = {
     FarmerPaymentFile: "FarmerPaymentFile",
     Distiller: "Distiller",
     ManufacturingUnit:"ManufacturingUnit",
-    StorageFacility:"StorageFacility"
+    StorageFacility:"StorageFacility",
+    PurchaseOrder:"PurchaseOrder"
 
 }
 
@@ -427,6 +428,19 @@ const _userTypeFrontendRouteMapping = {
     "branch-office": "3"
 }
 
+const _poRequestStatus = {
+    pending: 'Pending',
+    approved: 'Approved',
+    reject:'Rejected'
+}
+
+const _poPaymentStatus = {
+    pending: 'paid',
+    approved: 'Unpaid',
+    reject:'Reject',
+    failed:'Failed'
+}
+
 module.exports = {
     _userAction,
     _farmerType,
@@ -481,5 +495,7 @@ module.exports = {
     _frontendLoginRoutes,
     _userTypeFrontendRouteMapping,
     _billstatus,
-    _farmerOrderDeliverdStatus
+    _farmerOrderDeliverdStatus,
+    _poRequestStatus,
+    _poPaymentStatus
 }
