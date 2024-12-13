@@ -760,14 +760,13 @@ module.exports.failedPaymentFarmer = async (req, res) => {
         }
 
         let query = {
-            _id: farmerOrderIdsOnly,
-            payment_status: { $in: [_paymentstatus.failed, _paymentstatus.rejected] },
+            _id: { $in: farmerOrderIdsOnly },
+            payment_status: _paymentstatus.rejected,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
         const records = { count: 0 };
-
-        records.rows = paginate == 1 ? await FarmerOrders.find(query).select({ _id: 0, total_amount: 1, FarmerName: 1, farmer_id: 1, net_pay: 1 }).populate({ path: 'farmer_id', select: 'name bank_details' })
+        records.rows = paginate == 1 ? await FarmerOrders.find(query).select({ _id: 1, total_amount: 1, FarmerName: 1, farmer_id: 1, net_pay: 1 }).populate({ path: 'farmer_id', select: 'name bank_details' })
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await FarmerOrders.find(query)
@@ -792,7 +791,6 @@ module.exports.failedPaymentFarmer = async (req, res) => {
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-
         if (records) {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
         }
