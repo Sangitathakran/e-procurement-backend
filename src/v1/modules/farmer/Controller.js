@@ -1835,20 +1835,32 @@ module.exports.exportFarmers = async (req, res) => {
     }
     let aggregationPipeline = [
       { $match: query },
+      { $unwind: { path: '$address.state_id', preserveNullAndEmptyArrays: true } },
+
       {
         $lookup: {
-          from: 'statedistrictcities',
-          localField: 'address.state_id',
-          foreignField: '_id',
+          from: 'statedistrictcities', 
+          let: { stateId: { $toObjectId: '$address.state_id' } },
+          pipeline: [
+            { $unwind: '$states' },
+            { $match: { $expr: { $eq: ['$states._id', '$$stateId'] } } },
+            { $project: { state_title: '$states.state_title', _id: 0 } } 
+          ],
           as: 'state'
         }
       },
       { $unwind: { path: '$state', preserveNullAndEmptyArrays: true } },
+    
       {
         $lookup: {
           from: 'statedistrictcities',
-          localField: 'address.district_id',
-          foreignField: '_id',
+          let: { districtId: { $toObjectId: '$address.district_id' } }, 
+          pipeline: [
+            { $unwind: '$states' },
+            { $unwind: '$states.districts' }, 
+            { $match: { $expr: { $eq: ['$states.districts._id', '$$districtId'] } } }, 
+            { $project: { district_title: '$states.districts.district_title', _id: 0 } }
+          ],
           as: 'district'
         }
       },
@@ -1889,7 +1901,6 @@ module.exports.exportFarmers = async (req, res) => {
       );
     }
     const farmersData = await farmer.aggregate(aggregationPipeline);
-
     const totalFarmersCount = await farmer.countDocuments(query);
 
     const records = {
@@ -1923,10 +1934,8 @@ module.exports.exportFarmers = async (req, res) => {
           "Aadhar Number": item?.proof?.aadhar_no || 'NA',
           "Address Line": item?.address?.address_line_1 || 'NA',
           "Country": item?.address?.country || 'NA',
-          "State": item?.address?.state_id?.state_title || 'NA',
-          "District": item?.address?.district_id?.district_title || 'NA',
-          "State": item?.address?.state_id?.state_title || item?.address?.state || 'NA',
-          "District": item?.address?.district_id?.district_title || item?.address?.district || 'NA',
+          "State": item?.state?.state_title || 'NA',
+          "District": item?.district?.district_title || 'NA',
           "Block": item?.address?.block || 'NA',
           "Tahshil": item?.address?.tahshil || 'NA',
           "Latitude": item?.address?.lat || 'NA',
@@ -1971,7 +1980,6 @@ module.exports.exportFarmers = async (req, res) => {
           "Crop Rotation": item?.crops?.crop_rotation || 'NA',
         };
       });
-
       if (record.length > 0) {
         dumpJSONToExcel(req, res, {
           data: record,
