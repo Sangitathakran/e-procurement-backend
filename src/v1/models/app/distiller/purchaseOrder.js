@@ -13,52 +13,49 @@ const purchaseOrderSchema = new mongoose.Schema({
     name: { type: String, required: true },
     grade: { type: String, required: false },
     grade_remark: { type: String, required: false },
-    quantity: { type: Number, required: true },
     msp: { type: Number, required: true },
     poQuantity: { type: Number, required: true },
     quantityDuration: { type: String, required: false }
   },
+
   manufacturingLocation: { type: String, required: true },
   storageLocation: { type: String, required: true },
-  totalAmount: { type: Number, required: true },
-  tokenAmount: { type: Number, required: true },
-  remainingAmount: { type: Number, required: true },
   deliveryLocation: { type: String, required: true },
-
-  companyDetails: {
-    companyName: { type: String, trim: true },
-    registeredAddress: { type: String, required: true },
-    phone: { type: String, required: true },
-    faxNo: { type: String, required: false },
-    email: { type: String, required: true },
-    pan: { type: String, required: true },
-    gstin: { type: String, required: true },
-    cin: { type: String, required: true }
-  },
-
-  purchasedOrder: {
-    poNo: { type: String },
-    poDate: { type: Date },
-    poQuantity: { type: Number },
-    poAmount: { type: Number },
-    poValidity: { type: Date }
-  },
 
   paymentInfo: {
     totalAmount: { type: Number, required: true }, // Assume this is calculated during the first step
     advancePayment: { type: Number, required: true }, // Auto-calculated: 3% of totalAmount
     advancePaymentDate: { type: Date },
-    advancePaymentUtrNo: { type: String, required: true },
-    balancePayment: { type: Number, required: true }, // Auto-calculated: 97% of totalAmount
+    advancePaymentUtrNo: { type: String },
+    balancePayment: { type: Number }, // Auto-calculated: 97% of totalAmount
     balancePaymentDate: { type: Date }
   },
 
+  companyDetails: {
+    companyName: { type: String, trim: true },
+    registeredAddress: { type: String },
+    phone: { type: String },
+    faxNo: { type: String },
+    email: { type: String },
+    pan: { type: String },
+    gstin: { type: String },
+    cin: { type: String }
+  },
+
+  purchasedOrder: {
+    poNo: { type: String },
+    poDate: { type: Date },
+    poQuantity: { type: Number, default: 0 },
+    poAmount: { type: Number, default: 0 },
+    poValidity: { type: Date }
+  },
+
   additionalDetails: {
-    indentNumber: { type: String, required: true },
-    indentDate: { type: Date, required: true },
-    referenceDate: { type: Date, required: true },
-    deliveryAddress: { type: String, required: true },
-    
+    indentNumber: { type: String },
+    indentDate: { type: Date },
+    referenceDate: { type: Date },
+    deliveryAddress: { type: String },
+
     contactPerson: {
       name: { type: String, trim: true },
       designation: { type: String, trim: true },
@@ -76,9 +73,9 @@ const purchaseOrderSchema = new mongoose.Schema({
       liftingSchedule: { type: String },
       maximumLiftingDistanceFromPlant: { type: Number },
       preferredPacking: { type: String },
-      liftingDate: { type: Date, required: true },
+      liftingDate: { type: Date },
     },
-    digitalSignature: { type: String, required: true }, // File path or encoded content
+    digitalSignature: { type: String }, // File path or encoded content
   },
 
   qualitySpecificationOfProduct: {
@@ -87,9 +84,10 @@ const purchaseOrderSchema = new mongoose.Schema({
   },
 
   termsAndConditions: {
-    accepted: { type: Boolean, required: true },
+    accepted: { type: Boolean, default: true },
   },
-  status: { type: String, enum: Object.values(_poRequestStatus), default: _poRequestStatus.pending },
+  
+  poStatus: { type: String, enum: Object.values(_poRequestStatus), default: _poRequestStatus.pending },
   payment_status: { type: String, enum: Object.values(_poPaymentStatus), default: _poPaymentStatus.pending },
 
   status: {
@@ -110,8 +108,6 @@ const purchaseOrderSchema = new mongoose.Schema({
   comments: [{ user_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true }, comment: { type: String, trim: true } }],
   updatedBy: { type: mongoose.Schema.Types.ObjectId, default: null },
   createdBy: { type: mongoose.Schema.Types.ObjectId, default: null },
-
-
   ..._commonKeys
 }, { timestamps: true });
 

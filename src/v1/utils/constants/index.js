@@ -428,7 +428,6 @@ const _userTypeFrontendRouteMapping = {
     "branch-office": "3"
 }
 
-
 const _poRequestStatus = {
     pending: 'Pending',
     approved: 'Approved',
