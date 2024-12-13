@@ -1,3 +1,5 @@
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 const exportTemplate = require("@src/v1/utils/constants/exportTemplate");
 const { _response_message } = require("@src/v1/utils/constants/messages");
@@ -104,4 +106,55 @@ exports.updateDistrictCollection = async (req, res) => {
     }
 }
 
+module.exports.stateFilter = async (req, res) => {
+    try {
+        const branches = await Branches.find()
+            .populate([
+                {
+                    path: "headOfficeId",
+                    select: { state: 1, address: 1 },
+                },
+            ])
+            .select("state district");
 
+        const uniqueStatesMap = new Map();
+
+        branches.forEach(branch => {
+            if (branch.state && !uniqueStatesMap.has(branch.state)) {
+                uniqueStatesMap.set(branch.state, {
+                    type: "branch",
+                    state: branch.state,
+                    district: branch.district,
+                });
+            }
+
+            // Add the headOfficeId state if it exists
+            if (branch.headOfficeId?.state && !uniqueStatesMap.has(branch.headOfficeId.state)) {
+                uniqueStatesMap.set(branch.headOfficeId.state, {
+                    type: "headOffice",
+                    state: branch.headOfficeId.state,
+                    address: branch.headOfficeId.address,
+                });
+            }
+        });
+        const uniqueData = Array.from(uniqueStatesMap.values());
+
+        sendResponse({ res, status: 200, message:_response_message.found("State"), data: uniqueData})
+    } catch (error) {
+        _handleCatchErrors(error, res);  
+    }
+};
+module.exports.getCommodity = async (req, res) => {
+    try {
+        const requests = await RequestModel.find({}, 'product.name');
+
+        const productNames = requests.map(request => (
+            {value:request.product.name,
+            label:request.product.name}
+        ));
+            sendResponse({res,status:200, message:_response_message.found("Commodity"),data:productNames})
+    } catch (error) {
+        // Handle any errors
+        _handleCatchErrors(error, res);   
+    }
+};
