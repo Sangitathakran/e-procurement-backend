@@ -1005,7 +1005,7 @@ module.exports.payFarmers = async (req, res) => {
 
     // await Batch.updateMany({ _id: { $in: batchIds } }, { status: 'Payment In Progress' });
 
-    if (!farmersBill) {
+    if (farmersBill.length < 1) {
       return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Bill') }] }));
     }
 
@@ -1196,10 +1196,18 @@ module.exports.payFarmers = async (req, res) => {
       await FarmerPaymentFile.create(FarmerPaymentFilePayload)
       // return res.status(200).send(response.data);
 
+      //updating payment collection payment status
       const farmerIds = farmersBill.map(item => item._id)
-      await Payment.updateMany({ _id: { $in: farmerIds } }, { status: _paymentstatus.inProgress });
+      await Payment.updateMany({ _id: { $in: farmerIds } }, { payment_status: _paymentstatus.inProgress });
 
+
+      //updating farmer order collection payment status
+      const farmerOrderIds = farmersBill.map(item => item.farmer_order_id)
+      await FarmerOrders.updateMany({ _id: { $in: farmerOrderIds } }, { payment_status: _paymentstatus.inProgress });
+
+      //updating batch collection status updated
       await Batch.updateMany({ _id: { $in: batchIds } }, { status: 'Payment In Progress' });
+
       return res
         .status(200)
         .send(
