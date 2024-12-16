@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _poRequestStatus, _poPaymentStatus } = require('@src/v1/utils/constants');
+const { _collectionName, _poRequestStatus, _poAdvancePaymentStatus, _poPaymentStatus } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const purchaseOrderSchema = new mongoose.Schema({
@@ -25,6 +25,7 @@ const purchaseOrderSchema = new mongoose.Schema({
   paymentInfo: {
     totalAmount: { type: Number, required: true }, // Assume this is calculated during the first step
     advancePayment: { type: Number, required: true }, // Auto-calculated: 3% of totalAmount
+    advancePaymentStatus: { type: String, enum: Object.values(_poAdvancePaymentStatus), default: _poAdvancePaymentStatus.pending },
     advancePaymentDate: { type: Date },
     advancePaymentUtrNo: { type: String },
     balancePayment: { type: Number }, // Auto-calculated: 97% of totalAmount
