@@ -41,7 +41,7 @@ const path = require('path');
 
 module.exports.payment = async (req, res) => {
   try {
-    let { page, limit, skip, paginate = 1, sortBy, search = "", isExport=0 } = req.query;
+    let { page, limit, skip, paginate = 1, sortBy, search = "", isExport = 0 } = req.query;
 
     // let query = search ? { reqNo: { $regex: search, $options: "i" } } : {};
     limit = 50
@@ -159,7 +159,7 @@ module.exports.payment = async (req, res) => {
                 },
               },
               then: "Pending",
-              else: "Approved",
+              else: "Completed",
             },
           },
         },
@@ -214,7 +214,7 @@ module.exports.payment = async (req, res) => {
     //     })
     //   );
 
-    
+
     if (isExport == 1) {
       const record = response.rows.map((item) => {
         return {
@@ -246,14 +246,14 @@ module.exports.payment = async (req, res) => {
       }
     } else {
       return res
-      .status(200)
-      .send(
-        new serviceResponse({
-          status: 200,
-          data: response,
-          message: _response_message.found("Payment"),
-        })
-      );
+        .status(200)
+        .send(
+          new serviceResponse({
+            status: 200,
+            data: response,
+            message: _response_message.found("Payment"),
+          })
+        );
     }
 
   } catch (error) {
@@ -1196,7 +1196,7 @@ module.exports.payFarmers = async (req, res) => {
       await FarmerPaymentFile.create(FarmerPaymentFilePayload)
       // return res.status(200).send(response.data);
 
-      const farmerIds = farmersBill.map(item=> item._id)
+      const farmerIds = farmersBill.map(item => item._id)
       await Payment.updateMany({ _id: { $in: farmerIds } }, { status: _paymentstatus.inProgress });
 
       await Batch.updateMany({ _id: { $in: batchIds } }, { status: 'Payment In Progress' });
@@ -1239,7 +1239,7 @@ module.exports.payAgent = async (req, res) => {
       ho_approve_status: _paymentApproval.approved,
 
       // only the unpaid agent bill will be paid by this
-      payment_status:  _paymentstatus.pending 
+      payment_status: _paymentstatus.pending
     }
 
     const agentBill = await AgentInvoice.findOne(query).populate('agent_id')
