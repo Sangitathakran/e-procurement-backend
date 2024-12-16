@@ -28,10 +28,10 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
             isUnique = true;
         }
     }
-    
-    const totalAmount = handleDecimal(msp*poQuantity);
-    const tokenAmount = handleDecimal((totalAmount*3)/100);
-    const remainingAmount = handleDecimal(totalAmount-tokenAmount);
+
+    const totalAmount = handleDecimal(msp * poQuantity);
+    const tokenAmount = handleDecimal((totalAmount * 3) / 100);
+    const remainingAmount = handleDecimal(totalAmount - tokenAmount);
 
     const record = await PurchaseOrderModel.create({
         poNo: randomVal,
@@ -46,13 +46,13 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
         },
         manufacturingLocation,
         storageLocation,
-        deliveryLocation,            
+        deliveryLocation,
         paymentInfo: {
             totalAmount: handleDecimal(totalAmount), // Assume this is calculated during the first step
             advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 3% of totalAmount
             advancePaymentDate: new Date(),
-            balancePayment:  handleDecimal(remainingAmount) // Auto-calculated: 97% of totalAmount
-          }, 
+            balancePayment: handleDecimal(remainingAmount) // Auto-calculated: 97% of totalAmount
+        },
         purchasedOrder: {
             poNo: randomVal,
             poDate: new Date(),
@@ -60,7 +60,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
             poAmount: handleDecimal(totalAmount)
         },
         createdBy: user_id,
-        distiller_id:user_id
+        distiller_id: user_id
     });
 
     eventEmitter.emit(_webSocketEvents.procurement, { ...record, method: "created" });
@@ -138,34 +138,65 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
 
-    const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, url, commodity_image } = req.body;
-
+    const { id, name, grade, quantity, msp, quantityDuration, manufacturingLocation, storageLocation, deliveryLocation,
+        companyName, registeredAddress, phone, faxNo, email, pan, gstin, cin, indentNumber, indentDate,
+        referenceDate, contactPerson, transportDetails, termsOfDelivery, digitalSignature, moisture, broken,
+        acceptedTerms, comments
+    } = req.body;
+    
     const record = await PurchaseOrderModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
 
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("request") }));
     }
 
-    if (!record.branch_id) {
-        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("branch office") }));
+    // Update product details
+    record.product.name = name || record.product.name;
+    record.product.grade = grade || record.product.grade;
+    record.product.poQuantity = quantity ? handleDecimal(quantity) : record.product.poQuantity;
+    record.product.msp = msp ? handleDecimal(msp) : record.product.msp;
+    record.product.quantityDuration = quantityDuration || record.product.quantityDuration;
+    // Update locations
+    record.manufacturingLocation = manufacturingLocation || record.manufacturingLocation;
+    record.storageLocation = storageLocation || record.storageLocation;
+    record.deliveryLocation = deliveryLocation || record.deliveryLocation;
+    // Update company details
+    record.companyDetails.companyName = companyName || record.companyDetails.companyName;
+    record.companyDetails.registeredAddress = registeredAddress || record.companyDetails.registeredAddress;
+    record.companyDetails.phone = phone || record.companyDetails.phone;
+    record.companyDetails.faxNo = faxNo || record.companyDetails.faxNo;
+    record.companyDetails.email = email || record.companyDetails.email;
+    record.companyDetails.pan = pan || record.companyDetails.pan;
+    record.companyDetails.gstin = gstin || record.companyDetails.gstin;
+    record.companyDetails.cin = cin || record.companyDetails.cin;
+    // Update purchase order reference
+    record.purchasedOrder.poNo = record.purchasedOrder.poNo || record.purchasedOrder.poNo;
+    record.purchasedOrder.poDate = record.purchasedOrder.poDate || record.purchasedOrder.poDate;
+    record.purchasedOrder.poQuantity = quantity ? handleDecimal(quantity) : record.purchasedOrder.poQuantity;
+    record.purchasedOrder.poAmount = totalAmount ? handleDecimal(totalAmount) : record.purchasedOrder.poAmount;
+    record.purchasedOrder.poValidity = expiry_date || record.purchasedOrder.poValidity;
+    // Update additional details
+    record.additionalDetails.indentNumber = indentNumber || record.additionalDetails.indentNumber;
+    record.additionalDetails.indentDate = indentDate || record.additionalDetails.indentDate;
+    record.additionalDetails.referenceDate = referenceDate || record.additionalDetails.referenceDate;
+    record.additionalDetails.contactPerson = contactPerson || record.additionalDetails.contactPerson;
+    record.additionalDetails.transportDetails = transportDetails || record.additionalDetails.transportDetails;
+    record.additionalDetails.termsOfDelivery = termsOfDelivery || record.additionalDetails.termsOfDelivery;
+    record.additionalDetails.digitalSignature = digitalSignature || record.additionalDetails.digitalSignature;
+    // Update quality specification
+    record.qualitySpecificationOfProduct.moisture = moisture || record.qualitySpecificationOfProduct.moisture;
+    record.qualitySpecificationOfProduct.broken = broken || record.qualitySpecificationOfProduct.broken;
+    // Update terms and conditions
+    record.termsAndConditions.accepted = acceptedTerms !== undefined ? acceptedTerms : record.termsAndConditions.accepted;
+
+    // Update comments (if any)
+    if (comments && Array.isArray(comments)) {
+        record.comments = comments.map(comment => ({
+            user_id: comment.user_id,
+            comment: comment.comment
+        }));
     }
-
-    if (!record.head_office_id) {
-        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("head office") }));
-    }
-
-    record.product.name = name;
-    record.product.grade = grade;
-    record.product.quantity = handleDecimal(quantity);
-    record.quotedPrice = handleDecimal(msp);
-    record.deliveryDate = delivery_date;
-    record.expectedProcurementDate = procurement_date;
-    record.quoteExpiry = expiry_date;
-    record.head_office_id = ho;
-    record.branch_id = bo;
-    record.address.locationUrl = url;
-    record.product.commodityImage = commodity_image;
-
+    // Save the updated record
     await record.save();
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("request") }));

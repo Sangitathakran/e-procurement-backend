@@ -55,7 +55,6 @@ const purchaseOrderSchema = new mongoose.Schema({
     indentNumber: { type: String },
     indentDate: { type: Date },
     referenceDate: { type: Date },
-    deliveryAddress: { type: String },
 
     contactPerson: {
       name: { type: String, trim: true },
