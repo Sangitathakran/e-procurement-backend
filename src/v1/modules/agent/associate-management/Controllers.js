@@ -31,8 +31,8 @@ module.exports.getAssociates = async (req, res) => {
         const records = await User.aggregate([
             { $match: matchQuery },
             { $sort: sortBy }, // Sort by the provided field
-            { $skip: skip }, // Skip for pagination
-            { $limit: parseInt(limit) }, // Limit for pagination
+            // { $skip: skip }, 
+            // { $limit: parseInt(limit) }, 
 
             // Lookup to count associated farmers
             {
@@ -48,12 +48,6 @@ module.exports.getAssociates = async (req, res) => {
                     farmersCount: { $size: '$farmers' } // Get the count of farmers
                 }
             },
-            {
-                $project: {
-                    farmers: 0 // Exclude the farmers array to keep the response clean
-                }
-            },
-
             // Lookup to count associated procurement centers
             {
                 $lookup: {
@@ -70,22 +64,19 @@ module.exports.getAssociates = async (req, res) => {
             },
             {
                 $project: {
+                    farmers: 0,
                     procurementCenters: 0 // Exclude the procurement centers array
                 }
             }
         ]);
-
         // Get total count of documents for pagination purposes
         const totalRecords = await User.countDocuments(matchQuery);
-
         // Pagination information
         const totalPages = Math.ceil(totalRecords / limit);
 
 
         if (isExport == 1) {
-
             const record = records.map((item) => {
-
                 const { name, email, mobile } = item?.basic_details.point_of_contact;
 
                 const { line1, line2, district, state, country } = item.address.registered
