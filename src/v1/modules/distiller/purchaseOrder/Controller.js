@@ -147,7 +147,7 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
 module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
 
     const { id, branch_id, name, grade, grade_remark, poQuantity, quantityDuration, manufacturingLocation, storageLocation, deliveryLocation,
-        companyDetails, additionalDetails, qualitySpecificationOfProduct, termsAndConditions, comments,
+        companyDetails, additionalDetails, qualitySpecificationOfProduct, comments,
     } = req.body;
 
     const record = await PurchaseOrderModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
@@ -156,40 +156,45 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("request") }));
     }
 
+    const msp = 24470;
+    const totalAmount = handleDecimal(msp * poQuantity);
+    const tokenAmount = handleDecimal((totalAmount * 3) / 100);
+    const remainingAmount = handleDecimal(totalAmount - tokenAmount);
+
     record.branch_id = branch_id || record.branch_id,
         // Update product details
         record.product.name = name || record.product.name;
     record.product.grade = grade || record.product.grade;
-    // record.product.poQuantity = quantity ? handleDecimal(quantity) : record.product.poQuantity;
+    record.product.grade = grade_remark || record.product.grade_remark;
     record.product.quantityDuration = quantityDuration || record.product.quantityDuration;
     // Update locations
     record.manufacturingLocation = manufacturingLocation || record.manufacturingLocation;
     record.storageLocation = storageLocation || record.storageLocation;
     record.deliveryLocation = deliveryLocation || record.deliveryLocation;
     // Update company details
-    record.companyDetails.companyName = companyName || record.companyDetails.companyName;
-    record.companyDetails.registeredAddress = registeredAddress || record.companyDetails.registeredAddress;
-    record.companyDetails.phone = phone || record.companyDetails.phone;
-    record.companyDetails.faxNo = faxNo || record.companyDetails.faxNo;
-    record.companyDetails.email = email || record.companyDetails.email;
-    record.companyDetails.pan = pan || record.companyDetails.pan;
-    record.companyDetails.gstin = gstin || record.companyDetails.gstin;
-    record.companyDetails.cin = cin || record.companyDetails.cin;
+    record.companyDetails.companyName = companyDetails.companyName || record.companyDetails.companyName;
+    record.companyDetails.registeredAddress = companyDetails.registeredAddress || record.companyDetails.registeredAddress;
+    record.companyDetails.phone = companyDetails.phone || record.companyDetails.phone;
+    record.companyDetails.faxNo = companyDetails.faxNo || record.companyDetails.faxNo;
+    record.companyDetails.email = companyDetails.email || record.companyDetails.email;
+    record.companyDetails.pan = companyDetails.pan || record.companyDetails.pan;
+    record.companyDetails.gstin = companyDetails.gstin || record.companyDetails.gstin;
+    record.companyDetails.cin = companyDetails.cin || record.companyDetails.cin;
     // Update purchase order reference
     record.purchasedOrder.poQuantity = poQuantity ? handleDecimal(poQuantity) : record.purchasedOrder.poQuantity;
     record.purchasedOrder.poAmount = totalAmount ? handleDecimal(totalAmount) : record.purchasedOrder.poAmount;
     // Update additional details
-    record.additionalDetails.indentNumber = indentNumber || record.additionalDetails.indentNumber;
-    record.additionalDetails.indentDate = indentDate || record.additionalDetails.indentDate;
-    record.additionalDetails.referenceDate = referenceDate || record.additionalDetails.referenceDate;
-    record.additionalDetails.contactPerson = contactPerson || record.additionalDetails.contactPerson;
-    record.additionalDetails.transportDetails = transportDetails || record.additionalDetails.transportDetails;
-    record.additionalDetails.termsOfDelivery = termsOfDelivery || record.additionalDetails.termsOfDelivery;
-    record.additionalDetails.digitalSignature = digitalSignature || record.additionalDetails.digitalSignature;
+    record.additionalDetails.indentNumber = additionalDetails.indentNumber || record.additionalDetails.indentNumber;
+    record.additionalDetails.indentDate = additionalDetails.indentDate || record.additionalDetails.indentDate;
+    record.additionalDetails.referenceDate = additionalDetails.referenceDate || record.additionalDetails.referenceDate;
+    record.additionalDetails.contactPerson = additionalDetails.contactPerson || record.additionalDetails.contactPerson;
+    record.additionalDetails.transportDetails = additionalDetails.transportDetails || record.additionalDetails.transportDetails;
+    record.additionalDetails.termsOfDelivery = additionalDetails.termsOfDelivery || record.additionalDetails.termsOfDelivery;
+    record.additionalDetails.digitalSignature = additionalDetails.digitalSignature || record.additionalDetails.digitalSignature;
     // Update quality specification
-    record.qualitySpecificationOfProduct.moisture = moisture || record.qualitySpecificationOfProduct.moisture;
-    record.qualitySpecificationOfProduct.broken = broken || record.qualitySpecificationOfProduct.broken;
-    record.comments.comment = comments || record.comments.comment;
+    record.qualitySpecificationOfProduct.moisture = qualitySpecificationOfProduct.moisture || record.qualitySpecificationOfProduct.moisture;
+    record.qualitySpecificationOfProduct.broken = qualitySpecificationOfProduct.broken || record.qualitySpecificationOfProduct.broken;
+    record.comments.comment = comments.comments || record.comments.comment;
     // Save the updated record
     await record.save();
 
