@@ -159,11 +159,11 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     const msp = 24470;
     const totalAmount = handleDecimal(msp * poQuantity);
     const tokenAmount = handleDecimal((totalAmount * 3) / 100);
-    const remainingAmount = handleDecimal(totalAmount - tokenAmount);
+
 
     record.branch_id = branch_id || record.branch_id,
-        // Update product details
-        record.product.name = name || record.product.name;
+    // Update product details
+    record.product.name = name || record.product.name;
     record.product.grade = grade || record.product.grade;
     record.product.grade = grade_remark || record.product.grade_remark;
     record.product.quantityDuration = quantityDuration || record.product.quantityDuration;
