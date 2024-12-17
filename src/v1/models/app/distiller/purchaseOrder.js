@@ -3,8 +3,8 @@ const { _collectionName, _poRequestStatus, _poAdvancePaymentStatus, _poPaymentSt
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const purchaseOrderSchema = new mongoose.Schema({
-  poNo: { type: String, required: true, immutable: true },
-  poDate: { type: Date, required: true, default: Date.now, immutable: true },
+  // poNo: { type: String, required: true, immutable: true },
+  // poDate: { type: Date, required: true, default: Date.now, immutable: true },
 
   distiller_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers }],
   head_office_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice },
@@ -14,7 +14,6 @@ const purchaseOrderSchema = new mongoose.Schema({
     grade: { type: String, required: false },
     grade_remark: { type: String, required: false },
     msp: { type: Number, required: true },
-    poQuantity: { type: Number, required: true },
     quantityDuration: { type: String, required: false }
   },
 
@@ -44,8 +43,7 @@ const purchaseOrderSchema = new mongoose.Schema({
   },
 
   purchasedOrder: {
-    poNo: { type: String },
-    poDate: { type: Date },
+    poNo: { type: String, required: true, immutable: true },
     poQuantity: { type: Number, default: 0 },
     poAmount: { type: Number, default: 0 },
     poValidity: { type: Date }
