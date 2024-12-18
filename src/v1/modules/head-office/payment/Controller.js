@@ -149,9 +149,8 @@ module.exports.payment = async (req, res) => {
                         $map: {
                           input: "$$batch.payment",
                           as: "pay",
-                          in: {
-                            $eq: ["$$pay.payment_status", "Pending"], // Assuming status field exists in payments
-                          },
+                          in: { $in: ["$$pay.payment_status", ["Pending", "In Progress"]] }, // Assuming status field exists in payments
+
                         },
                       },
                     },
@@ -159,7 +158,7 @@ module.exports.payment = async (req, res) => {
                 },
               },
               then: "Pending",
-              else: "Approved",
+              else: "Completed",
             },
           },
         },
