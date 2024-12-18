@@ -1240,7 +1240,6 @@ module.exports.orderList = async (req, res) => {
       records.limit = limit;
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
-    console.log( JSON.stringify(rows) )
     records.rows = rows.map((item) => {
       let obj = {
         _id: item?._id,
@@ -1574,7 +1573,6 @@ module.exports.payFarmers = async (req, res) => {
     }
 
     let filename = await generateFileName("NCCFMAIZER");
-    console.log("filename-->", filename)
 
     const workbook = xlsx.utils.book_new();
     const send_file_details = []
