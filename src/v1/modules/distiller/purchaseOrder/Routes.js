@@ -6,6 +6,6 @@ const distillerpurchaseOrderRoutes = express.Router();
 distillerpurchaseOrderRoutes.post("/", verifyDistiller, createPurchaseOrder);
 distillerpurchaseOrderRoutes.get("/", verifyDistiller, getPurchaseOrder);
 distillerpurchaseOrderRoutes.get("/:id", verifyDistiller, getPurchaseOrderById);
-distillerpurchaseOrderRoutes.patch("/", verifyDistiller, updatePurchaseOrder);
+distillerpurchaseOrderRoutes.put("/", verifyDistiller, updatePurchaseOrder);
 distillerpurchaseOrderRoutes.delete("/:id", verifyDistiller, deletePurchaseOrder);
 module.exports = { distillerpurchaseOrderRoutes }; 
