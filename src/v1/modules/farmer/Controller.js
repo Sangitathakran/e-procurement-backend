@@ -869,26 +869,26 @@ module.exports.createLand = async (req, res) => {
       village, block, khtauni_number, khasra_number, khata_number,
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     } = req.body;
-    console.log(farmer_id,
-      area,
-      pin_code,
-      state,
-      district,
-      village,
-      block,
-      khasra_number,
-      khtauni_number,
-      area_unit,
-      upload_land_document)
+    // console.log(farmer_id,
+    //   area,
+    //   pin_code,
+    //   state,
+    //   district,
+    //   village,
+    //   block,
+    //   khasra_number,
+    //   khtauni_number,
+    //   area_unit,
+    //   upload_land_document)
 
-    const existingLand = await Land.findOne({ 'khasra_number': khasra_number });
+    // const existingLand = await Land.findOne({ 'khasra_number': khasra_number });
 
-    if (existingLand) {
-      return res.status(200).send(new serviceResponse({
-        status: 400,
-        errors: [{ message: _response_message.allReadyExist("Land") }]
-      }));
-    }
+    // if (existingLand) {
+    //   return res.status(200).send(new serviceResponse({
+    //     status: 400,
+    //     errors: [{ message: _response_message.allReadyExist("Land") }]
+    //   }));
+    // }
 
     const isStateExist = await isStateAvailable(state)
     const isDistrictExist = await isDistrictAvailable(state, district)
