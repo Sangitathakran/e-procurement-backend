@@ -980,7 +980,7 @@ module.exports.lot_list = async (req, res) => {
 };
 
 // dileep code
-
+/*
 module.exports.orderList = async (req, res) => {
   try {
     const {
@@ -1087,215 +1087,264 @@ module.exports.orderList = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+*/
 
-// module.exports.orderList = async (req, res) => {
-//   try {
-//     const {
-//       page = 1,
-//       limit = 10,
-//       skip = 0,
-//       paginate = 1,
-//       sortBy,
-//       search = "",
-//       user_type,
-//       isExport = 0,
-//       isFinal = 0,
-//       state // New filter for state
-//     } = req.query;
+module.exports.orderList = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      paginate = 1,
+      sortBy,
+      search = "",
+      user_type,
+      isExport = 0,
+      isFinal = 0,
+      state, // New filter for state
+      commodity=null,
+    } = req.query;
 
-//     const portalId = req.user.portalId._id;
-//     const user_id = req.user._id;
+    const portalId = req.user.portalId._id;
+    const user_id = req.user._id;
 
-//     let query = search
-//       ? {
-//           req_id: { $regex: search, $options: "i" },
-//           ho_id: { $in: [portalId, user_id] },
-//         }
-//       : { ho_id: { $in: [portalId, user_id] } };
+    // Base query
+    let query = search
+      ? {
+          // req_id: { $regex: search, $options: "i" },
+          ho_id: { $in: [portalId, user_id] },
+        }
+      : { ho_id: { $in: [portalId, user_id] } };
 
-//     query = { ...query, bo_approve_status: _paymentApproval.approved };
+    query = { ...query, bo_approve_status: _paymentApproval.approved };
 
-//     if (isFinal == 1) {
-//       query = { ...query, ho_approve_status: _paymentApproval.approved };
-//     }
+    if (isFinal == 1) {
+      query = { ...query, ho_approve_status: _paymentApproval.approved };
+    }
+    query={...query,...(state || search || commodity ? {
+      $and: [
+        ...(state
+          ? [
+            {
+              "sellers.address.registered.state": {
+                $regex: state,
+                $options: "i",
+              },
+            },
+          ]
+          : []),
+        ...(search
+          ? [{
+            $or: [
+              {
+                "branch.branchId": {
+                  $regex: search,
+                  $options: "i",
+                },
+              },
+              {
+                "requests.reqNo": {
+                  $regex: search,
+                  $options: "i",
+                },
+              },
+            ]
 
-//     // Aggregation pipeline
-//     const matchStage = { $match: query };
-//     const lookupReqStage = {
-//       $lookup: {
-//         from: "requests", // Request collection
-//         localField: "req_id",
-//         foreignField: "_id",
-//         as: "requestDetails",
-//       },
-//     };
-//     const unwindReqStage = {
-//       $unwind: {
-//         path: "$requestDetails",
-//         preserveNullAndEmptyArrays: true,
-//       },
-//     };
-//     const unwindBatchIdStage = {
-//       $unwind: {
-//         path: "$batch_id",
-//         preserveNullAndEmptyArrays: true, // Keep documents without batch_id intact
-//       },
-//     };
-//     const lookupBatchStage = {
-//       $lookup: {
-//         from: "batchs", // Batch collection
-//         localField: "batch_id",
-//         foreignField: "_id",
-//         as: "batchDetails",
-//       },
-//     };
+          },
+          ]
+          : []),
+        ...(commodity
+          ? [{
+            "requests.product.name": {
+              $regex: commodity,
+              $options: "i",
+            },
+          },
+          ]
+          : []),
+      ],
+    } : {})}
+    const unwindBatchIdStage = {
+      $unwind: {
+        path: "$batch_id",
+        preserveNullAndEmptyArrays: true,
+      },
+    };
+    const lookupRequestStage={
+      $lookup:{
+        from: "requests", 
+        localField: "req_id",
+        foreignField: "_id",
+        as: "requests",
+      }
+    }
+    const unwindRequestStage={
+      $unwind: {
+        path: "$requests",
+        preserveNullAndEmptyArrays: true,
+      },
+    }
+    const lookupBatchDataStage = {
+      $lookup: {
+        from: "batches", 
+        localField: "batch_id",
+        foreignField: "_id",
+        as: "batchData",
+      },
+    };
+    const unwindBatchDataStage = {
+      $unwind: {
+        path: "$batchData",
+        preserveNullAndEmptyArrays: true,
+      },
+    };
+    const lookupUserStage={
+      $lookup: {
+        from: "users",
+        localField: "batchData.seller_id",
+        foreignField: "_id",
+        as: "sellers",
+      }
+    }
+    const lookupBranchesStage={
+      $lookup: {
+        from: "branches",
+        localField: "bo_id",
+        foreignField: "_id",
+        as: "branch",
+      },
+    }
+    const unwindBrachesStage={
+      $unwind: {
+        path: "$branch",
+        preserveNullAndEmptyArrays: true,
+      },
+    }
+    const matchStateStage =  {
+          $match: query
+        };
 
-//     const unwindBatchStage = {
-//       $unwind: {
-//         path: "$batchDetails",
-//         preserveNullAndEmptyArrays: true,
-//       },
-//     };
+    const projectStage = {
+      $project: {
+        _id: 1,
+        qtyProcured: 1,
+        createdAt: 1,
+        ho_approve_status: 1,
+        payment_status: 1,
+        'requests.reqNo':1,
+        'requests.product.name':1,   
+        'branch.branchId':1     
+      },
+    };
 
-//     const lookupSellerStage = {
-//       $lookup: {
-//         from: "users", // Seller collection
-//         localField: "batchDetails.seller_id",
-//         foreignField: "_id",
-//         as: "sellerDetails",
-//       },
-//     };
+    const skipStage = { $skip: (page - 1) * limit };
+    const limitStage = { $limit: parseInt(limit, 10) };
 
-//     const unwindSellerStage = {
-//       $unwind: {
-//         path: "$sellerDetails",
-//         preserveNullAndEmptyArrays: true,
-//       },
-//     };
+    // Build aggregation pipeline
+    const pipeline = [
+      // matchStage,
+      lookupRequestStage,
+      unwindRequestStage,
+      unwindBatchIdStage,
+      lookupBatchDataStage,
+      unwindBatchDataStage,
+      lookupBranchesStage,    
+      unwindBrachesStage,
+      lookupUserStage,    
+      matchStateStage, 
+      projectStage,               
+    ];
 
-//     // Filter by state if provided
-//     const matchStateStage = state
-//       ? {
-//           $match: {
-//             "sellerDetails.address.registered.state": state,
-//           },
-//         }
-//       : { $match: {} };
+    if (paginate == 1) {
+      pipeline.push(skipStage, limitStage);
+    }
 
-//     const projectStage = {
-//       $project: {
-//         _id: 1,
-//         requestDetails:1,
-//         // req_id: "$req_id.reqNo",
-//         batch_id: 1,
-//         qtyProcured: 1,
-//         createdAt: 1,
-//         ho_approve_status: 1,
-//         payment_status: 1,
-//         "req_id.reqNo": 1,
-//         "batchDetails.branchId": 1,
-//         "req_id.product.name": 1,
-//         "sellerDetails.state": 1,
-//         // batchDetails:1,
-//         // sellerDetails:1
-//       },
-//     };
+    const records = { count: 0, rows: [] };
 
-//     const skipStage = { $skip: (page - 1) * limit };
-//     const limitStage = { $limit: parseInt(limit, 10) };
+    // Execute aggregation
+    const rows = await AgentInvoice.aggregate(pipeline);
 
-//     // Build aggregation pipeline
-//     const pipeline = [
-//       matchStage,
-//       lookupReqStage,
-//       unwindBatchIdStage,
-//       unwindReqStage,
-//       lookupBatchStage,
-//       unwindBatchStage,
-//       lookupSellerStage,
-//       unwindSellerStage,
-//       matchStateStage,
-//       projectStage,
-//     ];
+    // Count pipeline
+    const countPipeline = [
+      // matchStage,
+      lookupRequestStage,
+      unwindBatchIdStage,
+      lookupBatchDataStage,
+      lookupBranchesStage,
+      unwindBatchDataStage,
+      lookupUserStage,
+      matchStateStage,          
+      { $count: "count" },
+    ];
 
-//     if (paginate == 1) {
-//       pipeline.push(skipStage, limitStage);
-//     }
+    const countResult = await AgentInvoice.aggregate(countPipeline);
+    records.count = countResult[0]?.count || 0;
 
-//     const records = { count: 0, rows: [] };
+    if (paginate == 1) {
+      records.page = page;
+      records.limit = limit;
+      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+    }
+    records.rows = rows.map((item) => {
+      let obj = {
+        _id: item?._id,
+        orderId: item?.requests?.reqNo,
+        branchId: item?.branch?.branchId,
+        commodity: item?.requests?.product?.name,
+        quantityPurchased: item?.qtyProcured,
+        billingDate: item?.createdAt,
+        ho_approve_status: item.ho_approve_status,
+        payment_status: item.payment_status
+      };
+      return obj;
+    });
 
-//     // Execute aggregation
-//     const rows = await AgentInvoice.aggregate(pipeline);
+    // Handle export
+    if (isExport == 1) {
+      const record = records.rows.map((item) => {
+        return {
+          "Order ID": item?.requestDetails?.reqNo || "NA",
+          Commodity: item?.requestDetails?.product?.name || "NA",
+          "Quantity Purchased": item?.qtyProcured || "NA",
+          "Billing Date": item?.createdAt || "NA",
+          State: item?.sellerDetails?.state || "NA",
+          "Approval Status": item?.ho_approve_status || "NA",
+        };
+      });
 
-//     // Get count for pagination
-//     const countPipeline = [matchStage, lookupReqStage, { $count: "count" }];
-//     const countResult = await AgentInvoice.aggregate(countPipeline);
-//     records.count = countResult[0]?.count || 0;
+      if (record.length > 0) {
+        dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `orderId-record.xlsx`,
+          worksheetName: `orderId-record`,
+        });
+      } else {
+        return res
+          .status(400)
+          .send(
+            new serviceResponse({
+              status: 400,
+              data: records,
+              message: _response_message.notFound("Order"),
+            })
+          );
+      }
+    } else {
+      return res
+        .status(200)
+        .send(
+          new serviceResponse({
+            status: 200,
+            data: records,
+            message: _response_message.found("Order"),
+          })
+        );
+    }
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
 
-//     if (paginate == 1) {
-//       records.page = page;
-//       records.limit = limit;
-//       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-//     }
-//     records.rows=rows
-//     // records.rows = rows.map((item) => {
-//     //   return {
-//     //     _id: item?._id,
-//     //     orderId: item?.req_id?.reqNo,
-//     //     branchNo: item?.batchDetails?.branchId,
-//     //     commodity: item?.req_id?.product?.name,
-//     //     quantityPurchased: item?.qtyProcured,
-//     //     billingDate: item?.createdAt,
-//     //     ho_approve_status: item.ho_approve_status,
-//     //     payment_status: item.payment_status,
-//     //     state: item?.sellerDetails?.state,
-//     //   };
-//     // });
 
-//     if (isExport == 1) {
-//       const record = records.rows.map((item) => {
-//         return {
-//           "Order ID": item?.orderId || "NA",
-//           Commodity: item?.commodity || "NA",
-//           "Quantity Purchased": item?.quantityPurchased || "NA",
-//           "Billing Date": item?.billingDate ?? "NA",
-//           State: item?.state || "NA",
-//           "Approval Status": item?.ho_approve_status ?? "NA",
-//         };
-//       });
-
-//       if (record.length > 0) {
-//         dumpJSONToExcel(req, res, {
-//           data: record,
-//           fileName: `orderId-record.xlsx`,
-//           worksheetName: `orderId-record`,
-//         });
-//       } else {
-//         return res
-//           .status(400)
-//           .send(
-//             new serviceResponse({
-//               status: 400,
-//               data: records,
-//               message: _response_message.notFound("Order"),
-//             })
-//           );
-//       }
-//     } else {
-//       return res
-//         .status(200)
-//         .send(
-//           new serviceResponse({
-//             status: 200,
-//             data: records,
-//             message: _response_message.found("Order"),
-//           })
-//         );
-//     }
-//   } catch (error) {
-//     _handleCatchErrors(error, res);
-//   }
-// };
 
 
 module.exports.agencyInvoiceById = async (req, res) => {
@@ -1568,7 +1617,6 @@ module.exports.payFarmers = async (req, res) => {
     }
 
     let filename = await generateFileName("NCCFMAIZER");
-    console.log("filename-->", filename)
 
     const workbook = xlsx.utils.book_new();
     const send_file_details = []
