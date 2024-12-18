@@ -357,6 +357,14 @@ module.exports.payment = async (req, res) => {
       },
       {
         $lookup: {
+          from: "farmers",
+          localField: "farmer_order_id",
+          foreignField: "farmer_order_id",
+          as: "farmer",
+        },
+      },
+      {
+        $lookup: {
           from: "users",
           localField: "batches.seller_id",
           foreignField: "_id",
@@ -469,7 +477,7 @@ module.exports.payment = async (req, res) => {
           amountPayable: 1,
           amountPaid: 1,
           payment_status: 1,
-          // branch: 1
+          farmer: 1,
           quotedPrice:1,
           sellers:1,
           batches:1,
@@ -523,13 +531,49 @@ module.exports.payment = async (req, res) => {
     
     if (isExport == 1) {
       const record = response.rows.map((item) => {
+        const procurementAddress = item?.ProcurementCenter[0]?.address;
+        const paymentDetails = item.payment[0] || {};
+        const sellerDetails = item.sellers?.[0]?.basic_details?.associate_details || {};
+        const farmerDetails = item.farmer ? item.farmer[0] || {} : {};
+        const farmerAddress = farmerDetails?.address
+            ? `${farmerDetails.address.village || "NA"}, ${farmerDetails.address.block || "NA"}, 
+               ${farmerDetails.address.country || "NA"}`
+            : "NA";
+        const batchIds = item?.batches?.map(batch => batch.batchId).join(', ') || "NA";
+        const dispatchedDates = item?.batches?.map(batch => batch.dispatched?.dispatched_at || "NA").join(", ") || "NA";
+        const intransitDates = item?.batches?.map(batch => batch.intransit?.intransit_at || "NA").join(", ") || "NA";    
         return {
           "Order ID": item?.reqNo || "NA",
+          "MSP": item?.quotedPrice || "NA",
           "Branch Name": item?.branch?.branchName || "NA",
+          "Batch Id": batchIds,
           "Commodity": item?.product?.name || "NA",
           "Quantity Purchased": item?.qtyPurchased || "NA",
           "Approval Status": item?.approval_status ?? "NA",
           "Payment Status": item?.payment_status ?? "NA",
+          "Collection center": item?.ProcurementCenter[0]?.center_name ?? "NA",
+          "Procurement Address Line 1": procurementAddress?.line1 || "NA",
+          "Procurement City": procurementAddress?.city || "NA",
+          "Procurement District": procurementAddress?.district || "NA",
+          "Procurement State": procurementAddress?.state || "NA",
+          "Procurement Country": procurementAddress?.country || "NA",
+          "Procurement Postal Code": procurementAddress?.postalCode || "NA",
+          "Payment Status": paymentDetails?.payment_status || "NA",
+          "Payment Approval Date": paymentDetails?.bo_approve_at || "NA",
+          "Approved Amount": paymentDetails?.amount || "NA",
+          "Credited Amount": paymentDetails?.amount || "NA",
+          "Delivery location": "HAUZ KHAS",
+          "Associate User Code": item.sellers?.[0]?.user_code || "NA",
+          "Associate Name": sellerDetails?.associate_name || "NA",
+          "Farmer ID": farmerDetails?.farmer_id || "NA",
+            "Farmer Name": farmerDetails?.name || "NA",
+            "Mobile No": farmerDetails?.basic_details?.mobile_no || "NA",
+            "Farmer DOB": farmerDetails?.basic_details?.dob || "NA",
+            "Father Name": farmerDetails?.parents?.father_name || "NA",
+            "Farmer Address": farmerAddress,
+            "Dispatched Date": dispatchedDates,
+            "In-Transit Date": intransitDates,
+          
         };
       });
 
