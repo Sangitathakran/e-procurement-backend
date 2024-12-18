@@ -159,7 +159,7 @@ module.exports.payment = async (req, res) => {
                 },
               },
               then: "Pending",
-              else: "Completed",
+              else: "Approved",
             },
           },
         },
