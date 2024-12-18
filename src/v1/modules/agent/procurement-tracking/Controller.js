@@ -206,3 +206,27 @@ module.exports.getFarmersOrdersData = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("farmer order") }));
 
 })
+
+
+module.exports.updateFarmerTracking = asyncErrorHandler(async (req, res) => {
+    const { user_id } = req;
+    const { id, weighbridge_name, weighbridge_no, tare_weight, gross_weight, net_weight, weight_slip } = req.body;
+
+    const record = await FarmerOrders.findOne({ _id: id });
+
+    if (!record) {
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
+    }
+
+    record.weighbridge_name = weighbridge_name;
+    record.weighbridge_no = weighbridge_no;
+    record.tare_weight = tare_weight;
+    record.gross_weight = gross_weight;
+    record.net_weight = net_weight;
+    record.weight_slip = weight_slip;
+
+    await record.save();
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("offer") }));
+
+});
