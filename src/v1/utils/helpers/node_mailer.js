@@ -29,6 +29,7 @@ module.exports = {
                     to: to,
                     cc: cc,
                     subject: subject,
+                    host: 'smtp.mailtrap.io',
                     html: body
                 };
 
