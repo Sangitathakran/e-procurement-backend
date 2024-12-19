@@ -434,12 +434,21 @@ const _poRequestStatus = {
     reject:'Rejected'
 }
 
-const _poPaymentStatus = {
-    pending: 'paid',
-    approved: 'Unpaid',
+
+const _poAdvancePaymentStatus = {
+    pending:"Pending",
+    paid: 'Paid',
     reject:'Reject',
     failed:'Failed'
 }
+
+const _poPaymentStatus = {
+    paid: 'Paid',
+    Unpaid: 'Unpaid',
+    reject:'Reject',
+    failed:'Failed'
+}
+
 
 module.exports = {
     _userAction,
@@ -497,5 +506,6 @@ module.exports = {
     _billstatus,
     _farmerOrderDeliverdStatus,
     _poRequestStatus,
+    _poAdvancePaymentStatus,
     _poPaymentStatus
 }

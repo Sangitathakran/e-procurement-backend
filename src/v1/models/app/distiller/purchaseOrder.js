@@ -1,10 +1,10 @@
 const mongoose = require('mongoose');
-const { _collectionName, _poRequestStatus, _poPaymentStatus } = require('@src/v1/utils/constants');
+const { _collectionName, _poRequestStatus, _poAdvancePaymentStatus, _poPaymentStatus } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const purchaseOrderSchema = new mongoose.Schema({
-  poNo: { type: String, required: true, immutable: true },
-  poDate: { type: Date, required: true, default: Date.now, immutable: true },
+  // poNo: { type: String, required: true, immutable: true },
+  // poDate: { type: Date, required: true, default: Date.now, immutable: true },
 
   distiller_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers }],
   head_office_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice },
@@ -14,7 +14,6 @@ const purchaseOrderSchema = new mongoose.Schema({
     grade: { type: String, required: false },
     grade_remark: { type: String, required: false },
     msp: { type: Number, required: true },
-    poQuantity: { type: Number, required: true },
     quantityDuration: { type: String, required: false }
   },
 
@@ -25,6 +24,7 @@ const purchaseOrderSchema = new mongoose.Schema({
   paymentInfo: {
     totalAmount: { type: Number, required: true }, // Assume this is calculated during the first step
     advancePayment: { type: Number, required: true }, // Auto-calculated: 3% of totalAmount
+    advancePaymentStatus: { type: String, enum: Object.values(_poAdvancePaymentStatus), default: _poAdvancePaymentStatus.pending },
     advancePaymentDate: { type: Date },
     advancePaymentUtrNo: { type: String },
     balancePayment: { type: Number }, // Auto-calculated: 97% of totalAmount
@@ -43,8 +43,7 @@ const purchaseOrderSchema = new mongoose.Schema({
   },
 
   purchasedOrder: {
-    poNo: { type: String },
-    poDate: { type: Date },
+    poNo: { type: String, required: true, immutable: true },
     poQuantity: { type: Number, default: 0 },
     poAmount: { type: Number, default: 0 },
     poValidity: { type: Date }
@@ -54,7 +53,6 @@ const purchaseOrderSchema = new mongoose.Schema({
     indentNumber: { type: String },
     indentDate: { type: Date },
     referenceDate: { type: Date },
-    deliveryAddress: { type: String },
 
     contactPerson: {
       name: { type: String, trim: true },
