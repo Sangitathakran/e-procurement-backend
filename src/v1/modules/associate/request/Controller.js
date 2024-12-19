@@ -234,6 +234,7 @@ module.exports.associateOffer = async (req, res) => {
 
             // checks for associates's farmer offer status           
             const existingFarmerOffer = await FarmerOrders.findOne({ associateOffers_id: existingRecord._id, status: _procuredStatus.pending });
+            
             if(existingFarmerOffer){
                 return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Associate's farmer offer not recieved yet." }] }));
             }
