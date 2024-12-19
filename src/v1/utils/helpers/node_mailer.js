@@ -18,6 +18,8 @@ module.exports = {
                     token: mailer.pass,
                 }));
 
+                console.log("mailer", mailer)
+
                 const mailOptions = {
                     from: {
                         address: mailer.user, // Fallback to .env sender email
