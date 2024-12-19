@@ -12,7 +12,9 @@ const { default: mongoose } = require("mongoose");
 
 module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
-    const { branch_id, name, grade, grade_remark, msp, poQuantity, quantityDuration, manufacturingLocation, storageLocation, deliveryLocation } = req.body;
+    const { branch_id, name, grade, grade_remark, poQuantity, quantityDuration, manufacturingLocation, storageLocation, deliveryLocation,
+        companyDetails, additionalDetails, qualitySpecificationOfProduct, termsAndConditions, comments,
+    } = req.body;
 
     if (user_type && user_type != _userType.distiller) {
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
@@ -28,39 +30,45 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
             isUnique = true;
         }
     }
-    
-    const totalAmount = handleDecimal(msp*poQuantity);
-    const tokenAmount = handleDecimal((totalAmount*3)/100);
-    const remainingAmount = handleDecimal(totalAmount-tokenAmount);
+
+    const msp = 24470;
+    const totalAmount = handleDecimal(msp * poQuantity);
+    const tokenAmount = handleDecimal((totalAmount * 3) / 100);
+    const remainingAmount = handleDecimal(totalAmount - tokenAmount);
 
     const record = await PurchaseOrderModel.create({
-        poNo: randomVal,
+        distiller_id: user_id,
         branch_id,
+        purchasedOrder: {
+            poNo: randomVal,
+            poQuantity: handleDecimal(poQuantity),
+            poAmount: handleDecimal(totalAmount)
+        },
         product: {
             name,
             grade,
             grade_remark,
-            msp: handleDecimal(msp),
-            poQuantity: handleDecimal(poQuantity),
+            msp: 24470,
             quantityDuration
         },
         manufacturingLocation,
         storageLocation,
-        deliveryLocation,            
+        deliveryLocation,
         paymentInfo: {
             totalAmount: handleDecimal(totalAmount), // Assume this is calculated during the first step
             advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 3% of totalAmount
-            advancePaymentDate: new Date(),
-            balancePayment:  handleDecimal(remainingAmount) // Auto-calculated: 97% of totalAmount
-          }, 
-        purchasedOrder: {
-            poNo: randomVal,
-            poDate: new Date(),
-            poQuantity: handleDecimal(poQuantity),
-            poAmount: handleDecimal(totalAmount)
+            balancePayment: handleDecimal(remainingAmount) // Auto-calculated: 97% of totalAmount
         },
-        createdBy: user_id,
-        distiller_id:user_id
+        companyDetails,
+        additionalDetails,
+        qualitySpecificationOfProduct,
+        termsAndConditions,
+        comments,
+        comments: {
+            user_id,
+            comments
+        },
+        createdBy: user_id
     });
 
     eventEmitter.emit(_webSocketEvents.procurement, { ...record, method: "created" });
@@ -138,7 +146,9 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
 
-    const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, url, commodity_image } = req.body;
+    const { id, branch_id, name, grade, grade_remark, poQuantity, quantityDuration, manufacturingLocation, storageLocation, deliveryLocation,
+        companyDetails, additionalDetails, qualitySpecificationOfProduct, comments,
+    } = req.body;
 
     const record = await PurchaseOrderModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
 
@@ -146,26 +156,46 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("request") }));
     }
 
-    if (!record.branch_id) {
-        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("branch office") }));
-    }
+    const msp = 24470;
+    const totalAmount = handleDecimal(msp * poQuantity);
+    const tokenAmount = handleDecimal((totalAmount * 3) / 100);
 
-    if (!record.head_office_id) {
-        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("head office") }));
-    }
 
-    record.product.name = name;
-    record.product.grade = grade;
-    record.product.quantity = handleDecimal(quantity);
-    record.quotedPrice = handleDecimal(msp);
-    record.deliveryDate = delivery_date;
-    record.expectedProcurementDate = procurement_date;
-    record.quoteExpiry = expiry_date;
-    record.head_office_id = ho;
-    record.branch_id = bo;
-    record.address.locationUrl = url;
-    record.product.commodityImage = commodity_image;
-
+    record.branch_id = branch_id || record.branch_id,
+    // Update product details
+    record.product.name = name || record.product.name;
+    record.product.grade = grade || record.product.grade;
+    record.product.grade = grade_remark || record.product.grade_remark;
+    record.product.quantityDuration = quantityDuration || record.product.quantityDuration;
+    // Update locations
+    record.manufacturingLocation = manufacturingLocation || record.manufacturingLocation;
+    record.storageLocation = storageLocation || record.storageLocation;
+    record.deliveryLocation = deliveryLocation || record.deliveryLocation;
+    // Update company details
+    record.companyDetails.companyName = companyDetails.companyName || record.companyDetails.companyName;
+    record.companyDetails.registeredAddress = companyDetails.registeredAddress || record.companyDetails.registeredAddress;
+    record.companyDetails.phone = companyDetails.phone || record.companyDetails.phone;
+    record.companyDetails.faxNo = companyDetails.faxNo || record.companyDetails.faxNo;
+    record.companyDetails.email = companyDetails.email || record.companyDetails.email;
+    record.companyDetails.pan = companyDetails.pan || record.companyDetails.pan;
+    record.companyDetails.gstin = companyDetails.gstin || record.companyDetails.gstin;
+    record.companyDetails.cin = companyDetails.cin || record.companyDetails.cin;
+    // Update purchase order reference
+    record.purchasedOrder.poQuantity = poQuantity ? handleDecimal(poQuantity) : record.purchasedOrder.poQuantity;
+    record.purchasedOrder.poAmount = totalAmount ? handleDecimal(totalAmount) : record.purchasedOrder.poAmount;
+    // Update additional details
+    record.additionalDetails.indentNumber = additionalDetails.indentNumber || record.additionalDetails.indentNumber;
+    record.additionalDetails.indentDate = additionalDetails.indentDate || record.additionalDetails.indentDate;
+    record.additionalDetails.referenceDate = additionalDetails.referenceDate || record.additionalDetails.referenceDate;
+    record.additionalDetails.contactPerson = additionalDetails.contactPerson || record.additionalDetails.contactPerson;
+    record.additionalDetails.transportDetails = additionalDetails.transportDetails || record.additionalDetails.transportDetails;
+    record.additionalDetails.termsOfDelivery = additionalDetails.termsOfDelivery || record.additionalDetails.termsOfDelivery;
+    record.additionalDetails.digitalSignature = additionalDetails.digitalSignature || record.additionalDetails.digitalSignature;
+    // Update quality specification
+    record.qualitySpecificationOfProduct.moisture = qualitySpecificationOfProduct.moisture || record.qualitySpecificationOfProduct.moisture;
+    record.qualitySpecificationOfProduct.broken = qualitySpecificationOfProduct.broken || record.qualitySpecificationOfProduct.broken;
+    record.comments.comment = comments.comments || record.comments.comment;
+    // Save the updated record
     await record.save();
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("request") }));

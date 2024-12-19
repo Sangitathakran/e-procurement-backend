@@ -175,12 +175,7 @@ module.exports.saveDistillerDetails = async (req, res) => {
                     distiller.basic_details.cbbo_name = formData.cbbo_name;
                 }
                 break;
-            // case 'address':
-            //     distiller.address = {
-            //         ...distiller.address,
-            //         ...formData
-            //     };
-            //     break;
+           
             case 'company_details':
                 distiller.company_details = {
                     ...distiller.company_details,
