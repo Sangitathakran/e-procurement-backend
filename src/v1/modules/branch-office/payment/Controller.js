@@ -42,6 +42,38 @@ module.exports.payment = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                  from: "branches",
+                  localField: "branch_id",
+                  foreignField: "_id",
+                  as: "branch",
+                },
+              },
+              {
+                $lookup: {
+                  from: "users",
+                  localField: "batches.seller_id",
+                  foreignField: "_id",
+                  as: "sellers",
+                },
+              },
+              {
+                $lookup: {
+                  from: "procurementcenters",
+                  localField: "batches.procurementCenter_id",
+                  foreignField: "_id",
+                  as: "ProcurementCenter",
+                },
+              },
+              {
+                $lookup: {
+                  from: "farmers",
+                  localField: "farmer_order_id",
+                  foreignField: "farmer_order_id",
+                  as: "farmer",
+                },
+              },
+            {
                 $match: {
                     batches: { $ne: [] }
                 }
@@ -122,7 +154,11 @@ module.exports.payment = async (req, res) => {
                     approval_status: 1,
                     qtyPurchased: 1,
                     amountPayable: 1,
-                    payment_status: 1
+                    payment_status: 1,
+                    branch:1,
+                    sellers:1,
+                    farmer:1,
+                    ProcurementCenter:1
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
@@ -138,7 +174,6 @@ module.exports.payment = async (req, res) => {
                 }
             }
         ]);
-
 
         const response = {
             count: records[0]?.totalCount[0]?.count || 0,
@@ -172,15 +207,39 @@ module.exports.payment = async (req, res) => {
         }
 
         if (isExport == 1) {
-
-            const record = response.rows.map((item) => {
+            const exportRecords = await RequestModel.aggregate([
+                ...aggregationPipeline, 
+              ]);
+            const record = exportRecords.map((item) => {
+                const procurementAddress = item?.ProcurementCenter[0]?.address;
+                const sellerDetails = item.sellers?.[0]?.basic_details?.associate_details || {};
+                const farmerDetails = item.farmer ? item.farmer[0] || {} : {};
+                const farmerAddress = farmerDetails?.address
+                    ? `${farmerDetails.address.village || "NA"}, ${farmerDetails.address.block || "NA"}, 
+                       ${farmerDetails.address.country || "NA"}`
+                    : "NA";
                 return {
                     "Order ID": item?.reqNo || 'NA',
                     "Commodity": item?.product.name || 'NA',
                     "Quantity Purchased": item?.qtyPurchased || 'NA',
                     "Amount Payable": item?.amountPayable || 'NA',
                     "Approval Status": item?.approval_status ?? 'NA',
-                    "Payment Status": item?.payment_status ?? 'NA'
+                    "Payment Status": item?.payment_status ?? 'NA',
+                    "Associate User Code": item.sellers?.[0]?.user_code || "NA",
+                    "Associate Name": sellerDetails?.associate_name || "NA",
+                    "Farmer ID": farmerDetails?.farmer_id || "NA",
+                    "Farmer Name": farmerDetails?.name || "NA",
+                    "Mobile No": farmerDetails?.basic_details?.mobile_no || "NA",
+                    "Farmer DOB": farmerDetails?.basic_details?.dob || "NA",
+                    "Father Name": farmerDetails?.parents?.father_name || "NA",
+                    "Farmer Address": farmerAddress,
+                    "Collection center": item?.ProcurementCenter[0]?.center_name ?? "NA",
+                    "Procurement Address Line 1": procurementAddress?.line1 || "NA",
+                    "Procurement City": procurementAddress?.city || "NA",
+                    "Procurement District": procurementAddress?.district || "NA",
+                    "Procurement State": procurementAddress?.state || "NA",
+                    "Procurement Country": procurementAddress?.country || "NA",
+                    "Procurement Postal Code": procurementAddress?.postalCode || "NA",
                 }
             })
 
