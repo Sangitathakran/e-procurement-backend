@@ -29,7 +29,8 @@ const _collectionName = {
     Payment: "Payment",
     Branch: "Branch",
     DummyWarehouse: "DummyWarehouse",
-    Warehouse: "Warehouse",
+    Warehouse: "WarehouseV2",
+    WarehouseDetails: "WarehouseDetails",
     FarmerOrder: "FarmerOrder",
     PaymentLog: "PaymentLog",
     FeatureList: "FeatureList",  // need to change to Features
@@ -44,9 +45,9 @@ const _collectionName = {
     AgentPaymentFile: "AgentPaymentFile",
     FarmerPaymentFile: "FarmerPaymentFile",
     Distiller: "Distiller",
-    ManufacturingUnit:"ManufacturingUnit",
-    StorageFacility:"StorageFacility",
-    PurchaseOrder:"PurchaseOrder"
+    ManufacturingUnit: "ManufacturingUnit",
+    StorageFacility: "StorageFacility",
+    PurchaseOrder: "PurchaseOrder"
 
 }
 
@@ -347,7 +348,8 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
-    failed: "Failed",
+    inProgress: "In Progress",
+    failed:"Failed",
     completed: "Completed",
     rejected: "Rejected"
 }
@@ -358,6 +360,12 @@ const _billstatus = {
 }
 
 const _paymentApproval = {
+    pending: "Pending",
+    approved: "Approved",
+    rejected: "Rejected"
+}
+
+const _wareHouseApproval = {
     pending: "Pending",
     approved: "Approved",
     rejected: "Rejected"
@@ -431,22 +439,22 @@ const _userTypeFrontendRouteMapping = {
 const _poRequestStatus = {
     pending: 'Pending',
     approved: 'Approved',
-    reject:'Rejected'
+    reject: 'Rejected'
 }
 
 
 const _poAdvancePaymentStatus = {
-    pending:"Pending",
+    pending: "Pending",
     paid: 'Paid',
-    reject:'Reject',
-    failed:'Failed'
+    reject: 'Reject',
+    failed: 'Failed'
 }
 
 const _poPaymentStatus = {
     paid: 'Paid',
     Unpaid: 'Unpaid',
-    reject:'Reject',
-    failed:'Failed'
+    reject: 'Reject',
+    failed: 'Failed'
 }
 
 
@@ -505,6 +513,7 @@ module.exports = {
     _userTypeFrontendRouteMapping,
     _billstatus,
     _farmerOrderDeliverdStatus,
+    _wareHouseApproval,
     _poRequestStatus,
     _poAdvancePaymentStatus,
     _poPaymentStatus

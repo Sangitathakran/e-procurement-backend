@@ -49,7 +49,7 @@ exports.verifyDistiller = asyncErrorHandler(async (req, res, next) => {
             req[key] = value
         })
         // req.headers = decodedToken;
-        if (req.url === '/onboarding' || req.url === '/onboarding-status' || req.url === '/find-user-status' || req.url === '/final-submit') {
+        if (req.url === '/onboarding' || req.url === '/onboarding-status' || req.url === '/find-user-status' || req.url === '/final-submit' || req.url === '/manfacturing-unit' || req.url === '/storage-facility') {
             next();
         } else if (userExist.is_approved == _userStatus.approved) {
             if (decodedToken.user_type != _userType.distiller) {
