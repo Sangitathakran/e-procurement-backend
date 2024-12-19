@@ -6,11 +6,11 @@ const distillerAuthRoutes = express.Router();
 
 distillerAuthRoutes.post("/send-otp", sendOtp);
 distillerAuthRoutes.post("/register-login", loginOrRegister);
-distillerAuthRoutes.put("/onboarding", validateForm, saveDistillerDetails);
-distillerAuthRoutes.get("/onboarding", formPreview);
-distillerAuthRoutes.get("/onboarding-status", onboardingStatus);
-distillerAuthRoutes.get("/find-user-status", findUserStatus);
-distillerAuthRoutes.patch("/final-submit", finalFormSubmit);
+distillerAuthRoutes.put("/onboarding", verifyDistiller, validateForm, saveDistillerDetails);
+distillerAuthRoutes.get("/onboarding", verifyDistiller, formPreview);
+distillerAuthRoutes.get("/onboarding-status", verifyDistiller, onboardingStatus);
+distillerAuthRoutes.get("/find-user-status", verifyDistiller, findUserStatus);
+distillerAuthRoutes.patch("/final-submit", verifyDistiller, finalFormSubmit);
 
 distillerAuthRoutes.get("/editOnboarding", verifyDistiller, editOnboarding);
 distillerAuthRoutes.post("/distiller-bulkuplod", distillerBulkuplod);
