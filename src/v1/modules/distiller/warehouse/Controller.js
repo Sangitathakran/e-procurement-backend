@@ -4,7 +4,7 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { WarehouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 
-
+/*
 module.exports.warehouseList = async (req, res) => {
     try {
         const { page = 1, limit = 10, sortBy = 'warehouseName', search = '', isExport = 0 } = req.query;
@@ -23,8 +23,9 @@ module.exports.warehouseList = async (req, res) => {
         //warehouse list
         records.rows = await wareHousev2.find(query)
             .populate({
-                path: "warehouseOwnerId",
-                select: "basicDetails addressDetails authorizedPerson"
+                path: "warehouseId",
+                select: "basicDetails addressDetails authorizedPerson",
+                options: { strictPopulate: false } // Temporary workaround
             })
             .limit(parseInt(limit))
             .skip(parseInt(skip))
@@ -65,6 +66,106 @@ module.exports.warehouseList = async (req, res) => {
         }
         else {
             return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("warehouse") }))
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+*/
+
+module.exports.warehouseList = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, sortBy = 'warehouseName', search = '', isExport = 0 } = req.query;
+        const skip = (page - 1) * limit;
+
+        const searchFields = ['warehouseName', 'warehouseId', 'ownerName', 'authorized_personName', 'pointOfContact.name'];
+
+        // Create search query
+        const makeSearchQuery = (searchFields) => {
+            return {
+                $or: searchFields.map(field => ({
+                    [field]: { $regex: search, $options: 'i' }
+                }))
+            };
+        };
+
+        const matchQuery = search ? makeSearchQuery(searchFields) : {};
+
+        const aggregationPipeline = [
+            { $match: matchQuery },
+            {
+                $lookup: {
+                    from: 'WarehouseDetails', // Ensure this matches your collection
+                    localField: 'warehouseId',
+                    foreignField: '_id',
+                    as: 'warehousedetails'
+                }
+            },
+            {
+                $unwind: {
+                    path: '$warehousedetails', // Match alias from $lookup
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    warehouse_code: 1,
+                    companyDetails: 1,
+                    ownerDetails: 1,
+                    bankDetails: 1,
+                    'warehousedetails.basicDetails': 1,
+                    'warehousedetails.addressDetails': 1,
+                    'warehousedetails.authorizedPerson': 1
+                }
+            },
+            { $sort: { [sortBy]: 1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit) }
+        ];
+
+        // Get records
+        const records = { count: 0, rows: [] };
+        records.rows = await wareHousev2.aggregate(aggregationPipeline);
+
+        // Get count
+        const countAggregation = [
+            { $match: matchQuery },
+            { $count: 'total' }
+        ];
+        const countResult = await wareHousev2.aggregate(countAggregation);
+        records.count = countResult.length > 0 ? countResult[0].total : 0;
+
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+        // Export functionality
+        if (isExport == 1) {
+            const record = records.rows.map((item) => {
+                return {
+                    "Warehouse ID": item?.warehouseId || 'NA',
+                    "WareHouse Name": item?.warehouseName || 'NA',
+                    "Owner Name": item?.ownerName || 'NA',
+                    "Authorized Person": item?.authorized_personName ?? 'NA',
+                    "POC Name": item?.pointOfContact?.name ?? 'NA',
+                    "POC Email": item?.pointOfContact?.email ?? 'NA',
+                    "POC Phone": item?.pointOfContact?.phone ?? 'NA',
+                    "WarehouseCapacity": item?.warehouseCapacity ?? 'NA',
+                };
+            });
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `warehouse-List.xlsx`,
+                    worksheetName: `warehouse-List`
+                });
+            } else {
+                return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("warehouse") }));
+            }
+        } else {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("warehouse") }));
         }
     } catch (error) {
         _handleCatchErrors(error, res);
