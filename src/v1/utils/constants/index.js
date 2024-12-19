@@ -44,7 +44,11 @@ const _collectionName = {
     AgentInvoice: "AgentInvoice",
     AgentPaymentFile: "AgentPaymentFile",
     FarmerPaymentFile: "FarmerPaymentFile",
-    Distiller: "Distiller"
+    Distiller: "Distiller",
+    ManufacturingUnit: "ManufacturingUnit",
+    StorageFacility: "StorageFacility",
+    PurchaseOrder: "PurchaseOrder"
+
 }
 
 const _userType_Feature_Collection = {
@@ -431,6 +435,28 @@ const _userTypeFrontendRouteMapping = {
     "branch-office": "3"
 }
 
+const _poRequestStatus = {
+    pending: 'Pending',
+    approved: 'Approved',
+    reject: 'Rejected'
+}
+
+
+const _poAdvancePaymentStatus = {
+    pending: "Pending",
+    paid: 'Paid',
+    reject: 'Reject',
+    failed: 'Failed'
+}
+
+const _poPaymentStatus = {
+    paid: 'Paid',
+    Unpaid: 'Unpaid',
+    reject: 'Reject',
+    failed: 'Failed'
+}
+
+
 module.exports = {
     _userAction,
     _farmerType,
@@ -486,5 +512,8 @@ module.exports = {
     _userTypeFrontendRouteMapping,
     _billstatus,
     _farmerOrderDeliverdStatus,
-    _wareHouseApproval
+    _wareHouseApproval,
+    _poRequestStatus,
+    _poAdvancePaymentStatus,
+    _poPaymentStatus
 }

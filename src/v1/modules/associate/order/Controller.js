@@ -303,9 +303,9 @@ module.exports.viewTrackDelivery = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
-
+        const user_id = req.user_id
         let query = {
-            req_id,
+            req_id, seller_id:user_id,
             ...(search ? { name: { $regex: search, $options: "i" } } : {})
         };
 

@@ -70,6 +70,10 @@ const distillerSchema = new mongoose.Schema({
         gst_no: { type: String, trim: true, },
         pacs_reg_date: { type: String, trim: true, },
     },
+    manufactoring_storage: {
+        manufactoring_details: { type: Boolean, default: false },
+        storage_details: { type: Boolean, default: false },
+    },
     authorised: {
         name: { type: String, trim: true, },
         designation: { type: String, trim: true, },

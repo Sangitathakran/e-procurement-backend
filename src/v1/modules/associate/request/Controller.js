@@ -227,10 +227,23 @@ module.exports.associateOffer = async (req, res) => {
 
         if (existingRecord) {
 
+            // checks for associates offer status            
+            if(existingRecord.status == _associateOfferStatus.pending){
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Offer not accepted by admin." }] }));
+            }
+
+            // checks for associates's farmer offer status           
+            const existingFarmerOffer = await FarmerOrders.findOne({ associateOffers_id: existingRecord._id, status: _procuredStatus.pending });
+            if(existingFarmerOffer){
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Associate's farmer offer not recieved yet." }] }));
+            }
+
+            // add new farmer oder 
             existingRecord.offeredQty = handleDecimal(sumOfFarmerQty + existingRecord.offeredQty);
             existingRecord.procuredQty = handleDecimal(sumOfFarmerQty + existingRecord.procuredQty);
             associateOfferRecord = existingRecord.save()
 
+             // update request's fulfilledQty and status
             const existingRequestModel = await RequestModel.findOne({ _id: req_id });
             
             existingRequestModel.fulfilledQty = handleDecimal(existingRequestModel.fulfilledQty + sumOfFarmerQty);
