@@ -165,6 +165,71 @@ module.exports.batchApproveOrReject = async (req, res) => {
     }
 };
 
+module.exports.viewBatchDetails = async (req, res) => {
+    try {
+        const { batchId } = req.query;
+
+        if (!batchId) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                errors: [{ message: "Batch ID is required" }]
+            }));
+        }
+
+        const batch = await Batch.findById(batchId)
+            .populate([
+                { path: "procurementCenter_id", select: "center_name" },
+                { path: "warehouse_id", select: "basicDetails.warehouseName basicDetails.addressDetails" },
+                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" }
+            ])
+            .select("-__v");
+
+        if (!batch) {
+            return res.status(404).send(new serviceResponse({
+                status: 404,
+                errors: [{ message: "Batch not found" }]
+            }));
+        }
+
+        const response = {
+            batchId: batch.batchId,
+            fpoName: batch.fpoName,
+            commodity: batch.commodity,
+            quantityInTransit: batch.quantityInTransit,
+            receivingDate: batch.receivingDate,
+            procurementDate: batch.procurementDate,
+            procurementCenter: batch.procurementCenter_id?.center_name || "NA",
+            warehouse: batch.warehouse_id?.basicDetails?.warehouseName || "NA",
+            warehouseAddress: batch.warehouse_id?.basicDetails?.addressDetails || "NA",
+            msp: batch.msp,
+            truckDetails: {
+                truckNumber: batch.truckNumber,
+                loadedWeight: batch.loadedVehicleWeight,
+                tareWeight: batch.truckTareWeight,
+                bagWeight: batch.bagWeight
+            },
+            driverDetails: {
+                driverName: batch.driverName,
+                driverPhone: batch.driverPhoneNumber,
+                driverLicense: batch.driverLicense,
+                driverAadhar: batch.driverAadhar
+            },
+            lotDetails: batch.farmerOrderIds.map(order => ({
+                lotId: order.farmerOrder_id?.order_no || "NA",
+                farmerName: order.farmerOrder_id?.metaData?.name || "NA",
+                quantityPurchased: order.qty || "NA"
+            }))
+        };
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: response,
+            message: "Batch details fetched successfully"
+        }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
 
 module.exports.lot_list = async (req, res) => {
     try {
@@ -184,4 +249,29 @@ module.exports.lot_list = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+module.exports.editBatchDetails = async (req, res) => {
+    try {
+        const { batchId, ...updateFields } = req.body;
+
+        if (!batchId) {
+            return res.status(400).json({ status: 400, message: "Batch ID is required" });
+        }
+
+        const updatedBatch = await Batch.findByIdAndUpdate(
+            batchId,
+            { $set: updateFields },
+            { new: true }
+        );
+
+        if (!updatedBatch) {
+            return res.status(404).json({ status: 404, message: "Batch not found" });
+        }
+
+        return res.status(200).json({ status: 200, message: "Batch updated successfully", data: updatedBatch });
+    } catch (error) {
+        return res.status(500).json({ status: 500, message: error.message });
+    }
+};
+
 
