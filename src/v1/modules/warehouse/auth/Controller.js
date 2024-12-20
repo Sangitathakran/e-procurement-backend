@@ -11,7 +11,6 @@ const { JWT_SECRET_KEY } = require('@config/index');
 const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
-const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
@@ -68,7 +67,7 @@ module.exports.loginOrRegister = async (req, res) => {
         const isEmailInput = isEmail(userInput);
         const query = isEmailInput
             ? { 'ownerDetails.email': userInput }
-            : { 'ownerDetails.phone': userInput };
+            : { 'ownerDetails.mobile': userInput };
 
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
@@ -84,7 +83,7 @@ module.exports.loginOrRegister = async (req, res) => {
             const newUser = {
                 ownerDetails: isEmailInput
                     ? { email: userInput }
-                    : { phone: userInput },
+                    : { mobile: userInput },
                 term_condition: true,
                 user_type: _userType.warehouse,
             };
@@ -107,17 +106,8 @@ module.exports.loginOrRegister = async (req, res) => {
             secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
             maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
         });
-        const data = {
-            token: token,
-            user_type: userExist.user_type,
-            is_approved: userExist.is_approved,
-            phone: userExist.ownerDetails.phone,
-            warehouse_owner_code: userExist.user_code,
-            company_name: userExist.companyDetails.name || null,
-            is_form_submitted: userExist.is_form_submitted,
-            onboarding: (userExist?.companyDetails?.name && userExist.companyDetails && userExist.bankDetails && userExist.is_form_submitted == 'true') ? true : false
-        }
-        return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: data }));
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: { token, userExist } }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -178,10 +168,10 @@ module.exports.saveWarehouseDetails = async (req, res) => {
         // Save updated warehouse
         await warehouse.save();
 
-        const response = { warehouse_code: warehouse.warehouse_code, warehouse_id: warehouse._id };
+        // const response = { _id: warehouse._id, warehouse_code: warehouse.warehouse_code, };
         return res
             .status(200)
-            .send(new serviceResponse({ message: _response_message.updated(formName), data: response }));
+            .send(new serviceResponse({ message: _response_message.updated(formName), data: warehouse }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -257,6 +247,7 @@ module.exports.finalFormSubmit = async (req, res) => {
         }
 
         warehouse.is_form_submitted = true;
+        warehouse.mobile_verified = true;
 
         const allDetailsFilled = (
             warehouse?.companyDetails?.name &&
@@ -278,7 +269,7 @@ module.exports.finalFormSubmit = async (req, res) => {
         return res.status(200).send(new serviceResponse({
             status: 200,
             message: _query.update("Warehouse data"),
-            data: warehouse.is_form_submitted
+            data: warehouse
         }));
 
     } catch (error) {

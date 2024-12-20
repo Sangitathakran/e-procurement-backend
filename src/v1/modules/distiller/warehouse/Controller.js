@@ -1,7 +1,9 @@
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
 const { sendResponse, serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
-const { wareHouse } = require("@src/v1/models/app/warehouse/warehouseSchema");
+const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
+const { WarehouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+
 
 module.exports.warehouseList = async (req, res) => {
     try {
@@ -19,13 +21,16 @@ module.exports.warehouseList = async (req, res) => {
         const records = { count: 0, rows: [] };
 
         //warehouse list
-        records.rows = await wareHouse.find(query)
-            .select('warehouseId warehouseName ownerName authorized_personName pointOfContact warehouseCapacity weight_bridge')
+        records.rows = await wareHousev2.find(query)
+            .populate({
+                path: "warehouseOwnerId",
+                select: "basicDetails addressDetails authorizedPerson"
+            })
             .limit(parseInt(limit))
             .skip(parseInt(skip))
             .sort(sortBy)
 
-        records.count = await wareHouse.countDocuments(query);
+        records.count = await wareHousev2.countDocuments(query);
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;

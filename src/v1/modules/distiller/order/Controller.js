@@ -20,7 +20,6 @@ module.exports.getOrder = asyncErrorHandler(async (req, res) => {
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
     };
 
-
     const records = { count: 0 };
 
     records.rows = paginate == 1 ? await PurchaseOrderModel.find(query)
