@@ -107,12 +107,12 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
     }
 
-    const poRecord = await PurchaseOrderModel.findOne({ _id: orderId });
-    const { purchasedOrder, fulfilledQty, paymentInfo } = poRecord;
-
+    const poRecord = await PurchaseOrderModel.findOne({ _id: orderId, deletedAt: null  });
+    
     if (!poRecord) {
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("PO") }));
     }
+    const { purchasedOrder, fulfilledQty, paymentInfo } = poRecord;
 
     if (quantityRequired > purchasedOrder.poQuantity) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceed PO Qty." }] }))
@@ -121,8 +121,15 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     const existBatch = await BatchOrderProcess.find({ distiller_id: user_id, orderId });
     if (existBatch) {
         const addedQty = existBatch.reduce((quantityRequired, existBatch) => quantityRequired + existBatch.quantityRequired, 0);
+
         if (addedQty >= purchasedOrder.poQuantity) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Cannot create more Batch, Qty already fulfilled." }] }))
+        }
+
+        const remainingQty = handleDecimal(purchasedOrder.poQuantity - addedQty);
+
+        if (quantityRequired > remainingQty) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceed PO Remaining Qty." }] }))
         }
     }
 
@@ -134,10 +141,10 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     let amountToBePaid = ''
     if (existBatch) {
         amountToBePaid = handleDecimal(msp * quantityRequired);
-    }else{
+    } else {
         amountToBePaid = handleDecimal((msp * quantityRequired) - tokenAmount);
     }
-       
+
     let randomVal;
     let isUnique = false;
 
@@ -156,7 +163,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         batchId: randomVal,
         quantityRequired: handleDecimal(quantityRequired),
         'payment.amount': amountToBePaid,
-        createdBy:user_id
+        createdBy: user_id
     });
 
     poRecord.fulfilledQty = handleDecimal(fulfilledQty + quantityRequired)
