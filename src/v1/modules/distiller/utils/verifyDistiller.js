@@ -28,7 +28,7 @@ exports.verifyDistiller = asyncErrorHandler(async (req, res, next) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.invalid("token") }] }))
 
         }
-      
+
         const userExist = await Distiller.findOne({ _id: decodedToken.user_id })
 
         if (!userExist) {
@@ -49,6 +49,7 @@ exports.verifyDistiller = asyncErrorHandler(async (req, res, next) => {
             req[key] = value
         })
         // req.headers = decodedToken;
+        // if (req.url === '/onboarding' || req.url === '/onboarding-status' || req.url === '/find-user-status' || req.url === '/final-submit' || req.url === '/manfacturing-unit' || req.url === '/storage-facility') {
         if (req.url === '/onboarding' || req.url === '/onboarding-status' || req.url === '/find-user-status' || req.url === '/final-submit' || req.url === '/manfacturing-unit' || req.url === '/storage-facility') {
             next();
         } else if (userExist.is_approved == _userStatus.approved) {
