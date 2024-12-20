@@ -24,9 +24,10 @@ const purchaseOrderSchema = new mongoose.Schema({
     advancePaymentStatus: { type: String, enum: Object.values(_poAdvancePaymentStatus), default: _poAdvancePaymentStatus.pending },
     advancePaymentDate: { type: Date },
     advancePaymentUtrNo: { type: String },
-    balancePayment: { type: Number }, // Auto-calculated: 97% of totalAmount
+    balancePayment: { type: Number, default: 0 }, // Auto-calculated: 97% of totalAmount
     balancePaymentDate: { type: Date },
-    tax:{ type: Number }
+    paidAmount:{ type: Number, default: 0 },
+    tax:{ type: Number, default: 0 }
   },
 
   companyDetails: {

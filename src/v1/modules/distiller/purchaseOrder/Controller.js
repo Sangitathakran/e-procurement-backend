@@ -57,7 +57,8 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
         paymentInfo: {
             totalAmount: handleDecimal(totalAmount), // Assume this is calculated during the first step
             advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 3% of totalAmount
-            balancePayment: handleDecimal(remainingAmount) // Auto-calculated: 97% of totalAmount
+            balancePayment: handleDecimal(remainingAmount), // Auto-calculated: 97% of totalAmount
+            tax:0
         },
         companyDetails,
         additionalDetails,
@@ -66,7 +67,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
         comments,
         comments: {
             user_id,
-            comments
+            comment
         },
         createdBy: user_id
     });
