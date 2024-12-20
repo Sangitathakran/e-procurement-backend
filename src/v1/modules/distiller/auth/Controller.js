@@ -582,21 +582,7 @@ module.exports.getManufacturingUnit = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
         const { user_id } = req;
-        // console.log(id);
-        // if (!id) {
-        //     return sendResponse({
-        //         res,
-        //         status: 400,
-        //         message: _response_message.notFound("id"),
-        //     });
-        // }
-        // if (!mongoose.Types.ObjectId.isValid(id)) {
-        //     return sendResponse({
-        //         res,
-        //         status: 400,
-        //         message: _response_message.invalid(id),
-        //     });
-        // }
+       
         const query = { 'distiller_id': user_id }
         const records = { count: 0 };
         const getState = async (stateId) => {
@@ -817,22 +803,7 @@ module.exports.getStorageFacility = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query;
         const { user_id } = req;
-        // if (!id) {
-        //     return sendResponse({
-        //         res,
-        //         status: 400,
-        //         message: _response_message.notFound("id"),
-        //     });
-        // }
-
-        // if (!mongoose.Types.ObjectId.isValid(id)) {
-        //     return sendResponse({
-        //         res,
-        //         status: 400,
-        //         message: _response_message.invalid(id),
-        //     });
-        // }
-
+       
         const query = { distiller_id: user_id };
         const records = { count: 0 };
 
@@ -840,13 +811,6 @@ module.exports.getStorageFacility = async (req, res) => {
             ? await StorageFacility.find(query).sort(sortBy).skip(skip).limit(parseInt(limit))
             : await StorageFacility.find(query).sort(sortBy);
 
-        // if (!records.rows?.length) {
-        //     return sendResponse({
-        //         res,
-        //         status: 404,
-        //         message: _response_message.notFound("Storage Facility"),
-        //     });
-        // }
         const getState = async (stateId) => {
             try {
                 if (!stateId) return "";
