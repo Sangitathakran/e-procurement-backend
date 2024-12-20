@@ -175,7 +175,7 @@ module.exports.saveDistillerDetails = async (req, res) => {
                     distiller.basic_details.cbbo_name = formData.cbbo_name;
                 }
                 break;
-           
+
             case 'company_details':
                 distiller.company_details = {
                     ...distiller.company_details,
@@ -580,22 +580,10 @@ module.exports.updateManufacturingUnit = async (req, res) => {
 
 module.exports.getManufacturingUnit = async (req, res) => {
     try {
-        const { id, page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
-        if (!id) {
-            return sendResponse({
-                res,
-                status: 400,
-                message: _response_message.notFound("id"),
-            });
-        }
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            return sendResponse({
-                res,
-                status: 400,
-                message: _response_message.invalid(id),
-            });
-        }
-        const query = { 'distiller_id': id }
+        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
+        const { user_id } = req;
+       
+        const query = { 'distiller_id': user_id }
         const records = { count: 0 };
         const getState = async (stateId) => {
             try {
@@ -707,6 +695,7 @@ module.exports.getManufacturingUnit = async (req, res) => {
 module.exports.deleteManufacturingUnit = async (req, res) => {
     try {
         const { id } = req.params;
+
         if (!id) {
             return sendResponse({
                 res,
@@ -812,38 +801,16 @@ module.exports.updateStorageFacility = async (req, res) => {
 
 module.exports.getStorageFacility = async (req, res) => {
     try {
-        const { id, page, limit, skip, paginate = 1, sortBy, search = '' } = req.query;
-
-        if (!id) {
-            return sendResponse({
-                res,
-                status: 400,
-                message: _response_message.notFound("id"),
-            });
-        }
-
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            return sendResponse({
-                res,
-                status: 400,
-                message: _response_message.invalid(id),
-            });
-        }
-
-        const query = { distiller_id: id };
+        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query;
+        const { user_id } = req;
+       
+        const query = { distiller_id: user_id };
         const records = { count: 0 };
 
         records.rows = paginate == 1
             ? await StorageFacility.find(query).sort(sortBy).skip(skip).limit(parseInt(limit))
             : await StorageFacility.find(query).sort(sortBy);
 
-        // if (!records.rows?.length) {
-        //     return sendResponse({
-        //         res,
-        //         status: 404,
-        //         message: _response_message.notFound("Storage Facility"),
-        //     });
-        // }
         const getState = async (stateId) => {
             try {
                 if (!stateId) return "";
