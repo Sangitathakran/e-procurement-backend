@@ -47,7 +47,8 @@ const _collectionName = {
     Distiller: "Distiller",
     ManufacturingUnit: "ManufacturingUnit",
     StorageFacility: "StorageFacility",
-    PurchaseOrder: "PurchaseOrder"
+    PurchaseOrder: "PurchaseOrder",
+    BatchOrderProcess:"batchOrderProcess"
 
 }
 
@@ -457,6 +458,16 @@ const _poPaymentStatus = {
     failed: 'Failed'
 }
 
+const _poPickupStatus = {
+    pending: 'Pending',
+    completed: 'Completed',
+    failed: 'Failed'
+}
+const _poBatchStatus = {
+    scheduled: 'Scheduled',
+    inProgress: 'In Progress',
+    completed: 'Completed',
+}
 
 module.exports = {
     _userAction,
@@ -516,5 +527,7 @@ module.exports = {
     _wareHouseApproval,
     _poRequestStatus,
     _poAdvancePaymentStatus,
-    _poPaymentStatus
+    _poPaymentStatus,
+    _poPickupStatus,
+    _poBatchStatus
 }

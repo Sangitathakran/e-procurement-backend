@@ -12,8 +12,8 @@ distillerAuthRoutes.get("/onboarding-status", verifyDistiller, onboardingStatus)
 distillerAuthRoutes.get("/find-user-status", verifyDistiller, findUserStatus);
 distillerAuthRoutes.patch("/final-submit", verifyDistiller, finalFormSubmit);
 
-distillerAuthRoutes.get("/editOnboarding", verifyDistiller, editOnboarding);
-distillerAuthRoutes.post("/distiller-bulkuplod", distillerBulkuplod);
+// distillerAuthRoutes.get("/editOnboarding", verifyDistiller, editOnboarding);
+// distillerAuthRoutes.post("/distiller-bulkuplod", distillerBulkuplod);
 distillerAuthRoutes.put("/manfacturing-unit", verifyDistiller, updateManufacturingUnit);
 distillerAuthRoutes.get("/manfacturing-unit", verifyDistiller, getManufacturingUnit);
 distillerAuthRoutes.delete("/manfacturing-unit/:id", verifyDistiller, deleteManufacturingUnit);
