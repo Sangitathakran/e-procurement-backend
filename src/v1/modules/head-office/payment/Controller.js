@@ -263,6 +263,7 @@ module.exports.payment = async (req, res) => {
 
 module.exports.payment = async (req, res) => {
   try {
+    // console.log("raj kapoor")
     const { page, limit, skip, paginate = 1, sortBy, search = "", isExport=0,state="",commodity="" } = req.query;
 
     // let query = search ? { reqNo: { $regex: search, $options: "i" } } : {};
@@ -380,6 +381,14 @@ module.exports.payment = async (req, res) => {
       },
       {
         $lookup: {
+          from: "requests",
+          localField: "batches.req_id",
+          foreignField: "_id",
+          as: "request",
+        },
+      },
+      {
+        $lookup: {
           from: "payments",
           localField: "_id",
           foreignField: "batch_id",
@@ -481,7 +490,8 @@ module.exports.payment = async (req, res) => {
           sellers:1,
           batches:1,
           ProcurementCenter:1,
-          payment:1
+          payment:1,
+          request:1,
         },
       },
       { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
@@ -529,7 +539,11 @@ module.exports.payment = async (req, res) => {
 
     
     if (isExport == 1) {
-      const record = response.rows.map((item) => {
+      const exportRecords = await RequestModel.aggregate([
+        ...aggregationPipeline, 
+        { $match: query },
+      ]);
+      const record =  exportRecords.map((item) => {
         const procurementAddress = item?.ProcurementCenter[0]?.address;
         const paymentDetails = item.payment[0] || {};
         const sellerDetails = item.sellers?.[0]?.basic_details?.associate_details || {};
@@ -540,7 +554,13 @@ module.exports.payment = async (req, res) => {
             : "NA";
         const batchIds = item?.batches?.map(batch => batch.batchId).join(', ') || "NA";
         const dispatchedDates = item?.batches?.map(batch => batch.dispatched?.dispatched_at || "NA").join(", ") || "NA";
-        const intransitDates = item?.batches?.map(batch => batch.intransit?.intransit_at || "NA").join(", ") || "NA";    
+        const intransitDates = item?.batches?.map(batch => batch.intransit?.intransit_at || "NA").join(", ") || "NA";
+        const deliveredat = item?.batches?.map(batch => batch.delivered?.delivered_at || "NA").join(", ") || "NA";
+        const deliveryDates = item?.request?.map(req => req.deliveryDate).join(", ") || "NA";
+        const receivingDates = item?.batches
+        ?.map(batch => batch?.dispatched?.qc_report?.received?.map(received => received?.on || "NA"))
+        ?.flat()
+        ?.join(", ") || "NA";
         return {
           "Order ID": item?.reqNo || "NA",
           "MSP": item?.quotedPrice || "NA",
@@ -565,14 +585,16 @@ module.exports.payment = async (req, res) => {
           "Associate User Code": item.sellers?.[0]?.user_code || "NA",
           "Associate Name": sellerDetails?.associate_name || "NA",
           "Farmer ID": farmerDetails?.farmer_id || "NA",
-            "Farmer Name": farmerDetails?.name || "NA",
-            "Mobile No": farmerDetails?.basic_details?.mobile_no || "NA",
-            "Farmer DOB": farmerDetails?.basic_details?.dob || "NA",
-            "Father Name": farmerDetails?.parents?.father_name || "NA",
-            "Farmer Address": farmerAddress,
-            "Dispatched Date": dispatchedDates,
-            "In-Transit Date": intransitDates,
-          
+          "Farmer Name": farmerDetails?.name || "NA",
+          "Mobile No": farmerDetails?.basic_details?.mobile_no || "NA",
+          "Farmer DOB": farmerDetails?.basic_details?.dob || "NA",
+          "Father Name": farmerDetails?.parents?.father_name || "NA",
+          "Farmer Address": farmerAddress,
+          "Dispatched Date": dispatchedDates,
+          "In-Transit Date": intransitDates,
+          "Delivery Date": deliveredat,
+          "Expected Delivery Date": deliveryDates,
+          "Receivinng Date": receivingDates,
         };
       });
 
