@@ -381,13 +381,14 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
     }
 }
 
+
 module.exports.updateMarkReady = async (req, res) => {
     try {
         const { id, material_img = [], weight_slip = [], qc_report = [], lab_report = [] } = req.body;
         const { user_id } = req;
         const record = await Batch.findOne({ _id: id });
         if (!record) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }));
         }
 
         if (record.status == _batchStatus.delivered) {
@@ -397,10 +398,12 @@ module.exports.updateMarkReady = async (req, res) => {
             }));
         }
 
-        record.dispatched.material_img.inital.push(...material_img.map(i => { return { img: i, on: moment() } }));
-        record.dispatched.weight_slip.inital.push(...weight_slip.map(i => { return { img: i, on: moment() } }));
-        record.dispatched.qc_report.inital.push(...qc_report.map(i => { return { img: i, on: moment() } }));
-        record.dispatched.lab_report.inital.push(...lab_report.map(i => { return { img: i, on: moment() } }));
+        // Overwrite the arrays with the new payload data
+        record.dispatched.material_img.inital = material_img.map(i => ({ img: i, on: moment() }));
+        record.dispatched.weight_slip.inital = weight_slip.map(i => ({ img: i, on: moment() }));
+        record.dispatched.qc_report.inital = qc_report.map(i => ({ img: i, on: moment() }));
+        record.dispatched.lab_report.inital = lab_report.map(i => ({ img: i, on: moment() }));
+
         await record.save();
         return res.status(200).send(new serviceResponse({
             status: 200,
@@ -410,4 +413,4 @@ module.exports.updateMarkReady = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
