@@ -16,8 +16,12 @@ const purchaseOrderSchema = new mongoose.Schema({
 
   manufacturingLocation: { type: String, required: true },
   storageLocation: { type: String, required: true },
-  deliveryLocation: { type: String, required: true },
-
+  deliveryLocation: {
+    location: { type: String },
+    lat: { type: String },
+    long: { type: String },
+    locationUrl: { type: String }
+  },  
   paymentInfo: {
     totalAmount: { type: Number, required: true }, // Assume this is calculated during the first step
     advancePayment: { type: Number, required: true }, // Auto-calculated: 3% of totalAmount
@@ -26,8 +30,8 @@ const purchaseOrderSchema = new mongoose.Schema({
     advancePaymentUtrNo: { type: String },
     balancePayment: { type: Number, default: 0 }, // Auto-calculated: 97% of totalAmount
     balancePaymentDate: { type: Date },
-    paidAmount:{ type: Number, default: 0 },
-    tax:{ type: Number, default: 0 }
+    paidAmount: { type: Number, default: 0 },
+    tax: { type: Number, default: 0 }
   },
 
   companyDetails: {
@@ -83,7 +87,7 @@ const purchaseOrderSchema = new mongoose.Schema({
   termsAndConditions: {
     accepted: { type: Boolean, default: true },
   },
-  
+
   poStatus: { type: String, enum: Object.values(_poRequestStatus), default: _poRequestStatus.pending },
   payment_status: { type: String, enum: Object.values(_poPaymentStatus), default: _poPaymentStatus.pending },
 
