@@ -44,7 +44,7 @@ const warehousev2Schema = new mongoose.Schema({
     is_form_submitted: { type: String, default: false },
     is_sms_send: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
-    warehouseOwner_code: { type: String, required: true },
+    warehouseOwner_code: { type: String, unique: true },
 }, { timestamps: true });
 
 warehousev2Schema.pre('save', async function (next) {
