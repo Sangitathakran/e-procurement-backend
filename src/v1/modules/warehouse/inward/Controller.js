@@ -6,6 +6,7 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 
 
 module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
@@ -122,12 +123,17 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
 module.exports.batchApproveOrReject = async (req, res) => {
     try {
         const { batchId, status, product_images = [], qc_images = [] } = req.body;
-        const { portalId } = req;
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
+        const decode = await decryptJwtToken(getToken);
+        const UserId = decode.data.user_id;
 
         // Find the batch that is not already approved
         const record = await Batch.findOne({
             _id: batchId,
-            wareHouse_approve_status: { $ne: "approved" }
+            wareHouse_approve_status: { $ne: "Approved" }
         });
 
         if (!record) {
@@ -149,37 +155,38 @@ module.exports.batchApproveOrReject = async (req, res) => {
         }
 
         // Update the approval or rejection status
-        record.wareHouse_approve_status = status === "approved" ? "approved" : "rejected";
+        record.wareHouse_approve_status = status === "Approved" ? "Approved" : "Rejected";
         record.wareHouse_approve_at = new Date();
-        record.wareHouse_approve_by = portalId;
+        record.wareHouse_approve_by = UserId;
 
         // Send email notification
-        const subject = status === "approved"
-            ? `Batch Approved: Notification for Batch ID ${record._id}`
-            : `Batch Rejected: Notification for Batch ID ${record._id}`;
+        // const subject = status === "approved"
+        //     ? `Batch Approved: Notification for Batch ID ${record._id}`
+        //     : `Batch Rejected: Notification for Batch ID ${record._id}`;
 
-        const body = status === "approved"
-            ? `<p>Dear User,</p>
-               <p>The batch with ID <strong>${record._id}</strong> has been <strong>approved</strong>.</p>
-               ${product_images.length > 0 ? `<p>Product Images: ${product_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
-               ${qc_images.length > 0 ? `<p>QC Images: ${qc_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
-               <p>Warm regards,</p>
-               <p>Team</p>`
-            : `<p>Dear User,</p>
-               <p>The batch with ID <strong>${record._id}</strong> has been <strong>rejected</strong>.</p>
-               ${product_images.length > 0 ? `<p>Product Images: ${product_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
-               ${qc_images.length > 0 ? `<p>QC Images: ${qc_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
-               <p>Warm regards,</p>
-               <p>Team</p>`;
+        // const body = status === "approved"
+        //     ? `<p>Dear User,</p>
+        //        <p>The batch with ID <strong>${record._id}</strong> has been <strong>approved</strong>.</p>
+        //        ${product_images.length > 0 ? `<p>Product Images: ${product_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
+        //        ${qc_images.length > 0 ? `<p>QC Images: ${qc_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
+        //        <p>Warm regards,</p>
+        //        <p>Team</p>`
+        //     : `<p>Dear User,</p>
+        //        <p>The batch with ID <strong>${record._id}</strong> has been <strong>rejected</strong>.</p>
+        //        ${product_images.length > 0 ? `<p>Product Images: ${product_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
+        //        ${qc_images.length > 0 ? `<p>QC Images: ${qc_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
+        //        <p>Warm regards,</p>
+        //        <p>Team</p>`;
 
-        await sendMail("ashita@navankur.org", "", subject, body);
+        // await sendMail("nagma@navankur.org", "", subject, body);
 
         // Save the updated batch record
         await record.save();
 
         return res.status(200).send(new serviceResponse({
             status: 200,
-            message: `Batch successfully ${status}`
+            message: `Batch successfully ${status}`,
+            data: record,
         }));
     } catch (error) {
         _handleCatchErrors(error, res);

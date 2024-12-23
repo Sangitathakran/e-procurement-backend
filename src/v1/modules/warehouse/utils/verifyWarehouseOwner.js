@@ -10,27 +10,49 @@ const tokenBlacklist = [];
 
 exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
     const token = req.headers.token || req.cookies.token;
+
+    // Check if token exists
     if (!token) {
-        return res.status(200).send(new serviceResponse({ status: 403, errors: [{ message: _response_message.Unauthorized() }] }));
-    }
-    if (tokenBlacklist.includes(token)) {
-        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "Token has been revoked" }] }));
+        return res.status(403).send(new serviceResponse({
+            status: 403,
+            errors: [{ message: _response_message.Unauthorized() }]
+        }));
     }
 
+    // Check if token is blacklisted
+    if (tokenBlacklist.includes(token)) {
+        return res.status(401).send(new serviceResponse({
+            status: 401,
+            errors: [{ message: "Token has been revoked" }]
+        }));
+    }
+
+    // Verify the token
     jwt.verify(token, JWT_SECRET_KEY, async function (err, decodedToken) {
         if (err) {
             if (err.name === 'TokenExpiredError') {
-                return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "Token has expired" }] }));
+                return res.status(401).send(new serviceResponse({
+                    status: 401,
+                    errors: [{ message: "Token has expired" }]
+                }));
             }
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.invalid("token") }] }));
+            return res.status(401).send(new serviceResponse({
+                status: 401,
+                errors: [{ message: _response_message.invalid("token") }]
+            }));
         }
 
+        // Check if the warehouse exists
         const warehouseExist = await wareHousev2.findOne({ _id: decodedToken.user_id });
         if (!warehouseExist) {
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("Warehouse") }] }));
+            return res.status(401).send(new serviceResponse({
+                status: 401,
+                errors: [{ message: _response_message.notFound("Warehouse") }]
+            }));
         }
 
-        if (warehouseExist.active === false) {
+        // Check if the warehouse is active
+        if (!warehouseExist.active) {
             res.clearCookie('token', {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
@@ -38,22 +60,43 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
                 maxAge: 0,
             });
 
-            return res.status(401).send(new serviceResponse({ status: 401, errors: [{ message: "Inactive Warehouse" }] }));
+            return res.status(401).send(new serviceResponse({
+                status: 401,
+                errors: [{ message: "Inactive Warehouse" }]
+            }));
         }
 
+        // Attach token data to the request
         Object.entries(decodedToken).forEach(([key, value]) => {
             req[key] = value;
         });
 
-        if (req.url === '/onboarding' || req.url === '/onboarding-status' || req.url === '/find-user-status' || req.url === '/final-submit' || req.url === '/batch-list/:warehouseOwnerId') {
-            next();
-        } else if (warehouseExist.is_approved === _userStatus.approved) {
-            if (decodedToken.user_type !== _userType.warehouse) {
-                return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.Unauthorized() }] }));
-            }
+        // Check URL conditions for specific routes
+        const allowedUrls = [
+            '/onboarding',
+            '/onboarding-status',
+            '/find-user-status',
+            '/final-submit',
+            '/batch-approval',
+            '/lot-list',
+            '/batch-details',
+            '/batch-edit',
+            '/batch-list',
+            '/batch-details/:batch_id'
+        ];
+
+        const currentUrl = req.url.split('?')[0];
+        const isAllowedUrl = allowedUrls.some(url => currentUrl.startsWith(url));
+
+        if (isAllowedUrl) {
             next();
         } else {
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notApproved("Warehouse") }] }));
+            return res.status(401).send(new serviceResponse({
+                status: 401,
+                errors: [{ message: _response_message.Unauthorized() }]
+            }));
         }
     });
 });
+
+
