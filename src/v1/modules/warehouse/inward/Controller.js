@@ -1,19 +1,45 @@
+const mongoose = require('mongoose');
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
-
+const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 
 
 module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
+    const { page = 1, limit = 10, sortBy = "createdAt", search = '', warehouseIds = [], isExport = 0 } = req.query;
+
     try {
-        const { page = 1, limit = 10, sortBy = "createdAt", search = '', warehouseIds = [], isExport = 0 } = req.query;
+        const { warehouseOwnerId } = req.params;
 
-        const warehouseFilter = Array.isArray(warehouseIds) && warehouseIds.length > 0
-            ? { wareHouse_id: { $in: warehouseIds } }
-            : {};
+        if (!mongoose.Types.ObjectId.isValid(warehouseOwnerId)) {
+            return res.status(400).json({
+                status: 400,
+                message: "Invalid warehouseOwnerId provided",
+            });
+        }
 
+        const warehouseDetails = await wareHouseDetails.find({
+            warehouseOwnerId: new mongoose.Types.ObjectId(warehouseOwnerId),
+        });
+        const ownerWarehouseIds = warehouseDetails.map(warehouse => warehouse._id);
+
+
+        const finalWarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length > 0
+            ? warehouseIds.filter(id => ownerWarehouseIds.includes(id)) // Only allow IDs owned by the user
+            : ownerWarehouseIds;
+
+        if (finalWarehouseIds.length === 0) {
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: { records: [], page, limit, pages: 0 },
+                message: "No warehouses found for the user."
+            }));
+        }
+
+        const warehouseFilter = { warehousedetails_id: { $in: finalWarehouseIds } };
         const searchFilter = search ? {
             $or: [
                 { batchId: { $regex: search, $options: 'i' } },
@@ -22,51 +48,45 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
             ]
         } : {};
 
-        const query = {
-            ...warehouseFilter,
-            ...searchFilter
-        };
+        const query = { ...warehouseFilter, ...searchFilter };
 
+        // Step 4: Fetch data
         const records = {};
         records.rows = await Batch.find(query)
             .populate([
                 { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
                 { path: "procurementCenter_id", select: "center_name" },
-                { path: "wareHouse_id", select: "warehouse_name" },
+                { path: "warehousedetails_id", select: "basicDetails.warehouseName" },
             ])
-            .sort(sortBy)
+            .select("batchId warehousedetails_id commodity qty received_on qc_report.received_qc_status")
+            .sort({ [sortBy]: 1 })
             .skip((page - 1) * limit)
             .limit(parseInt(limit));
 
         records.count = await Batch.countDocuments(query);
-
         records.page = page;
         records.limit = limit;
         records.pages = Math.ceil(records.count / limit);
 
-        const totalBatches = await Batch.countDocuments(warehouseFilter);
-        const approvedBatches = await Batch.countDocuments({ ...warehouseFilter, wareHouse_approve_status: "approved" });
-        const rejectedBatches = await Batch.countDocuments({ ...warehouseFilter, wareHouse_approve_status: "rejected" });
-        const pendingQCBatches = await Batch.countDocuments({ ...warehouseFilter, wareHouse_approve_status: "pending" });
 
-        const widgetData = {
-            totalBatches,
-            approvedBatches,
-            rejectedBatches,
-            pendingQCBatches
-        };
+        records.totalBatches = await Batch.countDocuments(query);
+        records.approvedBatches = await Batch.countDocuments({ ...query, status: 'Approved' });
+        records.rejectedBatches = await Batch.countDocuments({ ...query, status: 'Rejected' });
+        records.pendingBatches = await Batch.countDocuments({ ...query, status: 'Pending' });
+        records.pendingReceivingBatches = await Batch.countDocuments({
+            ...query,
+            "dispatched.received": { $exists: false } // Assuming 'received' is a field that indicates if the batch has been received.
+        });
 
         if (isExport == 1) {
-            const exportData = records.rows.map(item => {
-                return {
-                    "Batch ID": item.batchId || 'NA',
-                    "Associate Name": item.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
-                    "Procurement Center": item.procurementCenter_id?.center_name || 'NA',
-                    "Warehouse": item.wareHouse_id?.warehouse_name || 'NA',
-                    "Quantity": item.qty || 'NA',
-                    "Status": item.wareHouse_approve_status || 'NA'
-                };
-            });
+            const exportData = records.rows.map(item => ({
+                "Batch ID": item.batchId || 'NA',
+                "Associate Name": item.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
+                "Procurement Center": item.procurementCenter_id?.center_name || 'NA',
+                "Warehouse": item.warehousedetails_id?.basicDetails?.warehouseName || 'NA',
+                "Quantity": item.qty || 'NA',
+                "Status": item.wareHouse_approve_status || 'NA'
+            }));
 
             if (exportData.length > 0) {
                 dumpJSONToExcel(req, res, {
@@ -80,16 +100,24 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
             }
         }
 
+        // Step 6: Return paginated records
         return res.status(200).send(new serviceResponse({
             status: 200,
-            data: { records, widgetData },
+            data: { records },
             message: "Batches fetched successfully"
         }));
     } catch (error) {
-        _handleCatchErrors(error, res);
+        // Error handling
+        console.log(error);
+
+        return res.status(500).send(new serviceResponse({
+            status: 500,
+            message: "Error fetching batches",
+            error: error.message,
+        }));
+
     }
 });
-
 
 module.exports.batchApproveOrReject = async (req, res) => {
     try {
@@ -160,22 +188,21 @@ module.exports.batchApproveOrReject = async (req, res) => {
 
 module.exports.viewBatchDetails = async (req, res) => {
     try {
-        const { batchId } = req.query;
+        const { batch_id } = req.query;
 
-        if (!batchId) {
+        if (!batch_id) {
             return res.status(400).send(new serviceResponse({
                 status: 400,
                 errors: [{ message: "Batch ID is required" }]
             }));
         }
 
-        const batch = await Batch.findById(batchId)
+        const batch = await Batch.findById(batch_id)
             .populate([
                 { path: "procurementCenter_id", select: "center_name" },
-                { path: "warehouse_id", select: "basicDetails.warehouseName basicDetails.addressDetails" },
+                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails" },
                 { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" }
             ])
-            .select("-__v");
 
         if (!batch) {
             return res.status(404).send(new serviceResponse({
@@ -185,7 +212,7 @@ module.exports.viewBatchDetails = async (req, res) => {
         }
 
         const response = {
-            batchId: batch.batchId,
+            batch_id: batch.batch_id,
             fpoName: batch.fpoName,
             commodity: batch.commodity,
             quantityInTransit: batch.quantityInTransit,
@@ -217,6 +244,7 @@ module.exports.viewBatchDetails = async (req, res) => {
         return res.status(200).send(new serviceResponse({
             status: 200,
             data: response,
+            batch: batch,
             message: "Batch details fetched successfully"
         }));
     } catch (error) {

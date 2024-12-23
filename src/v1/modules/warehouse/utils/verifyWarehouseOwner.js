@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken');
 
 const tokenBlacklist = [];
 
-exports.verifyWarehouse = asyncErrorHandler(async (req, res, next) => {
+exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
     const token = req.headers.token || req.cookies.token;
     if (!token) {
         return res.status(200).send(new serviceResponse({ status: 403, errors: [{ message: _response_message.Unauthorized() }] }));
@@ -26,7 +26,6 @@ exports.verifyWarehouse = asyncErrorHandler(async (req, res, next) => {
         }
 
         const warehouseExist = await wareHousev2.findOne({ _id: decodedToken.user_id });
-
         if (!warehouseExist) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("Warehouse") }] }));
         }
@@ -46,7 +45,7 @@ exports.verifyWarehouse = asyncErrorHandler(async (req, res, next) => {
             req[key] = value;
         });
 
-        if (req.url === '/onboarding' || req.url === '/onboarding-status' || req.url === '/find-user-status' || req.url === '/final-submit') {
+        if (req.url === '/onboarding' || req.url === '/onboarding-status' || req.url === '/find-user-status' || req.url === '/final-submit' || req.url === '/batch-list/:warehouseOwnerId') {
             next();
         } else if (warehouseExist.is_approved === _userStatus.approved) {
             if (decodedToken.user_type !== _userType.warehouse) {
