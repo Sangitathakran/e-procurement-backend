@@ -189,8 +189,8 @@ module.exports.batchList = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '', tab = 0, req_id, isExport = 0 } = req.query
         const { user_id } = req
 
-        const paymentIds = tab == 0 ? (await Payment.find({ associate_id: user_id, req_id })).map(i => i.batch_id) : 
-        (await AssociateInvoice.find({ associate_id: user_id, req_id })).map(i => i.batch_id)
+        const paymentIds = tab == 0 ? (await Payment.find({ associate_id: user_id, req_id })).map(i => i.batch_id) :
+            (await AssociateInvoice.find({ associate_id: user_id, req_id })).map(i => i.batch_id)
 
 
         let query = {
@@ -219,29 +219,30 @@ module.exports.batchList = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        records.rows = await Promise.all(records.rows.map(async (item)=>{
+        records.rows = await Promise.all(records.rows.map(async (item) => {
 
             let paidFarmer = 0
             let unPaidFarmer = 0
             let rejectedFarmer = 0
-            let totalFarmer = 0   
-            const paymentData = await Payment.find({ associate_id: user_id, req_id, batch_id:item._id })
+            let totalFarmer = 0
+            const paymentData = await Payment.find({ associate_id: user_id, req_id, batch_id: item._id })
 
-            paymentData.forEach(item=> { 
-                    if(item.payment_status===_paymentstatus.completed) {
-                        paidFarmer += 1
-                    }
-                    if(item.payment_status===_paymentstatus.pending || item.payment_status===_paymentstatus.rejected) {
-                        unPaidFarmer += 1
-                    }
-                    if(item.payment_status===_paymentstatus.failed) {
-                        rejectedFarmer += 1
-                    }
+            paymentData.forEach(item => {
+                if (item.payment_status === _paymentstatus.completed) {
+                    paidFarmer += 1
+                }
+                if (item.payment_status === _paymentstatus.pending || item.payment_status === _paymentstatus.rejected) {
+                    unPaidFarmer += 1
+                }
+                // if (item.payment_status === _paymentstatus.failed) {
+                if (item.payment_status === _paymentstatus.rejected) {
+                    rejectedFarmer += 1
+                }
 
-                    totalFarmer += 1
+                totalFarmer += 1
             })
 
-            return {...JSON.parse(JSON.stringify(item)), paidFarmer, unPaidFarmer, rejectedFarmer, totalFarmer}
+            return { ...JSON.parse(JSON.stringify(item)), paidFarmer, unPaidFarmer, rejectedFarmer, totalFarmer }
 
         }))
 
@@ -744,7 +745,7 @@ module.exports.paymentLogs = async (req, res) => {
 }
 
 module.exports.failedPaymentFarmer = async (req, res) => {
-    
+
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', batch_id } = req.query;
 
@@ -759,29 +760,28 @@ module.exports.failedPaymentFarmer = async (req, res) => {
         }
 
         let query = {
-            _id: farmerOrderIdsOnly,
-            payment_status:_paymentstatus.failed,
+            _id: { $in: farmerOrderIdsOnly },
+            payment_status: _paymentstatus.rejected,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
         const records = { count: 0 };
-
-        records.rows = paginate == 1 ? await FarmerOrders.find(query).select({ _id:0, total_amount:1, FarmerName:1,farmer_id:1, net_pay: 1}).populate({path:'farmer_id',select:'name bank_details'})
+        records.rows = paginate == 1 ? await FarmerOrders.find(query).select({ _id: 1, total_amount: 1, FarmerName: 1, farmer_id: 1, net_pay: 1 }).populate({ path: 'farmer_id', select: 'name bank_details' })
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await FarmerOrders.find(query)
                 .sort(sortBy);
 
-        records.rows = records.rows.map(item=>{
-                return {
-                    batchId: batch_id,
-                    ...JSON.parse(JSON.stringify(item.farmer_id.bank_details)),
-                    farmer_id : item.farmer_id._id,
-                    farmerName: item.farmer_id.name,
-                    amount_payable: item.net_pay,
-                    farmer_order_id: item._id
-                
-                }
+        records.rows = records.rows.map(item => {
+            return {
+                batchId: batch_id,
+                ...JSON.parse(JSON.stringify(item.farmer_id.bank_details)),
+                farmer_id: item.farmer_id._id,
+                farmerName: item.farmer_id.name,
+                amount_payable: item.net_pay,
+                farmer_order_id: item._id
+
+            }
         })
 
         records.count = await FarmerOrders.countDocuments(query);
@@ -791,7 +791,6 @@ module.exports.failedPaymentFarmer = async (req, res) => {
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-
         if (records) {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
         }
@@ -808,7 +807,7 @@ module.exports.failedPaymentFarmer = async (req, res) => {
 module.exports.updateFarmerBankDetail = async (req, res) => {
     try {
         const { user_id } = req;
-        const { farmer_id, account_no, ifsc_code, batch_id , farmer_order_id } = req.body;
+        const { farmer_id, account_no, ifsc_code, batch_id, farmer_order_id } = req.body;
 
         const existingRecord = await farmer.findOne({ _id: farmer_id });
         console.log(existingRecord)
@@ -824,13 +823,13 @@ module.exports.updateFarmerBankDetail = async (req, res) => {
         const updatedFarmer = await farmer.findOneAndUpdate({ _id: farmer_id }, update, { new: true });
 
         // to update the payment status in farmer order collection 
-        const farmerOrder = await FarmerOrders.findOne({_id: farmer_order_id })
+        const farmerOrder = await FarmerOrders.findOne({ _id: farmer_order_id })
         farmerOrder.payment_status = _paymentstatus.pending
         await farmerOrder.save()
-        
-        
+
+
         // to update the payment status of the farmer in payment collection
-        const paymentDetail = await Payment.findOne({farmer_id:farmer_id, batch_id: batch_id, associate_id: user_id })
+        const paymentDetail = await Payment.findOne({ farmer_id: farmer_id, batch_id: batch_id, associate_id: user_id })
         paymentDetail.payment_status = _paymentstatus.pending
         await paymentDetail.save()
 
@@ -873,9 +872,9 @@ module.exports.editBill = async (req, res) => {
 
     record.agent_approve_status = _paymentApproval.pending
 
-    
 
-    const batch = await Batch.findOne({_id:record.batch_id});
+
+    const batch = await Batch.findOne({ _id: record.batch_id });
 
     if (!batch) {
         return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Batch') }] }));
@@ -895,47 +894,47 @@ module.exports.editBill = async (req, res) => {
 
 }
 
-const updateAssociateLogs = async (invoiceId) => { 
+const updateAssociateLogs = async (invoiceId) => {
 
-   try {
-    const invoice = await AssociateInvoice.findOne({ _id: invoiceId });
+    try {
+        const invoice = await AssociateInvoice.findOne({ _id: invoiceId });
 
-    const log = {
-        bills: {
-            procurementExp: handleDecimal(invoice.bills.procurementExp),
-            qc_survey: invoice.bills.qc_survey,
-            gunny_bags: invoice.bills.gunny_bags,
-            weighing_stiching: invoice.bills.weighing_stiching,
-            loading_unloading: invoice.bills.loading_unloading,
-            transportation: invoice.bills.transportation,
-            driage: handleDecimal(invoice.bills.driage),
-            storageExp: handleDecimal(invoice.bills.storageExp),
-            commission: handleDecimal(invoice.bills.commission),
-            total: handleDecimal(invoice.bills.total),
+        const log = {
+            bills: {
+                procurementExp: handleDecimal(invoice.bills.procurementExp),
+                qc_survey: invoice.bills.qc_survey,
+                gunny_bags: invoice.bills.gunny_bags,
+                weighing_stiching: invoice.bills.weighing_stiching,
+                loading_unloading: invoice.bills.loading_unloading,
+                transportation: invoice.bills.transportation,
+                driage: handleDecimal(invoice.bills.driage),
+                storageExp: handleDecimal(invoice.bills.storageExp),
+                commission: handleDecimal(invoice.bills.commission),
+                total: handleDecimal(invoice.bills.total),
 
-            // Rejection case
-            agent_reject_by: invoice.bills.agent_reject_by,
-            agent_reject_at: invoice.bills.agent_reject_at,
-            reason_to_reject: invoice.bills.reason_to_reject 
-        },
-        initiated_at: invoice.initiated_at,
-        agent_approve_status: invoice.agent_approve_status,
-        agent_approve_by: invoice.agent_approve_by,
-        agent_approve_at: invoice.agent_approve_at,
-        payment_status: invoice.payment_status,
-        payment_id: invoice.payment_id,
-        transaction_id: invoice.transaction_id,
-        payment_method: invoice.payment_method,
-        payment_change_remarks: invoice.payment_change_remarks || null
-    };
+                // Rejection case
+                agent_reject_by: invoice.bills.agent_reject_by,
+                agent_reject_at: invoice.bills.agent_reject_at,
+                reason_to_reject: invoice.bills.reason_to_reject
+            },
+            initiated_at: invoice.initiated_at,
+            agent_approve_status: invoice.agent_approve_status,
+            agent_approve_by: invoice.agent_approve_by,
+            agent_approve_at: invoice.agent_approve_at,
+            payment_status: invoice.payment_status,
+            payment_id: invoice.payment_id,
+            transaction_id: invoice.transaction_id,
+            payment_method: invoice.payment_method,
+            payment_change_remarks: invoice.payment_change_remarks || null
+        };
 
-    invoice.logs.push(log)
-    await invoice.save()
+        invoice.logs.push(log)
+        await invoice.save()
 
-    return true
-    
-   } catch (error) {
+        return true
+
+    } catch (error) {
         throw error
-   }
+    }
 
 }

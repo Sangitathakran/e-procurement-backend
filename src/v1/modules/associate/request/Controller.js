@@ -15,41 +15,43 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const { User } = require("@src/v1/models/app/auth/User");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
-
 module.exports.getProcurement = async (req, res) => {
     try {
         const { user_id } = req;
-        const { page, limit, skip, paginate = 1, sortBy, search = '', status } = req.query;
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', status } = req.query;
 
-        let query = search ? {
-            $or: [
-                { "reqNo": { $regex: search, $options: 'i' } },
-                { "product.name": { $regex: search, $options: 'i' } },
-                { "product.grade": { $regex: search, $options: 'i' } },
-            ]
-        } : {};
+        // Build query for search
+        let query = search
+            ? {
+                  $or: [
+                      { reqNo: { $regex: search, $options: 'i' } },
+                      { 'product.name': { $regex: search, $options: 'i' } },
+                      { 'product.grade': { $regex: search, $options: 'i' } },
+                  ],
+              }
+            : {};
 
-        // Handle status filtering based on offers
         if (status && Object.values(_associateOfferStatus).includes(status)) {
-            console.log('status', status)
-            // Aggregation pipeline to join with AssociateOffers
-            const conditionPipeline = []
-            if (status == _associateOfferStatus.ordered) {
-                conditionPipeline.push({
-                    $lookup: {
-                        from: 'batches',
-                        localField: '_id',
-                        foreignField: 'req_id',
-                        as: 'batches',
+            // Handle status-based filtering
+            const conditionPipeline = [];
+            if (status === _associateOfferStatus.ordered) {
+                conditionPipeline.push(
+                    {
+                        $lookup: {
+                            from: 'batches',
+                            localField: '_id',
+                            foreignField: 'req_id',
+                            as: 'batches',
+                        },
                     },
-                })
-
-                conditionPipeline.push({
-                    $addFields: {
-                        batchesCount: { $size: '$batches' } // Get the count of batches
+                    {
+                        $addFields: {
+                            batchesCount: { $size: '$batches' }, // Add batch count
+                        },
                     }
-                })
+                );
             }
+
             const pipeline = [
                 { $match: query },
                 {
@@ -65,52 +67,64 @@ module.exports.getProcurement = async (req, res) => {
                 {
                     $match: {
                         'myoffer.seller_id': new mongoose.Types.ObjectId(user_id),
-                        ...((status == _associateOfferStatus.pending || status == _associateOfferStatus.rejected) && { 'myoffer.status': status }),
-                        ...(status == _associateOfferStatus.accepted && { 'myoffer.status': { $in: [_associateOfferStatus.accepted, _associateOfferStatus.partially_ordered] } }),
-                        ...(status == _associateOfferStatus.ordered && { 'myoffer.status': { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } }),
-                    }
+                        ...(status === _associateOfferStatus.pending || status === _associateOfferStatus.rejected
+                            ? { 'myoffer.status': status }
+                            : {}),
+                        ...(status === _associateOfferStatus.accepted
+                            ? { 'myoffer.status': { $in: [_associateOfferStatus.accepted, _associateOfferStatus.partially_ordered] } }
+                            : {}),
+                        ...(status === _associateOfferStatus.ordered
+                            ? { 'myoffer.status': { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } }
+                            : {}),
+                    },
                 },
-                { $sort: sortBy ? sortBy : { createdAt: -1 } },
-                { $skip: skip ? parseInt(skip) : 0 },
-                { $limit: limit ? parseInt(limit) : 10 }
+                { $sort: sortBy || { createdAt: -1 } },
+                { $skip: parseInt((page - 1) * limit) || 0 },
+                { $limit: parseInt(limit) || 10 },
             ];
 
-            const records = {};
-            records.rows = await RequestModel.aggregate(pipeline);
-            records.count = await RequestModel.countDocuments(query);
+            // Use pipeline for fetching rows and counting
+            const countPipeline = [...pipeline.slice(0, -2), { $count: 'count' }];
+            const countResult = await RequestModel.aggregate(countPipeline);
+            const records = {
+                rows: await RequestModel.aggregate(pipeline),
+                count: countResult.length > 0 ? countResult[0].count : 0,
+            };
 
-            if (paginate == 1) {
-                records.page = page;
-                records.limit = limit;
-                records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+            if (paginate === 1) {
+                records.page = parseInt(page);
+                records.limit = parseInt(limit);
+                records.pages = records.limit !== 0 ? Math.ceil(records.count / records.limit) : 0;
             }
 
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
+            return res
+                .status(200)
+                .send(new serviceResponse({ status: 200, data: records, message: _response_message.found('procurement') }));
         } else {
-            // Find requests that have no offers or are open
+            // Handle requests with no offers or open status
             query.status = { $in: [_requestStatus.open, _requestStatus.partially_fulfulled] };
-            // const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
-            // query._id = { $nin: offerIds };
             query.quoteExpiry = { $gte: new Date() };
 
+            const rows = paginate === 1
+                ? await RequestModel.find(query)
+                      .sort(sortBy || { createdAt: -1 })
+                      .skip(parseInt(skip))
+                      .limit(parseInt(limit))
+                : await RequestModel.find(query).sort(sortBy || { createdAt: -1 });
 
-            const records = { count: 0 };
-            records.rows = paginate == 1 ? await RequestModel.find(query)
-                .sort(sortBy)
-                .skip(skip)
-                .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
+            const count = await RequestModel.countDocuments(query);
 
-            records.count = await RequestModel.countDocuments(query);
-
-            if (paginate == 1) {
-                records.page = page;
-                records.limit = limit;
-                records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+            const records = { rows, count };
+            if (paginate === 1) {
+                records.page = parseInt(page);
+                records.limit = parseInt(limit);
+                records.pages = records.limit !== 0 ? Math.ceil(records.count / records.limit) : 0;
             }
 
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
+            return res
+                .status(200)
+                .send(new serviceResponse({ status: 200, data: records, message: _response_message.found('procurement') }));
         }
-
     } catch (error) {
         console.log(error.message);
         _handleCatchErrors(error, res);
@@ -227,10 +241,24 @@ module.exports.associateOffer = async (req, res) => {
 
         if (existingRecord) {
 
+            // checks for associates offer status            
+            if(existingRecord.status == _associateOfferStatus.pending){
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Offer not accepted by admin." }] }));
+            }
+
+            // checks for associates's farmer offer status           
+            const existingFarmerOffer = await FarmerOrders.findOne({ associateOffers_id: existingRecord._id, status: _procuredStatus.pending });
+            
+            if(existingFarmerOffer){
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Associate's farmer offer not recieved yet." }] }));
+            }
+
+            // add new farmer oder 
             existingRecord.offeredQty = handleDecimal(sumOfFarmerQty + existingRecord.offeredQty);
             existingRecord.procuredQty = handleDecimal(sumOfFarmerQty + existingRecord.procuredQty);
             associateOfferRecord = existingRecord.save()
 
+             // update request's fulfilledQty and status
             const existingRequestModel = await RequestModel.findOne({ _id: req_id });
             
             existingRequestModel.fulfilledQty = handleDecimal(existingRequestModel.fulfilledQty + sumOfFarmerQty);

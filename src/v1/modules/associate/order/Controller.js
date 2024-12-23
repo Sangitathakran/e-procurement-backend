@@ -146,7 +146,7 @@ module.exports.batch = async (req, res) => {
         await Promise.all(
             users.map(({ basic_details: { associate_details } }) => {
                 const { email, associate_name } = associate_details;
-                
+
                 return emailService.sendCreateBatchEmail(email, associate_name);
             })
         );
@@ -303,9 +303,9 @@ module.exports.viewTrackDelivery = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
-
+        const user_id = req.user_id
         let query = {
-            req_id,
+            req_id, seller_id:user_id,
             ...(search ? { name: { $regex: search, $options: "i" } } : {})
         };
 
@@ -376,6 +376,37 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Track order") }));
 
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.updateMarkReady = async (req, res) => {
+    try {
+        const { id, material_img = [], weight_slip = [], qc_report = [], lab_report = [] } = req.body;
+        const { user_id } = req;
+        const record = await Batch.findOne({ _id: id });
+        if (!record) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
+        }
+
+        if (record.status == _batchStatus.delivered) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                errors: [{ message: "Order already has been delivered." }]
+            }));
+        }
+
+        record.dispatched.material_img.inital.push(...material_img.map(i => { return { img: i, on: moment() } }));
+        record.dispatched.weight_slip.inital.push(...weight_slip.map(i => { return { img: i, on: moment() } }));
+        record.dispatched.qc_report.inital.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+        record.dispatched.lab_report.inital.push(...lab_report.map(i => { return { img: i, on: moment() } }));
+        await record.save();
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: record,
+            message: _response_message.updated("batch")
+        }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }

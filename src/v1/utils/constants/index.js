@@ -29,6 +29,8 @@ const _collectionName = {
     Payment: "Payment",
     Branch: "Branch",
     DummyWarehouse: "DummyWarehouse",
+    Warehouse: "WarehouseV2",
+    WarehouseDetails: "WarehouseDetails",
     FarmerOrder: "FarmerOrder",
     PaymentLog: "PaymentLog",
     FeatureList: "FeatureList",  // need to change to Features
@@ -41,7 +43,13 @@ const _collectionName = {
     AssociateInvoice: "AssociateInvoice",
     AgentInvoice: "AgentInvoice",
     AgentPaymentFile: "AgentPaymentFile",
-    FarmerPaymentFile: "FarmerPaymentFile"
+    FarmerPaymentFile: "FarmerPaymentFile",
+    Distiller: "Distiller",
+    ManufacturingUnit: "ManufacturingUnit",
+    StorageFacility: "StorageFacility",
+    PurchaseOrder: "PurchaseOrder",
+    BatchOrderProcess:"batchOrderProcess"
+
 }
 
 const _userType_Feature_Collection = {
@@ -60,8 +68,8 @@ const _featureType = {
     branchOffice: "BranchOffice",
     headOffice: "HeadOffice",
     agency: "Agency",
-    associate: "Associate"
-
+    associate: "Associate",
+    distiller: "Distiller"
 }
 
 const _status = {
@@ -166,6 +174,8 @@ const _userType = {
     associate: "4",
     farmer: "5",
     agent: "6",
+    warehouse: "7",
+    distiller: "8",
 }
 
 const _userStatus = {
@@ -190,6 +200,7 @@ const _center_type = {
     associate: 'associate',
     agent: 'agent',
     head_office: 'head_office',
+    distiller: 'distiller'
 }
 
 const _address_type = {
@@ -338,6 +349,7 @@ const _paymentmethod = {
 
 const _paymentstatus = {
     pending: "Pending",
+    inProgress: "In Progress",
     failed:"Failed",
     completed: "Completed",
     rejected: "Rejected"
@@ -349,6 +361,12 @@ const _billstatus = {
 }
 
 const _paymentApproval = {
+    pending: "Pending",
+    approved: "Approved",
+    rejected: "Rejected"
+}
+
+const _wareHouseApproval = {
     pending: "Pending",
     approved: "Approved",
     rejected: "Rejected"
@@ -419,6 +437,44 @@ const _userTypeFrontendRouteMapping = {
     "branch-office": "3"
 }
 
+const _poRequestStatus = {
+    pending: 'Pending',
+    approved: 'Approved',
+    reject: 'Rejected'
+}
+
+
+const _poAdvancePaymentStatus = {
+    pending: "Pending",
+    paid: 'Paid',
+    reject: 'Reject',
+    failed: 'Failed'
+}
+
+const _poPaymentStatus = {
+    paid: 'Paid',
+    Unpaid: 'Unpaid',
+    reject: 'Reject',
+    failed: 'Failed'
+}
+
+const _poPickupStatus = {
+    pending: 'Pending',
+    completed: 'Completed',
+    failed: 'Failed'
+}
+const _poBatchStatus = {
+    scheduled: 'Scheduled',
+    inProgress: 'In Progress',
+    completed: 'Completed',
+}
+
+const _poBatchPaymentStatus = {
+    pending: 'Pending',
+    completed: 'Completed',
+    failed: 'Failed'
+}
+
 module.exports = {
     _userAction,
     _farmerType,
@@ -473,5 +529,12 @@ module.exports = {
     _frontendLoginRoutes,
     _userTypeFrontendRouteMapping,
     _billstatus,
-    _farmerOrderDeliverdStatus
+    _farmerOrderDeliverdStatus,
+    _wareHouseApproval,
+    _poRequestStatus,
+    _poAdvancePaymentStatus,
+    _poPaymentStatus,
+    _poPickupStatus,
+    _poBatchStatus,
+    _poBatchPaymentStatus
 }
