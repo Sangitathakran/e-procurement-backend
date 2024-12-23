@@ -146,7 +146,7 @@ module.exports.batch = async (req, res) => {
         await Promise.all(
             users.map(({ basic_details: { associate_details } }) => {
                 const { email, associate_name } = associate_details;
-                
+
                 return emailService.sendCreateBatchEmail(email, associate_name);
             })
         );
@@ -380,8 +380,6 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
-
 
 module.exports.updateMarkReady = async (req, res) => {
     try {
