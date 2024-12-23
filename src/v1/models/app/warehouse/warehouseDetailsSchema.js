@@ -8,11 +8,6 @@ const warehouseDetailsSchema = new mongoose.Schema({
         ref: 'WarehouseV2', // Reference to the parent schema
         required: true,
     },
-    warehouseId: {
-        type: String,
-        unique: true,
-        required: true,
-    },
     basicDetails: {
         warehouseName: { type: String, required: true, trim: true },
         warehouseCapacity: { type: Number, required: true },
@@ -96,5 +91,6 @@ warehouseDetailsSchema.pre('save', async function (next) {
     }
 });
 
-module.exports = mongoose.model('WarehouseDetails', warehouseDetailsSchema);
+const wareHouseDetails = mongoose.model(_collectionName.WarehouseDetails, warehouseDetailsSchema);
+module.exports = { wareHouseDetails };
 
