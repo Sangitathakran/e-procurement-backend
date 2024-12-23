@@ -3,7 +3,7 @@ const { _collectionName } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const warehouseDetailsSchema = new mongoose.Schema({
-    warehouseOwnerId: {
+    warehouseId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'WarehouseV2', // Reference to the parent schema
         required: true,

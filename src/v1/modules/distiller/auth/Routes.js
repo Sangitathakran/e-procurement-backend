@@ -12,12 +12,12 @@ distillerAuthRoutes.get("/onboarding-status", verifyDistiller, onboardingStatus)
 distillerAuthRoutes.get("/find-user-status", verifyDistiller, findUserStatus);
 distillerAuthRoutes.patch("/final-submit", verifyDistiller, finalFormSubmit);
 
-distillerAuthRoutes.get("/editOnboarding", verifyDistiller, editOnboarding);
-distillerAuthRoutes.post("/distiller-bulkuplod", distillerBulkuplod);
+// distillerAuthRoutes.get("/editOnboarding", verifyDistiller, editOnboarding);
+// distillerAuthRoutes.post("/distiller-bulkuplod", distillerBulkuplod);
 distillerAuthRoutes.put("/manfacturing-unit", verifyDistiller, updateManufacturingUnit);
 distillerAuthRoutes.get("/manfacturing-unit", verifyDistiller, getManufacturingUnit);
 distillerAuthRoutes.delete("/manfacturing-unit/:id", verifyDistiller, deleteManufacturingUnit);
 distillerAuthRoutes.put("/storage-facility", verifyDistiller, updateStorageFacility);
 distillerAuthRoutes.get("/storage-facility", verifyDistiller, getStorageFacility);
-distillerAuthRoutes.delete("/storage-facility/:id", verifyDistiller, deleteStorageFacility);
+distillerAuthRoutes.delete("/storage-facility/:id",verifyDistiller, deleteStorageFacility);
 module.exports = { distillerAuthRoutes } ; 

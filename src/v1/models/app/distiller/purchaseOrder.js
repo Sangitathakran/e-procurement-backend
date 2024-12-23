@@ -3,10 +3,7 @@ const { _collectionName, _poRequestStatus, _poAdvancePaymentStatus, _poPaymentSt
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const purchaseOrderSchema = new mongoose.Schema({
-  // poNo: { type: String, required: true, immutable: true },
-  // poDate: { type: Date, required: true, default: Date.now, immutable: true },
-
-  distiller_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers }],
+  distiller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Distiller },
   head_office_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice },
   branch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
   product: {
@@ -28,7 +25,8 @@ const purchaseOrderSchema = new mongoose.Schema({
     advancePaymentDate: { type: Date },
     advancePaymentUtrNo: { type: String },
     balancePayment: { type: Number }, // Auto-calculated: 97% of totalAmount
-    balancePaymentDate: { type: Date }
+    balancePaymentDate: { type: Date },
+    tax:{ type: Number }
   },
 
   companyDetails: {

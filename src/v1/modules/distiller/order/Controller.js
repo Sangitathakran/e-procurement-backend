@@ -7,6 +7,8 @@ const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
+const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
+
 const { default: mongoose } = require("mongoose");
 
 
@@ -19,7 +21,6 @@ module.exports.getOrder = asyncErrorHandler(async (req, res) => {
         distiller_id: user_id,
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
     };
-
 
     const records = { count: 0 };
 
@@ -95,4 +96,50 @@ module.exports.deleteOrder = asyncErrorHandler(async (req, res) => {
     await record.deleteOne();
 
     return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.deleted("Requirement") }));
+});
+
+
+module.exports.createBatch = asyncErrorHandler(async (req, res) => {
+    const { user_id, user_type } = req;
+    const { distiller_id, warehouseId, orderId, quantityRequired } = req.body;
+
+    if (user_type && user_type != _userType.distiller) {
+        return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
+    }
+
+    let randomVal;
+    let isUnique = false;
+
+    while (!isUnique) {
+        randomVal = _generateOrderNumber();
+        const existingReq = await BatchOrderProcess.findOne({ poNo: randomVal });
+        if (!existingReq) {
+            isUnique = true;
+        }
+    }
+
+    const msp = 24470;
+    const totalAmount = handleDecimal(msp * poQuantity);
+    const tokenAmount = handleDecimal((totalAmount * 3) / 100);
+    const remainingAmount = handleDecimal(totalAmount - tokenAmount);
+
+    const record = await BatchOrderProcess.create({
+        distiller_id: user_id,
+        branch_id,
+        purchasedOrder: {
+            poNo: randomVal,
+            poQuantity: handleDecimal(poQuantity),
+            poAmount: handleDecimal(totalAmount)
+        },
+       
+        paymentInfo: {
+            totalAmount: handleDecimal(totalAmount), // Assume this is calculated during the first step
+            advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 3% of totalAmount
+            balancePayment: handleDecimal(remainingAmount) // Auto-calculated: 97% of totalAmount
+        },
+    });
+
+    eventEmitter.emit(_webSocketEvents.procurement, { ...record, method: "created" });
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("procurement") }));
 });
