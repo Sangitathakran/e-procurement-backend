@@ -20,7 +20,7 @@ module.exports = {
 
     mailer: {
         service: 'gmail',
-        host: 'sandbox.smtp.mailtrap.io',
+        host: 'smtp.mailtrap.io',
         port: 2525,
         type: 'OAuth2',
         user: process.env.EMAIL_USER, /*User for email services*/

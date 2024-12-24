@@ -6,7 +6,6 @@ const distillerOrderRoutes = express.Router();
 distillerOrderRoutes.get("/", verifyDistiller, getOrder);
 distillerOrderRoutes.get("/:id", verifyDistiller, getOrderById);
 distillerOrderRoutes.delete("/:id", verifyDistiller, deleteOrder);
-
 distillerOrderRoutes.post("/batch", verifyDistiller, createBatch);
 
 module.exports = { distillerOrderRoutes }; 

@@ -44,7 +44,7 @@ const warehousev2Schema = new mongoose.Schema({
     is_form_submitted: { type: String, default: false },
     is_sms_send: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
-    warehouse_code: { type: String },
+    warehouseOwner_code: { type: String, unique: true },
 }, { timestamps: true });
 
 warehousev2Schema.pre('save', async function (next) {
@@ -52,15 +52,15 @@ warehousev2Schema.pre('save', async function (next) {
         try {
             const Warehouse = mongoose.model(_collectionName.Warehouse, warehousev2Schema);
 
-            const lastWarehouse = await Warehouse.findOne().sort({ createdAt: -1 });
-            let nextWarehouseCode = 'WH00001';
+            const lastWarehouseOwner = await Warehouse.findOne().sort({ createdAt: -1 });
+            let nextWarehouseOwnerCode = 'WH00001';
 
-            if (lastWarehouse && lastWarehouse.warehouse_code) {
-                const lastCodeNumber = parseInt(lastWarehouse.warehouse_code.slice(2), 10);
-                nextWarehouseCode = 'WH' + String(lastCodeNumber + 1).padStart(5, '0');
+            if (lastWarehouseOwner && lastWarehouseOwner.warehouseOwner_code) {
+                const lastCodeNumber = parseInt(lastWarehouseOwner.warehouseOwner_code.slice(2), 10);
+                nextWarehouseOwnerCode = 'WH' + String(lastCodeNumber + 1).padStart(5, '0');
             }
 
-            this.warehouse_code = nextWarehouseCode;
+            this.warehouseOwner_code = nextWarehouseOwnerCode;
             next();
         } catch (err) {
             next(err);

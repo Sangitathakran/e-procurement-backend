@@ -19,5 +19,9 @@ distillerAuthRoutes.get("/manfacturing-unit", verifyDistiller, getManufacturingU
 distillerAuthRoutes.delete("/manfacturing-unit/:id", deleteManufacturingUnit);
 distillerAuthRoutes.put("/storage-facility", verifyDistiller, updateStorageFacility);
 distillerAuthRoutes.get("/storage-facility", verifyDistiller, getStorageFacility);
+<<<<<<< HEAD
 distillerAuthRoutes.delete("/storage-facility/:id", deleteStorageFacility);
+=======
+distillerAuthRoutes.delete("/storage-facility/:id",verifyDistiller, deleteStorageFacility);
+>>>>>>> 89be3f5991b3b149620ee160b1e7581e9cdf2951
 module.exports = { distillerAuthRoutes } ; 

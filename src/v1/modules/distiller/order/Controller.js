@@ -17,7 +17,7 @@ module.exports.getOrder = asyncErrorHandler(async (req, res) => {
     const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
     const { user_id } = req;
     let query = {
-        'paymentInfo.advancePaymentStatus':_poAdvancePaymentStatus.paid,
+        'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
         distiller_id: user_id,
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
     };
@@ -101,10 +101,48 @@ module.exports.deleteOrder = asyncErrorHandler(async (req, res) => {
 
 module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
-    const { distiller_id, warehouseId, orderId, quantityRequired } = req.body;
+    const { warehouseId, orderId, quantityRequired } = req.body;
 
     if (user_type && user_type != _userType.distiller) {
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
+    }
+
+    const poRecord = await PurchaseOrderModel.findOne({ _id: orderId, deletedAt: null  });
+    
+    if (!poRecord) {
+        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("PO") }));
+    }
+    const { purchasedOrder, fulfilledQty, paymentInfo } = poRecord;
+
+    if (quantityRequired > purchasedOrder.poQuantity) {
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceed PO Qty." }] }))
+    }
+
+    const existBatch = await BatchOrderProcess.find({ distiller_id: user_id, orderId });
+    if (existBatch) {
+        const addedQty = existBatch.reduce((quantityRequired, existBatch) => quantityRequired + existBatch.quantityRequired, 0);
+
+        if (addedQty >= purchasedOrder.poQuantity) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Cannot create more Batch, Qty already fulfilled." }] }))
+        }
+
+        const remainingQty = handleDecimal(purchasedOrder.poQuantity - addedQty);
+
+        if (quantityRequired > remainingQty) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceed PO Remaining Qty." }] }))
+        }
+    }
+
+    const msp = 24470;
+    const totalAmount = handleDecimal(paymentInfo.totalAmount);
+    const tokenAmount = handleDecimal(paymentInfo.advancePayment);
+    const remainingAmount = handleDecimal(paymentInfo.balancePayment);
+
+    let amountToBePaid = ''
+    if (existBatch) {
+        amountToBePaid = handleDecimal(msp * quantityRequired);
+    } else {
+        amountToBePaid = handleDecimal((msp * quantityRequired) - tokenAmount);
     }
 
     let randomVal;
@@ -112,34 +150,27 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
 
     while (!isUnique) {
         randomVal = _generateOrderNumber();
-        const existingReq = await BatchOrderProcess.findOne({ poNo: randomVal });
+        const existingReq = await PurchaseOrderModel.findOne({ poNo: randomVal });
         if (!existingReq) {
             isUnique = true;
         }
     }
 
-    const msp = 24470;
-    const totalAmount = handleDecimal(msp * poQuantity);
-    const tokenAmount = handleDecimal((totalAmount * 3) / 100);
-    const remainingAmount = handleDecimal(totalAmount - tokenAmount);
-
     const record = await BatchOrderProcess.create({
         distiller_id: user_id,
-        branch_id,
-        purchasedOrder: {
-            poNo: randomVal,
-            poQuantity: handleDecimal(poQuantity),
-            poAmount: handleDecimal(totalAmount)
-        },
-       
-        paymentInfo: {
-            totalAmount: handleDecimal(totalAmount), // Assume this is calculated during the first step
-            advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 3% of totalAmount
-            balancePayment: handleDecimal(remainingAmount) // Auto-calculated: 97% of totalAmount
-        },
+        warehouseId,
+        orderId,
+        batchId: randomVal,
+        quantityRequired: handleDecimal(quantityRequired),
+        'payment.amount': amountToBePaid,
+        createdBy: user_id
     });
+
+    poRecord.fulfilledQty = handleDecimal(fulfilledQty + quantityRequired)
+
+    await poRecord.save();
 
     eventEmitter.emit(_webSocketEvents.procurement, { ...record, method: "created" });
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("procurement") }));
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("PO Batch") }));
 });
