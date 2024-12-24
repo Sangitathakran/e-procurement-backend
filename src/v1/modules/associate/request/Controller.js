@@ -104,7 +104,7 @@ module.exports.getProcurement = async (req, res) => {
         } else {
             // Handle requests with no offers or open status
             query.status = { $in: [_requestStatus.open, _requestStatus.partially_fulfulled] };
-            query.quoteExpiry = { $gte: new Date() };
+            // query.quoteExpiry = { $gte: new Date() };
 
             const rows = paginate === 1
                 ? await RequestModel.find(query)
