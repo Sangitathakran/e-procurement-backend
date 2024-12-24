@@ -15,6 +15,7 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const { User } = require("@src/v1/models/app/auth/User");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
+
 module.exports.getProcurement = async (req, res) => {
     try {
         const { user_id } = req;
@@ -191,7 +192,6 @@ module.exports.updateProcurement = async (req, res) => {
     }
 }
 
-
 module.exports.associateOffer = async (req, res) => {
 
     try {
@@ -262,9 +262,9 @@ module.exports.associateOffer = async (req, res) => {
             const existingRequestModel = await RequestModel.findOne({ _id: req_id });
             
             existingRequestModel.fulfilledQty = handleDecimal(existingRequestModel.fulfilledQty + sumOfFarmerQty);
-            if (existingRequestModel.fulfilledQty == handleDecimal(existingRequestModel?.product?.quantity)) {
+            if (handleDecimal(existingRequestModel.fulfilledQty) == handleDecimal(existingRequestModel?.product?.quantity)) {
                 existingRequestModel.status = _requestStatus.fulfilled;
-            } else if (existingRequestModel.fulfilledQty < handleDecimal(existingRequestModel?.product?.quantity)) {
+            } else if (handleDecimal(existingRequestModel.fulfilledQty) < handleDecimal(existingRequestModel?.product?.quantity)) {
                 existingRequestModel.status = _requestStatus.partially_fulfulled;
             } else {
                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }));
@@ -394,7 +394,6 @@ module.exports.getFarmerListById = async (req, res) => {
     }
 };
 
-
 module.exports.requestApprove = async (req, res) => {
 
     try {
@@ -444,7 +443,6 @@ module.exports.requestApprove = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
 
 module.exports.offeredFarmerList = async (req, res) => {
 
@@ -537,8 +535,6 @@ module.exports.offeredFarmerList = async (req, res) => {
     }
 }
 
-
-
 module.exports.farmerOrderList = async (req, res) => {
 
     try {
@@ -596,7 +592,6 @@ module.exports.farmerOrderList = async (req, res) => {
     }
 }
 
-
 module.exports.getAcceptedProcurement = async (req, res) => {
     try {
         const { user_id } = req;
@@ -619,7 +614,6 @@ module.exports.getAcceptedProcurement = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
 
 module.exports.editFarmerOffer = async (req, res) => {
 
@@ -672,7 +666,6 @@ module.exports.editFarmerOffer = async (req, res) => {
     }
 }
 
-
 module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
     const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
@@ -707,7 +700,6 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("seller offer") }))
 })
-
 
 module.exports.hoBoList = async (req, res) => {
     try {
