@@ -20,9 +20,11 @@ const batchOrderProcessSchema = new mongoose.Schema({
   },
 
   penaltyOrder: {
-    totalAmount: { type: Number },
-    penaltyAmount: { type: Number, min: 0 },
-    paymentStatus: { type: String, enum: ['Paid', 'Pending', 'Overdue'] }
+    penaltyAmount: { type: Number, default: 0 },
+    paneltyAddedBy: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
+    paneltyAddedAT: { type: Date },
+    comment: { type: String, trim: true },
+    penaltypaymentStatus: { type: String, enum: ['Paid', 'Pending', 'Overdue'], default: null }
   },
 
   actions: {
