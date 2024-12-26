@@ -100,10 +100,10 @@ module.exports.batch = async (req, res) => {
             farmerOrderIds.push(farmer.farmerOrder_id);
 
             // Update the quantity remaining
-            await FarmerOrders.updateOne(
-                { _id: farmer.farmerOrder_id },
-                { $set: { qtyRemaining: farmerOrder.qtyProcured - farmer.qty } }
-            );
+            // await FarmerOrders.updateOne(
+            //     { _id: farmer.farmerOrder_id },
+            //     { $set: { qtyRemaining: farmerOrder.qtyProcured - farmer.qty } }
+            // );
         }
 
         // given farmer's order should be in received state
@@ -138,18 +138,26 @@ module.exports.batch = async (req, res) => {
         await record.save();
         await procurementRecord.save();
 
-        const users = await User.find({
-            'basic_details.associate_details.email': { $exists: true }
-        }).select('basic_details.associate_details.email basic_details.associate_details.associate_name associate.basic_details.associate_details.organization_name');
+        for (let farmer of farmerData) {
+            const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).lean();
+            // Update the quantity remaining
+            await FarmerOrders.updateOne(
+                { _id: farmer.farmerOrder_id },
+                { $set: { qtyRemaining: farmerOrder.qtyProcured - farmer.qty } }
+            );
+        }
 
+        // const users = await User.find({
+        //     'basic_details.associate_details.email': { $exists: true }
+        // }).select('basic_details.associate_details.email basic_details.associate_details.associate_name associate.basic_details.associate_details.organization_name');
 
-        await Promise.all(
-            users.map(({ basic_details: { associate_details } }) => {
-                const { email, associate_name } = associate_details;
+        // await Promise.all(
+        //     users.map(({ basic_details: { associate_details } }) => {
+        //         const { email, associate_name } = associate_details;
 
-                return emailService.sendCreateBatchEmail(email, associate_name);
-            })
-        );
+        //         return emailService.sendCreateBatchEmail(email, associate_name);
+        //     })
+        // );
 
         return res.status(200).send(new serviceResponse({ status: 200, data: batchCreated, message: _response_message.created("batch") }))
 
@@ -305,7 +313,7 @@ module.exports.viewTrackDelivery = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
         const user_id = req.user_id
         let query = {
-            req_id, seller_id:user_id,
+            req_id, seller_id: user_id,
             ...(search ? { name: { $regex: search, $options: "i" } } : {})
         };
 
@@ -387,7 +395,7 @@ module.exports.updateMarkReady = async (req, res) => {
         const { user_id } = req;
         const record = await Batch.findOne({ _id: id });
         if (!record) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }));
         }
 
         if (record.status == _batchStatus.delivered) {
@@ -397,10 +405,12 @@ module.exports.updateMarkReady = async (req, res) => {
             }));
         }
 
-        record.dispatched.material_img.inital.push(...material_img.map(i => { return { img: i, on: moment() } }));
-        record.dispatched.weight_slip.inital.push(...weight_slip.map(i => { return { img: i, on: moment() } }));
-        record.dispatched.qc_report.inital.push(...qc_report.map(i => { return { img: i, on: moment() } }));
-        record.dispatched.lab_report.inital.push(...lab_report.map(i => { return { img: i, on: moment() } }));
+        // Overwrite the arrays with the new payload data
+        record.dispatched.material_img.inital = material_img.map(i => ({ img: i, on: moment() }));
+        record.dispatched.weight_slip.inital = weight_slip.map(i => ({ img: i, on: moment() }));
+        record.dispatched.qc_report.inital = qc_report.map(i => ({ img: i, on: moment() }));
+        record.dispatched.lab_report.inital = lab_report.map(i => ({ img: i, on: moment() }));
+
         await record.save();
         return res.status(200).send(new serviceResponse({
             status: 200,
@@ -410,4 +420,4 @@ module.exports.updateMarkReady = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};

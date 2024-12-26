@@ -18,6 +18,8 @@ module.exports = {
                     token: mailer.pass,
                 }));
 
+                console.log("mailer", mailer)
+
                 const mailOptions = {
                     from: {
                         address: mailer.user, // Fallback to .env sender email
@@ -27,6 +29,7 @@ module.exports = {
                     to: to,
                     cc: cc,
                     subject: subject,
+                    host: 'smtp.mailtrap.io',
                     html: body
                 };
 
