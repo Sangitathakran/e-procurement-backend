@@ -100,10 +100,10 @@ module.exports.batch = async (req, res) => {
             farmerOrderIds.push(farmer.farmerOrder_id);
 
             // Update the quantity remaining
-            await FarmerOrders.updateOne(
-                { _id: farmer.farmerOrder_id },
-                { $set: { qtyRemaining: farmerOrder.qtyProcured - farmer.qty } }
-            );
+            // await FarmerOrders.updateOne(
+            //     { _id: farmer.farmerOrder_id },
+            //     { $set: { qtyRemaining: farmerOrder.qtyProcured - farmer.qty } }
+            // );
         }
 
         // given farmer's order should be in received state
