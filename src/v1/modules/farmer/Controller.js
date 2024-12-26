@@ -2203,8 +2203,13 @@ module.exports.makeAssociateFarmer = async (req, res) => {
 
     for (const id of farmer_id) {
       const localFarmer = await farmer.findOne({ _id: id, associate_id: null });
-
       if (localFarmer) {
+        const { basic_details } = localFarmer;
+        const fathers_name = basic_details?.father_husband_name || null;
+        localFarmer.parents = {
+          ...localFarmer.parents,
+          father_name: fathers_name,
+        };
         localFarmer.associate_id = user_id;
         const updatedFarmer = await localFarmer.save();
         updatedFarmers.push(updatedFarmer);
