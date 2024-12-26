@@ -135,7 +135,6 @@ module.exports.batch = async (req, res) => {
         //         { _id: farmer.farmerOrder_id },
         //         { $set: { qtyRemaining: (handleDecimal(farmerOrder.qtyProcured) - handleDecimal(farmer.qty)) } }
         //     );
-
         // }
 
         for (let farmer of farmerData) {
