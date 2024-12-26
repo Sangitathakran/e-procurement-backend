@@ -98,12 +98,6 @@ module.exports.batch = async (req, res) => {
             // Apply handleDecimal to amt for each farmer
             farmer.amt = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
             farmerOrderIds.push(farmer.farmerOrder_id);
-
-            // Update the quantity remaining
-            // await FarmerOrders.updateOne(
-            //     { _id: farmer.farmerOrder_id },
-            //     { $set: { qtyRemaining: farmerOrder.qtyProcured - farmer.qty } }
-            // );
         }
 
         // given farmer's order should be in received state
@@ -134,18 +128,34 @@ module.exports.batch = async (req, res) => {
             totalPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice) // Apply handleDecimal here
         });
 
-        procurementRecord.associatOrder_id.push(record._id);
-        await record.save();
-        await procurementRecord.save();
-
         for (let farmer of farmerData) {
             const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).lean();
+
+            // Fetch the latest qtyRemaining from the database
+            const latestFarmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).select('qtyRemaining qtyProcured').lean();
+
+            if (!latestFarmerOrder) {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Farmer order not found." }] }));
+            }
+
+            const currentRemaining = latestFarmerOrder.qtyRemaining ?? latestFarmerOrder.qtyProcured;
+            
+            // Validate remaining quantity
+            if (currentRemaining < farmer.qty) {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Added quantity exceeds the remaining quantity." }] }));
+            }
+
             // Update the quantity remaining
             await FarmerOrders.updateOne(
                 { _id: farmer.farmerOrder_id },
-                { $set: { qtyRemaining: handleDecimal(farmerOrder.qtyProcured - farmer.qty) } }
+                { $set: { qtyRemaining: handleDecimal(currentRemaining - farmer.qty) } }
             );
         }
+
+
+        procurementRecord.associatOrder_id.push(record._id);
+        await record.save();
+        await procurementRecord.save();
 
         // const users = await User.find({
         //     'basic_details.associate_details.email': { $exists: true }
