@@ -128,15 +128,6 @@ module.exports.batch = async (req, res) => {
             totalPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice) // Apply handleDecimal here
         });
 
-        // for (let farmer of farmerData) {
-        //     const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).lean();
-        //     // Update the quantity remaining
-        //     await FarmerOrders.updateOne(
-        //         { _id: farmer.farmerOrder_id },
-        //         { $set: { qtyRemaining: (handleDecimal(farmerOrder.qtyProcured) - handleDecimal(farmer.qty)) } }
-        //     );
-        // }
-
         for (let farmer of farmerData) {
             const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).lean();
 
