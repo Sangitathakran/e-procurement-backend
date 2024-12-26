@@ -694,7 +694,7 @@ module.exports.getManufacturingUnit = async (req, res) => {
 
 module.exports.deleteManufacturingUnit = async (req, res) => {
     try {
-        const { id } = req.params;
+        const { id } = req.query;
 
         if (!id) {
             return sendResponse({
@@ -904,7 +904,7 @@ module.exports.getStorageFacility = async (req, res) => {
 
 module.exports.deleteStorageFacility = async (req, res) => {
     try {
-        const { id } = req.params;
+        const { id } = req.query;
 
         if (!id) {
             return sendResponse({
