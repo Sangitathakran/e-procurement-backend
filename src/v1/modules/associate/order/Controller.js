@@ -143,7 +143,7 @@ module.exports.batch = async (req, res) => {
             // Update the quantity remaining
             await FarmerOrders.updateOne(
                 { _id: farmer.farmerOrder_id },
-                { $set: { qtyRemaining: farmerOrder.qtyProcured - farmer.qty } }
+                { $set: { qtyRemaining: handleDecimal(farmerOrder.qtyProcured - farmer.qty) } }
             );
         }
 
