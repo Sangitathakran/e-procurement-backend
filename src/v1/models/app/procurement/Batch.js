@@ -5,7 +5,7 @@ const batchsSchema = new mongoose.Schema({
     seller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
     req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true },
     associateOffer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, required: true },
-    warehouse_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.WarehouseDetails, required: true },
+    warehousedetails_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.WarehouseDetails },
     batchId: { type: String, trim: true, },
     farmerOrderIds: [{ farmerOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.FarmerOrder, required: true }, qty: { type: Number, default: 0 }, amt: { type: Number, default: 0 } }],
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },

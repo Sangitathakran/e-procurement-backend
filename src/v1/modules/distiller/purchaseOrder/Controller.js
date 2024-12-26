@@ -12,8 +12,8 @@ const { default: mongoose } = require("mongoose");
 
 module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
-    const { branch_id, name, grade, grade_remark, poQuantity, quantityDuration, manufacturingLocation, storageLocation, deliveryLocation,
-        companyDetails, additionalDetails, qualitySpecificationOfProduct, termsAndConditions, comments,
+    const { branch_id, name, grade, grade_remark, poQuantity, quantityDuration, manufacturingLocation, storageLocation,
+        location, lat, long, locationUrl, companyDetails, additionalDetails, qualitySpecificationOfProduct, termsAndConditions, comment,
     } = req.body;
 
     if (user_type && user_type != _userType.distiller) {
@@ -53,20 +53,25 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
         },
         manufacturingLocation,
         storageLocation,
-        deliveryLocation,
+        deliveryLocation: {
+            location,
+            lat,
+            long,
+            locationUrl
+        },
         paymentInfo: {
             totalAmount: handleDecimal(totalAmount), // Assume this is calculated during the first step
             advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 3% of totalAmount
-            balancePayment: handleDecimal(remainingAmount) // Auto-calculated: 97% of totalAmount
+            balancePayment: handleDecimal(remainingAmount), // Auto-calculated: 97% of totalAmount
+            tax: 0
         },
         companyDetails,
         additionalDetails,
         qualitySpecificationOfProduct,
         termsAndConditions,
-        comments,
         comments: {
             user_id,
-            comments
+            comment
         },
         createdBy: user_id
     });
@@ -162,8 +167,8 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
 
 
     record.branch_id = branch_id || record.branch_id,
-    // Update product details
-    record.product.name = name || record.product.name;
+        // Update product details
+        record.product.name = name || record.product.name;
     record.product.grade = grade || record.product.grade;
     record.product.grade = grade_remark || record.product.grade_remark;
     record.product.quantityDuration = quantityDuration || record.product.quantityDuration;

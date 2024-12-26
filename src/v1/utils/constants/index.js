@@ -469,6 +469,12 @@ const _poBatchStatus = {
     completed: 'Completed',
 }
 
+const _poBatchPaymentStatus = {
+    pending: 'Pending',
+    completed: 'Completed',
+    failed: 'Failed'
+}
+
 module.exports = {
     _userAction,
     _farmerType,
@@ -529,5 +535,6 @@ module.exports = {
     _poAdvancePaymentStatus,
     _poPaymentStatus,
     _poPickupStatus,
-    _poBatchStatus
+    _poBatchStatus,
+    _poBatchPaymentStatus
 }
