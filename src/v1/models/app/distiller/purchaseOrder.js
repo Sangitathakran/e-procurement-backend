@@ -21,7 +21,7 @@ const purchaseOrderSchema = new mongoose.Schema({
     lat: { type: String },
     long: { type: String },
     locationUrl: { type: String }
-  },  
+  },
   paymentInfo: {
     totalAmount: { type: Number, required: true }, // Assume this is calculated during the first step
     advancePayment: { type: Number, required: true }, // Auto-calculated: 3% of totalAmount

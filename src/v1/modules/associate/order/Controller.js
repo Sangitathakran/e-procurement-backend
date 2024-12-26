@@ -100,10 +100,10 @@ module.exports.batch = async (req, res) => {
             farmerOrderIds.push(farmer.farmerOrder_id);
 
             // Update the quantity remaining
-            await FarmerOrders.updateOne(
-                { _id: farmer.farmerOrder_id },
-                { $set: { qtyRemaining: farmerOrder.qtyProcured - farmer.qty } }
-            );
+            // await FarmerOrders.updateOne(
+            //     { _id: farmer.farmerOrder_id },
+            //     { $set: { qtyRemaining: farmerOrder.qtyProcured - farmer.qty } }
+            // );
         }
 
         // given farmer's order should be in received state
@@ -138,18 +138,26 @@ module.exports.batch = async (req, res) => {
         await record.save();
         await procurementRecord.save();
 
-        const users = await User.find({
-            'basic_details.associate_details.email': { $exists: true }
-        }).select('basic_details.associate_details.email basic_details.associate_details.associate_name associate.basic_details.associate_details.organization_name');
+        for (let farmer of farmerData) {
+            const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).lean();
+            // Update the quantity remaining
+            await FarmerOrders.updateOne(
+                { _id: farmer.farmerOrder_id },
+                { $set: { qtyRemaining: handleDecimal(farmerOrder.qtyProcured - farmer.qty) } }
+            );
+        }
 
+        // const users = await User.find({
+        //     'basic_details.associate_details.email': { $exists: true }
+        // }).select('basic_details.associate_details.email basic_details.associate_details.associate_name associate.basic_details.associate_details.organization_name');
 
-        await Promise.all(
-            users.map(({ basic_details: { associate_details } }) => {
-                const { email, associate_name } = associate_details;
+        // await Promise.all(
+        //     users.map(({ basic_details: { associate_details } }) => {
+        //         const { email, associate_name } = associate_details;
 
-                return emailService.sendCreateBatchEmail(email, associate_name);
-            })
-        );
+        //         return emailService.sendCreateBatchEmail(email, associate_name);
+        //     })
+        // );
 
         return res.status(200).send(new serviceResponse({ status: 200, data: batchCreated, message: _response_message.created("batch") }))
 
@@ -305,7 +313,7 @@ module.exports.viewTrackDelivery = async (req, res) => {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
         const user_id = req.user_id
         let query = {
-            req_id, seller_id:user_id,
+            req_id, seller_id: user_id,
             ...(search ? { name: { $regex: search, $options: "i" } } : {})
         };
 

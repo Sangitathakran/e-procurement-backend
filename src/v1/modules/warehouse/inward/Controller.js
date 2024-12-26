@@ -10,29 +10,35 @@ const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 
 
 module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
-    const { page = 1, limit = 10, sortBy = "createdAt", search = '', warehouseIds = [], isExport = 0 } = req.query;
+    const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0 } = req.query;
+    const { warehouseIds = [] } = req.body;
 
     try {
-        const { warehouseOwnerId } = req.params;
-
-        if (!mongoose.Types.ObjectId.isValid(warehouseOwnerId)) {
-            return res.status(400).json({
-                status: 400,
-                message: "Invalid warehouseOwnerId provided",
-            });
+        // Fetch the token from headers or cookies
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
 
-        const warehouseDetails = await wareHouseDetails.find({
-            warehouseOwnerId: new mongoose.Types.ObjectId(warehouseOwnerId),
-        });
-        const ownerWarehouseIds = warehouseDetails.map(warehouse => warehouse._id);
+        // Decode the token to get the user ID
+        const decode = await decryptJwtToken(getToken);
+        const UserId = decode.data.user_id;
 
+        // Validate the user ID from the token
+        if (!mongoose.Types.ObjectId.isValid(UserId)) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+        }
 
-        const finalWarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length > 0
-            ? warehouseIds.filter(id => ownerWarehouseIds.includes(id)) // Only allow IDs owned by the user
+        // Fetch warehouse details based on the decoded UserId
+        const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+        const ownerWarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
+
+        // Filter warehouse IDs from the request body against the owner's warehouses
+        const finalWarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
+            ? warehouseIds.filter(id => ownerWarehouseIds.includes(id))
             : ownerWarehouseIds;
 
-        if (finalWarehouseIds.length === 0) {
+        if (!finalWarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
                 data: { records: [], page, limit, pages: 0 },
@@ -40,20 +46,20 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
             }));
         }
 
-        const warehouseFilter = { warehousedetails_id: { $in: finalWarehouseIds } };
-        const searchFilter = search ? {
-            $or: [
-                { batchId: { $regex: search, $options: 'i' } },
-                { "seller_id.basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
-                { "procurementCenter_id.center_name": { $regex: search, $options: 'i' } },
-            ]
-        } : {};
+        // Build the query
+        const query = {
+            warehousedetails_id: { $in: finalWarehouseIds },
+            ...(search && {
+                $or: [
+                    { batchId: { $regex: search, $options: 'i' } },
+                    { "seller_id.basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
+                    { "procurementCenter_id.center_name": { $regex: search, $options: 'i' } },
+                ]
+            }),
+        };
 
-        const query = { ...warehouseFilter, ...searchFilter };
-
-        // Step 4: Fetch data
-        const records = {};
-        records.rows = await Batch.find(query)
+        // Fetch records
+        const rows = await Batch.find(query)
             .populate([
                 { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
                 { path: "procurementCenter_id", select: "center_name" },
@@ -64,23 +70,17 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
             .skip((page - 1) * limit)
             .limit(parseInt(limit));
 
-        records.count = await Batch.countDocuments(query);
-        records.page = page;
-        records.limit = limit;
-        records.pages = Math.ceil(records.count / limit);
-
-
-        records.totalBatches = await Batch.countDocuments(query);
-        records.approvedBatches = await Batch.countDocuments({ ...query, status: 'Approved' });
-        records.rejectedBatches = await Batch.countDocuments({ ...query, status: 'Rejected' });
-        records.pendingBatches = await Batch.countDocuments({ ...query, status: 'Pending' });
-        records.pendingReceivingBatches = await Batch.countDocuments({
-            ...query,
-            "dispatched.received": { $exists: false } // Assuming 'received' is a field that indicates if the batch has been received.
-        });
+        const count = await Batch.countDocuments(query);
+        const stats = {
+            totalBatches: count,
+            approvedBatches: await Batch.countDocuments({ ...query, status: 'Approved' }),
+            rejectedBatches: await Batch.countDocuments({ ...query, status: 'Rejected' }),
+            pendingBatches: await Batch.countDocuments({ ...query, status: 'Pending' }),
+            pendingReceivingBatches: await Batch.countDocuments({ ...query, "dispatched.received": { $exists: false } })
+        };
 
         if (isExport == 1) {
-            const exportData = records.rows.map(item => ({
+            const exportData = rows.map(item => ({
                 "Batch ID": item.batchId || 'NA',
                 "Associate Name": item.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
                 "Procurement Center": item.procurementCenter_id?.center_name || 'NA',
@@ -89,36 +89,27 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
                 "Status": item.wareHouse_approve_status || 'NA'
             }));
 
-            if (exportData.length > 0) {
-                dumpJSONToExcel(req, res, {
+            if (exportData.length) {
+                return dumpJSONToExcel(req, res, {
                     data: exportData,
                     fileName: `Warehouse-Batches.xlsx`,
                     worksheetName: `Batches`
                 });
-                return;
-            } else {
-                return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
             }
+            return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
         }
 
-        // Step 6: Return paginated records
         return res.status(200).send(new serviceResponse({
             status: 200,
-            data: { records },
+            data: { records: { rows, count, page, limit, pages: Math.ceil(count / limit), ...stats } },
             message: "Batches fetched successfully"
         }));
     } catch (error) {
-        // Error handling
-        console.log(error);
-
-        return res.status(500).send(new serviceResponse({
-            status: 500,
-            message: "Error fetching batches",
-            error: error.message,
-        }));
-
+        console.error(error);
+        return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
     }
 });
+
 
 module.exports.batchApproveOrReject = async (req, res) => {
     try {
