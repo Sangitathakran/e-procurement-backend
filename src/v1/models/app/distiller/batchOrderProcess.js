@@ -19,7 +19,7 @@ const batchOrderProcessSchema = new mongoose.Schema({
     date: { type: Date, default: Date.now }
   },
 
-  penaltyOrder: {
+  penaltyDetails: {
     penaltyAmount: { type: Number, default: 0 },
     paneltyAddedBy: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
     paneltyAddedAT: { type: Date },

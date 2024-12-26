@@ -18,7 +18,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
     const { user_id } = req;
     let query = {
         'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
-        'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
+        'penaltyDetails.penaltyAmount': { $ne: 0 },
         distiller_id: user_id,
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
     };
