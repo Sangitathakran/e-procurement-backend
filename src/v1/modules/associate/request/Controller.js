@@ -146,8 +146,6 @@ module.exports.getProcurementById = async (req, res) => {
 
         record.myOffer = await AssociateOffers.findOne({ req_id: id });
 
-        // record.no_of_batch = await Batch.countDocuments({ req_id: id });
-
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("procurement") }))
 
     } catch (error) {
@@ -255,7 +253,6 @@ module.exports.associateOffer = async (req, res) => {
 
             // add new farmer oder 
             existingRecord.offeredQty = handleDecimal(sumOfFarmerQty + existingRecord.offeredQty);
-            // existingRecord.procuredQty = handleDecimal(sumOfFarmerQty + existingRecord.procuredQty);
             associateOfferRecord = existingRecord.save()
 
             // update request's fulfilledQty and status
@@ -286,7 +283,6 @@ module.exports.associateOffer = async (req, res) => {
                     farmer_id: harvester._id,
                     metaData,
                     offeredQty: handleDecimal(harvester.qty),
-                    // procuredQty: handleDecimal(harvester.qty),
                     order_no: "OD" + _generateOrderNumber()
                 }
 
