@@ -174,6 +174,26 @@ module.exports.payment = async (req, res) => {
                           $map: {
                             input: "$$batch.payment",
                             as: "pay",
+                            in: { $eq: ["$$pay.payment_status", "Pending"] },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                then: "Pending",
+              },
+              {
+                case: {
+                  $allElementsTrue: {
+                    $map: {
+                      input: "$batches",
+                      as: "batch",
+                      in: {
+                        $allElementsTrue: {
+                          $map: {
+                            input: "$$batch.payment",
+                            as: "pay",
                             in: { $eq: ["$$pay.payment_status", "Completed"] },
                           },
                         },
