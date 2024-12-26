@@ -182,7 +182,7 @@ module.exports.payment = async (req, res) => {
                       },
                     },
                   },
-                  then: "Completed",
+                  then: "Payment initiated",
                 },
                 {
                   case: {
