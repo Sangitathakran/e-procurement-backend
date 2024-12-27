@@ -1,4 +1,4 @@
-const { sendOtp, loginOrRegister, saveDistillerDetails, onboardingStatus, formPreview, findUserStatus, finalFormSubmit, editOnboarding, distillerBulkuplod, deleteManufacturingUnit, getManufacturingUnit, getStorageFacility, deleteStorageFacility, updateStorageFacility, updateManufacturingUnit } = require("./Controller")
+const { sendOtp, loginOrRegister, reSendOtp, saveDistillerDetails, onboardingStatus, formPreview, findUserStatus, finalFormSubmit, editOnboarding, distillerBulkuplod, deleteManufacturingUnit, getManufacturingUnit, getStorageFacility, deleteStorageFacility, updateStorageFacility, updateManufacturingUnit } = require("./Controller")
 const { validateForm } = require("@src/v1/modules/distiller/auth/Validation")
 const express = require("express");
 const { verifyDistiller } = require("../utils/verifyDistiller");
@@ -6,6 +6,7 @@ const distillerAuthRoutes = express.Router();
 
 distillerAuthRoutes.post("/send-otp", sendOtp);
 distillerAuthRoutes.post("/register-login", loginOrRegister);
+distillerAuthRoutes.post("/reSend-otp", reSendOtp);
 distillerAuthRoutes.put("/onboarding", verifyDistiller, validateForm, saveDistillerDetails);
 distillerAuthRoutes.get("/onboarding", verifyDistiller, formPreview);
 distillerAuthRoutes.get("/onboarding-status", verifyDistiller, onboardingStatus);

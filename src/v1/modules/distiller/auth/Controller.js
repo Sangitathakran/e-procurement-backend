@@ -34,6 +34,12 @@ const sendSmsOtp = async (phone) => {
     await smsService.sendOTPSMS(phone);
 };
 
+
+const sendResendSMS = async (phone) => {
+    await smsService.sendResendSMS(phone);
+};
+
+
 module.exports.sendOtp = async (req, res) => {
     try {
         const { input, term_condition } = req.body;
@@ -56,6 +62,36 @@ module.exports.sendOtp = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Email") }));
         } else if (inputType === 'mobile') {
             await sendSmsOtp(input);
+            return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Mobile") }));
+        } else {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Invalid input format") }] }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+
+module.exports.reSendOtp = async (req, res) => {
+    try {
+        const { input} = req.body;
+        if (!input) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('input') }));
+        }
+       
+        let inputType;
+        if (isEmail(input)) {
+            inputType = 'email';
+        } else if (isMobileNumber(input)) {
+            inputType = 'mobile';
+        } else {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Invalid input format") }] }));
+        }
+        if (inputType === 'email') {
+            await sendEmailOtp(input);
+            return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Email") }));
+        } else if (inputType === 'mobile') {
+            await sendResendSMS(input);
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Mobile") }));
         } else {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Invalid input format") }] }));
