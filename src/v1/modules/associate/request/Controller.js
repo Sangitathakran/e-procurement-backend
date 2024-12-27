@@ -15,6 +15,7 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const { User } = require("@src/v1/models/app/auth/User");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
+
 module.exports.getProcurement = async (req, res) => {
     try {
         const { user_id } = req;
@@ -23,12 +24,12 @@ module.exports.getProcurement = async (req, res) => {
         // Build query for search
         let query = search
             ? {
-                  $or: [
-                      { reqNo: { $regex: search, $options: 'i' } },
-                      { 'product.name': { $regex: search, $options: 'i' } },
-                      { 'product.grade': { $regex: search, $options: 'i' } },
-                  ],
-              }
+                $or: [
+                    { reqNo: { $regex: search, $options: 'i' } },
+                    { 'product.name': { $regex: search, $options: 'i' } },
+                    { 'product.grade': { $regex: search, $options: 'i' } },
+                ],
+            }
             : {};
 
         if (status && Object.values(_associateOfferStatus).includes(status)) {
@@ -71,7 +72,7 @@ module.exports.getProcurement = async (req, res) => {
                             ? { 'myoffer.status': status }
                             : {}),
                         ...(status === _associateOfferStatus.accepted
-                            ? { 'myoffer.status': { $in: [_associateOfferStatus.accepted, _associateOfferStatus.partially_ordered] } }
+                            ? { 'myoffer.status': { $in: [_associateOfferStatus.accepted, _associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] } }
                             : {}),
                         ...(status === _associateOfferStatus.ordered
                             ? { 'myoffer.status': { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } }
@@ -103,13 +104,13 @@ module.exports.getProcurement = async (req, res) => {
         } else {
             // Handle requests with no offers or open status
             query.status = { $in: [_requestStatus.open, _requestStatus.partially_fulfulled] };
-            query.quoteExpiry = { $gte: new Date() };
+            // query.quoteExpiry = { $gte: new Date() };
 
             const rows = paginate === 1
                 ? await RequestModel.find(query)
-                      .sort(sortBy || { createdAt: -1 })
-                      .skip(parseInt(skip))
-                      .limit(parseInt(limit))
+                    .sort(sortBy || { createdAt: -1 })
+                    .skip(parseInt(skip))
+                    .limit(parseInt(limit))
                 : await RequestModel.find(query).sort(sortBy || { createdAt: -1 });
 
             const count = await RequestModel.countDocuments(query);
@@ -144,8 +145,6 @@ module.exports.getProcurementById = async (req, res) => {
         }
 
         record.myOffer = await AssociateOffers.findOne({ req_id: id });
-
-        // record.no_of_batch = await Batch.countDocuments({ req_id: id });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("procurement") }))
 
@@ -190,7 +189,6 @@ module.exports.updateProcurement = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
 
 module.exports.associateOffer = async (req, res) => {
 
@@ -242,29 +240,28 @@ module.exports.associateOffer = async (req, res) => {
         if (existingRecord) {
 
             // checks for associates offer status            
-            if(existingRecord.status == _associateOfferStatus.pending){
+            if (existingRecord.status == _associateOfferStatus.pending) {
                 return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Offer not accepted by admin." }] }));
             }
 
             // checks for associates's farmer offer status           
             const existingFarmerOffer = await FarmerOrders.findOne({ associateOffers_id: existingRecord._id, status: _procuredStatus.pending });
-            
-            if(existingFarmerOffer){
+
+            if (existingFarmerOffer) {
                 return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Associate's farmer offer not recieved yet." }] }));
             }
 
             // add new farmer oder 
             existingRecord.offeredQty = handleDecimal(sumOfFarmerQty + existingRecord.offeredQty);
-            existingRecord.procuredQty = handleDecimal(sumOfFarmerQty + existingRecord.procuredQty);
             associateOfferRecord = existingRecord.save()
 
-             // update request's fulfilledQty and status
+            // update request's fulfilledQty and status
             const existingRequestModel = await RequestModel.findOne({ _id: req_id });
-            
+
             existingRequestModel.fulfilledQty = handleDecimal(existingRequestModel.fulfilledQty + sumOfFarmerQty);
-            if (existingRequestModel.fulfilledQty == handleDecimal(existingRequestModel?.product?.quantity)) {
+            if (handleDecimal(existingRequestModel.fulfilledQty) == handleDecimal(existingRequestModel?.product?.quantity)) {
                 existingRequestModel.status = _requestStatus.fulfilled;
-            } else if (existingRequestModel.fulfilledQty < handleDecimal(existingRequestModel?.product?.quantity)) {
+            } else if (handleDecimal(existingRequestModel.fulfilledQty) < handleDecimal(existingRequestModel?.product?.quantity)) {
                 existingRequestModel.status = _requestStatus.partially_fulfulled;
             } else {
                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }));
@@ -272,6 +269,7 @@ module.exports.associateOffer = async (req, res) => {
             await existingRequestModel.save();
 
             const dataToBeInserted = [];
+            const offerToBeInserted = [];
 
             for (let harvester of farmer_data) {
 
@@ -285,14 +283,25 @@ module.exports.associateOffer = async (req, res) => {
                     farmer_id: harvester._id,
                     metaData,
                     offeredQty: handleDecimal(harvester.qty),
-                    procuredQty:handleDecimal(harvester.qty),
                     order_no: "OD" + _generateOrderNumber()
                 }
 
+                const FarmerOffer = {
+                    associateOffers_id: existingRecord._id,
+                    farmer_id: harvester._id,
+                    metaData,
+                    offeredQty: handleDecimal(harvester.qty),
+                    createdBy: user_id,
+                }
+
                 dataToBeInserted.push(FarmerOfferData);
+
+                offerToBeInserted.push(FarmerOffer);
             }
 
             await FarmerOrders.insertMany(dataToBeInserted);
+
+            await FarmerOffers.insertMany(offerToBeInserted);
 
         } else {
 
@@ -311,7 +320,7 @@ module.exports.associateOffer = async (req, res) => {
                     associateOffers_id: associateOfferRecord._id,
                     farmer_id: harvester._id,
                     metaData,
-                    offeredQty: harvester.qty,
+                    offeredQty: handleDecimal(harvester.qty),
                     createdBy: user_id,
                 }
 
@@ -394,7 +403,6 @@ module.exports.getFarmerListById = async (req, res) => {
     }
 };
 
-
 module.exports.requestApprove = async (req, res) => {
 
     try {
@@ -444,7 +452,6 @@ module.exports.requestApprove = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
 
 module.exports.offeredFarmerList = async (req, res) => {
 
@@ -537,8 +544,6 @@ module.exports.offeredFarmerList = async (req, res) => {
     }
 }
 
-
-
 module.exports.farmerOrderList = async (req, res) => {
 
     try {
@@ -596,7 +601,6 @@ module.exports.farmerOrderList = async (req, res) => {
     }
 }
 
-
 module.exports.getAcceptedProcurement = async (req, res) => {
     try {
         const { user_id } = req;
@@ -619,7 +623,6 @@ module.exports.getAcceptedProcurement = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
 
 module.exports.editFarmerOffer = async (req, res) => {
 
@@ -672,7 +675,6 @@ module.exports.editFarmerOffer = async (req, res) => {
     }
 }
 
-
 module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
     const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
@@ -707,7 +709,6 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("seller offer") }))
 })
-
 
 module.exports.hoBoList = async (req, res) => {
     try {

@@ -1,92 +1,112 @@
+const mongoose = require('mongoose');
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
-
+const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 
 
 module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
+    const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0 } = req.query;
+    const { warehouseIds = [] } = req.body;
+
     try {
-        const { page = 1, limit = 10, sortBy = "createdAt", search = '', warehouseIds = [], isExport = 0 } = req.query;
+        // Fetch the token from headers or cookies
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
 
-        const warehouseFilter = Array.isArray(warehouseIds) && warehouseIds.length > 0
-            ? { wareHouse_id: { $in: warehouseIds } }
-            : {};
+        // Decode the token to get the user ID
+        const decode = await decryptJwtToken(getToken);
+        const UserId = decode.data.user_id;
 
-        const searchFilter = search ? {
-            $or: [
-                { batchId: { $regex: search, $options: 'i' } },
-                { "seller_id.basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
-                { "procurementCenter_id.center_name": { $regex: search, $options: 'i' } },
-            ]
-        } : {};
+        // Validate the user ID from the token
+        if (!mongoose.Types.ObjectId.isValid(UserId)) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+        }
 
+        // Fetch warehouse details based on the decoded UserId
+        const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+        const ownerWarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
+
+        // Filter warehouse IDs from the request body against the owner's warehouses
+        const finalWarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
+            ? warehouseIds.filter(id => ownerWarehouseIds.includes(id))
+            : ownerWarehouseIds;
+
+        if (!finalWarehouseIds.length) {
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: { records: [], page, limit, pages: 0 },
+                message: "No warehouses found for the user."
+            }));
+        }
+
+        // Build the query
         const query = {
-            ...warehouseFilter,
-            ...searchFilter
+            warehousedetails_id: { $in: finalWarehouseIds },
+            ...(search && {
+                $or: [
+                    { batchId: { $regex: search, $options: 'i' } },
+                    { "seller_id.basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
+                    { "procurementCenter_id.center_name": { $regex: search, $options: 'i' } },
+                ]
+            }),
         };
 
-        const records = {};
-        records.rows = await Batch.find(query)
+        // Fetch records
+        const rows = await Batch.find(query)
             .populate([
                 { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
                 { path: "procurementCenter_id", select: "center_name" },
-                { path: "wareHouse_id", select: "warehouse_name" },
+                { path: "warehousedetails_id", select: "basicDetails.warehouseName" },
             ])
-            .sort(sortBy)
+            .select("batchId warehousedetails_id commodity qty received_on qc_report.received_qc_status")
+            .sort({ [sortBy]: 1 })
             .skip((page - 1) * limit)
             .limit(parseInt(limit));
 
-        records.count = await Batch.countDocuments(query);
-
-        records.page = page;
-        records.limit = limit;
-        records.pages = Math.ceil(records.count / limit);
-
-        const totalBatches = await Batch.countDocuments(warehouseFilter);
-        const approvedBatches = await Batch.countDocuments({ ...warehouseFilter, wareHouse_approve_status: "approved" });
-        const rejectedBatches = await Batch.countDocuments({ ...warehouseFilter, wareHouse_approve_status: "rejected" });
-        const pendingQCBatches = await Batch.countDocuments({ ...warehouseFilter, wareHouse_approve_status: "pending" });
-
-        const widgetData = {
-            totalBatches,
-            approvedBatches,
-            rejectedBatches,
-            pendingQCBatches
+        const count = await Batch.countDocuments(query);
+        const stats = {
+            totalBatches: count,
+            approvedBatches: await Batch.countDocuments({ ...query, status: 'Approved' }),
+            rejectedBatches: await Batch.countDocuments({ ...query, status: 'Rejected' }),
+            pendingBatches: await Batch.countDocuments({ ...query, status: 'Pending' }),
+            pendingReceivingBatches: await Batch.countDocuments({ ...query, "dispatched.received": { $exists: false } })
         };
 
         if (isExport == 1) {
-            const exportData = records.rows.map(item => {
-                return {
-                    "Batch ID": item.batchId || 'NA',
-                    "Associate Name": item.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
-                    "Procurement Center": item.procurementCenter_id?.center_name || 'NA',
-                    "Warehouse": item.wareHouse_id?.warehouse_name || 'NA',
-                    "Quantity": item.qty || 'NA',
-                    "Status": item.wareHouse_approve_status || 'NA'
-                };
-            });
+            const exportData = rows.map(item => ({
+                "Batch ID": item.batchId || 'NA',
+                "Associate Name": item.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
+                "Procurement Center": item.procurementCenter_id?.center_name || 'NA',
+                "Warehouse": item.warehousedetails_id?.basicDetails?.warehouseName || 'NA',
+                "Quantity": item.qty || 'NA',
+                "Status": item.wareHouse_approve_status || 'NA'
+            }));
 
-            if (exportData.length > 0) {
-                dumpJSONToExcel(req, res, {
+            if (exportData.length) {
+                return dumpJSONToExcel(req, res, {
                     data: exportData,
                     fileName: `Warehouse-Batches.xlsx`,
                     worksheetName: `Batches`
                 });
-                return;
-            } else {
-                return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
             }
+            return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
         }
 
         return res.status(200).send(new serviceResponse({
             status: 200,
-            data: { records, widgetData },
+            data: { records: { rows, count, page, limit, pages: Math.ceil(count / limit), ...stats } },
             message: "Batches fetched successfully"
         }));
     } catch (error) {
-        _handleCatchErrors(error, res);
+        console.error(error);
+        return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
     }
 });
 
@@ -94,12 +114,17 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
 module.exports.batchApproveOrReject = async (req, res) => {
     try {
         const { batchId, status, product_images = [], qc_images = [] } = req.body;
-        const { portalId } = req;
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
+        const decode = await decryptJwtToken(getToken);
+        const UserId = decode.data.user_id;
 
         // Find the batch that is not already approved
         const record = await Batch.findOne({
             _id: batchId,
-            wareHouse_approve_status: { $ne: "approved" }
+            wareHouse_approve_status: { $ne: "Approved" }
         });
 
         if (!record) {
@@ -121,37 +146,38 @@ module.exports.batchApproveOrReject = async (req, res) => {
         }
 
         // Update the approval or rejection status
-        record.wareHouse_approve_status = status === "approved" ? "approved" : "rejected";
+        record.wareHouse_approve_status = status === "Approved" ? "Approved" : "Rejected";
         record.wareHouse_approve_at = new Date();
-        record.wareHouse_approve_by = portalId;
+        record.wareHouse_approve_by = UserId;
 
         // Send email notification
-        const subject = status === "approved"
-            ? `Batch Approved: Notification for Batch ID ${record._id}`
-            : `Batch Rejected: Notification for Batch ID ${record._id}`;
+        // const subject = status === "approved"
+        //     ? `Batch Approved: Notification for Batch ID ${record._id}`
+        //     : `Batch Rejected: Notification for Batch ID ${record._id}`;
 
-        const body = status === "approved"
-            ? `<p>Dear User,</p>
-               <p>The batch with ID <strong>${record._id}</strong> has been <strong>approved</strong>.</p>
-               ${product_images.length > 0 ? `<p>Product Images: ${product_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
-               ${qc_images.length > 0 ? `<p>QC Images: ${qc_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
-               <p>Warm regards,</p>
-               <p>Team</p>`
-            : `<p>Dear User,</p>
-               <p>The batch with ID <strong>${record._id}</strong> has been <strong>rejected</strong>.</p>
-               ${product_images.length > 0 ? `<p>Product Images: ${product_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
-               ${qc_images.length > 0 ? `<p>QC Images: ${qc_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
-               <p>Warm regards,</p>
-               <p>Team</p>`;
+        // const body = status === "approved"
+        //     ? `<p>Dear User,</p>
+        //        <p>The batch with ID <strong>${record._id}</strong> has been <strong>approved</strong>.</p>
+        //        ${product_images.length > 0 ? `<p>Product Images: ${product_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
+        //        ${qc_images.length > 0 ? `<p>QC Images: ${qc_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
+        //        <p>Warm regards,</p>
+        //        <p>Team</p>`
+        //     : `<p>Dear User,</p>
+        //        <p>The batch with ID <strong>${record._id}</strong> has been <strong>rejected</strong>.</p>
+        //        ${product_images.length > 0 ? `<p>Product Images: ${product_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
+        //        ${qc_images.length > 0 ? `<p>QC Images: ${qc_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
+        //        <p>Warm regards,</p>
+        //        <p>Team</p>`;
 
-        await sendMail("ashita@navankur.org", "", subject, body);
+        // await sendMail("nagma@navankur.org", "", subject, body);
 
         // Save the updated batch record
         await record.save();
 
         return res.status(200).send(new serviceResponse({
             status: 200,
-            message: `Batch successfully ${status}`
+            message: `Batch successfully ${status}`,
+            data: record,
         }));
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -160,22 +186,21 @@ module.exports.batchApproveOrReject = async (req, res) => {
 
 module.exports.viewBatchDetails = async (req, res) => {
     try {
-        const { batchId } = req.query;
+        const { batch_id } = req.query;
 
-        if (!batchId) {
+        if (!batch_id) {
             return res.status(400).send(new serviceResponse({
                 status: 400,
                 errors: [{ message: "Batch ID is required" }]
             }));
         }
 
-        const batch = await Batch.findById(batchId)
+        const batch = await Batch.findById(batch_id)
             .populate([
                 { path: "procurementCenter_id", select: "center_name" },
-                { path: "warehouse_id", select: "basicDetails.warehouseName basicDetails.addressDetails" },
+                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails" },
                 { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" }
             ])
-            .select("-__v");
 
         if (!batch) {
             return res.status(404).send(new serviceResponse({
@@ -185,7 +210,7 @@ module.exports.viewBatchDetails = async (req, res) => {
         }
 
         const response = {
-            batchId: batch.batchId,
+            batch_id: batch.batch_id,
             fpoName: batch.fpoName,
             commodity: batch.commodity,
             quantityInTransit: batch.quantityInTransit,
@@ -217,6 +242,7 @@ module.exports.viewBatchDetails = async (req, res) => {
         return res.status(200).send(new serviceResponse({
             status: 200,
             data: response,
+            batch: batch,
             message: "Batch details fetched successfully"
         }));
     } catch (error) {
