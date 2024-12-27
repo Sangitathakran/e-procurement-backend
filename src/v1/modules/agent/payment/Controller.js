@@ -696,7 +696,8 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
         if (isExport == 1) {
-            const exportRecords = await RequestModel.aggregate([...aggregationPipeline]);
+            const exportRecords = await RequestModel.aggregate([...aggregationPipeline.filter(stage => !stage.$skip && !stage.$limit)]);
+
             const record =  exportRecords.map((item) => {
                 const batchIds = item?.batches?.map(batch => batch.batchId).join(', ') || "NA";
                 const dispatchedDates = item?.batches?.map(batch => batch.dispatched?.dispatched_at || "NA").join(", ") || "NA";
@@ -1741,7 +1742,6 @@ module.exports.associateBillReject = async (req, res) => {
 module.exports.agentPayments = async (req, res) => {
 
     try {
-
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
 
         let query = search ? {
@@ -1761,9 +1761,45 @@ module.exports.agentPayments = async (req, res) => {
             .limit(parseInt(limit)) : await Batch.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
                 .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "reqNo product.name" }])
                 .sort(sortBy)
-
         records.count = await AgentInvoice.countDocuments(query);
+        if (isExport == 1) {
+            const recordsdata = await AgentInvoice.find(query)
+        .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
+        .populate([
+            { path: "bo_id", select: "branchId" },
+            { path: "req_id", select: "product deliveryDate quotedPrice reqNo" },
+        ]);
 
+            const exportData = recordsdata.map(record => ({
+                ReqNo: record.req_id?.reqNo || "N/A",
+                BranchId: record.bo_id?.branchId || "N/A",
+                ProductName: record.req_id?.product?.name || "N/A",
+                ProductGrade: record.req_id?.product?.grade || "N/A",
+                ProductQuantity: record.req_id?.product?.quantity || 0,
+                QuotedPrice: record.req_id?.quotedPrice || 0,
+                DeliveryDate: record.req_id?.deliveryDate || "N/A",
+                QtyProcured: record.qtyProcured || 0,
+                PaymentStatus: record.payment_status || "N/A",
+                ProcurementExpenses: record.bill?.precurement_expenses || 0,
+                Driage: record.bill?.driage || 0,
+                StorageExpenses: record.bill?.storage_expenses || 0,
+                Commission: record.bill?.commission || 0,
+                Total: record.bill?.total || 0,
+            }));
+
+            if (exportData.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: exportData,
+                    fileName: `agent-Payment-records.xlsx`,
+                    worksheetName: `agent-Payment-records`,
+                });
+                return;
+            } else {
+                return res
+                    .status(404)
+                    .send(new serviceResponse({ status: 404, data: {}, message: _response_message.notFound("Payment") }));
+            }
+        }
 
         if (paginate == 1) {
             records.page = page
