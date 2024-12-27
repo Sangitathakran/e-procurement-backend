@@ -9,7 +9,6 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { default: mongoose } = require("mongoose");
-const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 
 module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
@@ -247,24 +246,3 @@ module.exports.branchList = asyncErrorHandler(async (req, res) => {
         return res.status(500).send(new serviceResponse({ status: 500, errors: [{ message: err.message }] }));
     }
 });
-
-module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
-    const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-    const { user_id } = req;
-    let query = {
-        is_approved: _userStatus.pending,
-        ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
-    };
-    const records = { count: 0 };
-    records.rows = paginate == 1 ? await Distiller.find(query)
-        .sort(sortBy)
-        .skip(skip)
-        .limit(parseInt(limit)) : await Distiller.find(query).sort(sortBy);
-    records.count = await Distiller.countDocuments(query);
-    if (paginate == 1) {
-        records.page = page
-        records.limit = limit
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-    }
-    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Pending Distiller") }))
-})

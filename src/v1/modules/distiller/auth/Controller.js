@@ -10,7 +10,7 @@ const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const { _userType } = require('@src/v1/utils/constants');
+const { _userType, _userStatus } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
@@ -978,3 +978,24 @@ module.exports.deleteStorageFacility = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.getPendingDistillers = async (req, res) => {
+    const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+    const { user_id } = req;
+    let query = {
+        is_approved: _userStatus.pending,
+        ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+    };
+    const records = { count: 0 };
+    records.rows = paginate == 1 ? await Distiller.find(query)
+        .sort(sortBy)
+        .skip(skip)
+        .limit(parseInt(limit)) : await Distiller.find(query).sort(sortBy);
+    records.count = await Distiller.countDocuments(query);
+    if (paginate == 1) {
+        records.page = page
+        records.limit = limit
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+    }
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Pending Distiller") }))
+}
