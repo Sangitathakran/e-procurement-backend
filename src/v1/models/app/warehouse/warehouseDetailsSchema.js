@@ -91,5 +91,6 @@ warehouseDetailsSchema.pre('save', async function (next) {
     }
 });
 
-module.exports = mongoose.model('WarehouseDetails', warehouseDetailsSchema);
+const wareHouseDetails = mongoose.model(_collectionName.WarehouseDetails, warehouseDetailsSchema);
+module.exports = { wareHouseDetails };
 

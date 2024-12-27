@@ -520,7 +520,7 @@ module.exports.lot_list = async (req, res) => {
 // TODO aggrigation on invoice after a record insert
 module.exports.AssociateTabPaymentRequests = async (req, res) => {
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, isExport=0, search = '' } = req.query
         // let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
         const paymentIds = (await AssociateInvoice.find({})).map(i => i.req_id);
 
@@ -532,6 +532,92 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
                     localField: '_id',
                     foreignField: 'req_id',
                     as: 'invoice',
+                }
+            },
+            {
+                $lookup: {
+                    from: "batches",
+                    localField: "_id",
+                    foreignField: "req_id",
+                    as: "batches",
+                    pipeline: [
+                        {
+                            $lookup: {
+                                from: "payments",
+                                localField: "_id",
+                                foreignField: "batch_id",
+                                as: "payment",
+                            },
+                        },
+                    ],
+                }
+            },
+            {
+                $lookup: {
+                  from: "farmers",
+                  localField: "farmer_order_id",
+                  foreignField: "farmer_order_id",
+                  as: "farmer",
+                },
+              },
+              {
+                $addFields: {
+                    farmer: {
+                        FarmerName: { $arrayElemAt: ['$farmer.name', 0] },
+                        FatherName: { $arrayElemAt: ['$farmer.parents.father_name', 0] },
+                        FatherDOB: { $arrayElemAt: ['$farmer.basic_details.dob', 0] },
+                        FarmerID: { $arrayElemAt: ['$farmer.farmer_id', 0] },
+                        address: {
+                            address_line_1: { $arrayElemAt: ['$farmer.address.address_line_1', 0] },
+                            country: { $arrayElemAt: ['$farmer.address.country', 0] },
+                            tahshil: { $arrayElemAt: ['$farmer.address.tahshil', 0] },
+                            village: { $arrayElemAt: ['$farmer.address.village', 0] },
+                            pin_code: { $arrayElemAt: ['$farmer.address.pin_code', 0] },
+                        }
+                    }
+                }
+            },
+            {
+                $lookup: {
+                  from: "users",
+                  localField: "batches.seller_id",
+                  foreignField: "_id",
+                  as: "sellers",
+                },
+              },
+              {
+                $addFields: {
+                    sellers: {
+                        AssociateName: { $arrayElemAt: ['$sellers.basic_details.associate_details.organization_name', 0] },
+                        AssociateId: { $arrayElemAt: ['$sellers.user_code', 0] },
+                    }
+                }
+            },
+            {
+                $lookup: {
+                  from: "procurementcenters",
+                  localField: "batches.procurementCenter_id",
+                  foreignField: "_id",
+                  as: "ProcurementCenter",
+                },
+              },
+              {
+                $addFields: {
+                    ProcurementCenter: {
+                        CenterCode: { $arrayElemAt: ['$ProcurementCenter.center_code', 0] },
+                        CenterName: { $arrayElemAt: ['$ProcurementCenter.center_name', 0] },
+                        Address: {
+                            line1: { $arrayElemAt: ['$ProcurementCenter.address.line1', 0] },
+                            line2: { $arrayElemAt: ['$ProcurementCenter.address.line2', 0] },
+                            country: { $arrayElemAt: ['$ProcurementCenter.address.country', 0] },
+                            state: { $arrayElemAt: ['$ProcurementCenter.address.state', 0] },
+                            district: { $arrayElemAt: ['$ProcurementCenter.address.district', 0] },
+                            city: { $arrayElemAt: ['$ProcurementCenter.address.city', 0] },
+                            postalCode: { $arrayElemAt: ['$ProcurementCenter.address.postalCode', 0] },
+                            lat: { $arrayElemAt: ['$ProcurementCenter.address.lat', 0] },
+                            long: { $arrayElemAt: ['$ProcurementCenter.address.long', 0] },
+                        }
+                    }
                 }
             },
             {
@@ -571,6 +657,29 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
                     product: 1,
                     qtyProcuredInInvoice: 1,
                     paymentStatus: 1,
+                    batches: 1,
+                    'farmer.name':1,
+                    'farmer.farmer_id':1,
+                    'farmer.parents.father_name':1,
+                    'farmer.basic_details.dob':1,
+                    'farmer.address.address_line_1':1,
+                    'farmer.address.country':1,
+                    'farmer.address.tahshil':1,
+                    'farmer.address.village':1,
+                    'farmer.address.pin_code':1,
+                    'ProcurementCenter.CenterCode': 1,
+                    'ProcurementCenter.CenterName': 1,
+                    'ProcurementCenter.Address.line1': 1,
+                    'ProcurementCenter.Address.line2': 1,
+                    'ProcurementCenter.Address.country': 1,
+                    'ProcurementCenter.Address.state': 1,
+                    'ProcurementCenter.Address.district': 1,
+                    'ProcurementCenter.Address.city': 1,
+                    'ProcurementCenter.Address.postalCode': 1,
+                    'ProcurementCenter.Address.lat': 1,
+                    'ProcurementCenter.Address.long': 1,
+                    'sellers.basic_details.associate_details.organization_name':1,
+                    'sellers.user_code':1,
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
@@ -586,6 +695,66 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
+        if (isExport == 1) {
+            const exportRecords = await RequestModel.aggregate([...aggregationPipeline.filter(stage => !stage.$skip && !stage.$limit)]);
+
+            const record =  exportRecords.map((item) => {
+                const batchIds = item?.batches?.map(batch => batch.batchId).join(', ') || "NA";
+                const dispatchedDates = item?.batches?.map(batch => batch.dispatched?.dispatched_at || "NA").join(", ") || "NA";
+                const intransitDates = item?.batches?.map(batch => batch.intransit?.intransit_at || "NA").join(", ") || "NA";
+                const receivingDates = item?.batches
+                ?.map(batch => batch?.dispatched?.qc_report?.received?.map(received => received?.on || "NA"))
+                ?.flat()
+                ?.join(", ") || "NA";
+                return {
+                    "Order ID": item?.reqNo || "NA",
+                    "Product Name": item?.product?.name || "NA",
+                    "Quntity": item?.product?.quantity || "NA",
+                    "Payment Status": item?.paymentStatus || "NA",
+                    "Batch Id": batchIds,
+                    FarmerName: item.farmer?.[0]?.name || '',
+                    FarmerID: item.farmer?.[0]?.farmer_id || '',
+                    FarmerDOB: item.farmer?.[0]?.basic_details?.dob || '',
+                    FarmerAddrees: item.farmer?.[0]?.address?.address_line_1 || '',
+                    Country: item.farmer?.[0]?.address?.country || '',
+                    FarmerVillage: item.farmer?.[0]?.address?.village || '',
+                    FarmerTahsil: item.farmer?.[0]?.address?.tahshil || '',
+                    FarmerpINCode: item.farmer?.[0]?.address?.pin_code || '',
+                    AssociateName: item.sellers?.[0]?.basic_details.associate_details?.organization_name || '',
+                    AssociateId: item.sellers?.[0]?.user_code || '',
+                    "Procurement Center Code": item.ProcurementCenter?.[0]?.CenterCode || "NA",
+                    "Procurement Center Name": item.ProcurementCenter?.[0]?.CenterName || "NA",
+                    "Procurement Address Line1": item.ProcurementCenter?.[0]?.Address?.line1 || "NA",
+                    "Procurement Address Line2": item.ProcurementCenter?.[0]?.Address?.line2 || "NA",
+                    "Procurement Country": item.ProcurementCenter?.[0]?.Address?.country || "NA",
+                    "Procurement State": item.ProcurementCenter?.[0]?.Address?.state || "NA",
+                    "Procurement District": item.ProcurementCenter?.[0]?.Address?.district || "NA",
+                    "Procurement City": item.ProcurementCenter?.[0]?.Address?.city || "NA",
+                    "Procurement Postal Code": item.ProcurementCenter?.[0]?.Address?.postalCode || "NA",
+                    "Delivery location": "HAUZ KHAS",
+                    "Dispatched Date": dispatchedDates,
+                    "In-Transit Date": intransitDates,
+                    "Receivinng Date": receivingDates,
+                  };
+                });
+            if (record.length > 0) {
+             return dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Agent-associate-Payment-record.xlsx`,
+                worksheetName: `Agent-associate-Payment-record`,
+              });
+            } else {
+              return res
+                .status(400)
+                .send(
+                  new serviceResponse({
+                    status: 400,
+                    data: records,
+                    message: _response_message.notFound("Payment"),
+                  })
+                );
+            }
+          } 
 
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
 
@@ -1573,7 +1742,6 @@ module.exports.associateBillReject = async (req, res) => {
 module.exports.agentPayments = async (req, res) => {
 
     try {
-
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
 
         let query = search ? {
@@ -1593,9 +1761,45 @@ module.exports.agentPayments = async (req, res) => {
             .limit(parseInt(limit)) : await Batch.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
                 .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "reqNo product.name" }])
                 .sort(sortBy)
-
         records.count = await AgentInvoice.countDocuments(query);
+        if (isExport == 1) {
+            const recordsdata = await AgentInvoice.find(query)
+        .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
+        .populate([
+            { path: "bo_id", select: "branchId" },
+            { path: "req_id", select: "product deliveryDate quotedPrice reqNo" },
+        ]);
 
+            const exportData = recordsdata.map(record => ({
+                ReqNo: record.req_id?.reqNo || "N/A",
+                BranchId: record.bo_id?.branchId || "N/A",
+                ProductName: record.req_id?.product?.name || "N/A",
+                ProductGrade: record.req_id?.product?.grade || "N/A",
+                ProductQuantity: record.req_id?.product?.quantity || 0,
+                QuotedPrice: record.req_id?.quotedPrice || 0,
+                DeliveryDate: record.req_id?.deliveryDate || "N/A",
+                QtyProcured: record.qtyProcured || 0,
+                PaymentStatus: record.payment_status || "N/A",
+                ProcurementExpenses: record.bill?.precurement_expenses || 0,
+                Driage: record.bill?.driage || 0,
+                StorageExpenses: record.bill?.storage_expenses || 0,
+                Commission: record.bill?.commission || 0,
+                Total: record.bill?.total || 0,
+            }));
+
+            if (exportData.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: exportData,
+                    fileName: `agent-Payment-records.xlsx`,
+                    worksheetName: `agent-Payment-records`,
+                });
+                return;
+            } else {
+                return res
+                    .status(404)
+                    .send(new serviceResponse({ status: 404, data: {}, message: _response_message.notFound("Payment") }));
+            }
+        }
 
         if (paginate == 1) {
             records.page = page
