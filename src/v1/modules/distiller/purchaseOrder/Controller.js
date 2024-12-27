@@ -7,6 +7,7 @@ const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { default: mongoose } = require("mongoose");
 
 
@@ -140,13 +141,19 @@ module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
 
 module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
     const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid item ID" });
+    }
+   
     const record = await PurchaseOrderModel.findOne({ _id: id });
 
     if (!record) {
-        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("purchase order") }] }))
     }
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("order") }))
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("purchase order") }))
 })
 
 module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
@@ -223,4 +230,20 @@ module.exports.deletePurchaseOrder = asyncErrorHandler(async (req, res) => {
     await record.deleteOne();
 
     return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.deleted("Requirement") }));
+});
+
+module.exports.branchList = asyncErrorHandler(async (req, res) => {
+    try {
+
+        const record = await Branches.find();
+
+        if (!record) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Branch") }] }))
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Branches") }))
+
+    } catch (err) {
+        return res.status(500).send(new serviceResponse({ status: 500, errors: [{ message: err.message }] }));
+    }
 });
