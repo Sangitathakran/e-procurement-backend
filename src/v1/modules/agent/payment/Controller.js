@@ -696,7 +696,8 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
         if (isExport == 1) {
-            const exportRecords = await RequestModel.aggregate([...aggregationPipeline]);
+            const exportRecords = await RequestModel.aggregate([...aggregationPipeline.filter(stage => !stage.$skip && !stage.$limit)]);
+
             const record =  exportRecords.map((item) => {
                 const batchIds = item?.batches?.map(batch => batch.batchId).join(', ') || "NA";
                 const dispatchedDates = item?.batches?.map(batch => batch.dispatched?.dispatched_at || "NA").join(", ") || "NA";
