@@ -1,11 +1,12 @@
 const express = require("express");
-const { createPurchaseOrder, getPurchaseOrder, getPurchaseOrderById, updatePurchaseOrder, deletePurchaseOrder, branchList } = require("./Controller");
+const { createPurchaseOrder, getPurchaseOrder, getPurchaseOrderById, updatePurchaseOrder, deletePurchaseOrder, branchList, getPendingDistillers } = require("./Controller");
 const { verifyDistiller } = require("../utils/verifyDistiller");
 const distillerpurchaseOrderRoutes = express.Router();
 
 distillerpurchaseOrderRoutes.get("/branch-list", branchList);
 distillerpurchaseOrderRoutes.post("/", verifyDistiller, createPurchaseOrder);
 distillerpurchaseOrderRoutes.get("/", verifyDistiller, getPurchaseOrder);
+distillerpurchaseOrderRoutes.get("/pending-distillers", verifyDistiller, getPendingDistillers);
 distillerpurchaseOrderRoutes.get("/:id", verifyDistiller, getPurchaseOrderById);
 distillerpurchaseOrderRoutes.put("/", verifyDistiller, updatePurchaseOrder);
 distillerpurchaseOrderRoutes.delete("/:id", verifyDistiller, deletePurchaseOrder);
