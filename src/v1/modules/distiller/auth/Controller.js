@@ -74,13 +74,11 @@ module.exports.sendOtp = async (req, res) => {
 
 module.exports.reSendOtp = async (req, res) => {
     try {
-        const { input, term_condition } = req.body;
+        const { input} = req.body;
         if (!input) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('input') }));
         }
-        if (!term_condition || term_condition == false) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('term_condition') }));
-        }
+       
         let inputType;
         if (isEmail(input)) {
             inputType = 'email';

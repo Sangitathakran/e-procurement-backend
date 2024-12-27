@@ -26,16 +26,13 @@ class SMSService {
 
     async sendResendSMS(phone, email) {
         const otp = this.getOTP();
-        // const otpSave = new OTPModel({ phone, email, otp });
-        // await otpSave.save();
-        // return this.sendSMS(phone, otp, 'resend');
         let otpRecord = await OTPModel.findOne({ phone });
         if (otpRecord) {
             await OTPModel.deleteOne({ phone });
         }
         const newOTPRecord = new OTPModel({ phone, otp, term_condition: true });
         await newOTPRecord.save();
-        return this.sendSMS(phone, otp, 'default');
+        return this.sendSMS(phone, otp, 'resend');
     }
 
     async sendPasswordResetSMS(phoneNumber) {
