@@ -22,7 +22,7 @@ module.exports.getProcurement = asyncErrorHandler(
         } : {};
 
         // Aggregation pipeline to join with AssociateOffers
-        const pipeline = [
+        const basePipeline = [
             { $match: query },
             {
                 $lookup: {
@@ -35,14 +35,19 @@ module.exports.getProcurement = asyncErrorHandler(
             { $unwind: '$myoffer' },
             { $match: { 'myoffer.status': { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } } },
             ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
-            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []), // Pagination if required
-            { $limit: limit ? parseInt(limit) : 10 }
+            // ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []), // Pagination if required
+            // { $limit: limit ? parseInt(limit) : 10 }
+        ];
+        const pipeline = isExport == 1
+        ? basePipeline // Do not apply pagination for export
+        : [
+            ...basePipeline,
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []), // Apply pagination for normal requests
         ];
 
         const records = {};
         records.count = await RequestModel.countDocuments(query);
         records.rows = await RequestModel.aggregate(pipeline);
-       
 
         if (paginate == 1) {
             records.page = page;
@@ -51,9 +56,8 @@ module.exports.getProcurement = asyncErrorHandler(
         }
 
         if (isExport == 1) {
-
-            const record = records.rows.map((item) => {
-
+            const allRecords = await RequestModel.find(query);
+            const record = allRecords.map((item) => {
                 return {
                     "Order Id": item?.reqNo || "NA",
                     "Commodity": item?.product.name || "NA",
@@ -137,6 +141,7 @@ module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
                 'associate._id': 1,
                 'associate.user_code': 1,
                 'associate.basic_details.associate_details.associate_name': 1,  // Ensure this path exists in 'users' collection
+                'associate.basic_details.associate_details.organization_name':1,
                 batchcount: 1,
                 req_id: 1
             }

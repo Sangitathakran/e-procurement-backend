@@ -119,6 +119,7 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
         {
             $project: {
                 "associate.basic_details.associate_details.associate_name": 1,
+                "associate.basic_details.associate_details.organization_name": 1,
                 "associate.user_code": 1,
                 "offeredQty": 1,
                 'status': 1,

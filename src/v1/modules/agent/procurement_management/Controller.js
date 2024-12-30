@@ -85,7 +85,7 @@ module.exports.getProcurementCenter = async (req, res) => {
             ? await ProcurementCenter.find(query)
                 .populate({
                     path: 'user_id',
-                    select: 'basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code'
+                    select: 'basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code basic_details.associate_details.organization_name'
                 })
                 .sort(sortBy)
                 .skip(skip)
@@ -94,7 +94,7 @@ module.exports.getProcurementCenter = async (req, res) => {
             : await ProcurementCenter.find(query)
                 .populate({
                     path: 'user_id',
-                    select: 'basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code'
+                    select: 'basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code basic_details.associate_details.organization_name'
                 })
                 .sort(sortBy);
 
@@ -274,4 +274,3 @@ module.exports.generateCenterCode = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
-

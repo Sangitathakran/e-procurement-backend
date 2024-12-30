@@ -128,7 +128,7 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
 
 module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
+    const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
     let query = search ? {
         $or: [
             { "reqNo": { $regex: search, $options: 'i' } },
@@ -145,15 +145,46 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
     records.count = await RequestModel.countDocuments(query);
-
-
     if (paginate == 1) {
         records.page = page
         records.limit = limit
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
     }
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
+    // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
+    
+    if (isExport == 1) {
+
+        const allRecords = await RequestModel.find(query)
+        .sort(sortBy)
+        .populate({ path: "branch_id", select: "_id branchName branchId" });
+        const record = allRecords.map((item) => {
+
+            return {
+                "Order Id": item?.reqNo || "NA",
+                "BO Name": item?.branch_id?.branchName || "NA",
+                "Commodity": item?.product?.name || "NA",
+                "Grade": item?.product?.grade || "NA",
+                "Quantity": item?.product?.quantity || "NA",
+                "MSP": item?.quotedPrice || "NA",
+                "Delivery Location": item?.address?.deliveryLocation || "NA"
+            }
+        })
+
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Requirement-record.xlsx`,
+                worksheetName: `Requirement-record`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("procurement") }))
+
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
+    }
+
 })
 
 module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
@@ -254,6 +285,7 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
                 'associate._id': 1,
                 'associate.user_code': 1,
                 'associate.basic_details.associate_details.associate_name': 1,
+                'associate.basic_details.associate_details.organization_name':1
             }
         },
         { $match: query }, // Apply query
@@ -310,7 +342,7 @@ module.exports.associateOfferbyid = asyncErrorHandler(async (req, res) => {
 
     const record = await AssociateOffers.findOne({ _id: id })
         .populate({ path: 'req_id', select: '_id product.name product.grade product.commodityImage reqNo deliveryDate' })
-        .populate({ path: 'seller_id', select: '_id basic_details.associate_details.associate_name user_code' })
+        .populate({ path: 'seller_id', select: '_id basic_details.associate_details.associate_name user_code basic_details.associate_details.organization_name' })
         .select('_id seller_id req_id offeredQty status procuredQty')
 
     if (!record) {

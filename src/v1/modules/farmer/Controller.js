@@ -22,7 +22,8 @@ const { ObjectId } = require('mongodb');
 const { _proofType, _gender, _religion, _maritalStatus, _areaUnit, _seasons, _individual_category, _soilType, _yesNo } = require('@src/v1/utils/constants');
 const XLSX = require('xlsx');
 const fs = require('fs');
-const axios = require('axios')
+const axios = require('axios');
+const mongoose = require('mongoose');
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -868,26 +869,26 @@ module.exports.createLand = async (req, res) => {
       village, block, khtauni_number, khasra_number, khata_number,
       soil_type, soil_tested, uploadSoil_health_card, opt_for_soil_testing, soil_testing_agencies, upload_geotag
     } = req.body;
-    console.log(farmer_id,
-      area,
-      pin_code,
-      state,
-      district,
-      village,
-      block,
-      khasra_number,
-      khtauni_number,
-      area_unit,
-      upload_land_document)
+    // console.log(farmer_id,
+    //   area,
+    //   pin_code,
+    //   state,
+    //   district,
+    //   village,
+    //   block,
+    //   khasra_number,
+    //   khtauni_number,
+    //   area_unit,
+    //   upload_land_document)
 
-    const existingLand = await Land.findOne({ 'khasra_number': khasra_number });
+    // const existingLand = await Land.findOne({ 'khasra_number': khasra_number });
 
-    if (existingLand) {
-      return res.status(200).send(new serviceResponse({
-        status: 400,
-        errors: [{ message: _response_message.allReadyExist("Land") }]
-      }));
-    }
+    // if (existingLand) {
+    //   return res.status(200).send(new serviceResponse({
+    //     status: 400,
+    //     errors: [{ message: _response_message.allReadyExist("Land") }]
+    //   }));
+    // }
 
     const isStateExist = await isStateAvailable(state)
     const isDistrictExist = await isDistrictAvailable(state, district)
@@ -1834,20 +1835,32 @@ module.exports.exportFarmers = async (req, res) => {
     }
     let aggregationPipeline = [
       { $match: query },
+      { $unwind: { path: '$address.state_id', preserveNullAndEmptyArrays: true } },
+
       {
         $lookup: {
-          from: 'statedistrictcities',
-          localField: 'address.state_id',
-          foreignField: '_id',
+          from: 'statedistrictcities', 
+          let: { stateId: { $toObjectId: '$address.state_id' } },
+          pipeline: [
+            { $unwind: '$states' },
+            { $match: { $expr: { $eq: ['$states._id', '$$stateId'] } } },
+            { $project: { state_title: '$states.state_title', _id: 0 } } 
+          ],
           as: 'state'
         }
       },
       { $unwind: { path: '$state', preserveNullAndEmptyArrays: true } },
+    
       {
         $lookup: {
           from: 'statedistrictcities',
-          localField: 'address.district_id',
-          foreignField: '_id',
+          let: { districtId: { $toObjectId: '$address.district_id' } }, 
+          pipeline: [
+            { $unwind: '$states' },
+            { $unwind: '$states.districts' }, 
+            { $match: { $expr: { $eq: ['$states.districts._id', '$$districtId'] } } }, 
+            { $project: { district_title: '$states.districts.district_title', _id: 0 } }
+          ],
           as: 'district'
         }
       },
@@ -1888,7 +1901,6 @@ module.exports.exportFarmers = async (req, res) => {
       );
     }
     const farmersData = await farmer.aggregate(aggregationPipeline);
-
     const totalFarmersCount = await farmer.countDocuments(query);
 
     const records = {
@@ -1922,10 +1934,8 @@ module.exports.exportFarmers = async (req, res) => {
           "Aadhar Number": item?.proof?.aadhar_no || 'NA',
           "Address Line": item?.address?.address_line_1 || 'NA',
           "Country": item?.address?.country || 'NA',
-          "State": item?.address?.state_id?.state_title || 'NA',
-          "District": item?.address?.district_id?.district_title || 'NA',
-          "State": item?.address?.state_id?.state_title || item?.address?.state || 'NA',
-          "District": item?.address?.district_id?.district_title || item?.address?.district || 'NA',
+          "State": item?.state?.state_title || 'NA',
+          "District": item?.district?.district_title || 'NA',
           "Block": item?.address?.block || 'NA',
           "Tahshil": item?.address?.tahshil || 'NA',
           "Latitude": item?.address?.lat || 'NA',
@@ -1970,7 +1980,6 @@ module.exports.exportFarmers = async (req, res) => {
           "Crop Rotation": item?.crops?.crop_rotation || 'NA',
         };
       });
-
       if (record.length > 0) {
         dumpJSONToExcel(req, res, {
           data: record,
@@ -2194,8 +2203,13 @@ module.exports.makeAssociateFarmer = async (req, res) => {
 
     for (const id of farmer_id) {
       const localFarmer = await farmer.findOne({ _id: id, associate_id: null });
-
       if (localFarmer) {
+        const { basic_details } = localFarmer;
+        const fathers_name = basic_details?.father_husband_name || null;
+        localFarmer.parents = {
+          ...localFarmer.parents,
+          father_name: fathers_name,
+        };
         localFarmer.associate_id = user_id;
         const updatedFarmer = await localFarmer.save();
         updatedFarmers.push(updatedFarmer);
@@ -2372,3 +2386,210 @@ module.exports.getFarmerDocument = async (req, res) => {
     _handleCatchErrors(err, res);
   }
 };
+
+module.exports.getStates = async (req, res) => {
+  try {
+    const states = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      { $project: { "states.state_title": 1, "states._id": 1 } },
+      { $group: { _id: null, states: { $push: "$states" } } },
+    ]);
+
+    if (!states.length || !states[0].states.length) {
+      return sendResponse({
+        res,
+        data: [],
+        status: 404,
+        message: _response_message.notFound("state"),
+      });
+    }
+
+    return sendResponse({
+      res,
+      data: states[0].states,
+      status: 200,
+      message: _response_message.found("state"),
+    });
+  } catch (err) {
+    _handleCatchErrors(err, res);
+  }
+};
+
+
+module.exports.getDistrictByState = async (req, res) => {
+  const { id } = req.params;
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return sendResponse({
+        res,
+        data: null,
+        status: 404,
+        message: _response_message.invalid(id),
+      });
+    }
+    const result = await StateDistrictCity.findOne(
+      { "states._id": id },
+      { "states.$": 1 }
+    );
+
+    if (!result && result?.states?.length > 0) {
+      sendResponse({
+        res,
+        data: districts,
+        status: 404,
+        message: _response_message.notFound("state"),
+      });
+    }
+
+    const state = result.states[0];
+    const districts = state.districts.map(district => ({
+      district_title: district.district_title,
+      _id: district._id
+    }));
+    return sendResponse({
+      res,
+      data: districts,
+      status: 200,
+      message: _response_message.found("district"),
+    });
+  } catch (err) {
+    _handleCatchErrors(err, res);
+  }
+}
+module.exports.editFarmerDocument = async (req, res) => {
+  try {
+    const { farmer_id, name, farmer_type, basic_details, address, bank_details, parents, marital_status, religion, education, proof, land_details, pastCrops, upcomingCrops } = req.body;
+
+    const existingFarmer = await farmer.findById(farmer_id);
+
+    if (!existingFarmer) {
+      return res.status(404).send(
+        new serviceResponse({
+          status: 404,
+          errors: [{ message: _response_message.notFound("farmer") }],
+        })
+      );
+    }
+
+    // const existingLand = await Land.find({ farmer_id: farmer_id });
+    // if (!existingLand.length) {
+    //   return res.status(404).send(
+    //     new serviceResponse({
+    //       status: 404,
+    //       errors: [{ message: _response_message.notFound("land") }],
+    //     })
+    //   );
+    // }
+
+    // const existingCrop = await Crop.find({ farmer_id: farmer_id });
+    // if (!existingCrop.length) {
+    //   return res.status(404).send(
+    //     new serviceResponse({
+    //       status: 404,
+    //       errors: [{ message: _response_message.notFound("crop") }],
+    //     })
+    //   );
+    // }
+
+    // Update fields conditionally
+    if (farmer_type) {
+      existingFarmer.farmer_type = farmer_type
+    }
+    if (name) {
+      existingFarmer.name = name
+    }
+    if (basic_details) {
+      existingFarmer.basic_details = basic_details
+    }
+
+    if (address) {
+      existingFarmer.address = address
+    }
+
+    if (bank_details) {
+      existingFarmer.bank_details = bank_details
+    }
+
+    if (parents) {
+      existingFarmer.parents = parents
+    }
+
+    if (marital_status !== undefined) existingFarmer.marital_status = marital_status;
+    if (religion !== undefined) existingFarmer.religion = religion;
+
+    if (education) {
+      if (education.edu_details) existingFarmer.education.edu_details = education.edu_details;
+    }
+
+    if (proof) {
+      if (proof.type !== undefined) existingFarmer.proof.type = proof.type;
+      if (proof.aadhar_no) existingFarmer.proof.aadhar_no = proof.aadhar_no;
+    }
+    if (land_details && Array.isArray(land_details)) {
+      for (const landEntry of land_details) {
+        const { _id: landId, ...landFields } = landEntry;
+        if (landId) {
+          await Land.findOneAndUpdate(
+            { _id: landId },
+            { $set: landFields },
+            { new: true }
+          );
+        } else {
+          await Land.create({
+            farmer_id: farmer_id,
+            ...landFields
+          });
+        }
+      }
+    }
+
+    if (pastCrops && Array.isArray(pastCrops)) {
+      const cropPromises = pastCrops.map(async (cropEntry) => {
+        let { _id: cropId, ...cropFields } = cropEntry;
+        cropFields.sowing_date = parseMonthyear(cropFields.sowing_date);
+        cropFields.harvesting_date = parseMonthyear(cropFields.harvesting_date);
+        if (cropId) {
+          return Crop.findByIdAndUpdate(
+            cropId,
+            { $set: cropFields },
+            { new: true }
+          );
+        } else {
+          return Crop.create({ farmer_id, ...cropFields });
+        }
+      });
+      await Promise.all(cropPromises);
+    }
+
+    let upcommingCropsDetails = null
+    if (upcomingCrops && Array.isArray(upcomingCrops)) {
+      for (const cropEntry of upcomingCrops) {
+        const { _id: cropId, ...cropFields } = cropEntry;
+        console.log(cropFields, cropId)
+        cropFields.sowing_date = parseMonthyear(cropFields.sowing_date)
+        cropFields.harvesting_date = parseMonthyear(cropFields.harvesting_date)
+        if (cropId) {
+          upcommingCropsDetails = await Crop.findByIdAndUpdate(
+            { _id: cropId },
+            { $set: cropFields },
+            { new: true });
+        } else {
+          upcommingCropsDetails = await Crop.create({ farmer_id: farmer_id, ...cropFields });
+        }
+      }
+    }
+
+    await existingFarmer.save();
+
+    return sendResponse({
+      res,
+      data: { upcommingCropsDetails },
+      status: 200,
+      message: _response_message.updated("Farmer"),
+    });
+  } catch (err) {
+    console.error("Error:", err);
+    _handleCatchErrors(err, res);
+  }
+};
+
