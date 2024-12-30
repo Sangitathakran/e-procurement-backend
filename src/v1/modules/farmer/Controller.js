@@ -1770,14 +1770,15 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         }
         let farmerRecord = await farmer.findOne({ 'proof.aadhar_no': aadhar_no });
         if (farmerRecord) {
+          return { success: false, errors: [{ record: rec, error: `Farmer  with Aadhar No. ${aadhar_no} already registered.` }] };
           // Update existing farmer record
-          farmerRecord = await updateFarmerRecord(farmerRecord, {
-            associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, age: calulateage, gender, farmer_category, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
-          });
-          // Update land and crop details if present
-          await updateRelatedRecords(farmerRecord._id, {
-            farmer_id: farmerRecord._id, land_name, cultivation_area, total_area, khasra_number, area_unit, khata_number, land_type, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, landvillage, LandBlock, landPincode, expected_production, soil_type, soil_tested, soil_testing_agencies, upload_geotag, sowing_date, harvesting_date, crop_name, production_quantity, selling_price, yield, insurance_company, insurance_worth, crop_season, crop_land_name, crop_growth_stage, crop_disease, crop_rotation, previous_crop_session, previous_crop_name, crop_sold, quantity_sold, average_selling_price, marketing_channels_used, challenges_faced, insurance_premium, insurance_start_date, insurance_end_date, crop_variety,
-          });
+          // farmerRecord = await updateFarmerRecord(farmerRecord, {
+          //   associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, age: calulateage, gender, farmer_category, marital_status, religion, category, highest_edu, edu_details, type, aadhar_no, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
+          // });
+          // // Update land and crop details if present
+          // await updateRelatedRecords(farmerRecord._id, {
+          //   farmer_id: farmerRecord._id, land_name, cultivation_area, total_area, khasra_number, area_unit, khata_number, land_type, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, landvillage, LandBlock, landPincode, expected_production, soil_type, soil_tested, soil_testing_agencies, upload_geotag, sowing_date, harvesting_date, crop_name, production_quantity, selling_price, yield, insurance_company, insurance_worth, crop_season, crop_land_name, crop_growth_stage, crop_disease, crop_rotation, previous_crop_session, previous_crop_name, crop_sold, quantity_sold, average_selling_price, marketing_channels_used, challenges_faced, insurance_premium, insurance_start_date, insurance_end_date, crop_variety,
+          // });
         } else {
           // Insert new farmer record
           farmerRecord = await insertNewFarmerRecord({
@@ -1806,6 +1807,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 
     if (errorArray.length > 0) {
       const errorData = errorArray.map(err => ({ ...err.record, Error: err.error }));
+      // console.log("error data->",errorData)
       dumpJSONToExcel(req, res, {
         data: errorData,
         fileName: `Farmer-error_records.xlsx`,
