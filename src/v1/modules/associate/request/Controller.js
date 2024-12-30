@@ -19,37 +19,40 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 module.exports.getProcurement = async (req, res) => {
     try {
         const { user_id } = req;
-        const { page, limit, skip, paginate = 1, sortBy, search = '', status } = req.query;
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', status } = req.query;
 
-        let query = search ? {
-            $or: [
-                { "reqNo": { $regex: search, $options: 'i' } },
-                { "product.name": { $regex: search, $options: 'i' } },
-                { "product.grade": { $regex: search, $options: 'i' } },
-            ]
-        } : {};
-
-        // Handle status filtering based on offers
-        if (status && Object.values(_associateOfferStatus).includes(status)) {
-            console.log('status', status)
-            // Aggregation pipeline to join with AssociateOffers
-            const conditionPipeline = []
-            if (status == _associateOfferStatus.ordered) {
-                conditionPipeline.push({
-                    $lookup: {
-                        from: 'batches',
-                        localField: '_id',
-                        foreignField: 'req_id',
-                        as: 'batches',
-                    },
-                })
-
-                conditionPipeline.push({
-                    $addFields: {
-                        batchesCount: { $size: '$batches' } // Get the count of batches
-                    }
-                })
+        // Build query for search
+        let query = search
+            ? {
+                $or: [
+                    { reqNo: { $regex: search, $options: 'i' } },
+                    { 'product.name': { $regex: search, $options: 'i' } },
+                    { 'product.grade': { $regex: search, $options: 'i' } },
+                ],
             }
+            : {};
+
+        if (status && Object.values(_associateOfferStatus).includes(status)) {
+            // Handle status-based filtering
+            const conditionPipeline = [];
+            if (status === _associateOfferStatus.ordered) {
+                conditionPipeline.push(
+                    {
+                        $lookup: {
+                            from: 'batches',
+                            localField: '_id',
+                            foreignField: 'req_id',
+                            as: 'batches',
+                        },
+                    },
+                    {
+                        $addFields: {
+                            batchesCount: { $size: '$batches' }, // Add batch count
+                        },
+                    }
+                );
+            }
+
             const pipeline = [
                 { $match: query },
                 {
@@ -65,52 +68,64 @@ module.exports.getProcurement = async (req, res) => {
                 {
                     $match: {
                         'myoffer.seller_id': new mongoose.Types.ObjectId(user_id),
-                        ...((status == _associateOfferStatus.pending || status == _associateOfferStatus.rejected) && { 'myoffer.status': status }),
-                        ...(status == _associateOfferStatus.accepted && { 'myoffer.status': { $in: [_associateOfferStatus.accepted, _associateOfferStatus.partially_ordered] } }),
-                        ...(status == _associateOfferStatus.ordered && { 'myoffer.status': { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } }),
-                    }
+                        ...(status === _associateOfferStatus.pending || status === _associateOfferStatus.rejected
+                            ? { 'myoffer.status': status }
+                            : {}),
+                        ...(status === _associateOfferStatus.accepted
+                            ? { 'myoffer.status': { $in: [_associateOfferStatus.accepted, _associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] } }
+                            : {}),
+                        ...(status === _associateOfferStatus.ordered
+                            ? { 'myoffer.status': { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } }
+                            : {}),
+                    },
                 },
-                { $sort: sortBy ? sortBy : { createdAt: -1 } },
-                { $skip: skip ? parseInt(skip) : 0 },
-                { $limit: limit ? parseInt(limit) : 10 }
+                { $sort: sortBy || { createdAt: -1 } },
+                { $skip: parseInt((page - 1) * limit) || 0 },
+                { $limit: parseInt(limit) || 10 },
             ];
 
-            const records = {};
-            records.rows = await RequestModel.aggregate(pipeline);
-            records.count = await RequestModel.countDocuments(query);
+            // Use pipeline for fetching rows and counting
+            const countPipeline = [...pipeline.slice(0, -2), { $count: 'count' }];
+            const countResult = await RequestModel.aggregate(countPipeline);
+            const records = {
+                rows: await RequestModel.aggregate(pipeline),
+                count: countResult.length > 0 ? countResult[0].count : 0,
+            };
 
-            if (paginate == 1) {
-                records.page = page;
-                records.limit = limit;
-                records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+            if (paginate === 1) {
+                records.page = parseInt(page);
+                records.limit = parseInt(limit);
+                records.pages = records.limit !== 0 ? Math.ceil(records.count / records.limit) : 0;
             }
 
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
+            return res
+                .status(200)
+                .send(new serviceResponse({ status: 200, data: records, message: _response_message.found('procurement') }));
         } else {
-            // Find requests that have no offers or are open
+            // Handle requests with no offers or open status
             query.status = { $in: [_requestStatus.open, _requestStatus.partially_fulfulled] };
-            const offerIds = (await AssociateOffers.find({ seller_id: user_id })).map((offer) => offer.req_id);
-            query._id = { $nin: offerIds };
-            query.quoteExpiry = { $gte: new Date() };
+            // query.quoteExpiry = { $gte: new Date() };
 
+            const rows = paginate === 1
+                ? await RequestModel.find(query)
+                    .sort(sortBy || { createdAt: -1 })
+                    .skip(parseInt(skip))
+                    .limit(parseInt(limit))
+                : await RequestModel.find(query).sort(sortBy || { createdAt: -1 });
 
-            const records = { count: 0 };
-            records.rows = paginate == 1 ? await RequestModel.find(query)
-                .sort(sortBy)
-                .skip(skip)
-                .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
+            const count = await RequestModel.countDocuments(query);
 
-            records.count = await RequestModel.countDocuments(query);
-
-            if (paginate == 1) {
-                records.page = page;
-                records.limit = limit;
-                records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+            const records = { rows, count };
+            if (paginate === 1) {
+                records.page = parseInt(page);
+                records.limit = parseInt(limit);
+                records.pages = records.limit !== 0 ? Math.ceil(records.count / records.limit) : 0;
             }
 
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
+            return res
+                .status(200)
+                .send(new serviceResponse({ status: 200, data: records, message: _response_message.found('procurement') }));
         }
-
     } catch (error) {
         console.log(error.message);
         _handleCatchErrors(error, res);
@@ -130,8 +145,6 @@ module.exports.getProcurementById = async (req, res) => {
         }
 
         record.myOffer = await AssociateOffers.findOne({ req_id: id });
-
-        // record.no_of_batch = await Batch.countDocuments({ req_id: id });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("procurement") }))
 
@@ -177,7 +190,6 @@ module.exports.updateProcurement = async (req, res) => {
     }
 }
 
-
 module.exports.associateOffer = async (req, res) => {
 
     try {
@@ -196,9 +208,9 @@ module.exports.associateOffer = async (req, res) => {
 
         const existingRecord = await AssociateOffers.findOne({ seller_id: user_id, req_id: req_id });
 
-        if (existingRecord) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("offer") }] }))
-        }
+        // if (existingRecord) {
+        //     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist("offer") }] }))
+        // }
 
         const sumOfFarmerQty = farmer_data.reduce((acc, curr) => {
 
@@ -223,30 +235,100 @@ module.exports.associateOffer = async (req, res) => {
                 return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("farmer") }] }))
         }
 
-        const associateOfferRecord = await AssociateOffers.create({ seller_id: user_id, req_id: req_id, offeredQty: sumOfFarmerQty, createdBy: user_id });
+        let associateOfferRecord
 
-        const dataToBeInserted = [];
+        if (existingRecord) {
 
-        for (let harvester of farmer_data) {
-
-            const existingFarmer = await farmer.findOne({ _id: harvester._id });
-            const { name, father_name, address_line, mobile_no, farmer_code } = existingFarmer;
-
-            const metaData = { name, father_name, address_line, mobile_no, farmer_code };
-
-            const FarmerOfferData = {
-                associateOffers_id: associateOfferRecord._id,
-                farmer_id: harvester._id,
-                metaData,
-                offeredQty: harvester.qty,
-                createdBy: user_id,
+            // checks for associates offer status            
+            if (existingRecord.status == _associateOfferStatus.pending) {
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Offer not accepted by admin." }] }));
             }
 
-            dataToBeInserted.push(FarmerOfferData);
+            // checks for associates's farmer offer status           
+            const existingFarmerOffer = await FarmerOrders.findOne({ associateOffers_id: existingRecord._id, status: _procuredStatus.pending });
+
+            if (existingFarmerOffer) {
+                return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: "Associate's farmer offer not recieved yet." }] }));
+            }
+
+            // add new farmer oder 
+            existingRecord.offeredQty = handleDecimal(sumOfFarmerQty + existingRecord.offeredQty);
+            associateOfferRecord = existingRecord.save()
+
+            // update request's fulfilledQty and status
+            const existingRequestModel = await RequestModel.findOne({ _id: req_id });
+
+            existingRequestModel.fulfilledQty = handleDecimal(existingRequestModel.fulfilledQty + sumOfFarmerQty);
+            if (handleDecimal(existingRequestModel.fulfilledQty) == handleDecimal(existingRequestModel?.product?.quantity)) {
+                existingRequestModel.status = _requestStatus.fulfilled;
+            } else if (handleDecimal(existingRequestModel.fulfilledQty) < handleDecimal(existingRequestModel?.product?.quantity)) {
+                existingRequestModel.status = _requestStatus.partially_fulfulled;
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }));
+            }
+            await existingRequestModel.save();
+
+            const dataToBeInserted = [];
+            const offerToBeInserted = [];
+
+            for (let harvester of farmer_data) {
+
+                const existingFarmer = await farmer.findOne({ _id: harvester._id });
+                const { name, father_name, address_line, mobile_no, farmer_code } = existingFarmer;
+
+                const metaData = { name, father_name, address_line, mobile_no, farmer_code };
+
+                const FarmerOfferData = {
+                    associateOffers_id: existingRecord._id,
+                    farmer_id: harvester._id,
+                    metaData,
+                    offeredQty: handleDecimal(harvester.qty),
+                    order_no: "OD" + _generateOrderNumber()
+                }
+
+                const FarmerOffer = {
+                    associateOffers_id: existingRecord._id,
+                    farmer_id: harvester._id,
+                    metaData,
+                    offeredQty: handleDecimal(harvester.qty),
+                    createdBy: user_id,
+                }
+
+                dataToBeInserted.push(FarmerOfferData);
+
+                offerToBeInserted.push(FarmerOffer);
+            }
+
+            await FarmerOrders.insertMany(dataToBeInserted);
+
+            await FarmerOffers.insertMany(offerToBeInserted);
+
+        } else {
+
+            associateOfferRecord = await AssociateOffers.create({ seller_id: user_id, req_id: req_id, offeredQty: sumOfFarmerQty, createdBy: user_id });
+
+            const dataToBeInserted = [];
+
+            for (let harvester of farmer_data) {
+
+                const existingFarmer = await farmer.findOne({ _id: harvester._id });
+                const { name, father_name, address_line, mobile_no, farmer_code } = existingFarmer;
+
+                const metaData = { name, father_name, address_line, mobile_no, farmer_code };
+
+                const FarmerOfferData = {
+                    associateOffers_id: associateOfferRecord._id,
+                    farmer_id: harvester._id,
+                    metaData,
+                    offeredQty: handleDecimal(harvester.qty),
+                    createdBy: user_id,
+                }
+
+                dataToBeInserted.push(FarmerOfferData);
+            }
+
+            await FarmerOffers.insertMany(dataToBeInserted);
         }
-
-        await FarmerOffers.insertMany(dataToBeInserted);
-
         return res.status(200).send(new serviceResponse({ status: 200, data: associateOfferRecord, message: "offer submitted" }))
 
     } catch (error) {
@@ -321,7 +403,6 @@ module.exports.getFarmerListById = async (req, res) => {
     }
 };
 
-
 module.exports.requestApprove = async (req, res) => {
 
     try {
@@ -371,7 +452,6 @@ module.exports.requestApprove = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
 
 module.exports.offeredFarmerList = async (req, res) => {
 
@@ -464,8 +544,6 @@ module.exports.offeredFarmerList = async (req, res) => {
     }
 }
 
-
-
 module.exports.farmerOrderList = async (req, res) => {
 
     try {
@@ -523,7 +601,6 @@ module.exports.farmerOrderList = async (req, res) => {
     }
 }
 
-
 module.exports.getAcceptedProcurement = async (req, res) => {
     try {
         const { user_id } = req;
@@ -546,7 +623,6 @@ module.exports.getAcceptedProcurement = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
 
 module.exports.editFarmerOffer = async (req, res) => {
 
@@ -599,7 +675,6 @@ module.exports.editFarmerOffer = async (req, res) => {
     }
 }
 
-
 module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
     const { page, limit, skip, paginate = 1, sortBy, search = '', req_id } = req.query
@@ -634,7 +709,6 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("seller offer") }))
 })
-
 
 module.exports.hoBoList = async (req, res) => {
     try {

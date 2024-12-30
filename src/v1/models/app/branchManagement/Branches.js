@@ -76,7 +76,7 @@ const branchSchema = new mongoose.Schema({
   },
   headOfficeId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'headOffice',
+    ref: _collectionName.HeadOffice,
     required: true,
   },
   user_type: { type: String, trim: true, enum: Object.values(_userType) },

@@ -80,6 +80,7 @@ module.exports.loginOrRegister = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
         }
 
+
         let userExist = await User.findOne(query).lean();
 
         if (!userExist) {
@@ -227,6 +228,7 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
 
 module.exports.formPreview = async (req, res) => {
     try {
+        console.log(req)
         const { user_id } = req;
         if (!user_id) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));

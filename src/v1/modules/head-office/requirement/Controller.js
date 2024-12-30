@@ -19,6 +19,7 @@ const { getFilter } = require("@src/v1/utils/helpers/customFilter");
 const { received_qc_status } = require("@src/v1/utils/constants");
 
 //widget list
+/*
 module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
   try {
 
@@ -108,6 +109,208 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+*/
+
+module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      skip = 0,
+      paginate = 1,
+      sortBy = { createdAt: -1 },
+      search = "",
+      state = "",
+      commodity = "",
+      isExport = 0,
+    } = req.query;
+
+    // Base filter
+    // const filter = await getFilter(req, ["status", "reqNo"]);
+    let query = {};
+    if (req.user.user_type === 2 || req.user.user_type === "2") {
+      query = { ...query, head_office_id: req?.user?.portalId?._id };
+    }
+    query = {
+      ...query, ...(state || search || commodity ? {
+        $and: [
+          ...(state
+            ? [
+              {
+                "sellers.address.registered.state": {
+                  $regex: state,
+                  $options: "i",
+                },
+              },
+            ]
+            : []),
+          ...(search
+            ? [{
+              $or: [
+                {
+                  "branchDetails.branchName": {
+                    $regex: search,
+                    $options: "i",
+                  },
+                },
+                {
+                  "reqNo": {
+                    $regex: search,
+                    $options: "i",
+                  },
+                },
+              ]
+
+            },
+            ]
+            : []),
+          ...(commodity
+            ? [{
+              "product.name": {
+                $regex: commodity,
+                $options: "i",
+              },
+            },
+            ]
+            : []),
+        ],
+      } : {})
+    }
+
+    // Aggregate query to filter by state and populate branch details
+    const aggregateQuery = [
+      {
+        $lookup: {
+          from: "associateoffers",
+          localField: "associatOrder_id",
+          foreignField: "_id",
+          as: "associateOrders",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "associateOrders.seller_id",
+          foreignField: "_id",
+          as: "sellers",
+        },
+      },
+      {
+        $lookup: {
+          from: "branches",
+          localField: "branch_id",
+          foreignField: "_id",
+          as: "branchDetails",
+        },
+      },
+      {
+        $match: query,
+
+      },
+      { $skip: parseInt(skip) },
+      { $limit: parseInt(limit) },
+      { $sort: sortBy },
+      {
+        $project: {
+          reqNo: 1,
+          branch_id: 1,
+          branchName: { $arrayElemAt: ["$branchDetails.branchName", 0] },
+          "product.name": 1,
+          quotedPrice: 1,
+          quoteExpiry: 1,
+          fulfilledQty: 1,
+          deliveryDate: 1,
+          createdAt: 1,
+          sellers: 1,
+        },
+      },
+    ];
+
+    const records = await RequestModel.aggregate(aggregateQuery);
+
+    // Count query with state and search filters
+    const countQuery = [
+      {
+        $lookup: {
+          from: "associateoffers",
+          localField: "associatOrder_id",
+          foreignField: "_id",
+          as: "associateOrders",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "associateOrders.seller_id",
+          foreignField: "_id",
+          as: "sellers",
+        },
+      },
+      {
+        $lookup: {
+          from: "branches",
+          localField: "branch_id",
+          foreignField: "_id",
+          as: "branchDetails",
+        },
+      },
+      {
+        $match: query,
+      },
+      { $count: "totalCount" },
+    ];
+
+    const countResult = await RequestModel.aggregate(countQuery);
+    const totalCount = countResult.length > 0 ? countResult[0].totalCount : 0;
+
+    // Handle export request
+    if (isExport == 1) {
+      const record = records.map((item) => ({
+        "Order ID": item?.reqNo || "NA",
+        "Branch Office": item?.branchName || "NA",
+        "Commodity": item?.product?.name || "NA",
+        "MSP": item?.quotedPrice || "NA",
+        "EST Delivery": item?.fulfilledQty || "NA",
+        "Completion": item?.deliveryDate || "NA",
+        "Created Date": item?.createdAt || "NA",
+      }));
+
+      if (record.length > 0) {
+        dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Requirement-record.xlsx`,
+          worksheetName: `Requirement-record`,
+        });
+      } else {
+        return sendResponse({
+          res,
+          status: 400,
+          data: records,
+          message: _response_message.notFound("Requirement"),
+        });
+      }
+    } else {
+      // Send paginated data
+      return sendResponse({
+        res,
+        status: 200,
+        data: {
+          rows: records,
+          count: totalCount,
+          page: paginate == 1 ? parseInt(page) : undefined,
+          limit: paginate == 1 ? parseInt(limit) : undefined,
+          pages: paginate == 1 ? Math.ceil(totalCount / limit) : undefined,
+        },
+        message: _response_message.found("Requirement"),
+      });
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    _handleCatchErrors(error, res);
+  }
+});
+
+
 
 module.exports.requirementById = asyncErrorHandler(async (req, res) => {
   try {
@@ -121,7 +324,7 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
         path: 'associateOffer_id',
         populate: {
           path: 'seller_id',
-          select: 'basic_details.associate_details.associate_name'
+          select: 'basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
         }
       })
       .populate({
@@ -136,6 +339,7 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
       _id: item._id,
       batchId: item.batchId,
       associateName: item?.associateOffer_id?.seller_id?.basic_details?.associate_details?.associate_name,
+      organization_name: item?.associateOffer_id?.seller_id?.basic_details?.associate_details?.organization_name,
       procurementCenterName: item?.procurementCenter_id?.center_name,
       quantity: item.qty,
       deliveredOn: item.delivered.delivered_at,
@@ -211,6 +415,7 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
 
       batch['batchId'] = item.batchId
       batch['associate_name'] = item?.seller_id?.basic_details?.associate_details?.associate_name ?? null
+      batch['organization_name'] = item?.seller_id?.basic_details?.associate_details?.organization_name ?? null
       batch['procurement_center'] = item?.procurementCenter_id?.center_name ?? null
       batch['quantity_purchased'] = item?.qty ?? null
       batch['procured_on'] = item?.dispatched_at ?? null
@@ -220,7 +425,7 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
       batch['lot_ids'] = (item?.farmerOrderIds.reduce((acc, item) => [...acc, item.farmerOrder_id.order_no], [])) ?? []
       batch['_id'] = item._id
       batch['total_amount'] = item?.total_amount ?? "2 CR",
-      batch['delivered_at'] = item?.delivered?.delivered_at
+        batch['delivered_at'] = item?.delivered?.delivered_at
 
       return batch
     })

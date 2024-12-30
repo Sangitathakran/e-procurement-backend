@@ -8,7 +8,7 @@ class SMSService {
         this.apiKey = SMS_API_KEY;
         this.sender = sender;
     }
-    
+
     async sendOTPSMS(phone) {
         const otp = this.getOTP();
         try {
@@ -16,7 +16,7 @@ class SMSService {
             if (otpRecord) {
                 await OTPModel.deleteOne({ phone });
             }
-            const newOTPRecord = new OTPModel({ phone, otp, term_condition:true });
+            const newOTPRecord = new OTPModel({ phone, otp, term_condition: true });
             await newOTPRecord.save();
             return this.sendSMS(phone, otp, 'default');
         } catch (error) {
@@ -24,10 +24,14 @@ class SMSService {
         }
     }
 
-    async sendResendSMS(phone,email) {
+    async sendResendSMS(phone, email) {
         const otp = this.getOTP();
-        const otpSave = new OTPModel({ phone, email, otp });
-        await otpSave.save();
+        let otpRecord = await OTPModel.findOne({ phone });
+        if (otpRecord) {
+            await OTPModel.deleteOne({ phone });
+        }
+        const newOTPRecord = new OTPModel({ phone, otp, term_condition: true });
+        await newOTPRecord.save();
         return this.sendSMS(phone, otp, 'resend');
     }
 
@@ -38,22 +42,22 @@ class SMSService {
 
     async sendFarmerRegistrationSMS(phoneNumber, farmerName, farmerId) {
         try {
-           
+
             const message = encodeURIComponent(`प्रिय ${farmerName} आपका किसान आईडी ${farmerId} \nके साथ NAVBAZAR \nपर पंजीकरण सफलतापूर्वक पूरा हो गया है। धन्यवाद!\n\n-Navankur`);
             // Prepare the URL for the SMS API request
             const apikey = encodeURIComponent(SMS_API_KEY);
             const number = phoneNumber;
             const sender = this.sender;
             const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}&unicode=true`;
-    
+
             // Send the SMS using axios
             const response = await axios.post(url);
             return { message: 'Registration SMS sent successfully', response: response.data };
-        }   catch (error) {
+        } catch (error) {
             return { error: error.message };
         }
     }
-    
+
     async sendWelcomeSMSForAssociate(phoneNumber, name, associateId) {
         try {
             const website = 'https://bit.ly/4eu23WC'; /////  https://ep-testing.navbazar.com/
@@ -62,18 +66,37 @@ class SMSService {
             const message = encodeURIComponent(encodedMessage);
             const apikey = encodeURIComponent(SMS_API_KEY);
             const number = phoneNumber;
-            const sender = this.sender; 
+            const sender = this.sender;
             const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}&unicode=true`;
-            
+
             const response = await axios.post(url);
-            
+
             return { message: 'Registration SMS sent successfully', response: response.data };
-        }   catch (error) {
+        } catch (error) {
             return { error: error.message };
         }
     }
-    
-    
+
+    async sendWelcomeSMSForWarehouse(phoneNumber, warehouseName, warehouseId) {
+        try {
+            const website = 'https://bit.ly/4eu23WC'; /////  https://ep-testing.navbazar.com/
+            const encodedMessage = `Dear ${warehouseName}, Your warehouse has been successfully registered with Navbazar. Here is your Warehouse ID: ${warehouseId}. Start your journey by clicking the following link: ${website}. Team Navankur\n\n-Radiant Infonet Pvt. Ltd`;
+
+            const message = encodeURIComponent(encodedMessage);
+            const apikey = encodeURIComponent(SMS_API_KEY);
+            const number = phoneNumber;
+            const sender = this.sender;
+            const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}&unicode=true`;
+
+            const response = await axios.post(url);
+
+            return { message: 'Warehouse registration SMS sent successfully', response: response.data };
+        } catch (error) {
+            return { error: error.message };
+        }
+    }
+
+
 
     async sendSMS(phoneNumber, otp, templateName = 'default') {
         try {
@@ -82,9 +105,9 @@ class SMSService {
             const number = phoneNumber;
             const sender = this.sender;
             const message = encodeURIComponent(messageTemplate);
-            
+
             const url = `https://api.textlocal.in/send/?apikey=${apikey}&numbers=${number}&sender=${sender}&message=${message}`;
-            const response = await axios.post(url); 
+            const response = await axios.post(url);
             return { message: 'SMS sent successfully', response: response.data };
         } catch (error) {
             return { error: error.message };

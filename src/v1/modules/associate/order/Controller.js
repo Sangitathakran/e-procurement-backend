@@ -98,12 +98,6 @@ module.exports.batch = async (req, res) => {
             // Apply handleDecimal to amt for each farmer
             farmer.amt = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
             farmerOrderIds.push(farmer.farmerOrder_id);
-
-            // Update the quantity remaining
-            await FarmerOrders.updateOne(
-                { _id: farmer.farmerOrder_id },
-                { $set: { qtyRemaining: farmerOrder.qtyProcured - farmer.qty } }
-            );
         }
 
         // given farmer's order should be in received state
@@ -134,22 +128,46 @@ module.exports.batch = async (req, res) => {
             totalPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice) // Apply handleDecimal here
         });
 
+        for (let farmer of farmerData) {
+            const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).lean();
+
+            // Fetch the latest qtyRemaining from the database
+            const latestFarmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).select('qtyRemaining qtyProcured').lean();
+
+            if (!latestFarmerOrder) {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Farmer order not found." }] }));
+            }
+
+            const currentRemaining = latestFarmerOrder.qtyRemaining ?? latestFarmerOrder.qtyProcured;
+            
+            // Validate remaining quantity
+            if (currentRemaining < farmer.qty) {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Added quantity exceeds the remaining quantity." }] }));
+            }
+
+            // Update the quantity remaining
+            await FarmerOrders.updateOne(
+                { _id: farmer.farmerOrder_id },
+                { $set: { qtyRemaining: handleDecimal(currentRemaining - farmer.qty) } }
+            );
+        }
+
+
         procurementRecord.associatOrder_id.push(record._id);
         await record.save();
         await procurementRecord.save();
 
-        const users = await User.find({
-            'basic_details.associate_details.email': { $exists: true }
-        }).select('basic_details.associate_details.email basic_details.associate_details.associate_name');
+        // const users = await User.find({
+        //     'basic_details.associate_details.email': { $exists: true }
+        // }).select('basic_details.associate_details.email basic_details.associate_details.associate_name associate.basic_details.associate_details.organization_name');
 
+        // await Promise.all(
+        //     users.map(({ basic_details: { associate_details } }) => {
+        //         const { email, associate_name } = associate_details;
 
-        await Promise.all(
-            users.map(({ basic_details: { associate_details } }) => {
-                const { email, associate_name } = associate_details;
-
-                return emailService.sendCreateBatchEmail(email, associate_name);
-            })
-        );
+        //         return emailService.sendCreateBatchEmail(email, associate_name);
+        //     })
+        // );
 
         return res.status(200).send(new serviceResponse({ status: 200, data: batchCreated, message: _response_message.created("batch") }))
 
@@ -303,9 +321,9 @@ module.exports.viewTrackDelivery = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
-
+        const user_id = req.user_id
         let query = {
-            req_id,
+            req_id, seller_id: user_id,
             ...(search ? { name: { $regex: search, $options: "i" } } : {})
         };
 
@@ -380,6 +398,7 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
 
 module.exports.updateMarkReady = async (req, res) => {
     try {
