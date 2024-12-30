@@ -399,6 +399,7 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
     }
 }
 
+
 module.exports.updateMarkReady = async (req, res) => {
     try {
         const { id, material_img = [], weight_slip = [], qc_report = [], lab_report = [] } = req.body;
