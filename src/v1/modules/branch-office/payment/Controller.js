@@ -43,36 +43,36 @@ module.exports.payment = async (req, res) => {
             },
             {
                 $lookup: {
-                  from: "branches",
-                  localField: "branch_id",
-                  foreignField: "_id",
-                  as: "branch",
+                    from: "branches",
+                    localField: "branch_id",
+                    foreignField: "_id",
+                    as: "branch",
                 },
-              },
-              {
+            },
+            {
                 $lookup: {
-                  from: "users",
-                  localField: "batches.seller_id",
-                  foreignField: "_id",
-                  as: "sellers",
+                    from: "users",
+                    localField: "batches.seller_id",
+                    foreignField: "_id",
+                    as: "sellers",
                 },
-              },
-              {
+            },
+            {
                 $lookup: {
-                  from: "procurementcenters",
-                  localField: "batches.procurementCenter_id",
-                  foreignField: "_id",
-                  as: "ProcurementCenter",
+                    from: "procurementcenters",
+                    localField: "batches.procurementCenter_id",
+                    foreignField: "_id",
+                    as: "ProcurementCenter",
                 },
-              },
-              {
+            },
+            {
                 $lookup: {
-                  from: "farmers",
-                  localField: "farmer_order_id",
-                  foreignField: "farmer_order_id",
-                  as: "farmer",
+                    from: "farmers",
+                    localField: "farmer_order_id",
+                    foreignField: "farmer_order_id",
+                    as: "farmer",
                 },
-              },
+            },
             {
                 $match: {
                     batches: { $ne: [] }
@@ -155,10 +155,16 @@ module.exports.payment = async (req, res) => {
                     qtyPurchased: 1,
                     amountPayable: 1,
                     payment_status: 1,
-                    branch:1,
-                    sellers:1,
-                    farmer:1,
-                    ProcurementCenter:1
+                    // branch: 1,
+                    'sellerDetails.associate_name': 1,
+                    // farmer: 1,
+                    'farmer.farmer_id': 1,
+                    'farmer.name': 1,
+                    'farmer.basic_details.mobile_no': 1,
+                    'farmer.basic_details.dob': 1,
+                    'farmer.parents.father_name': 1,
+                    'farmer.address': 1,
+                    ProcurementCenter: 1
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
@@ -180,25 +186,25 @@ module.exports.payment = async (req, res) => {
             // row: records[0]?.data || []
         };
 
-         ////////// start of Sangita code
+        ////////// start of Sangita code
 
-         response.rows = await Promise.all(records[0].data.map(async record => {
-          
+        response.rows = await Promise.all(records[0].data.map(async record => {
+
             allBatchApprovalStatus = _paymentApproval.pending;
 
-                const pendingBatch = await Batch.find({ req_id:record._id, bo_approve_status: _paymentApproval.pending });
+            const pendingBatch = await Batch.find({ req_id: record._id, bo_approve_status: _paymentApproval.pending });
 
-                if (pendingBatch.length > 0) {
-                    allBatchApprovalStatus = _paymentApproval.pending;
-                }else{
-                    allBatchApprovalStatus = _paymentApproval.approved;
-                }
-            
-                return { ...record, allBatchApprovalStatus }
+            if (pendingBatch.length > 0) {
+                allBatchApprovalStatus = _paymentApproval.pending;
+            } else {
+                allBatchApprovalStatus = _paymentApproval.approved;
+            }
+
+            return { ...record, allBatchApprovalStatus }
         }));
 
         ////////// end of Sangita code
-        
+
 
         if (paginate == 1) {
             response.page = page
@@ -208,13 +214,13 @@ module.exports.payment = async (req, res) => {
 
         if (isExport == 1) {
             const exportRecords = await RequestModel.aggregate([
-                ...aggregationPipeline, 
-              ]);
+                ...aggregationPipeline,
+            ]);
             const record = exportRecords.map((item) => {
                 const procurementAddress = item?.ProcurementCenter[0]?.address;
                 const sellerDetails = item.sellers?.[0]?.basic_details?.associate_details || {};
                 const farmerDetails = item.farmer ? item.farmer[0] || {} : {};
-                const farmerAddress = farmerDetails?.address
+                const farmerAddress = item.farmer?.address
                     ? `${farmerDetails.address.village || "NA"}, ${farmerDetails.address.block || "NA"}, 
                        ${farmerDetails.address.country || "NA"}`
                     : "NA";
@@ -746,7 +752,7 @@ module.exports.boBillRejection = async (req, res) => {
 
     try {
 
-        const {agencyInvoiceId, comment} = req.body
+        const { agencyInvoiceId, comment } = req.body
 
         const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId });
         if (!agentBill) {
@@ -772,7 +778,7 @@ module.exports.boBillRejection = async (req, res) => {
     }
 }
 
-const updateAgentInvoiceLogs = async (agencyInvoiceId) => { 
+const updateAgentInvoiceLogs = async (agencyInvoiceId) => {
 
     try {
         const agentBill = await AgentInvoice.findOne({ _id: agencyInvoiceId });
@@ -788,7 +794,7 @@ const updateAgentInvoiceLogs = async (agencyInvoiceId) => {
             payment_id: agentBill.payment_id,
             transaction_id: agentBill.transaction_id,
             payment_method: agentBill.payment_method,
-        
+
             bill: {
                 precurement_expenses: agentBill.bill.precurement_expenses,
                 driage: agentBill.bill.driage,
@@ -796,12 +802,12 @@ const updateAgentInvoiceLogs = async (agencyInvoiceId) => {
                 commission: agentBill.bill.commission,
                 bill_attachement: agentBill.bill.bill_attachement,
                 total: agentBill.bill.total,
-        
+
                 // bo rejection case
                 bo_reject_by: agentBill.bill.bo_reject_by,
                 bo_reject_at: agentBill.bill.bo_reject_at,
                 bo_reason_to_reject: agentBill.bill.bo_reason_to_reject,
-        
+
                 // ho rejection case
                 ho_reject_by: agentBill.bill.ho_reject_by,
                 ho_reject_at: agentBill.bill.ho_reject_at,
@@ -809,13 +815,13 @@ const updateAgentInvoiceLogs = async (agencyInvoiceId) => {
             },
             payment_change_remarks: agentBill.payment_change_remarks
         };
-        
+
 
         agentBill.logs.push(log)
         await agentBill.save()
-        
-    
-    return true
+
+
+        return true
     } catch (error) {
         throw error
     }
