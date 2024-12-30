@@ -14,26 +14,21 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
     const { warehouseIds = [] } = req.body;
 
     try {
-        // Fetch the token from headers or cookies
         const getToken = req.headers.token || req.cookies.token;
         if (!getToken) {
             return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
 
-        // Decode the token to get the user ID
         const decode = await decryptJwtToken(getToken);
         const UserId = decode.data.user_id;
 
-        // Validate the user ID from the token
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
         }
 
-        // Fetch warehouse details based on the decoded UserId
         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
         const ownerWarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
 
-        // Filter warehouse IDs from the request body against the owner's warehouses
         const finalWarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
             ? warehouseIds.filter(id => ownerWarehouseIds.includes(id))
             : ownerWarehouseIds;
@@ -46,7 +41,6 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
             }));
         }
 
-        // Build the query
         const query = {
             warehousedetails_id: { $in: finalWarehouseIds },
             ...(search && {
@@ -58,7 +52,6 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
             }),
         };
 
-        // Fetch records
         const rows = await Batch.find(query)
             .populate([
                 { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },

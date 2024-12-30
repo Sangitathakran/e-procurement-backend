@@ -3,7 +3,7 @@ const { _collectionName } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const warehouseDetailsSchema = new mongoose.Schema({
-    warehouseId: {
+    warehouseOwnerId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'WarehouseV2', // Reference to the parent schema
         required: true,
@@ -36,7 +36,7 @@ const warehouseDetailsSchema = new mongoose.Schema({
         email: { type: String, lowercase: true, trim: true },
         aadharNumber: { type: String, trim: true },
         panNumber: { type: String, trim: true },
-        pointOfContactSame: { type: Boolean, required: true }, // true if same as authorized person
+        pointOfContactSame: { type: Boolean, required: true },
         pointOfContact: {
             name: { type: String, trim: true },
             designation: { type: String, trim: true },
@@ -64,10 +64,11 @@ const warehouseDetailsSchema = new mongoose.Schema({
         ..._commonKeys,
     },
     active: { type: Boolean, default: true },
+    wareHouse_code: { type: String, unique: true },
 }, { timestamps: true });
 
 warehouseDetailsSchema.pre('save', async function (next) {
-    if (this.isNew && !this.warehouseId) {
+    if (this.isNew) {
         try {
             const lastWarehouse = await mongoose
                 .model(_collectionName.WarehouseDetails)
@@ -76,12 +77,12 @@ warehouseDetailsSchema.pre('save', async function (next) {
 
             let nextIdentifier = 'WH001';
 
-            if (lastWarehouse && lastWarehouse.warehouseId) {
-                const lastCodeNumber = parseInt(lastWarehouse.warehouseId.slice(2), 10);
+            if (lastWarehouse && lastWarehouse.wareHouse_code) {
+                const lastCodeNumber = parseInt(lastWarehouse.wareHouse_code.slice(2), 10);
                 nextIdentifier = 'WH' + String(lastCodeNumber + 1).padStart(3, '0');
             }
 
-            this.warehouseId = nextIdentifier;
+            this.wareHouse_code = nextIdentifier;
             next();
         } catch (err) {
             next(err);
