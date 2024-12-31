@@ -999,3 +999,26 @@ module.exports.getPendingDistillers = async (req, res) => {
     }
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Pending Distiller") }))
 }
+
+module.exports.updateApprovalStatus = asyncErrorHandler(async (req, res) => {
+    const { id } = req.query;
+    const distiller = await Distiller.findOne({ _id: id });
+   
+    if (!distiller) {
+        return res.send(
+            new serviceResponse({
+                status: 400,
+                errors: [{ message: _response_message.notFound("Distiller") }],
+            })
+        );
+    }
+    
+    distiller.is_approved= _userStatus.approved,
+    await distiller.save();
+    return res.send(
+        new serviceResponse({
+            status: 200,
+            message: [{ message: _response_message.updated("Distiller") }],
+        })
+    );
+});
