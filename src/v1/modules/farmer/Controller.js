@@ -1708,18 +1708,18 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       if (!/^\d{6,20}$/.test(account_no)) {
         errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 20 digits." });
       }
-      if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc_code)) {
-        errors.push({ record: rec, error: "Invalid IFSC CODE: Must start with 4 uppercase letters, followed by 0, and end with 6 alphanumeric characters." });
-      }
+      // if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc_code)) {
+      //   errors.push({ record: rec, error: "Invalid IFSC CODE: Must start with 4 uppercase letters, followed by 0, and end with 6 alphanumeric characters." });
+      // }
       if (!/^\d{10}$/.test(mobile_no)) {
         errors.push({ record: rec, error: "Invalid Mobile Number" });
       }
-      if (date_of_birth) {
-        const dob = new Date(date_of_birth.split("-").reverse().join("-"));
-        if (dob > new Date()) {
-          errors.push({ record: rec, error: "Invalid Date of Birth: Cannot be in the future." });
-        }
-      }
+      // if (date_of_birth) {
+      //   const dob = new Date(date_of_birth.split("-").reverse().join("-"));
+      //   if (dob > new Date()) {
+      //     errors.push({ record: rec, error: "Invalid Date of Birth: Cannot be in the future." });
+      //   }
+      // }
       if (!Object.values(_gender).includes(gender)) {
         errors.push({ record: rec, error: `Invalid Gender: ${gender}. Valid options: ${Object.values(_gender).join(', ')}` });
       }
@@ -1754,7 +1754,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
 
 
       if (errors.length > 0) return { success: false, errors };
-      const calulateage = calculateAge(date_of_birth);
+      // const calulateage = calculateAge(date_of_birth);
       try {
         const state_id = await getStateId(stateName);
         const district_id = await getDistrictId(district_name);
@@ -1782,7 +1782,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         } else {
           // Insert new farmer record
           farmerRecord = await insertNewFarmerRecord({
-            associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, age: calulateage, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
+            associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
           });
           await insertNewRelatedRecords(farmerRecord._id, {
             total_area, khasra_number, land_name, cultivation_area, area_unit, khata_number, land_type, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, landvillage, LandBlock, landPincode, expected_production, soil_type, soil_tested, soil_testing_agencies, upload_geotag, sowing_date, harvesting_date, crop_name, production_quantity, selling_price, yield, insurance_company, insurance_worth, crop_season, crop_land_name, crop_growth_stage, crop_disease, crop_rotation, previous_crop_session, previous_crop_name, crop_sold, quantity_sold, average_selling_price,
