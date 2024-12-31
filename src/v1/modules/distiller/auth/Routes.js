@@ -1,6 +1,6 @@
 const { sendOtp, loginOrRegister, reSendOtp, saveDistillerDetails, onboardingStatus, formPreview, findUserStatus,
-     finalFormSubmit, editOnboarding, distillerBulkuplod, deleteManufacturingUnit, getManufacturingUnit, getStorageFacility,
-      deleteStorageFacility, updateStorageFacility, updateManufacturingUnit, getPendingDistillers } = require("./Controller")
+      finalFormSubmit, editOnboarding, distillerBulkuplod, deleteManufacturingUnit, getManufacturingUnit, getStorageFacility,
+      deleteStorageFacility, updateStorageFacility, updateManufacturingUnit, getPendingDistillers, updateApprovalStatus } = require("./Controller")
 const { validateForm } = require("@src/v1/modules/distiller/auth/Validation")
 const express = require("express");
 const { verifyDistiller } = require("../utils/verifyDistiller");
@@ -22,8 +22,8 @@ distillerAuthRoutes.get("/manfacturing-unit", verifyDistiller, getManufacturingU
 distillerAuthRoutes.put("/storage-facility", verifyDistiller, updateStorageFacility);
 distillerAuthRoutes.get("/storage-facility", verifyDistiller, getStorageFacility);
 distillerAuthRoutes.delete("/manfacturing-unit", verifyDistiller, deleteManufacturingUnit);
-distillerAuthRoutes.delete("/storage-facility",verifyDistiller, deleteStorageFacility);
+distillerAuthRoutes.delete("/storage-facility", verifyDistiller, deleteStorageFacility);
 
 distillerAuthRoutes.get("/pending-distillers", verifyDistiller, getPendingDistillers);
-
-module.exports = { distillerAuthRoutes } ; 
+distillerAuthRoutes.patch("/distillers-approve", verifyDistiller, updateApprovalStatus);
+module.exports = { distillerAuthRoutes }; 
