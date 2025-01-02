@@ -26,6 +26,7 @@ const warehouseDetailsSchema = new mongoose.Schema({
     documents: {
         licenseNumber: { type: String, required: true, trim: true },
         insuranceNumber: { type: String, required: true, trim: true },
+        insurancePhoto: { type: String, required: true },
         ownershipType: { type: String, enum: ['Owner', 'Leasehold'], required: true },
         ownershipProof: { type: String, required: true }, // URL for proof document
     },
