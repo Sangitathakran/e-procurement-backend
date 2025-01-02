@@ -8,58 +8,71 @@ const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderPr
 
 module.exports.warehouseList = async (req, res) => {
     try {
-        const { page = 1, limit = 10, sortBy, search = '', order_id, isExport = 0 } = req.query;
-        const skip = (page - 1) * limit;
+        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id, isExport = 0 } = req.query;
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
-        const searchFields = ['warehouseName', 'warehouseId', 'ownerName', 'authorized_personName', 'pointOfContact.name'];
-
-        // Create search query
-        const makeSearchQuery = (searchFields) => {
-            return {
-                $or: searchFields.map(field => ({
-                    [field]: { $regex: search, $options: 'i' }
-                }))
-            };
-        };
-
-        const matchQuery = search ? makeSearchQuery(searchFields) : {};
-
+        let query = search ? {
+            $or: [
+                { 'companyDetails.name': { $regex: search, $options: 'i' } },
+                { 'ownerDetails.name': { $regex: search, $options: 'i' } },
+                { 'warehouseDetails.basicDetails.warehouseName': { $regex: search, $options: 'i' } },
+            ],
+            ...filters, // Additional filters
+        } : {};
+    
         const aggregationPipeline = [
-            { $match: matchQuery },
+            { $match: query },
             {
                 $lookup: {
-                    from: "WarehouseDetails", // Adjust this to your actual collection name for branches
-                    localField: "warehouseOwnerId",
-                    foreignField: "_id",
-                    as: "warehousedetails"
-                }
+                    from: 'warehousedetails', // Collection name in MongoDB
+                    localField: '_id',
+                    foreignField: 'warehouseOwnerId',
+                    as: 'warehouseDetails',
+                },
             },
-            { $unwind: { path: "$warehousedetails", preserveNullAndEmptyArrays: true } },
+            {
+                $unwind: {
+                    path: '$warehouseDetails',
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
+            // {
+            //     $project: {
+            //         warehouseName: 'warehouseDetails.basicDetails.warehouseName',
+            //         pickupLocation: 'warehouseDetails.addressDetails',
+            //         stock: 'warehouseDetails.inventory.stock',
+            //         warehouseTiming: 'warehouseDetails.inventory.warehouse_timing',
+            //         nodalOfficerName: 'ownerDetails.name',
+            //         nodalOfficerContact: 'ownerDetails.mobile',
+            //         nodalOfficerEmail: 'ownerDetails.email',
+            //         pocAtPickup: 'warehouseDetails.authorizedPerson.name',
+            //         orderId: order_id
+            //     },
+            // },
             {
                 $project: {
-                    _id: 1,
-                    'ownerDetails.name': 1,
-                    'ownerDetails.mobile': 1,
-                    'ownerDetails.email': 1,
-                    warehouseName:'$warehousedetails.basicDetails.warehouseName',
-                    pickupLocation: '$warehousedetails.addressDetails',
-                    poc:'$warehousedetails.authorizedPerson.name'
+                    warehouseName: '$warehouseDetails.basicDetails.warehouseName',
+                    pickupLocation: '$warehouseDetails.addressDetails',
+                    stock: '$warehouseDetails.inventory.stock',
+                    warehouseTiming: '$warehouseDetails.inventory.warehouse_timing',
+                    nodalOfficerName: '$ownerDetails.name',
+                    nodalOfficerContact: '$ownerDetails.mobile',
+                    nodalOfficerEmail: '$ownerDetails.email',
+                    pocAtPickup: '$warehouseDetails.authorizedPerson.name',
+                    orderId: order_id
                 }
             },
+            
             { $sort: { [sortBy]: 1 } },
             { $skip: skip },
-            { $limit: parseInt(limit) }
+            { $limit: parseInt(limit, 10) }
         ];
 
-        // Get records
         const records = { count: 0, rows: [] };
         records.rows = await wareHousev2.aggregate(aggregationPipeline);
 
-        records.orderDetails = await PurchaseOrderModel.findOne({ _id: order_id }).select({_id:1, 'product.name':1});
-
-        // Get count
         const countAggregation = [
-            { $match: matchQuery },
+            { $match: query },
             { $count: 'total' }
         ];
         const countResult = await wareHousev2.aggregate(countAggregation);
@@ -68,19 +81,19 @@ module.exports.warehouseList = async (req, res) => {
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-
         // Export functionality
         if (isExport == 1) {
             const record = records.rows.map((item) => {
                 return {
-                    "Warehouse ID": item?.warehouseId || 'NA',
                     "WareHouse Name": item?.warehouseName || 'NA',
-                    "Owner Name": item?.ownerName || 'NA',
-                    "Authorized Person": item?.authorized_personName ?? 'NA',
+                    "pickup Location": item?.pickupLocation || 'NA',
+                    "Inventory availalbility": item?.stock ?? 'NA',
+                    "warehouse Timing": item?.warehouseTiming ?? 'NA',
+                    "Nodal officer": item?.nodalOfficerName || 'NA',
                     "POC Name": item?.pointOfContact?.name ?? 'NA',
                     "POC Email": item?.pointOfContact?.email ?? 'NA',
                     "POC Phone": item?.pointOfContact?.phone ?? 'NA',
-                    "WarehouseCapacity": item?.warehouseCapacity ?? 'NA',
+                    
                 };
             });
 
