@@ -11,6 +11,11 @@ module.exports.warehouseList = async (req, res) => {
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id, isExport = 0 } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
+        
+        if (!order_id) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order_id") }] }));
+        }
+
         let query = search ? {
             $or: [
                 { 'companyDetails.name': { $regex: search, $options: 'i' } },
@@ -36,19 +41,6 @@ module.exports.warehouseList = async (req, res) => {
                     preserveNullAndEmptyArrays: true,
                 },
             },
-            // {
-            //     $project: {
-            //         warehouseName: 'warehouseDetails.basicDetails.warehouseName',
-            //         pickupLocation: 'warehouseDetails.addressDetails',
-            //         stock: 'warehouseDetails.inventory.stock',
-            //         warehouseTiming: 'warehouseDetails.inventory.warehouse_timing',
-            //         nodalOfficerName: 'ownerDetails.name',
-            //         nodalOfficerContact: 'ownerDetails.mobile',
-            //         nodalOfficerEmail: 'ownerDetails.email',
-            //         pocAtPickup: 'warehouseDetails.authorizedPerson.name',
-            //         orderId: order_id
-            //     },
-            // },
             {
                 $project: {
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
