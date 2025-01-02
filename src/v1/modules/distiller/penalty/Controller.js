@@ -120,7 +120,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
                 grade: "$OrderDetails.product.grade",
                 quantityRequired: 1,   
                 totalAmount: "$OrderDetails.paymentInfo.totalAmount",
-                penaltyAmount: "penaltyDetails.penaltyAmount", 
+                "penaltyDetails.penaltyAmount" : 1,
                 "payment.status":1,
                 pickupStatus: 1,
             }
