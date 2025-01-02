@@ -11,6 +11,11 @@ const warehouseDetailsSchema = new mongoose.Schema({
     basicDetails: {
         warehouseName: { type: String, required: true, trim: true },
         warehouseCapacity: { type: Number, required: true },
+        quantityType: {
+            type: String,
+            default: 'MT',
+            enum: ['MT', 'KG', 'L', 'Units'],
+        },
         weighBridge: { type: Boolean, default: false },
         storageType: { type: String, enum: ['Dry', 'Cold'], required: true },
     },
@@ -18,10 +23,24 @@ const warehouseDetailsSchema = new mongoose.Schema({
         addressLine1: { type: String, required: true, trim: true },
         addressLine2: { type: String, required: true, trim: true },
         pincode: { type: String, required: true, trim: true },
-        state: { type: String, required: true, trim: true },
-        district: { type: String, required: true, trim: true },
         city: { type: String, required: true, trim: true },
         tehsil: { type: String, required: true, trim: true },
+    },
+    state: {
+        state_name: { type: String },
+        lat: { type: String },
+        long: { type: String },
+        locationUrl: { type: String }
+    },
+    district: {
+        district_name: { type: String },
+        lat: { type: String },
+        long: { type: String },
+        locationUrl: { type: String }
+    },
+    inventory: {
+        stock: { type: Number, default: 0 },
+        warehouse_timing: { type: String }
     },
     documents: {
         licenseNumber: { type: String, required: true, trim: true },
@@ -57,8 +76,13 @@ const warehouseDetailsSchema = new mongoose.Schema({
     },
     servicePricing: [
         {
-            area: { type: Number, required: true }, // in sq. ft.
-            price: { type: Number, required: true }, // in INR
+            area: { type: Number, required: true },
+            unit: {
+                type: String,
+                default: 'Sq. Ft.',
+                enum: ['Sq. Ft.', 'Sq. M.', 'Acres'],
+            },
+            price: { type: Number, required: true },
         },
     ],
     activity: {
