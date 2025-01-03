@@ -181,15 +181,14 @@ module.exports.editWarehouseDetails = async (req, res) => {
             return res.status(400).json({ status: 400, message: "Invalid user ID in token" });
         }
 
-        const { warehouse_id, ...updatedFields } = req.body;  // Get the warehouse_code from request body
+        const { warehouse_id, ...updatedFields } = req.body;
 
-        // Check if the warehouse_code is provided
         if (!warehouse_id) {
             return res.status(400).json({ status: 400, message: "Warehouse id is required" });
         }
 
         // Find the warehouse by warehouse_code
-        const warehouse = await wareHouseDetails.findOne({ _id: warehouse_id });
+        const warehouse = await wareHouseDetails.findOne({ _id: new mongoose.Types.ObjectId(warehouse_id) });
 
         if (!warehouse) {
             return res.status(404).json({ status: 404, message: "Warehouse not found" });
@@ -199,7 +198,7 @@ module.exports.editWarehouseDetails = async (req, res) => {
 
         // Update only the provided fields
         const updatedWarehouse = await wareHouseDetails.findOneAndUpdate(
-            { wareHouse_code: warehouse_code },
+            { _id: warehouse_id },
             { $set: updatedFields },
             { new: true, runValidators: true }
         );
