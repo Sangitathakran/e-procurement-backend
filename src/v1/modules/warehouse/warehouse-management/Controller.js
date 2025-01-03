@@ -53,7 +53,7 @@ module.exports.saveWarehouseDetails = async (req, res) => {
             addressDetails,
             documents,
             authorizedPerson: authorizedPerson,
-            bankDetails: Array.isArray(bankDetails) ? bankDetails : [],
+            bankDetails,
             servicePricing: Array.isArray(servicePricing) ? servicePricing : [],
         });
 
@@ -181,15 +181,15 @@ module.exports.editWarehouseDetails = async (req, res) => {
             return res.status(400).json({ status: 400, message: "Invalid user ID in token" });
         }
 
-        const { warehouse_code, ...updatedFields } = req.body;  // Get the warehouse_code from request body
+        const { warehouse_id, ...updatedFields } = req.body;  // Get the warehouse_code from request body
 
         // Check if the warehouse_code is provided
-        if (!warehouse_code) {
-            return res.status(400).json({ status: 400, message: "Warehouse code is required" });
+        if (!warehouse_id) {
+            return res.status(400).json({ status: 400, message: "Warehouse id is required" });
         }
 
         // Find the warehouse by warehouse_code
-        const warehouse = await wareHouseDetails.findOne({ wareHouse_code: warehouse_code });
+        const warehouse = await wareHouseDetails.findOne({ _id: warehouse_id });
 
         if (!warehouse) {
             return res.status(404).json({ status: 404, message: "Warehouse not found" });
