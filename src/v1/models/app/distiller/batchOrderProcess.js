@@ -5,10 +5,12 @@ const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const batchOrderProcessSchema = new mongoose.Schema({
   distiller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Distiller },
   orderId: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.PurchaseOrder },
+  branch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch },
   warehouseId: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Warehouse },
   batchId: { type: String, required: true, immutable: true },
   quantityRequired: { type: Number, required: true },
   scheduledPickupDate: { type: Date },
+  actualPickupDate: { type: Date },
   pickupStatus: { type: String, enum: Object.values(_poPickupStatus), default: _poPickupStatus.pending },
   status: { type: String, enum: Object.values(_poBatchStatus), default: _poBatchStatus.scheduled },
 
@@ -21,7 +23,7 @@ const batchOrderProcessSchema = new mongoose.Schema({
 
   penaltyDetails: {
     penaltyAmount: { type: Number, default: 0 },
-    paneltyAddedBy: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
+    paneltyAddedBy: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
     paneltyAddedAT: { type: Date },
     comment: { type: String, trim: true },
     penaltypaymentStatus: { type: String, enum: ['Paid', 'Pending', 'Overdue'], default: null }

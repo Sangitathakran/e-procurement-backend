@@ -10,26 +10,27 @@ const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType, _userStatus, _status, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
-
+const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
+const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 
 module.exports.getDashboardStats = async (req, res) => {
 
     try {
-
+        const { user_id } = req;
         const currentDate = new Date();
         const startOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
         const startOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
         const endOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
 
-        const lastMonthAssociates = await User.countDocuments({
+        const lastMonthAssociates = await wareHousev2.countDocuments({
             user_type: _userType.associate,
             is_form_submitted: true,
             is_approved: _userStatus.approved,
             createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
         });
 
-        const currentMonthAssociates = await User.countDocuments({
-            user_type: _userType.associate,
+        const currentMonthAssociates = await PurchaseOrderModel.countDocuments({
+            distiller_id: user_id,
             is_form_submitted: true,
             is_approved: _userStatus.approved,
             createdAt: { $gte: startOfCurrentMonth }
