@@ -1,10 +1,10 @@
 const express = require("express");
-const { createPurchaseOrder, getOrder, getOrderById, deleteOrder, createBatch, batchList } = require("./Controller");
+const { getOrder, getOrderById, deleteOrder, createBatch, deliveryScheduledBatchList, orderDetails } = require("./Controller");
 const { verifyDistiller } = require("../utils/verifyDistiller");
 const distillerOrderRoutes = express.Router();
 
-distillerOrderRoutes.get("/batchList", verifyDistiller, batchList);
-
+distillerOrderRoutes.get("/deliveryScheduledBatchList", verifyDistiller, deliveryScheduledBatchList);
+distillerOrderRoutes.get("/orderDetails", verifyDistiller, orderDetails);
 distillerOrderRoutes.get("/", verifyDistiller, getOrder);
 distillerOrderRoutes.get("/:id", verifyDistiller, getOrderById);
 distillerOrderRoutes.delete("/:id", verifyDistiller, deleteOrder);

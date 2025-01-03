@@ -60,10 +60,10 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
                 branchName: "$branch.branchName",
                 commodity: "$OrderDetails.product.name",
                 grade: "$OrderDetails.product.grade",
-                quantityRequired: 1,   
+                quantityRequired: 1,
                 totalAmount: "$OrderDetails.paymentInfo.totalAmount",
                 penaltyAmount: "$penaltyDetails.penaltyAmount",
-                paymentStatus:"$payment.status",
+                paymentStatus: "$payment.status",
                 pickupStatus: 1,
             }
         }
@@ -124,14 +124,74 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
     }
 });
 
+module.exports.batchList = asyncErrorHandler(async (req, res) => {
+    try {
+        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id, warehouse_id } = req.query;
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+        const { user_id } = req;
 
-module.exports.getPenaltyById = asyncErrorHandler(async (req, res) => {
-    const { id } = req.params;
-    const record = await BatchOrderProcess.findOne({ _id: id });
+        if (!order_id) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("orderId") }] }));
+        }
 
-    if (!record) {
-        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
+        if (!warehouse_id) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("warehouseId") }] }));
+        }
+
+        let query = {
+            orderId: new mongoose.Types.ObjectId(order_id),
+            distiller_id: new mongoose.Types.ObjectId(user_id),
+            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+        };
+
+        const aggregationPipeline = [
+            { $match: query },
+            {
+                $lookup: {
+                    from: "purchaseorders", // Adjust this to your actual collection name for branches
+                    localField: "orderId",
+                    foreignField: "_id",
+                    as: "OrderDetails"
+                }
+            },
+            { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    batchId: 1,
+                    quantityRequired: 1,
+                    scheduledPickupDate: 1,
+                    actualPickupDate: 1,
+                    totalAmount: '$payment.amount',
+                    penaltyAmount: "$penaltyDetails.penaltyAmount",
+                    pickupStatus: 1,
+                    orderId: order_id
+                }
+            },
+            { $sort: { [sortBy || 'createdAt']: 1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit, 10) }
+        ];
+
+        const records = { count: 0, rows: [] };
+        records.rows = await BatchOrderProcess.aggregate(aggregationPipeline);
+
+        const countAggregation = [
+            { $match: query },
+            { $count: 'total' }
+        ];
+        const countResult = await BatchOrderProcess.aggregate(countAggregation);
+        records.count = countResult.length > 0 ? countResult[0].total : 0;
+
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+        if (!records) {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        } else {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
     }
-
-    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("order") }))
-})
+});
