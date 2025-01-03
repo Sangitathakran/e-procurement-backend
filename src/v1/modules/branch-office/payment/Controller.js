@@ -41,14 +41,14 @@ module.exports.payment = async (req, res) => {
                     }],
                 }
             },
-            {
-                $lookup: {
-                    from: "branches",
-                    localField: "branch_id",
-                    foreignField: "_id",
-                    as: "branch",
-                },
-            },
+            // {
+            //     $lookup: {
+            //         from: "branches",
+            //         localField: "branch_id",
+            //         foreignField: "_id",
+            //         as: "branch",
+            //     },
+            // },
             {
                 $lookup: {
                     from: "users",
@@ -136,7 +136,7 @@ module.exports.payment = async (req, res) => {
                                 }
                             },
                             then: 'Pending',
-                            else: 'Approved'
+                            else: 'Completed'
                         }
                     }
                 }
@@ -147,29 +147,30 @@ module.exports.payment = async (req, res) => {
                     reqNo: 1,
                     product: 1,
                     'batches._id': 1,
-                    'batches.qty': 1,
-                    'batches.goodsPrice': 1,
-                    'batches.totalPrice': 1,
-                    'batches.status': 1,
+                    // 'batches.qty': 1,
+                    // 'batches.goodsPrice': 1,
+                    // 'batches.totalPrice': 1,
+                    // 'batches.status': 1,
                     approval_status: 1,
                     qtyPurchased: 1,
                     amountPayable: 1,
                     payment_status: 1,
                     // branch: 1,
                     'sellerDetails.associate_name': 1,
-                    // farmer: 1,
                     'farmer.farmer_id': 1,
                     'farmer.name': 1,
                     'farmer.basic_details.mobile_no': 1,
                     'farmer.basic_details.dob': 1,
                     'farmer.parents.father_name': 1,
                     'farmer.address': 1,
-                    ProcurementCenter: 1
+                    'ProcurementCenter.center_name': 1,
+                    'ProcurementCenter.center_code': 1,
+                    'ProcurementCenter.address': 1
                 }
             },
-            { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
+            // { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
             { $skip: skip },
-            { $limit: parseInt(limit) }
+            { $limit: limit > 40 ? 40 : parseInt(limit) }
         ];
         const records = await RequestModel.aggregate([
             ...aggregationPipeline,
@@ -179,7 +180,7 @@ module.exports.payment = async (req, res) => {
                     totalCount: [{ $count: 'count' }] // Count the documents
                 }
             }
-        ]);
+        ]).allowDiskUse(true);
 
         const response = {
             count: records[0]?.totalCount[0]?.count || 0,
