@@ -170,7 +170,7 @@ module.exports.payment = async (req, res) => {
             },
             // { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
             { $skip: skip },
-            { $limit: limit > 40 ? 40 : parseInt(limit) }
+            { $limit: limit >= 30 ? 30 : parseInt(limit) }
         ];
         const records = await RequestModel.aggregate([
             ...aggregationPipeline,
