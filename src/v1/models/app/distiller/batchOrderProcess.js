@@ -10,6 +10,7 @@ const batchOrderProcessSchema = new mongoose.Schema({
   batchId: { type: String, required: true, immutable: true },
   quantityRequired: { type: Number, required: true },
   scheduledPickupDate: { type: Date },
+  actualPickupDate: { type: Date },
   pickupStatus: { type: String, enum: Object.values(_poPickupStatus), default: _poPickupStatus.pending },
   status: { type: String, enum: Object.values(_poBatchStatus), default: _poBatchStatus.scheduled },
 
