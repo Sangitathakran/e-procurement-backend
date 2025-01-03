@@ -141,6 +141,9 @@ module.exports.payment = async (req, res) => {
                     }
                 }
             },
+            { $sort: { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: limit >= 15 ? 15 : parseInt(limit) },
             {
                 $project: {
                     _id: 1,
@@ -167,10 +170,7 @@ module.exports.payment = async (req, res) => {
                     'ProcurementCenter.center_code': 1,
                     'ProcurementCenter.address': 1
                 }
-            },
-            // { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
-            { $skip: skip },
-            { $limit: limit >= 30 ? 30 : parseInt(limit) }
+            }
         ];
         const records = await RequestModel.aggregate([
             ...aggregationPipeline,
