@@ -11,11 +11,13 @@ module.exports.warehouseList = async (req, res) => {
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id, isExport = 0 } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
-        
+
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order_id") }] }));
         }
 
+        const branch = await PurchaseOrderModel.findOne({ _id: order_id }).select({ _id:0, branch_id: 1 }).lean();
+        
         let query = search ? {
             $or: [
                 { 'companyDetails.name': { $regex: search, $options: 'i' } },
@@ -24,7 +26,7 @@ module.exports.warehouseList = async (req, res) => {
             ],
             ...filters, // Additional filters
         } : {};
-    
+
         const aggregationPipeline = [
             { $match: query },
             {
@@ -51,10 +53,12 @@ module.exports.warehouseList = async (req, res) => {
                     nodalOfficerContact: '$ownerDetails.mobile',
                     nodalOfficerEmail: '$ownerDetails.email',
                     pocAtPickup: '$warehouseDetails.authorizedPerson.name',
-                    orderId: order_id
+                    branch_id: '$OrderDetails.branch_id',
+                    orderId: order_id,
+                    branch_id: branch.branch_id
                 }
             },
-            
+
             { $sort: { [sortBy]: 1 } },
             { $skip: skip },
             { $limit: parseInt(limit, 10) }
@@ -85,7 +89,7 @@ module.exports.warehouseList = async (req, res) => {
                     "POC Name": item?.pointOfContact?.name ?? 'NA',
                     "POC Email": item?.pointOfContact?.email ?? 'NA',
                     "POC Phone": item?.pointOfContact?.phone ?? 'NA',
-                    
+
                 };
             });
 
