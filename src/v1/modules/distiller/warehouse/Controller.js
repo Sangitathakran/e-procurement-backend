@@ -53,7 +53,6 @@ module.exports.warehouseList = async (req, res) => {
                     nodalOfficerContact: '$ownerDetails.mobile',
                     nodalOfficerEmail: '$ownerDetails.email',
                     pocAtPickup: '$warehouseDetails.authorizedPerson.name',
-                    branch_id: '$OrderDetails.branch_id',
                     orderId: order_id,
                     branch_id: branch.branch_id
                 }
