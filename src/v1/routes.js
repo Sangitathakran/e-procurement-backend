@@ -40,7 +40,6 @@ router.use("/ho", headOfficeRoutes);
 router.use("/bo", branchOfficeoRoutes);
 router.use("/warehouse", wareHouseRoutes);
 router.use("/auth", authRoutes)
-
 router.use("/nccf", nccfRoutes)
 
 module.exports = { router };

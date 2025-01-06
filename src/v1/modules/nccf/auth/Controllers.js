@@ -3,6 +3,7 @@ const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { Agency } = require("@src/v1/models/app/auth/Agency");
+const { NccfAdmin } = require("@src/v1/models/app/auth/NccfAdmin");
 const { MasterUser } = require("@src/v1/models/master/MasterUser");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
@@ -15,7 +16,7 @@ const getIpAddress = require('@src/v1/utils/helpers/getIPAddress');
 const { _frontendLoginRoutes } = require('@src/v1/utils/constants');
 
 
-module.exports.getAgency = async (req, res) => {
+module.exports.getNccf = async (req, res) => {
   console.log("yes");
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
@@ -24,10 +25,10 @@ module.exports.getAgency = async (req, res) => {
         };
         const records = { count: 0 };
         records.rows = paginate == 1
-            ? await Agency.find(query).sort(sortBy).skip(skip).limit(parseInt(limit))
-            : await Agency.find(query).sort(sortBy);
+            ? await NccfAdmin.find(query).sort(sortBy).skip(skip).limit(parseInt(limit))
+            : await NccfAdmin.find(query).sort(sortBy);
 
-        records.count = await Agency.countDocuments(query);
+        records.count = await NccfAdmin.countDocuments(query);
 
         if (paginate == 1) {
             records.page = page
@@ -35,18 +36,20 @@ module.exports.getAgency = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Agency") }));
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Nccf") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
     }
 }
 
-module.exports.createAgency = async (req, res) => {
+module.exports.createNccf = async (req, res) => {
     try {
-        const { agent_name, email, phone } = req.body
+        const { nccf_name, email, phone } = req.body
 
-        const existUser = await Agency.findOne({ email: email });
+        const existUser = await NccfAdmin.findOne({ email: email });
+
+        console.log(existUser);
 
         if (existUser){
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyExist('Email') }] }))
@@ -63,29 +66,29 @@ module.exports.createAgency = async (req, res) => {
         const password = generateRandomPassword();
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const agency = new Agency({
-            agent_name : agent_name,
+        const nccfData = new NccfAdmin({
+            nccf_name : nccf_name,
             email : email,
             phone : phone,
         });
 
-        const savedAgency = await agency.save();
+        const savedNccf = await nccfData.save();
 
-        const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes.agent}`
+        const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes.nccf}`
         const emailPayload = {
-            email: savedAgency.email,
-            user_name:savedAgency.first_name,
-            name: savedAgency.first_name,
+            email: savedNccf.email,
+            user_name:savedNccf.first_name,
+            name: savedNccf.first_name,
             password: password,
             login_url:login_url
         }
-        await emailService.sendAgencyCredentialsEmail(emailPayload);
+        await emailService.sendNccfCredentialsEmail(emailPayload);
 
-        const type = await TypesModel.findOne({_id:"67110114f1cae6b6aadc2425"})
+        const type = await TypesModel.findOne({_id:"677b7de4f392eaf580a68688"})
 
-        if(savedAgency._id){
+        if(savedNccf._id){
             const masterUser = new MasterUser({
-                firstName : agent_name,
+                firstName : nccf_name,
                 isAdmin : true,
                 email : email.trim(),
                 mobile : phone.trim(),
@@ -93,18 +96,18 @@ module.exports.createAgency = async (req, res) => {
                 user_type : type.user_type,
                 createdBy: req.user._id,
                 userRole: [type.adminUserRoleId],
-                portalId: savedAgency._id,
+                portalId: savedNccf._id,
                 ipAddress:getIpAddress(req) 
             });
     
             await masterUser.save();
         }else{
-            await Agency.deleteOne({_id:savedAgency._id})
-            throw new Error('Agency not created ')
+            await NccfAdmin.deleteOne({_id:savedNccf._id})
+            throw new Error('Nccf not created ')
             
         }
 
-        return res.status(200).send(new serviceResponse({ message: _response_message.created('Agency'), data: savedAgency }));
+        return res.status(200).send(new serviceResponse({ message: _response_message.created('Nccf Admin'), data: savedNccf }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -114,16 +117,16 @@ module.exports.changeStatus = async (req, res) => {
     try {
       const agentId  = req.params.id; 
       if(!agentId){
-        return sendResponse({res, status: 400, message: "agent id not provided"})
+        return sendResponse({res, status: 400, message: "NccfAdmin id not provided"})
       }
-      const agent = await Agency.findById(agentId);
+      const agent = await NccfAdmin.findById(agentId);
       if(!agent){
         return sendResponse({res, status: 400, message: "agent not exist or wrong agent id"})
       }
   
       agent.status = agent?.status === 'active' ? 'inactive' : 'active';
   
-      const updatedagent = await agent.save();
+      const updatedagent = await NccfAdmin.save();
       return sendResponse({res, status: 200, data: updatedagent, message: "user status changed successfully"})
   
     } catch (err) {
