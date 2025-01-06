@@ -17,6 +17,7 @@ const { authRoutes } = require("./modules/auth/routes");
 const { userManagementRoutes } = require("./modules/user-management/Routes")
 const { FeatureRoutes } = require("@src/v1/modules/Features/Routes")
 const { distillerRoutes } = require("./modules/distiller/Routes");
+const { nccfRoutes } = require("./modules/nccf/routes");
 
 /* Define Your Routes */
 router.use(handlePagination)
@@ -39,5 +40,7 @@ router.use("/ho", headOfficeRoutes);
 router.use("/bo", branchOfficeoRoutes);
 router.use("/warehouse", wareHouseRoutes);
 router.use("/auth", authRoutes)
+
+router.use("/nccf", nccfRoutes)
 
 module.exports = { router };
