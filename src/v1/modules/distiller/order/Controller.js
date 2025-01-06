@@ -154,6 +154,8 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         }
     }
 
+    let currentDate = new Date(); // Get the current date
+         
     const record = await BatchOrderProcess.create({
         distiller_id: user_id,
         warehouseId,
@@ -161,6 +163,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         batchId: randomVal,
         quantityRequired: handleDecimal(quantityRequired),
         'payment.amount': amountToBePaid,
+        scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
         createdBy: user_id
     });
 
