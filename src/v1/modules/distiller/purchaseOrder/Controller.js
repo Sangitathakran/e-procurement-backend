@@ -158,7 +158,7 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
 module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
 
     const { id, branch_id, name, grade, grade_remark, poQuantity, quantityDuration, manufacturingLocation, storageLocation, deliveryLocation,
-        companyDetails, additionalDetails, qualitySpecificationOfProduct, comments,
+        companyDetails, additionalDetails, qualitySpecificationOfProduct
     } = req.body;
 
     const record = await PurchaseOrderModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
@@ -205,7 +205,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     // Update quality specification
     record.qualitySpecificationOfProduct.moisture = qualitySpecificationOfProduct.moisture || record.qualitySpecificationOfProduct.moisture;
     record.qualitySpecificationOfProduct.broken = qualitySpecificationOfProduct.broken || record.qualitySpecificationOfProduct.broken;
-    record.comments.comment = comments.comments || record.comments.comment;
+    
     // Save the updated record
     await record.save();
 

@@ -39,6 +39,7 @@ const _collectionName = {
     AgentPayment: "AgentPayment",
     Associate: "Associate",
     Agency: "Agency",
+    NccfAdmin: "NccfAdmin",
     Types: "Types",
     AssociateInvoice: "AssociateInvoice",
     AgentInvoice: "AgentInvoice",
@@ -428,7 +429,8 @@ const _frontendLoginRoutes = {
     // bo: "/branch-office/sign-in"
     agent: "https://ep.navbazar.com/agent/sign-in",
     ho: "https://ep.navbazar.com/head-office/sign-in",
-    bo: "https://ep.navbazar.com/branch-office/sign-in"
+    bo: "https://ep.navbazar.com/branch-office/sign-in",
+    nccf: "https://ep.navbazar.com/nccf/sign-in"
 }
 
 const _userTypeFrontendRouteMapping = {
