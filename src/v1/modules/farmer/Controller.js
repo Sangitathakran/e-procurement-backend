@@ -23,6 +23,7 @@ const { _proofType, _gender, _religion, _maritalStatus, _areaUnit, _seasons, _in
 const XLSX = require('xlsx');
 const fs = require('fs');
 const axios = require('axios');
+const moment = require('moment');
 const mongoose = require('mongoose');
 
 module.exports.sendOTP = async (req, res) => {
@@ -1566,6 +1567,15 @@ module.exports.bulkUploadFarmers = async (req, res) => {
     let errorArray = [];
     const processFarmerRecord = async (rec) => {
       const toLowerCaseIfExists = (value) => value ? value.toLowerCase().trim() : value;
+    //   const parseDateOfBirth = (dob) => {
+    //     if (!isNaN(dob)) {
+    //         const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    //         const parsedDate = new Date(excelEpoch.getTime() + (dob) * 86400000); 
+    //         return moment.utc(parsedDate).format('DD-MM-YYYY'); 
+    //     }
+    
+    //     return moment(dob, 'DD-MM-YYYY', true).isValid() ? dob : null;
+    // };
       const parseBooleanYesNo = (value) => {
         if (value === true || value?.toLowerCase() === 'yes') return true;
         if (value === false || value?.toLowerCase() === 'no') return false;
@@ -1585,7 +1595,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"]);
       const aadhar_no = rec["AADHAR NUMBER*"];
       const address_line = rec["ADDRESS LINE*"];
-      const country = rec["COUNTRY NAME"] ? rec["COUNTRY NAME"] : null;
+      const country = rec["COUNTRY NAME"] ? rec["COUNTRY NAME"] : 'India';
       const state_name = rec["STATE NAME*"];
       const district_name = rec["DISTRICT NAME*"];
       const tahshil = rec["TAHSHIL*"];
@@ -1596,11 +1606,12 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const long = rec["LONGITUDE"] ? rec["LONGITUDE"] : null;
       const mobile_no = rec["MOBILE NO*"];
       const email = rec["EMAIL ID"] ? rec["EMAIL ID"] : null;
-      const warehouse = rec["WAREHOUSE"] && rec["WAREHOUSE"].toLowerCase() === 'yes' ? 'yes' : null;
-      const cold_storage = rec["COLD STORAGE"] && rec["COLD STORAGE"].toLowerCase() === 'yes' ? 'yes' : null;
-      const processing_unit = rec["PROCESSING UNIT"] && rec["PROCESSING UNIT"].toLowerCase() === 'yes' ? 'yes' : null;
-      const transportation_facilities = rec["TRANSPORTATION FACILITIES"] && rec["TRANSPORTATION FACILITIES"].toLowerCase() === 'yes' ? 'yes' : null;
-      const credit_facilities = rec["CREDIT FACILITIES"] && rec["CREDIT FACILITIES"].toLowerCase() === 'yes' ? 'yes' : null;
+      const warehouse = rec["WAREHOUSE"] && rec["WAREHOUSE"].toLowerCase() === 'yes' ? 'yes' : 'no';
+
+      const cold_storage = rec["COLD STORAGE"] && rec["COLD STORAGE"].toLowerCase() === 'yes' ? 'yes' : 'no';
+      const processing_unit = rec["PROCESSING UNIT"] && rec["PROCESSING UNIT"].toLowerCase() === 'yes' ? 'yes' : 'no';
+      const transportation_facilities = rec["TRANSPORTATION FACILITIES"] && rec["TRANSPORTATION FACILITIES"].toLowerCase() === 'yes' ? 'yes' : 'no';
+      const credit_facilities = rec["CREDIT FACILITIES"] && rec["CREDIT FACILITIES"].toLowerCase() === 'yes' ? 'yes' : 'no';
       const source_of_credit = rec["SOURCE OF CREDIT"] ? rec["SOURCE OF CREDIT"] : null;
       const financial_challenges = rec["FINANCIAL CHALLENGE"] ? rec["FINANCIAL CHALLENGE"] : null;
       const support_required = rec["SUPPORT REQUIRED"] ? rec["SUPPORT REQUIRED"] : null;
@@ -1652,7 +1663,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const branch_name = rec["BRANCH NAME*"];
       const ifsc_code = rec["IFSC CODE*"];
       const account_holder_name = rec["ACCOUNT HOLDER NAME*"];
-
       const requiredFields = [
         { field: "NAME*", label: "NAME" },
         { field: "FATHER NAME*", label: "FATHER NAME" },
@@ -1762,6 +1772,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         const land_district_id = await getDistrictId(district);
         const sowing_date = parseMonthyear(sowingdate);
         const harvesting_date = parseMonthyear(harvestingdate);
+        // const processedDateOfBirth = parseDateOfBirth(date_of_birth);
 
         let associateId = user_id;
         if (!user_id) {
@@ -2594,4 +2605,52 @@ module.exports.editFarmerDocument = async (req, res) => {
     _handleCatchErrors(err, res);
   }
 };
+module.exports.addDistrictCity = async (req, res) => {
+  const { state_title, district_title, city_title } = req.body;
+
+  if (!state_title || !district_title || !city_title) {
+    return res.status(400).json({ message: "state_title, district_title, and city_title are required." });
+  }
+  try {
+  const state = await StateDistrictCity.findOne({ "states.state_title": state_title });
+    if (!state) {
+      return res.status(404).json({ message: "State not found." });
+    }
+  const stateIndex = state.states.findIndex((s) => s.state_title === state_title);
+    const districtCount = state.states[stateIndex].districts.length;
+    const serialNumber = (districtCount + 1).toString().padStart(2, "0");
+    const result = await StateDistrictCity.updateOne(
+      { "states.state_title": state_title },
+      {
+        $push: {
+          "states.$.districts": {
+            district_title,
+            serialNumber,
+            cities: [
+              {
+                city_title,
+                status: "active", 
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              },
+            ],
+            status: "active",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        },
+      }
+    );
+
+    if (result.modifiedCount > 0) {
+      return res.status(200).json({ message: "District and city added successfully." });
+    } else {
+      return res.status(404).json({ message: "State not found or no update occurred." });
+    }
+  } catch (error) {
+    console.error("Error adding district and city:", error);
+    return res.status(500).json({ message: "Internal server error.", error: error.message });
+  }
+};
+
 

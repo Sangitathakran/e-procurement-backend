@@ -1,6 +1,6 @@
 const { sendOtp, loginOrRegister, reSendOtp, saveDistillerDetails, onboardingStatus, formPreview, findUserStatus,
       finalFormSubmit, editOnboarding, distillerBulkuplod, deleteManufacturingUnit, getManufacturingUnit, getStorageFacility,
-      deleteStorageFacility, updateStorageFacility, updateManufacturingUnit, getPendingDistillers, updateApprovalStatus } = require("./Controller")
+      deleteStorageFacility, updateStorageFacility, updateManufacturingUnit, getPendingDistillers, updateApprovalStatus,bulkUploadDistiller } = require("./Controller")
 const { validateForm } = require("@src/v1/modules/distiller/auth/Validation")
 const express = require("express");
 const { verifyDistiller } = require("../utils/verifyDistiller");
@@ -14,6 +14,7 @@ distillerAuthRoutes.get("/onboarding", verifyDistiller, formPreview);
 distillerAuthRoutes.get("/onboarding-status", verifyDistiller, onboardingStatus);
 distillerAuthRoutes.get("/find-user-status", verifyDistiller, findUserStatus);
 distillerAuthRoutes.patch("/final-submit", verifyDistiller, finalFormSubmit);
+distillerAuthRoutes.post("/bulk-upload",  bulkUploadDistiller);
 
 // distillerAuthRoutes.get("/editOnboarding", verifyDistiller, editOnboarding);
 // distillerAuthRoutes.post("/distiller-bulkuplod", distillerBulkuplod);
