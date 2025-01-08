@@ -8,8 +8,7 @@ const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
-
-const { default: mongoose } = require("mongoose");
+const { mongoose } = require("mongoose");
 
 
 module.exports.getOrder = asyncErrorHandler(async (req, res) => {
@@ -98,7 +97,6 @@ module.exports.deleteOrder = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.deleted("Requirement") }));
 });
 
-
 module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
     const { warehouseId, orderId, quantityRequired } = req.body;
@@ -107,8 +105,8 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
     }
 
-    const poRecord = await PurchaseOrderModel.findOne({ _id: orderId, deletedAt: null  });
-    
+    const poRecord = await PurchaseOrderModel.findOne({ _id: orderId, deletedAt: null });
+
     if (!poRecord) {
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("PO") }));
     }
@@ -156,6 +154,8 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         }
     }
 
+    let currentDate = new Date(); // Get the current date
+         
     const record = await BatchOrderProcess.create({
         distiller_id: user_id,
         warehouseId,
@@ -163,6 +163,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         batchId: randomVal,
         quantityRequired: handleDecimal(quantityRequired),
         'payment.amount': amountToBePaid,
+        scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
         createdBy: user_id
     });
 
@@ -173,4 +174,183 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     eventEmitter.emit(_webSocketEvents.procurement, { ...record, method: "created" });
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("PO Batch") }));
+});
+
+module.exports.deliveryScheduledBatchList = asyncErrorHandler(async (req, res) => {
+    try {
+        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id, warehouse_id } = req.query;
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+        const { user_id } = req;
+
+        if (!order_id) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("orderId") }] }));
+        }
+
+        if (!warehouse_id) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("warehouseId") }] }));
+        }
+
+        let query = {
+            orderId: new mongoose.Types.ObjectId(order_id),
+            warehouseId: new mongoose.Types.ObjectId(warehouse_id),
+            distiller_id: new mongoose.Types.ObjectId(user_id),
+            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+        };
+
+        const aggregationPipeline = [
+            { $match: query },
+            {
+                $lookup: {
+                    from: 'warehousedetails', // Collection name in MongoDB
+                    localField: 'warehouseOwnerId',
+                    foreignField: 'warehouseId',
+                    as: 'warehouseDetails',
+                },
+            },
+            { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
+            // {
+            //     $lookup: {
+            //         from: "branches", // Adjust this to your actual collection name for branches
+            //         localField: "branch_id",
+            //         foreignField: "_id",
+            //         as: "branch"
+            //     }
+            // },
+            // { $unwind: { path: "$branch", preserveNullAndEmptyArrays: true } },
+            // {
+            //     $lookup: {
+            //         from: "purchaseorders", // Adjust this to your actual collection name for branches
+            //         localField: "orderId",
+            //         foreignField: "_id",
+            //         as: "OrderDetails"
+            //     }
+            // },
+            // { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    batchId: 1,
+                    warehouseName: '$warehouseDetails.basicDetails.warehouseName',
+                    // branchName: "$branch.branchName",
+                    // commodity: "$OrderDetails.product.name",
+                    // grade: "$OrderDetails.product.grade",
+                    pickupLocation: '$warehouseDetails.addressDetails',
+                    quantityRequired: 1,
+                    amount: '$payment.amount',
+                    // penaltyAmount: "$penaltyDetails.penaltyAmount",
+                    scheduledPickupDate: 1,
+                    actualPickupDate: 1,
+                    max_lifting_period: "7 days from scheduled pick-up date",
+                    pickupStatus: 1,
+                    // distiller_id: 1,
+                    // warehouseId: 1,
+                    orderId: order_id
+                }
+            },
+            { $sort: { [sortBy || 'createdAt']: 1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit, 10) }
+        ];
+
+        const records = { count: 0, rows: [] };
+        records.rows = await BatchOrderProcess.aggregate(aggregationPipeline);
+
+        const countAggregation = [
+            { $match: query },
+            { $count: 'total' }
+        ];
+        const countResult = await BatchOrderProcess.aggregate(countAggregation);
+        records.count = countResult.length > 0 ? countResult[0].total : 0;
+
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+        if (!records) {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        } else {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+});
+
+module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
+    try {
+        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+        const { user_id } = req;
+
+        if (!order_id) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("orderId") }] }));
+        }
+
+        let query = {
+            orderId: new mongoose.Types.ObjectId(order_id),
+            distiller_id: new mongoose.Types.ObjectId(user_id),
+            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+        };
+
+        const aggregationPipeline = [
+            { $match: query },
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    localField: '_id',
+                    foreignField: 'warehouseId',
+                    as: 'warehouseDetails',
+                },
+            },
+            { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "purchaseorders", // Adjust this to your actual collection name for branches
+                    localField: "orderId",
+                    foreignField: "_id",
+                    as: "OrderDetails"
+                }
+            },
+            { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    purchaseId: '$batchId',
+                    // warehouseName: '$warehouseDetails.basicDetails.warehouseName',                    
+                    quantityRequired: 1,
+                    amount: '$payment.amount',
+                    scheduledPickupDate: 1,
+                    actualPickupDate: 1,
+                    pickupLocation: '$warehouseDetails.addressDetails',
+                    deliveryLocation: '$OrderDetails.deliveryLocation',
+                    paymentStatus:'$payment.status',
+                    penaltyStatus: '$penaltyDetails.penaltypaymentStatus',                    
+                    orderId: order_id
+                }
+            },
+            { $sort: { [sortBy || 'createdAt']: 1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit, 10) }
+        ];
+
+        const records = { count: 0, rows: [] };
+        records.rows = await BatchOrderProcess.aggregate(aggregationPipeline);
+
+        const countAggregation = [
+            { $match: query },
+            { $count: 'total' }
+        ];
+        const countResult = await BatchOrderProcess.aggregate(countAggregation);
+        records.count = countResult.length > 0 ? countResult[0].total : 0;
+
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+        if (!records) {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        } else {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
 });

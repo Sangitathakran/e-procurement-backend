@@ -11,7 +11,7 @@ const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 
 module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
     const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0 } = req.query;
-    const { warehouseIds = [] } = req.body;
+    const { warehouseCodes = [] } = req.body; // Updated to use warehouseCodes
 
     try {
         const getToken = req.headers.token || req.cookies.token;
@@ -27,13 +27,13 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
         }
 
         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
-        const ownerWarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
+        const ownerWarehouseCodes = warehouseDetails.map(warehouse => warehouse.wareHouse_code.toString());
 
-        const finalWarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
-            ? warehouseIds.filter(id => ownerWarehouseIds.includes(id))
-            : ownerWarehouseIds;
+        const finalWarehouseCodes = Array.isArray(warehouseCodes) && warehouseCodes.length
+            ? warehouseCodes.filter(code => ownerWarehouseCodes.includes(code))
+            : ownerWarehouseCodes;
 
-        if (!finalWarehouseIds.length) {
+        if (!finalWarehouseCodes.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
                 data: { records: [], page, limit, pages: 0 },
@@ -42,7 +42,7 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
         }
 
         const query = {
-            warehousedetails_id: { $in: finalWarehouseIds },
+            "warehousedetails_id.wareHouse_code": { $in: finalWarehouseCodes },
             ...(search && {
                 $or: [
                     { batchId: { $regex: search, $options: 'i' } },
@@ -58,7 +58,7 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
                 { path: "procurementCenter_id", select: "center_name" },
                 { path: "warehousedetails_id", select: "basicDetails.warehouseName" },
             ])
-            .select("batchId warehousedetails_id commodity qty received_on qc_report.received_qc_status")
+            .select("batchId warehousedetails_id commodity qty received_on qc_report wareHouse_code ")
             .sort({ [sortBy]: 1 })
             .skip((page - 1) * limit)
             .limit(parseInt(limit));
@@ -102,6 +102,7 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
         return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
     }
 });
+
 
 
 module.exports.batchApproveOrReject = async (req, res) => {
