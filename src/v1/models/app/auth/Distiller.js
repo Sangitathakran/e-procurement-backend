@@ -105,6 +105,8 @@ const distillerSchema = new mongoose.Schema({
     is_welcome_email_send: { type: Boolean, default: false },
     is_sms_send: { type: Boolean, default: false },
     term_condition: { type: String, default: false },
+    mou: { type: String, default: false },
+    mou_approval: { type: String, enum: Object.values(_userStatus), default: _userStatus.pending },
     active: { type: Boolean, default: true },
     ..._commonKeys
 }, { timestamps: true });
