@@ -45,7 +45,6 @@ module.exports.warehouseList = async (req, res) => {
             },
             {
                 $project: {
-                    warehouse_id:'$warehouseDetails._id',
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     pickupLocation: '$warehouseDetails.addressDetails',
                     stock: {
