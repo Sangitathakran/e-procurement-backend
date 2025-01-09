@@ -17,7 +17,7 @@ const { _frontendLoginRoutes } = require('@src/v1/utils/constants');
 
 
 module.exports.getNccf = async (req, res) => {
-  console.log("yes");
+  
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
         let query = {
