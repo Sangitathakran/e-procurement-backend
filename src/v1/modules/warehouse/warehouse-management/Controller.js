@@ -234,10 +234,7 @@ module.exports.updateWarehouseStatus = async (req, res) => {
         // Save the updated warehouse
         await warehouse.save();
 
-        return res.status(200).json({
-            message: `Warehouse status updated successfully to ${warehouse.active ? 'Active' : 'Inactive'}`,
-            warehouse,
-        });
+        return sendResponse({ res, status: 200, data: warehouse, message: `Warehouse status updated successfully to ${warehouse.active ? 'Active' : 'Inactive'}` })
     } catch (error) {
         return res.status(500).json({ message: 'An error occurred', error: error.message });
     }
