@@ -126,16 +126,12 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
     try {
-        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id, warehouse_id } = req.query;
+        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
         const { user_id } = req;
 
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("orderId") }] }));
-        }
-
-        if (!warehouse_id) {
-            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("warehouseId") }] }));
         }
 
         let query = {

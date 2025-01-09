@@ -39,6 +39,7 @@ const _collectionName = {
     AgentPayment: "AgentPayment",
     Associate: "Associate",
     Agency: "Agency",
+    NccfAdmin: "NccfAdmin",
     Types: "Types",
     AssociateInvoice: "AssociateInvoice",
     AgentInvoice: "AgentInvoice",
@@ -48,7 +49,7 @@ const _collectionName = {
     ManufacturingUnit: "ManufacturingUnit",
     StorageFacility: "StorageFacility",
     PurchaseOrder: "PurchaseOrder",
-    BatchOrderProcess:"batchOrderProcess"
+    BatchOrderProcess:"batchOrderProcess",
 
 }
 
@@ -261,8 +262,8 @@ const _category = {
 const _areaUnit = {
     Hectares: "hectares",
     Acres: "acres",
-    Bigha: "bigha",
     Other: "Other",
+    Bigha: "bigha",
 }
 const _soilType = {
     Sandy: "sandy",
@@ -428,7 +429,8 @@ const _frontendLoginRoutes = {
     // bo: "/branch-office/sign-in"
     agent: "https://ep.navbazar.com/agent/sign-in",
     ho: "https://ep.navbazar.com/head-office/sign-in",
-    bo: "https://ep.navbazar.com/branch-office/sign-in"
+    bo: "https://ep.navbazar.com/branch-office/sign-in",
+    nccf: "https://ep.navbazar.com/nccf/sign-in"
 }
 
 const _userTypeFrontendRouteMapping = {
@@ -467,12 +469,6 @@ const _poBatchStatus = {
     scheduled: 'Scheduled',
     inProgress: 'In Progress',
     completed: 'Completed',
-}
-
-const _poBatchPaymentStatus = {
-    pending: 'Pending',
-    completed: 'Completed',
-    failed: 'Failed'
 }
 
 module.exports = {
@@ -535,6 +531,5 @@ module.exports = {
     _poAdvancePaymentStatus,
     _poPaymentStatus,
     _poPickupStatus,
-    _poBatchStatus,
-    _poBatchPaymentStatus
+    _poBatchStatus
 }

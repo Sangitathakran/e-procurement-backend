@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { _collectionName, _userType, _trader_type, _userStatus } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const { string } = require('joi');
+
 const distillerSchema = new mongoose.Schema({
 
     client_id: { type: String, required: true, trim: true, },
@@ -105,6 +106,8 @@ const distillerSchema = new mongoose.Schema({
     is_welcome_email_send: { type: Boolean, default: false },
     is_sms_send: { type: Boolean, default: false },
     term_condition: { type: String, default: false },
+    mou: { type: String, default: false },
+    mou_approval: { type: String, enum: Object.values(_userStatus), default: _userStatus.pending },
     active: { type: Boolean, default: true },
     ..._commonKeys
 }, { timestamps: true });
