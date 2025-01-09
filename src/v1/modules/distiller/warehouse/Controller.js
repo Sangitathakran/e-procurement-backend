@@ -4,7 +4,7 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { WarehouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
-const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
+// const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 
 module.exports.warehouseList = async (req, res) => {
     try {
