@@ -45,16 +45,23 @@ module.exports.warehouseList = async (req, res) => {
             },
             {
                 $project: {
+                    warehouse_id:'$warehouseDetails._id',
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     pickupLocation: '$warehouseDetails.addressDetails',
-                    stock: '$warehouseDetails.inventory.stock',
+                    stock: {
+                        $cond: {
+                            if: { $gt: [{ $ifNull: ['$warehouseDetails.inventory.requiredStock', 0] }, 0] },
+                            then: '$warehouseDetails.inventory.requiredStock',
+                            else: '$warehouseDetails.inventory.stock'
+                        }
+                    },            
                     warehouseTiming: '$warehouseDetails.inventory.warehouse_timing',
                     nodalOfficerName: '$ownerDetails.name',
                     nodalOfficerContact: '$ownerDetails.mobile',
                     nodalOfficerEmail: '$ownerDetails.email',
                     pocAtPickup: '$warehouseDetails.authorizedPerson.name',
                     orderId: order_id,
-                    branch_id: branch.branch_id
+                    branch_id: branch.branch_id                    
                 }
             },
 
