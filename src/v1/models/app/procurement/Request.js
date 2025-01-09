@@ -5,6 +5,7 @@ const RequestSchema = new mongoose.Schema({
     head_office_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice },
     associatOrder_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers }],
     branch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
+    warehouse_id:{ type:mongoose.Schema.Types.ObjectId, ref: _collectionName.WarehouseDetails, required:true},
     reqNo: { type: String, required: true },
     quoteExpiry: { type: Date, required: true, },
     status: { type: String, enum: Object.values(_requestStatus), default: _requestStatus.open },
@@ -25,6 +26,7 @@ const RequestSchema = new mongoose.Schema({
         long: { type: String, required: false },
         locationUrl: { type: String, required: false }
     },
+
     comments: [{ user_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true }, comment: { type: String, trim: true } }],
     updatedBy: { type: mongoose.Schema.Types.ObjectId, default: null },
     createdBy: { type: mongoose.Schema.Types.ObjectId, default: null },
