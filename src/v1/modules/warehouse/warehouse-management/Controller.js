@@ -75,7 +75,6 @@ module.exports.saveWarehouseDetails = async (req, res) => {
     }
 };
 
-
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
     const {
         page = 1,
@@ -194,8 +193,6 @@ module.exports.editWarehouseDetails = async (req, res) => {
             return res.status(404).json({ status: 404, message: "Warehouse not found" });
         }
 
-
-
         // Update only the provided fields
         const updatedWarehouse = await wareHouseDetails.findOneAndUpdate(
             { _id: warehouse_id },
@@ -218,6 +215,31 @@ module.exports.editWarehouseDetails = async (req, res) => {
         });
     }
 };
+
+module.exports.updateWarehouseStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Find the warehouse by ID
+        const warehouse = await wareHouseDetails.findById(id);
+        console.log(warehouse);
+
+        if (!warehouse) {
+            return res.status(404).json({ message: 'Warehouse not found' });
+        }
+
+        // Toggle the active status
+        warehouse.active = !warehouse.active;
+
+        // Save the updated warehouse
+        await warehouse.save();
+
+        return sendResponse({ res, status: 200, data: warehouse, message: `Warehouse status updated successfully to ${warehouse.active ? 'Active' : 'Inactive'}` })
+    } catch (error) {
+        return res.status(500).json({ message: 'An error occurred', error: error.message });
+    }
+}
+
 
 
 

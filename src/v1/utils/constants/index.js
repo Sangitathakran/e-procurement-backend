@@ -49,7 +49,7 @@ const _collectionName = {
     ManufacturingUnit: "ManufacturingUnit",
     StorageFacility: "StorageFacility",
     PurchaseOrder: "PurchaseOrder",
-    BatchOrderProcess:"batchOrderProcess"
+    BatchOrderProcess:"batchOrderProcess",
 
 }
 
@@ -262,8 +262,8 @@ const _category = {
 const _areaUnit = {
     Hectares: "hectares",
     Acres: "acres",
-    Bigha: "bigha",
     Other: "Other",
+    Bigha: "bigha",
 }
 const _soilType = {
     Sandy: "sandy",
@@ -471,12 +471,6 @@ const _poBatchStatus = {
     completed: 'Completed',
 }
 
-const _poBatchPaymentStatus = {
-    pending: 'Pending',
-    completed: 'Completed',
-    failed: 'Failed'
-}
-
 module.exports = {
     _userAction,
     _farmerType,
@@ -537,6 +531,5 @@ module.exports = {
     _poAdvancePaymentStatus,
     _poPaymentStatus,
     _poPickupStatus,
-    _poBatchStatus,
-    _poBatchPaymentStatus
+    _poBatchStatus
 }
