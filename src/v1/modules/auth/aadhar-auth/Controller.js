@@ -6,14 +6,6 @@ const {
 } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-// const bcrypt = require("bcrypt");
-// const jwt = require("jsonwebtoken");
-// const { JWT_SECRET_KEY } = require("@config/index");
-// const { FeatureList } = require("@src/v1/models/master/FeatureList");
-// const { TypesModel } = require("@src/v1/models/master/Types");
-// const { _userTypeFrontendRouteMapping } = require("@src/v1/utils/constants");
-// const { emailService } = require("@src/v1/utils/third_party/EmailServices");
-// const { getPermission } = require("../../user-management/permission");
 const { default: axios } = require("axios");
 const {
   AADHAR_SERVICE_PROVIDER_KEY,
