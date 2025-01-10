@@ -121,17 +121,19 @@ module.exports.verifyAadharOTP = async (req, res) => {
     const response = await axios.post(apiUrl, payload, { headers });
     // console.log("success_response=====>", response?.data);
     const { status, data: fetchedData } = response.data || {};
-    // console.log("fetched_data=====>", fetchedData);
+    console.log("fetched_data success=====>", fetchedData);
     if (status != 200) {
       return res.status(200).send(
         new serviceResponse({
-          status: 404,
-          message: _query.invalid("response from service provider"),
+          status: status,
+          message:
+            fetchedData.message ||
+            _query.invalid("response from service provider"),
           data: fetchedData,
         })
       );
-    } else if (status == 200 && response?.data) {
-      const { aadhaar_data = null } = fetchedData || {};
+    } else if (status == 200 && fetchedData?.aadhaar_data) {
+      const { aadhaar_data = null } = fetchedData;
       return res.status(200).send(
         new serviceResponse({
           status: 200,
@@ -142,16 +144,16 @@ module.exports.verifyAadharOTP = async (req, res) => {
     }
   } catch (error) {
     console.log("catched_error========>", error?.response?.data);
-    const { error: { message: responseMessage } = {} } =
+    const { error: { message: responseMessage, status: serviceStatus } = {} } =
       error?.response?.data || {};
-    return res.status(200).send(
+    return res.status(404).send(
       new serviceResponse({
-        status: 401,
+        status: serviceStatus,
         message:
           responseMessage ||
           _response_message.invalid("response from service provider"),
         errors: error?.response?.data?.error?.metadata?.fields ||
-          error?.response?.data || {
+          error?.response?.data?.error || {
             message: "Something went wrong, please try again later",
           },
       })
