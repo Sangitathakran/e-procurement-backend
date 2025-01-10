@@ -10,6 +10,7 @@ const { _userType, _userStatus, _poAdvancePaymentStatus } = require('@src/v1/uti
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 
 
 module.exports.getOrders = asyncErrorHandler(async (req, res) => {
@@ -113,7 +114,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order_id") }] }));
         }
 
-        const branch = await PurchaseOrderModel.findOne({ _id: order_id }).select({ _id: 0, branch_id: 1, product:1 }).lean();
+        const branch = await PurchaseOrderModel.findOne({ _id: order_id }).select({ _id: 0, branch_id: 1, product: 1 }).lean();
 
         let query = search ? {
             $or: [
@@ -152,11 +153,12 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                             then: '$warehouseDetails.inventory.requiredStock',
                             else: '$warehouseDetails.inventory.stock'
                         }
-                    },  
+                    },
                     realTimeStock: '$warehouseDetails.inventory.stock',
                     commodity: branch.product.name,
                     orderId: order_id,
-                    branch_id: branch.branch_id
+                    warehouseOwnerId: '$warehouseDetails.warehouseOwnerId',
+                    warehouseDetailsId: '$warehouseDetails._id',
                 }
             },
 
@@ -211,28 +213,31 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     }
 });
 
-module.exports.updateMouApprovalStatus = asyncErrorHandler(async (req, res) => {
-    const { id } = req.query;
-    const distiller = await Distiller.findOne({ _id: id });
+module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
+    try {
+        const { warehouseIds, requiredQuantity } = req.body;
+        const record = await wareHouseDetails.findOne({ _id: { $in: warehouseIds } });
 
-    if (!distiller) {
-        return res.send(
-            new serviceResponse({
-                status: 400,
-                errors: [{ message: _response_message.notFound("Distiller") }],
-            })
+        if (!record) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "selected Warehouse not found" }] }));
+        }
+
+        const result = await wareHouseDetails.updateMany(
+            { _id: { $in: warehouseIds } }, // Match any warehouseIds in the provided array
+            {
+                $set: {
+                    'inventory.requiredStock': requiredQuantity
+                },
+            } // Set the new status for matching documents
         );
+
+        if (result.matchedCount === 0) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Warehouse found" }] }));
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Required Quantity updated successfully`, }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
     }
-
-    distiller.mou = true,
-        distiller.mou_approval = _userStatus.approved,
-
-        await distiller.save();
-
-    return res.send(
-        new serviceResponse({
-            status: 200,
-            message: [{ message: _response_message.updated("Distiller MOU") }],
-        })
-    );
 });
