@@ -40,6 +40,7 @@ const warehouseDetailsSchema = new mongoose.Schema({
     },
     inventory: {
         stock: { type: Number, default: 0 },
+        requiredStock: { type: Number, default: 0 },
         warehouse_timing: { type: String }
     },
     documents: {

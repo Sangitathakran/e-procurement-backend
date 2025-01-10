@@ -410,7 +410,7 @@ class EmailService {
                 .replace("{{email}}", email)
                 .replace("{{user_name}}", user_name)
                 .replace("{{password}}", password);
-            await sendMail(email, '', 'Agency registration done successfully | NavBazaar Login Credentials ', html);
+            await sendMail(email, '', 'NCCF registration done successfully | NavBazaar Login Credentials ', html);
         } catch (error) {
             console.error("Error sending welcome email:", error);
             // throw error;

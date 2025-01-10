@@ -4,7 +4,7 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { WarehouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
-const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
+// const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 
 module.exports.warehouseList = async (req, res) => {
     try {
@@ -47,14 +47,20 @@ module.exports.warehouseList = async (req, res) => {
                 $project: {
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     pickupLocation: '$warehouseDetails.addressDetails',
-                    stock: '$warehouseDetails.inventory.stock',
+                    stock: {
+                        $cond: {
+                            if: { $gt: [{ $ifNull: ['$warehouseDetails.inventory.requiredStock', 0] }, 0] },
+                            then: '$warehouseDetails.inventory.requiredStock',
+                            else: '$warehouseDetails.inventory.stock'
+                        }
+                    },            
                     warehouseTiming: '$warehouseDetails.inventory.warehouse_timing',
                     nodalOfficerName: '$ownerDetails.name',
                     nodalOfficerContact: '$ownerDetails.mobile',
                     nodalOfficerEmail: '$ownerDetails.email',
                     pocAtPickup: '$warehouseDetails.authorizedPerson.name',
                     orderId: order_id,
-                    branch_id: branch.branch_id
+                    branch_id: branch.branch_id                    
                 }
             },
 
