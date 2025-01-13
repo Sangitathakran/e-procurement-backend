@@ -1,15 +1,9 @@
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
-const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
-const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
-const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
-const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const { User } = require("@src/v1/models/app/auth/User");
-const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
-const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType, _userStatus, _status, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
+const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
@@ -19,10 +13,7 @@ module.exports.getDashboardStats = async (req, res) => {
     try {
         const { user_id } = req;
         const currentDate = new Date();
-        const startOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-        const startOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-        const endOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
-
+       
         const wareHouseCount = (await wareHousev2.countDocuments()) ?? 0;
         const purchaseOrderCount = (await PurchaseOrderModel.countDocuments({ distiller_id: user_id })) ?? 0;
         
