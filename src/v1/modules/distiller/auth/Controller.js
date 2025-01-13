@@ -141,8 +141,9 @@ module.exports.loginOrRegister = async (req, res) => {
             userExist = await Distiller.create(newUser);
         }
         else{
-            userExist.is_approved= _userStatus.approved;
-            await userExist.save();
+            const distiller = await Distiller.findOne(query);
+            distiller.is_approved= _userStatus.approved;
+            await distiller.save();
         }
 
         
