@@ -88,6 +88,7 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             '/add-warehouse',
             '/final-submit',
             '/edit-warehouse',
+            '/warehouse-status'
         ];
 
         const currentUrl = req.url.split('?')[0];

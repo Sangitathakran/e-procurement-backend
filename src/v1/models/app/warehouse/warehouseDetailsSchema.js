@@ -40,12 +40,13 @@ const warehouseDetailsSchema = new mongoose.Schema({
     },
     inventory: {
         stock: { type: Number, default: 0 },
+        requiredStock: { type: Number, default: 0 },
         warehouse_timing: { type: String }
     },
     documents: {
         licenseNumber: { type: String, required: true, trim: true },
         insuranceNumber: { type: String, required: true, trim: true },
-        insurancePhoto: { type: String, required: true },
+        insurancePhoto: { type: String, required: false },
         ownershipType: { type: String, enum: ['Owner', 'Leasehold'], required: true },
         ownershipProof: { type: String, required: true }, // URL for proof document
     },

@@ -14,6 +14,7 @@ const generateRandomPassword = () => {
     for (let i = 0; i < 8; i++) {
         const randomIndex = Math.floor(Math.random() * characters.length);
         password += characters[randomIndex];
+        console.log(password);
     }
     return password;
 };
