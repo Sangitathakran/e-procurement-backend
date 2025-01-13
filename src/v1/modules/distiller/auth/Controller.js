@@ -135,6 +135,9 @@ module.exports.loginOrRegister = async (req, res) => {
             } else {
                 newUser.is_mobile_verified = true;
             }
+            
+            newUser.is_approved= _userStatus.approved;
+
             userExist = await Distiller.create(newUser);
         }
 
@@ -240,6 +243,8 @@ module.exports.saveDistillerDetails = async (req, res) => {
             default:
                 return res.status(400).send(new serviceResponse({ status: 400, message: `Invalid form name: ${formName}` }));
         }
+
+        distiller.is_approved= _userStatus.approved;
         await distiller.save();
 
         const response = { user_code: distiller.user_code, user_id: distiller._id };
@@ -322,6 +327,7 @@ module.exports.finalFormSubmit = async (req, res) => {
         }
 
         distiller.is_form_submitted = true;
+        distiller.is_approved= _userStatus.approved;
 
         const allDetailsFilled = (
             distiller?.basic_details?.distiller_details?.organization_name &&
@@ -335,6 +341,7 @@ module.exports.finalFormSubmit = async (req, res) => {
         if (!distiller.is_welcome_email_send && allDetailsFilled) {
             await emailService.sendWelcomeEmail(distiller);
             distiller.is_welcome_email_send = true;
+            distiller.is_approved= _userStatus.approved;
             await distiller.save();
         }
 
