@@ -171,6 +171,8 @@ module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
                 'distiller_id': '$user_code',
                 'distiller_name': '$basic_details.distiller_details.organization_name',
                 'poc': '$basic_details.point_of_contact.name',
+                'poc_email': '$basic_details.point_of_contact.email',
+                'poc_mobile': '$basic_details.point_of_contact.mobile',
                 'address': '$address.registered',
                 'request_date': '$createdAt',
                 'status': '$mou_approval',
