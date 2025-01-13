@@ -12,6 +12,7 @@ const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType, _userStatus, _status, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 
 module.exports.getDashboardStats = async (req, res) => {
 
@@ -22,76 +23,35 @@ module.exports.getDashboardStats = async (req, res) => {
         const startOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
         const endOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
 
-        const lastMonthAssociates = await wareHousev2.countDocuments({
-            user_type: _userType.associate,
-            is_form_submitted: true,
-            is_approved: _userStatus.approved,
-            createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
-        });
+        const wareHouseCount = (await wareHousev2.countDocuments()) ?? 0;
+        const purchaseOrderCount = (await PurchaseOrderModel.countDocuments({ distiller_id: user_id })) ?? 0;
+        
+        const result = await wareHouseDetails.aggregate([
+            {
+                $project: {
+                    stockToSum: {
+                        $cond: {
+                            if: { $gt: ["$inventory.requiredStock", 0] }, // If requiredStock > 0
+                            then: "$inventory.requiredStock",
+                            else: "$inventory.stock" // Otherwise, take stock
+                        }
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalStock: { $sum: "$stockToSum" }
+                }
+            }
+        ]);
 
-        const currentMonthAssociates = await PurchaseOrderModel.countDocuments({
-            distiller_id: user_id,
-            is_form_submitted: true,
-            is_approved: _userStatus.approved,
-            createdAt: { $gte: startOfCurrentMonth }
-        });
-
-        const difference = currentMonthAssociates - lastMonthAssociates;
-        const status = difference >= 0 ? 'increased' : 'decreased';
-
-        let differencePercentage = 0;
-        if (lastMonthAssociates > 0) {
-            differencePercentage = (difference / lastMonthAssociates) * 100;
-        }
-
-        // Farmers stats for last month and current month
-        const lastMonthFarmers = await farmer.countDocuments({
-            status: _status.active,
-            createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
-        });
-
-        const currentMonthFarmers = await farmer.countDocuments({
-            status: _status.active,
-            createdAt: { $gte: startOfCurrentMonth }
-        });
-
-        // Difference and percentage for farmers
-        const farmerDifference = currentMonthFarmers - lastMonthFarmers;
-        const farmerStatus = farmerDifference >= 0 ? 'increased' : 'decreased';
-
-        let farmerDifferencePercentage = 0;
-        if (lastMonthFarmers > 0) {
-            farmerDifferencePercentage = (farmerDifference / lastMonthFarmers) * 100;
-        }
-
-        const branchOfficeCount = (await Branches.countDocuments({ status: _status.active })) ?? 0;
-        const associateCount = (await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true })) ?? 0;
-        const procurementCenterCount = (await ProcurementCenter.countDocuments({ active: true })) ?? 0;
-        const farmerCount = (await farmer.countDocuments({ status: _status.active })) ?? 0;
-
-        const associateStats = {
-            totalAssociates: associateCount,
-            currentMonthAssociates,
-            lastMonthAssociates,
-            difference,
-            differencePercentage: differencePercentage.toFixed(2) + '%',
-            status: status,
-        };
-
-        const farmerStats = {
-            totalFarmers: farmerCount,
-            currentMonthFarmers,
-            lastMonthFarmers,
-            difference: farmerDifference,
-            differencePercentage: farmerDifferencePercentage.toFixed(2) + '%',
-            status: farmerStatus,
-        };
+        const realTimeStock = result.length > 0 ? result[0].totalStock : 0;
 
         const records = {
-            branchOfficeCount,
-            associateStats,
-            procurementCenterCount,
-            farmerStats
+            wareHouseCount,
+            purchaseOrderCount,
+            realTimeStock
         };
 
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Dashboard Stats") }));
@@ -101,181 +61,166 @@ module.exports.getDashboardStats = async (req, res) => {
     }
 }
 
-module.exports.getProcurementsStats = async (req, res) => {
+module.exports.getOrder = asyncErrorHandler(async (req, res) => {
 
-    try {
+    const { page, limit=5, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+    const { user_id } = req;
+    let query = {
+        'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
+        distiller_id: user_id,
+        ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+    };
 
-        const { month, year } = req.query;
+    const records = { count: 0 };
 
-        const currentDate = new Date();
-        const currentYear = currentDate.getFullYear();
+    records.rows = paginate == 1 ? await PurchaseOrderModel.find(query)
+        .sort(sortBy)
+        .skip(skip).populate({ path: "branch_id", select: "_id branchName branchId" })
+        .limit(parseInt(limit)) : await PurchaseOrderModel.find(query).sort(sortBy);
 
-        if (month && (isNaN(month) || month < 1 || month > 12)) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("month. It should be between 1 and 12.") }] }));
-        }
+    records.count = await PurchaseOrderModel.countDocuments(query);
 
-        if (year && (isNaN(year) || year > currentYear)) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid(`year. It should not be greater than ${currentYear}`) }] }));
-        }
-
-        const selectedMonth = month ? parseInt(month) - 1 : currentDate.getMonth();
-        const selectedYear = year ? parseInt(year) : currentDate.getFullYear();
-
-        const startOfMonth = new Date(selectedYear, selectedMonth, 1);
-        const endOfMonth = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59, 999);
-
-
-        const procurementsStats = await FarmerOrders.aggregate([
-            {
-                $match: {
-                    createdAt: { $gte: startOfMonth, $lte: endOfMonth }
-                }
-            },
-            {
-                $group: {
-                    _id: "$status",
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
-
-        const records = {
-            completed: 0,
-            ongoing: 0,
-            failed: 0,
-            total: 0,
-            completedPercentage: 0,
-            ongoingPercentage: 0,
-            failedPercentage: 0
-        };
-
-        procurementsStats.forEach(item => {
-            if (item._id === _procuredStatus.received) {
-                records.completed = item.count;
-            } else if (item._id === _procuredStatus.pending) {
-                records.ongoing = item.count;
-            } else if (item._id === _procuredStatus.failed) {
-                records.failed = item.count;
-            }
-            records.total += item.count;
-        });
-
-        if (records.total > 0) {
-            records.completedPercentage = ((records.completed / records.total) * 100).toFixed(2) + '%';
-            records.ongoingPercentage = ((records.ongoing / records.total) * 100).toFixed(2) + '%';
-            records.failedPercentage = ((records.failed / records.total) * 100).toFixed(2) + '%';
-        }
-
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Procured Stats") }));
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-}
-
-module.exports.getProcurementStatusList = async (req, res) => {
-
-    try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', } = req.query
-
-        let query = {
-            ...(search ? { reqNo: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
-        };
-
-        const records = { count: 0 };
-        const selectedFields = 'reqNo quoteExpiry product.name quotedPrice totalQuantity fulfilledQty deliveryDate expectedProcurementDate';
-        const fetchedRecords = paginate == 1
-            ? await RequestModel.find(query)
-                .select(selectedFields)
-                .sort(sortBy)
-                .skip(skip)
-                .limit(parseInt(limit))
-
-            : await RequestModel.find(query).sort(sortBy);
-
-        records.rows = fetchedRecords.map(record => ({
-            orderId: record.reqNo,
-            quoteExpiry: record.quoteExpiry,
-            productName: record.product.name,
-            quotedPrice: record.quotedPrice,
-            deliveryDate: record.deliveryDate,
-            expectedProcurementDate: record.expectedProcurementDate,
-            totalQuantity: record.totalQuantity,
-            fulfilledQty: record.fulfilledQty
-        }));
-
-        records.count = await RequestModel.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Procurement") }));
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
+    if (paginate == 1) {
+        records.page = page
+        records.limit = limit
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
     }
 
-}
+    if (isExport == 1) {
 
-module.exports.getPendingOffersCountByRequestId = async (req, res) => {
+        const record = records.rows.map((item) => {
 
+            return {
+                "Order Id": item?.reqNo || "NA",
+                "BO Name": item?.branch_id?.branchName || "NA",
+                "Commodity": item?.product?.name || "NA",
+                "Grade": item?.product?.grade || "NA",
+                "Quantity": item?.product?.quantity || "NA",
+                "MSP": item?.quotedPrice || "NA",
+                "Delivery Location": item?.address?.deliveryLocation || "NA"
+            }
+        })
+
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Requirement-record.xlsx`,
+                worksheetName: `Requirement-record`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("procurement") }))
+
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
+    }
+
+})
+
+module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', } = req.query
+        const { page = 1, limit = 5, sortBy, search = '', filters = {}, order_id, isExport = 0 } = req.query;
+        const skip = (parseInt(page, 5) - 1) * parseInt(limit, 5);
 
-        let query = {
-            ...(search && { reqNo: { $regex: search, $options: "i" } })
-        };
+        if (!order_id) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order_id") }] }));
+        }
+
+        const branch = await PurchaseOrderModel.findOne({ _id: order_id }).select({ _id: 0, branch_id: 1, product: 1 }).lean();
+
+        let query = search ? {
+            $or: [
+                { 'companyDetails.name': { $regex: search, $options: 'i' } },
+                { 'ownerDetails.name': { $regex: search, $options: 'i' } },
+                { 'warehouseDetails.basicDetails.warehouseName': { $regex: search, $options: 'i' } },
+            ],
+            ...filters, // Additional filters
+        } : {};
 
         const aggregationPipeline = [
             { $match: query },
             {
                 $lookup: {
-                    from: 'associateoffers',
+                    from: 'warehousedetails', // Collection name in MongoDB
                     localField: '_id',
-                    foreignField: 'req_id',
-                    as: 'offers'
-                }
+                    foreignField: 'warehouseOwnerId',
+                    as: 'warehouseDetails',
+                },
             },
             {
-                $addFields: {
-                    pendingOffersCount: { $size: '$offers' }
-                }
+                $unwind: {
+                    path: '$warehouseDetails',
+                    preserveNullAndEmptyArrays: true,
+                },
             },
             {
                 $project: {
-                    reqNo: 1,
-                    seller_id: 1,
-                    quoteExpiry: 1,
-                    'product.name': 1,
-                    quotedPrice: 1,
-                    totalQuantity: 1,
-                    fulfilledQty: 1,
-                    deliveryDate: 1,
-                    expectedProcurementDate: 1,
-                    pendingOffersCount: 1,
+                    warehouseId: '$warehouseOwner_code',
+                    warehouseName: '$warehouseDetails.basicDetails.warehouseName',
+                    address: '$warehouseDetails.addressDetails',
+                    totalCapicity: "$warehouseDetails.basicDetails.warehouseCapacity",
+                    utilizedCapicity: {
+                        $cond: {
+                            if: { $gt: [{ $ifNull: ['$warehouseDetails.inventory.requiredStock', 0] }, 0] },
+                            then: '$warehouseDetails.inventory.requiredStock',
+                            else: '$warehouseDetails.inventory.stock'
+                        }
+                    },
+                    realTimeStock: '$warehouseDetails.inventory.stock',
+                    commodity: branch.product.name,
+                    orderId: order_id,
+                    warehouseOwnerId: '$warehouseDetails.warehouseOwnerId',
+                    warehouseDetailsId: '$warehouseDetails._id',
                 }
             },
-            { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
+
+            { $sort: { [sortBy]: 1 } },
             { $skip: skip },
-            { $limit: parseInt(limit) }
+            { $limit: parseInt(limit, 10) }
         ];
-        const records = {}
-        records.rows = await RequestModel.aggregate(aggregationPipeline);
-        records.count = await RequestModel.countDocuments(query);
 
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        const records = { count: 0, rows: [] };
+        records.rows = await wareHousev2.aggregate(aggregationPipeline);
+
+        const countAggregation = [
+            { $match: query },
+            { $count: 'total' }
+        ];
+        const countResult = await wareHousev2.aggregate(countAggregation);
+        records.count = countResult.length > 0 ? countResult[0].total : 0;
+
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        // Export functionality
+        if (isExport == 1) {
+            const record = records.rows.map((item) => {
+                return {
+                    "WareHouse Name": item?.warehouseName || 'NA',
+                    "pickup Location": item?.pickupLocation || 'NA',
+                    "Inventory availalbility": item?.stock ?? 'NA',
+                    "warehouse Timing": item?.warehouseTiming ?? 'NA',
+                    "Nodal officer": item?.nodalOfficerName || 'NA',
+                    "POC Name": item?.pointOfContact?.name ?? 'NA',
+                    "POC Email": item?.pointOfContact?.email ?? 'NA',
+                    "POC Phone": item?.pointOfContact?.phone ?? 'NA',
+
+                };
+            });
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `warehouse-List.xlsx`,
+                    worksheetName: `warehouse-List`
+                });
+            } else {
+                return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("warehouse") }));
+            }
+        } else {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("warehouse") }));
         }
-
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Procurement") }));
-
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-
-}
+});

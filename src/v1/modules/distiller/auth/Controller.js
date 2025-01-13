@@ -34,11 +34,9 @@ const sendSmsOtp = async (phone) => {
     await smsService.sendOTPSMS(phone);
 };
 
-
 const sendResendSMS = async (phone) => {
     await smsService.sendResendSMS(phone);
 };
-
 
 module.exports.sendOtp = async (req, res) => {
     try {
@@ -70,7 +68,6 @@ module.exports.sendOtp = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
 
 module.exports.reSendOtp = async (req, res) => {
     try {
