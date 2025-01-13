@@ -140,7 +140,12 @@ module.exports.loginOrRegister = async (req, res) => {
 
             userExist = await Distiller.create(newUser);
         }
+        else{
+            userExist.is_approved= _userStatus.approved;
+            await userExist.save();
+        }
 
+        
         if (userExist.active == false) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "you are not an active user!" }] }));
         }
