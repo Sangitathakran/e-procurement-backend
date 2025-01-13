@@ -61,7 +61,7 @@ module.exports.createAgency = async (req, res) => {
         }
 
         const password = generateRandomPassword();
-        console.log(password);
+
         const hashedPassword = await bcrypt.hash(password, 10);
         const agency = new Agency({
             agent_name: agent_name,
@@ -104,7 +104,7 @@ module.exports.createAgency = async (req, res) => {
 
         }
 
-        return res.status(200).send(new serviceResponse({ message: _response_message.created('Agency'), data: savedAgency }));
+        return res.status(200).send(new serviceResponse({ message: _response_message.created('Agency'), data: record }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }
