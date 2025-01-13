@@ -10,7 +10,7 @@ const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrd
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 const mongoose = require('mongoose');
 
-
+/*
 module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = {}, search = '', isExport = 0 } = req.query;
@@ -123,6 +123,151 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
     }
 });
+*/
+
+module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
+
+    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = {}, search = '', isExport = 0 } = req.query;
+    const { user_id } = req;
+
+    // Initialize matchQuery
+    let matchQuery = {
+        // 'penaltyDetails.penaltyAmount': { $ne: 0 },
+        deletedAt: null
+    };
+
+    // Validate and add distiller_id
+    if (mongoose.Types.ObjectId.isValid(user_id)) {
+        matchQuery.distiller_id = new mongoose.Types.ObjectId(user_id);
+    } else {
+        return res.status(400).send({ message: "Invalid distiller" });
+    }
+
+    if (search) {
+        matchQuery.batchId = { $regex: search, $options: "i" };
+    }
+
+    let aggregationPipeline = [
+        { $match: matchQuery },
+        {
+            $lookup: {
+                from: "branches", // Adjust this to your actual collection name for branches
+                localField: "branch_id",
+                foreignField: "_id",
+                as: "branch"
+            }
+        },
+        { $unwind: { path: "$branch", preserveNullAndEmptyArrays: true } },
+        {
+            $lookup: {
+                from: "batchorderprocesses", // Adjust this to your actual collection name for branches
+                localField: "_id",
+                foreignField: "orderId",
+                as: "batchDetails"
+            }
+        },
+
+        // Unwind batchDetails array if necessary
+        { $unwind: { path: "$batchDetails", preserveNullAndEmptyArrays: true } },
+
+        // Unwind penaltyDetails if it's an array (assuming it is)
+        {
+            $unwind: {
+                path: "$batchDetails.penaltyDetails",
+                preserveNullAndEmptyArrays: true
+            }
+        },
+
+        // Group by order ID and sum up penaltyAmount
+        {
+            $group: {
+                _id: "$_id",
+                order_id: { $first: "$purchasedOrder.poNo" },
+                branchName: { $first: "$branch.branchName" },
+                commodity: { $first: "$product.name" },
+                grade: { $first: "$product.grade" },
+                quantityRequired: { $first: "$purchasedOrder.poQuantity" },
+                totalAmount: { $first: "$paymentInfo.totalAmount" },
+                totalPenaltyAmount: {
+                    $sum: {
+                        $ifNull: ["$batchDetails.penaltyDetails.penaltyAmount", 0]
+                    }
+                },
+                paymentStatus: { $first: "$poStatus" }                
+            }
+        },
+
+        // Final Projection
+        {
+            $project: {
+                _id: 1,
+                order_id: 1,
+                branchName: 1,
+                commodity: 1,
+                grade: 1,
+                quantityRequired: 1,
+                totalAmount: 1,
+                totalPenaltyAmount: 1, // Ensure total sum is included
+                paymentStatus: 1
+            }
+        }
+    ];
+
+    if (paginate == 1) {
+        aggregationPipeline.push(
+            { $sort: sortBy },
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) }
+        );
+    } else {
+        aggregationPipeline.push({ $sort: sortBy });
+    }
+
+    const rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
+
+    const countPipeline = [
+        { $match: matchQuery },
+        { $count: "total" }
+    ];
+
+    const countResult = await PurchaseOrderModel.aggregate(countPipeline);
+    const count = countResult[0]?.total || 0;
+
+    const records = { rows, count };
+
+    if (paginate == 1) {
+        records.page = parseInt(page);
+        records.limit = parseInt(limit);
+        records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
+    }
+
+    if (isExport == 1) {
+        const record = rows.map((item) => {
+            return {
+                "Order Id": item?.orderId || "NA",
+                "BO Name": item?.branchName || "NA",
+                "Commodity": item?.product?.name || "NA",
+                "Grade": item?.product?.grade || "NA",
+                "Quantity": item?.product?.quantity || "NA",
+                "MSP": item?.quotedPrice || "NA",
+                "Delivery Location": item?.address?.deliveryLocation || "NA"
+            };
+        });
+
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Requirement-record.xlsx`,
+                worksheetName: `Requirement-record`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("procurement") }));
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
+    }
+});
+
 
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
     try {

@@ -177,6 +177,7 @@ const _userType = {
     agent: "6",
     warehouse: "7",
     distiller: "8",
+    nccf:"9"
 }
 
 const _userStatus = {
@@ -436,7 +437,8 @@ const _frontendLoginRoutes = {
 const _userTypeFrontendRouteMapping = {
     "agent": "6",
     "head-office": "2",
-    "branch-office": "3"
+    "branch-office": "3",
+    "NccfAdmin": "9"
 }
 
 const _poRequestStatus = {
@@ -454,6 +456,7 @@ const _poAdvancePaymentStatus = {
 }
 
 const _poPaymentStatus = {
+    pending: 'Pending',
     paid: 'Paid',
     Unpaid: 'Unpaid',
     reject: 'Reject',

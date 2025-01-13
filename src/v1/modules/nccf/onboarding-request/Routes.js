@@ -1,7 +1,6 @@
 const { getPendingDistillers, getDistillerById, updateApprovalStatus, getPendingMouList, updateMouApprovalStatus } = require("./Controller")
 const { validateForm } = require("@src/v1/modules/distiller/auth/Validation")
 const express = require("express");
-// const { verifyDistiller } = require("../utils/verifyDistiller");
 const { Auth } = require("@src/v1/middlewares/jwt");
 const nccfOnboardingRoutes = express.Router();
 
