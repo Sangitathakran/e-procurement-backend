@@ -162,50 +162,42 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
 
 module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
     try {
-        const { warehouseIds, requiredQuantity } = req.body;
+        const { inventoryData } = req.body;
 
-        // Validate inputs
-        if (!warehouseIds || !Array.isArray(warehouseIds) || warehouseIds.length === 0) {
+        // Validate input
+        if (
+            !inventoryData ||
+            !Array.isArray(inventoryData) ||
+            inventoryData.length === 0 ||
+            inventoryData.some(
+                (item) => !item.warehouseId || typeof item.requiredQuantity !== "number"
+            )
+        ) {
             return res.status(400).send(
                 new serviceResponse({
                     status: 400,
-                    errors: [{ message: "Invalid warehouseIds provided" }],
+                    errors: [{ message: "Invalid inventoryData provided" }],
                 })
             );
         }
 
-        if (!requiredQuantity || typeof requiredQuantity !== 'number') {
-            return res.status(400).send(
-                new serviceResponse({
-                    status: 400,
-                    errors: [{ message: "Invalid requiredQuantity provided" }],
-                })
-            );
-        }
-
-        // Check if any warehouse exists in the provided IDs
-        const record = await wareHouseDetails.findOne({ _id: { $in: warehouseIds } });
-        if (!record) {
-            return res.status(400).send(
-                new serviceResponse({
-                    status: 400,
-                    errors: [{ message: "Selected Warehouse not found" }],
-                })
-            );
-        }
-
-        // Perform update with validation: requiredStock <= stock
-        const result = await wareHouseDetails.updateMany(
-            {
-                _id: { $in: warehouseIds }, // Match warehouses by IDs
-                "inventory.stock": { $gte: requiredQuantity }, // Ensure stock >= requiredQuantity
-            },
-            {
-                $set: {
-                    "inventory.requiredStock": requiredQuantity, // Update requiredStock
+        // Process updates for each warehouseId and requiredQuantity
+        const bulkOperations = inventoryData.map(({ warehouseId, requiredQuantity }) => ({
+            updateOne: {
+                filter: {
+                    _id: warehouseId, // Match the warehouse ID
+                    "inventory.stock": { $gte: requiredQuantity }, // Validate stock
                 },
-            }
-        );
+                update: {
+                    $set: {
+                        "inventory.requiredStock": requiredQuantity, // Update requiredStock
+                    },
+                },
+            },
+        }));
+
+        // Perform bulk write operation
+        const result = await wareHouseDetails.bulkWrite(bulkOperations);
 
         // Handle cases where no matching warehouses were updated
         if (result.matchedCount === 0) {
