@@ -2,21 +2,22 @@ const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const { _userType, _userStatus, _status, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
+const { _userType, _poAdvancePaymentStatus, _status, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { mongoose } = require("mongoose");
 
-module.exports.getDashboardStats = async (req, res) => {
+module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
     try {
         const { user_id } = req;
         const currentDate = new Date();
-       
+
         const wareHouseCount = (await wareHousev2.countDocuments()) ?? 0;
         const purchaseOrderCount = (await PurchaseOrderModel.countDocuments({ distiller_id: user_id })) ?? 0;
-        
+
         const result = await wareHouseDetails.aggregate([
             {
                 $project: {
@@ -50,74 +51,71 @@ module.exports.getDashboardStats = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+})
 
 module.exports.getOrder = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit=5, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-    const { user_id } = req;
-    let query = {
-        'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
-        distiller_id: user_id,
-        ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
-    };
+    try {
+        const { page = 1, limit = 5, skip = 0, paginate = 1, sortBy = "_id", search = '' } = req.query;
+        const { user_id } = req;
 
-    const records = { count: 0 };
+        let matchStage = {
+            'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
+             distiller_id: new mongoose.Types.ObjectId(user_id),
+            deletedAt: null,
+        };
 
-    records.rows = paginate == 1 ? await PurchaseOrderModel.find(query)
-        .sort(sortBy)
-        .skip(skip).populate({ path: "branch_id", select: "_id branchName branchId" })
-        .limit(parseInt(limit)) : await PurchaseOrderModel.find(query).sort(sortBy);
-
-    records.count = await PurchaseOrderModel.countDocuments(query);
-
-    if (paginate == 1) {
-        records.page = page
-        records.limit = limit
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-    }
-
-    if (isExport == 1) {
-
-        const record = records.rows.map((item) => {
-
-            return {
-                "Order Id": item?.reqNo || "NA",
-                "BO Name": item?.branch_id?.branchName || "NA",
-                "Commodity": item?.product?.name || "NA",
-                "Grade": item?.product?.grade || "NA",
-                "Quantity": item?.product?.quantity || "NA",
-                "MSP": item?.quotedPrice || "NA",
-                "Delivery Location": item?.address?.deliveryLocation || "NA"
-            }
-        })
-
-        if (record.length > 0) {
-            dumpJSONToExcel(req, res, {
-                data: record,
-                fileName: `Requirement-record.xlsx`,
-                worksheetName: `Requirement-record`
-            });
-        } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("procurement") }))
-
+        if (search) {
+            matchStage.$purchasedOrder.poNo = { $regex: search, $options: "i" };
         }
-    } else {
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
+
+        let aggregationPipeline = [
+            { $match: matchStage },
+            { $sort: { [sortBy]: 1 } },
+            {
+                $project: {
+                    _id: 1,
+                    'orderId': '$purchasedOrder.poNo',
+                    'commodity': '$product.name',
+                    'quantity': '$purchasedOrder.poQuantity',
+                    'totalAmount': '$paymentInfo.totalAmount'
+                }
+            }
+        ];
+
+        if (paginate == 1) {
+            aggregationPipeline.push(
+                { $skip: parseInt(skip) },
+                { $limit: parseInt(limit) }
+            );
+        }
+
+        const records = { count: 0 };
+        records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
+        records.count = await PurchaseOrderModel.countDocuments(matchStage);
+        
+        if (paginate == 1) {
+            records.page = page;
+            records.limit = limit;
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        }
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: records,
+            message: _response_message.found("Order")
+        }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
     }
 
 })
 
 module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     try {
-        const { page = 1, limit = 5, sortBy, search = '', filters = {}, order_id, isExport = 0 } = req.query;
+        const { page = 1, limit = 5, sortBy, search = '', filters = {}, isExport = 0 } = req.query;
         const skip = (parseInt(page, 5) - 1) * parseInt(limit, 5);
-
-        if (!order_id) {
-            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order_id") }] }));
-        }
-
-        const branch = await PurchaseOrderModel.findOne({ _id: order_id }).select({ _id: 0, branch_id: 1, product: 1 }).lean();
 
         let query = search ? {
             $or: [
@@ -146,8 +144,6 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
             },
             {
                 $project: {
-                    warehouseId: '$warehouseOwner_code',
-                    warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     address: '$warehouseDetails.addressDetails',
                     totalCapicity: "$warehouseDetails.basicDetails.warehouseCapacity",
                     utilizedCapicity: {
@@ -158,10 +154,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                         }
                     },
                     realTimeStock: '$warehouseDetails.inventory.stock',
-                    commodity: branch.product.name,
-                    orderId: order_id,
-                    warehouseOwnerId: '$warehouseDetails.warehouseOwnerId',
-                    warehouseDetailsId: '$warehouseDetails._id',
+                    distance: "100 KM",
                 }
             },
 
