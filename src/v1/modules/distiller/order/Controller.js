@@ -17,7 +17,7 @@ module.exports.getOrder = asyncErrorHandler(async (req, res) => {
     const { user_id } = req;
     let query = {
         'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
-        distiller_id: user_id,
+        distiller_id: new mongoose.Types.ObjectId(user_id),
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
     };
 
