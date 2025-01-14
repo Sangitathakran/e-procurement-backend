@@ -18,7 +18,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     // Initialize matchQuery
     let matchQuery = {
-        // 'penaltyDetails.penaltyAmount': { $ne: 0 },
+        'paymentInfo.penaltyStaus': _penaltypaymentStatus.NA,
         deletedAt: null
     };
 

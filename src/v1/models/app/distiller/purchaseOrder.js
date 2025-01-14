@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _poRequestStatus, _poAdvancePaymentStatus, _poPaymentStatus } = require('@src/v1/utils/constants');
+const { _collectionName, _poRequestStatus, _poAdvancePaymentStatus, _poPaymentStatus, _penaltypaymentStatus } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const purchaseOrderSchema = new mongoose.Schema({
@@ -31,7 +31,9 @@ const purchaseOrderSchema = new mongoose.Schema({
     balancePayment: { type: Number, default: 0 }, // Auto-calculated: 97% of totalAmount
     balancePaymentDate: { type: Date },
     paidAmount: { type: Number, default: 0 },
-    tax: { type: Number, default: 0 }
+    tax: { type: Number, default: 0 },
+    penaltyAmount:{ type: Number, default: 0 },
+    penaltyStaus:{ type: String, enum: Object.values(_penaltypaymentStatus), default: _penaltypaymentStatus.NA }
   },
 
   companyDetails: {

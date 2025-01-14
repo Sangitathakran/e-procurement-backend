@@ -1,7 +1,7 @@
 const { _generateOrderNumber, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
-const { _webSocketEvents, _status, _poRequestStatus, _poPaymentStatus, _poAdvancePaymentStatus } = require('@src/v1/utils/constants');
+const { _webSocketEvents, _penaltypaymentStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
@@ -10,14 +10,13 @@ const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrd
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 const mongoose = require('mongoose');
 
-
 module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = {}, search = '', isExport = 0 } = req.query;
 
     // Initialize matchQuery
     let matchQuery = {
-        // 'penaltyDetails.penaltyAmount': { $ne: 0 },
+        'paymentInfo.penaltyStaus': _penaltypaymentStatus.NA,
         deletedAt: null
     };
 
@@ -183,6 +182,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     actualPickupDate: 1,
                     totalAmount: '$payment.amount',
                     penaltyAmount: "$penaltyDetails.penaltyAmount",
+                    penaltypaymentStatus: "$penaltyDetails.penaltypaymentStatus",
                     pickupStatus: 1,
                     orderId: order_id
                 }
@@ -211,6 +211,46 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
         } else {
             return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
         }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+});
+
+module.exports.waiveOff = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchIds = [] } = req.body;
+        const { user_id } = req;
+
+        const record = await BatchOrderProcess.findOne({ _id: { $in: batchIds } });
+
+        if (!record) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "selected Warehouse not found" }] }));
+        }
+
+        let result = '';
+
+        for (let batchId of batchIds) {
+
+            // Update the quantity remaining
+            result = await BatchOrderProcess.updateOne(
+                { _id: batchId._id },
+                {
+                    $set: {
+                        'penaltyDetails.penaltyAmount': 0,
+                        'penaltyDetails.comment': batchId.message,
+                        'penaltyDetails.penaltypaymentStatus': _penaltypaymentStatus.waiveOff
+                    }
+                }
+               
+            );
+        }
+
+        if (result.matchedCount === 0) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Waived Off updated successfully`, }));
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }
