@@ -1,7 +1,7 @@
 const { _generateOrderNumber, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
-const { _webSocketEvents, _status, _poRequestStatus, _poPaymentStatus, _poAdvancePaymentStatus } = require('@src/v1/utils/constants');
+const { _webSocketEvents, _status, _penaltypaymentStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
