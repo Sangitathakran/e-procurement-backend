@@ -1,3 +1,4 @@
+const { NA } = require("xlsx-populate/lib/FormulaError")
 
 
 const _collectionName = {
@@ -476,6 +477,14 @@ const _poBatchStatus = {
     completed: 'Completed',
 }
 
+const _penaltypaymentStatus = {
+    NA: 'Not Applicable',
+    pending: 'Pending',
+    paid: 'Paid',
+    overdue: 'Overdue',
+    waiveOff: 'Waive Off',
+}
+
 module.exports = {
     _userAction,
     _farmerType,
@@ -536,5 +545,6 @@ module.exports = {
     _poAdvancePaymentStatus,
     _poPaymentStatus,
     _poPickupStatus,
-    _poBatchStatus
+    _poBatchStatus,
+    _penaltypaymentStatus
 }
