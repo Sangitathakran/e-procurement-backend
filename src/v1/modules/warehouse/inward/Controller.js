@@ -11,7 +11,7 @@ const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 
 module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
     const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0 } = req.query;
-    const { warehouseCodes = [] } = req.body; // Updated to use warehouseCodes
+    const { warehouseIds = [] } = req.body; // Updated to use warehouseIds
 
     try {
         const getToken = req.headers.token || req.cookies.token;
@@ -27,13 +27,13 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
         }
 
         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
-        const ownerWarehouseCodes = warehouseDetails.map(warehouse => warehouse.wareHouse_code.toString());
+        const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
 
-        const finalWarehouseCodes = Array.isArray(warehouseCodes) && warehouseCodes.length
-            ? warehouseCodes.filter(code => ownerWarehouseCodes.includes(code))
-            : ownerWarehouseCodes;
+        const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
+            ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
+            : ownerwarehouseIds;
 
-        if (!finalWarehouseCodes.length) {
+        if (!finalwarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
                 data: { records: [], page, limit, pages: 0 },
@@ -42,7 +42,7 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
         }
 
         const query = {
-            "warehousedetails_id.wareHouse_code": { $in: finalWarehouseCodes },
+            "warehousedetails_id._id": { $in: finalwarehouseIds },
             ...(search && {
                 $or: [
                     { batchId: { $regex: search, $options: 'i' } },
@@ -103,8 +103,6 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
     }
 });
 
-
-
 module.exports.batchApproveOrReject = async (req, res) => {
     try {
         const { batchId, status, product_images = [], qc_images = [] } = req.body;
@@ -143,27 +141,6 @@ module.exports.batchApproveOrReject = async (req, res) => {
         record.wareHouse_approve_status = status === "Approved" ? "Approved" : "Rejected";
         record.wareHouse_approve_at = new Date();
         record.wareHouse_approve_by = UserId;
-
-        // Send email notification
-        // const subject = status === "approved"
-        //     ? `Batch Approved: Notification for Batch ID ${record._id}`
-        //     : `Batch Rejected: Notification for Batch ID ${record._id}`;
-
-        // const body = status === "approved"
-        //     ? `<p>Dear User,</p>
-        //        <p>The batch with ID <strong>${record._id}</strong> has been <strong>approved</strong>.</p>
-        //        ${product_images.length > 0 ? `<p>Product Images: ${product_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
-        //        ${qc_images.length > 0 ? `<p>QC Images: ${qc_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
-        //        <p>Warm regards,</p>
-        //        <p>Team</p>`
-        //     : `<p>Dear User,</p>
-        //        <p>The batch with ID <strong>${record._id}</strong> has been <strong>rejected</strong>.</p>
-        //        ${product_images.length > 0 ? `<p>Product Images: ${product_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
-        //        ${qc_images.length > 0 ? `<p>QC Images: ${qc_images.map(img => `<a href='${img}'>View</a>`).join(', ')}</p>` : ''}
-        //        <p>Warm regards,</p>
-        //        <p>Team</p>`;
-
-        // await sendMail("nagma@navankur.org", "", subject, body);
 
         // Save the updated batch record
         await record.save();
