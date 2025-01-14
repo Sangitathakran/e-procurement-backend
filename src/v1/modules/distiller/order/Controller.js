@@ -230,19 +230,13 @@ module.exports.deliveryScheduledBatchList = asyncErrorHandler(async (req, res) =
                 $project: {
                     batchId: 1,
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
-                    // branchName: "$branch.branchName",
-                    // commodity: "$OrderDetails.product.name",
-                    // grade: "$OrderDetails.product.grade",
                     pickupLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
                     amount: '$payment.amount',
-                    // penaltyAmount: "$penaltyDetails.penaltyAmount",
                     scheduledPickupDate: 1,
                     actualPickupDate: 1,
                     max_lifting_period: "7 days from scheduled pick-up date",
                     pickupStatus: 1,
-                    // distiller_id: 1,
-                    // warehouseId: 1,
                     orderId: order_id
                 }
             },
@@ -314,7 +308,6 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
             {
                 $project: {
                     purchaseId: '$batchId',
-                    // warehouseName: '$warehouseDetails.basicDetails.warehouseName',                    
                     quantityRequired: 1,
                     amount: '$payment.amount',
                     scheduledPickupDate: 1,

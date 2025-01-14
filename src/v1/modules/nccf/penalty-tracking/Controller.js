@@ -14,20 +14,12 @@ const mongoose = require('mongoose');
 module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = {}, search = '', isExport = 0 } = req.query;
-    const { user_id } = req;
 
     // Initialize matchQuery
     let matchQuery = {
         // 'penaltyDetails.penaltyAmount': { $ne: 0 },
         deletedAt: null
     };
-
-    // Validate and add distiller_id
-    if (mongoose.Types.ObjectId.isValid(user_id)) {
-        matchQuery.distiller_id = new mongoose.Types.ObjectId(user_id);
-    } else {
-        return res.status(400).send({ message: "Invalid distiller" });
-    }
 
     if (search) {
         matchQuery.batchId = { $regex: search, $options: "i" };
@@ -37,13 +29,14 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
         { $match: matchQuery },
         {
             $lookup: {
-                from: "branches", // Adjust this to your actual collection name for branches
-                localField: "branch_id",
+                from: "distillers", // Adjust this to your actual collection name for branches
+                localField: "distiller_id",
                 foreignField: "_id",
-                as: "branch"
+                as: "distillerDetails"
             }
         },
-        { $unwind: { path: "$branch", preserveNullAndEmptyArrays: true } },
+        // Unwind batchDetails array if necessary
+        { $unwind: { path: "$distillerDetails", preserveNullAndEmptyArrays: true } },
         {
             $lookup: {
                 from: "batchorderprocesses", // Adjust this to your actual collection name for branches
@@ -69,17 +62,18 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
             $group: {
                 _id: "$_id",
                 order_id: { $first: "$purchasedOrder.poNo" },
-                branchName: { $first: "$branch.branchName" },
+                distillerName: { $first: "$distillerDetails.basic_details.distiller_details.organization_name" },
                 commodity: { $first: "$product.name" },
-                grade: { $first: "$product.grade" },
                 quantityRequired: { $first: "$purchasedOrder.poQuantity" },
                 totalAmount: { $first: "$paymentInfo.totalAmount" },
+                paymentSent: { $first: "$paymentInfo.paidAmount" },
+                outstandingPayment: { $first: "$paymentInfo.balancePayment" },
                 totalPenaltyAmount: {
                     $sum: {
                         $ifNull: ["$batchDetails.penaltyDetails.penaltyAmount", 0]
                     }
                 },
-                paymentStatus: { $first: "$poStatus" }                
+                paymentStatus: { $first: "$poStatus" }
             }
         },
 
@@ -88,11 +82,12 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
             $project: {
                 _id: 1,
                 order_id: 1,
-                branchName: 1,
+                distillerName: 1,
                 commodity: 1,
-                grade: 1,
                 quantityRequired: 1,
                 totalAmount: 1,
+                paymentSent: 1,
+                outstandingPayment: 1,
                 totalPenaltyAmount: 1, // Ensure total sum is included
                 paymentStatus: 1
             }
@@ -166,7 +161,6 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
 
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
-            distiller_id: new mongoose.Types.ObjectId(user_id),
             ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
