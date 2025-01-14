@@ -13,7 +13,7 @@ const mongoose = require('mongoose');
 
 module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
-    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = {}, search = '', isExport = 0 } = req.query;
+    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
     const { user_id } = req;
 
     // Initialize matchQuery
@@ -101,12 +101,12 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     if (paginate == 1) {
         aggregationPipeline.push(
-            { $sort: sortBy },
+            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } }, // Secondary sort by _id for stability
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
         );
     } else {
-        aggregationPipeline.push({ $sort: sortBy });
+        aggregationPipeline.push( { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
     }
 
     const rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
