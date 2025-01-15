@@ -159,10 +159,10 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
                     as: "batchDetails"
                 }
             },
-    
+
             // Unwind batchDetails array if necessary
             { $unwind: { path: "$batchDetails", preserveNullAndEmptyArrays: true } },
-    
+
             // Unwind penaltyDetails if it's an array (assuming it is)
             {
                 $unwind: {
@@ -170,7 +170,7 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
                     preserveNullAndEmptyArrays: true
                 }
             },
-    
+
             // Group by order ID and sum up penaltyAmount
             {
                 $group: {
@@ -190,7 +190,7 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
                     paymentStatus: { $first: "$poStatus" }
                 }
             },
-    
+
             // Final Projection
             {
                 $project: {
@@ -234,5 +234,64 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 
     } catch (error) {
         _handleCatchErrors(error, res);
+    }
+});
+
+module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
+
+    const page = 1, limit = 5, sortBy = 'createdAt', sortOrder = 'asc', isExport = 0;
+
+    try {
+
+        // Fetch data with pagination and sorting
+        const warehouses = await wareHouseDetails.find()
+            .select()
+            .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+            .skip((page - 1) * limit)
+            .limit(parseInt(limit));
+
+        // Count total warehouses
+        const totalWarehouses = await wareHouseDetails.countDocuments();
+        const activeWarehouses = await wareHouseDetails.countDocuments({ active: true });
+        const inactiveWarehouses = totalWarehouses - activeWarehouses;
+
+        // Handle export functionality
+        if (isExport == 1) {
+            const exportData = warehouses.map(item => ({
+                "Warehouse ID": item._id,
+                "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
+                "City": item.addressDetails?.city || 'NA',
+                "State": item.addressDetails?.state || 'NA',
+                "Status": item.active ? 'Active' : 'Inactive',
+            }));
+
+            if (exportData.length) {
+                return dumpJSONToExcel(req, res, {
+                    data: exportData,
+                    fileName: `Warehouse-List.xlsx`,
+                    worksheetName: `Warehouses`
+                });
+            }
+
+            return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
+        }
+
+        // Return paginated results
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: {
+                records: warehouses,
+                page,
+                limit,
+                totalRecords: totalWarehouses,
+                activeRecords: activeWarehouses,
+                inactiveRecords: inactiveWarehouses,
+                pages: Math.ceil(totalWarehouses / limit)
+            },
+            message: "Warehouses fetched successfully"
+        }));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching warehouses", error: error.message }));
     }
 });
