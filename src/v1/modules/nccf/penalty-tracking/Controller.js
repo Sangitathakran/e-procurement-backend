@@ -12,11 +12,11 @@ const mongoose = require('mongoose');
 
 module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
-    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = {}, search = '', isExport = 0 } = req.query;
+    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
     // Initialize matchQuery
     let matchQuery = {
-        'paymentInfo.penaltyStaus': _penaltypaymentStatus.NA,
+        'paymentInfo.penaltyStaus': { $ne: _penaltypaymentStatus.NA },
         deletedAt: null
     };
 
@@ -95,12 +95,12 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     if (paginate == 1) {
         aggregationPipeline.push(
-            { $sort: sortBy },
+            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } }, // Secondary sort by _id for stability
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
         );
     } else {
-        aggregationPipeline.push({ $sort: sortBy });
+        aggregationPipeline.push( { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
     }
 
     const rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
@@ -221,35 +221,51 @@ module.exports.waiveOff = asyncErrorHandler(async (req, res) => {
         const { batchIds = [] } = req.body;
         const { user_id } = req;
 
-        const record = await BatchOrderProcess.findOne({ _id: { $in: batchIds } });
-
-        if (!record) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "selected Warehouse not found" }] }));
+        if (!batchIds.length) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                errors: [{ message: "No batch IDs provided" }]
+            }));
         }
 
-        let result = '';
+        // Fetch all matching batch records along with their order IDs
+        const records = await BatchOrderProcess.find({ _id: { $in: batchIds.map(b => b._id) } }, { orderId: 1 });
 
-        for (let batchId of batchIds) {
+        if (!records.length) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                errors: [{ message: "No matching batches found" }]
+            }));
+        }
 
-            // Update the quantity remaining
-            result = await BatchOrderProcess.updateOne(
-                { _id: batchId._id },
-                {
-                    $set: {
-                        'penaltyDetails.penaltyAmount': 0,
-                        'penaltyDetails.comment': batchId.message,
-                        'penaltyDetails.penaltypaymentStatus': _penaltypaymentStatus.waiveOff
-                    }
+        // Extract order IDs from the fetched records
+        const orderIds = records.map(record => record.orderId);
+
+        // Update batches: Set penaltyAmount to 0 and update payment status
+        const batchUpdateResult = await BatchOrderProcess.updateMany(
+            { _id: { $in: batchIds.map(b => b._id) } },
+            {
+                $set: {
+                    'penaltyDetails.penaltyAmount': 0,
+                    'penaltyDetails.penaltypaymentStatus': _penaltypaymentStatus.waiveOff
                 }
-               
-            );
-        }
+            }
+        );
 
-        if (result.matchedCount === 0) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
-        }
+        // Update orders linked to the batch IDs
+        const purchaseOrderModelResult = await PurchaseOrderModel.updateMany(
+            { _id: { $in: orderIds } },
+            {
+                $set: {
+                    'paymentInfo.penaltyStaus': _penaltypaymentStatus.waiveOff // Modify this as needed
+                }
+            }
+        );
 
-        return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Waived Off updated successfully`, }));
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            message: `${batchUpdateResult.modifiedCount} batches waived off successfully, and ${purchaseOrderModelResult.modifiedCount} orders updated`
+        }));
 
     } catch (error) {
         _handleCatchErrors(error, res);

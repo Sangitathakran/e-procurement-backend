@@ -593,6 +593,9 @@ module.exports.getFarmers = async (req, res) => {
     }
     else if (is_associated == 0) {
       query.associate_id = null;
+      query.farmer_id = { $ne: null };
+      query.name = { $ne: null }; 
+      query.mobile_no = { $ne: null }; 
     } else {
       query = {};
     }
@@ -2652,5 +2655,3 @@ module.exports.addDistrictCity = async (req, res) => {
     return res.status(500).json({ message: "Internal server error.", error: error.message });
   }
 };
-
-

@@ -50,7 +50,7 @@ const _collectionName = {
     ManufacturingUnit: "ManufacturingUnit",
     StorageFacility: "StorageFacility",
     PurchaseOrder: "PurchaseOrder",
-    BatchOrderProcess:"batchOrderProcess",
+    BatchOrderProcess: "batchOrderProcess",
 
 }
 
@@ -342,7 +342,9 @@ const _batchStatus = {
     paymentApproved: "Payment Approved",
     FinalPayApproved: "Final Payment Approved",
     paymentInTransit: "Payment In Progress",
-    paymentComplete: "Payment Complete"
+    paymentComplete: "Payment Complete",
+    failed: "Failed",
+    partiallyCompleted: "Partially Completed",
 }
 
 const _paymentmethod = {
@@ -353,7 +355,7 @@ const _paymentmethod = {
 const _paymentstatus = {
     pending: "Pending",
     inProgress: "In Progress",
-    failed:"Failed",
+    failed: "Failed",
     completed: "Completed",
     rejected: "Rejected"
 }
