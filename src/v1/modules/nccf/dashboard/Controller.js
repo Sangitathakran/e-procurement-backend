@@ -95,7 +95,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 module.exports.getonBoardingRequests = asyncErrorHandler(async (req, res) => {
     try {
 
-        const { page = 1, limit = 5 } = req.body;
+        const page = 1, limit = 5;
 
         const data = await Distiller.aggregate([
             {
@@ -138,62 +138,84 @@ module.exports.getonBoardingRequests = asyncErrorHandler(async (req, res) => {
 module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
     try {
 
-        const { page = 1, limit = 5, skip = 0, paginate = 1, sortBy } = req.query;
-
-        let matchQuery = {
-            deletedAt: null
-        };
+        const page = 1, limit = 5, paginate = 1;
 
         let aggregationPipeline = [
-            { $match: matchQuery },
             {
                 $lookup: {
-                    from: "distillers",
+                    from: "distillers", // Adjust this to your actual collection name for branches
                     localField: "distiller_id",
                     foreignField: "_id",
                     as: "distillerDetails"
                 }
             },
+            // Unwind batchDetails array if necessary
+            { $unwind: { path: "$distillerDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "batchorderprocesses", // Adjust this to your actual collection name for branches
+                    localField: "_id",
+                    foreignField: "orderId",
+                    as: "batchDetails"
+                }
+            },
+    
+            // Unwind batchDetails array if necessary
+            { $unwind: { path: "$batchDetails", preserveNullAndEmptyArrays: true } },
+    
+            // Unwind penaltyDetails if it's an array (assuming it is)
             {
                 $unwind: {
-                    path: "$distillerDetails",
+                    path: "$batchDetails.penaltyDetails",
                     preserveNullAndEmptyArrays: true
                 }
             },
+    
+            // Group by order ID and sum up penaltyAmount
             {
                 $group: {
                     _id: "$_id",
                     order_id: { $first: "$purchasedOrder.poNo" },
-                    distiller_id: { $first: "$distiller_id" },
-                    distiller_name: { $first: "$distillerDetails.basic_details.distiller_details.organization_name" },
-                    quantityRequired: { $first: "$purchasedOrder.poQuantity" }
+                    distillerName: { $first: "$distillerDetails.basic_details.distiller_details.organization_name" },
+                    commodity: { $first: "$product.name" },
+                    quantityRequired: { $first: "$purchasedOrder.poQuantity" },
+                    totalAmount: { $first: "$paymentInfo.totalAmount" },
+                    paymentSent: { $first: "$paymentInfo.paidAmount" },
+                    outstandingPayment: { $first: "$paymentInfo.balancePayment" },
+                    totalPenaltyAmount: {
+                        $sum: {
+                            $ifNull: ["$batchDetails.penaltyDetails.penaltyAmount", 0]
+                        }
+                    },
+                    paymentStatus: { $first: "$poStatus" }
                 }
             },
+    
+            // Final Projection
             {
                 $project: {
-                    _id: 0,
+                    _id: 1,
                     order_id: 1,
-                    distiller_id: 1,
-                    distiller_name: 1,
-                    quantityRequired: 1
+                    distillerName: 1,
+                    commodity: 1,
+                    quantityRequired: 1,
+                    totalAmount: 1,
+                    paymentSent: 1,
+                    outstandingPayment: 1,
+                    totalPenaltyAmount: 1, // Ensure total sum is included
+                    paymentStatus: 1
                 }
             }
         ];
 
-        if (paginate == 1) {
-            aggregationPipeline.push(
-                { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
-                { $skip: parseInt(skip) },
-                { $limit: parseInt(limit) }
-            );
-        } else {
-            aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
-        }
+        aggregationPipeline.push(
+            { $sort: { 'createdAt': -1, _id: 1 } },
+            { $limit: parseInt(limit) }
+        );
 
         const rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
 
         const countPipeline = [
-            { $match: matchQuery },
             { $count: "total" }
         ];
 
@@ -208,7 +230,7 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Distiller Data") }));
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("NCCF dashboard penalty status") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
