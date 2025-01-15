@@ -95,16 +95,42 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 module.exports.getonBoardingRequests = asyncErrorHandler(async (req, res) => {
     try {
 
-        const pipline = [
-            {
-                $project: {
-                    _id: 1,
+            const { page = 1, limit = 5 } = req.body;
 
-                }
+            const data = await Distiller.aggregate([
+                {
+                    $project: {
+                        distiller_name: "$basic_details.distiller_details.organization_name",
+                        distiller_id: "$user_code",
+                        status: "$is_approved",
+                    },
+                },
+            ])
+                .skip((page - 1) * limit)
+                .limit(limit);
+
+            const totalCount = await Distiller.countDocuments();
+
+            const records = {
+                data,
+                meta: {
+                    total: totalCount,
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    totalPages: Math.ceil(totalCount / limit),
+                },
             }
-        ]
 
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-});
+            return res.send(
+                new serviceResponse({
+                    status: 200,
+                    data: records,
+                    message: _response_message.found("NCCF dashboard onboarding requests"),
+                })
+            );
+
+
+        } catch (error) {
+            _handleCatchErrors(error, res);
+        }
+    });

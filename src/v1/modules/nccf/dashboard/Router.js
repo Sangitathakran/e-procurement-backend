@@ -6,6 +6,6 @@ const nccfDashboardRoutes = express.Router();
 
 
 nccfDashboardRoutes.get("/", getDashboardStats);
-// nccfDashboardRoutes.get("/onboarding-requests", getonBoardingRequests);
+nccfDashboardRoutes.get("/onboarding-requests", getonBoardingRequests);
 
 module.exports = { nccfDashboardRoutes }; 
