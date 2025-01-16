@@ -9,7 +9,7 @@ const { _userType, _userStatus, _poAdvancePaymentStatus } = require('@src/v1/uti
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
-const mongoose = require('mongoose');
+
 
 
 module.exports.getOrders = asyncErrorHandler(async (req, res) => {
@@ -33,21 +33,56 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
                 from: "distillers", // Adjust this to your actual collection name for branches
                 localField: "distiller_id",
                 foreignField: "_id",
-                as: "distiller"
+                as: "distillerDetails"
             }
         },
-        { $unwind: { path: "$distiller", preserveNullAndEmptyArrays: true } },
+        { $unwind: { path: "$distillerDetails", preserveNullAndEmptyArrays: true } },
+        // Unwind batchDetails array if necessary
+        { $unwind: { path: "$batchDetails", preserveNullAndEmptyArrays: true } },
+
+        // Unwind penaltyDetails if it's an array (assuming it is)
+        {
+            $unwind: {
+                path: "$batchDetails.penaltyDetails",
+                preserveNullAndEmptyArrays: true
+            }
+        },
+
+        // Group by order ID and sum up penaltyAmount
+        {
+            $group: {
+                _id: "$_id",
+                order_id: { $first: "$purchasedOrder.poNo" },
+                distillerName: { $first: "$distillerDetails.basic_details.distiller_details.organization_name" },
+                commodity: { $first: "$product.name" },
+                quantityRequired: { $first: "$purchasedOrder.poQuantity" },
+                totalAmount: { $first: "$paymentInfo.totalAmount" },
+                recievedPayment: { $first: "$paymentInfo.paidAmount" },
+                outstandingPayment: { $first: "$paymentInfo.balancePayment" },
+                totalPenaltyAmount: {
+                    $sum: {
+                        $ifNull: ["$batchDetails.penaltyDetails.penaltyAmount", 0]
+                    }
+                },
+                paymentStatus: { $first: "$poStatus" },
+                penaltyStatus: { $first: "$paymentInfo.penaltyStaus"}
+            }
+        },
+
+        // Final Projection
         {
             $project: {
                 _id: 1,
-                'orderId': '$purchasedOrder.poNo',
-                'distillerName': '$distiller.basic_details.distiller_details.organization_name',
-                'quantity': '$purchasedOrder.poQuantity',
-                'totalAmount': '$paymentInfo.totalAmount',
-                'advancePayment': '$paymentInfo.advancePayment',
-                'remainingAmount': '$paymentInfo.balancePayment',
-                createdAt: 1,
-                'address': '$distiller.address.registered',
+                order_id: 1,
+                distillerName: 1,
+                commodity: 1,
+                quantityRequired: 1,
+                totalAmount: 1,
+                recievedPayment: 1,
+                outstandingPayment: 1,
+                totalPenaltyAmount: 1, // Ensure total sum is included
+                paymentStatus: 1,
+                penaltyStatus: 1
             }
         }
     ];
