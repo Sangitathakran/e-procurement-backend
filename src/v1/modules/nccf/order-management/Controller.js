@@ -215,28 +215,68 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
 
 module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
     try {
-        const { warehouseIds, requiredQuantity } = req.body;
-        const record = await wareHouseDetails.findOne({ _id: { $in: warehouseIds } });
+        const { inventoryData } = req.body;
 
-        if (!record) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "selected Warehouse not found" }] }));
+        // Validate input
+        if (!inventoryData || !Array.isArray(inventoryData) || inventoryData.length === 0 ||
+            inventoryData.some((item) => !item.warehouseId || typeof item.requiredQuantity !== "number")
+        ) {
+            return res.status(400).send(
+                new serviceResponse({ status: 400, errors: [{ message: "Invalid inventoryData provided" }] })
+            );
         }
 
-        const result = await wareHouseDetails.updateMany(
-            { _id: { $in: warehouseIds } }, // Match any warehouseIds in the provided array
-            {
-                $set: {
-                    'inventory.requiredStock': requiredQuantity
+        // Fetch all warehouses to validate stock
+        const warehouseIds = inventoryData.map((item) => item.warehouseId);
+        const warehouses = await wareHouseDetails.find({ _id: { $in: warehouseIds } });
+
+        // Check if all warehouseIds are valid
+        if (warehouses.length !== inventoryData.length) {
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    errors: [{ message: "Some warehouses were not found" }],
+                })
+            );
+        }
+
+        // Validate requiredStock against inventory.stock
+        for (const { warehouseId, requiredQuantity } of inventoryData) {
+            const warehouse = warehouses.find((w) => w._id.toString() === warehouseId);
+            if (!warehouse) {
+                return res.status(400).send(
+                    new serviceResponse({ status: 400, errors: [{ message: `Warehouse ${warehouseId} not found` }] })
+                );
+            }
+            if (requiredQuantity > warehouse.inventory.stock) {
+                return res.status(400).send(
+                    new serviceResponse({
+                        status: 400,
+                        errors: [
+                            {
+                                message: `Required quantity ${requiredQuantity} exceeds stock ${warehouse.inventory.stock} for warehouse ${warehouseId}`,
+                            },
+                        ],
+                    })
+                );
+            }
+        }
+
+        // Perform bulk update
+        const bulkOperations = inventoryData.map(
+            ({ warehouseId, requiredQuantity }) => ({
+                updateOne: {
+                    filter: { _id: warehouseId },
+                    update: { $set: { "inventory.requiredStock": requiredQuantity } },
                 },
-            } // Set the new status for matching documents
+            })
         );
 
-        if (result.matchedCount === 0) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Warehouse found" }] }));
-        }
+        const result = await wareHouseDetails.bulkWrite(bulkOperations);
 
-        return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Required Quantity updated successfully`, }));
-
+        return res.status(200).send(
+            new serviceResponse({ status: 200, message: `${result.modifiedCount} Required Quantity updated successfully`, })
+        );
     } catch (error) {
         _handleCatchErrors(error, res);
     }

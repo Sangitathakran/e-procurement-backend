@@ -6,8 +6,8 @@ const { Auth } = require("@src/v1/middlewares/jwt");
 
 const distillerManagementRoute = express.Router();
 
-distillerManagementRoute.get("/",  getDistiller);
-distillerManagementRoute.get('/:id', getDistillerById);
-distillerManagementRoute.post("/dist-bulkuplod",bulkuplodDistiller)
+distillerManagementRoute.get("/", Auth,  getDistiller);
+distillerManagementRoute.get('/:id', Auth, getDistillerById);
+distillerManagementRoute.post("/dist-bulkuplod",bulkuplodDistiller);
 
 module.exports = { distillerManagementRoute }; 

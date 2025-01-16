@@ -4,9 +4,9 @@ const express = require("express");
 const { Auth } = require("@src/v1/middlewares/jwt");
 const nccfOrderRoutes = express.Router();
 
-nccfOrderRoutes.get("/", getOrders);
-nccfOrderRoutes.get('/warehouseList', warehouseList);
-nccfOrderRoutes.get('/:id', getOrderById);
-nccfOrderRoutes.put("/requiredStockUpdate", requiredStockUpdate);
+nccfOrderRoutes.get("/", Auth, getOrders);
+nccfOrderRoutes.get('/warehouseList', Auth, warehouseList);
+nccfOrderRoutes.get('/:id', Auth, getOrderById);
+nccfOrderRoutes.put("/requiredStockUpdate", Auth, requiredStockUpdate);
 
 module.exports = { nccfOrderRoutes }; 

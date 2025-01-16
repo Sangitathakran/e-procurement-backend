@@ -58,9 +58,9 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
                 address: { $first: '$address' },
                 request_date: { $first: '$request_date' },
                 status: { $first: '$status' },
-                products: {
+                commodity: {
                     $push: {
-                        product_name: '$_id.product_name',
+                        commodity_name: '$_id.product_name',
                         total_quantity: '$total_quantity',
                     },
                 },
@@ -74,7 +74,7 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
                 address: 1,
                 request_date: 1,
                 status: 1,
-                products: 1,
+                commodity: 1,
             }
         }
     ];
