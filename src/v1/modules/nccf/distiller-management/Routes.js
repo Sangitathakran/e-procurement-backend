@@ -6,6 +6,6 @@ const { Auth } = require("@src/v1/middlewares/jwt");
 
 const distillerManagementRoute = express.Router();
 
-distillerManagementRoute.get("/",  getDistiller);
+distillerManagementRoute.get("/", Auth, getDistiller);
 
 module.exports = { distillerManagementRoute }; 

@@ -208,24 +208,6 @@ module.exports.deliveryScheduledBatchList = asyncErrorHandler(async (req, res) =
                 },
             },
             { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
-            // {
-            //     $lookup: {
-            //         from: "branches", // Adjust this to your actual collection name for branches
-            //         localField: "branch_id",
-            //         foreignField: "_id",
-            //         as: "branch"
-            //     }
-            // },
-            // { $unwind: { path: "$branch", preserveNullAndEmptyArrays: true } },
-            // {
-            //     $lookup: {
-            //         from: "purchaseorders", // Adjust this to your actual collection name for branches
-            //         localField: "orderId",
-            //         foreignField: "_id",
-            //         as: "OrderDetails"
-            //     }
-            // },
-            // { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $project: {
                     batchId: 1,

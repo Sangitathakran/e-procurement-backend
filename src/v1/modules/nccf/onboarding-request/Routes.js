@@ -4,16 +4,10 @@ const express = require("express");
 const { Auth } = require("@src/v1/middlewares/jwt");
 const nccfOnboardingRoutes = express.Router();
 
-// nccfOnboardingRoutes.get("/pending-distillers", Auth, getPendingDistillers);
-// nccfOnboardingRoutes.get('/:id', Auth, getDistillerById);
-// nccfOnboardingRoutes.patch("/distillers-approve", Auth, updateApprovalStatus);
-// nccfOnboardingRoutes.get("/pending-Mou-list", Auth, getPendingMouList);
-// nccfOnboardingRoutes.patch("/mou-approval", Auth, updateMouApprovalStatus);
-
-nccfOnboardingRoutes.get("/", getPendingDistillers);
-nccfOnboardingRoutes.get("/pending-Mou-list", getPendingMouList);
-nccfOnboardingRoutes.get('/:id', getDistillerById);
-nccfOnboardingRoutes.patch("/distillers-approve", updateApprovalStatus);
-nccfOnboardingRoutes.patch("/mou-approval", updateMouApprovalStatus);
+nccfOnboardingRoutes.get("/", Auth, getPendingDistillers);
+nccfOnboardingRoutes.get("/pending-Mou-list", Auth, getPendingMouList);
+nccfOnboardingRoutes.get('/:id', Auth, getDistillerById);
+nccfOnboardingRoutes.patch("/distillers-approve", Auth, updateApprovalStatus);
+nccfOnboardingRoutes.patch("/mou-approval", Auth, updateMouApprovalStatus);
 
 module.exports = { nccfOnboardingRoutes }; 
