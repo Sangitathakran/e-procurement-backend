@@ -1,7 +1,7 @@
 const { _generateOrderNumber, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
-const { _webSocketEvents, _status, _poRequestStatus, _poPaymentStatus, _userStatus } = require('@src/v1/utils/constants');
+const { _webSocketEvents, _poAdvancePaymentStatus, _poRequestStatus, _poPaymentStatus, _userStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
@@ -65,7 +65,9 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
             advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 3% of totalAmount
             balancePayment: handleDecimal(remainingAmount), // Auto-calculated: 97% of totalAmount
             tax: _taxValue(),
-            paidAmount: handleDecimal(totalAmount),
+            paidAmount: handleDecimal(tokenAmount),
+            // advancePaymentStatus:_poAdvancePaymentStatus.pending
+            advancePaymentStatus:_poAdvancePaymentStatus.paid
         },
         companyDetails,
         additionalDetails,
