@@ -1,4 +1,4 @@
-const { _generateOrderNumber, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
+const { _generateOrderNumber, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { _webSocketEvents, _status, _poRequestStatus, _poPaymentStatus, _poAdvancePaymentStatus } = require('@src/v1/utils/constants');
@@ -131,7 +131,8 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         }
     }
 
-    const msp = 24470;
+    // const msp = 24470;
+    const msp = _distillerMsp();
     const totalAmount = handleDecimal(paymentInfo.totalAmount);
     const tokenAmount = handleDecimal(paymentInfo.advancePayment);
     const remainingAmount = handleDecimal(paymentInfo.balancePayment);
@@ -155,7 +156,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     }
 
     let currentDate = new Date(); // Get the current date
-         
+
     const record = await BatchOrderProcess.create({
         distiller_id: user_id,
         warehouseId,
@@ -167,8 +168,9 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         createdBy: user_id
     });
 
-    poRecord.fulfilledQty = handleDecimal(fulfilledQty + quantityRequired)
-
+    poRecord.fulfilledQty = handleDecimal(fulfilledQty + quantityRequired);// Update fulfilled quantity in PO    
+    poRecord.paymentInfo.paidAmount = handleDecimal(poRecord.paymentInfo.paidAmount + amountToBePaid); // Update paidAmount in paymentInfo    
+    poRecord.paymentInfo.balancePayment = handleDecimal(poRecord.paymentInfo.totalAmount - poRecord.paymentInfo.paidAmount); // **Update balancePayment in paymentInfo**
     await poRecord.save();
 
     eventEmitter.emit(_webSocketEvents.procurement, { ...record, method: "created" });
@@ -296,8 +298,8 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
                     actualPickupDate: 1,
                     pickupLocation: '$warehouseDetails.addressDetails',
                     deliveryLocation: '$OrderDetails.deliveryLocation',
-                    paymentStatus:'$payment.status',
-                    penaltyStatus: '$penaltyDetails.penaltypaymentStatus',                    
+                    paymentStatus: '$payment.status',
+                    penaltyStatus: '$penaltyDetails.penaltypaymentStatus',
                     orderId: order_id
                 }
             },

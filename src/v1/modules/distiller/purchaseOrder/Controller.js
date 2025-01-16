@@ -1,4 +1,4 @@
-const { _generateOrderNumber, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
+const { _generateOrderNumber, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { _webSocketEvents, _status, _poRequestStatus, _poPaymentStatus, _userStatus } = require('@src/v1/utils/constants');
@@ -31,11 +31,12 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
         }
     }
 
-    const msp = 24470;
+    // const msp = 24470;
+    const msp = _distillerMsp();
     const totalAmount = handleDecimal(msp * poQuantity);
     const tokenAmount = handleDecimal((totalAmount * 3) / 100);
     const remainingAmount = handleDecimal(totalAmount - tokenAmount);
-
+   
     const record = await PurchaseOrderModel.create({
         distiller_id: user_id,
         branch_id,
@@ -63,7 +64,8 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
             totalAmount: handleDecimal(totalAmount), // Assume this is calculated during the first step
             advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 3% of totalAmount
             balancePayment: handleDecimal(remainingAmount), // Auto-calculated: 97% of totalAmount
-            tax: 0
+            tax: _taxValue(),
+            paidAmount: handleDecimal(totalAmount),
         },
         companyDetails,
         additionalDetails,
@@ -205,7 +207,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     // Update quality specification
     record.qualitySpecificationOfProduct.moisture = qualitySpecificationOfProduct.moisture || record.qualitySpecificationOfProduct.moisture;
     record.qualitySpecificationOfProduct.broken = qualitySpecificationOfProduct.broken || record.qualitySpecificationOfProduct.broken;
-    
+
     // Save the updated record
     await record.save();
 
