@@ -20,7 +20,7 @@ module.exports.getOrder = asyncErrorHandler(async (req, res) => {
         distiller_id: new mongoose.Types.ObjectId(user_id),
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
     };
-    console.log(query);
+    
     const records = { count: 0 };
 
     records.rows = paginate == 1 ? await PurchaseOrderModel.find(query)
@@ -144,10 +144,9 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         amountToBePaid = handleDecimal(msp * quantityRequired);
     } else {
         amountToBePaid = handleDecimal((msp * quantityRequired) - tokenAmount);
-        console.log(msp * quantityRequired); console.log(tokenAmount);
+        
     }
-    console.log(amountToBePaid);
-
+   
     let randomVal;
     let isUnique = false;
 
