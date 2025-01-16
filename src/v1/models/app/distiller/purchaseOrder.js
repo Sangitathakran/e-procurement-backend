@@ -120,6 +120,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       enum: Object.values(_poRequestStatus),
       default: _poRequestStatus.pending,
     },
+    
     payment_status: {
       type: String,
       enum: Object.values(_poPaymentStatus),

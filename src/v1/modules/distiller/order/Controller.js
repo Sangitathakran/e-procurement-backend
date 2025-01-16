@@ -1,7 +1,7 @@
 const { _generateOrderNumber, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
-const { _webSocketEvents, _status, _poRequestStatus, _poPaymentStatus, _poAdvancePaymentStatus } = require('@src/v1/utils/constants');
+const { _webSocketEvents, _status, _poAdvancePaymentStatus, _poBatchPaymentStatus, _poPaymentStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
@@ -20,7 +20,7 @@ module.exports.getOrder = asyncErrorHandler(async (req, res) => {
         distiller_id: new mongoose.Types.ObjectId(user_id),
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
     };
-    
+
     const records = { count: 0 };
 
     records.rows = paginate == 1 ? await PurchaseOrderModel.find(query)
@@ -117,7 +117,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     }
 
     const existBatch = await BatchOrderProcess.find({ distiller_id: user_id, orderId });
-    
+
     if (existBatch) {
         const addedQty = existBatch.reduce((quantityRequired, existBatch) => quantityRequired + existBatch.quantityRequired, 0);
 
@@ -139,14 +139,14 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     const remainingAmount = handleDecimal(paymentInfo.balancePayment);
 
     let amountToBePaid = ''
-    
+
     if (existBatch.length > 0) {
         amountToBePaid = handleDecimal(msp * quantityRequired);
     } else {
         amountToBePaid = handleDecimal((msp * quantityRequired) - tokenAmount);
-        
+
     }
-   
+
     let randomVal;
     let isUnique = false;
 
@@ -168,12 +168,18 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         quantityRequired: handleDecimal(quantityRequired),
         'payment.amount': amountToBePaid,
         scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
+        'payment.status': _poBatchPaymentStatus.paid,
         createdBy: user_id
     });
 
     poRecord.fulfilledQty = handleDecimal(fulfilledQty + quantityRequired);// Update fulfilled quantity in PO    
     poRecord.paymentInfo.paidAmount = handleDecimal(poRecord.paymentInfo.paidAmount + amountToBePaid); // Update paidAmount in paymentInfo    
     poRecord.paymentInfo.balancePayment = handleDecimal(poRecord.paymentInfo.totalAmount - poRecord.paymentInfo.paidAmount); // **Update balancePayment in paymentInfo**
+
+    if (poRecord.paymentInfo.totalAmount == poRecord.paymentInfo.paidAmount) {
+        poRecord.payment_status = _poPaymentStatus.paid;
+    }
+    
     await poRecord.save();
 
     eventEmitter.emit(_webSocketEvents.procurement, { ...record, method: "created" });
