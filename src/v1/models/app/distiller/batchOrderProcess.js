@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _poPickupStatus, _poBatchStatus, _penaltypaymentStatus } = require('@src/v1/utils/constants');
+const { _collectionName, _poPickupStatus, _poBatchStatus, _penaltypaymentStatus, _poBatchPaymentStatus } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const batchOrderProcessSchema = new mongoose.Schema({
@@ -17,7 +17,7 @@ const batchOrderProcessSchema = new mongoose.Schema({
   payment: {
     paymentId: { type: String },
     amount: { type: Number, required: true },
-    status: { type: String,  },
+    status: { type: String, enum: Object.values(_poBatchPaymentStatus), default: _poBatchPaymentStatus.pending },
     date: { type: Date, default: Date.now }
   },
 
