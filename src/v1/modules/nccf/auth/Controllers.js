@@ -149,10 +149,10 @@ module.exports.login = async (req, res) => {
         }
 
         const user = await MasterUser.findOne({ email: email.trim() })
-            // .populate([
-            //     { path: "userRole", select: "" },
-            //     { path: "portalId", select: "organization_name _id email phone" }
-            // ])
+            .populate([
+                { path: "userRole", select: "" },
+                { path: "portalId", select: "" }
+            ])
            
         if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('User') }] }));
@@ -169,9 +169,9 @@ module.exports.login = async (req, res) => {
 
         const userType = _userTypeFrontendRouteMapping[portal_type];
        
-        // if (userType !== user.user_type) {
-        //     return res.status(400).send(new serviceResponse({ status: 400, message: _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
-        // }
+        if (userType !== user.user_type) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
+        }
 
 
         const payload = { email: user.email, user_id: user?._id, portalId: user?.portalId?._id, user_type: user.user_type }

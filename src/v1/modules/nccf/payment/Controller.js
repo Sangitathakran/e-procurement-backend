@@ -11,7 +11,6 @@ const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrd
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 
 
-
 module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = '', isExport = 0 } = req.query;
@@ -139,8 +138,19 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
             },
             { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
+                $lookup: {
+                    from: 'warehousedetails', // Collection name in MongoDB
+                    localField: 'warehouseOwnerId',
+                    foreignField: 'warehouseId',
+                    as: 'warehouseDetails',
+                },
+            },
+            { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
+            {
                 $project: {
                     batchId: 1,
+                    warehouseId: '$warehouseDetails.basicDetails.warehouseId',
+                    warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
                     scheduledPickupDate: 1,
                     actualPickupDate: 1,
