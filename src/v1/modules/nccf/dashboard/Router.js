@@ -5,11 +5,11 @@ const { Auth } = require("@src/v1/middlewares/jwt")
 const nccfDashboardRoutes = express.Router();
 
 
-nccfDashboardRoutes.get("/", getDashboardStats);
-nccfDashboardRoutes.get("/onboarding-requests", getonBoardingRequests);
-nccfDashboardRoutes.get("/penalty-status", getpenaltyStatus);
-nccfDashboardRoutes.get("/warehouses", getWarehouseList);
-nccfDashboardRoutes.get("/payment-disteller", getMonthlyPaidAmount);
+nccfDashboardRoutes.get("/", Auth, getDashboardStats);
+nccfDashboardRoutes.get("/onboarding-requests", Auth, getonBoardingRequests);
+nccfDashboardRoutes.get("/penalty-status", Auth, getpenaltyStatus);
+nccfDashboardRoutes.get("/warehouses", Auth, getWarehouseList);
+nccfDashboardRoutes.get("/payment-disteller", Auth, getMonthlyPaidAmount);
 
 
 module.exports = { nccfDashboardRoutes }; 

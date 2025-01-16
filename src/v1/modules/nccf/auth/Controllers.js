@@ -173,7 +173,6 @@ module.exports.login = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, message: _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
         }
 
-
         const payload = { email: user.email, user_id: user?._id, portalId: user?.portalId?._id, user_type: user.user_type }
         const expiresIn = 24 * 60 * 60;
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
