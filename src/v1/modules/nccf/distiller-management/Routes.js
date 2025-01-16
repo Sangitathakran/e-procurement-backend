@@ -1,5 +1,5 @@
 const express = require("express");
-const { getDistiller, createNccf, changeStatus } = require("./Controllers");
+const { getDistiller, bulkuplodDistiller, getDistillerById } = require("./Controllers");
 const { validateForm } = require("@src/v1/modules/nccf/auth/Validation");
 const { Auth } = require("@src/v1/middlewares/jwt");
 
@@ -7,5 +7,7 @@ const { Auth } = require("@src/v1/middlewares/jwt");
 const distillerManagementRoute = express.Router();
 
 distillerManagementRoute.get("/",  getDistiller);
+distillerManagementRoute.get('/:id', getDistillerById);
+distillerManagementRoute.post("/dist-bulkuplod",bulkuplodDistiller)
 
 module.exports = { distillerManagementRoute }; 
