@@ -20,6 +20,7 @@ module.exports.payment = async (req, res) => {
         // let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
 
         const { user_id } = req
+        const calculatedSkip = (page - 1) * parseInt(limit);
 
         let paymentIds = tab == 0 ? (await Payment.find({ associate_id: user_id })).map(i => i.req_id) : (await AssociateInvoice.find({ associate_id: user_id })).map(i => i.req_id)
 
@@ -130,15 +131,15 @@ module.exports.payment = async (req, res) => {
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
-            { $skip: skip },
-            { $limit: parseInt(limit) }
+            // { $skip: skip },
+            // { $limit: parseInt(limit) }
         ];
         const records = await RequestModel.aggregate([
             ...aggregationPipeline,
             {
                 $facet: {
-                    data: aggregationPipeline, // Aggregate for data
-                    totalCount: [{ $count: 'count' }] // Count the documents
+                    data: [...aggregationPipeline, { $skip: calculatedSkip }, { $limit: parseInt(limit) }],
+                    totalCount: [{ $match: query },{ $count: 'count' }] // Count the documents
                 }
             }
         ]);
