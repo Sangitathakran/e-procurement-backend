@@ -25,6 +25,7 @@ const batchOrderProcessSchema = new mongoose.Schema({
     penaltyAmount: { type: Number, default: 0 },
     paneltyAddedBy: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
     paneltyAddedAT: { type: Date },
+    penaltyBalancePayment: { type: Number, default: 0 },
     comment: { type: String, trim: true },
     penaltypaymentStatus: { type: String, enum: Object.values(_penaltypaymentStatus), default: _penaltypaymentStatus.NA }
   },
