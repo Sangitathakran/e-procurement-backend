@@ -553,12 +553,12 @@ module.exports.deleteRequirement = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getWareHouse=asyncErrorHandler(async(req, res)=>{
-    const { page, limit, skip, sortBy,paginate=1} = req.query
+    const { page, limit, skip, sortBy,paginate } = req.query
     const records = { count: 0 };
     const query = {};
     records.count = await wareHouseDetails.countDocuments();
     if(paginate==1){
-        records.rows = await wareHouseDetails.find(query).select({addressDetails:1 , "basicDetails.warehouseName" : 1})
+        records.rows = await wareHouseDetails.find(query).select({addressDetails:1 })
         .sort(sortBy)
         .skip(skip)
         .limit(parseInt(limit))
