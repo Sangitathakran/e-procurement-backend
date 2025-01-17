@@ -258,7 +258,8 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                 }
             },
 
-            { $sort: { [sortBy]: 1 } },
+            // { $sort: { [sortBy]: 1 } },
+            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
             { $skip: skip },
             { $limit: parseInt(limit, 10) }
         ];
@@ -276,6 +277,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        
         // Export functionality
         if (isExport == 1) {
             const record = records.rows.map((item) => {
@@ -378,7 +380,6 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
     }
 });
 
-
 module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
     try {
         const { batchId, status, quantity } = req.body;
@@ -401,7 +402,7 @@ module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
         }
 
-        // Validate quantityRequired
+        // Validate quantity
         if (quantity !== undefined && quantity > record.quantityRequired) {
             return res.send(new serviceResponse({
                 status: 400,
