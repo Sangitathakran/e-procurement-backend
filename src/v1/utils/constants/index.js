@@ -470,7 +470,11 @@ const _poPickupStatus = {
     completed: 'Completed',
     failed: 'Failed'
 }
+
 const _poBatchStatus = {
+    pending: 'Pending',
+    accepted: 'Accepted',
+    rejected: 'Rejected',
     scheduled: 'Scheduled',
     inProgress: 'In Progress',
     completed: 'Completed',

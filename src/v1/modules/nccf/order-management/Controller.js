@@ -377,3 +377,46 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+
+
+module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId, status, quantity } = req.body;
+
+        if (!batchId) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch Id") }] }));
+        }
+
+        if (!status) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Status") }] }));
+        }
+
+        if (!quantity) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Quantity") }] }));
+        }
+
+        const record = await BatchOrderProcess.findOne({ _id: batchId });
+
+        if (!record) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        }
+
+        // Validate quantityRequired
+        if (quantity !== undefined && quantity > record.quantityRequired) {
+            return res.send(new serviceResponse({
+                status: 400,
+                errors: [{ message: "quantity cannot be more than existing batch quantity Required" }]
+            }));
+        }
+
+        record.status = status;
+        record.quantityRequired = quantity;
+
+        await record.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+})
