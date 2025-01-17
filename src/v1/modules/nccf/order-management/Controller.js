@@ -65,10 +65,21 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
     records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
     records.count = await PurchaseOrderModel.countDocuments(matchStage);
 
+    // if (paginate == 1) {
+    //     records.page = page;
+    //     records.limit = limit;
+    //     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+    // }
+
+
     if (paginate == 1) {
-        records.page = page;
-        records.limit = limit;
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        aggregationPipeline.push(
+            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } }, // Secondary sort by _id for stability
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) }
+        );
+    } else {
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
     }
 
     return res.status(200).send(new serviceResponse({
@@ -129,7 +140,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
                     totalAmount: '$payment.amount',
-                    pendingAmount: "$penaltyDetails.penaltyBalancePayment",                  
+                    pendingAmount: "$penaltyDetails.penaltyBalancePayment",
                     orderId: order_id
                 }
             },
