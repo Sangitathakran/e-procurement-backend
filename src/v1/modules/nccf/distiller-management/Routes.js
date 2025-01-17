@@ -8,6 +8,6 @@ const distillerManagementRoute = express.Router();
 
 distillerManagementRoute.get("/", Auth,  getDistiller);
 distillerManagementRoute.get('/:id', Auth, getDistillerById);
-distillerManagementRoute.post("/dist-bulkuplod",bulkuplodDistiller);
+distillerManagementRoute.post("/dist-bulkuplod", Auth, bulkuplodDistiller);
 
 module.exports = { distillerManagementRoute }; 
