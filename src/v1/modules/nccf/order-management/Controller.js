@@ -139,8 +139,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     warehouseId: '$wareHousev2.warehouseOwner_code',
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
-                    totalAmount: '$payment.amount',
-                    pendingAmount: "$penaltyDetails.penaltyBalancePayment",
+                    pendingAmount: "$payment.amount",
                     orderId: order_id
                 }
             },
@@ -258,7 +257,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                 }
             },
 
-            { $sort: { [sortBy]: 1 } },
+            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
             { $skip: skip },
             { $limit: parseInt(limit, 10) }
         ];
@@ -276,6 +275,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        
         // Export functionality
         if (isExport == 1) {
             const record = records.rows.map((item) => {
@@ -377,3 +377,45 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+
+module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId, status, quantity } = req.body;
+
+        if (!batchId) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch Id") }] }));
+        }
+
+        if (!status) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Status") }] }));
+        }
+
+        if (!quantity) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Quantity") }] }));
+        }
+
+        const record = await BatchOrderProcess.findOne({ _id: batchId });
+
+        if (!record) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        }
+
+        // Validate quantity
+        if (quantity !== undefined && quantity > record.quantityRequired) {
+            return res.send(new serviceResponse({
+                status: 400,
+                errors: [{ message: "quantity cannot be more than existing batch quantity Required" }]
+            }));
+        }
+
+        record.status = status;
+        record.quantityRequired = quantity;
+
+        await record.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+})
