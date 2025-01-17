@@ -183,7 +183,7 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
 
     // Fetch all warehouses to validate stock
     const warehouseIds = inventoryData.map((item) => item.warehouseId);
-    const warehouses = await wareHouseDetails.find({
+    const warehouses = await wareHousev2.find({
       _id: { $in: warehouseIds },
     });
 
