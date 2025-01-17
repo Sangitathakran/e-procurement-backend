@@ -149,7 +149,8 @@ async function downloadFarmerFile() {
           const sheetName = workbook.SheetNames[0];
 
           const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
-    
+          // this sheetData will contain json of all the payment status of each farmer
+          // this file have real time payment status from bank [Reverse File]
           let rowsDetails = []
 
           await Promise.all(
@@ -210,6 +211,14 @@ async function downloadFarmerFile() {
   }
 }
 
+// In farmerpaymentfiles collection, "fileName" consists of following pattern-
+// ex:  AIZER181124006.csv
+// here, starting 5 letters are client code - `AIZER`
+// and then next 6 digits are the date of file upload in DDMMYY format - `181124`
+// and rest 3 digits are the random values defining no of attempts made to finish the process* - `006`
+
+// *:this process includes generating the name of the file, uploading it etc. 
+
 
 //sample reverse file data 
 
@@ -222,7 +231,7 @@ async function downloadFarmerFile() {
   // PIR_DATE: '29-10-24',
   // BENE_IFSC_CODE: 'HDFC0000982',
   // PIR_REFERENCE_NMBR: 'rakhi123',
-  // LIQ_STATUS: 'Paid',
+  // LIQ_STATUS || ADDR_5: 'Paid',
   // UTR_SR_NO: 'ICMS2410300BZA7T',
   // INST_DATE: '29-10-24',
   // PRODUCT_CODE: 'NEFT'
