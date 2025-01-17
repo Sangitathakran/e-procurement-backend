@@ -1,4 +1,4 @@
-const { getOrders, batchList, getOrderById, warehouseList, requiredStockUpdate, batchstatusUpdate, batchAcceptedList } = require("./Controller")
+const { getOrders, batchList, getOrderById, warehouseList, requiredStockUpdate, batchstatusUpdate, batchAcceptedList, batchscheduleDateUpdate } = require("./Controller")
 const { validateForm } = require("@src/v1/modules/distiller/auth/Validation")
 const express = require("express");
 const { Auth } = require("@src/v1/middlewares/jwt");
@@ -11,6 +11,8 @@ nccfOrderRoutes.get('/warehouseList', Auth, warehouseList);
 nccfOrderRoutes.get('/:id', Auth, getOrderById);
 nccfOrderRoutes.put("/requiredStockUpdate", Auth, requiredStockUpdate);
 nccfOrderRoutes.put("/batchstatusUpdate", Auth, batchstatusUpdate);
+nccfOrderRoutes.put("/batchscheduleDateUpdate", Auth, batchscheduleDateUpdate);
+
 
 
 module.exports = { nccfOrderRoutes }; 
