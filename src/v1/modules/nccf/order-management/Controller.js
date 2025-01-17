@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
-const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue } = require("@src/v1/utils/helpers")
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const { _userType, _poAdvancePaymentStatus, _poBatchStatus } = require('@src/v1/utils/constants');
+const { _userType, _poAdvancePaymentStatus, _poBatchStatus, _poBatchPaymentStatus } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
@@ -275,7 +275,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-        
+
         // Export functionality
         if (isExport == 1) {
             const record = records.rows.map((item) => {
@@ -408,10 +408,17 @@ module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
             }));
         }
 
+        const msp = _distillerMsp();
+        // const totalAmount = handleDecimal(record.paymentInfo.totalAmount);
+        // const tokenAmount = handleDecimal(record.paymentInfo.advancePayment);
+        // const remainingAmount = handleDecimal(record.paymentInfo.balancePayment);
+        const amountToBePaid = handleDecimal(msp * record.quantityRequired);
+
         record.status = status;
         record.quantityRequired = quantity;
+        record.payment.amount= amountToBePaid;
 
-        await record.save();
+            await record.save();
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
 
@@ -424,7 +431,7 @@ module.exports.batchAcceptedList = asyncErrorHandler(async (req, res) => {
     try {
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-        
+
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order Id") }] }));
         }
@@ -432,6 +439,7 @@ module.exports.batchAcceptedList = asyncErrorHandler(async (req, res) => {
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
             status: _poBatchStatus.accepted,
+            'payment.status': _poBatchPaymentStatus.paid,
             ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
@@ -507,3 +515,39 @@ module.exports.batchAcceptedList = asyncErrorHandler(async (req, res) => {
     }
 });
 
+module.exports.batchscheduleDateUpdate = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId, batchscheduleDateUpdate } = req.body;
+
+        if (!batchId) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch Id") }] }));
+        }
+
+        if (!batchscheduleDateUpdate) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch schedule Date") }] }));
+        }
+
+        const record = await BatchOrderProcess.findOne({ _id: batchId });
+
+        if (!record) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        }
+
+        // Validate quantity
+        if (quantity !== undefined && quantity > record.quantityRequired) {
+            return res.send(new serviceResponse({
+                status: 400,
+                errors: [{ message: "quantity cannot be more than existing batch quantity Required" }]
+            }));
+        }
+
+        record.batchscheduleDateUpdate = batchscheduleDateUpdate;
+
+        await record.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+})

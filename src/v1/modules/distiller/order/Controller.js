@@ -167,8 +167,8 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         batchId: randomVal,
         quantityRequired: handleDecimal(quantityRequired),
         'payment.amount': amountToBePaid,
-        scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
-        'payment.status': _poBatchPaymentStatus.paid,
+        // scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
+        // 'payment.status': _poBatchPaymentStatus.paid,
         createdBy: user_id
     });
 
