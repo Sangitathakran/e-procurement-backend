@@ -26,7 +26,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
     let aggregationPipeline = [
         { $match: matchStage },
-        { $sort: { [sortBy]: 1 } },
+        { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },,
         {
             $lookup: {
                 from: "distillers", // Adjust this to your actual collection name for branches
