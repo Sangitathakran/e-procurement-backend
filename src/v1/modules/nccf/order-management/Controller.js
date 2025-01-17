@@ -324,14 +324,14 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
 
         // Fetch all warehouses to validate stock
         const warehouseIds = inventoryData.map((item) => item.warehouseId);
-        const warehouses = await wareHouseDetails.find({ _id: { $in: warehouseIds } });
+        const warehouses = await wareHousev2.find({ _id: { $in: warehouseIds } });
 
         // Check if all warehouseIds are valid
         if (warehouses.length !== inventoryData.length) {
             return res.status(400).send(
                 new serviceResponse({
                     status: 400,
-                    errors: [{ message: "Some warehouses were not found" }],
+                    errors: [{ message: "Warehouses were not found" }],
                 })
             );
         }
