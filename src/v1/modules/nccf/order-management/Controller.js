@@ -6,7 +6,7 @@ const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const { _userType, _userStatus, _poAdvancePaymentStatus } = require('@src/v1/utils/constants');
+const { _userType, _poAdvancePaymentStatus, _poBatchStatus } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
@@ -65,10 +65,21 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
     records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
     records.count = await PurchaseOrderModel.countDocuments(matchStage);
 
+    // if (paginate == 1) {
+    //     records.page = page;
+    //     records.limit = limit;
+    //     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+    // }
+
+
     if (paginate == 1) {
-        records.page = page;
-        records.limit = limit;
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        aggregationPipeline.push(
+            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } }, // Secondary sort by _id for stability
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) }
+        );
+    } else {
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
     }
 
     return res.status(200).send(new serviceResponse({
@@ -128,8 +139,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     warehouseId: '$wareHousev2.warehouseOwner_code',
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
-                    totalAmount: '$payment.amount',
-                    pendingAmount: "$penaltyDetails.penaltyBalancePayment",                  
+                    pendingAmount: "$payment.amount",
                     orderId: order_id
                 }
             },
@@ -247,7 +257,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                 }
             },
 
-            { $sort: { [sortBy]: 1 } },
+            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
             { $skip: skip },
             { $limit: parseInt(limit, 10) }
         ];
@@ -265,6 +275,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        
         // Export functionality
         if (isExport == 1) {
             const record = records.rows.map((item) => {
@@ -366,3 +377,133 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+
+module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId, status, quantity } = req.body;
+
+        if (!batchId) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch Id") }] }));
+        }
+
+        if (!status) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Status") }] }));
+        }
+
+        if (!quantity) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Quantity") }] }));
+        }
+
+        const record = await BatchOrderProcess.findOne({ _id: batchId });
+
+        if (!record) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        }
+
+        // Validate quantity
+        if (quantity !== undefined && quantity > record.quantityRequired) {
+            return res.send(new serviceResponse({
+                status: 400,
+                errors: [{ message: "quantity cannot be more than existing batch quantity Required" }]
+            }));
+        }
+
+        record.status = status;
+        record.quantityRequired = quantity;
+
+        await record.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+})
+
+module.exports.batchAcceptedList = asyncErrorHandler(async (req, res) => {
+    try {
+        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+        
+        if (!order_id) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order Id") }] }));
+        }
+
+        let query = {
+            orderId: new mongoose.Types.ObjectId(order_id),
+            status: _poBatchStatus.accepted,
+            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+        };
+
+        const aggregationPipeline = [
+            { $match: query },
+            {
+                $lookup: {
+                    from: "purchaseorders", // Adjust this to your actual collection name for branches
+                    localField: "orderId",
+                    foreignField: "_id",
+                    as: "OrderDetails"
+                }
+            },
+            { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: 'warehousedetails', // Collection name in MongoDB
+                    localField: 'warehouseOwnerId',
+                    foreignField: 'warehouseId',
+                    as: 'warehouseDetails',
+                },
+            },
+            { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: 'warehousev2', // Collection name in MongoDB
+                    localField: '_id',
+                    foreignField: 'warehouseId',
+                    as: 'wareHousev2',
+                },
+            },
+            { $unwind: { path: '$wareHousev2', preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    purchaseId: '$batchId',
+                    warehouseId: '$wareHousev2.warehouseOwner_code',
+                    warehouseName: '$warehouseDetails.basicDetails.warehouseName',
+                    quantityRequired: 1,
+                    amount: "$payment.amount",
+                    paymentStatus: "$payment.status",
+                    actualPickUp: "$actualPickupDate",
+                    pickupStatus: "$pickupStatus",
+                    orderId: order_id
+                }
+            },
+
+            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit, 10) }
+        ];
+
+        const records = { count: 0, rows: [] };
+        records.rows = await BatchOrderProcess.aggregate(aggregationPipeline);
+
+        const countAggregation = [
+            { $match: query },
+            { $count: 'total' }
+        ];
+        const countResult = await BatchOrderProcess.aggregate(countAggregation);
+        records.count = countResult.length > 0 ? countResult[0].total : 0;
+
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+        if (!records) {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        } else {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+});
+

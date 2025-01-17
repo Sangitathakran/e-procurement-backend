@@ -179,7 +179,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     if (poRecord.paymentInfo.totalAmount == poRecord.paymentInfo.paidAmount) {
         poRecord.payment_status = _poPaymentStatus.paid;
     }
-    
+
     await poRecord.save();
 
     eventEmitter.emit(_webSocketEvents.procurement, { ...record, method: "created" });
@@ -340,3 +340,4 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+

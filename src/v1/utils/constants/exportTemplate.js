@@ -72,7 +72,40 @@ const templates = {
         "TAN OF FPO": '',
         "AADHAR NUMBER*": '',
         "GST CERTIFICATE": ''
+    },
+    distiller_registration_template: {
+        "COMPANY NAME*": '',
+        "COMPANY PAN*": '',
+        "COMPANY CIN*": '',
+        "EMAIL ID*": '',
+        "COMPANY MOBILE NUMBER*": '',
+        "COMPANY REGISTERED ADDRESS*": '',
+        "PINCODE*": '',
+        "STATE*": '',
+        "DISTRICT*": '',
+        "VILLAGE/TOWN/CITY": '',
+        "OWNER NAME*": '',
+        "OWNER AADHAR NUMBER*": '',
+        "OWNER PAN NUMBER*": '',
+        "POC NAME*": '',
+        "DESIGNATION": '',
+        "POC MOBILE NUMBER*": '',
+        "POC EMAIL": '',
+        "POC AADHAR NUMBER*": '',
+        "AUTHORIZED PERSON NAME*": '',
+        "AUTHORIZED PERSON DESIGNATION": '',
+        "AUTHORIZED PERSON MOBILE NUMBER*": '',
+        "AUTHORIZED PERSON EMAIL*": '',
+        "AUTHORIZED PERSON AADHAR NUMBER*": '',
+        "AUTHORIZED PERSON PAN NUMBER": '',
+        "BANK NAME*": '',
+        "BRANCH NAME*": '',
+        "ACCOUNT HOLDER NAME*": '',
+        "IFSC CODE*": '',
+        "ACCOUNT NUMBER*": '',
+        "CONFIRM ACCOUNT NUMBER*": ''
     }
+    
 }
 
 function exportTemplate(tableName) {
@@ -81,6 +114,8 @@ function exportTemplate(tableName) {
             return templates.farmer_details_template;
         case "fpo_registration":
             return templates.fpo_registration_template;
+        case "distiller_registration":
+            return templates.distiller_registration_template;
 
         default:
             throw new Error('Invalid table name');

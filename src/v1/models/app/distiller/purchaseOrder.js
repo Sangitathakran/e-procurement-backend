@@ -59,6 +59,7 @@ const purchaseOrderSchema = new mongoose.Schema(
         enum: Object.values(_penaltypaymentStatus),
         default: _penaltypaymentStatus.NA,
       },
+      payment_proof:{ type: String },
     },
 
     companyDetails: {
