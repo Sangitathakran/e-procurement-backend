@@ -138,8 +138,16 @@ module.exports.loginOrRegister = async (req, res) => {
             } else {
                 newUser.is_mobile_verified = true;
             }
+            
+            newUser.is_approved= _userStatus.approved;
+
             userExist = await Distiller.create(newUser);
+        }else{
+            const distiller = await Distiller.findOne(query);
+            distiller.is_approved= _userStatus.approved;
+            await distiller.save();
         }
+
 
         if (userExist.active == false) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "you are not an active user!" }] }));
@@ -243,6 +251,7 @@ module.exports.saveDistillerDetails = async (req, res) => {
             default:
                 return res.status(400).send(new serviceResponse({ status: 400, message: `Invalid form name: ${formName}` }));
         }
+
         await distiller.save();
 
         const response = { user_code: distiller.user_code, user_id: distiller._id };
