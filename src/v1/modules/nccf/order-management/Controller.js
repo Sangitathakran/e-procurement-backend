@@ -139,8 +139,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     warehouseId: '$wareHousev2.warehouseOwner_code',
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
-                    totalAmount: '$payment.amount',
-                    pendingAmount: "$penaltyDetails.penaltyBalancePayment",
+                    pendingAmount: "$payment.amount",
                     orderId: order_id
                 }
             },

@@ -164,7 +164,7 @@ module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
 
     let aggregationPipeline = [
         { $match: matchStage },
-        { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },,
+        { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
         {
             $project: {
                 _id: 1,
