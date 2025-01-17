@@ -393,7 +393,7 @@ module.exports.bulkuplodDistiller = async (req, res) => {
                 user_type: _userType.distiller,
                 is_mobile_verified: true,
                 is_email_verified: false,
-                is_approved: _userStatus.pending,
+                is_approved: _userStatus.approved,
                 is_form_submitted: false,
                 active: true,
             });
