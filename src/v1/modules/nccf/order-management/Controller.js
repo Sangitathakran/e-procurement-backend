@@ -517,13 +517,13 @@ module.exports.batchAcceptedList = asyncErrorHandler(async (req, res) => {
 
 module.exports.batchscheduleDateUpdate = asyncErrorHandler(async (req, res) => {
     try {
-        const { batchId, batchscheduleDateUpdate } = req.body;
+        const { batchId, scheduledPickupDate } = req.body;
 
         if (!batchId) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch Id") }] }));
         }
 
-        if (!batchscheduleDateUpdate) {
+        if (!scheduledPickupDate) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch schedule Date") }] }));
         }
 
@@ -532,20 +532,12 @@ module.exports.batchscheduleDateUpdate = asyncErrorHandler(async (req, res) => {
         if (!record) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
         }
-
-        // Validate quantity
-        if (quantity !== undefined && quantity > record.quantityRequired) {
-            return res.send(new serviceResponse({
-                status: 400,
-                errors: [{ message: "quantity cannot be more than existing batch quantity Required" }]
-            }));
-        }
-
-        record.batchscheduleDateUpdate = batchscheduleDateUpdate;
+        
+        record.scheduledPickupDate = scheduledPickupDate;
 
         await record.save();
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
+        return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.updated("Batch") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
