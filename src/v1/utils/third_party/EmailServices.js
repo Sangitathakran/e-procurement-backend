@@ -417,6 +417,22 @@ class EmailService {
         }
     }
 
+    async sendPurchaseOrderConfirmation(email, receiver_name) {
+        try {
+            const template = await this.loadTemplate("sendPurchaseOrderConfirmation");
+            const html = template
+                .replace("{{app_url}}", FRONTEND_URL)
+                .replace("{{logo_url}}", LOGO_URL)
+                .replace("{{receiver_name}}", receiver_name)
+                .replace("{{date}}", "21/02/2025");
+
+            await sendMail(email, '', `Confirmation for Purchase Order || Navbazar || `, html);
+
+        } catch (error) {
+            console.log("Error sending welcome email:", error);
+            // throw error;
+        }
+    }
     
 }
 

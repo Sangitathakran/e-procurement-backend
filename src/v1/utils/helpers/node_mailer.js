@@ -45,9 +45,10 @@ module.exports = {
                     //         console.log("Server is ready send E-mails", success);
                     //     }
                     // });
+                    
                     transporter.sendMail(mailOptions, function (err, info) {
                         if (err) {
-                            console.log("Error on sending E-mails", err);
+                            console.log("Error vghghhcghcc---->", err);
                             // reject(err.message);
                             resolve(err.message);
                         } else {

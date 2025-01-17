@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>New Purchase Order Received!</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #f5f5f5;
+      }
+      .container {
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        text-align: center;
+        padding-bottom: 20px;
+      }
+      .logo {
+        width: 120px;
+        height: auto;
+      }
+      .content {
+        color: #333333;
+        text-align: center;
+        padding-top: 20px;
+      }
+      a {
+        text-decoration: none;
+        display: inline-block;
+        cursor: pointer;
+      }
+      .cta-button {
+        display: inline-block;
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #007bff, #00bfff);
+        background-color: rgb(76, 147, 76);
+        color: #ffffff;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background 0.3s ease-in-out;
+      }
+      .cta-button:hover {
+        background: linear-gradient(135deg, #0056b3, #00a2e8);
+        background-color: rgb(60, 130, 60);
+        cursor: pointer;
+      }
+      .footer {
+        text-align: center;
+        padding-top: 20px;
+        color: #777777;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <img src="{{logo_url}}" alt="KhetiSauda Logo" class="logo" />
+      </div>
+      <div class="content">
+        <h2 style="margin-bottom: 20px">Confirmation for Purchase Order</h2>
+        <p>Dear <strong>{{receiver_name}}</strong>,</p>
+        <p>
+          You have received a new purchase order from Betul Biofuel on {{date}}.
+          Please find the details below:
+        </p>
+        <!-- Order Details -->
+        <div class="section">
+          <h2>Purchase Order Details</h2>
+          <div class="details">
+            <p><strong>PO No.:</strong> 12345</p>
+            <p><strong>Commodity:</strong> Maize</p>
+            <p><strong>Quantity:</strong> 2000 MT</p>
+            <p><strong>MSP:</strong> ₹24,890/MT</p>
+            <p><strong>Branch Office:</strong> Madhya Pradesh</p>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Payment Information</h2>
+          <div class="details">
+            <p><strong>Total Amount:</strong> ₹5000</p>
+            <p><strong>Advance Payment:</strong> ₹200</p>
+            <p><strong>Advance Payment Date:</strong> 17th January, 2025</p>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Distiller Information</h2>
+          <div class="details">
+            <p><strong>Name:</strong> Betul Biofuel</p>
+            <p><strong>Delivery Location:</strong> Madhya Pradesh</p>
+            <p><strong>Contact Number:</strong> 9876890675</p>
+          </div>
+        </div>
+        <p>Please follow this link to login and view your order:</p>
+        <a href="{{app_url}}">
+          <button class="cta-button">Link</button>
+        </a>
+        <p>
+          Kindly create the delivery schedule for this order to initiate the
+          process.
+        </p>
+        <!-- <p>Thank you for your prompt attention to this matter.</p> -->
+      </div>
+      <div class="footer">
+        <p>Warm Regards,<br />Navankur</p>
+      </div>
+    </div>
+  </body>
+</html>

@@ -9,6 +9,7 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { default: mongoose } = require("mongoose");
+const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 
 module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
@@ -221,6 +222,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     // console.log("_final_record=>", record);
     // // Save the updated record
     await record.save();
+    emailService.sendPurchaseOrderConfirmation("tejasvi@radiantinfonet.com", "Manas Ghosh");
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("request") }));
 });
