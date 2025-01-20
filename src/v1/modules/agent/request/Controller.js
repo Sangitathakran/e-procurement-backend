@@ -15,10 +15,11 @@ const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { default: mongoose } = require("mongoose");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { User } = require("@src/v1/models/app/auth/User");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 
 module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
-    const { quotedPrice, deliveryDate, name, commodityImage, grade, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate } = req.body;
+    const { quotedPrice, deliveryDate, name,warehouse_id, commodityImage, grade, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate } = req.body;
 
     if (user_type && user_type != _userType.agent) {
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
@@ -57,11 +58,7 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
             grade,
             quantity: handleDecimal(quantity)
         },
-        address: {
-            deliveryLocation,
-            lat: handleDecimal(lat),
-            long: handleDecimal(long)
-        },
+        warehouse_id: warehouse_id,
         quoteExpiry: moment(quoteExpiry).toDate(),
         createdBy: user_id
     });
@@ -144,7 +141,9 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
     records.rows = paginate == 1 ? await RequestModel.find(query)
         .sort(sortBy)
-        .skip(skip).populate({ path: "branch_id", select: "_id branchName branchId" })
+        .skip(skip)
+        .populate({ path: "branch_id", select: "_id branchName branchId" })
+        .populate({path:"warehouse_id",select:"addressDetails"})
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
     records.count = await RequestModel.countDocuments(query);
@@ -496,7 +495,7 @@ module.exports.getProcurementById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
 
-    const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, url, commodity_image } = req.body;
+    const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, warehouse_id, commodity_image } = req.body;
 
     const record = await RequestModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
 
@@ -529,7 +528,8 @@ module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
     // record.branch_id.branchName = bo;
     record.head_office_id = ho;
     record.branch_id = bo;
-    record.address.locationUrl = url;
+    // record.address.locationUrl = url;
+    record.warehouse_id = warehouse_id;
     record.product.commodityImage = commodity_image;
 
     await record.save();
@@ -554,3 +554,23 @@ module.exports.deleteRequirement = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.deleted("Requirement") }));
 });
+
+module.exports.getWareHouse=asyncErrorHandler(async(req, res)=>{
+    const { page, limit, skip, sortBy,paginate } = req.query
+    const records = { count: 0 };
+    const query = {};
+    records.count = await wareHouseDetails.countDocuments();
+    if(paginate==1){
+        records.rows = await wareHouseDetails.find(query).select({addressDetails:1 })
+        .sort(sortBy)
+        .skip(skip)
+        .limit(parseInt(limit))
+        records.page = page
+    records.limit = limit
+    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+    }else{
+        records.rows = await wareHouseDetails.find(query).select({addressDetails:1 ,  "basicDetails.warehouseName" : 1})
+        .sort(sortBy)
+    }
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }))
+})

@@ -12,7 +12,7 @@ module.exports.getProcurement = asyncErrorHandler(
     async (req, res) => {
         const { page, limit, skip, sortBy, search = '', status, paginate = 1, isExport = 0 } = req.query;
 
-
+        const calculatedSkip = (page - 1) * limit;
         let query = search ? {
             $or: [
                 { "reqNo": { $regex: search, $options: 'i' } },
@@ -42,12 +42,24 @@ module.exports.getProcurement = asyncErrorHandler(
         ? basePipeline // Do not apply pagination for export
         : [
             ...basePipeline,
-            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []), // Apply pagination for normal requests
+            ...(paginate == 1 ? [{ $skip: parseInt(calculatedSkip) }, { $limit: parseInt(limit) }] : []), // Apply pagination for normal requests
         ];
+        
+          const [totalCountResult, paginatedResults] = await Promise.all([
+            RequestModel.aggregate([...basePipeline, { $count: 'count' }]),
+            RequestModel.aggregate(pipeline),
+        ]);
 
-        const records = {};
-        records.count = await RequestModel.countDocuments(query);
-        records.rows = await RequestModel.aggregate(pipeline);
+        const totalCount = totalCountResult[0]?.count || 0;
+
+        const records = {
+            count: totalCount,
+            rows: paginatedResults,
+        };
+        // const records = {};
+        // records.count = await RequestModel.countDocuments(query);
+        // records.rows = await RequestModel.aggregate(pipeline);
+        
 
         if (paginate == 1) {
             records.page = page;
@@ -56,7 +68,7 @@ module.exports.getProcurement = asyncErrorHandler(
         }
 
         if (isExport == 1) {
-            const allRecords = await RequestModel.find(query);
+            const allRecords = await RequestModel.aggregate([...basePipeline, { $skip: 0 }, { $limit: totalCount }]);
             const record = allRecords.map((item) => {
                 return {
                     "Order Id": item?.reqNo || "NA",

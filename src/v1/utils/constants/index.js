@@ -1,3 +1,4 @@
+const { NA } = require("xlsx-populate/lib/FormulaError")
 
 
 const _collectionName = {
@@ -39,6 +40,7 @@ const _collectionName = {
     AgentPayment: "AgentPayment",
     Associate: "Associate",
     Agency: "Agency",
+    NccfAdmin: "NccfAdmin",
     Types: "Types",
     AssociateInvoice: "AssociateInvoice",
     AgentInvoice: "AgentInvoice",
@@ -48,7 +50,7 @@ const _collectionName = {
     ManufacturingUnit: "ManufacturingUnit",
     StorageFacility: "StorageFacility",
     PurchaseOrder: "PurchaseOrder",
-    BatchOrderProcess:"batchOrderProcess"
+    BatchOrderProcess: "batchOrderProcess",
 
 }
 
@@ -176,6 +178,7 @@ const _userType = {
     agent: "6",
     warehouse: "7",
     distiller: "8",
+    nccf:"9"
 }
 
 const _userStatus = {
@@ -261,8 +264,8 @@ const _category = {
 const _areaUnit = {
     Hectares: "hectares",
     Acres: "acres",
-    Bigha: "bigha",
     Other: "Other",
+    Bigha: "bigha",
 }
 const _soilType = {
     Sandy: "sandy",
@@ -339,7 +342,9 @@ const _batchStatus = {
     paymentApproved: "Payment Approved",
     FinalPayApproved: "Final Payment Approved",
     paymentInTransit: "Payment In Progress",
-    paymentComplete: "Payment Complete"
+    paymentComplete: "Payment Complete",
+    failed: "Failed",
+    partiallyCompleted: "Partially Completed",
 }
 
 const _paymentmethod = {
@@ -350,7 +355,7 @@ const _paymentmethod = {
 const _paymentstatus = {
     pending: "Pending",
     inProgress: "In Progress",
-    failed:"Failed",
+    failed: "Failed",
     completed: "Completed",
     rejected: "Rejected"
 }
@@ -428,13 +433,15 @@ const _frontendLoginRoutes = {
     // bo: "/branch-office/sign-in"
     agent: "https://ep.navbazar.com/agent/sign-in",
     ho: "https://ep.navbazar.com/head-office/sign-in",
-    bo: "https://ep.navbazar.com/branch-office/sign-in"
+    bo: "https://ep.navbazar.com/branch-office/sign-in",
+    nccf: "https://ep.navbazar.com/nccf/sign-in"
 }
 
 const _userTypeFrontendRouteMapping = {
     "agent": "6",
     "head-office": "2",
-    "branch-office": "3"
+    "branch-office": "3",
+    "NccfAdmin": "9"
 }
 
 const _poRequestStatus = {
@@ -442,7 +449,6 @@ const _poRequestStatus = {
     approved: 'Approved',
     reject: 'Rejected'
 }
-
 
 const _poAdvancePaymentStatus = {
     pending: "Pending",
@@ -452,6 +458,7 @@ const _poAdvancePaymentStatus = {
 }
 
 const _poPaymentStatus = {
+    pending: 'Pending',
     paid: 'Paid',
     Unpaid: 'Unpaid',
     reject: 'Reject',
@@ -463,7 +470,11 @@ const _poPickupStatus = {
     completed: 'Completed',
     failed: 'Failed'
 }
+
 const _poBatchStatus = {
+    pending: 'Pending',
+    accepted: 'Accepted',
+    rejected: 'Rejected',
     scheduled: 'Scheduled',
     inProgress: 'In Progress',
     completed: 'Completed',
@@ -471,8 +482,16 @@ const _poBatchStatus = {
 
 const _poBatchPaymentStatus = {
     pending: 'Pending',
-    completed: 'Completed',
+    paid: 'Paid',
     failed: 'Failed'
+}
+
+const _penaltypaymentStatus = {
+    NA: 'Not Applicable',
+    pending: 'Pending',
+    paid: 'Paid',
+    overdue: 'Overdue',
+    waiveOff: 'Waive Off',
 }
 
 module.exports = {
@@ -536,5 +555,6 @@ module.exports = {
     _poPaymentStatus,
     _poPickupStatus,
     _poBatchStatus,
+    _penaltypaymentStatus,
     _poBatchPaymentStatus
 }

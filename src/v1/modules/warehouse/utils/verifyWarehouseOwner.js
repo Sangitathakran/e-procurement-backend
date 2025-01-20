@@ -44,10 +44,11 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
 
         // Check if the warehouse exists
         const warehouseExist = await wareHousev2.findOne({ _id: decodedToken.user_id });
+        console.log(decodedToken.user_id)
         if (!warehouseExist) {
             return res.status(401).send(new serviceResponse({
                 status: 401,
-                errors: [{ message: _response_message.notFound("Warehouse") }]
+                errors: [{ message: _response_message.notFound("Warehouse Owner") }]
             }));
         }
 
@@ -82,7 +83,12 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             '/batch-details',
             '/batch-edit',
             '/batch-list',
-            '/batch-details/:batch_id'
+            '/batch-details/:batch_id',
+            '/warehouse-list',
+            '/add-warehouse',
+            '/final-submit',
+            '/edit-warehouse',
+            '/warehouse-status'
         ];
 
         const currentUrl = req.url.split('?')[0];

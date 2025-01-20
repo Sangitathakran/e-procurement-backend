@@ -1,16 +1,19 @@
 const mongoose = require('mongoose');
-const { _collectionName, _poPickupStatus, _poBatchStatus, _poBatchPaymentStatus } = require('@src/v1/utils/constants');
+const { _collectionName, _poPickupStatus, _poBatchStatus, _penaltypaymentStatus, _poBatchPaymentStatus } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const batchOrderProcessSchema = new mongoose.Schema({
   distiller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Distiller },
   orderId: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.PurchaseOrder },
+  branch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch },
   warehouseId: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Warehouse },
   batchId: { type: String, required: true, immutable: true },
   quantityRequired: { type: Number, required: true },
   scheduledPickupDate: { type: Date },
+  actualPickupDate: { type: Date },
   pickupStatus: { type: String, enum: Object.values(_poPickupStatus), default: _poPickupStatus.pending },
-  status: { type: String, enum: Object.values(_poBatchStatus), default: _poBatchStatus.scheduled },
+  status: { type: String, enum: Object.values(_poBatchStatus), default: _poBatchStatus.pending },
+  comment: { type: String },
 
   payment: {
     paymentId: { type: String },
@@ -21,10 +24,11 @@ const batchOrderProcessSchema = new mongoose.Schema({
 
   penaltyDetails: {
     penaltyAmount: { type: Number, default: 0 },
-    paneltyAddedBy: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
+    paneltyAddedBy: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
     paneltyAddedAT: { type: Date },
+    penaltyBalancePayment: { type: Number, default: 0 },
     comment: { type: String, trim: true },
-    penaltypaymentStatus: { type: String, enum: ['Paid', 'Pending', 'Overdue'], default: null }
+    penaltypaymentStatus: { type: String, enum: Object.values(_penaltypaymentStatus), default: _penaltypaymentStatus.NA }
   },
 
   actions: {

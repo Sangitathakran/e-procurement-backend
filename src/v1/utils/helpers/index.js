@@ -152,7 +152,6 @@ exports._addDays = (days) => {
 
 const farmerIdGenerator = async (obj) => {
   try {
-    console.log("obj-->", obj)
     // get the state district date from our db
     const stateDistrictList = await StateDistrictCity.findOne({})
 
@@ -454,15 +453,12 @@ exports.handleDecimal = (value) => {
   return parseFloat(value) < 0 ? 0 : parseFloat(parseFloat(value).toFixed(3));
 }
 
-// exports.handleDecimal = (value, message = "Value") => {
-//   const decimalRegex = /^\d+(\.\d{1,3})?$/;
+exports._taxValue = () => {
+  const tax = 0;
+  return tax;
+}
 
-//   // Check if value matches the required format
-//   if (!decimalRegex.test(value)) {
-//     throw new Error(`${message} must be either integers or have up to 3 decimal places.`);
-//   }
-
-//   return parseFloat(value) < 0 ? 0 : parseFloat(parseFloat(value).toFixed(3));
-// };
-
-
+exports._distillerMsp = () => {
+  const msp = 24470;
+  return msp;
+}

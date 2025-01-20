@@ -34,11 +34,9 @@ const sendSmsOtp = async (phone) => {
     await smsService.sendOTPSMS(phone);
 };
 
-
 const sendResendSMS = async (phone) => {
     await smsService.sendResendSMS(phone);
 };
-
 
 module.exports.sendOtp = async (req, res) => {
     try {
@@ -70,7 +68,6 @@ module.exports.sendOtp = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
 
 module.exports.reSendOtp = async (req, res) => {
     try {
@@ -1008,3 +1005,224 @@ module.exports.getPendingDistillers = async (req, res) => {
     }
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Pending Distiller") }))
 }
+
+module.exports.updateApprovalStatus = asyncErrorHandler(async (req, res) => {
+    const { id } = req.query;
+    const distiller = await Distiller.findOne({ _id: id });
+   
+    if (!distiller) {
+        return res.send(
+            new serviceResponse({
+                status: 400,
+                errors: [{ message: _response_message.notFound("Distiller") }],
+            })
+        );
+    }
+    
+    distiller.is_approved= _userStatus.approved,
+    await distiller.save();
+    return res.send(
+        new serviceResponse({
+            status: 200,
+            message: [{ message: _response_message.updated("Distiller") }],
+        })
+    );
+});
+
+module.exports.bulkUploadDistiller = async (req, res) => {
+    try {
+        const { isxlsx = 1 } = req.body;
+        const [file] = req.files;
+
+        if (!file) {
+            return res.status(400).json({
+                message: _response_message.notFound("file"),
+                status: 400
+            });
+        }
+
+        let records = [];
+        let headers = [];
+
+        // Parse file data
+        if (isxlsx) {
+            const workbook = xlsx.read(file.buffer, { type: 'buffer' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            records = xlsx.utils.sheet_to_json(worksheet);
+            headers = Object.keys(records[0]);
+        } else {
+            const csvContent = file.buffer.toString('utf8');
+            const lines = csvContent.split('\n');
+            headers = lines[0].trim().split(',');
+            records = lines.slice(1).map(line => {
+                const values = line.trim().split(',');
+                return headers.reduce((obj, key, index) => {
+                    obj[key] = values[index] || null;
+                    return obj;
+                }, {});
+            });
+        }
+
+        let errorArray = [];
+
+        // Process each record
+        const processRecord = async (record) => {
+            const associate_name = record["Name of distiller"] || null;
+            const email = record["Email Id"] || null;
+            const mobile_no = record["Contact no"] || null;
+            const name = record["POC"] || null;
+            const state = record["Distiller state"] || null;
+
+            let errors = [];
+
+            if (!mobile_no) errors.push("Mobile No. is required");
+            if (mobile_no && !/^\d{10}$/.test(mobile_no)) errors.push("Invalid Mobile No. format");
+
+            if (errors.length > 0) return { success: false, errors };
+
+            try {
+                let existingRecord = await Distiller.findOne({ 'basic_details.point_of_contact.mobile': mobile_no });
+                if (existingRecord) {
+                    return {
+                        success: false,
+                        errors: [`Distiller with Mobile No. ${mobile_no} already exists.`]
+                    };
+                } else {
+                    const newDistiller = new Distiller({
+                        client_id: '9876',
+                        basic_details: {
+                            distiller_details: {
+                                associate_type: null,
+                                organization_name: associate_name,
+                                email,
+                                phone: mobile_no,
+                                company_logo: null
+                            },
+                            point_of_contact: {
+                                name: name,
+                                email:null,
+                                mobile: null,
+                                designation: null,
+                                aadhar_number: null,
+                                aadhar_image: {
+                                    front: null,
+                                    back: null
+                                }
+                            },
+                            company_owner_info: {
+                                name: null,
+                                aadhar_number: null,
+                                aadhar_image: {
+                                    front: null,
+                                    back: null
+                                },
+                                pan_card: null,
+                                pan_image: null
+                            },
+                            implementation_agency: null,
+                            cbbo_name: null
+                        },
+                        address: {
+                            registered: {
+                                line1: null,
+                                line2: null,
+                                country: "India",
+                                state,
+                                district: null,
+                                taluka: null,
+                                pinCode: null,
+                                village: null,
+                                ar_circle: null
+                            },
+                            operational: {
+                                line1: null,
+                                line2: null,
+                                country: "India",
+                                state: null,
+                                district: null,
+                                taluka: null,
+                                pinCode: null,
+                                village: null
+                            }
+                        },
+                        company_details: {
+                            cin_number: null,
+                            cin_image: null,
+                            tan_number: null,
+                            tan_image: null,
+                            pan_card: null,
+                            pan_image: null,
+                            gst_no: null,
+                            pacs_reg_date: null
+                        },
+                        manufactoring_storage: {
+                            manufactoring_details: false,
+                            storage_details: false
+                        },
+                        authorised: {
+                            name: null,
+                            designation: null,
+                            phone: null,
+                            email: null,
+                            aadhar_number: null,
+                            aadhar_certificate: {
+                                front: null,
+                                back: null
+                            },
+                            pan_card: null,
+                            pan_image: null
+                        },
+                        bank_details: {
+                            bank_name: null,
+                            branch_name: null,
+                            account_holder_name: null,
+                            ifsc_code: null,
+                            account_number: null,
+                            upload_proof: null
+                        },
+                        user_code: null,
+                        user_type: _userType.distiller,
+                        is_mobile_verified: false,
+                        is_email_verified: false,
+                        is_approved: _userStatus.pending,
+                        is_form_submitted: false,
+                        is_welcome_email_send: false,
+                        is_sms_send: false,
+                        term_condition: false,
+                        active: true
+                    });
+                    await newDistiller.save();
+                }
+            } catch (error) {
+                return { success: false, errors: [error.message] };
+            }
+
+            return { success: true };
+        };
+
+        for (const record of records) {
+            const result = await processRecord(record);
+            if (!result.success) {
+                errorArray = errorArray.concat(result.errors.map(err => ({ record, error: err })));
+            }
+        }
+
+        if (errorArray.length > 0) {
+            const errorData = errorArray.map(err => ({ ...err.record, Error: err.error }));
+            dumpJSONToExcel(req, res, {
+                data: errorData,
+                fileName: `distiller-error_records.xlsx`,
+                worksheetName: `distiller-error-records`
+            });
+        } else {
+            return res.status(200).json({
+                status: 200,
+                data: {},
+                message: "Distillers successfully uploaded."
+            });
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
