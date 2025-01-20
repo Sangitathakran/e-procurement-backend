@@ -109,7 +109,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                 $or: [
                     { "basicDetails.warehouseName": { $regex: search, $options: 'i' } },
                     { "addressDetails.city": { $regex: search, $options: 'i' } },
-                    { "addressDetails.state": { $regex: search, $options: 'i' } },
+                    { "addressDetails.state.state_name": { $regex: search, $options: 'i' } },
                 ]
             }),
             ...(warehouseIds && { _id: { $in: warehouseIds } }) // Filter by selected warehouse IDs
@@ -130,12 +130,13 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         // Handle export functionality
         if (isExport == 1) {
             const exportData = warehouses.map(item => ({
-                "Warehouse ID": item._id,
+                "Warehouse ID": item.wareHouse_code,//item._id,
                 "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
                 "City": item.addressDetails?.city || 'NA',
-                "State": item.addressDetails?.state || 'NA',
+                "State": item.addressDetails?.state?.state_name || 'NA',
                 "Status": item.active ? 'Active' : 'Inactive',
             }));
+
 
             if (exportData.length) {
                 return dumpJSONToExcel(req, res, {
