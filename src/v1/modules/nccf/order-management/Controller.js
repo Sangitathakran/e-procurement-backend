@@ -43,6 +43,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
             $project: {
                 _id: 1,
                 'orderId': '$purchasedOrder.poNo',
+                'commodity': '$product.name',
                 'distillerName': '$distiller.basic_details.distiller_details.organization_name',
                 'quantity': '$purchasedOrder.poQuantity',
                 'totalAmount': '$paymentInfo.totalAmount',
@@ -91,7 +92,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
     try {
-        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
+        const { page = 1, limit = 10, paginate = 1, sortBy = "createdAt", search = '', filters = {}, order_id } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
         const { user_id } = req;
 
@@ -147,10 +148,19 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     orderId: order_id
                 }
             },
-            { $sort: { [sortBy || 'createdAt']: 1 } },
-            { $skip: skip },
-            { $limit: parseInt(limit, 10) }
+            // { $skip: skip },
+            // { $limit: parseInt(limit, 10) }
         ];
+
+        if (paginate == 1) {
+            aggregationPipeline.push(
+                { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } }, 
+                { $skip: parseInt(skip) },
+                { $limit: parseInt(limit) }
+            );
+        } else {
+            aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
+        }
 
         const records = { count: 0, rows: [] };
         records.rows = await BatchOrderProcess.aggregate(aggregationPipeline);
