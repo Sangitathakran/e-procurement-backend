@@ -25,14 +25,15 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
         }
-
+        
         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
         const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
-
+        
         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
             : ownerwarehouseIds;
 
+        console.log('finalwarehouseIds',finalwarehouseIds)
         if (!finalwarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
@@ -42,7 +43,7 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
         }
 
         const query = {
-            "warehousedetails_id._id": { $in: finalwarehouseIds },
+            // "warehousedetails_id._id": { $in: finalwarehouseIds },
             ...(search && {
                 $or: [
                     { batchId: { $regex: search, $options: 'i' } },
@@ -62,6 +63,8 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
             .sort({ [sortBy]: 1 })
             .skip((page - 1) * limit)
             .limit(parseInt(limit));
+
+        console.log('rows',rows)
 
         const count = await Batch.countDocuments(query);
         const stats = {
