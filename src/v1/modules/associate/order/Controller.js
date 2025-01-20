@@ -121,6 +121,7 @@ module.exports.batch = async (req, res) => {
             req_id,
             associateOffer_id: record._id,
             batchId,
+            warehousedetails_id : procurementRecord.warehousedetails_id,
             farmerOrderIds: farmerData,
             procurementCenter_id,
             qty: handleDecimal(sumOfQtyDecimal),  // Apply handleDecimal here
