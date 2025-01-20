@@ -25,6 +25,7 @@ const warehouseDetailsSchema = new mongoose.Schema({
         pincode: { type: String, required: true, trim: true },
         city: { type: String, required: true, trim: true },
         tehsil: { type: String, required: true, trim: true },
+        location_url: { type: String, required: true, trim: true },
         state: {
             state_name: { type: String },
             lat: { type: String },

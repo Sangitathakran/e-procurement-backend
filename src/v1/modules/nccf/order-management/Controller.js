@@ -129,15 +129,17 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     from: 'warehousev2', // Collection name in MongoDB
                     localField: '_id',
                     foreignField: 'warehouseId',
-                    as: 'wareHousev2',
+                    as: 'wareHousev2Details',
                 },
             },
-            { $unwind: { path: '$wareHousev2', preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: '$wareHousev2Details', preserveNullAndEmptyArrays: true } },
             {
                 $project: {
+                    warehouseId:1,
                     purchaseId: '$batchId',
-                    warehouseId: '$wareHousev2.warehouseOwner_code',
+                    warehouse_Id: '$wareHousev2Details.warehouseOwner_code',
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
+                    warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
                     pendingAmount: "$payment.amount",
                     comment: "$comment",
