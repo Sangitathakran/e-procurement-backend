@@ -344,6 +344,7 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
                     new serviceResponse({ status: 400, errors: [{ message: `Warehouse ${warehouseId} not found` }] })
                 );
             }
+            console.log(warehouse);
             if (requiredQuantity > warehouse.inventory.stock) {
                 return res.status(400).send(
                     new serviceResponse({
