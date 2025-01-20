@@ -13,6 +13,7 @@ const batchOrderProcessSchema = new mongoose.Schema({
   actualPickupDate: { type: Date },
   pickupStatus: { type: String, enum: Object.values(_poPickupStatus), default: _poPickupStatus.pending },
   status: { type: String, enum: Object.values(_poBatchStatus), default: _poBatchStatus.pending },
+  comment: { type: String },
 
   payment: {
     paymentId: { type: String },
