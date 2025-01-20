@@ -6,7 +6,7 @@ const { Auth } = require("@src/v1/middlewares/jwt")
 
 const wareHouseInwardRoutes = express.Router();
 
-wareHouseInwardRoutes.post("/batch-list", verifyWarehouseOwner, getBatchesByWarehouse);
+wareHouseInwardRoutes.get("/batch-list", verifyWarehouseOwner, getBatchesByWarehouse);
 wareHouseInwardRoutes.put("/batch-approval", verifyWarehouseOwner, batchApproveOrReject);
 wareHouseInwardRoutes.get("/lot-list", verifyWarehouseOwner, lot_list);
 wareHouseInwardRoutes.get("/batch-details", verifyWarehouseOwner, viewBatchDetails);
