@@ -163,24 +163,92 @@ module.exports.getDistillerById = asyncErrorHandler(async (req, res) => {
         { $match: matchStage },
         {
             $lookup: {
-                from: "manufacturingunits", // Adjust this to your actual collection name for branches
+                from: "manufacturingunits",
                 localField: "_id",
                 foreignField: "distiller_id",
                 as: "manufacturingUnit"
             }
         },
         {
+            $unwind: {
+                path: "$manufacturingUnit",
+                preserveNullAndEmptyArrays: true
+            }
+        },
+        {
             $lookup: {
-                from: "storagefacilities", // Adjust this to your actual collection name for branches
+                from: "statedistrictcities",
+                let: {
+                    stateId: "$manufacturingUnit.manufacturing_state",
+                    districtId: "$manufacturingUnit.manufacturing_district"
+                },
+                pipeline: [
+                    { $unwind: "$states" },
+                    { $match: { $expr: { $eq: ["$states._id", "$$stateId"] } } },
+                    { $unwind: "$states.districts" },
+                    { $match: { $expr: { $eq: ["$states.districts._id", "$$districtId"] } } },
+                    {
+                        $project: {
+                            state_title: "$states.state_title",
+                            district_title: "$states.districts.district_title"
+                        }
+                    }
+                ],
+                as: "location_details"
+            }
+        },
+        {
+            $addFields: {
+                "manufacturingUnit.state_title": { $arrayElemAt: ["$location_details.state_title", 0] },
+                "manufacturingUnit.district_title": { $arrayElemAt: ["$location_details.district_title", 0] }
+            }
+        },
+        {
+            $lookup: {
+                from: "storagefacilities", 
                 localField: "_id",
                 foreignField: "distiller_id",
                 as: "storageFacility"
             }
         },
         {
+            $unwind: {
+                path: "$storageFacility",
+                preserveNullAndEmptyArrays: true
+            }
+        },
+        {
+            $lookup: {
+                from: "statedistrictcities",
+                let: {
+                    stateId: "$storageFacility.storage_state",
+                    districtId: "$storageFacility.storage_district"
+                },
+                pipeline: [
+                    { $unwind: "$states" },
+                    { $match: { $expr: { $eq: ["$states._id", "$$stateId"] } } },
+                    { $unwind: "$states.districts" },
+                    { $match: { $expr: { $eq: ["$states.districts._id", "$$districtId"] } } },
+                    {
+                        $project: {
+                            state_title: "$states.state_title",
+                            district_title: "$states.districts.district_title"
+                        }
+                    }
+                ],
+                as: "location_detail"
+            }
+        },
+        {
+            $addFields: {
+                "storageFacility.state_title": { $arrayElemAt: ["$location_detail.state_title", 0] },
+                "storageFacility.district_title": { $arrayElemAt: ["$location_detail.district_title", 0] }
+            }
+        },
+        {
             $project: {
                 _id: 1,
-                'distiller_id': '$user_code',
+                'user_code': '$user_code',
                 'distiller_details': '$basic_details.distiller_details',
                 'company_owner_info': '$basic_details.company_owner_info',
                 'poc': '$basic_details.point_of_contact',
@@ -202,14 +270,14 @@ module.exports.getDistillerById = asyncErrorHandler(async (req, res) => {
     if (!record || record.length === 0) {
         return res.status(404).send(new serviceResponse({
             status: 404,
-            message: _response_message.notFound("Pending Distiller")
+            message: _response_message.notFound("Distiller")
         }));
     }
 
     return res.status(200).send(new serviceResponse({
         status: 200,
         data: record[0],
-        message: _response_message.found("Pending Distiller")
+        message: _response_message.found("Distiller")
     }));
 });
 
