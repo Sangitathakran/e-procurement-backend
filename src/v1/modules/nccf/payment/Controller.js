@@ -26,7 +26,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
     let aggregationPipeline = [
         { $match: matchStage },
-        { $sort: { [sortBy]: 1 } },
+        { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
         {
             $lookup: {
                 from: "distillers", // Adjust this to your actual collection name for branches
@@ -110,6 +110,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
     }));
 });
 
+/*
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
     try {
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
@@ -159,7 +160,8 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     orderId: order_id
                 }
             },
-            { $sort: { [sortBy || 'createdAt']: 1 } },
+            // { $sort: { [sortBy || 'createdAt']: 1 } },
+            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
             { $skip: skip },
             { $limit: parseInt(limit, 10) }
         ];
@@ -183,6 +185,84 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
         } else {
             return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
         }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+});
+*/
+
+module.exports.batchList = asyncErrorHandler(async (req, res) => {
+    try {
+        const { page = 1, limit = 10, sortBy, search = '', order_id } = req.query;
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+        const { user_id } = req;
+
+        if (!order_id) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order Id") }] }));
+        }
+
+        let query = {
+            orderId: new mongoose.Types.ObjectId(order_id),
+            deletedAt: null
+        };
+
+        if (search) {
+            query.batchId = { $regex: search, $options: "i" };
+        }
+
+        const aggregationPipeline = [
+            { $match: query },
+            {
+                $lookup: {
+                    from: "purchaseorders",
+                    localField: "orderId",
+                    foreignField: "_id",
+                    as: "OrderDetails"
+                }
+            },
+            { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "warehousedetails",
+                    localField: "warehouseOwnerId",
+                    foreignField: "warehouseId",
+                    as: "warehouseDetails",
+                },
+            },
+            { $unwind: { path: "$warehouseDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $group: {
+                    _id: "$_id",
+                    batchId: { $first: "$batchId" },
+                    warehouseId: { $first: "$warehouseDetails.basicDetails.warehouseId" },
+                    warehouseName: { $first: "$warehouseDetails.basicDetails.warehouseName" },
+                    quantityRequired: { $first: "$quantityRequired" },
+                    scheduledPickupDate: { $first: "$scheduledPickupDate" },
+                    actualPickupDate: { $first: "$actualPickupDate" },
+                    totalAmount: { $first: "$payment.amount" },
+                    penaltyAmount: { $first: "$penaltyDetails.penaltyAmount" },
+                    pickupStatus: { $first: "$pickupStatus" },
+                    orderId: { $first: order_id }
+                }
+            },
+            { $sort: { [sortBy || "createdAt"]: -1, _id: 1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit, 10) }
+        ];
+
+        const records = { count: 0, rows: [] };
+        records.rows = await BatchOrderProcess.aggregate(aggregationPipeline);
+
+        const countAggregation = [{ $match: query }, { $count: "total" }];
+        const countResult = await BatchOrderProcess.aggregate(countAggregation);
+        records.count = countResult.length > 0 ? countResult[0].total : 0;
+
+        records.page = parseInt(page, 10);
+        records.limit = parseInt(limit, 10);
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }
