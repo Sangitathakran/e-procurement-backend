@@ -165,7 +165,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
         companyDetails, additionalDetails, qualitySpecificationOfProduct, paymentInfo
     } = req.body;
 
-    const record = await PurchaseOrderModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
+    const record = await PurchaseOrderModel.findOne({ _id: id }).populate("branch_id");
 
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("request") }));
