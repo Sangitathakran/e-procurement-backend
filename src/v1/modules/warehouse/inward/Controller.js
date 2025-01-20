@@ -224,7 +224,7 @@ module.exports.viewBatchDetails = async (req, res) => {
 module.exports.lot_list = async (req, res) => {
     try {
         const { batch_id } = req.query;
-
+        console.log('batch_id',batch_id)
         const record = {}
         record.rows = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name qtyProcured" });
 

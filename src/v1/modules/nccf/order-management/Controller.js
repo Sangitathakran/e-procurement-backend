@@ -140,6 +140,8 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
                     pendingAmount: "$payment.amount",
+                    comment: "$comment",
+                    status: "$status",
                     orderId: order_id
                 }
             },
@@ -381,7 +383,7 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
 
 module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
     try {
-        const { batchId, status, quantity } = req.body;
+        const { batchId, status, quantity, comment } = req.body;
 
         if (!batchId) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch Id") }] }));
@@ -418,6 +420,7 @@ module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
         record.status = status;
         record.quantityRequired = quantity;
         record.payment.amount= amountToBePaid;
+        record.comment= comment;
 
             await record.save();
 
