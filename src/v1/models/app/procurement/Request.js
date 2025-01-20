@@ -20,7 +20,7 @@ const RequestSchema = new mongoose.Schema({
         quantity: { type: Number, required: true },
     },
     address: {
-        deliveryLocation: { type: String, required: false },
+        deliveryLocation: { type: String, required: false, trim:true },
         lat: { type: String, required: false },
         long: { type: String, required: false },
         locationUrl: { type: String, required: false }
