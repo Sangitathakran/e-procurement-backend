@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
-const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue } = require("@src/v1/utils/helpers")
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const { _userType, _userStatus, _poAdvancePaymentStatus } = require('@src/v1/utils/constants');
+const { _userType, _poAdvancePaymentStatus, _poBatchStatus, _poBatchPaymentStatus } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
@@ -129,18 +129,21 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     from: 'warehousev2', // Collection name in MongoDB
                     localField: '_id',
                     foreignField: 'warehouseId',
-                    as: 'wareHousev2',
+                    as: 'wareHousev2Details',
                 },
             },
-            { $unwind: { path: '$wareHousev2', preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: '$wareHousev2Details', preserveNullAndEmptyArrays: true } },
             {
                 $project: {
+                    warehouseId:1,
                     purchaseId: '$batchId',
-                    warehouseId: '$wareHousev2.warehouseOwner_code',
+                    warehouse_Id: '$wareHousev2Details.warehouseOwner_code',
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
+                    warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
-                    totalAmount: '$payment.amount',
-                    pendingAmount: "$penaltyDetails.penaltyBalancePayment",
+                    pendingAmount: "$payment.amount",
+                    comment: "$comment",
+                    status: "$status",
                     orderId: order_id
                 }
             },
@@ -258,7 +261,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                 }
             },
 
-            { $sort: { [sortBy]: 1 } },
+            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
             { $skip: skip },
             { $limit: parseInt(limit, 10) }
         ];
@@ -276,6 +279,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
         // Export functionality
         if (isExport == 1) {
             const record = records.rows.map((item) => {
@@ -324,14 +328,14 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
 
         // Fetch all warehouses to validate stock
         const warehouseIds = inventoryData.map((item) => item.warehouseId);
-        const warehouses = await wareHouseDetails.find({ _id: { $in: warehouseIds } });
+        const warehouses = await wareHousev2.find({ _id: { $in: warehouseIds } });
 
         // Check if all warehouseIds are valid
         if (warehouses.length !== inventoryData.length) {
             return res.status(400).send(
                 new serviceResponse({
                     status: 400,
-                    errors: [{ message: "Some warehouses were not found" }],
+                    errors: [{ message: "Warehouses were not found" }],
                 })
             );
         }
@@ -344,6 +348,7 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
                     new serviceResponse({ status: 400, errors: [{ message: `Warehouse ${warehouseId} not found` }] })
                 );
             }
+            console.log(warehouse);
             if (requiredQuantity > warehouse.inventory.stock) {
                 return res.status(400).send(
                     new serviceResponse({
@@ -373,6 +378,261 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(
             new serviceResponse({ status: 200, message: `${result.modifiedCount} Required Quantity updated successfully`, })
         );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+});
+
+module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId, status, quantity, comment } = req.body;
+
+        if (!batchId) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch Id") }] }));
+        }
+
+        if (!status) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Status") }] }));
+        }
+
+        if (!quantity) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Quantity") }] }));
+        }
+
+        const record = await BatchOrderProcess.findOne({ _id: batchId });
+
+        if (!record) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        }
+
+        // Validate quantity
+        if (quantity !== undefined && quantity > record.quantityRequired) {
+            return res.send(new serviceResponse({
+                status: 400,
+                errors: [{ message: "quantity cannot be more than existing batch quantity Required" }]
+            }));
+        }
+
+        const msp = _distillerMsp();
+        // const totalAmount = handleDecimal(record.paymentInfo.totalAmount);
+        // const tokenAmount = handleDecimal(record.paymentInfo.advancePayment);
+        // const remainingAmount = handleDecimal(record.paymentInfo.balancePayment);
+        const amountToBePaid = handleDecimal(msp * record.quantityRequired);
+
+        record.status = status;
+        record.quantityRequired = quantity;
+        record.payment.amount= amountToBePaid;
+        record.comment= comment;
+
+            await record.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+})
+
+module.exports.batchAcceptedList = asyncErrorHandler(async (req, res) => {
+    try {
+        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+
+        if (!order_id) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order Id") }] }));
+        }
+
+        let query = {
+            orderId: new mongoose.Types.ObjectId(order_id),
+            status: _poBatchStatus.accepted,
+            'payment.status': _poBatchPaymentStatus.paid,
+            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+        };
+
+        const aggregationPipeline = [
+            { $match: query },
+            {
+                $lookup: {
+                    from: "purchaseorders", // Adjust this to your actual collection name for branches
+                    localField: "orderId",
+                    foreignField: "_id",
+                    as: "OrderDetails"
+                }
+            },
+            { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: 'warehousedetails', // Collection name in MongoDB
+                    localField: 'warehouseOwnerId',
+                    foreignField: 'warehouseId',
+                    as: 'warehouseDetails',
+                },
+            },
+            { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: 'warehousev2', // Collection name in MongoDB
+                    localField: '_id',
+                    foreignField: 'warehouseId',
+                    as: 'wareHousev2',
+                },
+            },
+            { $unwind: { path: '$wareHousev2', preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    purchaseId: '$batchId',
+                    warehouseId: '$wareHousev2.warehouseOwner_code',
+                    warehouseName: '$warehouseDetails.basicDetails.warehouseName',
+                    quantityRequired: 1,
+                    amount: "$payment.amount",
+                    paymentStatus: "$payment.status",
+                    actualPickUp: "$actualPickupDate",
+                    pickupStatus: "$pickupStatus",
+                    orderId: order_id
+                }
+            },
+
+            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit, 10) }
+        ];
+
+        const records = { count: 0, rows: [] };
+        records.rows = await BatchOrderProcess.aggregate(aggregationPipeline);
+
+        const countAggregation = [
+            { $match: query },
+            { $count: 'total' }
+        ];
+        const countResult = await BatchOrderProcess.aggregate(countAggregation);
+        records.count = countResult.length > 0 ? countResult[0].total : 0;
+
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+        if (!records) {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        } else {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+});
+
+module.exports.batchscheduleDateUpdate = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId, scheduledPickupDate } = req.body;
+
+        if (!batchId) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch Id") }] }));
+        }
+
+        if (!scheduledPickupDate) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch schedule Date") }] }));
+        }
+
+        const record = await BatchOrderProcess.findOne({ _id: batchId });
+
+        if (!record) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        }
+        
+        record.scheduledPickupDate = scheduledPickupDate;
+
+        await record.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.updated("Batch") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+})
+
+module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
+    try {
+        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+
+        if (!order_id) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order Id") }] }));
+        }
+
+        let query = {
+            orderId: new mongoose.Types.ObjectId(order_id),
+            status: _poBatchStatus.rejected,
+            'payment.status': _poBatchPaymentStatus.paid,
+            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+        };
+
+        const aggregationPipeline = [
+            { $match: query },
+            {
+                $lookup: {
+                    from: "purchaseorders", // Adjust this to your actual collection name for branches
+                    localField: "orderId",
+                    foreignField: "_id",
+                    as: "OrderDetails"
+                }
+            },
+            { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: 'warehousedetails', // Collection name in MongoDB
+                    localField: 'warehouseOwnerId',
+                    foreignField: 'warehouseId',
+                    as: 'warehouseDetails',
+                },
+            },
+            { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: 'warehousev2', // Collection name in MongoDB
+                    localField: '_id',
+                    foreignField: 'warehouseId',
+                    as: 'wareHousev2',
+                },
+            },
+            { $unwind: { path: '$wareHousev2', preserveNullAndEmptyArrays: true } },
+            {
+                $project: {
+                    purchaseId: '$batchId',
+                    warehouseId: '$wareHousev2.warehouseOwner_code',
+                    warehouseName: '$warehouseDetails.basicDetails.warehouseName',
+                    quantityRequired: 1,
+                    amount: "$payment.amount",
+                    paymentStatus: "$payment.status",
+                    actualPickUp: "$actualPickupDate",
+                    pickupStatus: "$pickupStatus",
+                    orderId: order_id
+                }
+            },
+
+            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit, 10) }
+        ];
+
+        const records = { count: 0, rows: [] };
+        records.rows = await BatchOrderProcess.aggregate(aggregationPipeline);
+
+        const countAggregation = [
+            { $match: query },
+            { $count: 'total' }
+        ];
+        const countResult = await BatchOrderProcess.aggregate(countAggregation);
+        records.count = countResult.length > 0 ? countResult[0].total : 0;
+
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+        if (!records) {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        } else {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        }
     } catch (error) {
         _handleCatchErrors(error, res);
     }

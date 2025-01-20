@@ -167,8 +167,8 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         batchId: randomVal,
         quantityRequired: handleDecimal(quantityRequired),
         'payment.amount': amountToBePaid,
-        scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
-        'payment.status': _poBatchPaymentStatus.paid,
+        // scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
+        // 'payment.status': _poBatchPaymentStatus.paid,
         createdBy: user_id
     });
 
@@ -179,7 +179,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     if (poRecord.paymentInfo.totalAmount == poRecord.paymentInfo.paidAmount) {
         poRecord.payment_status = _poPaymentStatus.paid;
     }
-    
+
     await poRecord.save();
 
     eventEmitter.emit(_webSocketEvents.procurement, { ...record, method: "created" });
@@ -340,3 +340,4 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+

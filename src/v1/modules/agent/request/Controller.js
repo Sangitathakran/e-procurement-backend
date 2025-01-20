@@ -41,6 +41,9 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     if (moment(delivery_date).isBefore(quoteExpiry)) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid_delivery_date("Delivery date") }] }));
     }
+    // console.log('tetetette');
+    // console.log('deliveryLocation',deliveryLocation); return false;
+    
 
     const record = await RequestModel.create({
         head_office_id,
@@ -54,6 +57,11 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
             commodityImage,
             grade,
             quantity: handleDecimal(quantity)
+        },
+        address: {
+            deliveryLocation,
+            lat: handleDecimal(lat),
+            long: handleDecimal(long)
         },
         warehouse_id: warehouse_id,
         quoteExpiry: moment(quoteExpiry).toDate(),
@@ -553,12 +561,12 @@ module.exports.deleteRequirement = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getWareHouse=asyncErrorHandler(async(req, res)=>{
-    const { page, limit, skip, sortBy,paginate} = req.query
+    const { page, limit, skip, sortBy,paginate } = req.query
     const records = { count: 0 };
     const query = {};
     records.count = await wareHouseDetails.countDocuments();
     if(paginate==1){
-        records.rows = await wareHouseDetails.find(query).select({addressDetails:1})
+        records.rows = await wareHouseDetails.find(query).select({addressDetails:1 })
         .sort(sortBy)
         .skip(skip)
         .limit(parseInt(limit))
@@ -566,7 +574,7 @@ module.exports.getWareHouse=asyncErrorHandler(async(req, res)=>{
     records.limit = limit
     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
     }else{
-        records.rows = await wareHouseDetails.find(query).select({addressDetails:1})
+        records.rows = await wareHouseDetails.find(query).select({addressDetails:1 ,  "basicDetails.warehouseName" : 1})
         .sort(sortBy)
     }
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }))

@@ -67,7 +67,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
             tax: _taxValue(),
             paidAmount: handleDecimal(tokenAmount),
             // advancePaymentStatus:_poAdvancePaymentStatus.pending
-            advancePaymentStatus:_poAdvancePaymentStatus.paid
+            // advancePaymentStatus:_poAdvancePaymentStatus.paid
         },
         companyDetails,
         additionalDetails,
@@ -162,18 +162,20 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
 module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
 
     const { id, branch_id, name, grade, grade_remark, poQuantity, quantityDuration, manufacturingLocation, storageLocation, deliveryLocation,
-        companyDetails, additionalDetails, qualitySpecificationOfProduct
+        companyDetails, additionalDetails, qualitySpecificationOfProduct, paymentInfo
     } = req.body;
 
-    const record = await PurchaseOrderModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
+    const record = await PurchaseOrderModel.findOne({ _id: id }).populate("branch_id");
 
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("request") }));
     }
 
-    const msp = 24470;
+    const msp = _distillerMsp();
     const totalAmount = handleDecimal(msp * poQuantity);
     const tokenAmount = handleDecimal((totalAmount * 3) / 100);
+
+    
 
 
     record.branch_id = branch_id || record.branch_id,
@@ -209,8 +211,15 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     // Update quality specification
     record.qualitySpecificationOfProduct.moisture = qualitySpecificationOfProduct.moisture || record.qualitySpecificationOfProduct.moisture;
     record.qualitySpecificationOfProduct.broken = qualitySpecificationOfProduct.broken || record.qualitySpecificationOfProduct.broken;
+    // Payment Info 
+    record.paymentInfo.advancePaymentDate = paymentInfo?.advancePaymentDate || record?.paymentInfo?.advancePaymentDate,
+    record.paymentInfo.advancePaymentUtrNo = paymentInfo?.advancePaymentUtrNo || record?.paymentInfo?.advancePaymentUtrNo,
+    record.paymentInfo.payment_proof = paymentInfo?.payment_proof || record?.paymentInfo?.payment_proof,
+    record.paymentInfo.advancePaymentStatus= _poAdvancePaymentStatus.paid 
 
-    // Save the updated record
+
+    // console.log("_final_record=>", record);
+    // // Save the updated record
     await record.save();
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("request") }));
