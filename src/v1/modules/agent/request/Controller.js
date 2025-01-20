@@ -58,6 +58,11 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
             grade,
             quantity: handleDecimal(quantity)
         },
+        address: {
+            deliveryLocation,
+            lat: handleDecimal(lat),
+            long: handleDecimal(long)
+        },
         warehouse_id: warehouse_id,
         quoteExpiry: moment(quoteExpiry).toDate(),
         createdBy: user_id
