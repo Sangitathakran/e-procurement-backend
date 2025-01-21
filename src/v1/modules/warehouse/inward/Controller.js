@@ -272,7 +272,11 @@ module.exports.batchStatusUpdate = async (req, res) => {
     try {
         const {batchId, product_images, qc_images, whr_receipt,whr_receipt_image, status, rejected_reason } = req.body;
         
-        const requiredFields = ['batchId', 'product_images', 'qc_images', 'whr_receipt', 'whr_receipt_image', 'status'];
+        const requiredFields = ['batchId', 'product_images', 'qc_images', 'status'];
+        if (status !== 'rejected') {
+            requiredFields.push('whr_receipt', 'whr_receipt_image');
+        }
+
         const missingFields = requiredFields.filter((field) => !req.body[field]);
 
         if (missingFields.length > 0) {
@@ -285,7 +289,7 @@ module.exports.batchStatusUpdate = async (req, res) => {
         if (status === 'rejected' && !rejected_reason) {
             return res.status(400).send(new serviceResponse({
                 status: 400,
-                message: _middleware.require('rejected_reason')
+                message: 'rejected_reason'
             }));
         }
 
