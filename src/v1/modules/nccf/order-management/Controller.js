@@ -102,6 +102,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
 
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
+            status: _poBatchStatus.pending,
             ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
@@ -147,9 +148,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     status: "$status",
                     orderId: order_id
                 }
-            },
-            // { $skip: skip },
-            // { $limit: parseInt(limit, 10) }
+            }
         ];
 
         if (paginate == 1) {
@@ -458,7 +457,7 @@ module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
     }
 })
 
-module.exports.batchAcceptedList = asyncErrorHandler(async (req, res) => {
+module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
     try {
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
@@ -469,7 +468,7 @@ module.exports.batchAcceptedList = asyncErrorHandler(async (req, res) => {
 
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
-            status: _poBatchStatus.accepted,
+            status: { $nin: [_poBatchStatus.pending, _poBatchStatus.rejected] }, // Exclude 'pending' and 'accepted'
             'payment.status': _poBatchPaymentStatus.paid,
             ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
@@ -511,8 +510,10 @@ module.exports.batchAcceptedList = asyncErrorHandler(async (req, res) => {
                     quantityRequired: 1,
                     amount: "$payment.amount",
                     paymentStatus: "$payment.status",
+                    scheduledPickupDate: "$scheduledPickupDate",
                     actualPickUp: "$actualPickupDate",
                     pickupStatus: "$pickupStatus",
+                    status:1,
                     orderId: order_id
                 }
             },
