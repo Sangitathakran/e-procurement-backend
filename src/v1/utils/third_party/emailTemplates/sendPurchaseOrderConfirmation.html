@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>New Purchase Order Received!(Order ID: {{po_number}})</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #f5f5f5;
+      }
+      .container {
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        /* border: 1px solid blue; */
+      }
+      .sections-container {
+        display: grid;
+        grid-template-rows: repeat(3);
+        justify-content: center;
+        /* border: 1px solid red; */
+      }
+      .section {
+        /* border: 1px solid green; */
+        text-align: left;
+        padding: 5px;
+      }
+      .header {
+        text-align: center;
+        padding-bottom: 20px;
+      }
+      .logo {
+        width: 120px;
+        height: auto;
+      }
+      .content {
+        color: #333333;
+        text-align: center;
+        padding-top: 20px;
+      }
+      a {
+        text-decoration: none;
+        display: inline-block;
+        cursor: pointer;
+      }
+      .footer {
+        text-align: center;
+        padding-top: 20px;
+        color: #777777;
+      }
+      .details {
+        list-style-type: none;
+        margin: 0; /* Remove default margins */
+        padding: 0; /* Remove default padding */
+      }
+
+      .details li {
+        margin-bottom: 10px; /* Add space between list items */
+        padding-left: 20px; /* Space for custom bullet */
+        position: relative; /* Enable positioning for the bullet */
+      }
+
+      .details li::before {
+        content: "•"; /* Add a custom bullet symbol */
+        color: #075614; /* Customize the bullet color (adjust as needed) */
+        font-weight: bold; /* Make the bullet bold */
+        font-size: 18px; /* Adjust bullet size */
+        position: absolute; /* Position the bullet */
+        left: 0; /* Align the bullet to the left */
+        top: 0; /* Align the bullet vertically */
+        transform: translateY(3px); /* Fine-tune the vertical alignment */
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <img src="{{logo_url}}" alt="KhetiSauda Logo" class="logo" />
+      </div>
+      <div class="content">
+        <h2 style="margin-bottom: 20px">Confirmation for Purchase Order</h2>
+        <p>Hi <strong>{{receiver_name}}</strong>,</p>
+        <p>
+          You have received a new purchase order from {{distiller_name}} on
+          {{order_date}}. Please find the details below:
+        </p>
+        <!-- Order Details -->
+        <div class="sections-container">
+          <!-- Purchase Order Details -->
+          <div class="section">
+            <h2>Purchase Order Details</h2>
+            <ul class="details">
+              <li><strong>PO No.:</strong> {{po_number}}</li>
+              <li><strong>Commodity:</strong> {{commodity}}</li>
+              <li><strong>Quantity:</strong> {{quantity}}</li>
+              <li><strong>MSP:</strong> {{msp}}</li>
+              <li><strong>Branch Office:</strong> {{branch_office_name}}</li>
+            </ul>
+          </div>
+
+          <!-- Payment Information -->
+          <div class="section">
+            <h2>Payment Information</h2>
+            <ul class="details">
+              <li><strong>Total Amount:</strong> {{total_amount}}</li>
+              <li><strong>Advance Payment:</strong> {{advance_payment}}</li>
+              <li>
+                <strong>Advance Payment Date:</strong> {{advance_payment_date}}
+              </li>
+            </ul>
+          </div>
+
+          <!-- Distiller Information -->
+          <div class="section">
+            <h2>Distiller Information</h2>
+            <ul class="details">
+              <li><strong>Name:</strong> {{distiller_name}}</li>
+              <li><strong>Delivery Location:</strong> {{delivery_location}}</li>
+              <li><strong>Contact Number:</strong> {{contact_number}}</li>
+            </ul>
+          </div>
+        </div>
+        <!-- <p>Please follow this link to login and view your order:</p>
+        <button class="cta-button" style="cursor: pointer">Link</button> -->
+        <h3>
+          Kindly create the delivery schedule for this order to initiate the
+          process.
+        </p>
+      </div>
+      <div class="footer">
+        <p>Warm Regards,<br />Navankur</p>
+      </div>
+    </div>
+  </body>
+
+  <!-- <script>
+    const app_url = "https://ep.navbazar.com/distiller/sign-in"; // Replace this with your dynamic URL
+    document.querySelector(".cta-button").addEventListener("click", () => {
+      window.open(app_url, "_blank");
+    });
+  </script> -->
+</html>
