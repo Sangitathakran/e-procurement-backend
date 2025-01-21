@@ -264,6 +264,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                         }
                     },
                     realTimeStock: '$warehouseDetails.inventory.stock',
+                    requiredStock: '$warehouseDetails.inventory.requiredStock',
                     commodity: branch.product.name,
                     orderId: order_id,
                     warehouseOwnerId: '$warehouseDetails.warehouseOwnerId',
