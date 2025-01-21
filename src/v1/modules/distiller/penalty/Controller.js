@@ -30,7 +30,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
     }
 
     if (search) {
-        matchQuery.batchId = { $regex: search, $options: "i" };
+        matchQuery.purchaseId = { $regex: search, $options: "i" };
     }
 
     let aggregationPipeline = [
@@ -167,7 +167,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
             distiller_id: new mongoose.Types.ObjectId(user_id),
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
@@ -183,7 +183,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    batchId: 1,
+                    purchaseId: 1,
                     quantityRequired: 1,
                     scheduledPickupDate: 1,
                     actualPickupDate: 1,

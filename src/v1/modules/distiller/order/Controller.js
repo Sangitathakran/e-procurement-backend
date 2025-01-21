@@ -164,7 +164,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         distiller_id: user_id,
         warehouseId,
         orderId,
-        batchId: randomVal,
+        purchaseId: randomVal,
         quantityRequired: handleDecimal(quantityRequired),
         'payment.amount': amountToBePaid,
         // scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
@@ -205,7 +205,7 @@ module.exports.deliveryScheduledBatchList = asyncErrorHandler(async (req, res) =
             orderId: new mongoose.Types.ObjectId(order_id),
             warehouseId: new mongoose.Types.ObjectId(warehouse_id),
             distiller_id: new mongoose.Types.ObjectId(user_id),
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
@@ -221,7 +221,7 @@ module.exports.deliveryScheduledBatchList = asyncErrorHandler(async (req, res) =
             { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    batchId: 1,
+                    purchaseId: 1,
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     pickupLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
@@ -275,7 +275,7 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
             distiller_id: new mongoose.Types.ObjectId(user_id),
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
@@ -300,7 +300,7 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    purchaseId: '$batchId',
+                    purchaseId: '$purchaseId',
                     quantityRequired: 1,
                     amount: '$payment.amount',
                     scheduledPickupDate: 1,
