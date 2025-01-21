@@ -80,14 +80,31 @@ const batchsSchema = new mongoose.Schema({
         delivered_at: { type: Date, trim: true },
         delivered_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch },
     },
-    final_quqlity_check: {
+    final_quality_check: {
         product_images: [{type: String, trim: true, }],
         qc_images: {type: String, trim: true, },
         whr_receipt: { type: String, trim: true },
         whr_receipt_image: { type: String, trim: true },
         status: { type: String, trim: true },
         rejected_reason: { type: String, trim: true },
-        
+    },
+    receiving_details: {
+        quantity_received: { type: String, trim: true },
+        no_of_bags: { type: String, trim: true },
+        bag_weight_per_kg: { type: String, trim: true },
+        truck_photo: { type: String, trim: true },
+        vehicle_details : {
+            loaded_vehicle_weight: { type: Number, trim: true },
+            tare_weight: { type: Number, trim: true },
+            net_weight: { type: Number, trim: true },
+        },
+        document_pictures : {
+            product_images: [{type: String, trim: true, }],
+            weigh_bridge_slip: { type: String, trim: true },
+            receiving_copy: { type: String, trim: true },
+            proof_of_delivery: { type: String, trim: true },
+            truck_photo: { type: String, trim: true },
+        }
     },
     reason: { text: { type: String }, on: { type: Date } },
     bo_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
