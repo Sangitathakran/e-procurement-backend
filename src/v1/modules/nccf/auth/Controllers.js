@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
-const { _response_message } = require("@src/v1/utils/constants/messages");
+const { _auth_module, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { Agency } = require("@src/v1/models/app/auth/Agency");
 const { NccfAdmin } = require("@src/v1/models/app/auth/NccfAdmin");
@@ -8,6 +8,8 @@ const { MasterUser } = require("@src/v1/models/master/MasterUser");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const bcrypt = require('bcrypt');
+const jwt = require("jsonwebtoken");
+const { JWT_SECRET_KEY } = require('@config/index');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
 const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator")
 
@@ -63,7 +65,9 @@ module.exports.createNccf = async (req, res) => {
             return sendResponse({ res, status: 400, message: "user already existed with this mobile number or email in Master" })
         }
 
-        const password = generateRandomPassword();
+        // const password = generateRandomPassword();
+        // const password = "Ministry@1234";
+        const password = "Ministry@5678";
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const nccfData = new NccfAdmin({
@@ -149,9 +153,9 @@ module.exports.login = async (req, res) => {
         const user = await MasterUser.findOne({ email: email.trim() })
             .populate([
                 { path: "userRole", select: "" },
-                // { path: "portalId", select: "organization_name _id email phone" }
+                { path: "portalId", select: "" }
             ])
-            // console.log(user); return false;
+           
         if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('User') }] }));
         }
@@ -171,11 +175,10 @@ module.exports.login = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, message: _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
         }
 
-
         const payload = { email: user.email, user_id: user?._id, portalId: user?.portalId?._id, user_type: user.user_type }
         const expiresIn = 24 * 60 * 60;
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
-
+        
         const typeData = await TypesModel.find()
         const userData = await getPermission(user)
 

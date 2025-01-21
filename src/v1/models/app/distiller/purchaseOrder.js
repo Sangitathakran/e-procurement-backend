@@ -14,10 +14,10 @@ const purchaseOrderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: _collectionName.Distiller,
     },
-    head_office_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: _collectionName.HeadOffice,
-    },
+    // head_office_id: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: _collectionName.HeadOffice,
+    // },
     branch_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: _collectionName.Branch,
@@ -59,6 +59,7 @@ const purchaseOrderSchema = new mongoose.Schema(
         enum: Object.values(_penaltypaymentStatus),
         default: _penaltypaymentStatus.NA,
       },
+      payment_proof:{ type: String },
     },
 
     companyDetails: {
@@ -120,6 +121,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       enum: Object.values(_poRequestStatus),
       default: _poRequestStatus.pending,
     },
+    
     payment_status: {
       type: String,
       enum: Object.values(_poPaymentStatus),

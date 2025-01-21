@@ -1,7 +1,7 @@
-const { _generateOrderNumber, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
+const { _generateOrderNumber, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
-const { _webSocketEvents, _status, _poRequestStatus, _poPaymentStatus, _poAdvancePaymentStatus } = require('@src/v1/utils/constants');
+const { _webSocketEvents, _status, _poAdvancePaymentStatus, _poBatchPaymentStatus, _poPaymentStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
@@ -117,6 +117,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     }
 
     const existBatch = await BatchOrderProcess.find({ distiller_id: user_id, orderId });
+
     if (existBatch) {
         const addedQty = existBatch.reduce((quantityRequired, existBatch) => quantityRequired + existBatch.quantityRequired, 0);
 
@@ -131,16 +132,19 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         }
     }
 
-    const msp = 24470;
+    // const msp = 24470;
+    const msp = _distillerMsp();
     const totalAmount = handleDecimal(paymentInfo.totalAmount);
     const tokenAmount = handleDecimal(paymentInfo.advancePayment);
     const remainingAmount = handleDecimal(paymentInfo.balancePayment);
 
     let amountToBePaid = ''
-    if (existBatch) {
+
+    if (existBatch.length > 0) {
         amountToBePaid = handleDecimal(msp * quantityRequired);
     } else {
         amountToBePaid = handleDecimal((msp * quantityRequired) - tokenAmount);
+
     }
 
     let randomVal;
@@ -155,7 +159,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     }
 
     let currentDate = new Date(); // Get the current date
-         
+
     const record = await BatchOrderProcess.create({
         distiller_id: user_id,
         warehouseId,
@@ -163,11 +167,18 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         batchId: randomVal,
         quantityRequired: handleDecimal(quantityRequired),
         'payment.amount': amountToBePaid,
-        scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
+        // scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
+        // 'payment.status': _poBatchPaymentStatus.paid,
         createdBy: user_id
     });
 
-    poRecord.fulfilledQty = handleDecimal(fulfilledQty + quantityRequired)
+    poRecord.fulfilledQty = handleDecimal(fulfilledQty + quantityRequired);// Update fulfilled quantity in PO    
+    poRecord.paymentInfo.paidAmount = handleDecimal(poRecord.paymentInfo.paidAmount + amountToBePaid); // Update paidAmount in paymentInfo    
+    poRecord.paymentInfo.balancePayment = handleDecimal(poRecord.paymentInfo.totalAmount - poRecord.paymentInfo.paidAmount); // **Update balancePayment in paymentInfo**
+
+    if (poRecord.paymentInfo.totalAmount == poRecord.paymentInfo.paidAmount) {
+        poRecord.payment_status = _poPaymentStatus.paid;
+    }
 
     await poRecord.save();
 
@@ -208,24 +219,6 @@ module.exports.deliveryScheduledBatchList = asyncErrorHandler(async (req, res) =
                 },
             },
             { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
-            // {
-            //     $lookup: {
-            //         from: "branches", // Adjust this to your actual collection name for branches
-            //         localField: "branch_id",
-            //         foreignField: "_id",
-            //         as: "branch"
-            //     }
-            // },
-            // { $unwind: { path: "$branch", preserveNullAndEmptyArrays: true } },
-            // {
-            //     $lookup: {
-            //         from: "purchaseorders", // Adjust this to your actual collection name for branches
-            //         localField: "orderId",
-            //         foreignField: "_id",
-            //         as: "OrderDetails"
-            //     }
-            // },
-            // { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $project: {
                     batchId: 1,
@@ -314,8 +307,8 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
                     actualPickupDate: 1,
                     pickupLocation: '$warehouseDetails.addressDetails',
                     deliveryLocation: '$OrderDetails.deliveryLocation',
-                    paymentStatus:'$payment.status',
-                    penaltyStatus: '$penaltyDetails.penaltypaymentStatus',                    
+                    paymentStatus: '$payment.status',
+                    penaltyStatus: '$penaltyDetails.penaltypaymentStatus',
                     orderId: order_id
                 }
             },
@@ -347,3 +340,4 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+

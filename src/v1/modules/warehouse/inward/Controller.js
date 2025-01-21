@@ -25,14 +25,15 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
         }
-
+        
         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
         const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
-
+        
         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
             : ownerwarehouseIds;
 
+        console.log('finalwarehouseIds',finalwarehouseIds)
         if (!finalwarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
@@ -42,7 +43,7 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
         }
 
         const query = {
-            "warehousedetails_id._id": { $in: finalwarehouseIds },
+            // "warehousedetails_id._id": { $in: finalwarehouseIds },
             ...(search && {
                 $or: [
                     { batchId: { $regex: search, $options: 'i' } },
@@ -58,10 +59,12 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
                 { path: "procurementCenter_id", select: "center_name" },
                 { path: "warehousedetails_id", select: "basicDetails.warehouseName" },
             ])
-            .select("batchId warehousedetails_id commodity qty received_on qc_report wareHouse_code ")
+            .select("batchId warehousedetails_id commodity qty received_on qc_report wareHouse_code wareHouse_approve_status ")
             .sort({ [sortBy]: 1 })
             .skip((page - 1) * limit)
             .limit(parseInt(limit));
+
+        console.log('rows',rows)
 
         const count = await Batch.countDocuments(query);
         const stats = {
@@ -224,7 +227,7 @@ module.exports.viewBatchDetails = async (req, res) => {
 module.exports.lot_list = async (req, res) => {
     try {
         const { batch_id } = req.query;
-
+        console.log('batch_id',batch_id)
         const record = {}
         record.rows = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name qtyProcured" });
 

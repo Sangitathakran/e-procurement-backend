@@ -450,7 +450,6 @@ const _poRequestStatus = {
     reject: 'Rejected'
 }
 
-
 const _poAdvancePaymentStatus = {
     pending: "Pending",
     paid: 'Paid',
@@ -471,10 +470,20 @@ const _poPickupStatus = {
     completed: 'Completed',
     failed: 'Failed'
 }
+
 const _poBatchStatus = {
+    pending: 'Pending',
+    accepted: 'Accepted',
+    rejected: 'Rejected',
     scheduled: 'Scheduled',
     inProgress: 'In Progress',
     completed: 'Completed',
+}
+
+const _poBatchPaymentStatus = {
+    pending: 'Pending',
+    paid: 'Paid',
+    failed: 'Failed'
 }
 
 const _penaltypaymentStatus = {
@@ -546,5 +555,6 @@ module.exports = {
     _poPaymentStatus,
     _poPickupStatus,
     _poBatchStatus,
-    _penaltypaymentStatus
+    _penaltypaymentStatus,
+    _poBatchPaymentStatus
 }

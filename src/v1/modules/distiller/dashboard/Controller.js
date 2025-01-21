@@ -1,33 +1,12 @@
-const {
-  _handleCatchErrors,
-  dumpJSONToExcel,
-} = require("@src/v1/utils/helpers");
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const {
-  _response_message,
-  _middleware,
-} = require("@src/v1/utils/constants/messages");
+const { _response_message, _middleware, } = require("@src/v1/utils/constants/messages");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const {
-  _userType,
-  _poAdvancePaymentStatus,
-  _status,
-  _procuredStatus,
-  _collectionName,
-  _associateOfferStatus,
-} = require("@src/v1/utils/constants");
-const {
-  asyncErrorHandler,
-} = require("@src/v1/utils/helpers/asyncErrorHandler");
-const {
-  wareHousev2,
-} = require("@src/v1/models/app/warehouse/warehousev2Schema");
-const {
-  PurchaseOrderModel,
-} = require("@src/v1/models/app/distiller/purchaseOrder");
-const {
-  wareHouseDetails,
-} = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { _userType, _poAdvancePaymentStatus } = require("@src/v1/utils/constants");
+const { asyncErrorHandler, } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
+const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { mongoose } = require("mongoose");
 
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
@@ -103,7 +82,7 @@ module.exports.getOrder = asyncErrorHandler(async (req, res) => {
 
     let aggregationPipeline = [
       { $match: matchStage },
-      { $sort: { [sortBy]: 1 } },
+      { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
       {
         $project: {
           _id: 1,
@@ -158,18 +137,18 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
 
     let query = search
       ? {
-          $or: [
-            { "companyDetails.name": { $regex: search, $options: "i" } },
-            { "ownerDetails.name": { $regex: search, $options: "i" } },
-            {
-              "warehouseDetails.basicDetails.warehouseName": {
-                $regex: search,
-                $options: "i",
-              },
+        $or: [
+          { "companyDetails.name": { $regex: search, $options: "i" } },
+          { "ownerDetails.name": { $regex: search, $options: "i" } },
+          {
+            "warehouseDetails.basicDetails.warehouseName": {
+              $regex: search,
+              $options: "i",
             },
-          ],
-          ...filters, // Additional filters
-        }
+          },
+        ],
+        ...filters, // Additional filters
+      }
       : {};
 
     const aggregationPipeline = [
@@ -209,7 +188,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
         },
       },
 
-      { $sort: { [sortBy]: 1 } },
+      { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
       { $skip: skip },
       { $limit: parseInt(limit, 10) },
     ];
@@ -265,5 +244,78 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     }
   } catch (error) {
     _handleCatchErrors(error, res);
+  }
+});
+
+module.exports.getMonthlyPaidAmount = asyncErrorHandler(async (req, res) => {
+  try {
+    // Fetch aggregated monthly paid amounts
+    const monthlyPaidAmounts = await PurchaseOrderModel.aggregate([
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+          },
+          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
+        },
+      },
+      {
+        $sort: {
+          "_id.year": 1,
+          "_id.month": 1,
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          year: "$_id.year",
+          month: "$_id.month",
+          totalPaidAmount: 1,
+        },
+      },
+    ]);
+
+    // Generate a full list of months with 0 for missing data
+    const currentYear = new Date().getFullYear();
+    const startYear = monthlyPaidAmounts.length ? monthlyPaidAmounts[0].year : currentYear;
+    const endYear = currentYear;
+
+    const filledMonthlyData = [];
+    for (let year = startYear; year <= endYear; year++) {
+      for (let month = 1; month <= 12; month++) {
+        const existingData = monthlyPaidAmounts.find(
+          (data) => data.year === year && data.month === month
+        );
+
+        filledMonthlyData.push({
+          year,
+          month,
+          totalPaidAmount: existingData ? existingData.totalPaidAmount : 0,
+        });
+      }
+    }
+
+    // Check if data is available
+    if (!filledMonthlyData.length) {
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        message: "No data available for monthly paid amounts"
+      }));
+    }
+
+    // Return aggregated results with missing months filled in
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: filledMonthlyData,
+      message: "Monthly paid amounts fetched successfully"
+    }));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send(new serviceResponse({
+      status: 500,
+      message: "Error fetching monthly paid amounts",
+      error: error.message
+    }));
   }
 });
