@@ -123,7 +123,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
 
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
@@ -148,7 +148,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    batchId: 1,
+                    purchaseId: 1,
                     warehouseId: '$warehouseDetails.basicDetails.warehouseId',
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
@@ -207,7 +207,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
         };
 
         if (search) {
-            query.batchId = { $regex: search, $options: "i" };
+            query.purchaseId = { $regex: search, $options: "i" };
         }
 
         const aggregationPipeline = [
@@ -233,7 +233,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
             {
                 $group: {
                     _id: "$_id",
-                    batchId: { $first: "$batchId" },
+                    purchaseId: { $first: "$purchaseId" },
                     warehouseId: { $first: "$warehouseDetails.basicDetails.warehouseId" },
                     warehouseName: { $first: "$warehouseDetails.basicDetails.warehouseName" },
                     quantityRequired: { $first: "$quantityRequired" },

@@ -87,7 +87,7 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
             warehouseId: new mongoose.Types.ObjectId(user_id),//user_id
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
@@ -121,7 +121,7 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
              { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    batchId: '$batchId',
+                    purchaseId: '$purchaseId',
                     quantityRequired: 1,
                     amount: '$payment.amount',
                     warehouseDetails:"$warehouseDetails.warehouseOwner_code",
