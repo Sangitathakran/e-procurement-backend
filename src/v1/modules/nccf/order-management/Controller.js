@@ -370,8 +370,8 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
                     },
                     update: {
                         $set: {
-                            "inventory.requiredStock": requiredQuantity,
-                            "inventory.stock": requiredQuantity, // Update stock if undefined, null, or 0
+                            "inventory.requiredStock": handleDecimal(requiredQuantity),
+                            "inventory.stock": handleDecimal(requiredQuantity), // Update stock if undefined, null, or 0
                         },
                     },
                 },
@@ -386,7 +386,7 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
                     },
                     update: {
                         $set: {
-                            "inventory.requiredStock": requiredQuantity, // Only update requiredStock
+                            "inventory.requiredStock": handleDecimal(requiredQuantity), // Only update requiredStock
                         },
                     },
                 },
