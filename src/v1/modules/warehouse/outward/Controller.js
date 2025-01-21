@@ -97,10 +97,37 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
                     from: 'warehousev2',
                     localField: 'warehouseId',
                     foreignField: '_id',
-                    as: 'warehouseDetails',
-                },
+                    as: 'warehousedv2'
+                }
             },
-            { $unwind: { path: "$warehouseDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $unwind: {
+                    path: '$warehousedv2',
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    let: { warehouseId: '$warehousedv2._id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $eq: ['$_id', '$$warehouseId']
+                                }
+                            }
+                        }
+                    ],
+                    as: 'warehouseDetails'
+                }
+            },
+            {
+                $unwind: {
+                    path: '$warehouseDetails',
+                    preserveNullAndEmptyArrays: true
+                }
+            },
             {
                 $lookup: {
                     from: 'distillers',
@@ -119,12 +146,13 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
                 }
             },
              { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
+            
             {
                 $project: {
                     purchaseId: '$purchaseId',
                     quantityRequired: 1,
                     amount: '$payment.amount',
-                    warehouseDetails:"$warehouseDetails.warehouseOwner_code",
+                    warehouseDetails:"$warehouseDetails",
                     scheduledPickupDate: 1,
                     actualPickupDate: 1,
                     OrderDetails:"$OrderDetails.product",
@@ -165,5 +193,22 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+
+module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid item ID" });
+    }
+
+    const record = await PurchaseOrderModel.findOne({ _id: id });
+
+    if (!record) {
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("purchase order") }] }))
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("purchase order") }))
+})
 
 
