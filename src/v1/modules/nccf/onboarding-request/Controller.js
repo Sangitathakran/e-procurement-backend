@@ -76,18 +76,86 @@ module.exports.getDistillerById = asyncErrorHandler(async (req, res) => {
         { $match: matchStage },
         {
             $lookup: {
-                from: "manufacturingunits", // Adjust this to your actual collection name for branches
+                from: "manufacturingunits",
                 localField: "_id",
                 foreignField: "distiller_id",
                 as: "manufacturingUnit"
             }
         },
         {
+            $unwind: {
+                path: "$manufacturingUnit",
+                preserveNullAndEmptyArrays: true
+            }
+        },
+        {
             $lookup: {
-                from: "storagefacilities", // Adjust this to your actual collection name for branches
+                from: "statedistrictcities",
+                let: {
+                    stateId: "$manufacturingUnit.manufacturing_state",
+                    districtId: "$manufacturingUnit.manufacturing_district"
+                },
+                pipeline: [
+                    { $unwind: "$states" },
+                    { $match: { $expr: { $eq: ["$states._id", "$$stateId"] } } },
+                    { $unwind: "$states.districts" },
+                    { $match: { $expr: { $eq: ["$states.districts._id", "$$districtId"] } } },
+                    {
+                        $project: {
+                            state_title: "$states.state_title",
+                            district_title: "$states.districts.district_title"
+                        }
+                    }
+                ],
+                as: "location_details"
+            }
+        },
+        {
+            $addFields: {
+                "manufacturingUnit.state_title": { $arrayElemAt: ["$location_details.state_title", 0] },
+                "manufacturingUnit.district_title": { $arrayElemAt: ["$location_details.district_title", 0] }
+            }
+        },
+        {
+            $lookup: {
+                from: "storagefacilities", 
                 localField: "_id",
                 foreignField: "distiller_id",
                 as: "storageFacility"
+            }
+        },
+        {
+            $unwind: {
+                path: "$storageFacility",
+                preserveNullAndEmptyArrays: true
+            }
+        },
+        {
+            $lookup: {
+                from: "statedistrictcities",
+                let: {
+                    stateId: "$storageFacility.storage_state",
+                    districtId: "$storageFacility.storage_district"
+                },
+                pipeline: [
+                    { $unwind: "$states" },
+                    { $match: { $expr: { $eq: ["$states._id", "$$stateId"] } } },
+                    { $unwind: "$states.districts" },
+                    { $match: { $expr: { $eq: ["$states.districts._id", "$$districtId"] } } },
+                    {
+                        $project: {
+                            state_title: "$states.state_title",
+                            district_title: "$states.districts.district_title"
+                        }
+                    }
+                ],
+                as: "location_detail"
+            }
+        },
+        {
+            $addFields: {
+                "storageFacility.state_title": { $arrayElemAt: ["$location_detail.state_title", 0] },
+                "storageFacility.district_title": { $arrayElemAt: ["$location_detail.district_title", 0] }
             }
         },
         {

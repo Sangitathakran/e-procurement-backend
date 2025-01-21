@@ -139,14 +139,13 @@ module.exports.loginOrRegister = async (req, res) => {
             newUser.is_approved= _userStatus.approved;
 
             userExist = await Distiller.create(newUser);
-        }
-        else{
+        }else{
             const distiller = await Distiller.findOne(query);
             distiller.is_approved= _userStatus.approved;
             await distiller.save();
         }
 
-        
+
         if (userExist.active == false) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "you are not an active user!" }] }));
         }
@@ -1070,11 +1069,13 @@ module.exports.bulkUploadDistiller = async (req, res) => {
         // Process each record
         const processRecord = async (record) => {
             const associate_name = record["Name of distiller"] || null;
-            const email = record["Email Id"] || null;
             const mobile_no = record["Contact no"] || null;
             const name = record["POC"] || null;
             const state = record["Distiller state"] || null;
-
+            const district = record["Distiller district"];
+            const mou = record["Documents"];
+            const taluka = record["taluka"];
+            const village = record["village"];
             let errors = [];
 
             if (!mobile_no) errors.push("Mobile No. is required");
@@ -1096,7 +1097,7 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                             distiller_details: {
                                 associate_type: null,
                                 organization_name: associate_name,
-                                email,
+                                email: null,
                                 phone: mobile_no,
                                 company_logo: null
                             },
@@ -1130,10 +1131,10 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                                 line2: null,
                                 country: "India",
                                 state,
-                                district: null,
-                                taluka: null,
+                                district,
+                                taluka,
                                 pinCode: null,
-                                village: null,
+                                village,
                                 ar_circle: null
                             },
                             operational: {
@@ -1183,6 +1184,7 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                             upload_proof: null
                         },
                         user_code: null,
+                        mou,
                         user_type: _userType.distiller,
                         is_mobile_verified: false,
                         is_email_verified: false,

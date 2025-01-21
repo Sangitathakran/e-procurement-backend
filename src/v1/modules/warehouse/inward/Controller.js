@@ -25,14 +25,15 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
         }
-
+        
         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
         const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
-
+        
         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
             : ownerwarehouseIds;
 
+        console.log('finalwarehouseIds',finalwarehouseIds)
         if (!finalwarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
@@ -42,7 +43,7 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
         }
 
         const query = {
-            "warehousedetails_id._id": { $in: finalwarehouseIds },
+            // "warehousedetails_id._id": { $in: finalwarehouseIds },
             ...(search && {
                 $or: [
                     { batchId: { $regex: search, $options: 'i' } },
@@ -58,10 +59,12 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
                 { path: "procurementCenter_id", select: "center_name" },
                 { path: "warehousedetails_id", select: "basicDetails.warehouseName" },
             ])
-            .select("batchId warehousedetails_id commodity qty received_on qc_report wareHouse_code ")
+            .select("batchId warehousedetails_id commodity qty received_on qc_report wareHouse_code wareHouse_approve_status ")
             .sort({ [sortBy]: 1 })
             .skip((page - 1) * limit)
             .limit(parseInt(limit));
+
+        console.log('rows',rows)
 
         const count = await Batch.countDocuments(query);
         const stats = {
@@ -224,7 +227,7 @@ module.exports.viewBatchDetails = async (req, res) => {
 module.exports.lot_list = async (req, res) => {
     try {
         const { batch_id } = req.query;
-
+        console.log('batch_id',batch_id)
         const record = {}
         record.rows = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name qtyProcured" });
 
@@ -264,4 +267,69 @@ module.exports.editBatchDetails = async (req, res) => {
     }
 };
 
+
+module.exports.batchStatusUpdate = async (req, res) => {
+    try {
+        const {batchId, product_images, qc_images, whr_receipt,whr_receipt_image, status, rejected_reason } = req.body;
+        
+        const requiredFields = ['batchId', 'product_images', 'qc_images', 'status'];
+        if (status !== 'rejected') {
+            requiredFields.push('whr_receipt', 'whr_receipt_image');
+        }
+
+        const missingFields = requiredFields.filter((field) => !req.body[field]);
+
+        if (missingFields.length > 0) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: `Missing required fields: ${missingFields.join(', ')}`,
+            }));
+        }
+
+        if (status === 'rejected' && !rejected_reason) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: 'rejected_reason'
+            }));
+        }
+
+
+        const batchData = await Batch.findById(batchId);
+        if (!batchData) {
+            return res.status(404).send(new serviceResponse({
+                status: 404,
+                message: _response_message.notFound('Batch')
+            }));
+        }
+
+        const updateFields = {
+            'final_quqlity_check.status': status,
+            'final_quqlity_check.product_images': product_images,
+            'final_quqlity_check.qc_images': qc_images,
+            'final_quqlity_check.whr_receipt': whr_receipt,
+            'final_quqlity_check.whr_receipt_image': whr_receipt_image,
+            'final_quqlity_check.rejected_reason': status === 'rejected' ? rejected_reason : null
+        };
+
+        const updatedBatch = await Batch.findByIdAndUpdate(batchId, { $set: updateFields }, { new: true });
+        if (!updatedBatch) {
+            return res.status(404).send(new serviceResponse({
+                status: 404,
+                message: _response_message.notFound('Batch')
+            }));
+        }
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            message: 'Batch status updated successfully.',
+            data: updatedBatch
+        }));
+
+        
+
+        
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
 

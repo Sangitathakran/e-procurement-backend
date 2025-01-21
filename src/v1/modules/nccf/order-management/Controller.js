@@ -43,6 +43,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
             $project: {
                 _id: 1,
                 'orderId': '$purchasedOrder.poNo',
+                'commodity': '$product.name',
                 'distillerName': '$distiller.basic_details.distiller_details.organization_name',
                 'quantity': '$purchasedOrder.poQuantity',
                 'totalAmount': '$paymentInfo.totalAmount',
@@ -91,7 +92,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
     try {
-        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
+        const { page = 1, limit = 10, paginate = 1, sortBy = "createdAt", search = '', filters = {}, order_id } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
         const { user_id } = req;
 
@@ -129,24 +130,37 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     from: 'warehousev2', // Collection name in MongoDB
                     localField: '_id',
                     foreignField: 'warehouseId',
-                    as: 'wareHousev2',
+                    as: 'wareHousev2Details',
                 },
             },
-            { $unwind: { path: '$wareHousev2', preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: '$wareHousev2Details', preserveNullAndEmptyArrays: true } },
             {
                 $project: {
+                    warehouseId: 1,
                     purchaseId: '$batchId',
-                    warehouseId: '$wareHousev2.warehouseOwner_code',
+                    warehouse_Id: '$wareHousev2Details.warehouseOwner_code',
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
+                    warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
                     pendingAmount: "$payment.amount",
+                    comment: "$comment",
+                    status: "$status",
                     orderId: order_id
                 }
             },
-            { $sort: { [sortBy || 'createdAt']: 1 } },
-            { $skip: skip },
-            { $limit: parseInt(limit, 10) }
+            // { $skip: skip },
+            // { $limit: parseInt(limit, 10) }
         ];
+
+        if (paginate == 1) {
+            aggregationPipeline.push(
+                { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
+                { $skip: parseInt(skip) },
+                { $limit: parseInt(limit) }
+            );
+        } else {
+            aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
+        }
 
         const records = { count: 0, rows: [] };
         records.rows = await BatchOrderProcess.aggregate(aggregationPipeline);
@@ -250,6 +264,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                         }
                     },
                     realTimeStock: '$warehouseDetails.inventory.stock',
+                    requiredStock: '$warehouseDetails.inventory.requiredStock',
                     commodity: branch.product.name,
                     orderId: order_id,
                     warehouseOwnerId: '$warehouseDetails.warehouseOwnerId',
@@ -314,7 +329,10 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
         const { inventoryData } = req.body;
 
         // Validate input
-        if (!inventoryData || !Array.isArray(inventoryData) || inventoryData.length === 0 ||
+        if (
+            !inventoryData ||
+            !Array.isArray(inventoryData) ||
+            inventoryData.length === 0 ||
             inventoryData.some((item) => !item.warehouseId || typeof item.requiredQuantity !== "number")
         ) {
             return res.status(400).send(
@@ -324,7 +342,7 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
 
         // Fetch all warehouses to validate stock
         const warehouseIds = inventoryData.map((item) => item.warehouseId);
-        const warehouses = await wareHousev2.find({ _id: { $in: warehouseIds } });
+        const warehouses = await wareHouseDetails.find({ _id: { $in: warehouseIds } });
 
         // Check if all warehouseIds are valid
         if (warehouses.length !== inventoryData.length) {
@@ -336,43 +354,54 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
             );
         }
 
-        // Validate requiredStock against inventory.stock
-        for (const { warehouseId, requiredQuantity } of inventoryData) {
-            const warehouse = warehouses.find((w) => w._id.toString() === warehouseId);
-            if (!warehouse) {
-                return res.status(400).send(
-                    new serviceResponse({ status: 400, errors: [{ message: `Warehouse ${warehouseId} not found` }] })
-                );
-            }
-            console.log(warehouse);
-            if (requiredQuantity > warehouse.inventory.stock) {
-                return res.status(400).send(
-                    new serviceResponse({
-                        status: 400,
-                        errors: [
-                            {
-                                message: `Required quantity ${requiredQuantity} exceeds stock ${warehouse.inventory.stock} for warehouse ${warehouseId}`,
-                            },
-                        ],
-                    })
-                );
-            }
-        }
+        // Prepare bulk operations
+        const bulkOperations = [];
 
-        // Perform bulk update
-        const bulkOperations = inventoryData.map(
-            ({ warehouseId, requiredQuantity }) => ({
+        inventoryData.forEach(({ warehouseId, requiredQuantity }) => {
+            // Filter to update both stock and requiredStock if stock is undefined, null, or 0
+            bulkOperations.push({
                 updateOne: {
-                    filter: { _id: warehouseId },
-                    update: { $set: { "inventory.requiredStock": requiredQuantity } },
+                    filter: {
+                        _id: warehouseId,
+                        $or: [
+                            { "inventory.stock": { $exists: false } }, // If stock is undefined
+                            { "inventory.stock": { $eq: null } },     // If stock is null
+                            { "inventory.stock": { $eq: 0 } },        // If stock is 0
+                        ],
+                    },
+                    update: {
+                        $set: {
+                            "inventory.requiredStock": handleDecimal(requiredQuantity),
+                            "inventory.stock": handleDecimal(requiredQuantity), // Update stock if undefined, null, or 0
+                        },
+                    },
                 },
-            })
-        );
+            });
 
+            // Filter to update only requiredStock if stock is already defined and greater than 0
+            bulkOperations.push({
+                updateOne: {
+                    filter: {
+                        _id: warehouseId,
+                        "inventory.stock": { $gt: 0 }, // Ensure stock is greater than 0
+                    },
+                    update: {
+                        $set: {
+                            "inventory.requiredStock": handleDecimal(requiredQuantity), // Only update requiredStock
+                        },
+                    },
+                },
+            });
+        });
+
+        // Execute bulk operations
         const result = await wareHouseDetails.bulkWrite(bulkOperations);
 
         return res.status(200).send(
-            new serviceResponse({ status: 200, message: `${result.modifiedCount} Required Quantity updated successfully`, })
+            new serviceResponse({
+                status: 200,
+                message: `${result.modifiedCount} Required Quantity updated successfully`,
+            })
         );
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -381,7 +410,7 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
 
 module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
     try {
-        const { batchId, status, quantity } = req.body;
+        const { batchId, status, quantity, comment } = req.body;
 
         if (!batchId) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch Id") }] }));
@@ -417,9 +446,10 @@ module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
 
         record.status = status;
         record.quantityRequired = quantity;
-        record.payment.amount= amountToBePaid;
+        record.payment.amount = amountToBePaid;
+        record.comment = comment;
 
-            await record.save();
+        await record.save();
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
 
@@ -533,7 +563,7 @@ module.exports.batchscheduleDateUpdate = asyncErrorHandler(async (req, res) => {
         if (!record) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
         }
-        
+
         record.scheduledPickupDate = scheduledPickupDate;
 
         await record.save();

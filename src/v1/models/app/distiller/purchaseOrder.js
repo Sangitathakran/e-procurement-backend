@@ -14,6 +14,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: _collectionName.Distiller,
     },
+    warehouseId: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Warehouse },
     // head_office_id: {
     //   type: mongoose.Schema.Types.ObjectId,
     //   ref: _collectionName.HeadOffice,
