@@ -51,6 +51,8 @@ const _collectionName = {
     StorageFacility: "StorageFacility",
     PurchaseOrder: "PurchaseOrder",
     BatchOrderProcess: "batchOrderProcess",
+    TrackOrder : "TrackOrder",
+    Truck : "Truck",
 
 }
 
@@ -383,6 +385,11 @@ const received_qc_status = {
     pending: "Pending",
 }
 
+const _trackOrderStatus = { 
+    readyToShip : "Ready-To-Ship" , 
+    inTransit : "In-Transit" ,
+}
+
 const _individual_farmer_onboarding_steps = [
     {
         label: "Basic Details",
@@ -556,5 +563,6 @@ module.exports = {
     _poPickupStatus,
     _poBatchStatus,
     _penaltypaymentStatus,
-    _poBatchPaymentStatus
+    _poBatchPaymentStatus,
+    _trackOrderStatus ,
 }
