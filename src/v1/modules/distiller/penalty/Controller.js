@@ -79,7 +79,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
                         $ifNull: ["$batchDetails.penaltyDetails.penaltyAmount", 0]
                     }
                 },
-                paymentStatus: { $first: "$poStatus" }                
+                paymentStatus: { $first: "$poStatus" }
             }
         },
 
@@ -106,7 +106,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
             { $limit: parseInt(limit) }
         );
     } else {
-        aggregationPipeline.push( { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
     }
 
     const rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
@@ -167,6 +167,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
             distiller_id: new mongoose.Types.ObjectId(user_id),
+            'penaltyDetails.penaltypaymentStatus': { $ne: _penaltypaymentStatus.NA },
             ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
@@ -189,6 +190,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     actualPickupDate: 1,
                     totalAmount: '$payment.amount',
                     penaltyAmount: "$penaltyDetails.penaltyAmount",
+                    penaltypaymentStatus: "$penaltyDetails.penaltypaymentStatus",
                     pickupStatus: 1,
                     orderId: order_id
                 }
