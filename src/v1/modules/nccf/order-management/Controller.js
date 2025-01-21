@@ -102,6 +102,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
 
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
+            status: _poBatchStatus.pending,
             ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
@@ -147,9 +148,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     status: "$status",
                     orderId: order_id
                 }
-            },
-            // { $skip: skip },
-            // { $limit: parseInt(limit, 10) }
+            }
         ];
 
         if (paginate == 1) {
@@ -264,6 +263,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                         }
                     },
                     realTimeStock: '$warehouseDetails.inventory.stock',
+                    requiredStock: '$warehouseDetails.inventory.requiredStock',
                     commodity: branch.product.name,
                     orderId: order_id,
                     warehouseOwnerId: '$warehouseDetails.warehouseOwnerId',
@@ -370,8 +370,8 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
                     },
                     update: {
                         $set: {
-                            "inventory.requiredStock": requiredQuantity,
-                            "inventory.stock": requiredQuantity, // Update stock if undefined, null, or 0
+                            "inventory.requiredStock": handleDecimal(requiredQuantity),
+                            "inventory.stock": handleDecimal(requiredQuantity), // Update stock if undefined, null, or 0
                         },
                     },
                 },
@@ -386,7 +386,7 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
                     },
                     update: {
                         $set: {
-                            "inventory.requiredStock": requiredQuantity, // Only update requiredStock
+                            "inventory.requiredStock": handleDecimal(requiredQuantity), // Only update requiredStock
                         },
                     },
                 },
@@ -457,7 +457,7 @@ module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
     }
 })
 
-module.exports.batchAcceptedList = asyncErrorHandler(async (req, res) => {
+module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
     try {
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
@@ -468,7 +468,7 @@ module.exports.batchAcceptedList = asyncErrorHandler(async (req, res) => {
 
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
-            status: _poBatchStatus.accepted,
+            status: { $nin: [_poBatchStatus.pending, _poBatchStatus.rejected] }, // Exclude 'pending' and 'accepted'
             'payment.status': _poBatchPaymentStatus.paid,
             ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
@@ -510,8 +510,10 @@ module.exports.batchAcceptedList = asyncErrorHandler(async (req, res) => {
                     quantityRequired: 1,
                     amount: "$payment.amount",
                     paymentStatus: "$payment.status",
+                    scheduledPickupDate: "$scheduledPickupDate",
                     actualPickUp: "$actualPickupDate",
                     pickupStatus: "$pickupStatus",
+                    status:1,
                     orderId: order_id
                 }
             },
