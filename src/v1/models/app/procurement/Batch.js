@@ -80,6 +80,15 @@ const batchsSchema = new mongoose.Schema({
         delivered_at: { type: Date, trim: true },
         delivered_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch },
     },
+    final_quqlity_check: {
+        product_images: [{type: String, trim: true, }],
+        qc_images: {type: String, trim: true, },
+        whr_receipt: { type: String, trim: true },
+        whr_receipt_image: { type: String, trim: true },
+        status: { type: String, trim: true },
+        rejected_reason: { type: String, trim: true },
+        
+    },
     reason: { text: { type: String }, on: { type: Date } },
     bo_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
     payement_approval_at: { type: Date, default: null },
