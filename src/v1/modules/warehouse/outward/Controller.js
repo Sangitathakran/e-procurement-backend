@@ -20,7 +20,7 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
     const { user_id } = req;
     let query = {
         // 'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
-         distiller_id: new mongoose.Types.ObjectId('678dde6ca1a8099d0c11f342'),
+        warehouseId: new mongoose.Types.ObjectId(user_id),
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
     };
 
@@ -78,7 +78,7 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
         const { page = 1, limit = 10, sortBy, search = '', filters = {},order_id } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
         const { user_id } = req;
-
+         console.log(user_id)
        
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("orderId") }] }));
@@ -86,7 +86,7 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
 
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
-             distiller_id: new mongoose.Types.ObjectId('6752f63d1af89e682f11084d'),//user_id
+            warehouseId: new mongoose.Types.ObjectId(user_id),//user_id
             ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
