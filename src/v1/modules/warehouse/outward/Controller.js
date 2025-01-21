@@ -78,8 +78,6 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
         const { page = 1, limit = 10, sortBy, search = '', filters = {},order_id } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
         const { user_id } = req;
-         console.log(user_id)
-       
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("orderId") }] }));
         }
