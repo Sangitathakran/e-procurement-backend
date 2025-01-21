@@ -26,7 +26,7 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
 
     const records = { count: 0 };
 
-    records.rows = paginate == 1 ? await PurchaseOrderModel.find(query).select('product.name purchasedOrder.poQuantity ')
+    records.rows = paginate == 1 ? await PurchaseOrderModel.find(query).select('product.name purchasedOrder.poQuantity createdAt')
         .sort(sortBy)
         .skip(skip)
         .populate({ path: "distiller_id", select: "basic_details.distiller_details.organization_name " })
