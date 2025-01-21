@@ -5,7 +5,7 @@ const { _query, _response_message } = require("@src/v1/utils/constants/messages"
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
-const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const { BatchOrderProcess } = require('@src/v1/models/app/distiller/batchOrderProcess');
 const { PurchaseOrderModel } = require('@src/v1/models/app/distiller/purchaseOrder');
@@ -94,9 +94,9 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
             { $match: query },
             {
                 $lookup: {
-                    from: 'warehousedetails',
-                    localField: '_id',
-                    foreignField: 'warehouseId',
+                    from: 'warehousev2',
+                    localField: 'warehouseId',
+                    foreignField: '_id',
                     as: 'warehouseDetails',
                 },
             },
@@ -121,9 +121,10 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
              { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    purchaseId: '$batchId',
+                    batchId: '$batchId',
                     quantityRequired: 1,
                     amount: '$payment.amount',
+                    warehouseDetails:"$warehouseDetails.warehouseOwner_code",
                     scheduledPickupDate: 1,
                     actualPickupDate: 1,
                     OrderDetails:"$OrderDetails.product",
@@ -131,6 +132,8 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
                     pickupLocation: '$warehouseDetails.addressDetails',
                     deliveryLocation: '$OrderDetails.deliveryLocation',
                     paymentStatus: '$payment.status',
+                    status:1,
+                    createdAt:1,
                     penaltyStatus: '$penaltyDetails.penaltypaymentStatus'
                 }
             },
