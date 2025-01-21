@@ -200,7 +200,7 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
         return res.status(400).json({ message: "Invalid item ID" });
     }
 
-    const record = await PurchaseOrderModel.findOne({ _id: id });
+    const record = await PurchaseOrderModel.findOne({ _id: id }).populate({path:'distiller_id',select:''});
 
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("purchase order") }] }))
