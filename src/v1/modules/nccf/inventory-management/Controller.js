@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const {
   _handleCatchErrors,
-  dumpJSONToExcel,
+  dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue
 } = require("@src/v1/utils/helpers");
 const {
   wareHousev2,
@@ -166,85 +166,80 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
 
     // Validate input
     if (
-      !inventoryData ||
-      !Array.isArray(inventoryData) ||
-      inventoryData.length === 0 ||
-      inventoryData.some(
-        (item) => !item.warehouseId || typeof item.requiredQuantity !== "number"
-      )
+        !inventoryData ||
+        !Array.isArray(inventoryData) ||
+        inventoryData.length === 0 ||
+        inventoryData.some((item) => !item.warehouseId || typeof item.requiredQuantity !== "number")
     ) {
-      return res.status(400).send(
-        new serviceResponse({
-          status: 400,
-          errors: [{ message: "Invalid inventoryData provided" }],
-        })
-      );
+        return res.status(400).send(
+            new serviceResponse({ status: 400, errors: [{ message: "Invalid inventoryData provided" }] })
+        );
     }
 
     // Fetch all warehouses to validate stock
     const warehouseIds = inventoryData.map((item) => item.warehouseId);
-    const warehouses = await wareHousev2.find({
-      _id: { $in: warehouseIds },
-    });
+    const warehouses = await wareHouseDetails.find({ _id: { $in: warehouseIds } });
 
     // Check if all warehouseIds are valid
     if (warehouses.length !== inventoryData.length) {
-      return res.status(400).send(
-        new serviceResponse({
-          status: 400,
-          errors: [{ message: "Some warehouses were not found" }],
-        })
-      );
+        return res.status(400).send(
+            new serviceResponse({
+                status: 400,
+                errors: [{ message: "Warehouses were not found" }],
+            })
+        );
     }
 
-    // Validate requiredStock against inventory.stock
-    for (const { warehouseId, requiredQuantity } of inventoryData) {
-      const warehouse = warehouses.find(
-        (w) => w._id.toString() === warehouseId
-      );
-      if (!warehouse) {
-        return res.status(400).send(
-          new serviceResponse({
-            status: 400,
-            errors: [{ message: `Warehouse ${warehouseId} not found` }],
-          })
-        );
-      }
-      if (requiredQuantity > warehouse.inventory.stock) {
-        return res.status(400).send(
-          new serviceResponse({
-            status: 400,
-            errors: [
-              {
-                message: `Required quantity ${requiredQuantity} exceeds stock ${warehouse.inventory.stock} for warehouse ${warehouseId}`,
-              },
-            ],
-          })
-        );
-      }
-    }
+    // Prepare bulk operations
+    const bulkOperations = [];
 
-    // Perform bulk update
-    const bulkOperations = inventoryData.map(
-      ({ warehouseId, requiredQuantity }) => ({
-        updateOne: {
-          filter: { _id: warehouseId },
-          update: {
-            $set: { "inventory.requiredStock": requiredQuantity },
-          },
-        },
-      })
-    );
+    inventoryData.forEach(({ warehouseId, requiredQuantity }) => {
+        // Filter to update both stock and requiredStock if stock is undefined, null, or 0
+        bulkOperations.push({
+            updateOne: {
+                filter: {
+                    _id: warehouseId,
+                    $or: [
+                        { "inventory.stock": { $exists: false } }, // If stock is undefined
+                        { "inventory.stock": { $eq: null } },     // If stock is null
+                        { "inventory.stock": { $eq: 0 } },        // If stock is 0
+                    ],
+                },
+                update: {
+                    $set: {
+                        "inventory.requiredStock": handleDecimal(requiredQuantity),
+                        "inventory.stock": handleDecimal(requiredQuantity), // Update stock if undefined, null, or 0
+                    },
+                },
+            },
+        });
 
+        // Filter to update only requiredStock if stock is already defined and greater than 0
+        bulkOperations.push({
+            updateOne: {
+                filter: {
+                    _id: warehouseId,
+                    "inventory.stock": { $gt: 0 }, // Ensure stock is greater than 0
+                },
+                update: {
+                    $set: {
+                        "inventory.requiredStock": handleDecimal(requiredQuantity), // Only update requiredStock
+                    },
+                },
+            },
+        });
+    });
+
+    // Execute bulk operations
     const result = await wareHouseDetails.bulkWrite(bulkOperations);
 
     return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        message: `${result.modifiedCount} Required Quantity updated successfully`,
-      })
+        new serviceResponse({
+            status: 200,
+            message: `${result.modifiedCount} Required Quantity updated successfully`,
+        })
     );
-  } catch (error) {
+} catch (error) {
     _handleCatchErrors(error, res);
-  }
+}
 });
