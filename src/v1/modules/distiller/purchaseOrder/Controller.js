@@ -1,4 +1,4 @@
-const { _generateOrderNumber, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue } = require("@src/v1/utils/helpers")
+const { _generateOrderNumber, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue, parseDate, formatDate } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { _webSocketEvents, _poAdvancePaymentStatus, _poRequestStatus, _poPaymentStatus, _userStatus } = require('@src/v1/utils/constants');
@@ -10,6 +10,7 @@ const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrd
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { default: mongoose } = require("mongoose");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
+const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 
 module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
@@ -161,12 +162,14 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
 })
 
 module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
-
+    const {user_id} = req;
+    
     const { id, branch_id, name, grade, grade_remark, poQuantity, quantityDuration, manufacturingLocation, storageLocation, deliveryLocation,
         companyDetails, additionalDetails, qualitySpecificationOfProduct, paymentInfo
     } = req.body;
 
     const record = await PurchaseOrderModel.findOne({ _id: id }).populate("branch_id");
+    const branch_office_location = `${record.branch_id.state}`;
 
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("request") }));
@@ -176,12 +179,9 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     const totalAmount = handleDecimal(msp * poQuantity);
     const tokenAmount = handleDecimal((totalAmount * 3) / 100);
 
-    
-
-
     record.branch_id = branch_id || record.branch_id,
-        // Update product details
-        record.product.name = name || record.product.name;
+    // Update product details
+    record.product.name = name || record.product.name;
     record.product.grade = grade || record.product.grade;
     record.product.grade = grade_remark || record.product.grade_remark;
     record.product.quantityDuration = quantityDuration || record.product.quantityDuration;
@@ -217,14 +217,37 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     record.paymentInfo.advancePaymentUtrNo = paymentInfo?.advancePaymentUtrNo || record?.paymentInfo?.advancePaymentUtrNo,
     record.paymentInfo.payment_proof = paymentInfo?.payment_proof || record?.paymentInfo?.payment_proof,
     record.paymentInfo.advancePaymentStatus= _poAdvancePaymentStatus.paid 
-
-
     // console.log("_final_record=>", record);
     // // Save the updated record
     await record.save();
-    emailService.sendPurchaseOrderConfirmation("tejasvi@radiantinfonet.com", "Manas Ghosh");
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("request") }));
+    
+    const distillerDetails = await Distiller.findOne({_id: user_id}).select({'basic_details.distiller_details': 1, _id:0});
+    // console.log(distillerDetails);
+    const {basic_details:{distiller_details:{organization_name, phone:distillerPhone}}={}} = distillerDetails || {}
+    
+    const distiller_contact_number = `+91 ${distillerPhone}`;
+    const distiller_name = organization_name;
+    const delivery_location = record.deliveryLocation.location;
+    const emailData = {
+        order_date : formatDate(record.paymentInfo.advancePaymentDate),
+        po_number : record.purchasedOrder.poNo,
+        commodity : "Maize",
+        quantity:`${record.purchasedOrder.poQuantity} MT`,
+        msp:`₹${_distillerMsp()}`,
+        branch_office_name : branch_office_location,
+        total_amount:`₹${record.purchasedOrder.poAmount}` ,
+        advance_payment:`₹${record.paymentInfo.advancePayment}`,
+        advance_payment_date: formatDate(record.paymentInfo.advancePaymentDate),
+        distiller_name: distiller_name,
+        delivery_location,
+        contact_number: distiller_contact_number,
+        receiver_name:"Manas Ghosh",
+    }
+    const subject = `New Purchase Order Received! (Order ID:${emailData.po_number})`
+
+    emailService.sendPurchaseOrderConfirmation("tejasvi@radiantinfonet.com", emailData, subject);
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Request") }));
 });
 
 module.exports.deletePurchaseOrder = asyncErrorHandler(async (req, res) => {

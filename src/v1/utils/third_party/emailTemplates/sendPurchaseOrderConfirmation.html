@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>New Purchase Order Received!</title>
+    <title>New Purchase Order Received!(Order ID: {{po_number}})</title>
     <style>
       body {
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -18,6 +18,18 @@
         background: #ffffff;
         border-radius: 8px;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        /* border: 1px solid blue; */
+      }
+      .sections-container {
+        display: grid;
+        grid-template-rows: repeat(3);
+        justify-content: center;
+        /* border: 1px solid red; */
+      }
+      .section {
+        /* border: 1px solid green; */
+        text-align: left;
+        padding: 5px;
       }
       .header {
         text-align: center;
@@ -37,27 +49,32 @@
         display: inline-block;
         cursor: pointer;
       }
-      .cta-button {
-        display: inline-block;
-        padding: 12px 24px;
-        background: linear-gradient(135deg, #007bff, #00bfff);
-        background-color: rgb(76, 147, 76);
-        color: #ffffff;
-        border: none;
-        border-radius: 50px;
-        cursor: pointer;
-        font-size: 16px;
-        transition: background 0.3s ease-in-out;
-      }
-      .cta-button:hover {
-        background: linear-gradient(135deg, #0056b3, #00a2e8);
-        background-color: rgb(60, 130, 60);
-        cursor: pointer;
-      }
       .footer {
         text-align: center;
         padding-top: 20px;
         color: #777777;
+      }
+      .details {
+        list-style-type: none;
+        margin: 0; /* Remove default margins */
+        padding: 0; /* Remove default padding */
+      }
+
+      .details li {
+        margin-bottom: 10px; /* Add space between list items */
+        padding-left: 20px; /* Space for custom bullet */
+        position: relative; /* Enable positioning for the bullet */
+      }
+
+      .details li::before {
+        content: "•"; /* Add a custom bullet symbol */
+        color: #075614; /* Customize the bullet color (adjust as needed) */
+        font-weight: bold; /* Make the bullet bold */
+        font-size: 18px; /* Adjust bullet size */
+        position: absolute; /* Position the bullet */
+        left: 0; /* Align the bullet to the left */
+        top: 0; /* Align the bullet vertically */
+        transform: translateY(3px); /* Fine-tune the vertical alignment */
       }
     </style>
   </head>
@@ -68,53 +85,64 @@
       </div>
       <div class="content">
         <h2 style="margin-bottom: 20px">Confirmation for Purchase Order</h2>
-        <p>Dear <strong>{{receiver_name}}</strong>,</p>
+        <p>Hi <strong>{{receiver_name}}</strong>,</p>
         <p>
-          You have received a new purchase order from Betul Biofuel on {{date}}.
-          Please find the details below:
+          You have received a new purchase order from {{distiller_name}} on
+          {{order_date}}. Please find the details below:
         </p>
         <!-- Order Details -->
-        <div class="section">
-          <h2>Purchase Order Details</h2>
-          <div class="details">
-            <p><strong>PO No.:</strong> 12345</p>
-            <p><strong>Commodity:</strong> Maize</p>
-            <p><strong>Quantity:</strong> 2000 MT</p>
-            <p><strong>MSP:</strong> ₹24,890/MT</p>
-            <p><strong>Branch Office:</strong> Madhya Pradesh</p>
+        <div class="sections-container">
+          <!-- Purchase Order Details -->
+          <div class="section">
+            <h2>Purchase Order Details</h2>
+            <ul class="details">
+              <li><strong>PO No.:</strong> {{po_number}}</li>
+              <li><strong>Commodity:</strong> {{commodity}}</li>
+              <li><strong>Quantity:</strong> {{quantity}}</li>
+              <li><strong>MSP:</strong> {{msp}}</li>
+              <li><strong>Branch Office:</strong> {{branch_office_name}}</li>
+            </ul>
           </div>
-        </div>
 
-        <div class="section">
-          <h2>Payment Information</h2>
-          <div class="details">
-            <p><strong>Total Amount:</strong> ₹5000</p>
-            <p><strong>Advance Payment:</strong> ₹200</p>
-            <p><strong>Advance Payment Date:</strong> 17th January, 2025</p>
+          <!-- Payment Information -->
+          <div class="section">
+            <h2>Payment Information</h2>
+            <ul class="details">
+              <li><strong>Total Amount:</strong> {{total_amount}}</li>
+              <li><strong>Advance Payment:</strong> {{advance_payment}}</li>
+              <li>
+                <strong>Advance Payment Date:</strong> {{advance_payment_date}}
+              </li>
+            </ul>
           </div>
-        </div>
 
-        <div class="section">
-          <h2>Distiller Information</h2>
-          <div class="details">
-            <p><strong>Name:</strong> Betul Biofuel</p>
-            <p><strong>Delivery Location:</strong> Madhya Pradesh</p>
-            <p><strong>Contact Number:</strong> 9876890675</p>
+          <!-- Distiller Information -->
+          <div class="section">
+            <h2>Distiller Information</h2>
+            <ul class="details">
+              <li><strong>Name:</strong> {{distiller_name}}</li>
+              <li><strong>Delivery Location:</strong> {{delivery_location}}</li>
+              <li><strong>Contact Number:</strong> {{contact_number}}</li>
+            </ul>
           </div>
         </div>
-        <p>Please follow this link to login and view your order:</p>
-        <a href="{{app_url}}">
-          <button class="cta-button">Link</button>
-        </a>
-        <p>
+        <!-- <p>Please follow this link to login and view your order:</p>
+        <button class="cta-button" style="cursor: pointer">Link</button> -->
+        <h3>
           Kindly create the delivery schedule for this order to initiate the
           process.
         </p>
-        <!-- <p>Thank you for your prompt attention to this matter.</p> -->
       </div>
       <div class="footer">
         <p>Warm Regards,<br />Navankur</p>
       </div>
     </div>
   </body>
+
+  <!-- <script>
+    const app_url = "https://ep.navbazar.com/distiller/sign-in"; // Replace this with your dynamic URL
+    document.querySelector(".cta-button").addEventListener("click", () => {
+      window.open(app_url, "_blank");
+    });
+  </script> -->
 </html>

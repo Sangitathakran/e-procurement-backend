@@ -18,12 +18,12 @@ module.exports = {
                     token: mailer.pass,
                 }));
 
-                console.log("mailer", mailer)
+                // console.log("mailer", mailer)
 
                 const mailOptions = {
                     from: {
                         address: mailer.user, // Fallback to .env sender email
-                        name: "NavBazar"
+                        name: "KhetiSauda"
                     },
                     // from: email_prefix ? `${email_prefix} ${mailer.user}` : `Radiant Infonet ${mailer.user}`,
                     to: to,
@@ -48,11 +48,11 @@ module.exports = {
                     
                     transporter.sendMail(mailOptions, function (err, info) {
                         if (err) {
-                            console.log("Error vghghhcghcc---->", err);
+                            console.log("TransporterError---->", err);
                             // reject(err.message);
                             resolve(err.message);
                         } else {
-                            console.log("Server is ready send E-mails");
+                            console.log("E-mail sent successfully");
                             resolve(info);
                         }
                     });

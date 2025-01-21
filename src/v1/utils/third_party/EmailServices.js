@@ -417,16 +417,16 @@ class EmailService {
         }
     }
 
-    async sendPurchaseOrderConfirmation(email, receiver_name) {
+    async sendPurchaseOrderConfirmation(email, emailData, subject) {
+        function renderEmailTemplate(html, data) {
+            return html.replace(/{{(.*?)}}/g, (_, key) => data[key.trim()] || "-");
+        }
+      
         try {
             const template = await this.loadTemplate("sendPurchaseOrderConfirmation");
-            const html = template
-                .replace("{{app_url}}", FRONTEND_URL)
-                .replace("{{logo_url}}", LOGO_URL)
-                .replace("{{receiver_name}}", receiver_name)
-                .replace("{{date}}", "21/02/2025");
-
-            await sendMail(email, '', `Confirmation for Purchase Order || Navbazar || `, html);
+            const html = template.replace("{{logo_url}}", LOGO_URL);
+            const finalEmailHTML = renderEmailTemplate(html, emailData);
+            await sendMail(email, '', subject, finalEmailHTML);
 
         } catch (error) {
             console.log("Error sending welcome email:", error);
