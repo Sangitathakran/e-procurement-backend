@@ -5,7 +5,7 @@ const { _query, _response_message, _middleware, _auth_module } = require("@src/v
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
-const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const { BatchOrderProcess } = require('@src/v1/models/app/distiller/batchOrderProcess');
 const { PurchaseOrderModel } = require('@src/v1/models/app/distiller/purchaseOrder');
@@ -24,7 +24,7 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
     const { user_id } = req;
     let query = {
         // 'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
-        distiller_id: new mongoose.Types.ObjectId('678dde6ca1a8099d0c11f342'),
+        warehouseId: new mongoose.Types.ObjectId(user_id),
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
     };
 
@@ -82,29 +82,54 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
         const { user_id } = req;
-
-
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("orderId") }] }));
         }
 
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
-            distiller_id: new mongoose.Types.ObjectId('6752f63d1af89e682f11084d'),//user_id
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            warehouseId: new mongoose.Types.ObjectId(user_id),//user_id
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
             { $match: query },
             {
                 $lookup: {
-                    from: 'warehousedetails',
-                    localField: '_id',
-                    foreignField: 'warehouseId',
-                    as: 'warehouseDetails',
-                },
+                    from: 'warehousev2',
+                    localField: 'warehouseId',
+                    foreignField: '_id',
+                    as: 'warehousedv2'
+                }
             },
-            { $unwind: { path: "$warehouseDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $unwind: {
+                    path: '$warehousedv2',
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    let: { warehouseId: '$warehousedv2._id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $eq: ['$_id', '$$warehouseId']
+                                }
+                            }
+                        }
+                    ],
+                    as: 'warehouseDetails'
+                }
+            },
+            {
+                $unwind: {
+                    path: '$warehouseDetails',
+                    preserveNullAndEmptyArrays: true
+                }
+            },
             {
                 $lookup: {
                     from: 'distillers',
@@ -122,12 +147,14 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
                     as: "OrderDetails"
                 }
             },
-            { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
+             { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
+            
             {
                 $project: {
-                    purchaseId: '$batchId',
+                    purchaseId: '$purchaseId',
                     quantityRequired: 1,
                     amount: '$payment.amount',
+                    warehouseDetails:"$warehouseDetails",
                     scheduledPickupDate: 1,
                     actualPickupDate: 1,
                     OrderDetails: "$OrderDetails.product",
@@ -135,6 +162,8 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
                     pickupLocation: '$warehouseDetails.addressDetails',
                     deliveryLocation: '$OrderDetails.deliveryLocation',
                     paymentStatus: '$payment.status',
+                    status:1,
+                    createdAt:1,
                     penaltyStatus: '$penaltyDetails.penaltypaymentStatus'
                 }
             },
@@ -166,6 +195,40 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+
+module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid item ID" });
+    }
+
+    const record = await PurchaseOrderModel.findOne({ _id: id }).populate({path:'distiller_id',select:''});
+
+    if (!record) {
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("purchase order") }] }))
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("purchase order") }))
+})
+
+module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid item ID" });
+    }
+
+    const record = await PurchaseOrderModel.findOne({ _id: id }).populate({path:'distiller_id',select:''});
+
+    if (!record) {
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("purchase order") }] }))
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("purchase order") }))
+})
 
 module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 

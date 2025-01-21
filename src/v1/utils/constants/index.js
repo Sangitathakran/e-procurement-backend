@@ -376,7 +376,8 @@ const _paymentApproval = {
 const _wareHouseApproval = {
     pending: "Pending",
     approved: "Approved",
-    rejected: "Rejected"
+    rejected: "Rejected",
+    received: "Received"
 }
 
 const received_qc_status = {

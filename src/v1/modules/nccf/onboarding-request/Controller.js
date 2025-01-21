@@ -76,36 +76,136 @@ module.exports.getDistillerById = asyncErrorHandler(async (req, res) => {
         { $match: matchStage },
         {
             $lookup: {
-                from: "manufacturingunits", // Adjust this to your actual collection name for branches
+                from: "manufacturingunits",
                 localField: "_id",
                 foreignField: "distiller_id",
-                as: "manufacturingUnit"
+                as: "manufacturingUnits"
             }
         },
         {
             $lookup: {
-                from: "storagefacilities", // Adjust this to your actual collection name for branches
+                from: "statedistrictcities",
+                let: { 
+                    manufacturingUnits: "$manufacturingUnits" 
+                },
+                pipeline: [
+                    { $unwind: "$states" },
+                    { $unwind: "$states.districts" },
+                    {
+                        $project: {
+                            state_id: "$states._id",
+                            district_id: "$states.districts._id",
+                            state_title: "$states.state_title",
+                            district_title: "$states.districts.district_title"
+                        }
+                    }
+                ],
+                as: "location_details"
+            }
+        },
+        {
+            $addFields: {
+                manufacturingUnits: {
+                    $map: {
+                        input: "$manufacturingUnits",
+                        as: "unit",
+                        in: {
+                            $mergeObjects: [
+                                "$$unit",
+                                {
+                                    state_title: {
+                                        $arrayElemAt: [
+                                            "$location_details.state_title",
+                                            { $indexOfArray: ["$location_details.state_id", "$$unit.manufacturing_state"] }
+                                        ]
+                                    },
+                                    district_title: {
+                                        $arrayElemAt: [
+                                            "$location_details.district_title",
+                                            { $indexOfArray: ["$location_details.district_id", "$$unit.manufacturing_district"] }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        {
+            $lookup: {
+                from: "storagefacilities",
                 localField: "_id",
                 foreignField: "distiller_id",
-                as: "storageFacility"
+                as: "storageFacilities"
+            }
+        },
+        {
+            $lookup: {
+                from: "statedistrictcities",
+                let: { 
+                    storageFacilities: "$storageFacilities" 
+                },
+                pipeline: [
+                    { $unwind: "$states" },
+                    { $unwind: "$states.districts" },
+                    {
+                        $project: {
+                            state_id: "$states._id",
+                            district_id: "$states.districts._id",
+                            state_title: "$states.state_title",
+                            district_title: "$states.districts.district_title"
+                        }
+                    }
+                ],
+                as: "location_detail"
+            }
+        },
+        {
+            $addFields: {
+                storageFacilities: {
+                    $map: {
+                        input: "$storageFacilities",
+                        as: "facility",
+                        in: {
+                            $mergeObjects: [
+                                "$$facility",
+                                {
+                                    state_title: {
+                                        $arrayElemAt: [
+                                            "$location_detail.state_title",
+                                            { $indexOfArray: ["$location_detail.state_id", "$$facility.storage_state"] }
+                                        ]
+                                    },
+                                    district_title: {
+                                        $arrayElemAt: [
+                                            "$location_detail.district_title",
+                                            { $indexOfArray: ["$location_detail.district_id", "$$facility.storage_district"] }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
             }
         },
         {
             $project: {
                 _id: 1,
-                'distiller_id': '$user_code',
-                'distiller_details': '$basic_details.distiller_details',
-                'company_owner_info': '$basic_details.company_owner_info',
-                'poc': '$basic_details.point_of_contact',
-                'registered_address': '$address.registered',
-                'operational_address': '$address.operational',
-                'request_date': '$createdAt',
-                'status': '$is_approved',
+                user_code: 1,
+                distiller_details: '$basic_details.distiller_details',
+                company_owner_info: '$basic_details.company_owner_info',
+                poc: '$basic_details.point_of_contact',
+                registered_address: '$address.registered',
+                operational_address: '$address.operational',
+                request_date: '$createdAt',
+                status: '$is_approved',
                 company_details: 1,
                 authorised: 1,
                 bank_details: 1,
-                manufacturingUnit: 1,
-                storageFacility: 1
+                manufacturingUnits: 1,
+                storageFacilities: 1
             }
         }
     ];
