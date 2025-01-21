@@ -90,6 +90,7 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             '/edit-warehouse',
             '/purchase-list',
             '/order-list',
+            '/purchase-order',
             '/warehouse-status'
         ];
 
