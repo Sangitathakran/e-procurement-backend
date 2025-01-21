@@ -245,8 +245,9 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
         receiver_name:"Manas Ghosh",
     }
     const subject = `New Purchase Order Received! (Order ID:${emailData.po_number})`
-
-    emailService.sendPurchaseOrderConfirmation("tejasvi@radiantinfonet.com", emailData, subject);
+    const receiver = process.env.PO_RECEPIENT_ADDRESS;
+    
+    emailService.sendPurchaseOrderConfirmation(receiver, emailData, subject);
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Request") }));
 });
 
