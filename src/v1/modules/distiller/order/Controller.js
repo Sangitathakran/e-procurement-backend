@@ -313,6 +313,7 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
                     deliveryLocation: '$OrderDetails.deliveryLocation',
                     paymentStatus: '$payment.status',
                     penaltyStatus: '$penaltyDetails.penaltypaymentStatus',
+                    penaltyAmount: '$penaltyDetails.penaltyAmount',
                     orderId: order_id
                 }
             },
