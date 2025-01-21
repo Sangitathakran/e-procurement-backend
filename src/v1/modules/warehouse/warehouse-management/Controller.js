@@ -83,7 +83,9 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         search = '',
         sortBy = 'createdAt',
         sortOrder = 'asc',
-        isExport = 0
+        isExport = 0,
+        state, 
+        city
     } = req.query;
 
     const { warehouseIds } = req.body; // Get selected warehouse IDs from the request body
@@ -97,7 +99,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
 
         const decoded = await decryptJwtToken(token);
         const userId = decoded.data.user_id;
-
+    
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
         }
@@ -108,11 +110,14 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
             ...(search && {
                 $or: [
                     { "basicDetails.warehouseName": { $regex: search, $options: 'i' } },
+                    { "wareHouse_code": { $regex: search, $options: 'i' } },
                     { "addressDetails.city": { $regex: search, $options: 'i' } },
                     { "addressDetails.state.state_name": { $regex: search, $options: 'i' } },
                 ]
             }),
-            ...(warehouseIds && { _id: { $in: warehouseIds } }) // Filter by selected warehouse IDs
+            ...(warehouseIds && { _id: { $in: warehouseIds } }), // Filter by selected warehouse IDs
+            ...(state && { "addressDetails.state.state_name": { $regex: state, $options: 'i' } }), // Filter by state
+            ...(city && { "addressDetails.city": { $regex: city, $options: 'i' } }) // Filter by country
         };
 
         // Fetch data with pagination and sorting
