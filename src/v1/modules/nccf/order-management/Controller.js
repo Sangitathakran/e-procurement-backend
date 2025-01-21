@@ -120,8 +120,8 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
             {
                 $lookup: {
                     from: 'warehousedetails', // Collection name in MongoDB
-                    localField: 'warehouseOwnerId',
-                    foreignField: 'warehouseId',
+                    localField: 'warehouseId',
+                    foreignField: '_id',
                     as: 'warehouseDetails',
                 },
             },
@@ -129,7 +129,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
             {
                 $lookup: {
                     from: 'warehousev2', // Collection name in MongoDB
-                    localField: '_id',
+                    localField: 'warehouseOwnerId',
                     foreignField: 'warehouseId',
                     as: 'wareHousev2Details',
                 },
@@ -137,9 +137,9 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: '$wareHousev2Details', preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    warehouseId: 1,
+                    // warehouseId: 1,
                     purchaseId: '$purchaseId',
-                    warehouse_Id: '$wareHousev2Details.warehouseOwner_code',
+                    warehouseId: '$wareHousev2Details.warehouseOwner_code',
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
@@ -483,7 +483,7 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
                     as: "OrderDetails"
                 }
             },
-            { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
+            // { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
                     from: 'warehousedetails', // Collection name in MongoDB
@@ -492,7 +492,7 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
                     as: 'warehouseDetails',
                 },
             },
-            { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
+            // { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
                     from: 'warehousev2', // Collection name in MongoDB
@@ -506,7 +506,7 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
                 $project: {
                     purchaseId: '$purchaseId',
                     warehouseId: '$wareHousev2.warehouseOwner_code',
-                    warehouseName: '$warehouseDetails.basicDetails.warehouseName',
+                    // warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
                     amount: "$payment.amount",
                     paymentStatus: "$payment.status",
@@ -602,7 +602,7 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
                     as: "OrderDetails"
                 }
             },
-            { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
+            // { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
                     from: 'warehousedetails', // Collection name in MongoDB
@@ -611,7 +611,7 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
                     as: 'warehouseDetails',
                 },
             },
-            { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
+            // { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
                     from: 'warehousev2', // Collection name in MongoDB
@@ -620,7 +620,7 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
                     as: 'wareHousev2',
                 },
             },
-            { $unwind: { path: '$wareHousev2', preserveNullAndEmptyArrays: true } },
+            // { $unwind: { path: '$wareHousev2', preserveNullAndEmptyArrays: true } },
             {
                 $project: {
                     purchaseId: '$purchaseId',
