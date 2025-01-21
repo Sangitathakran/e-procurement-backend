@@ -9,6 +9,7 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 const { mongoose } = require("mongoose");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 
 
 module.exports.getOrder = asyncErrorHandler(async (req, res) => {
@@ -106,6 +107,8 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     }
 
     const poRecord = await PurchaseOrderModel.findOne({ _id: orderId, deletedAt: null });
+    const wareHouseOwnerDetails = await wareHouseDetails.findOne({ _id: warehouseId }).select({ 'warehouseOwnerId': 1, _id: 0 });
+    const warehouseOwner_Id = wareHouseOwnerDetails.warehouseOwnerId;
 
     if (!poRecord) {
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("PO") }));
@@ -163,6 +166,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     const record = await BatchOrderProcess.create({
         distiller_id: user_id,
         warehouseId,
+        warehouseOwnerId:warehouseOwner_Id,
         orderId,
         purchaseId: randomVal,
         quantityRequired: handleDecimal(quantityRequired),
