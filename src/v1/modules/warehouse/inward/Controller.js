@@ -268,3 +268,64 @@ module.exports.editBatchDetails = async (req, res) => {
 };
 
 
+module.exports.batchStatusUpdate = async (req, res) => {
+    try {
+        const {batchId, product_images, qc_images, whr_receipt,whr_receipt_image, status, rejected_reason } = req.body;
+        
+        const requiredFields = ['batchId', 'product_images', 'qc_images', 'whr_receipt', 'whr_receipt_image', 'status'];
+        const missingFields = requiredFields.filter((field) => !req.body[field]);
+
+        if (missingFields.length > 0) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: `Missing required fields: ${missingFields.join(', ')}`,
+            }));
+        }
+
+        if (status === 'rejected' && !rejected_reason) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: _middleware.require('rejected_reason')
+            }));
+        }
+
+
+        const batchData = await Batch.findById(batchId);
+        if (!batchData) {
+            return res.status(404).send(new serviceResponse({
+                status: 404,
+                message: _response_message.notFound('Batch')
+            }));
+        }
+
+        const updateFields = {
+            'final_quqlity_check.status': status,
+            'final_quqlity_check.product_images': product_images,
+            'final_quqlity_check.qc_images': qc_images,
+            'final_quqlity_check.whr_receipt': whr_receipt,
+            'final_quqlity_check.whr_receipt_image': whr_receipt_image,
+            'final_quqlity_check.rejected_reason': status === 'rejected' ? rejected_reason : null
+        };
+
+        const updatedBatch = await Batch.findByIdAndUpdate(batchId, { $set: updateFields }, { new: true });
+        if (!updatedBatch) {
+            return res.status(404).send(new serviceResponse({
+                status: 404,
+                message: _response_message.notFound('Batch')
+            }));
+        }
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            message: 'Batch status updated successfully.',
+            data: updatedBatch
+        }));
+
+        
+
+        
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
