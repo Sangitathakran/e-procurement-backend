@@ -103,7 +103,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
             status: _poBatchStatus.pending,
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
@@ -138,7 +138,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
             {
                 $project: {
                     warehouseId: 1,
-                    purchaseId: '$batchId',
+                    purchaseId: '$purchaseId',
                     warehouse_Id: '$wareHousev2Details.warehouseOwner_code',
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     warehouseLocation: '$warehouseDetails.addressDetails',
@@ -412,7 +412,7 @@ module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
         const { batchId, status, quantity, comment } = req.body;
 
         if (!batchId) {
-            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch Id") }] }));
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch/Purchase Id") }] }));
         }
 
         if (!status) {
@@ -470,7 +470,7 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
             orderId: new mongoose.Types.ObjectId(order_id),
             status: { $nin: [_poBatchStatus.pending, _poBatchStatus.rejected] }, // Exclude 'pending' and 'accepted'
             'payment.status': _poBatchPaymentStatus.paid,
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
@@ -504,7 +504,7 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: '$wareHousev2', preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    purchaseId: '$batchId',
+                    purchaseId: '$purchaseId',
                     warehouseId: '$wareHousev2.warehouseOwner_code',
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
@@ -552,7 +552,7 @@ module.exports.batchscheduleDateUpdate = asyncErrorHandler(async (req, res) => {
         const { batchId, scheduledPickupDate } = req.body;
 
         if (!batchId) {
-            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch Id") }] }));
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch/purchase Id") }] }));
         }
 
         if (!scheduledPickupDate) {
@@ -589,7 +589,7 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
             orderId: new mongoose.Types.ObjectId(order_id),
             status: _poBatchStatus.rejected,
             'payment.status': _poBatchPaymentStatus.paid,
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
@@ -623,7 +623,7 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: '$wareHousev2', preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    purchaseId: '$batchId',
+                    purchaseId: '$purchaseId',
                     warehouseId: '$wareHousev2.warehouseOwner_code',
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
