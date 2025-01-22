@@ -9,10 +9,10 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const { BatchOrderProcess } = require('@src/v1/models/app/distiller/batchOrderProcess');
 const { PurchaseOrderModel } = require('@src/v1/models/app/distiller/purchaseOrder');
-const { TrackOrder } = require('@src/v1/models/app/warehouse/trackOrder');
 const { batch } = require('../../associate/order/Controller');
 const { _trackOrderStatus } = require('@src/v1/utils/constants');
 const { Truck } = require('@src/v1/models/app/warehouse/Truck');
+const { TrackOrder } = require('@src/v1/models/app/warehouse/TrackOrder');
 
 
 
