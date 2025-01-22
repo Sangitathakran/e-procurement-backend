@@ -33,7 +33,6 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
             : ownerwarehouseIds;
 
-        console.log('finalwarehouseIds',finalwarehouseIds)
         if (!finalwarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
@@ -44,6 +43,7 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
 
         const query = {
             // "warehousedetails_id._id": { $in: finalwarehouseIds },
+            wareHouse_approve_status: { $in: ['Pending', 'Received'] }, 
             ...(search && {
                 $or: [
                     { batchId: { $regex: search, $options: 'i' } },
@@ -57,14 +57,13 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
             .populate([
                 { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
                 { path: "procurementCenter_id", select: "center_name" },
-                { path: "warehousedetails_id", select: "basicDetails.warehouseName" },
+                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
+                { path: "req_id", select: "product.name deliveryDate" },
             ])
-            .select("batchId warehousedetails_id commodity qty received_on qc_report wareHouse_code wareHouse_approve_status ")
-            .sort({ [sortBy]: 1 })
+            .select("batchId warehousedetails_id commodity qty wareHouse_approve_status final_quality_check receiving_details createdAt")
+            .sort(sortBy)
             .skip((page - 1) * limit)
             .limit(parseInt(limit));
-
-        console.log('rows',rows)
 
         const count = await Batch.countDocuments(query);
         const stats = {
@@ -105,6 +104,11 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
         return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
     }
 });
+
+
+
+
+
 
 module.exports.batchApproveOrReject = async (req, res) => {
     try {
@@ -408,7 +412,7 @@ module.exports.batchMarkDelivered = async (req, res) => {
             'receiving_details.truck_photo': truck_photo,
             'receiving_details.vehicle_details': vehicle_details,
             'receiving_details.document_pictures': document_pictures,
-            wareHouse_approve_status: 'received',
+            wareHouse_approve_status: 'Received',
         };
 
         const updatedBatch = await Batch.findByIdAndUpdate(batchId, { $set: updateFields }, { new: true });
