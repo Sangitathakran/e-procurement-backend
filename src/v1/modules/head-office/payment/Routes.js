@@ -1,5 +1,5 @@
 const express = require("express");
-const { payment, associateOrders, batchList, batchApprove, qcReport, lot_list, approvedBatchList, payFarmers } = require("./Controller");
+const { payment, associateOrders, batchList, batchApprove, qcReport, lot_list, approvedBatchList, payFarmers, updatePaymentByOrderId } = require("./Controller");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
 const paymentRoutes = express.Router();
@@ -13,6 +13,7 @@ paymentRoutes.get("/qc-report", Auth, qcReport);
 paymentRoutes.get("/approved-batch-list", Auth, approvedBatchList);
 
 paymentRoutes.post("/pay-farmers", Auth, payFarmers)
+paymentRoutes.put("/update-payment-status", Auth, updatePaymentByOrderId)
 
 
 
