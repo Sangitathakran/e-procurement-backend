@@ -106,7 +106,8 @@ const batchsSchema = new mongoose.Schema({
             receiving_copy: { type: String, trim: true },
             proof_of_delivery: { type: String, trim: true },
             truck_photo: { type: String, trim: true },
-        }
+        },
+        received_on: { type: Date, default: Date.now, }
     },
     reason: { text: { type: String }, on: { type: Date } },
     bo_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
