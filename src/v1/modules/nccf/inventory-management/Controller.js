@@ -39,10 +39,13 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
       sortBy,
       search = "",
       filters = {},
-
       isExport = 0,
     } = req.query;
     const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+
+   
+
+
 
     let query = search
       ? {
@@ -60,55 +63,72 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
         }
       : {};
 
-      const aggregationPipeline = [
-        { $match: query },
-        {
-            $lookup: {
-                from: 'warehousev2', // Collection name in MongoDB
-                localField: 'warehouseOwnerId',
-                foreignField: '_id',
-                as: 'warehousev2Details',
-            },
+    const aggregationPipeline = [
+      { $match: query },
+      {
+        $lookup: {
+          from: "warehousev2", // Collection name in MongoDB
+          localField: "warehouseOwnerId",
+          foreignField: "_id",
+          as: "warehousev2Details",
         },
-        {
-            $unwind: {
-                path: '$warehousev2Details',
-                preserveNullAndEmptyArrays: true,
-            },
+      },
+      {
+        $unwind: {
+          path: "$warehousev2Details",
+          preserveNullAndEmptyArrays: true,
         },
-        {
-            $project: {
-                warehouseName: '$basicDetails.warehouseName',
-                totalCapacity: '$basicDetails.warehouseCapacity',
-                pickupLocation: '$addressDetails',
-                stock: {
-                    $cond: {
-                        if: { $gt: [{ $ifNull: ['$inventory.requiredStock', 0] }, 0] },
-                        then: '$inventory.requiredStock',
-                        else: '$inventory.stock'
-                    }
-                },            
-                warehouseTiming: '$inventory.warehouse_timing',
-                nodalOfficerName: '$warehousev2Details.ownerDetails.name',
-                nodalOfficerContact: '$warehousev2Details.ownerDetails.mobile',
-                nodalOfficerEmail: '$warehousev2Details.ownerDetails.email',
-                pocAtPickup: '$authorizedPerson.name',
-                warehouseOwnerId: '$warehouseOwnerId',
-                warehouseId: {
-                    $cond: {
-                        if: { $ifNull: ['$warehouseDetailsId', 0] },
-                        then: '$warehouseDetailsId',
-                        else: '$warehousev2Details.warehouseOwner_code'
-                    }
-                },  
-                // orderId: order_id,
-                // branch_id: branch.branch_id                    
-            }
-        },
+      },
+      {
+        $project: {
+          warehouseName: "$basicDetails.warehouseName",
+          totalCapacity: "$basicDetails.warehouseCapacity",
 
-        { $sort: { [sortBy]: 1 } },
-        { $skip: skip },
-        { $limit: parseInt(limit, 10) }
+          pickupLocation: "$addressDetails",
+          commodity: "Maize",
+          stock: {
+            $cond: {
+              if: { $gt: [{ $ifNull: ["$inventory.requiredStock", 0] }, 0] },
+              then: "$inventory.requiredStock",
+              else: "$inventory.stock",
+            },
+          },
+          warehouseTiming: "$inventory.warehouse_timing",
+          warehouseCapacity: "$warehouseDetails.basicDetails.warehouseCapacity",
+          utilizedCapacity: {
+            $cond: {
+              if: { $gt: [{ $ifNull: ["$inventory.stock", 0] }, 0] },
+              then: "$inventory.requiredStock",
+              else: "$inventory.stock",
+            },
+          },
+          requiredStock: {
+            $cond: {
+              if: { $gt: [{ $ifNull: ["$inventory.requiredStock", 0] }, 0] },
+              then: "$inventory.stock",
+              else: "$inventory.requiredStock",
+            },
+          },
+          nodalOfficerName: "$warehousev2Details.ownerDetails.name",
+          nodalOfficerContact: "$warehousev2Details.ownerDetails.mobile",
+          nodalOfficerEmail: "$warehousev2Details.ownerDetails.email",
+          pocAtPickup: "$authorizedPerson.name",
+          warehouseOwnerId: "$warehouseOwnerId",
+          warehouseId: {
+            $cond: {
+              if: { $ifNull: ["$warehouseDetailsId", 0] },
+              then: "$warehouseDetailsId",
+              else: "$warehousev2Details.warehouseOwner_code",
+            },
+          },
+          // orderId: order_id,
+          // branch_id: branch.branch_id
+        },
+      },
+
+      { $sort: { [sortBy]: 1 } },
+      { $skip: skip },
+      { $limit: parseInt(limit, 10) },
     ];
 
     const records = { count: 0, rows: [] };
@@ -121,7 +141,6 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     records.page = page;
     records.limit = limit;
     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-
     // Export functionality
     if (isExport == 1) {
       const record = records.rows.map((item) => {

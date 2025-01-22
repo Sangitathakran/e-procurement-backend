@@ -47,6 +47,7 @@ module.exports.warehouseList = async (req, res) => {
                 $project: {
                     warehouseName: '$basicDetails.warehouseName',
                     pickupLocation: '$addressDetails',
+                    commodity: "Maize",
                     stock: {
                         $cond: {
                             if: { $gt: [{ $ifNull: ['$inventory.requiredStock', 0] }, 0] },
