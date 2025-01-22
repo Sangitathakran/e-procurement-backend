@@ -24,7 +24,7 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
     const { user_id } = req;
     let query = {
         // 'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
-        warehouseId: new mongoose.Types.ObjectId(user_id),
+        // warehouseId: new mongoose.Types.ObjectId(user_id),
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
     };
 
