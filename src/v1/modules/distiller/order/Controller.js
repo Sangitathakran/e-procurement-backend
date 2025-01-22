@@ -150,15 +150,29 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
 
     }
 
+    /*
     let randomVal;
     let isUnique = false;
 
     while (!isUnique) {
-        randomVal = _generateOrderNumber();
+        randomVal = 'PO'._generateOrderNumber();
         const existingReq = await PurchaseOrderModel.findOne({ poNo: randomVal });
         if (!existingReq) {
             isUnique = true;
         }
+    }
+    */
+    let randomVal;
+
+    // Generate a sequential order number
+    const lastOrder = await BatchOrderProcess.findOne().sort({ createdAt: -1 }).select("purchaseId").lean();
+    if (lastOrder && lastOrder?.purchaseId) {
+        // Extract the numeric part from the last order's poNo and increment it
+        const lastNumber = parseInt(lastOrder.purchaseId.replace(/\D/g, ''), 10); // Remove non-numeric characters
+        randomVal = `PO${lastNumber + 1}`;
+    } else {
+        // Default starting point if no orders exist
+        randomVal = "PO1001";
     }
 
     let currentDate = new Date(); // Get the current date
