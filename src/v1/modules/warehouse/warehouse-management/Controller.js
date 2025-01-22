@@ -8,6 +8,7 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { wareHousev2 } = require('@src/v1/models/app/warehouse/warehousev2Schema');
+const { PurchaseOrderModel } = require('@src/v1/models/app/distiller/purchaseOrder');
 
 
 module.exports.saveWarehouseDetails = async (req, res) => {
@@ -247,7 +248,64 @@ module.exports.updateWarehouseStatus = async (req, res) => {
     }
 }
 
+module.exports.getWarehouseDashboardStats = async (req, res) => {
+    try {
+        const { user_id } = req;
+        
+        const warehouseTotalCount = (await wareHouseDetails.countDocuments()) ?? 0;
+        
 
+          const wareHouseActiveCount =
+          (await wareHouseDetails.countDocuments({active:true})) ?? 0;  
+
+          const wareHouseInactiveCount =
+          (await wareHouseDetails.countDocuments({active:false})) ?? 0;  
+
+          const outwardBatchCount =
+          (await PurchaseOrderModel.countDocuments({})) ?? 0;  
+    
+          const inwardBatchCount =
+          (await Batch.countDocuments({})) ?? 0;  
+    
+        
+         // Total warehouse capacity
+    const totalCapacityResult = await wareHouseDetails.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalCapacity: { $sum: "$basicDetails.warehouseCapacity" },
+          },
+        },
+      ]);
+  
+      const totalWarehouseCapacity =
+        totalCapacityResult.length > 0 ? totalCapacityResult[0].totalCapacity : 0;
+
+        const wareHouseCount = {
+            warehouseTotalCount:warehouseTotalCount,
+            wareHouseActiveCount:wareHouseActiveCount,
+            wareHouseInactiveCount:wareHouseInactiveCount
+        }
+        const records = {
+          wareHouseCount,
+          inwardBatchCount,
+          outwardBatchCount,
+          totalWarehouseCapacity
+        //   realTimeStock,
+        };
+    
+        return res.send(
+          new serviceResponse({
+            status: 200,
+            data: records,
+            message: _response_message.found("Dashboard Stats"),
+          })
+        );
+      } catch (error) {
+        _handleCatchErrors(error, res);
+      }
+    
+}
 
 
 
