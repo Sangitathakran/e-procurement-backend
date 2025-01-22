@@ -5,7 +5,7 @@ const { _query, _response_message, _middleware, _auth_module } = require("@src/v
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
-const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehousev2Schema");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const { BatchOrderProcess } = require('@src/v1/models/app/distiller/batchOrderProcess');
 const { PurchaseOrderModel } = require('@src/v1/models/app/distiller/purchaseOrder');
@@ -88,7 +88,7 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
 
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
-            warehouseId: new mongoose.Types.ObjectId(user_id),//user_id
+            warehouseOwnerId: new mongoose.Types.ObjectId(user_id),//user_id
             ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
@@ -96,31 +96,9 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
             { $match: query },
             {
                 $lookup: {
-                    from: 'warehousev2',
+                    from: 'warehousedetails',
                     localField: 'warehouseId',
                     foreignField: '_id',
-                    as: 'warehousedv2'
-                }
-            },
-            {
-                $unwind: {
-                    path: '$warehousedv2',
-                    preserveNullAndEmptyArrays: true
-                }
-            },
-            {
-                $lookup: {
-                    from: 'warehousedetails',
-                    let: { warehouseId: '$warehousedv2._id' },
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: {
-                                    $eq: ['$_id', '$$warehouseId']
-                                }
-                            }
-                        }
-                    ],
                     as: 'warehouseDetails'
                 }
             },
@@ -130,6 +108,7 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
                     preserveNullAndEmptyArrays: true
                 }
             },
+          
             {
                 $lookup: {
                     from: 'distillers',
@@ -154,7 +133,8 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
                     purchaseId: '$purchaseId',
                     quantityRequired: 1,
                     amount: '$payment.amount',
-                    warehouseDetails:"$warehouseDetails",
+                    warehouseDetails:"$warehouseDetails.basicDetails",
+                    wareHouse_code:"$warehouseDetails.wareHouse_code",
                     scheduledPickupDate: 1,
                     actualPickupDate: 1,
                     OrderDetails: "$OrderDetails.product",
@@ -203,8 +183,11 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ message: "Invalid item ID" });
     }
-
-    const record = await PurchaseOrderModel.findOne({ _id: id }).populate({path:'distiller_id',select:''});
+    
+    const record = await BatchOrderProcess.findOne({ orderId: id }).select('purchaseId')
+    .populate({path:'distiller_id',select:'basic_details'})
+    .populate({path:'orderId',select:''})
+     .populate({path:'warehouseId',select:'basicDetails wareHouse_code'});
 
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("purchase order") }] }))

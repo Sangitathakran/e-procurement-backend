@@ -130,16 +130,27 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                 $lookup: {
                     from: 'warehousev2', // Collection name in MongoDB
                     localField: 'warehouseOwnerId',
-                    foreignField: 'warehouseId',
-                    as: 'wareHousev2Details',
+                    foreignField: '_id',
+                    as: 'warehousev2Details',
                 },
             },
-            { $unwind: { path: '$wareHousev2Details', preserveNullAndEmptyArrays: true } },
+            {
+                $unwind: {
+                    path: '$warehousev2Details',
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
             {
                 $project: {
                     // warehouseId: 1,
                     purchaseId: '$purchaseId',
-                    warehouseId: '$wareHousev2Details.warehouseOwner_code',
+                    warehouseId: {
+                        $cond: {
+                            if: { $ifNull: ['$warehouseDetailsId', 0] },
+                            then: '$warehouseDetailsId',
+                            else: '$warehousev2Details.warehouseOwner_code'
+                        }
+                    },  
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
@@ -218,12 +229,13 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id, isExport = 0 } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
+
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order_id") }] }));
         }
 
-        const branch = await PurchaseOrderModel.findOne({ _id: order_id }).select({ _id: 0, branch_id: 1, product: 1 }).lean();
-
+        const branch = await PurchaseOrderModel.findOne({ _id: order_id }).select({ _id:0, branch_id: 1 }).lean();
+        
         let query = search ? {
             $or: [
                 { 'companyDetails.name': { $regex: search, $options: 'i' } },
@@ -237,59 +249,65 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
             { $match: query },
             {
                 $lookup: {
-                    from: 'warehousedetails', // Collection name in MongoDB
-                    localField: '_id',
-                    foreignField: 'warehouseOwnerId',
-                    as: 'warehouseDetails',
+                    from: 'warehousev2', // Collection name in MongoDB
+                    localField: 'warehouseOwnerId',
+                    foreignField: '_id',
+                    as: 'warehousev2Details',
                 },
             },
             {
                 $unwind: {
-                    path: '$warehouseDetails',
+                    path: '$warehousev2Details',
                     preserveNullAndEmptyArrays: true,
                 },
             },
             {
                 $project: {
-                    warehouseId: '$warehouseOwner_code',
-                    warehouseName: '$warehouseDetails.basicDetails.warehouseName',
-                    address: '$warehouseDetails.addressDetails',
-                    totalCapicity: "$warehouseDetails.basicDetails.warehouseCapacity",
-                    utilizedCapicity: {
+                    warehouseName: '$basicDetails.warehouseName',
+                    pickupLocation: '$addressDetails',
+                    stock: {
                         $cond: {
-                            if: { $gt: [{ $ifNull: ['$warehouseDetails.inventory.requiredStock', 0] }, 0] },
-                            then: '$warehouseDetails.inventory.requiredStock',
-                            else: '$warehouseDetails.inventory.stock'
+                            if: { $gt: [{ $ifNull: ['$inventory.requiredStock', 0] }, 0] },
+                            then: '$inventory.requiredStock',
+                            else: '$inventory.stock'
                         }
-                    },
-                    realTimeStock: '$warehouseDetails.inventory.stock',
-                    requiredStock: '$warehouseDetails.inventory.requiredStock',
-                    commodity: branch.product.name,
+                    },            
+                    warehouseTiming: '$inventory.warehouse_timing',
+                    nodalOfficerName: '$warehousev2Details.ownerDetails.name',
+                    nodalOfficerContact: '$warehousev2Details.ownerDetails.mobile',
+                    nodalOfficerEmail: '$warehousev2Details.ownerDetails.email',
+                    pocAtPickup: '$authorizedPerson.name',
+                    warehouseOwnerId: '$warehouseOwnerId',
+                    warehouseId: {
+                        $cond: {
+                            if: { $ifNull: ['$warehouseDetailsId', 0] },
+                            then: '$warehouseDetailsId',
+                            else: '$warehousev2Details.warehouseOwner_code'
+                        }
+                    },  
                     orderId: order_id,
-                    warehouseOwnerId: '$warehouseDetails.warehouseOwnerId',
-                    warehouseDetailsId: '$warehouseDetails._id',
+                    // branch_id: branch.branch_id                    
                 }
             },
 
-            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
+            { $sort: { [sortBy]: 1 } },
             { $skip: skip },
             { $limit: parseInt(limit, 10) }
         ];
 
         const records = { count: 0, rows: [] };
-        records.rows = await wareHousev2.aggregate(aggregationPipeline);
+        records.rows = await wareHouseDetails.aggregate(aggregationPipeline);
 
         const countAggregation = [
             { $match: query },
             { $count: 'total' }
         ];
-        const countResult = await wareHousev2.aggregate(countAggregation);
+        const countResult = await wareHouseDetails.aggregate(countAggregation);
         records.count = countResult.length > 0 ? countResult[0].total : 0;
 
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-
         // Export functionality
         if (isExport == 1) {
             const record = records.rows.map((item) => {
@@ -483,30 +501,40 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
                     as: "OrderDetails"
                 }
             },
-            // { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
                     from: 'warehousedetails', // Collection name in MongoDB
-                    localField: 'warehouseOwnerId',
-                    foreignField: 'warehouseId',
+                    localField: 'warehouseId',
+                    foreignField: '_id',
                     as: 'warehouseDetails',
                 },
             },
-            // { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
                     from: 'warehousev2', // Collection name in MongoDB
-                    localField: '_id',
-                    foreignField: 'warehouseId',
-                    as: 'wareHousev2',
+                    localField: 'warehouseOwnerId',
+                    foreignField: '_id',
+                    as: 'warehousev2Details',
                 },
             },
-            { $unwind: { path: '$wareHousev2', preserveNullAndEmptyArrays: true } },
+            {
+                $unwind: {
+                    path: '$warehousev2Details',
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
             {
                 $project: {
                     purchaseId: '$purchaseId',
-                    warehouseId: '$wareHousev2.warehouseOwner_code',
-                    // warehouseName: '$warehouseDetails.basicDetails.warehouseName',
+                    warehouseId: {
+                        $cond: {
+                            if: { $ifNull: ['$warehouseDetailsId', 0] },
+                            then: '$warehouseDetailsId',
+                            else: '$warehousev2Details.warehouseOwner_code'
+                        }
+                    }, 
+                    warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
                     amount: "$payment.amount",
                     paymentStatus: "$payment.status",
@@ -606,25 +634,36 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
             {
                 $lookup: {
                     from: 'warehousedetails', // Collection name in MongoDB
-                    localField: 'warehouseOwnerId',
-                    foreignField: 'warehouseId',
+                    localField: 'warehouseId',
+                    foreignField: '_id',
                     as: 'warehouseDetails',
                 },
             },
-            // { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
                     from: 'warehousev2', // Collection name in MongoDB
-                    localField: '_id',
-                    foreignField: 'warehouseId',
-                    as: 'wareHousev2',
+                    localField: 'warehouseOwnerId',
+                    foreignField: '_id',
+                    as: 'warehousev2Details',
                 },
             },
-            // { $unwind: { path: '$wareHousev2', preserveNullAndEmptyArrays: true } },
+            {
+                $unwind: {
+                    path: '$warehousev2Details',
+                    preserveNullAndEmptyArrays: true,
+                },
+            },
             {
                 $project: {
                     purchaseId: '$purchaseId',
-                    warehouseId: '$wareHousev2.warehouseOwner_code',
+                    warehouseId: {
+                        $cond: {
+                            if: { $ifNull: ['$warehouseDetailsId', 0] },
+                            then: '$warehouseDetailsId',
+                            else: '$warehousev2Details.warehouseOwner_code'
+                        }
+                    },  
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
                     amount: "$payment.amount",
