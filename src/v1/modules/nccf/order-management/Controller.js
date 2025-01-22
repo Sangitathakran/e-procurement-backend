@@ -286,7 +286,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                         }
                     },  
                     orderId: order_id,
-                    branch_id: branch.branch_id                    
+                    // branch_id: branch.branch_id                    
                 }
             },
 
