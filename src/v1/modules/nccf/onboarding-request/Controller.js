@@ -326,6 +326,12 @@ module.exports.updateMouApprovalStatus = asyncErrorHandler(async (req, res) => {
         );
     }
 
+    if (distiller.mou_approval == _userStatus.approved) {
+        return res.send(
+            new serviceResponse({ status: 400, errors: [{ message: "Distiller MOU already Approved." }] })
+        );
+    }
+
     distiller.mou = true,
         distiller.mou_approval = _userStatus.approved,
 
