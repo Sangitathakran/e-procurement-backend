@@ -194,7 +194,7 @@ async function generateBatchId() {
     sequence++;
 
     // Save the generated batchId in MongoDB
-    const newBatch = new Batch({ orderNumber });
+    const newBatch = new Batch({ batchId });
     await newBatch.save();
 
     return batchId;
