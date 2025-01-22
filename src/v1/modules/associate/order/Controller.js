@@ -36,7 +36,7 @@ module.exports.batch = async (req, res) => {
             return acc;
         }, 0);
 
-        // Apply handleDecimal to sumOfQty and truck_capacity if needed
+        // Apply handleDecimal to sumOfQty and truck_capacity if neededs
         const sumOfQtyDecimal = handleDecimal(sumOfQty);
         const truckCapacityDecimal = handleDecimal(truck_capacity);
 
