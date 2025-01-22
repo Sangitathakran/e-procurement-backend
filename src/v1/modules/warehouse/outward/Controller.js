@@ -22,6 +22,7 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
 
     const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
     const { user_id } = req;
+    //warehouseId
     let query = {
         // 'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
         // warehouseId: new mongoose.Types.ObjectId(user_id),
