@@ -11,7 +11,7 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 
 module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = '', isExport = 0 } = req.query;
-  
+
     let matchStage = {
         is_approved: _userStatus.pending,
         deletedAt: null,
@@ -85,8 +85,8 @@ module.exports.getDistillerById = asyncErrorHandler(async (req, res) => {
         {
             $lookup: {
                 from: "statedistrictcities",
-                let: { 
-                    manufacturingUnits: "$manufacturingUnits" 
+                let: {
+                    manufacturingUnits: "$manufacturingUnits"
                 },
                 pipeline: [
                     { $unwind: "$states" },
@@ -143,8 +143,8 @@ module.exports.getDistillerById = asyncErrorHandler(async (req, res) => {
         {
             $lookup: {
                 from: "statedistrictcities",
-                let: { 
-                    storageFacilities: "$storageFacilities" 
+                let: {
+                    storageFacilities: "$storageFacilities"
                 },
                 pipeline: [
                     { $unwind: "$states" },
@@ -239,8 +239,15 @@ module.exports.updateApprovalStatus = asyncErrorHandler(async (req, res) => {
         );
     }
 
+    if (distiller.is_approved == _userStatus.approved) {
+        return res.send(
+            new serviceResponse({ status: 400, errors: [{ message: "Distiller already Approved." }] })
+        );
+    }
+
     distiller.is_approved = _userStatus.approved,
         await distiller.save();
+
     return res.send(
         new serviceResponse({
             status: 200,
@@ -252,7 +259,7 @@ module.exports.updateApprovalStatus = asyncErrorHandler(async (req, res) => {
 module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
 
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = '', isExport = 0 } = req.query;
-  
+
     let matchStage = {
         is_approved: _userStatus.approved,
         deletedAt: null,
