@@ -150,18 +150,6 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
 
     }
 
-    /*
-    let randomVal;
-    let isUnique = false;
-
-    while (!isUnique) {
-        randomVal = 'PO'._generateOrderNumber();
-        const existingReq = await PurchaseOrderModel.findOne({ poNo: randomVal });
-        if (!existingReq) {
-            isUnique = true;
-        }
-    }
-    */
     let randomVal;
 
     // Generate a sequential order number

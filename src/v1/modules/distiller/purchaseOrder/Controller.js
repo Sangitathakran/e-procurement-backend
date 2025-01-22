@@ -22,18 +22,6 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
     }
 
-    /* let randomVal;
-     let isUnique = false;
- 
-     while (!isUnique) {
-         randomVal = 'OD'._generateOrderNumber();
-         const existingReq = await PurchaseOrderModel.findOne({ poNo: randomVal });
-         if (!existingReq) {
-             isUnique = true;
-         }
-     }
-     */
-
     let randomVal;
 
     // Generate a sequential order number
