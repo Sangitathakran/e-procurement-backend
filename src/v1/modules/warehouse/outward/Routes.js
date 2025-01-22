@@ -1,5 +1,5 @@
 const express = require("express");
-const {orderList,getPuchaseList,getPurchaseOrderById , readyToShip, inTransit, getBatches} = require("./Controller");
+const {orderList,getPuchaseList,getPurchaseOrderById, trackOrder, readyToShip, inTransit, getBatches} = require("./Controller");
 const { verifyWarehouseOwner } = require("../utils/verifyWarehouseOwner");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
