@@ -13,7 +13,7 @@ const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema"
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 
-
+/*
 module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = '', isExport = 0 } = req.query;
@@ -52,26 +52,12 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
                 createdAt: 1,
                 'address': '$distiller.address.registered',
             }
-        }
+        },
+        
+            { $sort: { [sortBy]: 1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit, 10) },
     ];
-
-    if (paginate == 1) {
-        aggregationPipeline.push(
-            { $skip: parseInt(skip) },
-            { $limit: parseInt(limit) }
-        );
-    }
-
-    const records = { count: 0 };
-    records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
-    records.count = await PurchaseOrderModel.countDocuments(matchStage);
-
-    // if (paginate == 1) {
-    //     records.page = page;
-    //     records.limit = limit;
-    //     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-    // }
-
 
     if (paginate == 1) {
         aggregationPipeline.push(
@@ -82,6 +68,14 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
     } else {
         aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
     }
+    const records = { count: 0 };
+    records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
+    records.count = await PurchaseOrderModel.countDocuments(matchStage);
+
+    records.page = page;
+    records.limit = limit;
+    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+    
 
     return res.status(200).send(new serviceResponse({
         status: 200,
@@ -89,6 +83,84 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         message: _response_message.found("Order")
     }));
 });
+*/
+
+module.exports.getOrders = asyncErrorHandler(async (req, res) => {
+    const {
+        page = 1,
+        limit = 10,
+        paginate = 1,
+        sortBy = "_id",
+        search = '',
+    } = req.query;
+
+    // Convert query parameters to integers for safety
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    let matchStage = {
+        'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
+        deletedAt: null,
+    };
+
+    if (search) {
+        matchStage['purchasedOrder.poNo'] = { $regex: search, $options: "i" };
+    }
+
+    let aggregationPipeline = [
+        { $match: matchStage },
+        {
+            $lookup: {
+                from: "distillers", // Adjust this to your actual collection name for branches
+                localField: "distiller_id",
+                foreignField: "_id",
+                as: "distiller"
+            }
+        },
+        { $unwind: { path: "$distiller", preserveNullAndEmptyArrays: true } },
+        {
+            $project: {
+                _id: 1,
+                orderId: '$purchasedOrder.poNo',
+                commodity: '$product.name',
+                distillerName: '$distiller.basic_details.distiller_details.organization_name',
+                quantity: '$purchasedOrder.poQuantity',
+                totalAmount: '$paymentInfo.totalAmount',
+                advancePayment: '$paymentInfo.advancePayment',
+                remainingAmount: '$paymentInfo.balancePayment',
+                createdAt: 1,
+                address: '$distiller.address.registered',
+            }
+        },
+        { $sort: { [sortBy]: 1 } },
+    ];
+
+    // Add pagination if enabled
+    if (paginate === 1 || paginate === '1') {
+        aggregationPipeline.push(
+            { $skip: skip },
+            { $limit: limitNum }
+        );
+    }
+
+    const records = { count: 0 };
+    records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline); // Fetch paginated data
+    records.count = await PurchaseOrderModel.countDocuments(matchStage); // Total count of documents
+
+    // Calculate total pages and add pagination info
+    records.page = pageNum;
+    records.limit = limitNum;
+    records.pages = limitNum !== 0 ? Math.ceil(records.count / limitNum) : 0;
+
+    return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("Order")
+    }));
+});
+
+
 
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
     try {
@@ -619,7 +691,7 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
             // 'payment.status': _poBatchPaymentStatus.paid,
             ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
-        // console.log(query);
+        
         const aggregationPipeline = [
             { $match: query },
             {
