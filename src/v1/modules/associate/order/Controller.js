@@ -186,28 +186,8 @@ async function generateBatchId() {
   const max = 999999;
   const randomPart = Math.floor(Math.random() * (max - min + 1)) + min;
 
-  // Combine random part and sequence
   const batchId = randomPart.toString() + sequence.toString();
-
-  try {
-    // Increment sequence for next batchId
-    sequence++;
-
-    // Save the generated batchId in MongoDB
-    const newBatch = new Batch({ orderNumber });
-    await newBatch.save();
-
-    return batchId;
-  } catch (error) {
-    if (error.code === 11000) {
-      // Handle duplicate key error (unlikely but possible due to randomness)
-      console.log("Duplicate batchId detected, retrying...");
-      return generateBatchId(); // Retry generating a unique number
-    } else {
-      console.error("Error saving batchId:", error);
-      throw error;
-    }
-  }
+  return batchId;
 }
 
 module.exports.editTrackDelivery = async (req, res) => {
