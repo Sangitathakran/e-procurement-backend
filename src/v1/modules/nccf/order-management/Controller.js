@@ -344,7 +344,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                         }
                     },
                     warehouseTiming: '$inventory.warehouse_timing',
-                    warehouseCapacity: "$warehouseDetails.basicDetails.warehouseCapacity",
+                    warehouseCapacity: "$basicDetails.warehouseCapacity",
                     utilizedCapacity: {
                         $cond: {
                             if: { $gt: [{ $ifNull: ['$inventory.stock', 0] }, 0] },
