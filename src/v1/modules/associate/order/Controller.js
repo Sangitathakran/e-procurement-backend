@@ -184,7 +184,7 @@ module.exports.batch = async (req, res) => {
 async function generateBatchId() {
    
   let sequence=await Batch.countDocuments({})          
-  const batchId = 'BH' + sequence.toString();
+  const batchId = 'BH-' + sequence.toString();
   return batchId;
 }
 
