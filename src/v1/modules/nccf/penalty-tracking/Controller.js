@@ -277,6 +277,7 @@ module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
     const { batchId , purchesId } = req.params;
     const { penaltyAmount } = req.body;
     
+    // throw error if penalty amount is not given
     if(!penaltyAmount) {
         return res.status(400).send(new serviceResponse({
             status: 400,
@@ -284,12 +285,23 @@ module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
         }));
     }
 
+    // penaltyAmount should be a number
     if(typeof penaltyAmount !== 'number' || isNaN(penaltyAmount)) {
         return res.status(400).send(new serviceResponse({
             status: 400,
             errors: [{ message: "Penalty Amount should be number" }]
         }));
     }
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(batchId)) {
+        return res.status(400).json({ message: "Invalid batch ID." });
+      }
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(purchesId)) {
+        return res.status(400).json({ message: "Invalid purches ID." });
+      }
 
     const order = await BatchOrderProcess.findOne(
         {
@@ -298,6 +310,7 @@ module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
         }
     );
 
+    // no order found with given batchId or orderId
     if(!order) {
         return res.status(404).send(new serviceResponse({
             status: 404,
@@ -305,6 +318,7 @@ module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
         }));
     }
 
+    // throw error if payment status is not pending 
     if(order.payment?.status !== _poBatchPaymentStatus.pending) {
         return res.status(400).send(new serviceResponse({
             status: 400,
@@ -317,7 +331,7 @@ module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
           "penaltyDetails.penaltyAmount": (penaltyAmount) 
         } 
       },
-      { new: true } );
+      { new: true, runValidators: true } );
       return res.status(200).send(new serviceResponse({
         status: 200,
         message: "Penalty amount updated successfully"
