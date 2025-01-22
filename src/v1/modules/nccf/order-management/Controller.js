@@ -335,6 +335,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                 $project: {
                     warehouseName: '$basicDetails.warehouseName',
                     pickupLocation: '$addressDetails',
+                    commodity: "Maize",
                     stock: {
                         $cond: {
                             if: { $gt: [{ $ifNull: ['$inventory.requiredStock', 0] }, 0] },
@@ -343,7 +344,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                         }
                     },
                     warehouseTiming: '$inventory.warehouse_timing',
-                    warehouseCapacity: '$warehouseCapacity',
+                    warehouseCapacity: "$warehouseDetails.basicDetails.warehouseCapacity",
                     utilizedCapacity: {
                         $cond: {
                             if: { $gt: [{ $ifNull: ['$inventory.stock', 0] }, 0] },
