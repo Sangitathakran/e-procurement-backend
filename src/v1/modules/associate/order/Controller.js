@@ -112,7 +112,7 @@ module.exports.batch = async (req, res) => {
         // create unique batch Number 
         let batchId, isUnique = false;
         while (!isUnique) {
-            batchId = generateBatchId();
+            batchId = await generateBatchId();
             if (!(await Batch.findOne({ batchId: batchId }))) isUnique = true;
         }
 
