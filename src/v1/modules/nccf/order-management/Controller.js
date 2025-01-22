@@ -620,7 +620,7 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
                         }
                     },
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
-                    warehouseAddress:'$warehouseDetails.addressDetails',
+                    warehouseLocation:'$warehouseDetails.addressDetails',
                     quantityRequired: 1,
                     amount: "$payment.amount",
                     paymentStatus: "$payment.status",
@@ -751,7 +751,7 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
                         }
                     },
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
-                    warehouseAddress:'$warehouseDetails.addressDetails',
+                    warehouseLocation:'$warehouseDetails.addressDetails',
                     quantityRequired: 1,
                     amount: "$payment.amount",
                     paymentStatus: "$payment.status",
