@@ -1,7 +1,7 @@
 const { _generateOrderNumber, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
-const { _webSocketEvents, _penaltypaymentStatus } = require('@src/v1/utils/constants');
+const { _webSocketEvents, _penaltypaymentStatus, _poBatchPaymentStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
@@ -271,4 +271,74 @@ module.exports.waiveOff = asyncErrorHandler(async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+});
+
+module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
+    const { batchId } = req.params;
+    const { penaltyAmount } = req.body;
+    
+    // throw error if penalty amount is not given
+    if(!penaltyAmount) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errors: [{ message: "Please provide the penalty amount" }]
+        }));
+    }
+
+    // penaltyAmount should be a number
+    if(typeof penaltyAmount !== 'number' || isNaN(penaltyAmount)) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errors: [{ message: "Penalty Amount should be number" }]
+        }));
+    }
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(batchId)) {
+        return res.status(400).json({ message: "Invalid batch ID." });
+    }
+
+    // // Validate ObjectId
+    // if (!mongoose.Types.ObjectId.isValid(purchesId)) {
+    //     return res.status(400).json({ message: "Invalid purches ID." });
+    // }
+    
+    const order = await BatchOrderProcess.findOne({_id: batchId}).populate("orderId");
+
+    // no order found with given batchId or orderId
+    if(!order) {
+        return res.status(404).send(new serviceResponse({
+            status: 404,
+            errors: [{ message: "No matching order found" }]
+        }));
+    }
+
+    // throw error if payment status is not pending 
+    if(order.payment?.status !== _poBatchPaymentStatus.pending) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errors: [{ message: "Update not allowed. Payment status is not 'pending'." }]
+        }));
+    }
+    
+    await BatchOrderProcess.findOneAndUpdate({_id: batchId}, { 
+        $set: { 
+          "penaltyDetails.penaltyAmount": penaltyAmount,
+          "penaltyDetails.penaltypaymentStatus": _penaltypaymentStatus.pending,
+        //   "orderId.paymentInfo.penaltyStaus": _penaltypaymentStatus.pending,
+        //   "orderId.paymentInfo.penaltyAmount": penaltyAmount + Number(order.orderId.paymentInfo.penaltyAmount) ?? 0,
+        } 
+      },
+      { new: true, runValidators: true } );
+
+    await PurchaseOrderModel.findOneAndUpdate({_id: order.orderId._id}, 
+        {
+            "paymentInfo.penaltyStaus": _penaltypaymentStatus.pending, 
+            "paymentInfo.penaltyAmount": penaltyAmount + Number(order.orderId.paymentInfo.penaltyAmount) ?? 0, },
+        { new: true, runValidators: true }
+    )
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        message: "Penalty amount updated successfully"
+    })); 
 });
