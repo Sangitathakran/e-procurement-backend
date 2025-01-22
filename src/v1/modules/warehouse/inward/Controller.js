@@ -43,6 +43,7 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
 
         const query = {
             // "warehousedetails_id._id": { $in: finalwarehouseIds },
+            wareHouse_approve_status: { $in: ['Pending', 'Received'] }, 
             ...(search && {
                 $or: [
                     { batchId: { $regex: search, $options: 'i' } },
