@@ -182,11 +182,9 @@ module.exports.batch = async (req, res) => {
 
 
 async function generateBatchId() {
-    const min = 10; // Two-digit minimum
-    const max = 99; // Two-digit maximum
-  const randomPart = Math.floor(Math.random() * (max - min + 1)) + min;
+   
   let sequence=await Batch.countDocuments({})          
-  const batchId = randomPart.toString() + sequence.toString();
+  const batchId = 'BH' + sequence.toString();
   return batchId;
 }
 
