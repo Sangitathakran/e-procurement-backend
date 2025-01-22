@@ -242,7 +242,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
         distiller_name: distiller_name,
         delivery_location,
         contact_number: distiller_contact_number,
-        receiver_name:"Manas Ghosh",
+        receiver_name:"Team NCCF",
     }
     const subject = `New Purchase Order Received! (Order ID:${emailData.po_number})`
     const receiver = process.env.PO_RECEPIENT_ADDRESS;
