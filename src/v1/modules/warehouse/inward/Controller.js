@@ -59,7 +59,7 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
                 { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
                 { path: "req_id", select: "product.name expectedProcurementDate" },
             ])
-            .select("batchId warehousedetails_id commodity qty wareHouse_approve_status final_quality_check.whr_receipt receiving_details.received_on createdAt")
+            .select("batchId warehousedetails_id commodity qty wareHouse_approve_status final_quality_check receiving_details.received_on createdAt")
             .sort(sortBy)
             .skip((page - 1) * limit)
             .limit(parseInt(limit));

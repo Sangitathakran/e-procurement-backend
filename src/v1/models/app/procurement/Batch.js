@@ -87,7 +87,7 @@ const batchsSchema = new mongoose.Schema({
         qc_images: {type: String, trim: true, },
         whr_receipt: { type: String, trim: true },
         whr_receipt_image: { type: String, trim: true },
-        status: { type: String, trim: true },
+        status: { type: String, trim: true, default:"Pending" },
         rejected_reason: { type: String, trim: true },
     },
     receiving_details: {
