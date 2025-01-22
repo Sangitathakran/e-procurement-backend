@@ -137,6 +137,7 @@ module.exports.getProcurementById = async (req, res) => {
     try {
 
         const { id } = req.params;
+        const { user_id } = req;
 
         const record = await RequestModel.findOne({ _id: id }).lean();
 
@@ -144,7 +145,7 @@ module.exports.getProcurementById = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
         }
 
-        record.myOffer = await AssociateOffers.findOne({ req_id: id });
+        record.myOffer = await AssociateOffers.findOne({ req_id: id, seller_id: user_id });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("procurement") }))
 

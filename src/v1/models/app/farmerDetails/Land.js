@@ -21,7 +21,7 @@ const landSchema = new mongoose.Schema({
     },
     area_unit: { 
         type: String, 
-        enum: Object.values(_areaUnit).slice(0, 2), 
+        enum: Object.values(_areaUnit), 
         required: false 
     },
     khtauni_number: { type: String },

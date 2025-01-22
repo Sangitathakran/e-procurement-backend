@@ -1,7 +1,7 @@
-const { _generateOrderNumber, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
+const { _generateOrderNumber, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
-const { _webSocketEvents, _status, _poRequestStatus, _poPaymentStatus, _userStatus } = require('@src/v1/utils/constants');
+const { _webSocketEvents, _poAdvancePaymentStatus, _poRequestStatus, _poPaymentStatus, _userStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
@@ -31,11 +31,12 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
         }
     }
 
-    const msp = 24470;
+    // const msp = 24470;
+    const msp = _distillerMsp();
     const totalAmount = handleDecimal(msp * poQuantity);
     const tokenAmount = handleDecimal((totalAmount * 3) / 100);
     const remainingAmount = handleDecimal(totalAmount - tokenAmount);
-
+   
     const record = await PurchaseOrderModel.create({
         distiller_id: user_id,
         branch_id,
@@ -63,7 +64,10 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
             totalAmount: handleDecimal(totalAmount), // Assume this is calculated during the first step
             advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 3% of totalAmount
             balancePayment: handleDecimal(remainingAmount), // Auto-calculated: 97% of totalAmount
-            tax: 0
+            tax: _taxValue(),
+            paidAmount: handleDecimal(tokenAmount),
+            // advancePaymentStatus:_poAdvancePaymentStatus.pending
+            // advancePaymentStatus:_poAdvancePaymentStatus.paid
         },
         companyDetails,
         additionalDetails,
@@ -158,7 +162,7 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
 module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
 
     const { id, branch_id, name, grade, grade_remark, poQuantity, quantityDuration, manufacturingLocation, storageLocation, deliveryLocation,
-        companyDetails, additionalDetails, qualitySpecificationOfProduct, comments,
+        companyDetails, additionalDetails, qualitySpecificationOfProduct, paymentInfo
     } = req.body;
 
     const record = await PurchaseOrderModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
@@ -167,9 +171,11 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("request") }));
     }
 
-    const msp = 24470;
+    const msp = _distillerMsp();
     const totalAmount = handleDecimal(msp * poQuantity);
     const tokenAmount = handleDecimal((totalAmount * 3) / 100);
+
+    
 
 
     record.branch_id = branch_id || record.branch_id,
@@ -205,8 +211,15 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     // Update quality specification
     record.qualitySpecificationOfProduct.moisture = qualitySpecificationOfProduct.moisture || record.qualitySpecificationOfProduct.moisture;
     record.qualitySpecificationOfProduct.broken = qualitySpecificationOfProduct.broken || record.qualitySpecificationOfProduct.broken;
-    record.comments.comment = comments.comments || record.comments.comment;
-    // Save the updated record
+    // Payment Info 
+    record.paymentInfo.advancePaymentDate = paymentInfo?.advancePaymentDate || record?.paymentInfo?.advancePaymentDate,
+    record.paymentInfo.advancePaymentUtrNo = paymentInfo?.advancePaymentUtrNo || record?.paymentInfo?.advancePaymentUtrNo,
+    record.paymentInfo.payment_proof = paymentInfo?.payment_proof || record?.paymentInfo?.payment_proof,
+    record.paymentInfo.advancePaymentStatus= _poAdvancePaymentStatus.paid 
+
+
+    // console.log("_final_record=>", record);
+    // // Save the updated record
     await record.save();
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("request") }));

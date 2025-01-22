@@ -16,15 +16,20 @@ module.exports.payment = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
 
-        let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
+        let query = search ? {
+            $or: [
+                { "reqNo": { $regex: search, $options: 'i' } },
+                { "product.name": { $regex: search, $options: 'i' } },
+            ]
+        } : {};
+        
 
         const { portalId, user_id } = req
 
 
         const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] } })).map(i => i.req_id)
-
         const aggregationPipeline = [
-            { $match: { _id: { $in: paymentIds } } },
+            { $match: { _id: { $in: paymentIds }, ...query } },
             {
                 $lookup: {
                     from: 'batches',
