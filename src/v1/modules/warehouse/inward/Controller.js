@@ -103,6 +103,11 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
     }
 });
 
+
+
+
+
+
 module.exports.batchApproveOrReject = async (req, res) => {
     try {
         const { batchId, status, product_images = [], qc_images = [] } = req.body;
@@ -405,7 +410,7 @@ module.exports.batchMarkDelivered = async (req, res) => {
             'receiving_details.truck_photo': truck_photo,
             'receiving_details.vehicle_details': vehicle_details,
             'receiving_details.document_pictures': document_pictures,
-            wareHouse_approve_status: 'received',
+            wareHouse_approve_status: 'Received',
         };
 
         const updatedBatch = await Batch.findByIdAndUpdate(batchId, { $set: updateFields }, { new: true });

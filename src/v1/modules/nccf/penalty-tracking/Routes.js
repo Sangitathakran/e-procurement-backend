@@ -6,6 +6,6 @@ const { Auth } = require("@src/v1/middlewares/jwt");
 nccfPenaltyRoutes.get("/", Auth, getPenaltyOrder);
 nccfPenaltyRoutes.get("/batchList", Auth, batchList);
 nccfPenaltyRoutes.put("/waiveOff", Auth, waiveOff);
-nccfPenaltyRoutes.patch("/penalty-amount/:batchId/:purchesId", Auth, updatePenaltyAmount);
+nccfPenaltyRoutes.put("/penalty-amount/:batchId", Auth, updatePenaltyAmount);
 
 module.exports = { nccfPenaltyRoutes };

@@ -17,7 +17,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     // Initialize matchQuery
     let matchQuery = {
-        'paymentInfo.penaltyStaus': { $ne: _penaltypaymentStatus.NA },
+        // 'paymentInfo.penaltyStaus': { $ne: _penaltypaymentStatus.NA },
         deletedAt: null
     };
 
@@ -274,7 +274,7 @@ module.exports.waiveOff = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
-    const { batchId , purchesId } = req.params;
+    const { batchId } = req.params;
     const { penaltyAmount } = req.body;
     
     // throw error if penalty amount is not given
@@ -298,17 +298,12 @@ module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
         return res.status(400).json({ message: "Invalid batch ID." });
     }
 
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(purchesId)) {
-        return res.status(400).json({ message: "Invalid purches ID." });
-    }
-
-    const order = await BatchOrderProcess.findOne(
-        {
-            batchId: new mongoose.Types.ObjectId(batchId),
-            orderId: new mongoose.Types.ObjectId(purchesId) 
-        }
-    ).populate({path: "orderId", select: "orderId -_id"});
+    // // Validate ObjectId
+    // if (!mongoose.Types.ObjectId.isValid(purchesId)) {
+    //     return res.status(400).json({ message: "Invalid purches ID." });
+    // }
+    
+    const order = await BatchOrderProcess.findOne({_id: batchId}).populate("orderId");
 
     // no order found with given batchId or orderId
     if(!order) {
@@ -325,15 +320,23 @@ module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
             errors: [{ message: "Update not allowed. Payment status is not 'pending'." }]
         }));
     }
-
-    await BatchOrderProcess.findByIdAndUpdate(order._id, { 
+    
+    await BatchOrderProcess.findOneAndUpdate({_id: batchId}, { 
         $set: { 
           "penaltyDetails.penaltyAmount": penaltyAmount,
-          "penaltyDetails.orderId.paymentInfo.penaltyStaus": _penaltypaymentStatus.pending,
-          "penaltyDetails.orderId.paymentInfo.penaltyStaus": penaltyAmount + order.orderId.paymentInfo.penaltyAmount ?? 0,
+          "penaltyDetails.penaltypaymentStatus": _penaltypaymentStatus.pending,
+        //   "orderId.paymentInfo.penaltyStaus": _penaltypaymentStatus.pending,
+        //   "orderId.paymentInfo.penaltyAmount": penaltyAmount + Number(order.orderId.paymentInfo.penaltyAmount) ?? 0,
         } 
       },
       { new: true, runValidators: true } );
+
+    await PurchaseOrderModel.findOneAndUpdate({_id: order.orderId._id}, 
+        {
+            "paymentInfo.penaltyStaus": _penaltypaymentStatus.pending, 
+            "paymentInfo.penaltyAmount": penaltyAmount + Number(order.orderId.paymentInfo.penaltyAmount) ?? 0, },
+        { new: true, runValidators: true }
+    )
       return res.status(200).send(new serviceResponse({
         status: 200,
         message: "Penalty amount updated successfully"
