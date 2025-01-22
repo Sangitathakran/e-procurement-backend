@@ -116,12 +116,14 @@ module.exports.batch = async (req, res) => {
             if (!(await Batch.findOne({ batchId: batchId }))) isUnique = true;
         }
 
+        const findwarehouseUser = await RequestModel.findOne({ _id: req_id });
+
         const batchCreated = await Batch.create({
             seller_id: user_id,
             req_id,
             associateOffer_id: record._id,
             batchId,
-            warehousedetails_id : procurementRecord.warehousedetails_id,
+            warehousedetails_id : findwarehouseUser.warehouse_id,
             farmerOrderIds: farmerData,
             procurementCenter_id,
             qty: handleDecimal(sumOfQtyDecimal),  // Apply handleDecimal here
