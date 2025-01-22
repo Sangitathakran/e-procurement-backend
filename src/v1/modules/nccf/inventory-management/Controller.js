@@ -79,6 +79,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
           warehouseId: "$warehouseOwner_code",
           warehouseName: "$warehouseDetails.basicDetails.warehouseName",
           address: "$warehouseDetails.addressDetails",
+          commodity: "Maize",
           totalCapacity: "$warehouseDetails.basicDetails.warehouseCapacity",
           utilizedCapacity: {
             $cond: {

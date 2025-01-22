@@ -57,9 +57,8 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
                 { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
                 { path: "procurementCenter_id", select: "center_name" },
                 { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
-                { path: "req_id", select: "product.name expectedProcurementDate" },
             ])
-            .select("batchId req_id warehousedetails_id commodity qty wareHouse_approve_status final_quality_check.whr_receipt receiving_details.received_on createdAt")
+            .select("batchId warehousedetails_id commodity qty wareHouse_approve_status final_quality_check.whr_receipt receiving_details.received_on createdAt")
             .sort(sortBy)
             .skip((page - 1) * limit)
             .limit(parseInt(limit));
@@ -103,6 +102,11 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
         return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
     }
 });
+
+
+
+
+
 
 module.exports.batchApproveOrReject = async (req, res) => {
     try {

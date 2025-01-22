@@ -23,22 +23,25 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     }
 
     let randomVal;
-    let isUnique = false;
 
-    while (!isUnique) {
-        randomVal = _generateOrderNumber();
-        const existingReq = await PurchaseOrderModel.findOne({ poNo: randomVal });
-        if (!existingReq) {
-            isUnique = true;
-        }
+    // Generate a sequential order number
+    const lastOrder = await PurchaseOrderModel.findOne().sort({ createdAt: -1 }).select("purchasedOrder.poNo").lean();
+    if (lastOrder && lastOrder.purchasedOrder?.poNo) {
+        // Extract the numeric part from the last order's poNo and increment it
+        const lastNumber = parseInt(lastOrder.purchasedOrder.poNo.replace(/\D/g, ''), 10); // Remove non-numeric characters
+        randomVal = `OD${lastNumber + 1}`;
+    } else {
+        // Default starting point if no orders exist
+        randomVal = "OD1001";
     }
+
 
     // const msp = 24470;
     const msp = _distillerMsp();
     const totalAmount = handleDecimal(msp * poQuantity);
     const tokenAmount = handleDecimal((totalAmount * 3) / 100);
     const remainingAmount = handleDecimal(totalAmount - tokenAmount);
-   
+
     const record = await PurchaseOrderModel.create({
         distiller_id: user_id,
         branch_id,
@@ -162,8 +165,8 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
 })
 
 module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
-    const {user_id} = req;
-    
+    const { user_id } = req;
+
     const { id, branch_id, name, grade, grade_remark, poQuantity, quantityDuration, manufacturingLocation, storageLocation, deliveryLocation,
         companyDetails, additionalDetails, qualitySpecificationOfProduct, paymentInfo
     } = req.body;
@@ -180,8 +183,8 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     const tokenAmount = handleDecimal((totalAmount * 3) / 100);
 
     record.branch_id = branch_id || record.branch_id,
-    // Update product details
-    record.product.name = name || record.product.name;
+        // Update product details
+        record.product.name = name || record.product.name;
     record.product.grade = grade || record.product.grade;
     record.product.grade = grade_remark || record.product.grade_remark;
     record.product.quantityDuration = quantityDuration || record.product.quantityDuration;
@@ -214,39 +217,39 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     record.qualitySpecificationOfProduct.broken = qualitySpecificationOfProduct.broken || record.qualitySpecificationOfProduct.broken;
     // Payment Info 
     record.paymentInfo.advancePaymentDate = paymentInfo?.advancePaymentDate || record?.paymentInfo?.advancePaymentDate,
-    record.paymentInfo.advancePaymentUtrNo = paymentInfo?.advancePaymentUtrNo || record?.paymentInfo?.advancePaymentUtrNo,
-    record.paymentInfo.payment_proof = paymentInfo?.payment_proof || record?.paymentInfo?.payment_proof,
-    record.paymentInfo.advancePaymentStatus= _poAdvancePaymentStatus.paid 
+        record.paymentInfo.advancePaymentUtrNo = paymentInfo?.advancePaymentUtrNo || record?.paymentInfo?.advancePaymentUtrNo,
+        record.paymentInfo.payment_proof = paymentInfo?.payment_proof || record?.paymentInfo?.payment_proof,
+        record.paymentInfo.advancePaymentStatus = _poAdvancePaymentStatus.paid
     // console.log("_final_record=>", record);
     // // Save the updated record
     await record.save();
 
-    
-    const distillerDetails = await Distiller.findOne({_id: user_id}).select({'basic_details.distiller_details': 1, _id:0});
+
+    const distillerDetails = await Distiller.findOne({ _id: user_id }).select({ 'basic_details.distiller_details': 1, _id: 0 });
     // console.log(distillerDetails);
-    const {basic_details:{distiller_details:{organization_name, phone:distillerPhone}}={}} = distillerDetails || {}
-    
+    const { basic_details: { distiller_details: { organization_name, phone: distillerPhone } } = {} } = distillerDetails || {}
+
     const distiller_contact_number = `+91 ${distillerPhone}`;
     const distiller_name = organization_name;
     const delivery_location = record.deliveryLocation.location;
     const emailData = {
-        order_date : formatDate(record.paymentInfo.advancePaymentDate),
-        po_number : record.purchasedOrder.poNo,
-        commodity : "Maize",
-        quantity:`${record.purchasedOrder.poQuantity} MT`,
-        msp:`₹${_distillerMsp()}`,
-        branch_office_name : branch_office_location,
-        total_amount:`₹${record.purchasedOrder.poAmount}` ,
-        advance_payment:`₹${record.paymentInfo.advancePayment}`,
+        order_date: formatDate(record.paymentInfo.advancePaymentDate),
+        po_number: record.purchasedOrder.poNo,
+        commodity: "Maize",
+        quantity: `${record.purchasedOrder.poQuantity} MT`,
+        msp: `₹${_distillerMsp()}`,
+        branch_office_name: branch_office_location,
+        total_amount: `₹${record.purchasedOrder.poAmount}`,
+        advance_payment: `₹${record.paymentInfo.advancePayment}`,
         advance_payment_date: formatDate(record.paymentInfo.advancePaymentDate),
         distiller_name: distiller_name,
         delivery_location,
         contact_number: distiller_contact_number,
-        receiver_name:"Manas Ghosh",
+        receiver_name:"Team NCCF",
     }
     const subject = `New Purchase Order Received! (Order ID:${emailData.po_number})`
     const receiver = process.env.PO_RECEPIENT_ADDRESS;
-    
+
     emailService.sendPurchaseOrderConfirmation(receiver, emailData, subject);
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Request") }));
 });
