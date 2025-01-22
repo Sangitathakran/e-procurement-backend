@@ -272,3 +272,44 @@ module.exports.waiveOff = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+
+module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
+    const { batchId , purchesId } = req.params;
+    const { penaltyAmount } = req.body;
+    console.log("penaltyAmount", penaltyAmount);
+    
+    if(!penaltyAmount) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errors: [{ message: "Please provide the penalty amount" }]
+        }));
+    }
+    if(typeof penaltyAmount !== 'number' || isNaN(penaltyAmount)) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errors: [{ message: "Penalty Amount should be number" }]
+        }));
+    }
+    const order = await BatchOrderProcess.findOne(
+        {
+            batchId: new mongoose.Types.ObjectId(batchId), 
+            orderId: new mongoose.Types.ObjectId(purchesId) 
+        }
+    );
+    if(!order) {
+        return res.status(404).send(new serviceResponse({
+            status: 404,
+            errors: [{ message: "No matching order found" }]
+        }));
+    }
+    await BatchOrderProcess.findByIdAndUpdate(order._id, { 
+        $set: { 
+          "penaltyDetails.penaltyAmount": (penaltyAmount) 
+        } 
+      },
+      { new: true } );
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        message: "Penalty amount updated successfully"
+    })); 
+});
