@@ -424,3 +424,16 @@ module.exports.getBatches = asyncErrorHandler( async(req ,res) => {
 
     return res.status(200).send(new serviceResponse({ status : 200 , data  , message : _response_message.found("batches")})) ;
 })
+
+
+module.exports.fetchBatches = asyncErrorHandler ( async(req ,res) => { 
+
+      
+    const { id } = req.params ; 
+
+    const record = await BatchOrderProcess.findOne({ _id : id }) ; 
+
+    const batches = await Batch.find( { warehousedetails_id : record.warehouseId }) ; 
+
+    return res.status(200).send(new serviceResponse({ status : 200 , data : batches , message : _response_message.found("batches")})) ; 
+})
