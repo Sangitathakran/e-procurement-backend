@@ -91,7 +91,8 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             '/purchase-list',
             '/order-list',
             '/purchase-order',
-            '/warehouse-status'
+            '/warehouse-status',
+            '/get-warehouse-dashboardStats'
         ];
 
         const currentUrl = req.url.split('?')[0];

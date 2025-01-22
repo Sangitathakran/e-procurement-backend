@@ -9,7 +9,7 @@ wareHouseManagement.post("/add-warehouse", verifyWarehouseOwner, saveWarehouseDe
 wareHouseManagement.put("/edit-warehouse", verifyWarehouseOwner, editWarehouseDetails);
 wareHouseManagement.post("/warehouse-list", verifyWarehouseOwner, getWarehouseList);
 wareHouseManagement.put("/warehouse-status/:id", verifyWarehouseOwner, updateWarehouseStatus);
-wareHouseManagement.get("/get-warehouse-dashboardStats", getWarehouseDashboardStats)
+wareHouseManagement.get("/get-warehouse-dashboardStats",verifyWarehouseOwner, getWarehouseDashboardStats)
 
 
 
