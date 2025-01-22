@@ -160,8 +160,6 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
     }));
 });
 
-
-
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
     try {
         const { page = 1, limit = 10, paginate = 1, sortBy = "createdAt", search = '', filters = {}, order_id } = req.query;
@@ -345,6 +343,21 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                         }
                     },
                     warehouseTiming: '$inventory.warehouse_timing',
+                    warehouseCapacity: '$warehouseCapacity',
+                    utilizedCapacity: {
+                        $cond: {
+                            if: { $gt: [{ $ifNull: ['$inventory.stock', 0] }, 0] },
+                            then: '$inventory.requiredStock',
+                            else: '$inventory.stock'
+                        }
+                    },
+                    requiredStock:{
+                        $cond: {
+                            if: { $gt: [{ $ifNull: ['$inventory.requiredStock', 0] }, 0] },
+                            then: '$inventory.stock',
+                            else: '$inventory.requiredStock'
+                        }
+                    },
                     nodalOfficerName: '$warehousev2Details.ownerDetails.name',
                     nodalOfficerContact: '$warehousev2Details.ownerDetails.mobile',
                     nodalOfficerEmail: '$warehousev2Details.ownerDetails.email',
@@ -607,6 +620,7 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
                         }
                     },
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
+                    warehouseAddress:'$warehouseDetails.addressDetails',
                     quantityRequired: 1,
                     amount: "$payment.amount",
                     paymentStatus: "$payment.status",
@@ -737,6 +751,7 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
                         }
                     },
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
+                    warehouseAddress:'$warehouseDetails.addressDetails',
                     quantityRequired: 1,
                     amount: "$payment.amount",
                     paymentStatus: "$payment.status",
