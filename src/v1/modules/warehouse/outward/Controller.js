@@ -23,13 +23,14 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
     const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
     const { user_id } = req;
     //warehouseId
+
     let query = {
         // 'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
-        // warehouseId: new mongoose.Types.ObjectId(user_id),
+        //   warehouseId: new mongoose.Types.ObjectId(user_id),
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
     };
-
-    const records = { count: 0 };
+     
+    let records = { count: 0 };
 
     records.rows = paginate == 1 ? await PurchaseOrderModel.find(query).select('product.name purchasedOrder.poQuantity purchasedOrder.poNo createdAt')
         .sort(sortBy)
@@ -38,7 +39,19 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
         // .populate({ path: "branch_id", select: "_id branchName branchId" })
         .limit(parseInt(limit)) : await PurchaseOrderModel.find(query).sort(sortBy);
 
-    records.count = await PurchaseOrderModel.countDocuments(query);
+        records.rows = await Promise.all(
+            records.rows.map(async (item) => {
+              let batchOrderProcess = await BatchOrderProcess.findOne({
+                warehouseOwnerId: user_id,
+                orderId: item._id,
+              }).select('warehouseId orderId');
+              
+              return batchOrderProcess ? item : null; // Return the item if found, otherwise null
+            })
+          );
+          // Filter out null values
+          records.rows = records.rows.filter((item) => item !== null);
+    records.count = records.rows.length;
 
     if (paginate == 1) {
         records.page = page
@@ -188,7 +201,7 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
     const record = await BatchOrderProcess.findOne({ orderId: id }).select('purchaseId')
     .populate({path:'distiller_id',select:'basic_details'})
     .populate({path:'orderId',select:''})
-     .populate({path:'warehouseId',select:'basicDetails wareHouse_code'});
+     .populate({path:'warehouseId',select:'basicDetails wareHouse_code addressDetails'});
 
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("purchase order") }] }))

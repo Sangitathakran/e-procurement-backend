@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToExcel, _generateOrderNumber } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
@@ -48,9 +48,23 @@ module.exports.saveWarehouseDetails = async (req, res) => {
             );
         }
 
+        let randomVal;
+
+        // Generate a sequential order number
+        const lastWarehouse = await wareHouseDetails.findOne().sort({ createdAt: -1 }).select("warehouseOwnerId").lean();
+        if (lastWarehouse && lastWarehouse?.warehouseOwnerId) {
+            // Extract the numeric part from the last order's poNo and increment it
+            const lastNumber = parseInt(lastWarehouse.warehouseOwnerId.replace(/\D/g, ''), 10); // Remove non-numeric characters
+            randomVal = `WHR${lastNumber + 1}`;
+        } else {
+            // Default starting point if no orders exist
+            randomVal = "WHR1001";
+        }
+    
         // Create a new warehouse record
         const warehouse = new wareHouseDetails({
             warehouseOwnerId: ownerId,
+            warehouseDetailsId: randomVal,
             basicDetails,
             addressDetails,
             documents,
@@ -85,7 +99,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         sortBy = 'createdAt',
         sortOrder = 'asc',
         isExport = 0,
-        state, 
+        state,
         city
     } = req.query;
 
@@ -100,7 +114,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
 
         const decoded = await decryptJwtToken(token);
         const userId = decoded.data.user_id;
-    
+
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
         }

@@ -36,7 +36,7 @@ module.exports.batch = async (req, res) => {
             return acc;
         }, 0);
 
-        // Apply handleDecimal to sumOfQty and truck_capacity if needed
+        // Apply handleDecimal to sumOfQty and truck_capacity if neededs
         const sumOfQtyDecimal = handleDecimal(sumOfQty);
         const truckCapacityDecimal = handleDecimal(truck_capacity);
 
@@ -112,16 +112,18 @@ module.exports.batch = async (req, res) => {
         // create unique batch Number 
         let batchId, isUnique = false;
         while (!isUnique) {
-            batchId = _generateOrderNumber();
+            batchId = await generateBatchId();
             if (!(await Batch.findOne({ batchId: batchId }))) isUnique = true;
         }
+
+        const findwarehouseUser = await RequestModel.findOne({ _id: req_id });
 
         const batchCreated = await Batch.create({
             seller_id: user_id,
             req_id,
             associateOffer_id: record._id,
             batchId,
-            warehousedetails_id : procurementRecord.warehousedetails_id,
+            warehousedetails_id : findwarehouseUser.warehouse_id,
             farmerOrderIds: farmerData,
             procurementCenter_id,
             qty: handleDecimal(sumOfQtyDecimal),  // Apply handleDecimal here
@@ -176,6 +178,17 @@ module.exports.batch = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+
+
+async function generateBatchId() {
+  const min = 100000; // Random part 6 digits
+  const max = 999999;
+  const randomPart = Math.floor(Math.random() * (max - min + 1)) + min;
+   let sequence=await Batch.countDocuments({})          
+  const batchId = randomPart.toString() + sequence.toString();
+  return batchId;
+}
 
 module.exports.editTrackDelivery = async (req, res) => {
 
