@@ -33,7 +33,6 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
             : ownerwarehouseIds;
 
-        console.log('finalwarehouseIds',finalwarehouseIds)
         if (!finalwarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
@@ -57,14 +56,12 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
             .populate([
                 { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
                 { path: "procurementCenter_id", select: "center_name" },
-                { path: "warehousedetails_id", select: "basicDetails.warehouseName" },
+                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
             ])
-            .select("batchId warehousedetails_id commodity qty received_on qc_report wareHouse_code wareHouse_approve_status ")
-            .sort({ [sortBy]: 1 })
+            .select("batchId warehousedetails_id commodity qty wareHouse_approve_status final_quality_check.whr_receipt receiving_details.received_on createdAt")
+            .sort(sortBy)
             .skip((page - 1) * limit)
             .limit(parseInt(limit));
-
-        console.log('rows',rows)
 
         const count = await Batch.countDocuments(query);
         const stats = {
@@ -182,35 +179,53 @@ module.exports.viewBatchDetails = async (req, res) => {
                 errors: [{ message: "Batch not found" }]
             }));
         }
-
+        console.log('batch',batch)
         const response = {
-            batch_id: batch.batch_id,
-            fpoName: batch.fpoName,
-            commodity: batch.commodity,
-            quantityInTransit: batch.quantityInTransit,
-            receivingDate: batch.receivingDate,
-            procurementDate: batch.procurementDate,
-            procurementCenter: batch.procurementCenter_id?.center_name || "NA",
-            warehouse: batch.warehouse_id?.basicDetails?.warehouseName || "NA",
-            warehouseAddress: batch.warehouse_id?.basicDetails?.addressDetails || "NA",
-            msp: batch.msp,
-            truckDetails: {
-                truckNumber: batch.truckNumber,
-                loadedWeight: batch.loadedVehicleWeight,
-                tareWeight: batch.truckTareWeight,
-                bagWeight: batch.bagWeight
+            basic_details : {
+                batch_id: batch.batchId,
+                fpoName: batch.fpoName,
+                commodity: batch.commodity,
+                quantityInTransit: batch.quantityInTransit,
+                receivingDate: batch.receivingDate,
+                procurementDate: batch.procurementDate,
+                procurementCenter: batch.procurementCenter_id?.center_name || "NA",
+                warehouse: batch.warehouse_id?.basicDetails?.warehouseName || "NA",
+                warehouseAddress: batch.warehouse_id?.basicDetails?.addressDetails || "NA",
+                msp: batch.msp,
             },
-            driverDetails: {
-                driverName: batch.driverName,
-                driverPhone: batch.driverPhoneNumber,
-                driverLicense: batch.driverLicense,
-                driverAadhar: batch.driverAadhar
+            truck_details: {
+                truckNumber: batch.intransit.transport.vehicleNo,
+                loadedWeight: batch.intransit.transport.vehicle_weight,
+                tareWeight: batch.truckTareWeight || "NA",
+                bagWeight: batch.intransit.no_of_bags
+            },
+            driver_details: {
+                driverName: batch.intransit.driver.name,
+                driverPhone: batch.intransit.driver.contact,
+                driverLicense: batch.intransit.driver.license,
+                driverAadhar: batch.intransit.driver.aadhar
             },
             lotDetails: batch.farmerOrderIds.map(order => ({
                 lotId: order.farmerOrder_id?.order_no || "NA",
                 farmerName: order.farmerOrder_id?.metaData?.name || "NA",
                 quantityPurchased: order.qty || "NA"
             })),
+            receiving_details: {
+                quantity_received: batch.receiving_details.quantity_received,
+                no_of_bags: batch.receiving_details.no_of_bags,
+            },
+            vehicle_details: {
+                loaded_vehicle_weight: batch.receiving_details.loaded_vehicle_weight,
+                loadedWeight: batch.receiving_details.net_weight,
+                tareWeight: batch.receiving_details.tare_weight,
+            },
+            document_pictures : {
+                document_pictures : batch.document_pictures
+            },
+            final_qc_report : {
+                final_qc_report : batch.final_quality_check
+            }
+            
         };
 
         return res.status(200).send(new serviceResponse({

@@ -10,6 +10,8 @@ const batchsSchema = new mongoose.Schema({
     farmerOrderIds: [{ farmerOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.FarmerOrder, required: true }, qty: { type: Number, default: 0 }, amt: { type: Number, default: 0 } }],
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
     qty: { type: Number, default: 0 },
+    available_qty : { type : Number , default : 0 } , 
+    allotedQty : { type : Number , default : 0 } ,
     goodsPrice: { type: Number, trim: true },
     totalPrice: { type: Number, trim: true },
     dispatched: {
@@ -104,7 +106,8 @@ const batchsSchema = new mongoose.Schema({
             receiving_copy: { type: String, trim: true },
             proof_of_delivery: { type: String, trim: true },
             truck_photo: { type: String, trim: true },
-        }
+        },
+        received_on: { type: Date, default: Date.now, }
     },
     reason: { text: { type: String }, on: { type: Date } },
     bo_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },

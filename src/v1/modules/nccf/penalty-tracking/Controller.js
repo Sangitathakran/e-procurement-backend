@@ -1,7 +1,7 @@
 const { _generateOrderNumber, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
-const { _webSocketEvents, _penaltypaymentStatus } = require('@src/v1/utils/constants');
+const { _webSocketEvents, _penaltypaymentStatus, _poBatchPaymentStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
@@ -276,7 +276,6 @@ module.exports.waiveOff = asyncErrorHandler(async (req, res) => {
 module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
     const { batchId , purchesId } = req.params;
     const { penaltyAmount } = req.body;
-    console.log("penaltyAmount", penaltyAmount);
     
     if(!penaltyAmount) {
         return res.status(400).send(new serviceResponse({
@@ -284,24 +283,35 @@ module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
             errors: [{ message: "Please provide the penalty amount" }]
         }));
     }
+
     if(typeof penaltyAmount !== 'number' || isNaN(penaltyAmount)) {
         return res.status(400).send(new serviceResponse({
             status: 400,
             errors: [{ message: "Penalty Amount should be number" }]
         }));
     }
+
     const order = await BatchOrderProcess.findOne(
         {
             batchId: new mongoose.Types.ObjectId(batchId), 
             orderId: new mongoose.Types.ObjectId(purchesId) 
         }
     );
+
     if(!order) {
         return res.status(404).send(new serviceResponse({
             status: 404,
             errors: [{ message: "No matching order found" }]
         }));
     }
+
+    if(order.payment?.status !== _poBatchPaymentStatus.pending) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errors: [{ message: "Update not allowed. Payment status is not 'pending'." }]
+        }));
+    }
+
     await BatchOrderProcess.findByIdAndUpdate(order._id, { 
         $set: { 
           "penaltyDetails.penaltyAmount": (penaltyAmount) 
