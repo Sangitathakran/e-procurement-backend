@@ -3,7 +3,7 @@ const {
   dumpJSONToExcel,
   generateFileName,
 } = require("@src/v1/utils/helpers");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const {
   _query,
   _response_message,
@@ -2167,6 +2167,47 @@ module.exports.payAgent = async (req, res) => {
     }
 
   } catch (err) {
+    _handleCatchErrors(err, res);
+  }
+};
+
+module.exports.updatePaymentByOrderId = async (req, res) => {
+  try {
+
+    const orderIds = req.body.orderIds
+  
+    const requests = await RequestModel.find({ reqNo: { $in: orderIds } })
+    const req_ids = requests.map((item) => item._id)
+
+
+    const batches = await Batch.find({ req_id: { $in: req_ids } })
+
+
+    const farmer_order_ids = batches.flatMap((batch) => batch.farmerOrderIds.map((item) => item.farmerOrder_id))
+
+
+    const batchIds = batches.map((batch) => batch._id)
+    await Batch.updateMany(
+      { _id: { $in: batchIds } },
+      { $set: { status: "Payment Complete" } }
+    );
+
+  
+    await FarmerOrders.updateMany(
+      { _id: { $in: farmer_order_ids } },
+      { $set: { payment_status: "Completed" } }
+    );
+
+   
+    await Payment.updateMany(
+      { farmer_order_id: { $in: farmer_order_ids } },
+      { $set: { payment_status: "Completed" } }
+    );
+
+    console.log("Payment status updates completed successfully.");
+    return sendResponse({res, status: 200, message: "Payment status updates completed successfully."})
+  } catch (error) {
+    console.error("Error updating payment statuses:", error);
     _handleCatchErrors(err, res);
   }
 };

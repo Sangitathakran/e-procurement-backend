@@ -145,7 +145,6 @@ module.exports.loginOrRegister = async (req, res) => {
             await distiller.save();
         }
 
-
         if (userExist.active == false) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "you are not an active user!" }] }));
         }
