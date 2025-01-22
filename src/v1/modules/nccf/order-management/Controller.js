@@ -150,7 +150,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                             then: '$warehouseDetailsId',
                             else: '$warehousev2Details.warehouseOwner_code'
                         }
-                    },  
+                    },
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
@@ -234,8 +234,8 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order_id") }] }));
         }
 
-        const branch = await PurchaseOrderModel.findOne({ _id: order_id }).select({ _id:0, branch_id: 1 }).lean();
-        
+        const branch = await PurchaseOrderModel.findOne({ _id: order_id }).select({ _id: 0, branch_id: 1 }).lean();
+
         let query = search ? {
             $or: [
                 { 'companyDetails.name': { $regex: search, $options: 'i' } },
@@ -271,7 +271,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                             then: '$inventory.requiredStock',
                             else: '$inventory.stock'
                         }
-                    },            
+                    },
                     warehouseTiming: '$inventory.warehouse_timing',
                     nodalOfficerName: '$warehousev2Details.ownerDetails.name',
                     nodalOfficerContact: '$warehousev2Details.ownerDetails.mobile',
@@ -284,7 +284,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                             then: '$warehouseDetailsId',
                             else: '$warehousev2Details.warehouseOwner_code'
                         }
-                    },  
+                    },
                     orderId: order_id,
                     // branch_id: branch.branch_id                    
                 }
@@ -442,7 +442,7 @@ module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
         }
 
         const record = await BatchOrderProcess.findOne({ _id: batchId });
-
+        console.log(record);
         if (!record) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
         }
@@ -533,7 +533,7 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
                             then: '$warehouseDetailsId',
                             else: '$warehousev2Details.warehouseOwner_code'
                         }
-                    }, 
+                    },
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
                     amount: "$payment.amount",
@@ -541,7 +541,7 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
                     scheduledPickupDate: "$scheduledPickupDate",
                     actualPickUp: "$actualPickupDate",
                     pickupStatus: "$pickupStatus",
-                    status:1,
+                    status: 1,
                     orderId: order_id
                 }
             },
@@ -612,14 +612,14 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order Id") }] }));
         }
-
+        console.log(order_id);
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
             status: _poBatchStatus.rejected,
-            'payment.status': _poBatchPaymentStatus.paid,
+            // 'payment.status': _poBatchPaymentStatus.paid,
             ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
-
+        // console.log(query);
         const aggregationPipeline = [
             { $match: query },
             {
@@ -663,7 +663,7 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
                             then: '$warehouseDetailsId',
                             else: '$warehousev2Details.warehouseOwner_code'
                         }
-                    },  
+                    },
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     quantityRequired: 1,
                     amount: "$payment.amount",
