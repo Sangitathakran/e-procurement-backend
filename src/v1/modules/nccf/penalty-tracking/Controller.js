@@ -296,19 +296,19 @@ module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(batchId)) {
         return res.status(400).json({ message: "Invalid batch ID." });
-      }
+    }
 
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(purchesId)) {
         return res.status(400).json({ message: "Invalid purches ID." });
-      }
+    }
 
     const order = await BatchOrderProcess.findOne(
         {
-            batchId: new mongoose.Types.ObjectId(batchId), 
+            batchId: new mongoose.Types.ObjectId(batchId),
             orderId: new mongoose.Types.ObjectId(purchesId) 
         }
-    );
+    ).populate({path: "orderId", select: "orderId -_id"});
 
     // no order found with given batchId or orderId
     if(!order) {
@@ -328,7 +328,9 @@ module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
 
     await BatchOrderProcess.findByIdAndUpdate(order._id, { 
         $set: { 
-          "penaltyDetails.penaltyAmount": (penaltyAmount) 
+          "penaltyDetails.penaltyAmount": penaltyAmount,
+          "penaltyDetails.orderId.paymentInfo.penaltyStaus": _penaltypaymentStatus.pending,
+          "penaltyDetails.orderId.paymentInfo.penaltyStaus": penaltyAmount + order.orderId.paymentInfo.penaltyAmount ?? 0,
         } 
       },
       { new: true, runValidators: true } );
