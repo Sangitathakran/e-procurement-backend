@@ -33,7 +33,6 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
             : ownerwarehouseIds;
 
-        console.log('finalwarehouseIds',finalwarehouseIds)
         if (!finalwarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
@@ -57,14 +56,12 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
             .populate([
                 { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
                 { path: "procurementCenter_id", select: "center_name" },
-                { path: "warehousedetails_id", select: "basicDetails.warehouseName" },
+                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
             ])
-            .select("batchId warehousedetails_id commodity qty received_on qc_report wareHouse_code wareHouse_approve_status ")
-            .sort({ [sortBy]: 1 })
+            .select("batchId warehousedetails_id commodity qty wareHouse_approve_status final_quality_check.whr_receipt receiving_details.received_on createdAt")
+            .sort(sortBy)
             .skip((page - 1) * limit)
             .limit(parseInt(limit));
-
-        console.log('rows',rows)
 
         const count = await Batch.countDocuments(query);
         const stats = {
