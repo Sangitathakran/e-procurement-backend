@@ -8,6 +8,7 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { wareHousev2 } = require('@src/v1/models/app/warehouse/warehousev2Schema');
+const { PurchaseOrderModel } = require('@src/v1/models/app/distiller/purchaseOrder');
 
 
 module.exports.saveWarehouseDetails = async (req, res) => {
@@ -50,10 +51,10 @@ module.exports.saveWarehouseDetails = async (req, res) => {
         let randomVal;
 
         // Generate a sequential order number
-        const lastWarehouse = await wareHouseDetails.findOne().sort({ createdAt: -1 }).select("warehouseOwnerId").lean();
-        if (lastWarehouse && lastWarehouse?.warehouseOwnerId) {
-            // Extract the numeric part from the last order's poNo and increment it
-            const lastNumber = parseInt(lastWarehouse.warehouseOwnerId.replace(/\D/g, ''), 10); // Remove non-numeric characters
+        const lastWarehouse = await wareHouseDetails.findOne().sort({ createdAt: -1 }).select("wareHouse_code").lean();
+        if (lastWarehouse && lastWarehouse?.wareHouse_code) {
+            // Extract the numeric part from the last order's poNo and increment it 
+            const lastNumber = parseInt(lastWarehouse.wareHouse_code.replace(/\D/g, ''), 10); // Remove non-numeric characters
             randomVal = `WHR${lastNumber + 1}`;
         } else {
             // Default starting point if no orders exist
@@ -261,7 +262,64 @@ module.exports.updateWarehouseStatus = async (req, res) => {
     }
 }
 
+module.exports.getWarehouseDashboardStats = async (req, res) => {
+    try {
+        const { user_id } = req;
+        
+        const warehouseTotalCount = (await wareHouseDetails.countDocuments()) ?? 0;
+        
 
+          const wareHouseActiveCount =
+          (await wareHouseDetails.countDocuments({active:true})) ?? 0;  
+
+          const wareHouseInactiveCount =
+          (await wareHouseDetails.countDocuments({active:false})) ?? 0;  
+
+          const outwardBatchCount =
+          (await PurchaseOrderModel.countDocuments({})) ?? 0;  
+    
+          const inwardBatchCount =
+          (await Batch.countDocuments({})) ?? 0;  
+    
+        
+         // Total warehouse capacity
+    const totalCapacityResult = await wareHouseDetails.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalCapacity: { $sum: "$basicDetails.warehouseCapacity" },
+          },
+        },
+      ]);
+  
+      const totalWarehouseCapacity =
+        totalCapacityResult.length > 0 ? totalCapacityResult[0].totalCapacity : 0;
+
+        const wareHouseCount = {
+            warehouseTotalCount:warehouseTotalCount,
+            wareHouseActiveCount:wareHouseActiveCount,
+            wareHouseInactiveCount:wareHouseInactiveCount
+        }
+        const records = {
+          wareHouseCount,
+          inwardBatchCount,
+          outwardBatchCount,
+          totalWarehouseCapacity
+        //   realTimeStock,
+        };
+    
+        return res.send(
+          new serviceResponse({
+            status: 200,
+            data: records,
+            message: _response_message.found("Dashboard Stats"),
+          })
+        );
+      } catch (error) {
+        _handleCatchErrors(error, res);
+      }
+    
+}
 
 
 
