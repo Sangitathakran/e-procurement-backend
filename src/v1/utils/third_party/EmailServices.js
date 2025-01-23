@@ -417,6 +417,22 @@ class EmailService {
         }
     }
 
+    async sendPurchaseOrderConfirmation(email, emailData, subject) {
+        function renderEmailTemplate(html, data) {
+            return html.replace(/{{(.*?)}}/g, (_, key) => data[key.trim()] || "-");
+        }
+      
+        try {
+            const template = await this.loadTemplate("sendPurchaseOrderConfirmation");
+            const html = template.replace("{{logo_url}}", LOGO_URL);
+            const finalEmailHTML = renderEmailTemplate(html, emailData);
+            await sendMail(email, '', subject, finalEmailHTML);
+
+        } catch (error) {
+            console.log("Error sending welcome email:", error);
+            // throw error;
+        }
+    }
     
 }
 

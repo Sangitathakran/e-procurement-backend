@@ -1,7 +1,7 @@
 const { _generateOrderNumber, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
-const { _webSocketEvents, _penaltypaymentStatus } = require('@src/v1/utils/constants');
+const { _webSocketEvents, _penaltypaymentStatus, _poBatchPaymentStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
@@ -17,13 +17,9 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     // Initialize matchQuery
     let matchQuery = {
-        'paymentInfo.penaltyStaus': { $ne: _penaltypaymentStatus.NA },
+        // 'paymentInfo.penaltyStaus': { $ne: _penaltypaymentStatus.NA },
         deletedAt: null
     };
-
-    if (search) {
-        matchQuery.batchId = { $regex: search, $options: "i" };
-    }
 
     let aggregationPipeline = [
         { $match: matchQuery },
@@ -48,6 +44,18 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
         // Unwind batchDetails array if necessary
         { $unwind: { path: "$batchDetails", preserveNullAndEmptyArrays: true } },
+
+        // Add search filter after the lookup
+        ...(search
+            ? [{
+                $match: {
+                    $or: [
+                        { 'basic_details.distiller_details.organization_name': { $regex: search, $options: 'i' } },
+                        { 'purchasedOrder.poNo': { $regex: search, $options: 'i' } }
+                    ]
+                }
+            }]
+            : []),
 
         // Unwind penaltyDetails if it's an array (assuming it is)
         {
@@ -106,13 +114,11 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     const rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
 
-    const countPipeline = [
-        { $match: matchQuery },
-        { $count: "total" }
-    ];
+    const totalPipeline = [...aggregationPipeline];
+        totalPipeline.push({ $count: "count" });
 
-    const countResult = await PurchaseOrderModel.aggregate(countPipeline);
-    const count = countResult[0]?.total || 0;
+    const countResult = await PurchaseOrderModel.aggregate(totalPipeline);
+    const count = countResult?.[0]?.count ?? 0;
 
     const records = { rows, count };
 
@@ -161,7 +167,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
 
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
@@ -177,7 +183,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    batchId: 1,
+                    purchaseId: 1,
                     quantityRequired: 1,
                     scheduledPickupDate: 1,
                     actualPickupDate: 1,
@@ -271,4 +277,74 @@ module.exports.waiveOff = asyncErrorHandler(async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+});
+
+module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
+    const { batchId } = req.params;
+    const { penaltyAmount } = req.body;
+    
+    // throw error if penalty amount is not given
+    if(!penaltyAmount) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errors: [{ message: "Please provide the penalty amount" }]
+        }));
+    }
+
+    // penaltyAmount should be a number
+    if(typeof penaltyAmount !== 'number' || isNaN(penaltyAmount)) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errors: [{ message: "Penalty Amount should be number" }]
+        }));
+    }
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(batchId)) {
+        return res.status(400).json({ message: "Invalid batch ID." });
+    }
+
+    // // Validate ObjectId
+    // if (!mongoose.Types.ObjectId.isValid(purchesId)) {
+    //     return res.status(400).json({ message: "Invalid purches ID." });
+    // }
+    
+    const order = await BatchOrderProcess.findOne({_id: batchId}).populate("orderId");
+
+    // no order found with given batchId or orderId
+    if(!order) {
+        return res.status(404).send(new serviceResponse({
+            status: 404,
+            errors: [{ message: "No matching order found" }]
+        }));
+    }
+
+    // throw error if payment status is not pending 
+    if(order.payment?.status !== _poBatchPaymentStatus.pending) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errors: [{ message: "Update not allowed. Payment status is not 'pending'." }]
+        }));
+    }
+    
+    await BatchOrderProcess.findOneAndUpdate({_id: batchId}, { 
+        $set: { 
+          "penaltyDetails.penaltyAmount": penaltyAmount,
+          "penaltyDetails.penaltypaymentStatus": _penaltypaymentStatus.pending,
+        //   "orderId.paymentInfo.penaltyStaus": _penaltypaymentStatus.pending,
+        //   "orderId.paymentInfo.penaltyAmount": penaltyAmount + Number(order.orderId.paymentInfo.penaltyAmount) ?? 0,
+        } 
+      },
+      { new: true, runValidators: true } );
+
+    await PurchaseOrderModel.findOneAndUpdate({_id: order.orderId._id}, 
+        {
+            "paymentInfo.penaltyStaus": _penaltypaymentStatus.pending, 
+            "paymentInfo.penaltyAmount": penaltyAmount + Number(order.orderId.paymentInfo.penaltyAmount) ?? 0, },
+        { new: true, runValidators: true }
+    )
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        message: "Penalty amount updated successfully"
+    })); 
 });

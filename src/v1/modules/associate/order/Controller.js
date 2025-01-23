@@ -36,7 +36,7 @@ module.exports.batch = async (req, res) => {
             return acc;
         }, 0);
 
-        // Apply handleDecimal to sumOfQty and truck_capacity if needed
+        // Apply handleDecimal to sumOfQty and truck_capacity if neededs
         const sumOfQtyDecimal = handleDecimal(sumOfQty);
         const truckCapacityDecimal = handleDecimal(truck_capacity);
 
@@ -112,16 +112,18 @@ module.exports.batch = async (req, res) => {
         // create unique batch Number 
         let batchId, isUnique = false;
         while (!isUnique) {
-            batchId = _generateOrderNumber();
+            batchId = await generateBatchId();
             if (!(await Batch.findOne({ batchId: batchId }))) isUnique = true;
         }
+
+        const findwarehouseUser = await RequestModel.findOne({ _id: req_id });
 
         const batchCreated = await Batch.create({
             seller_id: user_id,
             req_id,
             associateOffer_id: record._id,
             batchId,
-            warehousedetails_id : procurementRecord.warehousedetails_id,
+            warehousedetails_id : findwarehouseUser.warehouse_id,
             farmerOrderIds: farmerData,
             procurementCenter_id,
             qty: handleDecimal(sumOfQtyDecimal),  // Apply handleDecimal here
@@ -176,6 +178,28 @@ module.exports.batch = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+async function generateBatchId() {
+    // Fetch the most recent batch by sorting in descending order
+    const latestBatch = await Batch.findOne({})
+      .sort({ _id: -1 }) // Sort by `_id` in descending order (latest first)
+      .select("batchId"); // Only fetch the `batchId` field to minimize data transfer
+  
+    let nextSequence = 1;
+  
+    if (latestBatch && latestBatch.batchId) {
+      // Extract the sequence number from the latest batch ID
+      const match = latestBatch.batchId.match(/BH-(\d+)$/);
+      if (match) {
+        nextSequence = parseInt(match[1], 10) + 1; // Increment the sequence
+      }
+    }
+  
+    // Generate the new batch ID
+    const batchId = `BH-${nextSequence.toString().padStart(4, "0")}`; // Zero-padded to 4 digits
+    return batchId;
+  }
+
 
 module.exports.editTrackDelivery = async (req, res) => {
 
