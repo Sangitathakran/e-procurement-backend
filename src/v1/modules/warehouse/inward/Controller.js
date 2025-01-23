@@ -272,8 +272,10 @@ module.exports.viewBatchDetails = async (req, res) => {
         const batch = await Batch.findById(batch_id)
             .populate([
                 { path: "procurementCenter_id", select: "center_name" },
-                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails" },
-                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" }
+                { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
+                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" },
+                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
+                { path: "req_id", select: "product.name deliveryDate" },
             ])
 
         if (!batch) {
@@ -286,48 +288,28 @@ module.exports.viewBatchDetails = async (req, res) => {
         const response = {
             basic_details : {
                 batch_id: batch.batchId,
-                fpoName: batch.fpoName,
-                commodity: batch.commodity,
-                quantityInTransit: batch.quantityInTransit,
-                receivingDate: batch.receivingDate,
+                fpoName: batch.seller_id,
+                commodity: batch.req_id || "NA",
+                intransit: batch.intransit || "NA",
+                receivingDetails: batch.receiving_details || "NA",
                 procurementDate: batch.procurementDate,
                 procurementCenter: batch.procurementCenter_id?.center_name || "NA",
-                warehouse: batch.warehouse_id?.basicDetails?.warehouseName || "NA",
-                warehouseAddress: batch.warehouse_id?.basicDetails?.addressDetails || "NA",
+                warehouse: batch.warehousedetails_id,
                 msp: batch.msp,
+                final_quality_check : batch.final_quality_check,
+                dispatched : batch.dispatched, 
+                delivered : batch.delivered
             },
-            truck_details: {
-                truckNumber: batch.intransit.transport.vehicleNo,
-                loadedWeight: batch.intransit.transport.vehicle_weight,
-                tareWeight: batch.truckTareWeight || "NA",
-                bagWeight: batch.intransit.no_of_bags
-            },
-            driver_details: {
-                driverName: batch.intransit.driver.name,
-                driverPhone: batch.intransit.driver.contact,
-                driverLicense: batch.intransit.driver.license,
-                driverAadhar: batch.intransit.driver.aadhar
-            },
+            
             lotDetails: batch.farmerOrderIds.map(order => ({
                 lotId: order.farmerOrder_id?.order_no || "NA",
                 farmerName: order.farmerOrder_id?.metaData?.name || "NA",
                 quantityPurchased: order.qty || "NA"
             })),
-            receiving_details: {
-                quantity_received: batch.receiving_details.quantity_received,
-                no_of_bags: batch.receiving_details.no_of_bags,
-            },
-            vehicle_details: {
-                loaded_vehicle_weight: batch.receiving_details.loaded_vehicle_weight,
-                loadedWeight: batch.receiving_details.net_weight,
-                tareWeight: batch.receiving_details.tare_weight,
-            },
+            
             document_pictures : {
                 document_pictures : batch.document_pictures
             },
-            final_qc_report : {
-                final_qc_report : batch.final_quality_check
-            }
             
         };
 
