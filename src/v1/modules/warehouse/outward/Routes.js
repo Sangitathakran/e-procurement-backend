@@ -6,7 +6,7 @@ const { Auth } = require("@src/v1/middlewares/jwt")
 
 const wareHouseOutwardRoutes = express.Router();
 
-wareHouseOutwardRoutes.get("/:id" , verifyWarehouseOwner, fetchBatches) ;
+wareHouseOutwardRoutes.get("/:id" , fetchBatches) ;
 wareHouseOutwardRoutes.get("/order-list",verifyWarehouseOwner, orderList);
 wareHouseOutwardRoutes.get("/purchase-list",verifyWarehouseOwner, getPuchaseList);
 wareHouseOutwardRoutes.get("/purchase-order/:id", verifyWarehouseOwner, getPurchaseOrderById);
