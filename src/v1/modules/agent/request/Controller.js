@@ -41,6 +41,9 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     if (moment(delivery_date).isBefore(quoteExpiry)) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid_delivery_date("Delivery date") }] }));
     }
+    // console.log('tetetette');
+    // console.log('deliveryLocation',deliveryLocation); return false;
+    
 
     const record = await RequestModel.create({
         head_office_id,
@@ -54,6 +57,11 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
             commodityImage,
             grade,
             quantity: handleDecimal(quantity)
+        },
+        address: {
+            deliveryLocation,
+            lat: handleDecimal(lat),
+            long: handleDecimal(long)
         },
         warehouse_id: warehouse_id,
         quoteExpiry: moment(quoteExpiry).toDate(),

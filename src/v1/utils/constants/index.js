@@ -51,6 +51,8 @@ const _collectionName = {
     StorageFacility: "StorageFacility",
     PurchaseOrder: "PurchaseOrder",
     BatchOrderProcess: "batchOrderProcess",
+    TrackOrder : "TrackOrder",
+    Truck : "Truck",
 
 }
 
@@ -374,13 +376,19 @@ const _paymentApproval = {
 const _wareHouseApproval = {
     pending: "Pending",
     approved: "Approved",
-    rejected: "Rejected"
+    rejected: "Rejected",
+    received: "Received"
 }
 
 const received_qc_status = {
     accepted: "Accepted",
     rejected: "Rejected",
     pending: "Pending",
+}
+
+const _trackOrderStatus = { 
+    readyToShip : "Ready-To-Ship" , 
+    inTransit : "In-Transit" ,
 }
 
 const _individual_farmer_onboarding_steps = [
@@ -556,5 +564,6 @@ module.exports = {
     _poPickupStatus,
     _poBatchStatus,
     _penaltypaymentStatus,
-    _poBatchPaymentStatus
+    _poBatchPaymentStatus,
+    _trackOrderStatus ,
 }

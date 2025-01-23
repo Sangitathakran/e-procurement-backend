@@ -189,7 +189,8 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
                             $ifNull: ["$batchDetails.penaltyDetails.penaltyAmount", 0]
                         }
                     },
-                    paymentStatus: { $first: "$poStatus" }
+                    paymentStatus: { $first: "$poStatus" },
+                    distiller_id: { $first: "$distillerDetails.user_code" },
                 }
             },
 
@@ -205,7 +206,8 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
                     paymentSent: 1,
                     outstandingPayment: 1,
                     totalPenaltyAmount: 1, // Ensure total sum is included
-                    paymentStatus: 1
+                    paymentStatus: 1,
+                    distiller_id: 1
                 }
             }
         ];

@@ -10,7 +10,9 @@ const tokenBlacklist = [];
 
 exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
     const token = req.headers.token || req.cookies.token;
+    console.log("header : ??? " ,  req.headers ); 
 
+    console.log("token : >>> "  , token ) ; 
     // Check if token exists
     if (!token) {
         return res.status(403).send(new serviceResponse({
@@ -30,6 +32,7 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
     // Verify the token
     jwt.verify(token, JWT_SECRET_KEY, async function (err, decodedToken) {
         if (err) {
+            console.log('error',err)
             if (err.name === 'TokenExpiredError') {
                 return res.status(401).send(new serviceResponse({
                     status: 401,
@@ -88,10 +91,15 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             '/add-warehouse',
             '/final-submit',
             '/edit-warehouse',
-            '/warehouse-status'
+            '/purchase-list',
+            '/order-list',
+            '/purchase-order',
+            '/warehouse-status',
+            '/get-warehouse-dashboardStats'
         ];
 
         const currentUrl = req.url.split('?')[0];
+        console.log(currentUrl)
         const isAllowedUrl = allowedUrls.some(url => currentUrl.startsWith(url));
 
         if (isAllowedUrl) {

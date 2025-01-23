@@ -2,7 +2,7 @@ const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { sendResponse, serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
-const { WarehouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 // const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 
@@ -31,34 +31,43 @@ module.exports.warehouseList = async (req, res) => {
             { $match: query },
             {
                 $lookup: {
-                    from: 'warehousedetails', // Collection name in MongoDB
-                    localField: '_id',
-                    foreignField: 'warehouseOwnerId',
-                    as: 'warehouseDetails',
+                    from: 'warehousev2', // Collection name in MongoDB
+                    localField: 'warehouseOwnerId',
+                    foreignField: '_id',
+                    as: 'warehousev2Details',
                 },
             },
             {
                 $unwind: {
-                    path: '$warehouseDetails',
+                    path: '$warehousev2Details',
                     preserveNullAndEmptyArrays: true,
                 },
             },
             {
                 $project: {
-                    warehouseName: '$warehouseDetails.basicDetails.warehouseName',
-                    pickupLocation: '$warehouseDetails.addressDetails',
+                    warehouseName: '$basicDetails.warehouseName',
+                    pickupLocation: '$addressDetails',
+                    commodity: "Maize",
                     stock: {
                         $cond: {
-                            if: { $gt: [{ $ifNull: ['$warehouseDetails.inventory.requiredStock', 0] }, 0] },
-                            then: '$warehouseDetails.inventory.requiredStock',
-                            else: '$warehouseDetails.inventory.stock'
+                            if: { $gt: [{ $ifNull: ['$inventory.requiredStock', 0] }, 0] },
+                            then: '$inventory.requiredStock',
+                            else: '$inventory.stock'
                         }
                     },            
-                    warehouseTiming: '$warehouseDetails.inventory.warehouse_timing',
-                    nodalOfficerName: '$ownerDetails.name',
-                    nodalOfficerContact: '$ownerDetails.mobile',
-                    nodalOfficerEmail: '$ownerDetails.email',
-                    pocAtPickup: '$warehouseDetails.authorizedPerson.name',
+                    warehouseTiming: '$inventory.warehouse_timing',
+                    nodalOfficerName: '$warehousev2Details.ownerDetails.name',
+                    nodalOfficerContact: '$warehousev2Details.ownerDetails.mobile',
+                    nodalOfficerEmail: '$warehousev2Details.ownerDetails.email',
+                    pocAtPickup: '$authorizedPerson.name',
+                    warehouseOwnerId: '$warehouseOwnerId',
+                    warehouseId: {
+                        $cond: {
+                            if: { $ifNull: ['$warehouseDetailsId', 0] },
+                            then: '$warehouseDetailsId',
+                            else: '$warehousev2Details.warehouseOwner_code'
+                        }
+                    },  
                     orderId: order_id,
                     branch_id: branch.branch_id                    
                 }
@@ -70,13 +79,13 @@ module.exports.warehouseList = async (req, res) => {
         ];
 
         const records = { count: 0, rows: [] };
-        records.rows = await wareHousev2.aggregate(aggregationPipeline);
+        records.rows = await wareHouseDetails.aggregate(aggregationPipeline);
 
         const countAggregation = [
             { $match: query },
             { $count: 'total' }
         ];
-        const countResult = await wareHousev2.aggregate(countAggregation);
+        const countResult = await wareHouseDetails.aggregate(countAggregation);
         records.count = countResult.length > 0 ? countResult[0].total : 0;
 
         records.page = page;

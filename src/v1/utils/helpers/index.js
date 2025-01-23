@@ -462,3 +462,14 @@ exports._distillerMsp = () => {
   const msp = 24470;
   return msp;
 }
+exports.formatDate = (timestamp, format = "DD/MM/YYYY") => {
+  if (!timestamp) return "-";
+  const date = new Date(timestamp);
+
+  // Extract day, month, and year
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
