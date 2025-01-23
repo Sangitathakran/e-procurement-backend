@@ -6,12 +6,12 @@ const { Auth } = require("@src/v1/middlewares/jwt")
 
 const wareHouseOutwardRoutes = express.Router();
 
+wareHouseOutwardRoutes.get("/:id" , verifyWarehouseOwner, fetchBatches) ;
 wareHouseOutwardRoutes.get("/order-list",verifyWarehouseOwner, orderList);
 wareHouseOutwardRoutes.get("/purchase-list",verifyWarehouseOwner, getPuchaseList);
 wareHouseOutwardRoutes.get("/purchase-order/:id", verifyWarehouseOwner, getPurchaseOrderById);
 wareHouseOutwardRoutes.post("/track/ready-to-ship" , verifyWarehouseOwner , readyToShip) ; 
 wareHouseOutwardRoutes.post("/track/in-transit" , verifyWarehouseOwner , inTransit) ; 
-wareHouseOutwardRoutes.get("/:id" , verifyWarehouseOwner, fetchBatches) ;
 wareHouseOutwardRoutes.get("/batches/:id" , verifyWarehouseOwner ,getBatches ) ; 
 wareHouseOutwardRoutes.get("/status/:id" , verifyWarehouseOwner , getStatus ) ; 
 
