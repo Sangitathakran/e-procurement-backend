@@ -5,6 +5,7 @@ const { _response_message } = require('@src/v1/utils/constants/messages');
 const { serviceResponse } = require('@src/v1/utils/helpers/api_response');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
 const jwt = require('jsonwebtoken');
+const { match } = require("path-to-regexp") ; 
 
 const tokenBlacklist = [];
 
@@ -12,9 +13,11 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
     const token = req.headers.token || req.cookies.token;
     console.log("header : ??? " ,  req.headers ); 
 
-    console.log("token : >>> "  , token ) ; 
+    console.log("token : >>> "  , token ) ;  
+    console.log("toke type" , !token) ;
     // Check if token exists
-    if (!token) {
+    if (!token) { 
+        console.log("entered if") ;
         return res.status(403).send(new serviceResponse({
             status: 403,
             errors: [{ message: _response_message.Unauthorized() }]
@@ -77,6 +80,9 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
 
         // Check URL conditions for specific routes
         const allowedUrls = [
+            '/batch-list/:id',
+            '/batches/:id',
+            '/status/:id',
             '/onboarding',
             '/onboarding-status',
             '/find-user-status',
@@ -95,16 +101,23 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             '/order-list',
             '/purchase-order',
             '/warehouse-status',
-            '/get-warehouse-dashboardStats'
+            '/get-warehouse-dashboardStats',
+            '/track/ready-to-ship',
+            '/track/in-transit',
+            
         ];
 
         const currentUrl = req.url.split('?')[0];
-        console.log(currentUrl)
-        const isAllowedUrl = allowedUrls.some(url => currentUrl.startsWith(url));
+
+        const isAllowedUrl = allowedUrls.some((urlPattern) => {
+            const matcher = match(urlPattern, { decode: decodeURIComponent });
+            return matcher(currentUrl) !== false;
+        });
 
         if (isAllowedUrl) {
             next();
-        } else {
+        } else { 
+            console.log("entered else ")
             return res.status(401).send(new serviceResponse({
                 status: 401,
                 errors: [{ message: _response_message.Unauthorized() }]
