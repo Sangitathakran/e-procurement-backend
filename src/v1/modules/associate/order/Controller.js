@@ -179,14 +179,27 @@ module.exports.batch = async (req, res) => {
     }
 };
 
-
-
 async function generateBatchId() {
-   
-  let sequence=await Batch.countDocuments({})          
-  const batchId = 'BH-' + sequence.toString();
-  return batchId;
-}
+    // Fetch the most recent batch by sorting in descending order
+    const latestBatch = await Batch.findOne({})
+      .sort({ _id: -1 }) // Sort by `_id` in descending order (latest first)
+      .select("batchId"); // Only fetch the `batchId` field to minimize data transfer
+  
+    let nextSequence = 1;
+  
+    if (latestBatch && latestBatch.batchId) {
+      // Extract the sequence number from the latest batch ID
+      const match = latestBatch.batchId.match(/BH-(\d+)$/);
+      if (match) {
+        nextSequence = parseInt(match[1], 10) + 1; // Increment the sequence
+      }
+    }
+  
+    // Generate the new batch ID
+    const batchId = `BH-${nextSequence.toString().padStart(4, "0")}`; // Zero-padded to 4 digits
+    return batchId;
+  }
+
 
 module.exports.editTrackDelivery = async (req, res) => {
 
