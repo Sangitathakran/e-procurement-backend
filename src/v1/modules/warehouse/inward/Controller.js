@@ -202,10 +202,6 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
 });
 
 
-
-
-
-
 module.exports.batchApproveOrReject = async (req, res) => {
     try {
         const { batchId, status, product_images = [], qc_images = [] } = req.body;
@@ -272,8 +268,10 @@ module.exports.viewBatchDetails = async (req, res) => {
         const batch = await Batch.findById(batch_id)
             .populate([
                 { path: "procurementCenter_id", select: "center_name" },
-                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails" },
-                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" }
+                { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
+                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" },
+                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
+                { path: "req_id", select: "product.name deliveryDate" },
             ])
 
         if (!batch) {
@@ -286,48 +284,28 @@ module.exports.viewBatchDetails = async (req, res) => {
         const response = {
             basic_details : {
                 batch_id: batch.batchId,
-                fpoName: batch.fpoName,
-                commodity: batch.commodity,
-                quantityInTransit: batch.quantityInTransit,
-                receivingDate: batch.receivingDate,
+                fpoName: batch.seller_id,
+                commodity: batch.req_id || "NA",
+                intransit: batch.intransit || "NA",
+                receivingDetails: batch.receiving_details || "NA",
                 procurementDate: batch.procurementDate,
                 procurementCenter: batch.procurementCenter_id?.center_name || "NA",
-                warehouse: batch.warehouse_id?.basicDetails?.warehouseName || "NA",
-                warehouseAddress: batch.warehouse_id?.basicDetails?.addressDetails || "NA",
-                msp: batch.msp,
+                warehouse: batch.warehousedetails_id,
+                msp: batch.msp || "NA",
+                final_quality_check : batch.final_quality_check,
+                dispatched : batch.dispatched, 
+                delivered : batch.delivered
             },
-            truck_details: {
-                truckNumber: batch.intransit.transport.vehicleNo,
-                loadedWeight: batch.intransit.transport.vehicle_weight,
-                tareWeight: batch.truckTareWeight || "NA",
-                bagWeight: batch.intransit.no_of_bags
-            },
-            driver_details: {
-                driverName: batch.intransit.driver.name,
-                driverPhone: batch.intransit.driver.contact,
-                driverLicense: batch.intransit.driver.license,
-                driverAadhar: batch.intransit.driver.aadhar
-            },
+            
             lotDetails: batch.farmerOrderIds.map(order => ({
                 lotId: order.farmerOrder_id?.order_no || "NA",
                 farmerName: order.farmerOrder_id?.metaData?.name || "NA",
                 quantityPurchased: order.qty || "NA"
             })),
-            receiving_details: {
-                quantity_received: batch.receiving_details.quantity_received,
-                no_of_bags: batch.receiving_details.no_of_bags,
-            },
-            vehicle_details: {
-                loaded_vehicle_weight: batch.receiving_details.loaded_vehicle_weight,
-                loadedWeight: batch.receiving_details.net_weight,
-                tareWeight: batch.receiving_details.tare_weight,
-            },
+            
             document_pictures : {
                 document_pictures : batch.document_pictures
             },
-            final_qc_report : {
-                final_qc_report : batch.final_quality_check
-            }
             
         };
 
@@ -359,7 +337,7 @@ module.exports.lot_list = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
 
 module.exports.editBatchDetails = async (req, res) => {
     try {
@@ -385,13 +363,12 @@ module.exports.editBatchDetails = async (req, res) => {
     }
 };
 
-
 module.exports.batchStatusUpdate = async (req, res) => {
     try {
         const {batchId, product_images, qc_images, whr_receipt,whr_receipt_image, status, rejected_reason } = req.body;
         
         const requiredFields = ['batchId', 'product_images', 'qc_images', 'status'];
-        if (status !== 'rejected') {
+        if (status !== 'Rejected') {
             requiredFields.push('whr_receipt', 'whr_receipt_image');
         }
 
@@ -404,7 +381,7 @@ module.exports.batchStatusUpdate = async (req, res) => {
             }));
         }
 
-        if (status === 'rejected' && !rejected_reason) {
+        if (status === 'Rejected' && !rejected_reason) {
             return res.status(400).send(new serviceResponse({
                 status: 400,
                 message: 'rejected_reason'
@@ -426,7 +403,7 @@ module.exports.batchStatusUpdate = async (req, res) => {
             'final_quality_check.qc_images': qc_images,
             'final_quality_check.whr_receipt': whr_receipt,
             'final_quality_check.whr_receipt_image': whr_receipt_image,
-            'final_quality_check.rejected_reason': status === 'rejected' ? rejected_reason : null
+            'final_quality_check.rejected_reason': status === 'Rejected' ? rejected_reason : null
         };
 
         const updatedBatch = await Batch.findByIdAndUpdate(batchId, { $set: updateFields }, { new: true });
@@ -445,7 +422,7 @@ module.exports.batchStatusUpdate = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
 
 module.exports.batchMarkDelivered = async (req, res) => {
     try {
@@ -528,5 +505,64 @@ module.exports.batchMarkDelivered = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
 
+
+module.exports.batchStatsData = async (req, res) => {
+    try {
+        const rows = await Batch.find();
+        let totalBatches = 0;
+        let approvedQC = 0;
+        let rejectedQC = 0;
+        let pendingQC = 0;
+        let receivedBatch = 0;
+        let pendingBatch = 0;
+        let rejectedBatch = 0;
+        let approvedBatch = 0;
+        
+        rows.forEach(batch => {
+            const qcStatus = batch?.final_quality_check?.status;
+            const batchesStatus = batch?.wareHouse_approve_status;
+
+            if(batchesStatus == 'Received') {
+                if (qcStatus === "Approved") {
+                    approvedQC++;
+                } else if (qcStatus === "Rejected") {
+                    rejectedQC++;
+                } else if (qcStatus === "Pending") {
+                    pendingQC++;
+                }
+            }
+            
+
+            if(batchesStatus == 'Pending') {
+                pendingBatch++;
+            } else if (batchesStatus == 'Received') {
+                receivedBatch++;
+            } else if (batchesStatus == 'Rejected') {
+                rejectedBatch++;
+            } else if (batchesStatus == 'Approved') {
+                approvedBatch++;
+            }
+
+        });
+        const response = {
+            totalBatches : receivedBatch+pendingBatch,
+            approvedQC,
+            rejectedQC,
+            pendingQC,
+            receivedBatch,
+            pendingBatch,
+            // rejectedBatch,
+            // approvedBatch
+        };
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            message: 'Batch statistics fetch successfully.',
+            data: response
+        })); 
+        
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};

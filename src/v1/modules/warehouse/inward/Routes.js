@@ -8,7 +8,8 @@ const {
     batchStatusUpdate,
     batchMarkDelivered,
     getReceivedBatchesByWarehouse,
-    getPendingBatchesByWarehouse 
+    getPendingBatchesByWarehouse,
+    batchStatsData 
 } = require("./Controller");
 const { verifyWarehouseOwner } = require("../utils/verifyWarehouseOwner");
 const { Auth } = require("@src/v1/middlewares/jwt")
@@ -25,6 +26,7 @@ wareHouseInwardRoutes.get("/batch-details", verifyWarehouseOwner, viewBatchDetai
 wareHouseInwardRoutes.put("/batch-edit", verifyWarehouseOwner, editBatchDetails);
 wareHouseInwardRoutes.put("/batch-status-update", batchStatusUpdate);
 wareHouseInwardRoutes.put("/mark-delivered", batchMarkDelivered);
+wareHouseInwardRoutes.get("/batch-stats", batchStatsData);
 
 
 
