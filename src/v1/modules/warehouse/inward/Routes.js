@@ -19,7 +19,6 @@ const wareHouseInwardRoutes = express.Router();
 
 wareHouseInwardRoutes.get("/received-batch-list", getReceivedBatchesByWarehouse);
 wareHouseInwardRoutes.get("/pending-batch-list", getPendingBatchesByWarehouse);
-
 wareHouseInwardRoutes.put("/batch-approval", verifyWarehouseOwner, batchApproveOrReject);
 wareHouseInwardRoutes.get("/lot-list", verifyWarehouseOwner, lot_list);
 wareHouseInwardRoutes.get("/batch-details", verifyWarehouseOwner, viewBatchDetails);
