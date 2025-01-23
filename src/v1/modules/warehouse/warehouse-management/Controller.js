@@ -51,10 +51,10 @@ module.exports.saveWarehouseDetails = async (req, res) => {
         let randomVal;
 
         // Generate a sequential order number
-        const lastWarehouse = await wareHouseDetails.findOne().sort({ createdAt: -1 }).select("warehouseOwnerId").lean();
-        if (lastWarehouse && lastWarehouse?.warehouseOwnerId) {
-            // Extract the numeric part from the last order's poNo and increment it
-            const lastNumber = parseInt(lastWarehouse.warehouseOwnerId.replace(/\D/g, ''), 10); // Remove non-numeric characters
+        const lastWarehouse = await wareHouseDetails.findOne().sort({ createdAt: -1 }).select("wareHouse_code").lean();
+        if (lastWarehouse && lastWarehouse?.wareHouse_code) {
+            // Extract the numeric part from the last order's poNo and increment it 
+            const lastNumber = parseInt(lastWarehouse.wareHouse_code.replace(/\D/g, ''), 10); // Remove non-numeric characters
             randomVal = `WHR${lastNumber + 1}`;
         } else {
             // Default starting point if no orders exist
