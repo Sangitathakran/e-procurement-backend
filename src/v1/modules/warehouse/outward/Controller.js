@@ -39,18 +39,19 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
         // .populate({ path: "branch_id", select: "_id branchName branchId" })
         .limit(parseInt(limit)) : await PurchaseOrderModel.find(query).sort(sortBy);
 
-    records.rows = await Promise.all(
-        records.rows.map(async (item) => {
-            let batchOrderProcess = await BatchOrderProcess.findOne({
+        records.rows = await Promise.all(
+            records.rows.map(async (item) => {
+                console.log(item._id)
+              let batchOrderProcess = await BatchOrderProcess.findOne({
                 warehouseOwnerId: user_id,
-                orderId: item._id,
-            }).select('warehouseId orderId');
-
-            return batchOrderProcess ? item : null; // Return the item if found, otherwise null
-        })
-    );
-    // Filter out null values
-    records.rows = records.rows.filter((item) => item !== null);
+                orderId: '678f92fada06a8ea9a4c2195',
+              }).select('warehouseId orderId');
+              
+              return batchOrderProcess ? item : null; // Return the item if found, otherwise null
+            })
+          );
+          // Filter out null values
+          records.rows = records.rows.filter((item) => item !== null);
     records.count = records.rows.length;
 
     if (paginate == 1) {
