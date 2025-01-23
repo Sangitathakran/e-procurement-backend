@@ -47,81 +47,105 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
 
 
 
-    let query = search
-      ? {
-          $or: [
-            { "warehousev2Details.warehouseOwner_code": { $regex: search, $options: "i" } },
-            { "warehouseDetailsId": { $regex: search, $options: "i" } },
-            {
-              "basicDetails.warehouseName": {
-                $regex: search,
-                $options: "i",
+    let query = {};
+
+      const aggregationPipeline = [
+        { $match: query },
+        {
+          $lookup: {
+            from: "warehousev2", // Collection name in MongoDB
+            localField: "warehouseOwnerId",
+            foreignField: "_id",
+            as: "warehousev2Details",
+          },
+        },
+        {
+          $unwind: {
+            path: "$warehousev2Details",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+      
+        // Add a search filter stage
+        ...(search
+          ? [
+              {
+                $match: {
+                  $or: [
+                    { "basicDetails.warehouseName": { $regex: search, $options: "i" } },
+                    {
+                      $expr: {
+                        $regexMatch: {
+                          input: {
+                            $cond: {
+                              if: { $ifNull: ["$warehouseDetailsId", false] },
+                              then: "$warehouseDetailsId",
+                              else: "$warehousev2Details.warehouseOwner_code",
+                            },
+                          },
+                          regex: search,
+                          options: "i",
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            ]
+          : []),
+      
+        {
+          $project: {
+            warehouseName: "$basicDetails.warehouseName",
+            totalCapacity: "$basicDetails.warehouseCapacity",
+      
+            pickupLocation: "$addressDetails",
+            commodity: "Maize",
+            stock: {
+              $cond: {
+                if: { $gt: [{ $ifNull: ["$inventory.requiredStock", 0] }, 0] },
+                then: "$inventory.requiredStock",
+                else: "$inventory.stock",
               },
             },
-          ],
-          ...filters,
-        }
-      : {};
-
-    const aggregationPipeline = [
-      { $match: query },
-      {
-        $lookup: {
-          from: "warehousev2", // Collection name in MongoDB
-          localField: "warehouseOwnerId",
-          foreignField: "_id",
-          as: "warehousev2Details",
-        },
-      },
-      {
-        $unwind: {
-          path: "$warehousev2Details",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $project: {
-          warehouseName: "$basicDetails.warehouseName",
-          totalCapacity: "$basicDetails.warehouseCapacity",
-
-          pickupLocation: "$addressDetails",
-          commodity: "Maize",
-          stock: {
-            $cond: {
-              if: { $gt: [{ $ifNull: ["$inventory.requiredStock", 0] }, 0] },
-              then: "$inventory.requiredStock",
-              else: "$inventory.stock",
+            warehouseTiming: "$inventory.warehouse_timing",
+            warehouseCapacity: "$warehouseDetails.basicDetails.warehouseCapacity",
+            utilizedCapacity: {
+              $cond: {
+                if: { $gt: [{ $ifNull: ["$inventory.stock", 0] }, 0] },
+                then: "$inventory.requiredStock",
+                else: "$inventory.stock",
+              },
             },
-          },
-          warehouseTiming: "$inventory.warehouse_timing",
-          warehouseCapacity: "$warehouseDetails.basicDetails.warehouseCapacity",
-          utilizedCapacity: {
-            $cond: {
-              if: { $gt: [{ $ifNull: ["$inventory.stock", 0] }, 0] },
-              then: "$inventory.requiredStock",
-              else: "$inventory.stock",
+            requiredStock: {
+              $cond: {
+                if: { $gt: [{ $ifNull: ["$inventory.requiredStock", 0] }, 0] },
+                then: "$inventory.stock",
+                else: "$inventory.requiredStock",
+              },
             },
-          },
-          requiredStock: {
-            $cond: {
-              if: { $gt: [{ $ifNull: ["$inventory.requiredStock", 0] }, 0] },
-              then: "$inventory.stock",
-              else: "$inventory.requiredStock",
+            nodalOfficerName: "$warehousev2Details.ownerDetails.name",
+            nodalOfficerContact: "$warehousev2Details.ownerDetails.mobile",
+            nodalOfficerEmail: "$warehousev2Details.ownerDetails.email",
+            pocAtPickup: "$authorizedPerson.name",
+            warehouseOwnerId: "$warehouseOwnerId",
+            warehouseId: {
+              $cond: {
+                if: { $ifNull: ["$warehouseDetailsId", 0] },
+                then: "$warehouseDetailsId",
+                else: "$warehousev2Details.warehouseOwner_code",
+              },
             },
+            // orderId: order_id,
+            // branch_id: branch.branch_id
           },
-          nodalOfficerName: "$warehousev2Details.ownerDetails.name",
-          nodalOfficerContact: "$warehousev2Details.ownerDetails.mobile",
-          nodalOfficerEmail: "$warehousev2Details.ownerDetails.email",
-          pocAtPickup: "$authorizedPerson.name",
-          warehouseOwnerId: "$warehouseOwnerId",
-          warehouseId: "$wareHouse_code"
         },
-      },
-
-      { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
-      { $skip: skip },
-      { $limit: parseInt(limit, 10) },
-    ];
+      
+        { $sort: { [sortBy]: 1 } },
+        { $skip: skip },
+        { $limit: parseInt(limit, 10) },
+      ];
+      
 
     const records = { count: 0 };
     records.rows = await wareHouseDetails.aggregate(aggregationPipeline);
