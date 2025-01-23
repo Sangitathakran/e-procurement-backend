@@ -10,6 +10,7 @@ const tokenBlacklist = [];
 
 exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
     const token = req.headers.token || req.cookies.token;
+    console.log("header : ??? " ,  req.headers ); 
 
     console.log("token : >>> "  , token ) ; 
     // Check if token exists
