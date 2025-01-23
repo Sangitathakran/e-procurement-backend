@@ -1,5 +1,5 @@
 const express = require("express");
-const {orderList,getPuchaseList,getPurchaseOrderById, trackOrder, readyToShip, inTransit, getBatches, fetchBatches} = require("./Controller");
+const {orderList,getPuchaseList,getPurchaseOrderById, trackOrder, readyToShip, inTransit, getBatches, fetchBatches, getStatus} = require("./Controller");
 const { verifyWarehouseOwner } = require("../utils/verifyWarehouseOwner");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
@@ -13,7 +13,7 @@ wareHouseOutwardRoutes.post("/track/ready-to-ship" , readyToShip) ;
 wareHouseOutwardRoutes.post("/track/in-transit" , inTransit) ; 
 wareHouseOutwardRoutes.get("/:id" , fetchBatches) ;
 wareHouseOutwardRoutes.get("/batches/:id" , getBatches ) ; 
-
+wareHouseOutwardRoutes.get("/status/:id" , getStatus ) ; 
 
 
 
