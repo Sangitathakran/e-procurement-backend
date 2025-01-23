@@ -5,7 +5,6 @@ const { _response_message } = require('@src/v1/utils/constants/messages');
 const { serviceResponse } = require('@src/v1/utils/helpers/api_response');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
 const jwt = require('jsonwebtoken');
-const { match } = require("path-to-regexp") ; 
 
 const tokenBlacklist = [];
 
@@ -80,9 +79,9 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
 
         // Check URL conditions for specific routes
         const allowedUrls = [
-            '/batch-list/:id',
-            '/batches/:id',
-            '/status/:id',
+            '/batch-list',
+            '/batches',
+            '/status',
             '/onboarding',
             '/onboarding-status',
             '/find-user-status',
@@ -109,10 +108,7 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
 
         const currentUrl = req.url.split('?')[0];
 
-        const isAllowedUrl = allowedUrls.some((urlPattern) => {
-            const matcher = match(urlPattern, { decode: decodeURIComponent });
-            return matcher(currentUrl) !== false;
-        });
+        const isAllowedUrl = allowedUrls.some(url => currentUrl.startsWith(url));
 
         if (isAllowedUrl) {
             next();
