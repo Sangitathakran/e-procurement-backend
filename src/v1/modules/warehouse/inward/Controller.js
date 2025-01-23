@@ -368,7 +368,7 @@ module.exports.batchStatusUpdate = async (req, res) => {
         const {batchId, product_images, qc_images, whr_receipt,whr_receipt_image, status, rejected_reason } = req.body;
         
         const requiredFields = ['batchId', 'product_images', 'qc_images', 'status'];
-        if (status !== 'rejected') {
+        if (status !== 'Rejected') {
             requiredFields.push('whr_receipt', 'whr_receipt_image');
         }
 
@@ -381,7 +381,7 @@ module.exports.batchStatusUpdate = async (req, res) => {
             }));
         }
 
-        if (status === 'rejected' && !rejected_reason) {
+        if (status === 'Rejected' && !rejected_reason) {
             return res.status(400).send(new serviceResponse({
                 status: 400,
                 message: 'rejected_reason'
@@ -403,7 +403,7 @@ module.exports.batchStatusUpdate = async (req, res) => {
             'final_quality_check.qc_images': qc_images,
             'final_quality_check.whr_receipt': whr_receipt,
             'final_quality_check.whr_receipt_image': whr_receipt_image,
-            'final_quality_check.rejected_reason': status === 'rejected' ? rejected_reason : null
+            'final_quality_check.rejected_reason': status === 'Rejected' ? rejected_reason : null
         };
 
         const updatedBatch = await Batch.findByIdAndUpdate(batchId, { $set: updateFields }, { new: true });
