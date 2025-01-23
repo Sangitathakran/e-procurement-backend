@@ -431,7 +431,11 @@ module.exports.fetchBatches = asyncErrorHandler(async (req, res) => {
 
     const { id } = req.params;
 
-    const record = await BatchOrderProcess.findOne({ _id: id });
+    const record = await BatchOrderProcess.findOne({ _id: id }); 
+
+    if(!record) { 
+        return res.status(200).send(new serviceResponse({ status : 401 , errors : [{ message : _response_message.notFound("batch")}]}))
+    }
 
     const batches = await Batch.find({ warehousedetails_id: record.warehouseId });
 
