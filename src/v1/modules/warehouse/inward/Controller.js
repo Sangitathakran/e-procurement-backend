@@ -9,7 +9,7 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 
 
-module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
+module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
     const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0 } = req.query;
     const { warehouseIds = [] } = req.body; // Updated to use warehouseIds
 
@@ -43,7 +43,103 @@ module.exports.getBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
 
         const query = {
             // "warehousedetails_id._id": { $in: finalwarehouseIds },
-            wareHouse_approve_status: { $in: ['Pending', 'Received'] }, 
+            wareHouse_approve_status: 'Received', 
+            ...(search && {
+                $or: [
+                    { batchId: { $regex: search, $options: 'i' } },
+                    { "seller_id.basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
+                    { "procurementCenter_id.center_name": { $regex: search, $options: 'i' } },
+                ]
+            }),
+        };
+
+        const rows = await Batch.find(query)
+            .populate([
+                { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
+                { path: "procurementCenter_id", select: "center_name" },
+                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
+                { path: "req_id", select: "product.name deliveryDate" },
+            ])
+            .select("batchId warehousedetails_id commodity qty wareHouse_approve_status final_quality_check receiving_details createdAt")
+            .sort(sortBy)
+            .skip((page - 1) * limit)
+            .limit(parseInt(limit));
+
+        const count = await Batch.countDocuments(query);
+        const stats = {
+            totalBatches: count,
+            approvedBatches: await Batch.countDocuments({ ...query, status: 'Approved' }),
+            rejectedBatches: await Batch.countDocuments({ ...query, status: 'Rejected' }),
+            pendingBatches: await Batch.countDocuments({ ...query, status: 'Pending' }),
+            pendingReceivingBatches: await Batch.countDocuments({ ...query, "dispatched.received": { $exists: false } })
+        };
+
+        if (isExport == 1) {
+            const exportData = rows.map(item => ({
+                "Batch ID": item.batchId || 'NA',
+                "Associate Name": item.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
+                "Procurement Center": item.procurementCenter_id?.center_name || 'NA',
+                "Warehouse": item.warehousedetails_id?.basicDetails?.warehouseName || 'NA',
+                "Quantity": item.qty || 'NA',
+                "Status": item.wareHouse_approve_status || 'NA'
+            }));
+
+            if (exportData.length) {
+                return dumpJSONToExcel(req, res, {
+                    data: exportData,
+                    fileName: `Warehouse-Batches.xlsx`,
+                    worksheetName: `Batches`
+                });
+            }
+            return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
+        }
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: { records: { rows, count, page, limit, pages: Math.ceil(count / limit), ...stats } },
+            message: "Batches fetched successfully"
+        }));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
+    }
+});
+
+module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
+    const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0 } = req.query;
+    const { warehouseIds = [] } = req.body; // Updated to use warehouseIds
+
+    try {
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
+
+        const decode = await decryptJwtToken(getToken);
+        const UserId = decode.data.user_id;
+
+        if (!mongoose.Types.ObjectId.isValid(UserId)) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+        }
+        
+        const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+        const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
+        
+        const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
+            ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
+            : ownerwarehouseIds;
+
+        if (!finalwarehouseIds.length) {
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: { records: [], page, limit, pages: 0 },
+                message: "No warehouses found for the user."
+            }));
+        }
+
+        const query = {
+            // "warehousedetails_id._id": { $in: finalwarehouseIds },
+            wareHouse_approve_status: 'Pending', 
             ...(search && {
                 $or: [
                     { batchId: { $regex: search, $options: 'i' } },
@@ -176,8 +272,10 @@ module.exports.viewBatchDetails = async (req, res) => {
         const batch = await Batch.findById(batch_id)
             .populate([
                 { path: "procurementCenter_id", select: "center_name" },
-                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails" },
-                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" }
+                { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
+                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" },
+                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
+                { path: "req_id", select: "product.name deliveryDate" },
             ])
 
         if (!batch) {
@@ -190,48 +288,28 @@ module.exports.viewBatchDetails = async (req, res) => {
         const response = {
             basic_details : {
                 batch_id: batch.batchId,
-                fpoName: batch.fpoName,
-                commodity: batch.commodity,
-                quantityInTransit: batch.quantityInTransit,
-                receivingDate: batch.receivingDate,
+                fpoName: batch.seller_id,
+                commodity: batch.req_id || "NA",
+                intransit: batch.intransit || "NA",
+                receivingDetails: batch.receiving_details || "NA",
                 procurementDate: batch.procurementDate,
                 procurementCenter: batch.procurementCenter_id?.center_name || "NA",
-                warehouse: batch.warehouse_id?.basicDetails?.warehouseName || "NA",
-                warehouseAddress: batch.warehouse_id?.basicDetails?.addressDetails || "NA",
+                warehouse: batch.warehousedetails_id,
                 msp: batch.msp,
+                final_quality_check : batch.final_quality_check,
+                dispatched : batch.dispatched, 
+                delivered : batch.delivered
             },
-            truck_details: {
-                truckNumber: batch.intransit.transport.vehicleNo,
-                loadedWeight: batch.intransit.transport.vehicle_weight,
-                tareWeight: batch.truckTareWeight || "NA",
-                bagWeight: batch.intransit.no_of_bags
-            },
-            driver_details: {
-                driverName: batch.intransit.driver.name,
-                driverPhone: batch.intransit.driver.contact,
-                driverLicense: batch.intransit.driver.license,
-                driverAadhar: batch.intransit.driver.aadhar
-            },
+            
             lotDetails: batch.farmerOrderIds.map(order => ({
                 lotId: order.farmerOrder_id?.order_no || "NA",
                 farmerName: order.farmerOrder_id?.metaData?.name || "NA",
                 quantityPurchased: order.qty || "NA"
             })),
-            receiving_details: {
-                quantity_received: batch.receiving_details.quantity_received,
-                no_of_bags: batch.receiving_details.no_of_bags,
-            },
-            vehicle_details: {
-                loaded_vehicle_weight: batch.receiving_details.loaded_vehicle_weight,
-                loadedWeight: batch.receiving_details.net_weight,
-                tareWeight: batch.receiving_details.tare_weight,
-            },
+            
             document_pictures : {
                 document_pictures : batch.document_pictures
             },
-            final_qc_report : {
-                final_qc_report : batch.final_quality_check
-            }
             
         };
 
