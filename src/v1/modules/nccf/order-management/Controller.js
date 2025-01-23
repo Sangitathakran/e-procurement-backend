@@ -758,6 +758,8 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
                     paymentStatus: "$payment.status",
                     actualPickUp: "$actualPickupDate",
                     pickupStatus: "$pickupStatus",
+                    logTime: "$createdAt",
+                    status: "$status",
                     orderId: order_id
                 }
             },
