@@ -20,33 +20,40 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         deletedAt: null,
     };
 
-    if (search) {
-        matchStage.$purchasedOrder.poNo = { $regex: search, $options: "i" };
-    }
-
     let aggregationPipeline = [
         { $match: matchStage },
         { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
         {
             $lookup: {
-                from: "distillers", // Adjust this to your actual collection name for branches
+                from: "distillers",
                 localField: "distiller_id",
                 foreignField: "_id",
                 as: "distillerDetails"
             }
         },
         { $unwind: { path: "$distillerDetails", preserveNullAndEmptyArrays: true } },
-        // Unwind batchDetails array if necessary
+    
+        // Add search filter after the lookup
+        ...(search
+            ? [{
+                $match: {
+                    $or: [
+                        { 'purchasedOrder.poNo': { $regex: search, $options: "i" } },
+                        { 'distillerDetails.basic_details.distiller_details.organization_name': { $regex: search, $options: "i" } }
+                    ]
+                }
+            }]
+            : []),
+    
         { $unwind: { path: "$batchDetails", preserveNullAndEmptyArrays: true } },
-
-        // Unwind penaltyDetails if it's an array (assuming it is)
+    
         {
             $unwind: {
                 path: "$batchDetails.penaltyDetails",
                 preserveNullAndEmptyArrays: true
             }
         },
-
+    
         // Group by order ID and sum up penaltyAmount
         {
             $group: {
@@ -64,10 +71,10 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
                     }
                 },
                 paymentStatus: { $first: "$poStatus" },
-                penaltyStatus: { $first: "$paymentInfo.penaltyStaus"}
+                penaltyStatus: { $first: "$paymentInfo.penaltyStaus" }
             }
         },
-
+    
         // Final Projection
         {
             $project: {
@@ -79,12 +86,13 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
                 totalAmount: 1,
                 recievedPayment: 1,
                 outstandingPayment: 1,
-                totalPenaltyAmount: 1, // Ensure total sum is included
+                totalPenaltyAmount: 1,
                 paymentStatus: 1,
                 penaltyStatus: 1
             }
         }
     ];
+    
 
     if (paginate == 1) {
         aggregationPipeline.push(
@@ -95,7 +103,10 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
     const records = { count: 0 };
     records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
-    records.count = await PurchaseOrderModel.countDocuments(matchStage);
+    const totalPipeline = [...aggregationPipeline];
+    totalPipeline.push({ $count: "count" });
+    const totalCount = await PurchaseOrderModel.aggregate(totalPipeline); // Total count of documents
+    records.count = totalCount?.[0]?.count ?? 0;
 
     if (paginate == 1) {
         records.page = page;
