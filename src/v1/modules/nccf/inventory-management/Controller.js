@@ -49,18 +49,18 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
 
     let query = search
       ? {
-        $or: [
-          { "companyDetails.name": { $regex: search, $options: "i" } },
-          { "ownerDetails.name": { $regex: search, $options: "i" } },
-          {
-            "warehouseDetails.basicDetails.warehouseName": {
-              $regex: search,
-              $options: "i",
+          $or: [
+            { "warehousev2Details.warehouseOwner_code": { $regex: search, $options: "i" } },
+            { "warehouseDetailsId": { $regex: search, $options: "i" } },
+            {
+              "basicDetails.warehouseName": {
+                $regex: search,
+                $options: "i",
+              },
             },
-          },
-        ],
-        ...filters, // Additional filters
-      }
+          ],
+          ...filters,
+        }
       : {};
 
     const aggregationPipeline = [
@@ -123,9 +123,8 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
       { $limit: parseInt(limit, 10) },
     ];
 
-    const records = { count: 0, rows: [] };
+    const records = { count: 0 };
     records.rows = await wareHouseDetails.aggregate(aggregationPipeline);
-
     const countAggregation = [{ $match: query }, { $count: "total" }];
     const countResult = await wareHouseDetails.aggregate(countAggregation);
     records.count = countResult.length > 0 ? countResult[0].total : 0;
@@ -133,6 +132,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     records.page = page;
     records.limit = limit;
     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+   
     // Export functionality
     if (isExport == 1) {
       const record = records.rows.map((item) => {
