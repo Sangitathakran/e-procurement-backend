@@ -202,10 +202,6 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
 });
 
 
-
-
-
-
 module.exports.batchApproveOrReject = async (req, res) => {
     try {
         const { batchId, status, product_images = [], qc_images = [] } = req.body;
@@ -295,7 +291,7 @@ module.exports.viewBatchDetails = async (req, res) => {
                 procurementDate: batch.procurementDate,
                 procurementCenter: batch.procurementCenter_id?.center_name || "NA",
                 warehouse: batch.warehousedetails_id,
-                msp: batch.msp,
+                msp: batch.msp || "NA",
                 final_quality_check : batch.final_quality_check,
                 dispatched : batch.dispatched, 
                 delivered : batch.delivered
@@ -341,7 +337,7 @@ module.exports.lot_list = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
 
 module.exports.editBatchDetails = async (req, res) => {
     try {
@@ -366,7 +362,6 @@ module.exports.editBatchDetails = async (req, res) => {
         return res.status(500).json({ status: 500, message: error.message });
     }
 };
-
 
 module.exports.batchStatusUpdate = async (req, res) => {
     try {
@@ -427,7 +422,7 @@ module.exports.batchStatusUpdate = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
 
 module.exports.batchMarkDelivered = async (req, res) => {
     try {
@@ -510,5 +505,64 @@ module.exports.batchMarkDelivered = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
 
+
+module.exports.batchStatsData = async (req, res) => {
+    try {
+        const rows = await Batch.find();
+        let totalBatches = 0;
+        let approvedQC = 0;
+        let rejectedQC = 0;
+        let pendingQC = 0;
+        let receivedBatch = 0;
+        let pendingBatch = 0;
+        let rejectedBatch = 0;
+        let approvedBatch = 0;
+        
+        rows.forEach(batch => {
+            const qcStatus = batch?.final_quality_check?.status;
+            const batchesStatus = batch?.wareHouse_approve_status;
+
+            if(batchesStatus == 'Received') {
+                if (qcStatus === "Approved") {
+                    approvedQC++;
+                } else if (qcStatus === "Rejected") {
+                    rejectedQC++;
+                } else if (qcStatus === "Pending") {
+                    pendingQC++;
+                }
+            }
+            
+
+            if(batchesStatus == 'Pending') {
+                pendingBatch++;
+            } else if (batchesStatus == 'Received') {
+                receivedBatch++;
+            } else if (batchesStatus == 'Rejected') {
+                rejectedBatch++;
+            } else if (batchesStatus == 'Approved') {
+                approvedBatch++;
+            }
+
+        });
+        const response = {
+            totalBatches : receivedBatch+pendingBatch,
+            approvedQC,
+            rejectedQC,
+            pendingQC,
+            receivedBatch,
+            pendingBatch,
+            // rejectedBatch,
+            // approvedBatch
+        };
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            message: 'Batch statistics fetch successfully.',
+            data: response
+        })); 
+        
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
