@@ -38,18 +38,26 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
       limit = 10,
       sortBy,
       search = "",
+      state="",
+      district="",
       filters = {},
       isExport = 0,
     } = req.query;
     const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-
-
-
-
-
-    let query = {};
-    let query = {};
-
+    let query = {
+      ...(state || district
+        ? {
+            $or: [
+              ...(state
+                ? [{ "addressDetails.state.state_name": { $regex: state, $options: "i" } }]
+                : []),
+              ...(district
+                ? [{ "addressDetails.district.district_name": { $regex: district, $options: "i" } }]
+                : []),
+            ],
+          }
+        : {}),
+    };
       const aggregationPipeline = [
         { $match: query },
         {
@@ -94,7 +102,6 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
               },
             ]
           : []),
-      
         {
           $project: {
             warehouseName: "$basicDetails.warehouseName",
@@ -150,6 +157,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
 
     const records = { count: 0 };
     records.rows = await wareHouseDetails.aggregate(aggregationPipeline);
+    console.log("records",records.rows)
     const countAggregation = [{ $match: query }, { $count: "total" }];
     const countResult = await wareHouseDetails.aggregate(countAggregation);
     records.count = countResult.length > 0 ? countResult[0].total : 0;
