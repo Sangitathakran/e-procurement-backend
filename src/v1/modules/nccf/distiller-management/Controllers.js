@@ -16,11 +16,6 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
         deletedAt: null,
     };
 
-    if (search) {
-        matchStage.orderId = { $regex: search, $options: "i" };
-    }
-   
-
     const aggregationPipeline = [
         { $match: matchStage },
         {
@@ -32,6 +27,19 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
             }
         },
         { $unwind: { path: '$purchaseOrders', preserveNullAndEmptyArrays: true } },
+    
+        // Add search filter after the lookup
+        ...(search
+            ? [{
+                $match: {
+                    $or: [
+                        { 'basic_details.distiller_details.organization_name': { $regex: search, $options: 'i' } },
+                        { 'user_code': { $regex: search, $options: 'i' } }
+                    ]
+                }
+            }]
+            : []),
+    
         {
             $group: {
                 _id: { distiller_id: '$_id', product_name: '$purchaseOrders.product.name' },
@@ -91,6 +99,7 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
             }
         }
     ];
+    
 
 
     if (paginate == 1) {
@@ -133,8 +142,11 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
     } else {
         const records = { count: 0 };
         records.rows = await Distiller.aggregate(aggregationPipeline);
-        records.count = await Distiller.countDocuments(matchStage);
-
+        const totalPipeline = [...aggregationPipeline];
+        totalPipeline.push({ $count: "count" });
+        const totalCount = await Distiller.aggregate(totalPipeline);
+        records.count = totalCount?.[0]?.count ?? 0;
+        
         if (paginate == 1) {
             records.page = page;
             records.limit = limit;

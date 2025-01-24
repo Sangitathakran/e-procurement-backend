@@ -237,7 +237,7 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _middleware.require("ready-to-ship fields") }] }))
     }
 
-    const record = await TrackOrder.findOne({ batch_id });
+    const record = await TrackOrder.findOne({ purchaseOrder_id });
 
     if (record) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _auth_module.allReadyExist("track") }] }))

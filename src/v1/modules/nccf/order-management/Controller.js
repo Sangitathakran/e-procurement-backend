@@ -104,21 +104,32 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         deletedAt: null,
     };
 
-    if (search) {
-        matchStage['purchasedOrder.poNo'] = { $regex: search, $options: "i" };
-    }
-
     let aggregationPipeline = [
         { $match: matchStage },
         {
             $lookup: {
-                from: "distillers", // Adjust this to your actual collection name for branches
+                from: "distillers", // Adjust this to your actual collection name for distillers
                 localField: "distiller_id",
                 foreignField: "_id",
                 as: "distiller"
             }
         },
         { $unwind: { path: "$distiller", preserveNullAndEmptyArrays: true } },
+    ];
+
+    // Add search stage after lookup
+    if (search) {
+        aggregationPipeline.push({
+            $match: {
+                $or: [
+                    { 'purchasedOrder.poNo': { $regex: search, $options: "i" } },
+                    { 'distiller.basic_details.distiller_details.organization_name': { $regex: search, $options: "i" } },
+                ]
+            }
+        });
+    }
+
+    aggregationPipeline.push(
         {
             $project: {
                 _id: 1,
@@ -133,8 +144,8 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
                 address: '$distiller.address.registered',
             }
         },
-        { $sort: { [sortBy]: 1 } },
-    ];
+        { $sort: { [sortBy]: 1 } }
+    );
 
     // Add pagination if enabled
     if (paginate === 1 || paginate === '1') {
@@ -146,8 +157,10 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
     const records = { count: 0 };
     records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline); // Fetch paginated data
-    records.count = await PurchaseOrderModel.countDocuments(matchStage); // Total count of documents
-
+    const totalPipeline = [...aggregationPipeline];
+    totalPipeline.push({ $count: "count" });
+    const totalCount = await PurchaseOrderModel.aggregate(totalPipeline); // Total count of documents
+    records.count = totalCount?.[0]?.count ?? 0;
     // Calculate total pages and add pagination info
     records.page = pageNum;
     records.limit = limitNum;

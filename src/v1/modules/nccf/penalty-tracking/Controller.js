@@ -21,10 +21,6 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
         deletedAt: null
     };
 
-    if (search) {
-        matchQuery.purchaseId = { $regex: search, $options: "i" };
-    }
-
     let aggregationPipeline = [
         { $match: matchQuery },
         {
@@ -48,6 +44,18 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
         // Unwind batchDetails array if necessary
         { $unwind: { path: "$batchDetails", preserveNullAndEmptyArrays: true } },
+
+        // Add search filter after the lookup
+        ...(search
+            ? [{
+                $match: {
+                    $or: [
+                        { 'basic_details.distiller_details.organization_name': { $regex: search, $options: 'i' } },
+                        { 'purchasedOrder.poNo': { $regex: search, $options: 'i' } }
+                    ]
+                }
+            }]
+            : []),
 
         // Unwind penaltyDetails if it's an array (assuming it is)
         {
@@ -106,13 +114,11 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     const rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
 
-    const countPipeline = [
-        { $match: matchQuery },
-        { $count: "total" }
-    ];
+    const totalPipeline = [...aggregationPipeline];
+        totalPipeline.push({ $count: "count" });
 
-    const countResult = await PurchaseOrderModel.aggregate(countPipeline);
-    const count = countResult[0]?.total || 0;
+    const countResult = await PurchaseOrderModel.aggregate(totalPipeline);
+    const count = countResult?.[0]?.count ?? 0;
 
     const records = { rows, count };
 
