@@ -14,8 +14,8 @@ const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
-
+        let { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
+        limit = 5
         let query = search ? {
             $or: [
                 { "reqNo": { $regex: search, $options: 'i' } },
