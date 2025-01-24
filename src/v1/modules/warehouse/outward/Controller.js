@@ -44,7 +44,7 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
                 console.log(item._id)
               let batchOrderProcess = await BatchOrderProcess.findOne({
                 warehouseOwnerId: user_id,
-                orderId: '678f92fada06a8ea9a4c2195',
+                orderId: item._id,
               }).select('warehouseId orderId');
               
               return batchOrderProcess ? item : null; // Return the item if found, otherwise null
