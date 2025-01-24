@@ -48,6 +48,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
 
 
     let query = {};
+    let query = {};
 
       const aggregationPipeline = [
         { $match: query },
