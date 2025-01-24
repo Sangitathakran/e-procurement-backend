@@ -201,7 +201,12 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     totalAmount: { $first: "$payment.amount" },
                     penaltyAmount: { $first: "$penaltyDetails.penaltyAmount" },
                     pickupStatus: { $first: "$pickupStatus" },
+                    paymentRecievedDate: { $first: "$payment.date" },
+                    paymentRecievedStatus: { $first: "$payment.status" },
+                    penaltyRecievedDate: { $first: "$penaltyDetails.paneltyAddedAT" },
+                    penaltyRecievedStatus: { $first: "$penaltyDetails.penaltypaymentStatus" },
                     orderId: { $first: order_id }
+                    
                 }
             },
             { $sort: { [sortBy || "createdAt"]: -1, _id: 1 } },
@@ -233,7 +238,11 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     "actual Pickup Date": item?.actualPickupDate ?? 'NA',
                     "total Amount": item?.totalAmount ?? 'NA',
                     "penalty Amount": item?.penaltyAmount ?? 'NA',
-                    "pickup Status" : item?.pickupStatus ?? 'NA'
+                    "pickup Status" : item?.pickupStatus ?? 'NA',
+                    "payment Recieved Date" : item?.paymentRecievedDate ?? 'NA',
+                    "payment Recieved Status" : item?.paymentRecievedStatus ?? 'NA',
+                    "Penalty Recieved Date" : item?.penaltyRecievedDate ?? 'NA',
+                    "Penalty Recieved Status" : item?.penaltyRecievedStatus ?? 'NA',
                 };
             });
 
