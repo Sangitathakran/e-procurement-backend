@@ -22,7 +22,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
     let aggregationPipeline = [
         { $match: matchStage },
-        { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
+        { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
         {
             $lookup: {
                 from: "distillers",
@@ -209,7 +209,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     
                 }
             },
-            { $sort: { [sortBy || "createdAt"]: -1, _id: 1 } },
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
             { $skip: skip },
             { $limit: parseInt(limit, 10) }
         ];

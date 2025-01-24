@@ -104,12 +104,12 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
     
     if (paginate == 1) {
         aggregationPipeline.push(
-            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } }, 
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, 
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
         );
     } else {
-        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
     }
 
     if (isExport == 1) {

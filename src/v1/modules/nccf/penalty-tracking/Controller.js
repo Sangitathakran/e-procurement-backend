@@ -106,7 +106,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     if (paginate == 1) {
         aggregationPipeline.push(
-            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } }, // Secondary sort by _id for stability
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
         );
@@ -198,7 +198,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     orderId: order_id
                 }
             },
-            { $sort: { [sortBy || 'createdAt']: 1 } },
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
             { $skip: skip },
             { $limit: parseInt(limit, 10) }
         ];
