@@ -102,6 +102,8 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
         }
     ];
 
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+
     if (paginate == 1) {
         aggregationPipeline.push(
             { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } }, // Secondary sort by _id for stability
@@ -114,8 +116,8 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     const rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
 
-    const totalPipeline = [...aggregationPipeline];
-        totalPipeline.push({ $count: "count" });
+    const totalPipeline = [...withoutPaginationAggregationPipeline];
+    totalPipeline.push({ $count: "count" });
 
     const countResult = await PurchaseOrderModel.aggregate(totalPipeline);
     const count = countResult?.[0]?.count ?? 0;

@@ -148,6 +148,8 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         { $sort: { [sortBy]: 1 } }
     );
 
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+
     // Add pagination if enabled
     if (paginate === 1 || paginate === '1') {
         aggregationPipeline.push(
@@ -158,7 +160,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
     const records = { count: 0 };
     records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline); // Fetch paginated data
-    const totalPipeline = [...aggregationPipeline];
+    const totalPipeline = [...withoutPaginationAggregationPipeline];
     totalPipeline.push({ $count: "count" });
     const totalCount = await PurchaseOrderModel.aggregate(totalPipeline); // Total count of documents
     records.count = totalCount?.[0]?.count ?? 0;
