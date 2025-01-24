@@ -6,8 +6,9 @@ const mongoose = require("mongoose");
 
 const trackOrderSchema = new mongoose.Schema({
 
-    batch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.BatchOrderProcess },
-    purchaseOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.PurchaseOrder, required: true },
+    // batch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.BatchOrderProcess },
+    // order_id :   { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.PurchaseOrder },
+    purchaseOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.BatchOrderProcess, required: true },
     ready_to_ship: {
         status: { type: String, default: "Pending" },
         pickup_batch: [

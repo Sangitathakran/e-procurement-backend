@@ -215,10 +215,10 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
 
 module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
-    const { batches = [], batch_id, purchaseOrder_id } = req.body;
+    const { batches = [] , purchaseOrder_id } = req.body;
 
 
-    if (batches.length == 0 || !batch_id || !purchaseOrder_id) {
+    if (batches.length == 0 || !purchaseOrder_id) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _middleware.require("ready-to-ship fields") }] }))
     }
 
@@ -256,7 +256,7 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
 
     const trackRecord = await TrackOrder.create({
-        batch_id,
+        // batch_id,
         purchaseOrder_id,
         ready_to_ship: {
             pickup_batch: batches,
@@ -371,9 +371,10 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
         vehicle_details,
     })
 
-
+    console.log("trackRecord  :>> " , trackOrderRecord ) ;
     trackOrderRecord.in_transit.truck_id.push(truckRecord._id);
-    const truckCount = trackOrderRecord.in_transit.truck_id.length;
+    const truckCount = trackOrderRecord.in_transit.truck_id.length; 
+    console.log("truckCount " , truckCount ) ; 
     trackOrderRecord.in_transit.status = `${truckCount} Trucks`;
 
     await trackOrderRecord.save();
