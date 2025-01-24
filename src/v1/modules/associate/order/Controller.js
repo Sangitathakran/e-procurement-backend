@@ -36,7 +36,7 @@ module.exports.batch = async (req, res) => {
             return acc;
         }, 0);
 
-        // Apply handleDecimal to sumOfQty and truck_capacity if needed
+        // Apply handleDecimal to sumOfQty and truck_capacity if neededs
         const sumOfQtyDecimal = handleDecimal(sumOfQty);
         const truckCapacityDecimal = handleDecimal(truck_capacity);
 
@@ -112,7 +112,7 @@ module.exports.batch = async (req, res) => {
         // create unique batch Number 
         let batchId, isUnique = false;
         while (!isUnique) {
-            batchId = generateBatchId();
+            batchId = await generateBatchId();
             if (!(await Batch.findOne({ batchId: batchId }))) isUnique = true;
         }
 
@@ -179,36 +179,27 @@ module.exports.batch = async (req, res) => {
     }
 };
 
-let sequence = 0; // Initialize the sequence counter
-
 async function generateBatchId() {
-  const min = 100000; // Random part 6 digits
-  const max = 999999;
-  const randomPart = Math.floor(Math.random() * (max - min + 1)) + min;
-
-  // Combine random part and sequence
-  const batchId = randomPart.toString() + sequence.toString();
-
-  try {
-    // Increment sequence for next batchId
-    sequence++;
-
-    // Save the generated batchId in MongoDB
-    const newBatch = new Batch({ orderNumber });
-    await newBatch.save();
-
-    return batchId;
-  } catch (error) {
-    if (error.code === 11000) {
-      // Handle duplicate key error (unlikely but possible due to randomness)
-      console.log("Duplicate batchId detected, retrying...");
-      return generateBatchId(); // Retry generating a unique number
-    } else {
-      console.error("Error saving batchId:", error);
-      throw error;
+    // Fetch the most recent batch by sorting in descending order
+    const latestBatch = await Batch.findOne({})
+      .sort({ _id: -1 }) // Sort by `_id` in descending order (latest first)
+      .select("batchId"); // Only fetch the `batchId` field to minimize data transfer
+  
+    let nextSequence = 1;
+  
+    if (latestBatch && latestBatch.batchId) {
+      // Extract the sequence number from the latest batch ID
+      const match = latestBatch.batchId.match(/BH-(\d+)$/);
+      if (match) {
+        nextSequence = parseInt(match[1], 10) + 1; // Increment the sequence
+      }
     }
+  
+    // Generate the new batch ID
+    const batchId = `BH-${nextSequence.toString().padStart(4, "0")}`; // Zero-padded to 4 digits
+    return batchId;
   }
-}
+
 
 module.exports.editTrackDelivery = async (req, res) => {
 

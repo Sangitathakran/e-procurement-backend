@@ -10,8 +10,13 @@ const tokenBlacklist = [];
 
 exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
     const token = req.headers.token || req.cookies.token;
+    console.log("header : ??? " ,  req.headers ); 
+
+    console.log("token : >>> "  , token ) ;  
+    console.log("toke type" , !token) ;
     // Check if token exists
-    if (!token) {
+    if (!token) { 
+        console.log("entered if") ;
         return res.status(403).send(new serviceResponse({
             status: 403,
             errors: [{ message: _response_message.Unauthorized() }]
@@ -74,6 +79,10 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
 
         // Check URL conditions for specific routes
         const allowedUrls = [
+            '/batch-list',
+            '/batches',
+            '/status',
+            '/truck',
             '/onboarding',
             '/onboarding-status',
             '/find-user-status',
@@ -91,16 +100,21 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             '/purchase-list',
             '/order-list',
             '/purchase-order',
-            '/warehouse-status'
+            '/warehouse-status',
+            '/get-warehouse-dashboardStats',
+            '/track/ready-to-ship',
+            '/track/in-transit',
+            
         ];
 
         const currentUrl = req.url.split('?')[0];
-        console.log(currentUrl)
+
         const isAllowedUrl = allowedUrls.some(url => currentUrl.startsWith(url));
 
         if (isAllowedUrl) {
             next();
-        } else {
+        } else { 
+            console.log("entered else ")
             return res.status(401).send(new serviceResponse({
                 status: 401,
                 errors: [{ message: _response_message.Unauthorized() }]
