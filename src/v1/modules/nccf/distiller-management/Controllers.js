@@ -100,8 +100,8 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
         }
     ];
     
-
-
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+    
     if (paginate == 1) {
         aggregationPipeline.push(
             { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } }, 
@@ -142,7 +142,7 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
     } else {
         const records = { count: 0 };
         records.rows = await Distiller.aggregate(aggregationPipeline);
-        const totalPipeline = [...aggregationPipeline];
+        const totalPipeline = [...withoutPaginationAggregationPipeline];
         totalPipeline.push({ $count: "count" });
         const totalCount = await Distiller.aggregate(totalPipeline);
         records.count = totalCount?.[0]?.count ?? 0;
