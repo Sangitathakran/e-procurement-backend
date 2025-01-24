@@ -352,7 +352,7 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
     console.log("totalQtyOfBatches", totalQtyOfBatches);
     console.log("truckCapacity ", truck_capacity);
 
-    if (totalQtyOfBatches < truck_capacity) {
+    if (totalQtyOfBatches > truck_capacity) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "total quantity exceeds truck capacity" }] }));
     }
 

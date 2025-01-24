@@ -92,6 +92,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         paginate = 1,
         sortBy = "_id",
         search = '',
+        isExport = 0
     } = req.query;
 
     // Convert query parameters to integers for safety
@@ -166,11 +167,43 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
     records.limit = limitNum;
     records.pages = limitNum !== 0 ? Math.ceil(records.count / limitNum) : 0;
 
-    return res.status(200).send(new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.found("Order")
-    }));
+    // return res.status(200).send(new serviceResponse({
+    //     status: 200,
+    //     data: records,
+    //     message: _response_message.found("Order")
+    // }));
+
+    // Export functionality
+    if (isExport == 1) {
+        const record = records.rows.map((item) => {
+            console.log(item)
+            return {
+                "order Id": item?.orderId || 'NA',
+                "commodity": item?.commodity || 'NA',
+                "distiller Name": item?.distillerName ?? 'NA',
+                "quantity": item?.quantity ?? 'NA',
+                "total Amount": item?.totalAmount || 'NA',
+                "advance Payment": item?.advancePayment ?? 'NA',
+                "advance Payment": item?.advancePayment ?? 'NA',
+                "remaining Amount": item?.remainingAmount ?? 'NA',
+                "address": item?.address ?? 'NA',
+                "created At": item?.createdAt ?? 'NA'
+            };
+        });
+
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `order-List.xlsx`,
+                worksheetName: `order-List`
+            });
+        } else {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }));
+        }
+    } else {
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }));
+    }
+
 });
 
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
@@ -377,15 +410,8 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                     nodalOfficerEmail: '$warehousev2Details.ownerDetails.email',
                     pocAtPickup: '$authorizedPerson.name',
                     warehouseOwnerId: '$warehouseOwnerId',
-                    warehouseId: {
-                        $cond: {
-                            if: { $ifNull: ['$warehouseDetailsId', 0] },
-                            then: '$warehouseDetailsId',
-                            else: '$warehousev2Details.warehouseOwner_code'
-                        }
-                    },
-                    orderId: order_id,
-                    // branch_id: branch.branch_id                    
+                    warehouseId: "$wareHouse_code",
+                    orderId: order_id                
                 }
             },
 
