@@ -57,11 +57,42 @@ module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
-    return res.status(200).send(new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.found("Pending Distiller")
-    }));
+    // return res.status(200).send(new serviceResponse({
+    //     status: 200,
+    //     data: records,
+    //     message: _response_message.found("Pending Distiller")
+    // }));
+
+    // Export functionality
+    if (isExport == 1) {
+        const record = records.rows.map((item) => {
+
+            return {
+                "Distiller Id": item?.distiller_id || 'NA',
+                "Distiller Name": item?.distiller_name || 'NA',
+                "POC": item?.poc ?? 'NA',
+                "POC Email": item?.poc_email ?? 'NA',
+                "POC Mobile": item?.poc_mobile || 'NA',
+                "Address": item?.address ?? 'NA',
+                "Request date": item?.request_date ?? 'NA',
+                "Status": item?.status ?? 'NA'
+            };
+
+        });
+
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Pending-Distiller-List.xlsx`,
+                worksheetName: `Pending-Distiller-List`
+            });
+        } else {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Pending Distiller") }));
+        }
+    } else {
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Pending Distiller") }));
+    }
+
 });
 
 module.exports.getDistillerById = asyncErrorHandler(async (req, res) => {
@@ -306,11 +337,43 @@ module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
-    return res.status(200).send(new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.found("Distiller MOU")
-    }));
+    // return res.status(200).send(new serviceResponse({
+    //     status: 200,
+    //     data: records,
+    //     message: _response_message.found("Distiller MOU")
+    // }));
+
+    // Export functionality
+    if (isExport == 1) {
+        const record = records.rows.map((item) => {
+
+            return {
+                "Distiller Id": item?.distiller_id || 'NA',
+                "Distiller Name": item?.distiller_name || 'NA',
+                "POC": item?.poc ?? 'NA',
+                "POC Email": item?.poc_email ?? 'NA',
+                "POC Mobile": item?.poc_mobile || 'NA',
+                "Address": item?.address ?? 'NA',
+                "Request date": item?.request_date ?? 'NA',
+                "hard copy": item?.mou ?? 'NA',
+                "Status": item?.status ?? 'NA'
+            };
+
+        });
+
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Distiller-MOU-List.xlsx`,
+                worksheetName: `Distiller-MOU-List`
+            });
+        } else {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Distiller MOU") }));
+        }
+    } else {
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Distiller MOU") }));
+    }
+
 });
 
 module.exports.updateMouApprovalStatus = asyncErrorHandler(async (req, res) => {
