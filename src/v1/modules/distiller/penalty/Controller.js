@@ -30,7 +30,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
     }
 
     if (search) {
-        matchQuery.batchId = { $regex: search, $options: "i" };
+        matchQuery.purchaseId = { $regex: search, $options: "i" };
     }
 
     let aggregationPipeline = [
@@ -79,7 +79,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
                         $ifNull: ["$batchDetails.penaltyDetails.penaltyAmount", 0]
                     }
                 },
-                paymentStatus: { $first: "$poStatus" }                
+                paymentStatus: { $first: "$poStatus" }
             }
         },
 
@@ -106,7 +106,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
             { $limit: parseInt(limit) }
         );
     } else {
-        aggregationPipeline.push( { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
     }
 
     const rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
@@ -167,7 +167,8 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
             distiller_id: new mongoose.Types.ObjectId(user_id),
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            'penaltyDetails.penaltypaymentStatus': { $ne: _penaltypaymentStatus.NA },
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
@@ -183,12 +184,13 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    batchId: 1,
+                    purchaseId: 1,
                     quantityRequired: 1,
                     scheduledPickupDate: 1,
                     actualPickupDate: 1,
                     totalAmount: '$payment.amount',
                     penaltyAmount: "$penaltyDetails.penaltyAmount",
+                    penaltypaymentStatus: "$penaltyDetails.penaltypaymentStatus",
                     pickupStatus: 1,
                     orderId: order_id
                 }

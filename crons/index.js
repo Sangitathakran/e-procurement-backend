@@ -94,7 +94,7 @@ async function downloadAgentFile() {
         if (err.response && err.response.status === 400) {
           console.error(`Error Skipping to next index.`);
         } else {
-          console.error(`Error at index ${i}:`, err.message);
+          console.error(`Error at index `, err.message);
         }
         continue
       }

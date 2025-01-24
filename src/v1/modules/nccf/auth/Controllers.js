@@ -65,7 +65,9 @@ module.exports.createNccf = async (req, res) => {
             return sendResponse({ res, status: 400, message: "user already existed with this mobile number or email in Master" })
         }
 
-        const password = generateRandomPassword();
+        // const password = generateRandomPassword();
+        // const password = "Ministry@1234";
+        const password = "Ministry@5678";
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const nccfData = new NccfAdmin({
