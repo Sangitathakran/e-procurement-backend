@@ -498,15 +498,15 @@ module.exports.bulkuplodDistiller = async (req, res) => {
             const owner_pan = rec["Owner PAN Number*"] || null;
 
             const poc_name = rec["POC Name*"] || null;
-            const poc_designation = rec["Designation"] || null;
+            const poc_designation = rec["PocDesignation"] || null;
             const poc_mobile = rec["POC Mobile Number*"] || null;
-            const poc_email = rec["Email*"] || null;
+            const poc_email = rec["PocEmail*"] || null;
             const poc_aadhar = rec["POC Aadhar Number*"] || null;
 
             const auth_name = rec["Authorized Person Name*"] || null;
-            const auth_designation = rec["Designation"] || null;
+            const auth_designation = rec["AuthDesignation"] || null;
             const auth_mobile = rec["Mobile Number*"] || null;
-            const auth_email = rec["Email*"] || null;
+            const auth_email = rec["AuthEmail*"] || null;
             const auth_aadhar = rec["Authorized Person Aadhar Number*"] || null;
             const auth_pan = rec["Authorized Person PAN Number"] || null;
 
@@ -533,14 +533,13 @@ module.exports.bulkuplodDistiller = async (req, res) => {
                 { field: "POC Name*", label: "POC Name" },
                 { field: "Designation", label: "POC Designation" },
                 { field: "POC Mobile Number*", label: "POC Mobile Number" },
-                { field: "Email*", label: "POC Email" },
+                { field: "PocEmail*", label: "POC Email" },
                 { field: "POC Aadhar Number*", label: "POC Aadhar Number" },
                 { field: "Authorized Person Name*", label: "Authorized Person Name" },
                 { field: "Designation", label: "Authorized Person Designation" },
                 { field: "Mobile Number*", label: "Authorized Person Mobile Number" },
-                { field: "Email*", label: "Authorized Person Email" },
+                { field: "AuthEmail*", label: "Authorized Person Email" },
                 { field: "Authorized Person Aadhar Number*", label: "Authorized Person Aadhar Number" },
-                { field: "Authorized Person PAN Number", label: "Authorized Person PAN Number" },
                 { field: "Bank Name*", label: "Bank Name" },
                 { field: "Branch Name*", label: "Branch Name" },
                 { field: "Account Holder Name*", label: "Account Holder Name" },
@@ -570,10 +569,10 @@ module.exports.bulkuplodDistiller = async (req, res) => {
             if (!/^\d{10}$/.test(poc_mobile)) {
                 errors.push({ record: rec, error: "Invalid Mobile Number" });
             }
-            if (!account_number || !confirm_account_number) {
-                errors.push("Account Number or Confirm Account Number is missing.");
-            } else if (account_number.trim() !== confirm_account_number.trim()) {
-                errors.push("Account Number and Confirm Account Number do not match.");
+            if (!String(account_number).trim() || !String(confirm_account_number).trim()) {
+                errors.push("Account Number and Confirm Account Number are required.");
+            } else if (String(account_number).trim() !== String(confirm_account_number).trim()) {
+                errors.push("Account Number and Confirm Account Number must match.");
             }
 
             if (errors.length > 0) return { success: false, errors };
