@@ -14,8 +14,8 @@ const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 module.exports.payment = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
-
+        let { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
+        limit = 5
         let query = search ? {
             $or: [
                 { "reqNo": { $regex: search, $options: 'i' } },
@@ -30,6 +30,7 @@ module.exports.payment = async (req, res) => {
         const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] } })).map(i => i.req_id)
         const aggregationPipeline = [
             { $match: { _id: { $in: paymentIds }, ...query } },
+            { $sort: { createdAt: -1 } },
             {
                 $lookup: {
                     from: 'batches',
@@ -146,9 +147,9 @@ module.exports.payment = async (req, res) => {
                     }
                 }
             },
-            { $sort: { createdAt: -1 } },
+            
             { $skip: skip },
-            { $limit: limit >= 15 ? 15 : parseInt(limit) },
+            { $limit: parseInt(limit) },
             {
                 $project: {
                     _id: 1,
@@ -178,14 +179,14 @@ module.exports.payment = async (req, res) => {
             }
         ];
         const records = await RequestModel.aggregate([
-            ...aggregationPipeline,
+            // ...aggregationPipeline,
             {
                 $facet: {
                     data: aggregationPipeline, // Aggregate for data
                     totalCount: [{ $count: 'count' }] // Count the documents
                 }
             }
-        ]).allowDiskUse(true);
+        ]);
 
         const response = {
             count: records[0]?.totalCount[0]?.count || 0,
