@@ -101,12 +101,12 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     if (paginate == 1) {
         aggregationPipeline.push(
-            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } }, // Secondary sort by _id for stability
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
         );
     } else {
-        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
     }
 
     const rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
