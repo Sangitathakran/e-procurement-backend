@@ -204,7 +204,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                 { $limit: parseInt(limit) }
             );
         } else {
-            aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
+            aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } });
         }
 
         const records = { count: 0, rows: [] };
