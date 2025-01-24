@@ -93,6 +93,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         }
     ];
     
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
 
     if (paginate == 1) {
         aggregationPipeline.push(
@@ -103,7 +104,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
     const records = { count: 0 };
     records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
-    const totalPipeline = [...aggregationPipeline];
+    const totalPipeline = [...withoutPaginationAggregationPipeline];
     totalPipeline.push({ $count: "count" });
     const totalCount = await PurchaseOrderModel.aggregate(totalPipeline); // Total count of documents
     records.count = totalCount?.[0]?.count ?? 0;

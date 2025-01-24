@@ -82,6 +82,7 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             '/batch-list',
             '/batches',
             '/status',
+            '/truck',
             '/onboarding',
             '/onboarding-status',
             '/find-user-status',
