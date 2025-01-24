@@ -451,16 +451,15 @@ module.exports.getStatus = asyncErrorHandler(async (req, res) => {
 
 
     const { id } = req.params;
+    const record = {} ; 
+     record.rows = await TrackOrder.findOne({ purchaseOrder_id: id });
 
-    const record = await TrackOrder.findOne({ purchaseOrder_id: id });
-
-    const data = {};
-    if (!record) {
-        data.status = "pending"
+    if (!record.rows) {
+        record.status = "pending"
     } else {
-        data.status = "shipped";
+        record.status = "shipped";
     }
 
-    return res.status(200).send(new serviceResponse({ status: 200, data, message: _response_message.found("status") }));
+    return res.status(200).send(new serviceResponse({ status: 200, data : record , message: _response_message.found("status") }));
 
 })
