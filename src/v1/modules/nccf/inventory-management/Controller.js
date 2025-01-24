@@ -113,16 +113,8 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
           nodalOfficerContact: "$warehousev2Details.ownerDetails.mobile",
           nodalOfficerEmail: "$warehousev2Details.ownerDetails.email",
           pocAtPickup: "$authorizedPerson.name",
-          warehouseOwnerId: "$wareHouse_code",
-          warehouseId: {
-            $cond: {
-              if: { $ifNull: ["$warehouseDetailsId", 0] },
-              then: "$warehouseDetailsId",
-              else: "$warehousev2Details.warehouseOwner_code",
-            },
-          },
-          // orderId: order_id,
-          // branch_id: branch.branch_id
+          warehouseOwnerId: "$warehouseOwnerId",
+          warehouseId: "$wareHouse_code"
         },
       },
 
