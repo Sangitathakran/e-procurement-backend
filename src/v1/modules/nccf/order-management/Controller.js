@@ -862,12 +862,6 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
 
-        // if (!records) {
-        //     return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
-        // } else {
-        //     return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
-        // }
-
         // Export functionality
         if (isExport == 1) {
             const record = records.rows.map((item) => {
