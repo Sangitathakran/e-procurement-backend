@@ -116,13 +116,6 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
-    // return res.status(200).send(new serviceResponse({
-    //     status: 200,
-    //     data: records,
-    //     message: _response_message.found("Order")
-    // }));
-
-
     // Export functionality
     if (isExport == 1) {
         const record = records.rows.map((item) => {
@@ -189,10 +182,10 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
-                    from: "warehousedetails",
-                    localField: "warehouseOwnerId",
-                    foreignField: "warehouseId",
-                    as: "warehouseDetails",
+                    from: 'warehousedetails', // Collection name in MongoDB
+                    localField: 'warehouseId',
+                    foreignField: '_id',
+                    as: 'warehouseDetails',
                 },
             },
             { $unwind: { path: "$warehouseDetails", preserveNullAndEmptyArrays: true } },
@@ -200,7 +193,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                 $group: {
                     _id: "$_id",
                     purchaseId: { $first: "$purchaseId" },
-                    warehouseId: { $first: "$warehouseDetails.basicDetails.warehouseId" },
+                    warehouseId: { $first: "$warehouseDetails.wareHouse_code" },
                     warehouseName: { $first: "$warehouseDetails.basicDetails.warehouseName" },
                     quantityRequired: { $first: "$quantityRequired" },
                     scheduledPickupDate: { $first: "$scheduledPickupDate" },
@@ -208,7 +201,12 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     totalAmount: { $first: "$payment.amount" },
                     penaltyAmount: { $first: "$penaltyDetails.penaltyAmount" },
                     pickupStatus: { $first: "$pickupStatus" },
+                    paymentRecievedDate: { $first: "$payment.date" },
+                    paymentRecievedStatus: { $first: "$payment.status" },
+                    penaltyRecievedDate: { $first: "$penaltyDetails.paneltyAddedAT" },
+                    penaltyRecievedStatus: { $first: "$penaltyDetails.penaltypaymentStatus" },
                     orderId: { $first: order_id }
+                    
                 }
             },
             { $sort: { [sortBy || "createdAt"]: -1, _id: 1 } },
@@ -240,7 +238,11 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     "actual Pickup Date": item?.actualPickupDate ?? 'NA',
                     "total Amount": item?.totalAmount ?? 'NA',
                     "penalty Amount": item?.penaltyAmount ?? 'NA',
-                    "pickup Status" : item?.pickupStatus ?? 'NA'
+                    "pickup Status" : item?.pickupStatus ?? 'NA',
+                    "payment Recieved Date" : item?.paymentRecievedDate ?? 'NA',
+                    "payment Recieved Status" : item?.paymentRecievedStatus ?? 'NA',
+                    "Penalty Recieved Date" : item?.penaltyRecievedDate ?? 'NA',
+                    "Penalty Recieved Status" : item?.penaltyRecievedStatus ?? 'NA',
                 };
             });
 
