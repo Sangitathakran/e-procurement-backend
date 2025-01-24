@@ -39,12 +39,12 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
         // .populate({ path: "branch_id", select: "_id branchName branchId" })
         .limit(parseInt(limit)) : await PurchaseOrderModel.find(query).sort(sortBy);
 
-        records.rows = await Promise.all(
-            records.rows.map(async (item) => {
-                console.log(item._id)
-              let batchOrderProcess = await BatchOrderProcess.findOne({
+    records.rows = await Promise.all(
+        records.rows.map(async (item) => {
+            console.log(item._id)
+            let batchOrderProcess = await BatchOrderProcess.findOne({
                 warehouseOwnerId: user_id,
-                orderId: '678f92fada06a8ea9a4c2195',
+                orderId: item._id,
               }).select('warehouseId orderId');
               
               return batchOrderProcess ? item : null; // Return the item if found, otherwise null
@@ -52,7 +52,7 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
           );
           // Filter out null values
           records.rows = records.rows.filter((item) => item !== null);
-    records.count = records.rows.length;
+        records.count = records.rows.length;
 
     if (paginate == 1) {
         records.page = page
@@ -211,33 +211,18 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("purchase order") }))
 })
 
-module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
-    const { id } = req.params;
 
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "Invalid item ID" });
-    }
-
-    const record = await PurchaseOrderModel.findOne({ _id: id }).populate({ path: 'distiller_id', select: '' });
-
-    if (!record) {
-        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("purchase order") }] }))
-    }
-
-    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("purchase order") }))
-})
 
 module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
-    const { batches = [], batch_id, purchaseOrder_id } = req.body;
+    const { batches = [] , purchaseOrder_id } = req.body;
 
 
-    if (batches.length == 0 || !batch_id || !purchaseOrder_id) {
+    if (batches.length == 0 || !purchaseOrder_id) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _middleware.require("ready-to-ship fields") }] }))
     }
 
-    const record = await TrackOrder.findOne({ batch_id });
+    const record = await TrackOrder.findOne({ purchaseOrder_id });
 
     if (record) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _auth_module.allReadyExist("track") }] }))
@@ -271,7 +256,7 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
 
     const trackRecord = await TrackOrder.create({
-        batch_id,
+        // batch_id,
         purchaseOrder_id,
         ready_to_ship: {
             pickup_batch: batches,
@@ -386,9 +371,10 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
         vehicle_details,
     })
 
-
+    console.log("trackRecord  :>> " , trackOrderRecord ) ;
     trackOrderRecord.in_transit.truck_id.push(truckRecord._id);
-    const truckCount = trackOrderRecord.in_transit.truck_id.length;
+    const truckCount = trackOrderRecord.in_transit.truck_id.length; 
+    console.log("truckCount " , truckCount ) ; 
     trackOrderRecord.in_transit.status = `${truckCount} Trucks`;
 
     await trackOrderRecord.save();
@@ -432,16 +418,16 @@ module.exports.fetchBatches = asyncErrorHandler(async (req, res) => {
 
     const { id } = req.params;
 
-    const record = await BatchOrderProcess.findOne({ _id: id }); 
+    const record = await BatchOrderProcess.findOne({ _id: id });
 
-    if(!record) { 
-        return res.status(200).send(new serviceResponse({ status : 401 , errors : [{ message : _response_message.notFound("purchase record")}]}))
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("purchase record") }] }))
     }
 
-    const batches = await Batch.find({ warehousedetails_id: record.warehouseId }); 
+    const batches = await Batch.find({ warehousedetails_id: record.warehouseId });
 
-    if(batches.length == 0) { 
-        return res.status(200).send(new serviceResponse({ status : 401 , errors : [{ message : _response_message.notFound("batches with this warehouse")}]}))
+    if (batches.length == 0) {
+        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("batches with this warehouse") }] }))
     }
 
     return res.status(200).send(new serviceResponse({ status: 200, data: batches, message: _response_message.found("batches") }));
@@ -451,16 +437,55 @@ module.exports.getStatus = asyncErrorHandler(async (req, res) => {
 
 
     const { id } = req.params;
+    const record = {};
+    record.rows = await TrackOrder.findOne({ purchaseOrder_id: id });
 
-    const record = await TrackOrder.findOne({ purchaseOrder_id: id });
-
-    const data = {};
-    if (!record) {
-        data.status = "pending"
+    if (!record.rows) {
+        record.status = "pending"
     } else {
-        data.status = "shipped";
+        record.status = "shipped";
     }
 
-    return res.status(200).send(new serviceResponse({ status: 200, data, message: _response_message.found("status") }));
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("status") }));
+
+})
+
+
+module.exports.getTrucks = asyncErrorHandler(async (req, res) => {
+
+
+    const { id } = req.params;
+
+
+    const record = await Truck.find({ trackOrder_id: id });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("truck") }] }))
+    }
+  
+    const result = [];
+
+    for (let data of record) {
+
+        let totalQty = 0;
+        let totalBags = 0;
+
+        for (let batch of data.final_pickup_batch) {
+            const perUnitBag = Math.floor(batch.allotedQty.count / batch.noOfBagsAlloted);
+
+            const qtyOfEachBatch = perUnitBag * batch.no_of_bags;
+
+            totalQty += qtyOfEachBatch;
+
+            totalBags += batch.no_of_bags;
+
+        }
+
+        result.push({ truckId: data.truckNo, allotedQty: totalQty, no_of_bags: totalBags }) 
+
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: result, message: _response_message.found("truck") }))
+
 
 })

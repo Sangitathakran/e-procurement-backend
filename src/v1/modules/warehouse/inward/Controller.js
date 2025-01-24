@@ -42,7 +42,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
         }
 
         const query = {
-            // "warehousedetails_id._id": { $in: finalwarehouseIds },
+            "warehousedetails_id": { $in: finalwarehouseIds },
             wareHouse_approve_status: 'Received', 
             ...(search && {
                 $or: [
@@ -136,9 +136,9 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
                 message: "No warehouses found for the user."
             }));
         }
-
+        
         const query = {
-            // "warehousedetails_id._id": { $in: finalwarehouseIds },
+            "warehousedetails_id": { $in: finalwarehouseIds },
             wareHouse_approve_status: 'Pending', 
             ...(search && {
                 $or: [
@@ -325,7 +325,7 @@ module.exports.lot_list = async (req, res) => {
         const { batch_id } = req.query;
         console.log('batch_id',batch_id)
         const record = {}
-        record.rows = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name qtyProcured" });
+        record.rows = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name qtyProcured order_no" });
 
         if (!record) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
@@ -510,7 +510,37 @@ module.exports.batchMarkDelivered = async (req, res) => {
 
 module.exports.batchStatsData = async (req, res) => {
     try {
-        const rows = await Batch.find();
+        const { warehouseIds = [] } = req.body;
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
+
+        const decode = await decryptJwtToken(getToken);
+        const UserId = decode.data.user_id;
+
+        if (!mongoose.Types.ObjectId.isValid(UserId)) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+        }
+        
+        const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+        const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
+        
+        const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
+            ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
+            : ownerwarehouseIds;
+
+        if (!finalwarehouseIds.length) {
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: { records: [], page, limit, pages: 0 },
+                message: "No warehouses found for the user."
+            }));
+        }
+
+        const query = {"warehousedetails_id": { $in: finalwarehouseIds }};
+
+        const rows = await Batch.find(query);
         let totalBatches = 0;
         let approvedQC = 0;
         let rejectedQC = 0;

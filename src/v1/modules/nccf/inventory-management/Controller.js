@@ -43,24 +43,24 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     } = req.query;
     const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
-   
+
 
 
 
     let query = search
       ? {
-          $or: [
-            { "companyDetails.name": { $regex: search, $options: "i" } },
-            { "ownerDetails.name": { $regex: search, $options: "i" } },
-            {
-              "warehouseDetails.basicDetails.warehouseName": {
-                $regex: search,
-                $options: "i",
-              },
+        $or: [
+          { "companyDetails.name": { $regex: search, $options: "i" } },
+          { "ownerDetails.name": { $regex: search, $options: "i" } },
+          {
+            "warehouseDetails.basicDetails.warehouseName": {
+              $regex: search,
+              $options: "i",
             },
-          ],
-          ...filters, // Additional filters
-        }
+          },
+        ],
+        ...filters, // Additional filters
+      }
       : {};
 
     const aggregationPipeline = [
@@ -114,19 +114,11 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
           nodalOfficerEmail: "$warehousev2Details.ownerDetails.email",
           pocAtPickup: "$authorizedPerson.name",
           warehouseOwnerId: "$warehouseOwnerId",
-          warehouseId: {
-            $cond: {
-              if: { $ifNull: ["$warehouseDetailsId", 0] },
-              then: "$warehouseDetailsId",
-              else: "$warehousev2Details.warehouseOwner_code",
-            },
-          },
-          // orderId: order_id,
-          // branch_id: branch.branch_id
+          warehouseId: "$wareHouse_code"
         },
       },
 
-      { $sort: { [sortBy]: 1 } },
+      { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
       { $skip: skip },
       { $limit: parseInt(limit, 10) },
     ];
@@ -145,15 +137,21 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     if (isExport == 1) {
       const record = records.rows.map((item) => {
         return {
+          "WarehouseId": item?.warehouseId ?? "NA",
           "WareHouse Name": item?.warehouseName || "NA",
-          "pickup Location": item?.pickupLocation || "NA",
-          "Inventory availalbility": item?.stock ?? "NA",
-          "warehouse Timing": item?.warehouseTiming ?? "NA",
-          "Nodal officer": item?.nodalOfficerName || "NA",
-          "POC Name": item?.pointOfContact?.name ?? "NA",
-          "POC Email": item?.pointOfContact?.email ?? "NA",
-          "POC Phone": item?.pointOfContact?.phone ?? "NA",
+          "Total Capacity": item?.totalCapacity || "NA",
+          "Pickup Location": item?.pickupLocation ?? "NA",
+          "Commodity": item?.commodity ?? "NA",
+          "Stock": item?.stock || "NA",
+          "Warehouse Timing": item?.warehouseTiming ?? "NA",
+          "Utilized Capacity": item?.utilizedCapacity ?? "NA",
+          "Required Stock": item?.requiredStock ?? "NA",
+          "Nodal Officer Name": item?.nodalOfficerName ?? "NA",
+          "Nodal Officer Contact": item?.nodalOfficerContact ?? "NA",
+          "Nodal Officer Email": item?.nodalOfficerEmail ?? "NA",
+          "POC At Pickup": item?.pocAtPickup ?? "NA"
         };
+
       });
 
       if (record.length > 0) {
