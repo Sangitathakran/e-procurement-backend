@@ -51,6 +51,11 @@ module.exports.createNccf = async (req, res) => {
     try {
         const { nccf_name, email, phone } = req.body
 
+        // const pwd = "Manas12345";
+        // const hashedpwd = await bcrypt.hash(pwd, 10);
+        // console.log(hashedpwd);
+        // return false;
+        
         const existUser = await NccfAdmin.findOne({ email: email });
 
         if (existUser) {
