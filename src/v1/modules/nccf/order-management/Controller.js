@@ -396,7 +396,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                     nodalOfficerContact: '$warehousev2Details.ownerDetails.mobile',
                     nodalOfficerEmail: '$warehousev2Details.ownerDetails.email',
                     pocAtPickup: '$authorizedPerson.name',
-                    warehouseOwnerId: '$warehouseOwnerId',
+                    warehouseOwnerId: '$wareHouse_code',
                     warehouseId: {
                         $cond: {
                             if: { $ifNull: ['$warehouseDetailsId', 0] },
