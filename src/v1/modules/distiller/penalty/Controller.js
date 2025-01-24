@@ -130,13 +130,14 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
     if (isExport == 1) {
         const record = rows.map((item) => {
             return {
-                "Order Id": item?.orderId || "NA",
+                "Order Id": item?.order_id || "NA",
                 "BO Name": item?.branchName || "NA",
-                "Commodity": item?.product?.name || "NA",
-                "Grade": item?.product?.grade || "NA",
-                "Quantity": item?.product?.quantity || "NA",
-                "MSP": item?.quotedPrice || "NA",
-                "Delivery Location": item?.address?.deliveryLocation || "NA"
+                "Commodity": item?.commodity || "NA",
+                "Grade": item?.grade || "NA",
+                "Quantity": item?.quantityRequired || "NA",
+                "Total Amount": item?.totalAmount || "NA",
+                "Total Penalty Amount": item?.totalPenaltyAmount || "NA",
+                "Payment Status": item?.paymentStatus || "NA"
             };
         });
 
