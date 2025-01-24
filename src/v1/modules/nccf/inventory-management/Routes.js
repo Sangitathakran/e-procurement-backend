@@ -7,6 +7,4 @@ const { Auth } = require("@src/v1/middlewares/jwt");
 nccfInventoryRoutes.get('/warehouseList', Auth, warehouseList);
 nccfInventoryRoutes.put('/requiredStockUpdate', Auth, requiredStockUpdate);
 
-
-
 module.exports = { nccfInventoryRoutes }; 
