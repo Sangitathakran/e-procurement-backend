@@ -45,14 +45,14 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
             let batchOrderProcess = await BatchOrderProcess.findOne({
                 warehouseOwnerId: user_id,
                 orderId: item._id,
-            }).select('warehouseId orderId');
-
-            return batchOrderProcess ? item : null; // Return the item if found, otherwise null
-        })
-    );
-    // Filter out null values
-    records.rows = records.rows.filter((item) => item !== null);
-    records.count = records.rows.length;
+              }).select('warehouseId orderId');
+              
+              return batchOrderProcess ? item : null; // Return the item if found, otherwise null
+            })
+          );
+          // Filter out null values
+          records.rows = records.rows.filter((item) => item !== null);
+        records.count = records.rows.length;
 
     if (paginate == 1) {
         records.page = page
@@ -211,22 +211,7 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("purchase order") }))
 })
 
-module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
-    const { id } = req.params;
 
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "Invalid item ID" });
-    }
-
-    const record = await PurchaseOrderModel.findOne({ _id: id }).populate({ path: 'distiller_id', select: '' });
-
-    if (!record) {
-        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("purchase order") }] }))
-    }
-
-    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("purchase order") }))
-})
 
 module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
