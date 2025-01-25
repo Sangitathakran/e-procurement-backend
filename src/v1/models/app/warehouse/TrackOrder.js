@@ -1,5 +1,5 @@
 
-const { _collectionName } = require("@src/v1/utils/constants");
+const { _collectionName, _trackOrderStatus } = require("@src/v1/utils/constants");
 const { _commonKeys } = require("@src/v1/utils/helpers/collection");
 const mongoose = require("mongoose");
 
@@ -34,6 +34,7 @@ const trackOrderSchema = new mongoose.Schema({
         date : { type : Date , default : Date.now}, 
         qtyFulfilled : { type : Boolean , default : false } ,
     },
+    status : { type : String  , enum : Object.values(_trackOrderStatus) , default : _trackOrderStatus.pending } , 
     ..._commonKeys
 },
     {

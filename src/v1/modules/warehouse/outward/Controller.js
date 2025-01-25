@@ -262,7 +262,8 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
             pickup_batch: batches,
             marked_ready: true,
             status: `${batches.length} Batches`
-        }
+        },
+        status : _trackOrderStatus.readyToShip,
     })
 
     return res.status(200).send(new serviceResponse({ status: 200, data: trackRecord, message: _response_message.created("track") }))
@@ -382,6 +383,7 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
 
     console.log("trackRecord  :>> " , trackOrderRecord ) ;
     trackOrderRecord.in_transit.truck_id.push(truckRecord._id);
+    trackOrderRecord.status = _trackOrderStatus.inTransit ; 
     const truckCount = trackOrderRecord.in_transit.truck_id.length; 
     console.log("truckCount " , truckCount ) ; 
     trackOrderRecord.in_transit.status = `${truckCount} Trucks`;
