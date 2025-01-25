@@ -403,7 +403,7 @@ module.exports.getBatches = asyncErrorHandler(async (req, res) => {
                 unit: batch.availableQty.unit,
             },
             receving_date: batch.receving_date,
-            noOfBagsAlloted: batch.totalBags,
+            noOfBagsAlloted: batch.no_of_bags,
         }
 
         data.push(batchData);
