@@ -31,7 +31,8 @@ const trackOrderSchema = new mongoose.Schema({
     in_transit: {
         status: { type: String, default: "Pending" },
         truck_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Truck }], 
-        date : { type : Date , default : Date.now}
+        date : { type : Date , default : Date.now}, 
+        qtyFulfilled : { type : Boolean , default : false } ,
     },
     ..._commonKeys
 },

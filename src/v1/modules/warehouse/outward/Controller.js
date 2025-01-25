@@ -279,7 +279,9 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _middleware.require("in-transit fields") }] }));
     }
 
-    const trackOrderRecord = await TrackOrder.findOne({ _id: trackOrder_id });
+    const trackOrderRecord = await TrackOrder.findOne({ _id: trackOrder_id }).populate([
+        { path : "purchaseOrder_id" , select : { "quantityRequired" : 1 }} 
+    ])
 
     if (!trackOrderRecord) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("track order") }] }))
@@ -339,6 +341,13 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
 
     if (totalQtyOfBatches > truck_capacity) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "total quantity exceeds truck capacity" }] }));
+    }
+
+    if(totalQtyOfBatches > trackOrderRecord?.purchaseOrder_id?.quantityRequired) { 
+        trackOrderRecord.in_transit.qtyFulfilled = true ; 
+        await trackOrderRecord.save() ; 
+        return res.status(200).send(new serviceResponse({ status : 401 , errors : [{ message : "required quantity already shipped!"}]})) ;
+
     }
 
     const logistics_details = {
@@ -441,8 +450,6 @@ module.exports.getStatus = asyncErrorHandler(async (req, res) => {
     const record = { data : {} , status : ""} ; 
 
     record.data = await TrackOrder.findOne({ purchaseOrder_id: id });
-
-    console.log("record.data" , record.data) ; 
 
     if(!record.data) { 
         return res.status(200).send(new serviceResponse({ status : 200 , data : { data : {} , status : "pending"} , message : _response_message.found("track")}))
