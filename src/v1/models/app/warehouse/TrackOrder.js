@@ -1,13 +1,14 @@
 
-const { _collectionName } = require("@src/v1/utils/constants");
+const { _collectionName, _trackOrderStatus } = require("@src/v1/utils/constants");
 const { _commonKeys } = require("@src/v1/utils/helpers/collection");
 const mongoose = require("mongoose");
 
 
 const trackOrderSchema = new mongoose.Schema({
 
-    batch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.BatchOrderProcess },
-    purchaseOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.PurchaseOrder, required: true },
+    // batch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.BatchOrderProcess },
+    // order_id :   { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.PurchaseOrder },
+    purchaseOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.BatchOrderProcess, required: true },
     ready_to_ship: {
         status: { type: String, default: "Pending" },
         pickup_batch: [
@@ -30,8 +31,10 @@ const trackOrderSchema = new mongoose.Schema({
     in_transit: {
         status: { type: String, default: "Pending" },
         truck_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Truck }], 
-        date : { type : Date , default : Date.now}
+        date : { type : Date , default : Date.now}, 
+        qtyFulfilled : { type : Boolean , default : false } ,
     },
+    status : { type : String  , enum : Object.values(_trackOrderStatus) , default : _trackOrderStatus.pending } , 
     ..._commonKeys
 },
     {

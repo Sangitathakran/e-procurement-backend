@@ -22,7 +22,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
     let aggregationPipeline = [
         { $match: matchStage },
-        { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
+        { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
         {
             $lookup: {
                 from: "distillers",
@@ -32,7 +32,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
             }
         },
         { $unwind: { path: "$distillerDetails", preserveNullAndEmptyArrays: true } },
-    
+
         // Add search filter after the lookup
         ...(search
             ? [{
@@ -44,16 +44,16 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
                 }
             }]
             : []),
-    
+
         { $unwind: { path: "$batchDetails", preserveNullAndEmptyArrays: true } },
-    
+
         {
             $unwind: {
                 path: "$batchDetails.penaltyDetails",
                 preserveNullAndEmptyArrays: true
             }
         },
-    
+
         // Group by order ID and sum up penaltyAmount
         {
             $group: {
@@ -74,7 +74,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
                 penaltyStatus: { $first: "$paymentInfo.penaltyStaus" }
             }
         },
-    
+
         // Final Projection
         {
             $project: {
@@ -92,6 +92,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
             }
         }
     ];
+
     
     const withoutPaginationAggregationPipeline = [...aggregationPipeline];
 
@@ -115,97 +116,43 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
-    return res.status(200).send(new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.found("Order")
-    }));
-});
+    // Export functionality
+    if (isExport == 1) {
+        const record = records.rows.map((item) => {
 
-/*
-module.exports.batchList = asyncErrorHandler(async (req, res) => {
-    try {
-        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
-        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-        const { user_id } = req;
+            return {
+                "order Id": item?.order_id || 'NA',
+                "Distiller Name": item?.distillerName || 'NA',
+                "commodity": item?.commodity ?? 'NA',
+                "quantity": item?.quantityRequired ?? 'NA',
+                "total Amount": item?.totalAmount || 'NA',
+                "recieved Payment": item?.recievedPayment ?? 'NA',
+                "outstanding Payment": item?.outstandingPayment ?? 'NA',
+                "total Penalty Amount": item?.totalPenaltyAmount ?? 'NA',
+                "payment Status": item?.paymentStatus ?? 'NA',
+                "penalty Status": item?.penaltyStatus ?? 'NA'
+            };
 
-        if (!order_id) {
-            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order Id") }] }));
-        }
+        });
 
-        let query = {
-            orderId: new mongoose.Types.ObjectId(order_id),
-            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
-        };
-
-        const aggregationPipeline = [
-            { $match: query },
-            {
-                $lookup: {
-                    from: "purchaseorders", // Adjust this to your actual collection name for branches
-                    localField: "orderId",
-                    foreignField: "_id",
-                    as: "OrderDetails"
-                }
-            },
-            { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
-            {
-                $lookup: {
-                    from: 'warehousedetails', // Collection name in MongoDB
-                    localField: 'warehouseOwnerId',
-                    foreignField: 'warehouseId',
-                    as: 'warehouseDetails',
-                },
-            },
-            { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
-            {
-                $project: {
-                    purchaseId: 1,
-                    warehouseId: '$warehouseDetails.basicDetails.warehouseId',
-                    warehouseName: '$warehouseDetails.basicDetails.warehouseName',
-                    quantityRequired: 1,
-                    scheduledPickupDate: 1,
-                    actualPickupDate: 1,
-                    totalAmount: '$payment.amount',
-                    penaltyAmount: "$penaltyDetails.penaltyAmount",
-                    pickupStatus: 1,
-                    orderId: order_id
-                }
-            },
-            // { $sort: { [sortBy || 'createdAt']: 1 } },
-            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
-            { $skip: skip },
-            { $limit: parseInt(limit, 10) }
-        ];
-
-        const records = { count: 0, rows: [] };
-        records.rows = await BatchOrderProcess.aggregate(aggregationPipeline);
-
-        const countAggregation = [
-            { $match: query },
-            { $count: 'total' }
-        ];
-        const countResult = await BatchOrderProcess.aggregate(countAggregation);
-        records.count = countResult.length > 0 ? countResult[0].total : 0;
-
-        records.page = page;
-        records.limit = limit;
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-
-        if (!records) {
-            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Order-List.xlsx`,
+                worksheetName: `Order-List`
+            });
         } else {
-            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }));
         }
-    } catch (error) {
-        _handleCatchErrors(error, res);
+    } else {
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }));
     }
+
 });
-*/
 
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
     try {
-        const { page = 1, limit = 10, sortBy, search = '', order_id } = req.query;
+        const { page = 1, limit = 10, sortBy, search = '', order_id, isExport = 0 } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
         const { user_id } = req;
 
@@ -235,10 +182,10 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
-                    from: "warehousedetails",
-                    localField: "warehouseOwnerId",
-                    foreignField: "warehouseId",
-                    as: "warehouseDetails",
+                    from: 'warehousedetails', // Collection name in MongoDB
+                    localField: 'warehouseId',
+                    foreignField: '_id',
+                    as: 'warehouseDetails',
                 },
             },
             { $unwind: { path: "$warehouseDetails", preserveNullAndEmptyArrays: true } },
@@ -246,7 +193,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                 $group: {
                     _id: "$_id",
                     purchaseId: { $first: "$purchaseId" },
-                    warehouseId: { $first: "$warehouseDetails.basicDetails.warehouseId" },
+                    warehouseId: { $first: "$warehouseDetails.wareHouse_code" },
                     warehouseName: { $first: "$warehouseDetails.basicDetails.warehouseName" },
                     quantityRequired: { $first: "$quantityRequired" },
                     scheduledPickupDate: { $first: "$scheduledPickupDate" },
@@ -254,10 +201,15 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     totalAmount: { $first: "$payment.amount" },
                     penaltyAmount: { $first: "$penaltyDetails.penaltyAmount" },
                     pickupStatus: { $first: "$pickupStatus" },
+                    paymentRecievedDate: { $first: "$payment.date" },
+                    paymentRecievedStatus: { $first: "$payment.status" },
+                    penaltyRecievedDate: { $first: "$penaltyDetails.paneltyAddedAT" },
+                    penaltyRecievedStatus: { $first: "$penaltyDetails.penaltypaymentStatus" },
                     orderId: { $first: order_id }
+                    
                 }
             },
-            { $sort: { [sortBy || "createdAt"]: -1, _id: 1 } },
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
             { $skip: skip },
             { $limit: parseInt(limit, 10) }
         ];
@@ -273,7 +225,39 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
         records.limit = parseInt(limit, 10);
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
 
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        // Export functionality
+        if (isExport == 1) {
+            const record = records.rows.map((item) => {
+
+                return {
+                    "purchase Id": item?.purchaseId || 'NA',
+                    "warehouse Id": item?.warehouseId || 'NA',
+                    "warehouse Name": item?.warehouseName ?? 'NA',
+                    "quantity": item?.quantityRequired ?? 'NA',
+                    "scheduled Pickup Date": item?.scheduledPickupDate || 'NA',
+                    "actual Pickup Date": item?.actualPickupDate ?? 'NA',
+                    "total Amount": item?.totalAmount ?? 'NA',
+                    "penalty Amount": item?.penaltyAmount ?? 'NA',
+                    "pickup Status" : item?.pickupStatus ?? 'NA',
+                    "payment Recieved Date" : item?.paymentRecievedDate ?? 'NA',
+                    "payment Recieved Status" : item?.paymentRecievedStatus ?? 'NA',
+                    "Penalty Recieved Date" : item?.penaltyRecievedDate ?? 'NA',
+                    "Penalty Recieved Status" : item?.penaltyRecievedStatus ?? 'NA',
+                };
+            });
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Batch-List.xlsx`,
+                    worksheetName: `Batch-List`
+                });
+            } else {
+                return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Batch") }));
+            }
+        } else {
+            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Batch") }));
+        }
 
     } catch (error) {
         _handleCatchErrors(error, res);
