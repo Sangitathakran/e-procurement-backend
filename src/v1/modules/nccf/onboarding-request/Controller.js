@@ -36,26 +36,26 @@ module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
                 'request_date': '$createdAt',
                 'status': '$is_approved'
             }
-        }
+        },
+        { $sort: { [sortBy]: 1 } },
     ];
-
-    if (paginate == 1) {
+        
+    if (( page === 1 || page === '1') && !isExport) {
         aggregationPipeline.push(
-            { $skip: parseInt(skip) },
+            { $skip: parseInt(skip)},
             { $limit: parseInt(limit) }
-
         );
-    }
+    } 
 
     const records = { count: 0 };
     records.rows = await Distiller.aggregate(aggregationPipeline);
     records.count = await Distiller.countDocuments(matchStage);
 
-    if (paginate == 1) {
+  
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-    }
+    
 
     // return res.status(200).send(new serviceResponse({
     //     status: 200,
@@ -316,26 +316,23 @@ module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
                 'status': '$mou_approval',
                 'hard_copy': '$mou',
             }
-        }
+        },
+        { $sort: { [sortBy]: 1 } },
     ];
-
-    if (paginate == 1) {
+    if (( page === 1 || page === '1') && !isExport) {
         aggregationPipeline.push(
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
-
         );
     }
 
     const records = { count: 0 };
     records.rows = await Distiller.aggregate(aggregationPipeline);
     records.count = await Distiller.countDocuments(matchStage);
-
-    if (paginate == 1) {
-        records.page = page;
-        records.limit = limit;
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-    }
+    records.page = page;
+    records.limit = limit;
+    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+    
 
     // return res.status(200).send(new serviceResponse({
     //     status: 200,

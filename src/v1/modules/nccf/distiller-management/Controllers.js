@@ -97,20 +97,19 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
                 commodity: 1,
                 mou_document: 1,
             }
-        }
+        },
+        { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }
     ];
     
     const withoutPaginationAggregationPipeline = [...aggregationPipeline];
-    
-    if (paginate == 1) {
+    if (( page === 1 || page === '1') && !isExport) {
         aggregationPipeline.push(
-            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, 
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
         );
-    } else {
-        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
     }
+    
+   
 
     if (isExport == 1) {
         const exportRecords = await Distiller.aggregate(aggregationPipeline);
@@ -142,16 +141,13 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
     } else {
         const records = { count: 0 };
         records.rows = await Distiller.aggregate(aggregationPipeline);
-        const totalPipeline = [...withoutPaginationAggregationPipeline];
-        totalPipeline.push({ $count: "count" });
-        const totalCount = await Distiller.aggregate(totalPipeline);
+        const totalCount = await Distiller.aggregate(aggregationPipeline);
         records.count = totalCount?.[0]?.count ?? 0;
-        
-        if (paginate == 1) {
+    
             records.page = page;
             records.limit = limit;
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-        }
+        
 
         return res.status(200).send(new serviceResponse({
             status: 200,
