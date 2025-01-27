@@ -45,14 +45,14 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
             let batchOrderProcess = await BatchOrderProcess.findOne({
                 warehouseOwnerId: user_id,
                 orderId: item._id,
-              }).select('warehouseId orderId');
-              
-              return batchOrderProcess ? item : null; // Return the item if found, otherwise null
-            })
-          );
-          // Filter out null values
-          records.rows = records.rows.filter((item) => item !== null);
-        records.count = records.rows.length;
+            }).select('warehouseId orderId');
+
+            return batchOrderProcess ? item : null; // Return the item if found, otherwise null
+        })
+    );
+    // Filter out null values
+    records.rows = records.rows.filter((item) => item !== null);
+    records.count = records.rows.length;
 
     if (paginate == 1) {
         records.page = page
@@ -215,10 +215,10 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
 
 module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
-    const { batches = [], batch_id, purchaseOrder_id } = req.body;
+    const { batches = [], purchaseOrder_id } = req.body;
 
 
-    if (batches.length == 0 || !batch_id || !purchaseOrder_id) {
+    if (batches.length == 0 || !purchaseOrder_id) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _middleware.require("ready-to-ship fields") }] }))
     }
 
@@ -256,13 +256,14 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
 
     const trackRecord = await TrackOrder.create({
-        batch_id,
+        // batch_id,
         purchaseOrder_id,
         ready_to_ship: {
             pickup_batch: batches,
             marked_ready: true,
             status: `${batches.length} Batches`
-        }
+        },
+        status: _trackOrderStatus.readyToShip,
     })
 
     return res.status(200).send(new serviceResponse({ status: 200, data: trackRecord, message: _response_message.created("track") }))
@@ -279,7 +280,9 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _middleware.require("in-transit fields") }] }));
     }
 
-    const trackOrderRecord = await TrackOrder.findOne({ _id: trackOrder_id });
+    const trackOrderRecord = await TrackOrder.findOne({ _id: trackOrder_id }).populate([
+        { path: "purchaseOrder_id", select: { "quantityRequired": 1 } }
+    ])
 
     if (!trackOrderRecord) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("track order") }] }))
@@ -341,6 +344,13 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "total quantity exceeds truck capacity" }] }));
     }
 
+    if (totalQtyOfBatches > trackOrderRecord?.purchaseOrder_id?.quantityRequired) {
+        trackOrderRecord.in_transit.qtyFulfilled = true;
+        await trackOrderRecord.save();
+        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "required quantity already shipped!" }] }));
+
+    }
+
     const logistics_details = {
         logistics_company,
         tracking_id,
@@ -371,9 +381,11 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
         vehicle_details,
     })
 
-
+    console.log("trackRecord  :>> ", trackOrderRecord);
     trackOrderRecord.in_transit.truck_id.push(truckRecord._id);
+    trackOrderRecord.status = _trackOrderStatus.inTransit;
     const truckCount = trackOrderRecord.in_transit.truck_id.length;
+    console.log("truckCount ", truckCount);
     trackOrderRecord.in_transit.status = `${truckCount} Trucks`;
 
     await trackOrderRecord.save();
@@ -402,7 +414,7 @@ module.exports.getBatches = asyncErrorHandler(async (req, res) => {
                 unit: batch.availableQty.unit,
             },
             receving_date: batch.receving_date,
-            noOfBagsAlloted: batch.totalBags,
+            noOfBagsAlloted: batch.no_of_bags,
         }
 
         data.push(batchData);
@@ -417,7 +429,13 @@ module.exports.fetchBatches = asyncErrorHandler(async (req, res) => {
 
     const { id } = req.params;
 
-    const record = await BatchOrderProcess.findOne({ _id: id });
+    const record = await BatchOrderProcess.findOne({ _id: id }).populate([
+        {
+            path: "orderId",
+            select: { "product.name" : 1 ,  "purchasedOrder.poNo" : 1  } 
+        }
+
+    ])
 
     if (!record) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("purchase record") }] }))
@@ -429,23 +447,27 @@ module.exports.fetchBatches = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("batches with this warehouse") }] }))
     }
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: batches, message: _response_message.found("batches") }));
+    const orderDetails =  { commodity : record.orderId.product.name , orderId : record.orderId.purchasedOrder.poNo , qty : record.quantityRequired  } ;
+
+    const data = { batches , orderDetails  }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: data, message: _response_message.found("batches") }));
 })
 
 module.exports.getStatus = asyncErrorHandler(async (req, res) => {
 
 
     const { id } = req.params;
-    const record = {};
-    record.rows = await TrackOrder.findOne({ purchaseOrder_id: id });
 
-    if (!record.rows) {
-        record.status = "pending"
-    } else {
-        record.status = "shipped";
+    const record = { data: { status: "" } };
+
+    record.data = await TrackOrder.findOne({ purchaseOrder_id: id });
+
+    if (!record.data) {
+        return res.status(200).send(new serviceResponse({ status: 200, data: record.data = { status: _trackOrderStatus.pending }, message: _response_message.found("track") }))
     }
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("status") }));
+    return res.status(200).send(new serviceResponse({ status: 200, data: record.data, message: _response_message.found("status") }));
 
 })
 
@@ -461,7 +483,7 @@ module.exports.getTrucks = asyncErrorHandler(async (req, res) => {
     if (!record) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("truck") }] }))
     }
-  
+
     const result = [];
 
     for (let data of record) {
@@ -480,7 +502,7 @@ module.exports.getTrucks = asyncErrorHandler(async (req, res) => {
 
         }
 
-        result.push({ truckId: data.truckNo, allotedQty: totalQty, no_of_bags: totalBags }) 
+        result.push({ truckId: data.truckNo, allotedQty: totalQty, no_of_bags: totalBags })
 
     }
 
