@@ -432,7 +432,7 @@ module.exports.fetchBatches = asyncErrorHandler(async (req, res) => {
     const record = await BatchOrderProcess.findOne({ _id: id }).populate([
         {
             path: "orderId",
-            select: { "product.name" : 1 ,  "purchasedOrder.poNo" : 1  } 
+            select: { "product.name": 1, "purchasedOrder.poNo": 1 }
         }
 
     ])
@@ -441,15 +441,16 @@ module.exports.fetchBatches = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("purchase record") }] }))
     }
 
-    const batches = await Batch.find({ warehousedetails_id: req.userId });
+
+    const batches = await Batch.find({ warehousedetails_id: req.user_id });
 
     if (batches.length == 0) {
         return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("batches with this warehouse") }] }))
     }
 
-    const orderDetails =  { commodity : record.orderId.product.name , orderId : record.orderId.purchasedOrder.poNo , qty : record.quantityRequired  } ;
+    const orderDetails = { commodity: record.orderId.product.name, orderId: record.orderId.purchasedOrder.poNo, qty: record.quantityRequired };
 
-    const data = { batches , orderDetails  }
+    const data = { batches, orderDetails }
 
     return res.status(200).send(new serviceResponse({ status: 200, data: data, message: _response_message.found("batches") }));
 })
@@ -507,6 +508,28 @@ module.exports.getTrucks = asyncErrorHandler(async (req, res) => {
     }
 
     return res.status(200).send(new serviceResponse({ status: 200, data: result, message: _response_message.found("truck") }))
+
+
+})
+
+module.exports.rejectTrack = asyncErrorHandler(async (req, res) => {
+
+
+    const { id , reason } = req.body;
+
+    const record = await TrackOrder.findOne({ purchaseOrder_id: id });
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("purchase order") }] }));
+    }
+
+    record.rejection.is_reject = true ; 
+    record.rejection.reason = reason ; 
+    record.status = _trackOrderStatus.rejected ; 
+
+    await record.save() ; 
+
+    return res.status(200).send(new serviceResponse({ status : 200 , data : record , message : _response_message.found("purchase order")}));
 
 
 })
