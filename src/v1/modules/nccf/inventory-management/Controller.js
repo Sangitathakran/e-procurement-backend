@@ -40,7 +40,6 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
       search = "",
       state="",
       district="",
-  
       filters = {},
       isExport = 0,
     } = req.query;
