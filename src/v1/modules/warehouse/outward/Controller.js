@@ -274,9 +274,9 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
 module.exports.inTransit = asyncErrorHandler(async (req, res) => {
 
-    const { trackOrder_id, batches = [], truck_capacity, logistics_company, tracking_id, tracking_link, name, contact, aadhar_number, license_number, license_img, loaded_vehicle_weight, vehicle_weight, vehicle_number, vehicle_img } = req.body;
+    const { trackOrder_id, batches = [], truck_capacity, logistics_company, tracking_id, tracking_link, name, contact, aadhar_number, license_number, license_img, loaded_vehicle_weight, vehicle_weight, vehicle_number, vehicle_img , receipt , doc } = req.body;
 
-    if (!truck_capacity || !logistics_company || !tracking_id || !tracking_link || !name || !contact || !aadhar_number || !license_number || !license_img || !loaded_vehicle_weight || !vehicle_weight || !vehicle_number || !vehicle_img) {
+    if (!truck_capacity || !logistics_company || !tracking_id || !tracking_link || !name || !contact || !aadhar_number || !license_number || !license_img || !loaded_vehicle_weight || !vehicle_weight || !vehicle_number || !vehicle_img || !receipt || !doc) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _middleware.require("in-transit fields") }] }));
     }
 
@@ -372,6 +372,11 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
         vehicle_img,
     }
 
+    const warehouse = { 
+        receipt  , 
+        doc , 
+    }
+
     const truckRecord = await Truck.create({
         trackOrder_id: trackOrder_id,
         final_pickup_batch: batches,
@@ -379,6 +384,7 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
         logistics_details,
         driver_details,
         vehicle_details,
+        warehouse ,
     })
 
     console.log("trackRecord  :>> ", trackOrderRecord);
