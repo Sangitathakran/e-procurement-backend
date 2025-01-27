@@ -81,6 +81,7 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
         const allowedUrls = [
             '/batch-list',
             '/batches',
+            '/reject',
             '/status',
             '/truck',
             '/onboarding',
