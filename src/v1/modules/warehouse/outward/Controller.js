@@ -285,7 +285,7 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
     ])
 
     if (!trackOrderRecord) {
-        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("track order") }] }))
+        return res.status(200).send(new serviceResponse({ status: 404 , errors: [{ message: _response_message.notFound("track order") }] }))
     }
 
     let totalQtyOfBatches = 0;
@@ -341,13 +341,13 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
     console.log("truckCapacity ", truck_capacity);
 
     if (totalQtyOfBatches > truck_capacity) {
-        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "total quantity exceeds truck capacity" }] }));
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "total quantity exceeds truck capacity" }] }));
     }
 
     if (totalQtyOfBatches > trackOrderRecord?.purchaseOrder_id?.quantityRequired) {
         trackOrderRecord.in_transit.qtyFulfilled = true;
         await trackOrderRecord.save();
-        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "required quantity already shipped!" }] }));
+        return res.status(200).send(new serviceResponse({ status: 404 , errors: [{ message: "required quantity already shipped!" }] }));
 
     }
 
