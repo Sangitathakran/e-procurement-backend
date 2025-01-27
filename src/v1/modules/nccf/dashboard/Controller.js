@@ -302,19 +302,37 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
 
 module.exports.getMonthlyPaidAmount = asyncErrorHandler(async (req, res) => {
     try {
-        // Fetch aggregated monthly paid amounts
+        const { state } = req.query;
+
+        // Build match stage based on state condition
+        const matchStage = {};
+        if (state) {
+            matchStage["distiller.address.registered.state"] = state;
+        }
+
         const monthlyPaidAmounts = await PurchaseOrderModel.aggregate([
+            {
+                $lookup: {
+                    from: "distillers",
+                    localField: "distiller_id",
+                    foreignField: "_id",
+                    as: "distiller",
+                },
+            },
+            {
+                $unwind: "$distiller",
+            },
+            {
+                $match: matchStage, // Apply state filter if provided
+            },
             {
                 $group: {
                     _id: {
-                        year: { $year: "$createdAt" },  
+                        year: { $year: "$createdAt" },
                         month: { $month: "$createdAt" },
                     },
-                    totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
-                    totalAmount:{$sum:"$paymentInfo.totalAmount"}
+                    totalPaidAmount: { $sum: "$paymentInfo.paidAmount" }
                 },
-
-
             },
             {
                 $sort: {
@@ -328,7 +346,6 @@ module.exports.getMonthlyPaidAmount = asyncErrorHandler(async (req, res) => {
                     year: "$_id.year",
                     month: "$_id.month",
                     totalPaidAmount: 1,
-                    totalAmount: 1
                 },
             },
         ]);
@@ -338,45 +355,49 @@ module.exports.getMonthlyPaidAmount = asyncErrorHandler(async (req, res) => {
         const startYear = monthlyPaidAmounts.length ? monthlyPaidAmounts[0].year : currentYear;
         const endYear = currentYear;
 
-        // Array to map month numbers to names
         const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
         const filledMonthlyData = [];
+        let totalSumAllMonths = 0;
+
         for (let year = startYear; year <= endYear; year++) {
             for (let month = 1; month <= 12; month++) {
                 const existingData = monthlyPaidAmounts.find(
                     (data) => data.year === year && data.month === month
                 );
 
+                const paidAmount = existingData ? existingData.totalPaidAmount : 0;
+                totalSumAllMonths += paidAmount;
+
                 filledMonthlyData.push({
                     year,
-                    month: monthNames[month - 1], // Map month number to name
-                    totalPaidAmount: existingData ? existingData.totalPaidAmount : 0,
-                    totalAmount: existingData ? existingData.totalAmount : 0,
+                    month: monthNames[month - 1],
+                    totalPaidAmount: paidAmount,
                 });
             }
         }
 
-        // Check if data is available
         if (!filledMonthlyData.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
-                message: "No data available for monthly paid amounts"
+                message: "No data available for monthly paid amounts",
             }));
         }
 
-        // Return aggregated results with missing months filled in
         return res.status(200).send(new serviceResponse({
             status: 200,
-            data: filledMonthlyData,
-            message: "Monthly paid amounts fetched successfully"
+            data: {
+                monthlyData: filledMonthlyData,
+                totalSumAllMonths,
+            },
+            message: "Monthly paid amounts fetched successfully",
         }));
     } catch (error) {
         console.error(error);
         return res.status(500).send(new serviceResponse({
             status: 500,
             message: "Error fetching monthly paid amounts",
-            error: error.message
+            error: error.message,
         }));
     }
 });
