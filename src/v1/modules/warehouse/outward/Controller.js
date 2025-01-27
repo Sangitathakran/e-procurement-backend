@@ -423,10 +423,10 @@ module.exports.fetchBatches = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("purchase record") }] }))
     }
 
-    const batches = await Batch.find({ warehousedetails_id: record.warehouseId });
+    const batches = await Batch.find({ warehousedetails_id: req.userId });
 
     if (batches.length == 0) {
-        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("batches with this warehouse") }] }))
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("batches with this warehouse") }] }))
     }
 
     return res.status(200).send(new serviceResponse({ status: 200, data: batches, message: _response_message.found("batches") }));
