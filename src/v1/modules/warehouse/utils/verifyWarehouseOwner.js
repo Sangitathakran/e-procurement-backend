@@ -105,6 +105,8 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             '/get-warehouse-dashboardStats',
             '/track/ready-to-ship',
             '/track/in-transit',
+            '/get-warehouse-filter-list',
+            '/filter-batch-list'
             
         ];
 

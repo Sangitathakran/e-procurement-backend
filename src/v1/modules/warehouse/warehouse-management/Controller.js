@@ -91,7 +91,7 @@ module.exports.saveWarehouseDetails = async (req, res) => {
     }
 };
 
-module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
+module.exports.getWarehouseList = async (req, res) => {
     const {
         page = 1,
         limit = 10,
@@ -187,7 +187,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         console.error(error);
         return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching warehouses", error: error.message }));
     }
-});
+};
 
 module.exports.editWarehouseDetails = async (req, res) => {
     try {
@@ -320,6 +320,70 @@ module.exports.getWarehouseDashboardStats = async (req, res) => {
       }
     
 }
+
+module.exports.warehouseFilterList = async (req, res) => {
+    const { sortBy = 'createdAt', sortOrder = 'asc' } = req.query;
+
+    try {
+        // Decode token and get the user ID
+        const token = req.headers.token || req.cookies.token;
+        if (!token) {
+            return res.status(401).send(new serviceResponse({ status: 401, message: "Token is required" }));
+        }
+
+        const decoded = await decryptJwtToken(token);
+        const userId = decoded.data.user_id;
+
+        // Construct query for filtering warehouses
+        const query = {
+            warehouseOwnerId: userId, // Fetch only the warehouses owned by the logged-in user
+        };
+
+        // Fetch data with sorting and ensure both state_name and city are included
+        const warehouses = await wareHouseDetails.find(query)
+            .select("addressDetails.state.state_name addressDetails.city")
+            .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 });
+
+        // Use sets to ensure unique values for state_name and city
+        const stateNames = new Set();
+        const cities = new Set();
+
+        warehouses.forEach((warehouse) => {
+            const stateName = warehouse.addressDetails.state?.state_name; // Safely access state_name
+            const city = warehouse.addressDetails.city;
+
+            if (stateName) stateNames.add(stateName); // Add unique state_name
+            if (city) cities.add(city); // Add unique city
+        });
+
+        // Convert sets back to arrays for the response
+        const result = {
+            state_name: Array.from(stateNames),
+            city: Array.from(cities),
+        };
+
+        // Return response
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: {
+                records: result,
+            },
+            message: "Warehouses filter list fetched successfully",
+        }));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching warehouses", error: error.message }));
+    }
+};
+
+
+
+
+
+
+
+
+
 
 
 

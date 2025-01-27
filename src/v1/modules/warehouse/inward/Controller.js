@@ -110,7 +110,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
     const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status, productName, warehouse_name } = req.query;
     const { warehouseIds = [] } = req.body;
 
-    try {
+    try { 
         const getToken = req.headers.token || req.cookies.token;
         if (!getToken) {
             return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
@@ -1038,5 +1038,64 @@ module.exports.batchStatsData = async (req, res) => {
         
     } catch (error) {
         _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.getFilterBatchList = async (req, res) => {
+    const { sortBy = "createdAt" } = req.query;
+    try {
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
+
+        const decode = await decryptJwtToken(getToken);
+        const UserId = decode.data.user_id;
+
+        if (!mongoose.Types.ObjectId.isValid(UserId)) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+        }
+
+        const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+        const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
+
+        const query = {
+            "warehousedetails_id": { $in: ownerwarehouseIds },
+        };
+
+        const rows = await Batch.find(query)
+            .populate([
+                { path: "req_id", select: "product.name" },
+            ])
+            .select("final_quality_check.status ")
+            .sort(sortBy);
+
+        // Extract unique statuses and names
+        const uniqueStatuses = new Set();
+        const uniqueNames = new Set();
+
+        rows.forEach(row => {
+            if (row.final_quality_check?.status) {
+                uniqueStatuses.add(row.final_quality_check.status);
+            }
+            if (row.req_id?.product?.name) {
+                uniqueNames.add(row.req_id.product.name);
+            }
+        });
+
+        // Prepare final response structure
+        const result = {
+            status: Array.from(uniqueStatuses),
+            name: Array.from(uniqueNames),
+        };
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: result,
+            message: "Batches filter list fetched successfully",
+        }));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
     }
 };
