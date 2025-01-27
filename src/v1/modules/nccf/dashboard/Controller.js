@@ -2,7 +2,7 @@ const {
     _handleCatchErrors,
     dumpJSONToExcel,
 } = require("@src/v1/utils/helpers");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const {
     _response_message,
     _middleware,
@@ -31,6 +31,7 @@ const {
 } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { mongoose } = require("mongoose");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 
 
 
@@ -401,3 +402,75 @@ module.exports.getMonthlyPaidAmount = asyncErrorHandler(async (req, res) => {
         }));
     }
 });
+
+
+
+module.exports.getPublicStates = async (req, res) => {
+    try {
+      const states = await StateDistrictCity.aggregate([
+        { $unwind: "$states" },
+        { $project: { "states.state_title": 1, "states._id": 1 } },
+        { $group: { _id: null, states: { $push: "$states" } } },
+      ]);
+  
+      if (!states.length || !states[0].states.length) {
+        return sendResponse({
+          res,
+          data: [],
+          status: 404,
+          message: _response_message.notFound("state"),
+        });
+      }
+  
+      return sendResponse({
+        res,
+        data: states[0].states,
+        status: 200,
+        message: _response_message.found("state"),
+      });
+    } catch (err) {
+      _handleCatchErrors(err, res);
+    }
+  };
+  
+  
+  module.exports.getPublicDistrictByState = async (req, res) => {
+    const { id } = req.params;
+    try {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return sendResponse({
+          res,
+          data: null,
+          status: 404,
+          message: _response_message.invalid(id),
+        });
+      }
+      const result = await StateDistrictCity.findOne(
+        { "states._id": id },
+        { "states.$": 1 }
+      );
+  
+      if (!result && result?.states?.length > 0) {
+        sendResponse({
+          res,
+          data: districts,
+          status: 404,
+          message: _response_message.notFound("state"),
+        });
+      }
+  
+      const state = result.states[0];
+      const districts = state.districts.map(district => ({
+        district_title: district.district_title,
+        _id: district._id
+      }));
+      return sendResponse({
+        res,
+        data: districts,
+        status: 200,
+        message: _response_message.found("district"),
+      });
+    } catch (err) {
+      _handleCatchErrors(err, res);
+    }
+  }
