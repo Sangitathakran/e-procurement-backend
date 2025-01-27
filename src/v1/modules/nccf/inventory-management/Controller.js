@@ -40,6 +40,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
       search = "",
       state="",
       district="",
+  
       filters = {},
       isExport = 0,
     } = req.query;
@@ -167,6 +168,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     records.page = page;
     records.limit = limit;
     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+   
    
     // Export functionality
     if (isExport == 1) {
