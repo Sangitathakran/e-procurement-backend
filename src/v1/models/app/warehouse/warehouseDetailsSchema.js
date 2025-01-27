@@ -107,22 +107,22 @@ warehouseDetailsSchema.pre("save", async function (next) {
     try {
       const lastWarehouse = await mongoose
         .model(_collectionName.WarehouseDetails)
-        .findOne()
-        .sort({ createdAt: -1 });
+        .aggregate([
+          { $match: { wareHouse_code: { $regex: /^WH\d{3}$/ } } },
+          { $sort: { wareHouse_code: -1 } },
+          { $limit: 1 },
+        ]);
 
-      let nextIdentifier = "WH001";
+      const lastCode = lastWarehouse.length
+        ? lastWarehouse[0].wareHouse_code
+        : "WH000";
 
-      if (lastWarehouse && lastWarehouse.wareHouse_code) {
-        const lastCodeNumber = parseInt(
-          lastWarehouse.wareHouse_code.slice(2),
-          10
-        );
-        nextIdentifier = "WH" + String(lastCodeNumber + 1).padStart(3, "0");
-      }
+      const nextCodeNumber = parseInt(lastCode.slice(2)) + 1;
+      this.wareHouse_code = `WH${String(nextCodeNumber).padStart(3, "0")}`;
 
-      this.wareHouse_code = nextIdentifier;
       next();
     } catch (err) {
+      console.error("Error generating wareHouse_code:", err);
       next(err);
     }
   } else {
