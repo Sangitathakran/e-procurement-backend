@@ -500,3 +500,75 @@ module.exports.getTrucks = asyncErrorHandler(async (req, res) => {
 
 
 })
+
+module.exports.batchOrderStatsData = async (req, res) => {
+    try {
+        const { warehouseIds = [] } = req.body;
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
+
+        const decode = await decryptJwtToken(getToken);
+        const UserId = decode.data.user_id;
+
+        if (!mongoose.Types.ObjectId.isValid(UserId)) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+        }
+        
+        const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+        const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
+        
+        const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
+            ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
+            : ownerwarehouseIds;
+
+        if (!finalwarehouseIds.length) {
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: { records: [], page, limit, pages: 0 },
+                message: "No warehouses found for the user."
+            }));
+        }
+
+        const query = {"warehousedetails_id": { $in: finalwarehouseIds }};
+
+        const rows = await BatchOrderProcess.find(query);
+        let totalPurchaseOrder = 0;
+        let pendingPurchaseOrder = 0;
+        let inTransitPurchaseOrder = 0;
+        let rejectedPurchaseOrder = 0;
+        let completedPurchaseOrder = 0;
+        
+        
+        rows.forEach(batch => {
+            const batchStatus = batch?.status;
+            
+            if(batchStatus == _poBatchStatus.pending) {
+                pendingPurchaseOrder++;
+            } else if (batchStatus == _poBatchStatus.inProgress) {
+                inTransitPurchaseOrder++;
+            } else if (batchStatus == _poBatchStatus.rejected) {
+                rejectedPurchaseOrder++;
+            } else if (batchStatus == _poBatchStatus.completed) {
+                completedPurchaseOrder++;
+            }
+
+        });
+        const response = {
+            totalPurchaseOrder : pendingPurchaseOrder+inTransitPurchaseOrder+rejectedPurchaseOrder+completedPurchaseOrder,
+            pendingPurchaseOrder,
+            inTransitPurchaseOrder,
+            rejectedPurchaseOrder,
+            completedPurchaseOrder,
+        };
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            message: 'Batch Order statistics fetch successfully.',
+            data: response
+        })); 
+        
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
