@@ -590,14 +590,6 @@ module.exports.bulkuplodDistiller = async (req, res) => {
                                 organization_name: company_name,
                                 email,
                                 phone: company_mobile,
-                                company_logo: null,
-                                pan: company_pan,
-                                cin: company_cin,
-                                address: company_address,
-                                state,
-                                district,
-                                city,
-                                pincode,
                             },
                             point_of_contact: {
                                 name: poc_name,
@@ -618,6 +610,20 @@ module.exports.bulkuplodDistiller = async (req, res) => {
                                 email: auth_email,
                                 aadhar_number: auth_aadhar,
                                 pan_card: auth_pan,
+                            },
+                        },
+                        company_details: {
+                            cin_number: company_cin,
+                            pan_card: company_pan,
+                        },
+                        address: {
+                            registered: {
+                                line1: company_address,
+                                country:'India',
+                                state,
+                                district,
+                                taluka: city,
+                                pinCode: pincode,
                             },
                         },
                         bank_details: {
