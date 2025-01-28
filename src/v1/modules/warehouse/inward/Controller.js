@@ -1041,6 +1041,20 @@ module.exports.batchStatsData = async (req, res) => {
     }
 };
 
+
+
+// Utility function to convert a string to camelCase
+function toCamelCase(str) {
+    return str
+        .split(/[^a-zA-Z0-9]+/)
+        .map((word, index) =>
+            index === 0
+                ? word.toLowerCase()
+                : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        )
+        .join('');
+}
+
 module.exports.getFilterBatchList = async (req, res) => {
     const { sortBy = "createdAt" } = req.query;
     try {
@@ -1070,23 +1084,25 @@ module.exports.getFilterBatchList = async (req, res) => {
             .select("final_quality_check.status ")
             .sort(sortBy);
 
-        // Extract unique statuses and names
-        const uniqueStatuses = new Set();
-        const uniqueNames = new Set();
+        // Create key-value pairs for status and name
+        const statusKeyValue = {};
+        const nameKeyValue = {};
 
         rows.forEach(row => {
             if (row.final_quality_check?.status) {
-                uniqueStatuses.add(row.final_quality_check.status);
+                const camelKey = toCamelCase(row.final_quality_check.status);
+                statusKeyValue[camelKey] = row.final_quality_check.status;
             }
             if (row.req_id?.product?.name) {
-                uniqueNames.add(row.req_id.product.name);
+                const camelKey = toCamelCase(row.req_id.product.name);
+                nameKeyValue[camelKey] = row.req_id.product.name;
             }
         });
 
         // Prepare final response structure
         const result = {
-            status: Array.from(uniqueStatuses),
-            name: Array.from(uniqueNames),
+            status: statusKeyValue,
+            name: nameKeyValue,
         };
 
         return res.status(200).send(new serviceResponse({
@@ -1099,3 +1115,4 @@ module.exports.getFilterBatchList = async (req, res) => {
         return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
     }
 };
+
