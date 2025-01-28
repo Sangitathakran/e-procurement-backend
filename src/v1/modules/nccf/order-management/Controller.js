@@ -65,6 +65,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
                 _id: 1,
                 orderId: '$purchasedOrder.poNo',
                 commodity: '$product.name',
+                distillerId: '$distiller.user_code',
                 distillerName: '$distiller.basic_details.distiller_details.organization_name',
                 quantity: '$purchasedOrder.poQuantity',
                 totalAmount: '$paymentInfo.totalAmount',
@@ -99,16 +100,15 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         const record = records.rows.map((item) => {
 
             return {
-                "order Id": item?.orderId || 'NA',
-                "commodity": item?.commodity || 'NA',
-                "distiller Name": item?.distillerName ?? 'NA',
-                "quantity": item?.quantity ?? 'NA',
-                "total Amount": item?.totalAmount || 'NA',
-                "advance Payment": item?.advancePayment ?? 'NA',
-                "advance Payment": item?.advancePayment ?? 'NA',
-                "remaining Amount": item?.remainingAmount ?? 'NA',
-                "address": item?.address ?? 'NA',
-                "created At": item?.createdAt ?? 'NA'
+                "Order Id": item?.orderId || 'NA',
+                // "commodity": item?.commodity || 'NA',
+                "Distiller ID": item?.distillerId ?? 'NA',
+                "Distiller Name": item?.distillerName ?? 'NA',
+                "Quantity": item?.quantity ?? 'NA',
+                "Total Amount": item?.totalAmount || 'NA',                
+                "Token Amount": item?.advancePayment ?? 'NA',
+                "Remaining Amount": item?.remainingAmount ?? 'NA',
+                "Address": item?.address ?? 'NA'
             };
         });
 
