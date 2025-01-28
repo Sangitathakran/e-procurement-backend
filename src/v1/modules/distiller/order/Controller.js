@@ -290,8 +290,8 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
             {
                 $lookup: {
                     from: 'warehousedetails',
-                    localField: '_id',
-                    foreignField: 'warehouseId',
+                    localField: 'warehouseId',
+                    foreignField: '_id',
                     as: 'warehouseDetails',
                 },
             },
