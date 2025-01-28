@@ -55,30 +55,30 @@ module.exports.payment = async (req, res) => {
             //         as: "branch",
             //     },
             // },
-            {
-                $lookup: {
-                    from: "users",
-                    localField: "batches.seller_id",
-                    foreignField: "_id",
-                    as: "sellers",
-                },
-            },
-            {
-                $lookup: {
-                    from: "procurementcenters",
-                    localField: "batches.procurementCenter_id",
-                    foreignField: "_id",
-                    as: "ProcurementCenter",
-                },
-            },
-            {
-                $lookup: {
-                    from: "farmers",
-                    localField: "farmer_order_id",
-                    foreignField: "farmer_order_id",
-                    as: "farmer",
-                },
-            },
+            // {
+            //     $lookup: {
+            //         from: "users",
+            //         localField: "batches.seller_id",
+            //         foreignField: "_id",
+            //         as: "sellers",
+            //     },
+            // },
+            // {
+            //     $lookup: {
+            //         from: "procurementcenters",
+            //         localField: "batches.procurementCenter_id",
+            //         foreignField: "_id",
+            //         as: "ProcurementCenter",
+            //     },
+            // },
+            // {
+            //     $lookup: {
+            //         from: "farmers",
+            //         localField: "farmer_order_id",
+            //         foreignField: "farmer_order_id",
+            //         as: "farmer",
+            //     },
+            // },
             {
                 $match: {
                     batches: { $ne: [] }
@@ -165,16 +165,16 @@ module.exports.payment = async (req, res) => {
                     amountPayable: 1,
                     payment_status: 1,
                     // branch: 1,
-                    'sellerDetails.associate_name': 1,
-                    'farmer.farmer_id': 1,
-                    'farmer.name': 1,
-                    'farmer.basic_details.mobile_no': 1,
-                    'farmer.basic_details.dob': 1,
-                    'farmer.parents.father_name': 1,
-                    'farmer.address': 1,
-                    'ProcurementCenter.center_name': 1,
-                    'ProcurementCenter.center_code': 1,
-                    'ProcurementCenter.address': 1
+                    // 'sellerDetails.associate_name': 1,
+                    // 'farmer.farmer_id': 1,
+                    // 'farmer.name': 1,
+                    // 'farmer.basic_details.mobile_no': 1,
+                    // 'farmer.basic_details.dob': 1,
+                    // 'farmer.parents.father_name': 1,
+                    // 'farmer.address': 1,
+                    // 'ProcurementCenter.center_name': 1,
+                    // 'ProcurementCenter.center_code': 1,
+                    // 'ProcurementCenter.address': 1
                 }
             }
         ];
