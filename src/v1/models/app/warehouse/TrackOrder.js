@@ -1,5 +1,5 @@
 
-const { _collectionName } = require("@src/v1/utils/constants");
+const { _collectionName, _trackOrderStatus } = require("@src/v1/utils/constants");
 const { _commonKeys } = require("@src/v1/utils/helpers/collection");
 const mongoose = require("mongoose");
 
@@ -13,26 +13,32 @@ const trackOrderSchema = new mongoose.Schema({
         status: { type: String, default: "Pending" },
         pickup_batch: [
             {
-                associate_batch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch }, 
-                batchId : { type : String } ,
+                associate_batch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch },
+                batchId: { type: String },
                 availableQty: {
                     count: { type: Number },
                     unit: { type: String },
                 },
                 receving_date: { type: Date, default: Date.now },
                 qtyAllotment: { type: Number },
-                totalBags : { type : Number } ,
+                totalBags: { type: Number },
                 no_of_bags: { type: Number },
             }
         ],
-        marked_ready : { type : Boolean , default : false } ,
-        date : { type : Date , default : Date.now } , 
+        marked_ready: { type: Boolean, default: false },
+        date: { type: Date, default: Date.now },
     },
     in_transit: {
         status: { type: String, default: "Pending" },
-        truck_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Truck }], 
-        date : { type : Date , default : Date.now}
+        truck_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Truck }],
+        date: { type: Date, default: Date.now },
+        qtyFulfilled: { type: Boolean, default: false },
     },
+    rejection: {
+        is_reject: { type: Boolean, default: false },
+        reason: { type: String },
+    },
+    status: { type: String, enum: Object.values(_trackOrderStatus), default: _trackOrderStatus.pending },
     ..._commonKeys
 },
     {
