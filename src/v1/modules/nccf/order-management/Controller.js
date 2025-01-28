@@ -181,7 +181,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                 $project: {
                     // warehouseId: 1,
                     purchaseId: '$purchaseId',
-                    warehouseId: "$wareHouse_code",
+                    warehouseId: "$warehouseDetails.wareHouse_code",
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
@@ -522,7 +522,8 @@ module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
         // const totalAmount = handleDecimal(record.paymentInfo.totalAmount);
         // const tokenAmount = handleDecimal(record.paymentInfo.advancePayment);
         // const remainingAmount = handleDecimal(record.paymentInfo.balancePayment);
-        const amountToBePaid = handleDecimal(msp * record.quantityRequired);
+        // const amountToBePaid = handleDecimal(msp * record.quantityRequired);
+        const amountToBePaid = handleDecimal(msp * quantity);
 
         record.status = status;
         record.quantityRequired = quantity;
@@ -590,7 +591,7 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
             {
                 $project: {
                     purchaseId: '$purchaseId',
-                    warehouseId: "$wareHouse_code",
+                    warehouseId: "$warehouseDetails.wareHouse_code",
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
@@ -743,7 +744,7 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
             {
                 $project: {
                     purchaseId: '$purchaseId',
-                    warehouseId: "$wareHouse_code",
+                    warehouseId: "$warehouseDetails.wareHouse_code",
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,

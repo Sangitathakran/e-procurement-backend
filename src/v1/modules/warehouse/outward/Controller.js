@@ -233,15 +233,15 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
         const batchRecord = await Batch.findOne({ _id: batch.associate_batch_id });
 
         if (!batchRecord) {
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("Batch") }] }));
+            return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("Batch") }] }));
         }
 
         if (batch.qtyAllotment > batch.availableQty.count) {
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "Qty Allotment should not exceeds Available Qty of batches" }] }))
+            return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "Qty Allotment should not exceeds Available Qty of batches" }] }))
         }
 
         if (batch.qtyAllotment == 0) {
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "Qty Allotment should be greater then zero" }] }))
+            return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "Qty Allotment should be greater then zero" }] }))
         }
 
         if (batchRecord.available_qty == 0 && batchRecord.allotedQty == 0) {
@@ -274,10 +274,10 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
 module.exports.inTransit = asyncErrorHandler(async (req, res) => {
 
-    const { trackOrder_id, batches = [], truck_capacity, logistics_company, tracking_id, tracking_link, name, contact, aadhar_number, license_number, license_img, loaded_vehicle_weight, vehicle_weight, vehicle_number, vehicle_img } = req.body;
+    const { trackOrder_id, batches = [], truck_capacity, logistics_company, tracking_id, tracking_link, name, contact, aadhar_number, license_number, license_img, loaded_vehicle_weight, vehicle_weight, vehicle_number, vehicle_img , receipt , doc } = req.body;
 
-    if (!truck_capacity || !logistics_company || !tracking_id || !tracking_link || !name || !contact || !aadhar_number || !license_number || !license_img || !loaded_vehicle_weight || !vehicle_weight || !vehicle_number || !vehicle_img) {
-        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _middleware.require("in-transit fields") }] }));
+    if (!truck_capacity || !logistics_company || !tracking_id || !tracking_link || !name || !contact || !aadhar_number || !license_number || !license_img || !loaded_vehicle_weight || !vehicle_weight || !vehicle_number || !vehicle_img || !receipt || !doc) {
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _middleware.require("in-transit fields") }] }));
     }
 
     const trackOrderRecord = await TrackOrder.findOne({ _id: trackOrder_id }).populate([
@@ -293,7 +293,7 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
     for (let batch of batches) {
 
         if (batch.no_of_bags > batch.noOfBagsAlloted) {
-            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "no of bags should not exceeds No. of Bags Alloted" }] }));
+            return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "no of bags should not exceeds No. of Bags Alloted" }] }));
         }
 
 
@@ -372,6 +372,11 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
         vehicle_img,
     }
 
+    const warehouse = { 
+        receipt  , 
+        doc , 
+    }
+
     const truckRecord = await Truck.create({
         trackOrder_id: trackOrder_id,
         final_pickup_batch: batches,
@@ -379,6 +384,7 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
         logistics_details,
         driver_details,
         vehicle_details,
+        warehouse ,
     })
 
     console.log("trackRecord  :>> ", trackOrderRecord);
@@ -438,7 +444,7 @@ module.exports.fetchBatches = asyncErrorHandler(async (req, res) => {
     ])
 
     if (!record) {
-        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("purchase record") }] }))
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("purchase record") }] }))
     }
 
 
@@ -482,7 +488,7 @@ module.exports.getTrucks = asyncErrorHandler(async (req, res) => {
     const record = await Truck.find({ trackOrder_id: id });
 
     if (!record) {
-        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("truck") }] }))
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("truck") }] }))
     }
 
     const result = [];
@@ -591,7 +597,7 @@ module.exports.rejectTrack = asyncErrorHandler(async (req, res) => {
     const record = await TrackOrder.findOne({ purchaseOrder_id: id });
 
     if (!record) {
-        return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("purchase order") }] }));
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("purchase order") }] }));
     }
 
     record.rejection.is_reject = true ; 
