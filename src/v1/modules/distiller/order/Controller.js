@@ -1,7 +1,7 @@
 const { _generateOrderNumber, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
-const { _webSocketEvents, _status, _poAdvancePaymentStatus, _poBatchPaymentStatus, _poPaymentStatus } = require('@src/v1/utils/constants');
+const { _webSocketEvents, _status, _poAdvancePaymentStatus, _poBatchPaymentStatus, _poPaymentStatus, _poBatchStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
@@ -281,6 +281,7 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
             distiller_id: new mongoose.Types.ObjectId(user_id),
+            status: _poBatchStatus.accepted,
             ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
@@ -289,8 +290,8 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
             {
                 $lookup: {
                     from: 'warehousedetails',
-                    localField: '_id',
-                    foreignField: 'warehouseId',
+                    localField: 'warehouseId',
+                    foreignField: '_id',
                     as: 'warehouseDetails',
                 },
             },

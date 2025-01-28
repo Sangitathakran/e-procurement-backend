@@ -99,47 +99,40 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
                 totalPenaltyAmount: 1, // Ensure total sum is included
                 paymentStatus: 1
             }
-        }
+        },
+        { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, 
     ];
 
-    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+    
 
-    if (paginate == 1) {
+    if (( paginate === 1 || paginate === '1') && !isExport) {
         aggregationPipeline.push(
-            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
         );
-    } else {
-        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
-    }
+    } 
 
     const rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
-
-    const totalPipeline = [...withoutPaginationAggregationPipeline];
-    totalPipeline.push({ $count: "count" });
-
-    const countResult = await PurchaseOrderModel.aggregate(totalPipeline);
+    const countResult = await PurchaseOrderModel.aggregate(aggregationPipeline);
     const count = countResult?.[0]?.count ?? 0;
 
     const records = { rows, count };
 
-    if (paginate == 1) {
         records.page = parseInt(page);
         records.limit = parseInt(limit);
         records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
-    }
-
+    
     if (isExport == 1) {
         const record = rows.map((item) => {
             return {
                 "Order Id": item?.order_id || "NA",
                 "Distiller Name": item?.distillerName || "NA",
                 "Commodity": item?.commodity || "NA",
+                "Quantity": item?.quantityRequired || "NA",
                 "Total Amount": item?.totalAmount || "NA",
-                "Payment Sent": item?.paymentSent || "NA",
+                "Payment Received": item?.paymentSent || "NA",
                 "Outstanding Payment": item?.outstandingPayment || "NA",
-                "TotalPenalty Amount": item?.totalPenaltyAmount || "NA",
+                "Penalty Amount": item?.totalPenaltyAmount || "NA",
                 "payment Status": item?.paymentStatus || "NA"
             };
 
