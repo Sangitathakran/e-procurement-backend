@@ -2,6 +2,9 @@ const mongoose = require("mongoose");
 const {
   _handleCatchErrors,
   dumpJSONToExcel,
+  handleDecimal,
+  _distillerMsp,
+  _taxValue,
 } = require("@src/v1/utils/helpers");
 const {
   wareHousev2,
@@ -40,95 +43,115 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     } = req.query;
     const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
-    // Create search query
-    const query = search
-      ? {
-          $or: [
-            { "companyDetails.name": { $regex: search, $options: "i" } },
-            { "ownerDetails.name": { $regex: search, $options: "i" } },
-            {
-              "warehouseDetails.basicDetails.warehouseName": {
-                $regex: search,
-                $options: "i",
-              },
-            },
-          ],
-          ...filters, // Additional filters
-        }
-      : filters;
 
-    // Aggregation pipeline for fetching warehouses
+
+
+
+    let query = search
+      ? {
+        $or: [
+          { "companyDetails.name": { $regex: search, $options: "i" } },
+          { "ownerDetails.name": { $regex: search, $options: "i" } },
+          {
+            "warehouseDetails.basicDetails.warehouseName": {
+              $regex: search,
+              $options: "i",
+            },
+          },
+        ],
+        ...filters, // Additional filters
+      }
+      : {};
+
     const aggregationPipeline = [
       { $match: query },
       {
         $lookup: {
-          from: "warehousedetails", // Collection name in MongoDB
-          localField: "_id",
-          foreignField: "warehouseOwnerId",
-          as: "warehouseDetails",
+          from: "warehousev2", // Collection name in MongoDB
+          localField: "warehouseOwnerId",
+          foreignField: "_id",
+          as: "warehousev2Details",
         },
       },
       {
         $unwind: {
-          path: "$warehouseDetails",
+          path: "$warehousev2Details",
           preserveNullAndEmptyArrays: true,
         },
       },
       {
         $project: {
-          warehouseId: "$warehouseOwner_code",
-          warehouseName: "$warehouseDetails.basicDetails.warehouseName",
-          address: "$warehouseDetails.addressDetails",
-          totalCapacity: "$warehouseDetails.basicDetails.warehouseCapacity",
-          utilizedCapacity: {
+          warehouseName: "$basicDetails.warehouseName",
+          totalCapacity: "$basicDetails.warehouseCapacity",
+
+          pickupLocation: "$addressDetails",
+          commodity: "Maize",
+          stock: {
             $cond: {
-              if: {
-                $gt: [
-                  { $ifNull: ["$warehouseDetails.inventory.requiredStock", 0] },
-                  0,
-                ],
-              },
-              then: "$warehouseDetails.inventory.requiredStock",
-              else: "$warehouseDetails.inventory.stock",
+              if: { $gt: [{ $ifNull: ["$inventory.requiredStock", 0] }, 0] },
+              then: "$inventory.requiredStock",
+              else: "$inventory.stock",
             },
           },
-          realTimeStock: "$warehouseDetails.inventory.stock",
-          commodity: "$warehouseDetails.inventory.commodity", // Removed branch.product dependency
-          warehouseOwnerId: "$warehouseDetails.warehouseOwnerId",
-          warehouseDetailsId: "$warehouseDetails._id",
+          warehouseTiming: "$inventory.warehouse_timing",
+          warehouseCapacity: "$warehouseDetails.basicDetails.warehouseCapacity",
+          utilizedCapacity: {
+            $cond: {
+              if: { $gt: [{ $ifNull: ["$inventory.stock", 0] }, 0] },
+              then: "$inventory.requiredStock",
+              else: "$inventory.stock",
+            },
+          },
+          requiredStock: {
+            $cond: {
+              if: { $gt: [{ $ifNull: ["$inventory.requiredStock", 0] }, 0] },
+              then: "$inventory.stock",
+              else: "$inventory.requiredStock",
+            },
+          },
+          nodalOfficerName: "$warehousev2Details.ownerDetails.name",
+          nodalOfficerContact: "$warehousev2Details.ownerDetails.mobile",
+          nodalOfficerEmail: "$warehousev2Details.ownerDetails.email",
+          pocAtPickup: "$authorizedPerson.name",
+          warehouseOwnerId: "$warehouseOwnerId",
+          warehouseId: "$wareHouse_code"
         },
       },
-      { $sort: { [sortBy]: 1 } },
+
+      { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
       { $skip: skip },
       { $limit: parseInt(limit, 10) },
     ];
 
-    // Fetch warehouse data
     const records = { count: 0, rows: [] };
-    records.rows = await wareHousev2.aggregate(aggregationPipeline);
+    records.rows = await wareHouseDetails.aggregate(aggregationPipeline);
 
-    // Count total warehouses
     const countAggregation = [{ $match: query }, { $count: "total" }];
-    const countResult = await wareHousev2.aggregate(countAggregation);
+    const countResult = await wareHouseDetails.aggregate(countAggregation);
     records.count = countResult.length > 0 ? countResult[0].total : 0;
 
     records.page = page;
     records.limit = limit;
     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-
     // Export functionality
     if (isExport == 1) {
       const record = records.rows.map((item) => {
         return {
+          "WarehouseId": item?.warehouseId ?? "NA",
           "WareHouse Name": item?.warehouseName || "NA",
-          "Pickup Location": item?.pickupLocation || "NA",
-          "Inventory Availability": item?.realTimeStock ?? "NA",
+          "Total Capacity": item?.totalCapacity || "NA",
+          "Pickup Location": item?.pickupLocation ?? "NA",
+          "Commodity": item?.commodity ?? "NA",
+          "Stock": item?.stock || "NA",
           "Warehouse Timing": item?.warehouseTiming ?? "NA",
-          "Nodal Officer": item?.nodalOfficerName || "NA",
-          "POC Name": item?.pointOfContact?.name ?? "NA",
-          "POC Email": item?.pointOfContact?.email ?? "NA",
-          "POC Phone": item?.pointOfContact?.phone ?? "NA",
+          "Utilized Capacity": item?.utilizedCapacity ?? "NA",
+          "Required Stock": item?.requiredStock ?? "NA",
+          "Nodal Officer Name": item?.nodalOfficerName ?? "NA",
+          "Nodal Officer Contact": item?.nodalOfficerContact ?? "NA",
+          "Nodal Officer Email": item?.nodalOfficerEmail ?? "NA",
+          "POC At Pickup": item?.pocAtPickup ?? "NA"
         };
+
       });
 
       if (record.length > 0) {
@@ -192,50 +215,52 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
       return res.status(400).send(
         new serviceResponse({
           status: 400,
-          errors: [{ message: "Some warehouses were not found" }],
+          errors: [{ message: "Warehouses were not found" }],
         })
       );
     }
 
-    // Validate requiredStock against inventory.stock
-    for (const { warehouseId, requiredQuantity } of inventoryData) {
-      const warehouse = warehouses.find(
-        (w) => w._id.toString() === warehouseId
-      );
-      if (!warehouse) {
-        return res.status(400).send(
-          new serviceResponse({
-            status: 400,
-            errors: [{ message: `Warehouse ${warehouseId} not found` }],
-          })
-        );
-      }
-      if (requiredQuantity > warehouse.inventory.stock) {
-        return res.status(400).send(
-          new serviceResponse({
-            status: 400,
-            errors: [
-              {
-                message: `Required quantity ${requiredQuantity} exceeds stock ${warehouse.inventory.stock} for warehouse ${warehouseId}`,
-              },
-            ],
-          })
-        );
-      }
-    }
+    // Prepare bulk operations
+    const bulkOperations = [];
 
-    // Perform bulk update
-    const bulkOperations = inventoryData.map(
-      ({ warehouseId, requiredQuantity }) => ({
+    inventoryData.forEach(({ warehouseId, requiredQuantity }) => {
+      // Filter to update both stock and requiredStock if stock is undefined, null, or 0
+      bulkOperations.push({
         updateOne: {
-          filter: { _id: warehouseId },
+          filter: {
+            _id: warehouseId,
+            $or: [
+              { "inventory.stock": { $exists: false } }, // If stock is undefined
+              { "inventory.stock": { $eq: null } }, // If stock is null
+              { "inventory.stock": { $eq: 0 } }, // If stock is 0
+            ],
+          },
           update: {
-            $set: { "inventory.requiredStock": requiredQuantity },
+            $set: {
+              "inventory.requiredStock": handleDecimal(requiredQuantity),
+              "inventory.stock": handleDecimal(requiredQuantity), // Update stock if undefined, null, or 0
+            },
           },
         },
-      })
-    );
+      });
 
+      // Filter to update only requiredStock if stock is already defined and greater than 0
+      bulkOperations.push({
+        updateOne: {
+          filter: {
+            _id: warehouseId,
+            "inventory.stock": { $gt: 0 }, // Ensure stock is greater than 0
+          },
+          update: {
+            $set: {
+              "inventory.requiredStock": handleDecimal(requiredQuantity), // Only update requiredStock
+            },
+          },
+        },
+      });
+    });
+
+    // Execute bulk operations
     const result = await wareHouseDetails.bulkWrite(bulkOperations);
 
     return res.status(200).send(

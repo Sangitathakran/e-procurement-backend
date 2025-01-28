@@ -189,7 +189,8 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
                             $ifNull: ["$batchDetails.penaltyDetails.penaltyAmount", 0]
                         }
                     },
-                    paymentStatus: { $first: "$poStatus" }
+                    paymentStatus: { $first: "$poStatus" },
+                    distiller_id: { $first: "$distillerDetails.user_code" },
                 }
             },
 
@@ -205,7 +206,8 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
                     paymentSent: 1,
                     outstandingPayment: 1,
                     totalPenaltyAmount: 1, // Ensure total sum is included
-                    paymentStatus: 1
+                    paymentStatus: 1,
+                    distiller_id: 1
                 }
             }
         ];
@@ -305,11 +307,14 @@ module.exports.getMonthlyPaidAmount = asyncErrorHandler(async (req, res) => {
             {
                 $group: {
                     _id: {
-                        year: { $year: "$createdAt" },
+                        year: { $year: "$createdAt" },  
                         month: { $month: "$createdAt" },
                     },
                     totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
+                    totalAmount:{$sum:"$paymentInfo.totalAmount"}
                 },
+
+
             },
             {
                 $sort: {
@@ -323,6 +328,7 @@ module.exports.getMonthlyPaidAmount = asyncErrorHandler(async (req, res) => {
                     year: "$_id.year",
                     month: "$_id.month",
                     totalPaidAmount: 1,
+                    totalAmount: 1
                 },
             },
         ]);
@@ -331,6 +337,9 @@ module.exports.getMonthlyPaidAmount = asyncErrorHandler(async (req, res) => {
         const currentYear = new Date().getFullYear();
         const startYear = monthlyPaidAmounts.length ? monthlyPaidAmounts[0].year : currentYear;
         const endYear = currentYear;
+
+        // Array to map month numbers to names
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
         const filledMonthlyData = [];
         for (let year = startYear; year <= endYear; year++) {
@@ -341,8 +350,9 @@ module.exports.getMonthlyPaidAmount = asyncErrorHandler(async (req, res) => {
 
                 filledMonthlyData.push({
                     year,
-                    month,
+                    month: monthNames[month - 1], // Map month number to name
                     totalPaidAmount: existingData ? existingData.totalPaidAmount : 0,
+                    totalAmount: existingData ? existingData.totalAmount : 0,
                 });
             }
         }
@@ -370,4 +380,3 @@ module.exports.getMonthlyPaidAmount = asyncErrorHandler(async (req, res) => {
         }));
     }
 });
-

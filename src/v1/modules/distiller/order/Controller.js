@@ -9,6 +9,7 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 const { mongoose } = require("mongoose");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 
 
 module.exports.getOrder = asyncErrorHandler(async (req, res) => {
@@ -106,6 +107,8 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     }
 
     const poRecord = await PurchaseOrderModel.findOne({ _id: orderId, deletedAt: null });
+    const wareHouseOwnerDetails = await wareHouseDetails.findOne({ _id: warehouseId }).select({ 'warehouseOwnerId': 1, _id: 0 });
+    const warehouseOwner_Id = wareHouseOwnerDetails.warehouseOwnerId;
 
     if (!poRecord) {
         return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("PO") }));
@@ -148,14 +151,16 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     }
 
     let randomVal;
-    let isUnique = false;
 
-    while (!isUnique) {
-        randomVal = _generateOrderNumber();
-        const existingReq = await PurchaseOrderModel.findOne({ poNo: randomVal });
-        if (!existingReq) {
-            isUnique = true;
-        }
+    // Generate a sequential order number
+    const lastOrder = await BatchOrderProcess.findOne().sort({ createdAt: -1 }).select("purchaseId").lean();
+    if (lastOrder && lastOrder?.purchaseId) {
+        // Extract the numeric part from the last order's poNo and increment it
+        const lastNumber = parseInt(lastOrder.purchaseId.replace(/\D/g, ''), 10); // Remove non-numeric characters
+        randomVal = `PO${lastNumber + 1}`;
+    } else {
+        // Default starting point if no orders exist
+        randomVal = "PO1001";
     }
 
     let currentDate = new Date(); // Get the current date
@@ -163,12 +168,13 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     const record = await BatchOrderProcess.create({
         distiller_id: user_id,
         warehouseId,
+        warehouseOwnerId:warehouseOwner_Id,
         orderId,
-        batchId: randomVal,
+        purchaseId: randomVal,
         quantityRequired: handleDecimal(quantityRequired),
         'payment.amount': amountToBePaid,
-        scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
-        'payment.status': _poBatchPaymentStatus.paid,
+        // scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
+        // 'payment.status': _poBatchPaymentStatus.paid,
         createdBy: user_id
     });
 
@@ -205,7 +211,7 @@ module.exports.deliveryScheduledBatchList = asyncErrorHandler(async (req, res) =
             orderId: new mongoose.Types.ObjectId(order_id),
             warehouseId: new mongoose.Types.ObjectId(warehouse_id),
             distiller_id: new mongoose.Types.ObjectId(user_id),
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
@@ -213,15 +219,15 @@ module.exports.deliveryScheduledBatchList = asyncErrorHandler(async (req, res) =
             {
                 $lookup: {
                     from: 'warehousedetails', // Collection name in MongoDB
-                    localField: 'warehouseOwnerId',
-                    foreignField: 'warehouseId',
+                    localField: 'warehouseId',
+                    foreignField: '_id',
                     as: 'warehouseDetails',
                 },
             },
             { $unwind: { path: '$warehouseDetails', preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    batchId: 1,
+                    purchaseId: 1,
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     pickupLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
@@ -275,7 +281,7 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
             distiller_id: new mongoose.Types.ObjectId(user_id),
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
@@ -300,7 +306,7 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    purchaseId: '$batchId',
+                    purchaseId: '$purchaseId',
                     quantityRequired: 1,
                     amount: '$payment.amount',
                     scheduledPickupDate: 1,
@@ -309,6 +315,7 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
                     deliveryLocation: '$OrderDetails.deliveryLocation',
                     paymentStatus: '$payment.status',
                     penaltyStatus: '$penaltyDetails.penaltypaymentStatus',
+                    penaltyAmount: '$penaltyDetails.penaltyAmount',
                     orderId: order_id
                 }
             },

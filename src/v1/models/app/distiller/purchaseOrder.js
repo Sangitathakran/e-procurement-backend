@@ -14,11 +14,12 @@ const purchaseOrderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: _collectionName.Distiller,
     },
-    head_office_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: _collectionName.HeadOffice,
-    },
-    branch_id: {
+    // warehouseId: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Warehouse },
+    // head_office_id: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: _collectionName.HeadOffice,
+    // },
+    branch_id: { 
       type: mongoose.Schema.Types.ObjectId,
       ref: _collectionName.Branch,
       required: true,
@@ -65,7 +66,7 @@ const purchaseOrderSchema = new mongoose.Schema(
     companyDetails: {
       companyName: { type: String, trim: true },
       registeredAddress: { type: String },
-      phone: { type: String },
+      phone: { type: String },  
       faxNo: { type: String },
       email: { type: String },
       pan: { type: String },

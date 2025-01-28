@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToExcel, _generateOrderNumber } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
@@ -8,6 +8,7 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { wareHousev2 } = require('@src/v1/models/app/warehouse/warehousev2Schema');
+const { PurchaseOrderModel } = require('@src/v1/models/app/distiller/purchaseOrder');
 
 
 module.exports.saveWarehouseDetails = async (req, res) => {
@@ -47,9 +48,23 @@ module.exports.saveWarehouseDetails = async (req, res) => {
             );
         }
 
+        let randomVal;
+
+        // Generate a sequential order number
+        const lastWarehouse = await wareHouseDetails.findOne().sort({ createdAt: -1 }).select("wareHouse_code").lean();
+        if (lastWarehouse && lastWarehouse?.wareHouse_code) {
+            // Extract the numeric part from the last order's poNo and increment it 
+            const lastNumber = parseInt(lastWarehouse.wareHouse_code.replace(/\D/g, ''), 10); // Remove non-numeric characters
+            randomVal = `WHR${lastNumber + 1}`;
+        } else {
+            // Default starting point if no orders exist
+            randomVal = "WHR1001";
+        }
+    
         // Create a new warehouse record
         const warehouse = new wareHouseDetails({
             warehouseOwnerId: ownerId,
+            warehouseDetailsId: randomVal,
             basicDetails,
             addressDetails,
             documents,
@@ -83,7 +98,9 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         search = '',
         sortBy = 'createdAt',
         sortOrder = 'asc',
-        isExport = 0
+        isExport = 0,
+        state,
+        city
     } = req.query;
 
     const { warehouseIds } = req.body; // Get selected warehouse IDs from the request body
@@ -108,11 +125,14 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
             ...(search && {
                 $or: [
                     { "basicDetails.warehouseName": { $regex: search, $options: 'i' } },
+                    { "wareHouse_code": { $regex: search, $options: 'i' } },
                     { "addressDetails.city": { $regex: search, $options: 'i' } },
-                    { "addressDetails.state": { $regex: search, $options: 'i' } },
+                    { "addressDetails.state.state_name": { $regex: search, $options: 'i' } },
                 ]
             }),
-            ...(warehouseIds && { _id: { $in: warehouseIds } }) // Filter by selected warehouse IDs
+            ...(warehouseIds && { _id: { $in: warehouseIds } }), // Filter by selected warehouse IDs
+            ...(state && { "addressDetails.state.state_name": { $regex: state, $options: 'i' } }), // Filter by state
+            ...(city && { "addressDetails.city": { $regex: city, $options: 'i' } }) // Filter by country
         };
 
         // Fetch data with pagination and sorting
@@ -130,12 +150,13 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         // Handle export functionality
         if (isExport == 1) {
             const exportData = warehouses.map(item => ({
-                "Warehouse ID": item._id,
+                "Warehouse ID": item.wareHouse_code,//item._id,
                 "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
                 "City": item.addressDetails?.city || 'NA',
-                "State": item.addressDetails?.state || 'NA',
+                "State": item.addressDetails?.state?.state_name || 'NA',
                 "Status": item.active ? 'Active' : 'Inactive',
             }));
+
 
             if (exportData.length) {
                 return dumpJSONToExcel(req, res, {
@@ -241,7 +262,64 @@ module.exports.updateWarehouseStatus = async (req, res) => {
     }
 }
 
+module.exports.getWarehouseDashboardStats = async (req, res) => {
+    try {
+        const { user_id } = req;
+        
+        const warehouseTotalCount = (await wareHouseDetails.countDocuments()) ?? 0;
+        
 
+          const wareHouseActiveCount =
+          (await wareHouseDetails.countDocuments({active:true})) ?? 0;  
+
+          const wareHouseInactiveCount =
+          (await wareHouseDetails.countDocuments({active:false})) ?? 0;  
+
+          const outwardBatchCount =
+          (await PurchaseOrderModel.countDocuments({})) ?? 0;  
+    
+          const inwardBatchCount =
+          (await Batch.countDocuments({})) ?? 0;  
+    
+        
+         // Total warehouse capacity
+    const totalCapacityResult = await wareHouseDetails.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalCapacity: { $sum: "$basicDetails.warehouseCapacity" },
+          },
+        },
+      ]);
+  
+      const totalWarehouseCapacity =
+        totalCapacityResult.length > 0 ? totalCapacityResult[0].totalCapacity : 0;
+
+        const wareHouseCount = {
+            warehouseTotalCount:warehouseTotalCount,
+            wareHouseActiveCount:wareHouseActiveCount,
+            wareHouseInactiveCount:wareHouseInactiveCount
+        }
+        const records = {
+          wareHouseCount,
+          inwardBatchCount,
+          outwardBatchCount,
+          totalWarehouseCapacity
+        //   realTimeStock,
+        };
+    
+        return res.send(
+          new serviceResponse({
+            status: 200,
+            data: records,
+            message: _response_message.found("Dashboard Stats"),
+          })
+        );
+      } catch (error) {
+        _handleCatchErrors(error, res);
+      }
+    
+}
 
 
 

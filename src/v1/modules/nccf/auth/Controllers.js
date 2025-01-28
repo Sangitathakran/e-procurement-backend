@@ -51,6 +51,11 @@ module.exports.createNccf = async (req, res) => {
     try {
         const { nccf_name, email, phone } = req.body
 
+        // const pwd = "Manas12345";
+        // const hashedpwd = await bcrypt.hash(pwd, 10);
+        // console.log(hashedpwd);
+        // return false;
+        
         const existUser = await NccfAdmin.findOne({ email: email });
 
         if (existUser) {
@@ -65,7 +70,9 @@ module.exports.createNccf = async (req, res) => {
             return sendResponse({ res, status: 400, message: "user already existed with this mobile number or email in Master" })
         }
 
-        const password = generateRandomPassword();
+        // const password = generateRandomPassword();
+        // const password = "Ministry@1234";
+        const password = "Ministry@5678";
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const nccfData = new NccfAdmin({

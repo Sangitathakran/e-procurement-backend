@@ -1,7 +1,7 @@
-const { _generateOrderNumber, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
-const { _webSocketEvents, _penaltypaymentStatus } = require('@src/v1/utils/constants');
+const { _webSocketEvents, _penaltypaymentStatus, _poBatchPaymentStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
@@ -17,13 +17,9 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     // Initialize matchQuery
     let matchQuery = {
-        'paymentInfo.penaltyStaus': { $ne: _penaltypaymentStatus.NA },
+        // 'paymentInfo.penaltyStaus': { $ne: _penaltypaymentStatus.NA },
         deletedAt: null
     };
-
-    if (search) {
-        matchQuery.batchId = { $regex: search, $options: "i" };
-    }
 
     let aggregationPipeline = [
         { $match: matchQuery },
@@ -48,6 +44,18 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
         // Unwind batchDetails array if necessary
         { $unwind: { path: "$batchDetails", preserveNullAndEmptyArrays: true } },
+
+        // Add search filter after the lookup
+        ...(search
+            ? [{
+                $match: {
+                    $or: [
+                        { 'basic_details.distiller_details.organization_name': { $regex: search, $options: 'i' } },
+                        { 'purchasedOrder.poNo': { $regex: search, $options: 'i' } }
+                    ]
+                }
+            }]
+            : []),
 
         // Unwind penaltyDetails if it's an array (assuming it is)
         {
@@ -94,25 +102,25 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
         }
     ];
 
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+
     if (paginate == 1) {
         aggregationPipeline.push(
-            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } }, // Secondary sort by _id for stability
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
         );
     } else {
-        aggregationPipeline.push( { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
     }
 
     const rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
 
-    const countPipeline = [
-        { $match: matchQuery },
-        { $count: "total" }
-    ];
+    const totalPipeline = [...withoutPaginationAggregationPipeline];
+    totalPipeline.push({ $count: "count" });
 
-    const countResult = await PurchaseOrderModel.aggregate(countPipeline);
-    const count = countResult[0]?.total || 0;
+    const countResult = await PurchaseOrderModel.aggregate(totalPipeline);
+    const count = countResult?.[0]?.count ?? 0;
 
     const records = { rows, count };
 
@@ -125,14 +133,16 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
     if (isExport == 1) {
         const record = rows.map((item) => {
             return {
-                "Order Id": item?.orderId || "NA",
-                "BO Name": item?.branchName || "NA",
-                "Commodity": item?.product?.name || "NA",
-                "Grade": item?.product?.grade || "NA",
-                "Quantity": item?.product?.quantity || "NA",
-                "MSP": item?.quotedPrice || "NA",
-                "Delivery Location": item?.address?.deliveryLocation || "NA"
+                "Order Id": item?.order_id || "NA",
+                "Distiller Name": item?.distillerName || "NA",
+                "Commodity": item?.commodity || "NA",
+                "Total Amount": item?.totalAmount || "NA",
+                "Payment Sent": item?.paymentSent || "NA",
+                "Outstanding Payment": item?.outstandingPayment || "NA",
+                "TotalPenalty Amount": item?.totalPenaltyAmount || "NA",
+                "payment Status": item?.paymentStatus || "NA"
             };
+
         });
 
         if (record.length > 0) {
@@ -151,7 +161,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
     try {
-        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
+        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id, isExport=0 } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
         const { user_id } = req;
 
@@ -161,7 +171,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
 
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
-            ...(search ? { batchId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
+            ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
         const aggregationPipeline = [
@@ -177,7 +187,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: "$OrderDetails", preserveNullAndEmptyArrays: true } },
             {
                 $project: {
-                    batchId: 1,
+                    purchaseId: 1,
                     quantityRequired: 1,
                     scheduledPickupDate: 1,
                     actualPickupDate: 1,
@@ -188,7 +198,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                     orderId: order_id
                 }
             },
-            { $sort: { [sortBy || 'createdAt']: 1 } },
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
             { $skip: skip },
             { $limit: parseInt(limit, 10) }
         ];
@@ -207,11 +217,34 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
 
-        if (!records) {
-            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+        if (isExport == 1) {
+            const record = records.rows.map((item) => {
+                return {
+                    "purchase Id": item?.purchaseId || "NA",
+                    "quantity": item?.quantityRequired || "NA",
+                    "scheduled Pickup Date": item?.scheduledPickupDate || "NA",
+                    "actual Pickup Date": item?.actualPickupDate || "NA",
+                    "total Amount": item?.totalAmount || "NA",
+                    "penalty Amount": item?.penaltyAmount || "NA",
+                    "penalty Payment Status": item?.penaltypaymentStatus || "NA",
+                    "pickup Status": item?.pickupStatus || "NA"
+                };
+
+            });
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Batch-record.xlsx`,
+                    worksheetName: `Batch-record`
+                });
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Batch") }));
+            }
         } else {
-            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("batch") }));
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Batch") }));
         }
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -271,4 +304,75 @@ module.exports.waiveOff = asyncErrorHandler(async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+});
+
+module.exports.updatePenaltyAmount = asyncErrorHandler(async (req, res) => {
+    const { batchId } = req.params;
+    const { penaltyAmount } = req.body;
+
+    // throw error if penalty amount is not given
+    if (!penaltyAmount) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errors: [{ message: "Please provide the penalty amount" }]
+        }));
+    }
+
+    // penaltyAmount should be a number
+    if (typeof penaltyAmount !== 'number' || isNaN(penaltyAmount)) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errors: [{ message: "Penalty Amount should be number" }]
+        }));
+    }
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(batchId)) {
+        return res.status(400).json({ message: "Invalid batch ID." });
+    }
+
+    // // Validate ObjectId
+    // if (!mongoose.Types.ObjectId.isValid(purchesId)) {
+    //     return res.status(400).json({ message: "Invalid purches ID." });
+    // }
+
+    const order = await BatchOrderProcess.findOne({ _id: batchId }).populate("orderId");
+
+    // no order found with given batchId or orderId
+    if (!order) {
+        return res.status(404).send(new serviceResponse({
+            status: 404,
+            errors: [{ message: "No matching order found" }]
+        }));
+    }
+
+    // throw error if payment status is not pending 
+    if (order.payment?.status !== _poBatchPaymentStatus.pending) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errors: [{ message: "Update not allowed. Payment status is not 'pending'." }]
+        }));
+    }
+
+    await BatchOrderProcess.findOneAndUpdate({ _id: batchId }, {
+        $set: {
+            "penaltyDetails.penaltyAmount": penaltyAmount,
+            "penaltyDetails.penaltypaymentStatus": _penaltypaymentStatus.pending,
+            //   "orderId.paymentInfo.penaltyStaus": _penaltypaymentStatus.pending,
+            //   "orderId.paymentInfo.penaltyAmount": penaltyAmount + Number(order.orderId.paymentInfo.penaltyAmount) ?? 0,
+        }
+    },
+        { new: true, runValidators: true });
+
+    await PurchaseOrderModel.findOneAndUpdate({ _id: order.orderId._id },
+        {
+            "paymentInfo.penaltyStaus": _penaltypaymentStatus.pending,
+            "paymentInfo.penaltyAmount": penaltyAmount + Number(order.orderId.paymentInfo.penaltyAmount) ?? 0,
+        },
+        { new: true, runValidators: true }
+    )
+    return res.status(200).send(new serviceResponse({
+        status: 200,
+        message: "Penalty amount updated successfully"
+    }));
 });

@@ -16,11 +16,6 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
         deletedAt: null,
     };
 
-    if (search) {
-        matchStage.orderId = { $regex: search, $options: "i" };
-    }
-   
-
     const aggregationPipeline = [
         { $match: matchStage },
         {
@@ -32,6 +27,19 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
             }
         },
         { $unwind: { path: '$purchaseOrders', preserveNullAndEmptyArrays: true } },
+    
+        // Add search filter after the lookup
+        ...(search
+            ? [{
+                $match: {
+                    $or: [
+                        { 'basic_details.distiller_details.organization_name': { $regex: search, $options: 'i' } },
+                        { 'user_code': { $regex: search, $options: 'i' } }
+                    ]
+                }
+            }]
+            : []),
+    
         {
             $group: {
                 _id: { distiller_id: '$_id', product_name: '$purchaseOrders.product.name' },
@@ -91,16 +99,17 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
             }
         }
     ];
-
-
+    
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+    
     if (paginate == 1) {
         aggregationPipeline.push(
-            { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } }, 
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, 
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
         );
     } else {
-        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: 1 } });
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
     }
 
     if (isExport == 1) {
@@ -133,8 +142,11 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
     } else {
         const records = { count: 0 };
         records.rows = await Distiller.aggregate(aggregationPipeline);
-        records.count = await Distiller.countDocuments(matchStage);
-
+        const totalPipeline = [...withoutPaginationAggregationPipeline];
+        totalPipeline.push({ $count: "count" });
+        const totalCount = await Distiller.aggregate(totalPipeline);
+        records.count = totalCount?.[0]?.count ?? 0;
+        
         if (paginate == 1) {
             records.page = page;
             records.limit = limit;
@@ -159,57 +171,263 @@ module.exports.getDistillerById = asyncErrorHandler(async (req, res) => {
         deletedAt: null,
     };
 
+    // let aggregationPipeline = [
+    //     { $match: matchStage },
+    //     {
+    //         $lookup: {
+    //             from: "manufacturingunits",
+    //             localField: "_id",
+    //             foreignField: "distiller_id",
+    //             as: "manufacturingUnit"
+    //         }
+    //     },
+    //     {
+    //         $unwind: {
+    //             path: "$manufacturingUnit",
+    //             preserveNullAndEmptyArrays: true
+    //         }
+    //     },
+    //     {
+    //         $lookup: {
+    //             from: "statedistrictcities",
+    //             let: {
+    //                 stateId: "$manufacturingUnit.manufacturing_state",
+    //                 districtId: "$manufacturingUnit.manufacturing_district"
+    //             },
+    //             pipeline: [
+    //                 { $unwind: "$states" },
+    //                 { $match: { $expr: { $eq: ["$states._id", "$$stateId"] } } },
+    //                 { $unwind: "$states.districts" },
+    //                 { $match: { $expr: { $eq: ["$states.districts._id", "$$districtId"] } } },
+    //                 {
+    //                     $project: {
+    //                         state_title: "$states.state_title",
+    //                         district_title: "$states.districts.district_title"
+    //                     }
+    //                 }
+    //             ],
+    //             as: "location_details"
+    //         }
+    //     },
+    //     {
+    //         $addFields: {
+    //             "manufacturingUnit.state_title": { $arrayElemAt: ["$location_details.state_title", 0] },
+    //             "manufacturingUnit.district_title": { $arrayElemAt: ["$location_details.district_title", 0] }
+    //         }
+    //     },
+    //     {
+    //         $lookup: {
+    //             from: "storagefacilities", 
+    //             localField: "_id",
+    //             foreignField: "distiller_id",
+    //             as: "storageFacility"
+    //         }
+    //     },
+    //     {
+    //         $unwind: {
+    //             path: "$storageFacility",
+    //             preserveNullAndEmptyArrays: true
+    //         }
+    //     },
+    //     {
+    //         $lookup: {
+    //             from: "statedistrictcities",
+    //             let: {
+    //                 stateId: "$storageFacility.storage_state",
+    //                 districtId: "$storageFacility.storage_district"
+    //             },
+    //             pipeline: [
+    //                 { $unwind: "$states" },
+    //                 { $match: { $expr: { $eq: ["$states._id", "$$stateId"] } } },
+    //                 { $unwind: "$states.districts" },
+    //                 { $match: { $expr: { $eq: ["$states.districts._id", "$$districtId"] } } },
+    //                 {
+    //                     $project: {
+    //                         state_title: "$states.state_title",
+    //                         district_title: "$states.districts.district_title"
+    //                     }
+    //                 }
+    //             ],
+    //             as: "location_detail"
+    //         }
+    //     },
+    //     {
+    //         $addFields: {
+    //             "storageFacility.state_title": { $arrayElemAt: ["$location_detail.state_title", 0] },
+    //             "storageFacility.district_title": { $arrayElemAt: ["$location_detail.district_title", 0] }
+    //         }
+    //     },
+    //     {
+    //         $project: {
+    //             _id: 1,
+    //             'user_code': '$user_code',
+    //             'distiller_details': '$basic_details.distiller_details',
+    //             'company_owner_info': '$basic_details.company_owner_info',
+    //             'poc': '$basic_details.point_of_contact',
+    //             'registered_address': '$address.registered',
+    //             'operational_address': '$address.operational',
+    //             'request_date': '$createdAt',
+    //             'status': '$is_approved',
+    //             company_details: 1,
+    //             authorised: 1,
+    //             bank_details: 1,
+    //             manufacturingUnit: 1,
+    //             storageFacility: 1
+    //         }
+    //     }
+    // ];
+
     let aggregationPipeline = [
         { $match: matchStage },
         {
             $lookup: {
-                from: "manufacturingunits", // Adjust this to your actual collection name for branches
+                from: "manufacturingunits",
                 localField: "_id",
                 foreignField: "distiller_id",
-                as: "manufacturingUnit"
+                as: "manufacturingUnits"
             }
         },
         {
             $lookup: {
-                from: "storagefacilities", // Adjust this to your actual collection name for branches
+                from: "statedistrictcities",
+                let: { 
+                    manufacturingUnits: "$manufacturingUnits" 
+                },
+                pipeline: [
+                    { $unwind: "$states" },
+                    { $unwind: "$states.districts" },
+                    {
+                        $project: {
+                            state_id: "$states._id",
+                            district_id: "$states.districts._id",
+                            state_title: "$states.state_title",
+                            district_title: "$states.districts.district_title"
+                        }
+                    }
+                ],
+                as: "location_details"
+            }
+        },
+        {
+            $addFields: {
+                manufacturingUnits: {
+                    $map: {
+                        input: "$manufacturingUnits",
+                        as: "unit",
+                        in: {
+                            $mergeObjects: [
+                                "$$unit",
+                                {
+                                    state_title: {
+                                        $arrayElemAt: [
+                                            "$location_details.state_title",
+                                            { $indexOfArray: ["$location_details.state_id", "$$unit.manufacturing_state"] }
+                                        ]
+                                    },
+                                    district_title: {
+                                        $arrayElemAt: [
+                                            "$location_details.district_title",
+                                            { $indexOfArray: ["$location_details.district_id", "$$unit.manufacturing_district"] }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        {
+            $lookup: {
+                from: "storagefacilities",
                 localField: "_id",
                 foreignField: "distiller_id",
-                as: "storageFacility"
+                as: "storageFacilities"
+            }
+        },
+        {
+            $lookup: {
+                from: "statedistrictcities",
+                let: { 
+                    storageFacilities: "$storageFacilities" 
+                },
+                pipeline: [
+                    { $unwind: "$states" },
+                    { $unwind: "$states.districts" },
+                    {
+                        $project: {
+                            state_id: "$states._id",
+                            district_id: "$states.districts._id",
+                            state_title: "$states.state_title",
+                            district_title: "$states.districts.district_title"
+                        }
+                    }
+                ],
+                as: "location_detail"
+            }
+        },
+        {
+            $addFields: {
+                storageFacilities: {
+                    $map: {
+                        input: "$storageFacilities",
+                        as: "facility",
+                        in: {
+                            $mergeObjects: [
+                                "$$facility",
+                                {
+                                    state_title: {
+                                        $arrayElemAt: [
+                                            "$location_detail.state_title",
+                                            { $indexOfArray: ["$location_detail.state_id", "$$facility.storage_state"] }
+                                        ]
+                                    },
+                                    district_title: {
+                                        $arrayElemAt: [
+                                            "$location_detail.district_title",
+                                            { $indexOfArray: ["$location_detail.district_id", "$$facility.storage_district"] }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
             }
         },
         {
             $project: {
                 _id: 1,
-                'distiller_id': '$user_code',
-                'distiller_details': '$basic_details.distiller_details',
-                'company_owner_info': '$basic_details.company_owner_info',
-                'poc': '$basic_details.point_of_contact',
-                'registered_address': '$address.registered',
-                'operational_address': '$address.operational',
-                'request_date': '$createdAt',
-                'status': '$is_approved',
+                user_code: 1,
+                distiller_details: '$basic_details.distiller_details',
+                company_owner_info: '$basic_details.company_owner_info',
+                poc: '$basic_details.point_of_contact',
+                registered_address: '$address.registered',
+                operational_address: '$address.operational',
+                request_date: '$createdAt',
+                status: '$is_approved',
                 company_details: 1,
                 authorised: 1,
                 bank_details: 1,
-                manufacturingUnit: 1,
-                storageFacility: 1
+                manufacturingUnits: 1,
+                storageFacilities: 1
             }
         }
     ];
-
+    
     const record = await Distiller.aggregate(aggregationPipeline);
 
     if (!record || record.length === 0) {
         return res.status(404).send(new serviceResponse({
             status: 404,
-            message: _response_message.notFound("Pending Distiller")
+            message: _response_message.notFound("Distiller")
         }));
     }
 
     return res.status(200).send(new serviceResponse({
         status: 200,
         data: record[0],
-        message: _response_message.found("Pending Distiller")
+        message: _response_message.found("Distiller")
     }));
 });
 
@@ -280,15 +498,15 @@ module.exports.bulkuplodDistiller = async (req, res) => {
             const owner_pan = rec["Owner PAN Number*"] || null;
 
             const poc_name = rec["POC Name*"] || null;
-            const poc_designation = rec["Designation"] || null;
+            const poc_designation = rec["PocDesignation"] || null;
             const poc_mobile = rec["POC Mobile Number*"] || null;
-            const poc_email = rec["Email*"] || null;
+            const poc_email = rec["PocEmail*"] || null;
             const poc_aadhar = rec["POC Aadhar Number*"] || null;
 
             const auth_name = rec["Authorized Person Name*"] || null;
-            const auth_designation = rec["Designation"] || null;
+            const auth_designation = rec["AuthDesignation"] || null;
             const auth_mobile = rec["Mobile Number*"] || null;
-            const auth_email = rec["Email*"] || null;
+            const auth_email = rec["AuthEmail*"] || null;
             const auth_aadhar = rec["Authorized Person Aadhar Number*"] || null;
             const auth_pan = rec["Authorized Person PAN Number"] || null;
 
@@ -315,14 +533,13 @@ module.exports.bulkuplodDistiller = async (req, res) => {
                 { field: "POC Name*", label: "POC Name" },
                 { field: "Designation", label: "POC Designation" },
                 { field: "POC Mobile Number*", label: "POC Mobile Number" },
-                { field: "Email*", label: "POC Email" },
+                { field: "PocEmail*", label: "POC Email" },
                 { field: "POC Aadhar Number*", label: "POC Aadhar Number" },
                 { field: "Authorized Person Name*", label: "Authorized Person Name" },
                 { field: "Designation", label: "Authorized Person Designation" },
                 { field: "Mobile Number*", label: "Authorized Person Mobile Number" },
-                { field: "Email*", label: "Authorized Person Email" },
+                { field: "AuthEmail*", label: "Authorized Person Email" },
                 { field: "Authorized Person Aadhar Number*", label: "Authorized Person Aadhar Number" },
-                { field: "Authorized Person PAN Number", label: "Authorized Person PAN Number" },
                 { field: "Bank Name*", label: "Bank Name" },
                 { field: "Branch Name*", label: "Branch Name" },
                 { field: "Account Holder Name*", label: "Account Holder Name" },
@@ -352,10 +569,10 @@ module.exports.bulkuplodDistiller = async (req, res) => {
             if (!/^\d{10}$/.test(poc_mobile)) {
                 errors.push({ record: rec, error: "Invalid Mobile Number" });
             }
-            if (!account_number || !confirm_account_number) {
-                errors.push("Account Number or Confirm Account Number is missing.");
-            } else if (account_number.trim() !== confirm_account_number.trim()) {
-                errors.push("Account Number and Confirm Account Number do not match.");
+            if (!String(account_number).trim() || !String(confirm_account_number).trim()) {
+                errors.push("Account Number and Confirm Account Number are required.");
+            } else if (String(account_number).trim() !== String(confirm_account_number).trim()) {
+                errors.push("Account Number and Confirm Account Number must match.");
             }
 
             if (errors.length > 0) return { success: false, errors };
