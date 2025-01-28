@@ -76,24 +76,20 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         },
         { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
     );
-
-    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
-
     // Add pagination if enabled
-    if (paginate === 1 || paginate === '1') {
+    if ((paginate === 1 || paginate === '1') && !isExport) {
         aggregationPipeline.push(
-            { $skip: skip },
-            { $limit: limitNum }
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limitNum) }
         );
     }
 
     const records = { count: 0 };
-    records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline); // Fetch paginated data
-    const totalPipeline = [...withoutPaginationAggregationPipeline];
-    totalPipeline.push({ $count: "count" });
-    const totalCount = await PurchaseOrderModel.aggregate(totalPipeline); // Total count of documents
-    records.count = totalCount?.[0]?.count ?? 0;
-    // Calculate total pages and add pagination info
+    records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
+    const countAggregation = [{ $count: "total" }];
+    const countResult = await PurchaseOrderModel.aggregate(countAggregation); // Fetch paginated data
+    records.count = countResult.length > 0 ? countResult[0].total : 0;
+   
     records.page = pageNum;
     records.limit = limitNum;
     records.pages = limitNum !== 0 ? Math.ceil(records.count / limitNum) : 0;
@@ -696,7 +692,7 @@ module.exports.batchscheduleDateUpdate = asyncErrorHandler(async (req, res) => {
 
 module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
     try {
-        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
+        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id, isExport = 0  } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
         if (!order_id) {

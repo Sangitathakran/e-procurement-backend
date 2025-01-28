@@ -390,6 +390,7 @@ const _trackOrderStatus = {
     pending : "pending",
     readyToShip : "shipped" , 
     inTransit : "in-transit" ,
+    rejected : "rejected",
 }
 
 const _individual_farmer_onboarding_steps = [

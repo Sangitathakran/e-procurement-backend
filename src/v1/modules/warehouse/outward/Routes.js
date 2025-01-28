@@ -1,5 +1,6 @@
 const express = require("express");
-const { orderList, getPuchaseList, getPurchaseOrderById, trackOrder, readyToShip, inTransit, getBatches, fetchBatches, getStatus, getTrucks,batchOrderStatsData } = require("./Controller");
+const { orderList, getPuchaseList, getPurchaseOrderById, trackOrder, readyToShip, inTransit, getBatches, fetchBatches, getStatus, getTrucks,batchOrderStatsData, rejectTrack } = require("./Controller");
+// const { orderList, getPuchaseList, getPurchaseOrderById, trackOrder, readyToShip, inTransit, getBatches, fetchBatches, getStatus, getTrucks, rejectTrack } = require("./Controller");
 const { verifyWarehouseOwner } = require("../utils/verifyWarehouseOwner");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
@@ -16,6 +17,7 @@ wareHouseOutwardRoutes.get("/batches/:id", verifyWarehouseOwner, getBatches);
 wareHouseOutwardRoutes.get("/status/:id", verifyWarehouseOwner, getStatus);
 wareHouseOutwardRoutes.get("/truck/:id", verifyWarehouseOwner, getTrucks);
 wareHouseOutwardRoutes.get("/batch-order-stats", batchOrderStatsData);
+wareHouseOutwardRoutes.put("/reject" , verifyWarehouseOwner , rejectTrack) ;
 
 
 module.exports = { wareHouseOutwardRoutes }; 
