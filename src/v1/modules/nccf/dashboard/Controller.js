@@ -243,8 +243,9 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
+    const {limit = 5, } = req.query
 
-    const page = 1, limit = 5, sortBy = 'createdAt', sortOrder = 'asc', isExport = 0;
+    const page = 1, sortBy = 'createdAt', sortOrder = 'asc', isExport = 0;
 
     try {
 
