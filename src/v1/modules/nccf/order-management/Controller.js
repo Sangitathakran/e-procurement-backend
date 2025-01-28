@@ -692,7 +692,7 @@ module.exports.batchscheduleDateUpdate = asyncErrorHandler(async (req, res) => {
 
 module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
     try {
-        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
+        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id, isExport = 0  } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
         if (!order_id) {
