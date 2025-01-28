@@ -92,11 +92,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
             }
         }
     ];
-
-    
-    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
-
-    if (paginate == 1) {
+    if (( page === 1 || page === '1') && !isExport) {
         aggregationPipeline.push(
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
@@ -105,16 +101,14 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
     const records = { count: 0 };
     records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
-    const totalPipeline = [...withoutPaginationAggregationPipeline];
-    totalPipeline.push({ $count: "count" });
-    const totalCount = await PurchaseOrderModel.aggregate(totalPipeline); // Total count of documents
+    const totalCount = await PurchaseOrderModel.aggregate(aggregationPipeline); // Total count of documents
     records.count = totalCount?.[0]?.count ?? 0;
 
-    if (paginate == 1) {
+    
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-    }
+    
 
     // Export functionality
     if (isExport == 1) {
