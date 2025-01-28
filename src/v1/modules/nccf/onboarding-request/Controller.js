@@ -13,7 +13,7 @@ module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = '', isExport = 0 } = req.query;
 
     let matchStage = {
-        is_approved: _userStatus.pending,
+        // is_approved: _userStatus.pending,
         deletedAt: null,
     };
 
@@ -29,9 +29,17 @@ module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
                 _id: 1,
                 'distiller_id': '$user_code',
                 'distiller_name': '$basic_details.distiller_details.organization_name',
+                'companyOwnerName': '$basic_details.company_owner_info.name',
+                'aadharNumber': '$basic_details.company_owner_info.aadhar_number',
+                'panCard': '$basic_details.company_owner_info.pan_card',
                 'poc': '$basic_details.point_of_contact.name',
                 'poc_email': '$basic_details.point_of_contact.email',
                 'poc_mobile': '$basic_details.point_of_contact.mobile',
+                'ContactPersonName': '$authorised.name',
+                'ContactPersonDesignation': '$authorised.designation',
+                'ContactPersonEmail': '$authorised.email',
+                'ContactPersonPhone': '$authorised.phone',
+                'ContactPersonAadharNumber': '$authorised.aadhar_number',
                 'address': '$address.registered',
                 'request_date': '$createdAt',
                 'status': '$is_approved'
@@ -51,18 +59,10 @@ module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
     records.rows = await Distiller.aggregate(aggregationPipeline);
     records.count = await Distiller.countDocuments(matchStage);
 
-  
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     
-
-    // return res.status(200).send(new serviceResponse({
-    //     status: 200,
-    //     data: records,
-    //     message: _response_message.found("Pending Distiller")
-    // }));
-
     // Export functionality
     if (isExport == 1) {
         const record = records.rows.map((item) => {
@@ -70,9 +70,16 @@ module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
             return {
                 "Distiller Id": item?.distiller_id || 'NA',
                 "Distiller Name": item?.distiller_name || 'NA',
-                "POC": item?.poc ?? 'NA',
-                "POC Email": item?.poc_email ?? 'NA',
-                "POC Mobile": item?.poc_mobile || 'NA',
+                "Requested Date": item?.request_date ?? 'NA',
+                "Status": item?.status ?? 'NA',
+                "Company Owner Name": item?.companyOwnerName ?? 'NA',
+                "Aadhar No.": item?.aadharNumber ?? 'NA',
+                "PAN No.": item?.panCard ?? 'NA',
+                "Contact Person Name": item?.ContactPersonName ?? 'NA',
+                "Designation": item?.ContactPersonDesignation ?? 'NA',
+                "Mobile": item?.ContactPersonPhone || 'NA',
+                "Email": item?.ContactPersonEmail ?? 'NA', 
+                "Aadhar Number": item?.ContactPersonAadharNumber ?? 'NA',               
                 "Address": item?.address ?? 'NA',
                 "Request date": item?.request_date ?? 'NA',
                 "Status": item?.status ?? 'NA'
