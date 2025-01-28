@@ -522,7 +522,8 @@ module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
         // const totalAmount = handleDecimal(record.paymentInfo.totalAmount);
         // const tokenAmount = handleDecimal(record.paymentInfo.advancePayment);
         // const remainingAmount = handleDecimal(record.paymentInfo.balancePayment);
-        const amountToBePaid = handleDecimal(msp * record.quantityRequired);
+        // const amountToBePaid = handleDecimal(msp * record.quantityRequired);
+        const amountToBePaid = handleDecimal(msp * quantity);
 
         record.status = status;
         record.quantityRequired = quantity;
