@@ -181,7 +181,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                 $project: {
                     // warehouseId: 1,
                     purchaseId: '$purchaseId',
-                    warehouseId: "$wareHouse_code",
+                    warehouseId: "$warehouseDetails.wareHouse_code",
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
@@ -590,7 +590,7 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
             {
                 $project: {
                     purchaseId: '$purchaseId',
-                    warehouseId: "$wareHouse_code",
+                    warehouseId: "$warehouseDetails.wareHouse_code",
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
@@ -743,7 +743,7 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
             {
                 $project: {
                     purchaseId: '$purchaseId',
-                    warehouseId: "$wareHouse_code",
+                    warehouseId: "$warehouseDetails.wareHouse_code",
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
