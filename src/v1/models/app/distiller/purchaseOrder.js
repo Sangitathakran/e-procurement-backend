@@ -54,6 +54,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       balancePaymentDate: { type: Date },
       paidAmount: { type: Number, default: 0 },
       tax: { type: Number, default: 0 },
+      mandiTax: {type: Number, default: 0 },
       penaltyAmount: { type: Number, default: 0 },
       penaltyStaus: {
         type: String,
