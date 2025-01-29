@@ -2,7 +2,7 @@ const {
     _handleCatchErrors,
     dumpJSONToExcel,
 } = require("@src/v1/utils/helpers");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const {
     _response_message,
     _middleware,
@@ -31,6 +31,7 @@ const {
 } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { mongoose } = require("mongoose");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 
 
 
@@ -242,8 +243,9 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
+    const {limit = 5, } = req.query
 
-    const page = 1, limit = 5, sortBy = 'createdAt', sortOrder = 'asc', isExport = 0;
+    const page = 1, sortBy = 'createdAt', sortOrder = 'asc', isExport = 0;
 
     try {
 
@@ -302,19 +304,37 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
 
 module.exports.getMonthlyPaidAmount = asyncErrorHandler(async (req, res) => {
     try {
-        // Fetch aggregated monthly paid amounts
+        const { state } = req.query;
+
+        // Build match stage based on state condition
+        const matchStage = {};
+        if (state) {
+            matchStage["distiller.address.registered.state"] = state;
+        }
+
         const monthlyPaidAmounts = await PurchaseOrderModel.aggregate([
+            {
+                $lookup: {
+                    from: "distillers",
+                    localField: "distiller_id",
+                    foreignField: "_id",
+                    as: "distiller",
+                },
+            },
+            {
+                $unwind: "$distiller",
+            },
+            {
+                $match: matchStage, // Apply state filter if provided
+            },
             {
                 $group: {
                     _id: {
-                        year: { $year: "$createdAt" },  
+                        year: { $year: "$createdAt" },
                         month: { $month: "$createdAt" },
                     },
-                    totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
-                    totalAmount:{$sum:"$paymentInfo.totalAmount"}
+                    totalPaidAmount: { $sum: "$paymentInfo.paidAmount" }
                 },
-
-
             },
             {
                 $sort: {
@@ -328,7 +348,6 @@ module.exports.getMonthlyPaidAmount = asyncErrorHandler(async (req, res) => {
                     year: "$_id.year",
                     month: "$_id.month",
                     totalPaidAmount: 1,
-                    totalAmount: 1
                 },
             },
         ]);
@@ -338,45 +357,121 @@ module.exports.getMonthlyPaidAmount = asyncErrorHandler(async (req, res) => {
         const startYear = monthlyPaidAmounts.length ? monthlyPaidAmounts[0].year : currentYear;
         const endYear = currentYear;
 
-        // Array to map month numbers to names
         const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
         const filledMonthlyData = [];
+        let totalSumAllMonths = 0;
+
         for (let year = startYear; year <= endYear; year++) {
             for (let month = 1; month <= 12; month++) {
                 const existingData = monthlyPaidAmounts.find(
                     (data) => data.year === year && data.month === month
                 );
 
+                const paidAmount = existingData ? existingData.totalPaidAmount : 0;
+                totalSumAllMonths += paidAmount;
+
                 filledMonthlyData.push({
                     year,
-                    month: monthNames[month - 1], // Map month number to name
-                    totalPaidAmount: existingData ? existingData.totalPaidAmount : 0,
-                    totalAmount: existingData ? existingData.totalAmount : 0,
+                    month: monthNames[month - 1],
+                    totalPaidAmount: paidAmount,
                 });
             }
         }
 
-        // Check if data is available
         if (!filledMonthlyData.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
-                message: "No data available for monthly paid amounts"
+                message: "No data available for monthly paid amounts",
             }));
         }
 
-        // Return aggregated results with missing months filled in
         return res.status(200).send(new serviceResponse({
             status: 200,
-            data: filledMonthlyData,
-            message: "Monthly paid amounts fetched successfully"
+            data: {
+                monthlyData: filledMonthlyData,
+                totalSumAllMonths,
+            },
+            message: "Monthly paid amounts fetched successfully",
         }));
     } catch (error) {
         console.error(error);
         return res.status(500).send(new serviceResponse({
             status: 500,
             message: "Error fetching monthly paid amounts",
-            error: error.message
+            error: error.message,
         }));
     }
 });
+
+
+
+module.exports.getPublicStates = async (req, res) => {
+    try {
+      const states = await StateDistrictCity.aggregate([
+        { $unwind: "$states" },
+        { $project: { "states.state_title": 1, "states._id": 1 } },
+        { $group: { _id: null, states: { $push: "$states" } } },
+      ]);
+  
+      if (!states.length || !states[0].states.length) {
+        return sendResponse({
+          res,
+          data: [],
+          status: 404,
+          message: _response_message.notFound("state"),
+        });
+      }
+  
+      return sendResponse({
+        res,
+        data: states[0].states,
+        status: 200,
+        message: _response_message.found("state"),
+      });
+    } catch (err) {
+      _handleCatchErrors(err, res);
+    }
+  };
+  
+  
+  module.exports.getPublicDistrictByState = async (req, res) => {
+    const { id } = req.params;
+    try {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return sendResponse({
+          res,
+          data: null,
+          status: 404,
+          message: _response_message.invalid(id),
+        });
+      }
+      const result = await StateDistrictCity.findOne(
+        { "states._id": id },
+        { "states.$": 1 }
+      );
+  
+      if (!result && result?.states?.length > 0) {
+        sendResponse({
+          res,
+          data: districts,
+          status: 404,
+          message: _response_message.notFound("state"),
+        });
+      }
+  
+      const state = result.states[0];
+      const districts = state.districts.map(district => ({
+        district_title: district.district_title,
+        _id: district._id
+      }));
+      return sendResponse({
+        res,
+        data: districts,
+        status: 200,
+        message: _response_message.found("district"),
+      });
+    } catch (err) {
+      _handleCatchErrors(err, res);
+    }
+  }

@@ -266,15 +266,23 @@ module.exports.payment = async (req, res) => {
           // branch: 1
         },
       },
-      { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
-      { $skip: skip },
-      { $limit: parseInt(limit) },
+      { 
+        $sort: { 
+          payment_status: -1, 
+          createdAt: -1 
+        } 
+      }
+      // { $skip: skip },
+      // { $limit: parseInt(limit) },
     ];
     const records = await RequestModel.aggregate([
       ...aggregationPipeline,
       {
         $facet: {
-          data: aggregationPipeline, // Aggregate for data
+          data: [...aggregationPipeline, 
+            { $skip: (page - 1) * limit },
+           { $limit: parseInt(limit) },
+            ], 
           totalCount: [{ $count: "count" }], // Count the documents
         },
       },

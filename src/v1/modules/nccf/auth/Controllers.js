@@ -72,7 +72,7 @@ module.exports.createNccf = async (req, res) => {
 
         // const password = generateRandomPassword();
         // const password = "Ministry@1234";
-        const password = "Ministry@5678";
+        const password = "Satya12345";
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const nccfData = new NccfAdmin({
@@ -93,7 +93,8 @@ module.exports.createNccf = async (req, res) => {
         // }
         // await emailService.sendNccfCredentialsEmail(emailPayload);
 
-        const type = await TypesModel.findOne({ _id: "677b7de4f392eaf580a68688" })
+        const type = await TypesModel.findOne({ _id: "677b7de4f392eaf580a68688" }) // testing
+        // const type = await TypesModel.findOne({ _id: "677b7f12f392eaf580a6868c" }) // live
 
         if (savedNccf._id) {
             const masterUser = new MasterUser({

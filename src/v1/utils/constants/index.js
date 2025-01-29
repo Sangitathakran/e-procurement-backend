@@ -387,8 +387,10 @@ const received_qc_status = {
 }
 
 const _trackOrderStatus = { 
-    readyToShip : "Ready-To-Ship" , 
-    inTransit : "In-Transit" ,
+    pending : "pending",
+    readyToShip : "shipped" , 
+    inTransit : "in-transit" ,
+    rejected : "rejected",
 }
 
 const _individual_farmer_onboarding_steps = [
