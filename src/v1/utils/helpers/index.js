@@ -462,6 +462,12 @@ exports._distillerMsp = () => {
   const msp = 24470;
   return msp;
 }
+exports._mandiTax = (amount) => {
+  
+ const tax =  (amount * 1.2) / 100;
+  return tax;
+}
+
 exports.formatDate = (timestamp, format = "DD/MM/YYYY") => {
   if (!timestamp) return "-";
   const date = new Date(timestamp);
