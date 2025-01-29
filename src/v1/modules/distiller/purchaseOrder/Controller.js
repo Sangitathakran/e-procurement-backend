@@ -369,7 +369,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
   (record.paymentInfo.advancePaymentDate =
     paymentInfo?.advancePaymentDate || record?.paymentInfo?.advancePaymentDate),
     (record.paymentInfo.totalAmount =
-        totalAmount + mandiTax|| record?.paymentInfo?.totalAmount),
+        record?.paymentInfo?.totalAmount + mandiTax|| record?.paymentInfo?.totalAmount),
 
     (record.paymentInfo.mandiTax =
         mandiTax|| record?.paymentInfo?.mandiTax),
