@@ -533,7 +533,6 @@ module.exports.batchStatsData = async (req, res) => {
         if (!finalwarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
-                data: { records: [] },
                 message: "No warehouses found for the user."
             }));
         }
