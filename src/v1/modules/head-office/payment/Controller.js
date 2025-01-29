@@ -266,7 +266,12 @@ module.exports.payment = async (req, res) => {
           // branch: 1
         },
       },
-      { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
+      { 
+        $sort: { 
+          payment_status: -1, 
+          createdAt: -1 
+        } 
+      }
       // { $skip: skip },
       // { $limit: parseInt(limit) },
     ];
