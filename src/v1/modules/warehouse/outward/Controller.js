@@ -312,10 +312,14 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "no of bags should not exceeds No. of Bags Alloted" }] }));
         }
 
+        // console.log("batch.associate_id" ,  batch.associate_batch_id ) ;  
+
         const trackOrderBatch = await TrackOrder.findOne(
-            { "ready_to_ship.pickup_batch.associate_batch_id": batch.associate_batch_id },
+            { "_id" : trackOrder_id , "ready_to_ship.pickup_batch.associate_batch_id": batch.associate_batch_id },
             { "ready_to_ship.pickup_batch.$": 1 } 
         );
+
+        // console.log("trackOrderBatch : >> " , JSON.stringify(trackOrderBatch) ) ; 
 
         if (!trackOrderBatch || !trackOrderBatch.ready_to_ship.pickup_batch.length) {
             return res.status(200).send(new serviceResponse({ status: 404 , errors: [{ message: "Batch not found" }]}));
@@ -339,23 +343,43 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
 
         const updatedBatch = await TrackOrder.findOneAndUpdate(
             {
+                "_id": trackOrder_id,
                 "ready_to_ship.pickup_batch.associate_batch_id": batch.associate_batch_id,
+                "ready_to_ship.pickup_batch.remaining_bag": { $gte: batch.no_of_bags }  
             },
             {
                 $inc: {
                     "ready_to_ship.pickup_batch.$.remaining_bag": -batch.no_of_bags, 
                 },
             },
-            { new: true, projection: { "ready_to_ship.pickup_batch.$": 1 } }
-        );
+            { 
+                new: true, 
+                projection: { "ready_to_ship.pickup_batch": 1 } 
+            }
+        );  
 
-        sumOfRemainingBag += updatedBatch.ready_to_ship.pickup_batch[0].remaining_bag;
+        if (!updatedBatch) {
+            return res.status(200).send(new serviceResponse({status: 404, errors: [{ message: "We can't subtract more bags, insufficient remaining bags." }]}));
+        }
+
+        // console.log("updatedBatch : >>> " , JSON.stringify(updatedBatch)) ; 
+
+        const updatedPickupBatch = updatedBatch?.ready_to_ship?.pickup_batch?.find(
+            (b) => b.associate_batch_id == batch.associate_batch_id
+        )
+
+        // console.log("updatedPickupBatch : >>>>> " , JSON.stringify(updatedPickupBatch)) ; 
+        // console.log("remaning_bag" , updatedPickupBatch["remaining_bag"]) ;
+
+        // sumOfRemainingBag += updatedBatch.ready_to_ship.pickup_batch[0].remaining_bag;  
+        sumOfRemainingBag += updatedPickupBatch["remaining_bag"];
 
     }
 
 
-    console.log("totalQtyOfBatches", totalQtyOfBatches);
-    console.log("truckCapacity ", truck_capacity);
+    // console.log("totalQtyOfBatches", totalQtyOfBatches);
+    // console.log("trackOrderRecord?.purchaseOrder_id?.quantityRequired" , trackOrderRecord?.purchaseOrder_id?.quantityRequired) ;
+    // console.log("truckCapacity ", truck_capacity);
 
     if (totalQtyOfBatches > truck_capacity) {
         return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "total quantity exceeds truck capacity" }] }));
@@ -363,13 +387,15 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
 
     if (totalQtyOfBatches > trackOrderRecord?.purchaseOrder_id?.quantityRequired) {
         trackOrderRecord.in_transit.qtyFulfilled = true;
-        await trackOrderRecord.save();
+        await trackOrderRecord.save(); 
+        // console.log("required quantiy shipped") ;
         return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "required quantity already shipped!" }] }));
 
     }
-    if (sumOfRemainingBag === 0) {
+    if (sumOfRemainingBag === 0) { 
         trackOrderRecord.in_transit.qtyFulfilled = true;
         await trackOrderRecord.save();
+        // console.log("remaining bag sum is 0") ;
     }
 
     const logistics_details = {
