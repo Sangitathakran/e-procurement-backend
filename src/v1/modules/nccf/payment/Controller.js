@@ -91,12 +91,26 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
             }
         },
         { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
-        { $skip: parseInt(skip) },
-        { $limit: parseInt(limit) }
+ 
 
     ];
-   
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+    if (!isExport) {
+        aggregationPipeline.push(
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit)}
+        );
+    } 
     const records = { count: 0 };
+    withoutPaginationAggregationPipeline.push({$count: "count"})
+    records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
+    const totalCount = await PurchaseOrderModel.aggregate(withoutPaginationAggregationPipeline); // Total count of documents
+    records.count = totalCount?.[0]?.count ?? 0;
+
+    
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     
 
     if (isExport == 1) {

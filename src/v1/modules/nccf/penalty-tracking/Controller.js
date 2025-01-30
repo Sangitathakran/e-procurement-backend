@@ -105,15 +105,16 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     
 
-    if (( paginate === 1 || paginate === '1') && !isExport) {
+    if (!isExport) {
         aggregationPipeline.push(
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
         );
     } 
-
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+    withoutPaginationAggregationPipeline.push({$count: "count"})
     const rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
-    const countResult = await PurchaseOrderModel.aggregate(aggregationPipeline);
+    const countResult = await PurchaseOrderModel.aggregate(withoutPaginationAggregationPipeline);
     const count = countResult?.[0]?.count ?? 0;
 
     const records = { rows, count };

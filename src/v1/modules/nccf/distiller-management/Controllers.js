@@ -98,11 +98,19 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
                 mou_document: 1,
             }
         },
-        { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
-        { $skip: parseInt(skip) },
-        { $limit: parseInt(limit) }
+        { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }
     ];
     
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+    if (!isExport) {
+        aggregationPipeline.push(
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) }
+        );
+    }
+    
+   
+
     if (isExport == 1) {
         const exportRecords = await Distiller.aggregate(aggregationPipeline.slice(0,-3));
         const exportData = exportRecords.map(item => ({
@@ -131,9 +139,10 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
             }));
         }
     } else {
+        withoutPaginationAggregationPipeline.push({$count: "count"})
         const records = { count: 0 };
         records.rows = await Distiller.aggregate(aggregationPipeline);
-        const totalCount = await Distiller.aggregate([...aggregationPipeline.slice(0,-3),{$count:"count"}]);
+        const totalCount = await Distiller.aggregate(withoutPaginationAggregationPipeline);
         records.count = totalCount?.[0]?.count ?? 0;
     
             records.page = page;

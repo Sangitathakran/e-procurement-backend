@@ -78,7 +78,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
     );
     // Add pagination if enabled
-    if ((paginate === 1 || paginate === '1') && !isExport) {
+    if (!isExport) {
         aggregationPipeline.push(
             { $skip: parseInt(skip) },
             { $limit: parseInt(limitNum) }

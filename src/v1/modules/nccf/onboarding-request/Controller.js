@@ -326,7 +326,7 @@ module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
         },
         { $sort: { [sortBy]: 1 } },
     ];
-    if (( page === 1 || page === '1') && !isExport) {
+    if (!isExport) {
         aggregationPipeline.push(
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
@@ -334,8 +334,10 @@ module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
     }
 
     const records = { count: 0 };
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+    withoutPaginationAggregationPipeline.push({$count: "count"})
     records.rows = await Distiller.aggregate(aggregationPipeline);
-    records.count = await Distiller.countDocuments(matchStage);
+    records.count = await Distiller.countDocuments(withoutPaginationAggregationPipeline);
     records.page = page;
     records.limit = limit;
     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
