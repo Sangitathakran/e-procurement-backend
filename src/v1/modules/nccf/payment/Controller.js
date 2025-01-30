@@ -152,7 +152,8 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }));
     }
 
-});
+}});
+
 
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
     try {
