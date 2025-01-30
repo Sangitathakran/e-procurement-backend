@@ -933,6 +933,94 @@ module.exports.payment = async (req, res) => {
               else: "Completed",
             },
           },
+          
+          overall_payment_status: {
+            $switch: {
+              branches: [{
+                case: {
+                  $allElementsTrue: {
+                    $map: {
+                      input: "$batches",
+                      as: "batch",
+                      in: {
+                        $allElementsTrue: {
+                          $map: {
+                            input: "$$batch.payment",
+                            as: "pay",
+                            in: { $eq: ["$$pay.payment_status", "Pending"] },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                then: "Pending",
+              },
+              {
+                case: {
+                  $allElementsTrue: {
+                    $map: {
+                      input: "$batches",
+                      as: "batch",
+                      in: {
+                        $allElementsTrue: {
+                          $map: {
+                            input: "$$batch.payment",
+                            as: "pay",
+                            in: { $eq: ["$$pay.payment_status", "Completed"] },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                then: "Completed",
+              },
+              {
+                case: {
+                  $allElementsTrue: {
+                    $map: {
+                      input: "$batches",
+                      as: "batch",
+                      in: {
+                        $allElementsTrue: {
+                          $map: {
+                            input: "$$batch.payment",
+                            as: "pay",
+                            in: { $eq: ["$$pay.payment_status", "In Progress"] },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                then: "Payment initiated",
+              },
+              {
+                case: {
+                  $anyElementTrue: {
+                    $map: {
+                      input: "$batches",
+                      as: "batch",
+                      in: {
+                        $anyElementTrue: {
+                          $map: {
+                            input: "$$batch.payment",
+                            as: "pay",
+                            in: { $in: ["$$pay.payment_status", ["Pending", "In Progress", "Failed", "Rejected"]] },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                then: "Partially initiated",
+              }
+              ],
+              default: "Pending", // Default case when no action is taken
+            },
+          },
+        
         },
       },
       {
