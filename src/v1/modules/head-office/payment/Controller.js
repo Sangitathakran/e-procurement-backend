@@ -1061,8 +1061,11 @@ module.exports.payment = async (req, res) => {
         "Branch Name": item?.branch?.branchName || "NA",
         "Commodity": item?.product?.name || "NA",
         "Quantity Purchased": item?.qtyPurchased || "NA",
+        "TOTAL AMOUNT": item?.amountPayable || "NA",
+        "AMOUNT PAID": item?.amountPaid || "NA",
         "Approval Status": item?.approval_status ?? "NA",
         "Payment Status": item?.payment_status ?? "NA",
+        "ORDER STATUS": item?.overall_payment_status ?? "NA",
       }));
 
       if (record.length > 0) {
