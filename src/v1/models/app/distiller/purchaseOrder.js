@@ -26,6 +26,7 @@ const purchaseOrderSchema = new mongoose.Schema(
     },
     product: {
       name: { type: String, required: true },
+      material_code: { type: String },
       grade: { type: String, required: false },
       grade_remark: { type: String, required: false },
       msp: { type: Number, required: true },
@@ -54,6 +55,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       balancePaymentDate: { type: Date },
       paidAmount: { type: Number, default: 0 },
       tax: { type: Number, default: 0 },
+      mandiTax: {type: Number, default: 0 },
       penaltyAmount: { type: Number, default: 0 },
       penaltyStaus: {
         type: String,

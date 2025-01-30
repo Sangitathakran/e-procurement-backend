@@ -152,7 +152,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
         { $sort: { [sortBy]: 1 } },
       ];
       
-      if (( page === 1 || page === '1') && !isExport) {
+      if (!isExport) {
         aggregationPipeline.push(
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit)}

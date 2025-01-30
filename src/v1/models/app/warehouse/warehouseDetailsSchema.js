@@ -28,6 +28,8 @@ const warehouseDetailsSchema = new mongoose.Schema(
       city: { type: String, required: true, trim: true },
       tehsil: { type: String, required: true, trim: true },
       location_url: { type: String, required: true, trim: true },
+      lat: { type: String },
+      long: { type: String },
       state: {
         state_name: { type: String },
         lat: { type: String },
@@ -63,7 +65,10 @@ const warehouseDetailsSchema = new mongoose.Schema(
       mobile: { type: String, trim: true },
       email: { type: String, lowercase: true, trim: true },
       aadharNumber: { type: String, trim: true },
+      aadhar_back: { type: String, trim: true },
+      aadhar_front: { type: String, trim: true },
       panNumber: { type: String, trim: true },
+      panImage: { type: String, trim: true },
       pointOfContactSame: { type: Boolean, required: true },
       pointOfContact: {
         name: { type: String, trim: true },
@@ -71,7 +76,11 @@ const warehouseDetailsSchema = new mongoose.Schema(
         mobileNumber: { type: String },
         email: { type: String, trim: true },
         aadharNumber: { type: String },
+        aadhar_back: { type: String, trim: true },
+        aadhar_front: { type: String, trim: true },
         panNumber: { type: String },
+        panImage: { type: String, trim: true },
+      
       },
     },
     bankDetails: {
