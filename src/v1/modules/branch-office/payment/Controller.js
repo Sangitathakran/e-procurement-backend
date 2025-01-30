@@ -15,7 +15,7 @@ module.exports.payment = async (req, res) => {
 
     try {
         let { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
-        limit = 5
+        // limit = 5
         let query = search ? {
             $or: [
                 { "reqNo": { $regex: search, $options: 'i' } },
@@ -148,7 +148,7 @@ module.exports.payment = async (req, res) => {
                 }
             },
             
-            { $skip: skip },
+            { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) },
             {
                 $project: {
@@ -180,6 +180,28 @@ module.exports.payment = async (req, res) => {
         ];
         const records = await RequestModel.aggregate([
             // ...aggregationPipeline,
+            { $match: { _id: { $in: paymentIds }, ...query } },
+            {
+                $lookup: {
+                    from: 'batches',
+                    localField: '_id',
+                    foreignField: 'req_id',
+                    as: 'batches',
+                    pipeline: [{
+                        $lookup: {
+                            from: 'payments',
+                            localField: '_id',
+                            foreignField: 'batch_id',
+                            as: 'payment',
+                        }
+                    }],
+                }
+            },
+            {
+                $match: {
+                    batches: { $ne: [] }
+                }
+            },
             {
                 $facet: {
                     data: aggregationPipeline, // Aggregate for data
@@ -834,3 +856,5 @@ const updateAgentInvoiceLogs = async (agencyInvoiceId) => {
     }
 
 }
+
+
