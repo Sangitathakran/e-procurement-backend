@@ -1036,6 +1036,7 @@ module.exports.payment = async (req, res) => {
           amountPayable: 1,
           amountPaid: 1,
           payment_status: 1,
+          overall_payment_status
         },
       },
       { $sort: { payment_status: -1, createdAt: -1 } },
