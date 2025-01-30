@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { _query, _response_message } = require("@src/v1/utils/constants/messages");
+const { _query, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
@@ -977,7 +977,6 @@ module.exports.batchStatsData = async (req, res) => {
         if (!finalwarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
-                data: { records: [], page, limit, pages: 0 },
                 message: "No warehouses found for the user."
             }));
         }

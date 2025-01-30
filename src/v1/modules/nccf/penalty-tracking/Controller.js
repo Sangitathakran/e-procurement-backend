@@ -118,22 +118,21 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
 
     const records = { rows, count };
 
-
         records.page = parseInt(page);
         records.limit = parseInt(limit);
         records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
     
-
     if (isExport == 1) {
         const record = rows.map((item) => {
             return {
                 "Order Id": item?.order_id || "NA",
                 "Distiller Name": item?.distillerName || "NA",
                 "Commodity": item?.commodity || "NA",
+                "Quantity": item?.quantityRequired || "NA",
                 "Total Amount": item?.totalAmount || "NA",
-                "Payment Sent": item?.paymentSent || "NA",
+                "Payment Received": item?.paymentSent || "NA",
                 "Outstanding Payment": item?.outstandingPayment || "NA",
-                "TotalPenalty Amount": item?.totalPenaltyAmount || "NA",
+                "Penalty Amount": item?.totalPenaltyAmount || "NA",
                 "payment Status": item?.paymentStatus || "NA"
             };
 

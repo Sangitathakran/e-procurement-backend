@@ -65,6 +65,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
                 _id: 1,
                 orderId: '$purchasedOrder.poNo',
                 commodity: '$product.name',
+                distillerId: '$distiller.user_code',
                 distillerName: '$distiller.basic_details.distiller_details.organization_name',
                 quantity: '$purchasedOrder.poQuantity',
                 totalAmount: '$paymentInfo.totalAmount',
@@ -89,7 +90,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
     const countAggregation = [{ $count: "total" }];
     const countResult = await PurchaseOrderModel.aggregate(countAggregation); // Fetch paginated data
     records.count = countResult.length > 0 ? countResult[0].total : 0;
-   
+
     records.page = pageNum;
     records.limit = limitNum;
     records.pages = limitNum !== 0 ? Math.ceil(records.count / limitNum) : 0;
@@ -99,16 +100,15 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         const record = records.rows.map((item) => {
 
             return {
-                "order Id": item?.orderId || 'NA',
-                "commodity": item?.commodity || 'NA',
-                "distiller Name": item?.distillerName ?? 'NA',
-                "quantity": item?.quantity ?? 'NA',
-                "total Amount": item?.totalAmount || 'NA',
-                "advance Payment": item?.advancePayment ?? 'NA',
-                "advance Payment": item?.advancePayment ?? 'NA',
-                "remaining Amount": item?.remainingAmount ?? 'NA',
-                "address": item?.address ?? 'NA',
-                "created At": item?.createdAt ?? 'NA'
+                "Order Id": item?.orderId || 'NA',
+                // "commodity": item?.commodity || 'NA',
+                "Distiller ID": item?.distillerId ?? 'NA',
+                "Distiller Name": item?.distillerName ?? 'NA',
+                "Quantity": item?.quantity ?? 'NA',
+                "Total Amount": item?.totalAmount || 'NA',
+                "Token Amount": item?.advancePayment ?? 'NA',
+                "Remaining Amount": item?.remainingAmount ?? 'NA',
+                "Address": item?.address ?? 'NA'
             };
         });
 
@@ -181,7 +181,7 @@ module.exports.batchList = asyncErrorHandler(async (req, res) => {
                 $project: {
                     // warehouseId: 1,
                     purchaseId: '$purchaseId',
-                    warehouseId: "$wareHouse_code",
+                    warehouseId: "$warehouseDetails.wareHouse_code",
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
@@ -434,6 +434,16 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
             );
         }
 
+        // Find warehouses that exist in BatchOrderProcess
+        const blockedWarehouses = await BatchOrderProcess.find({ warehouseId: { $in: warehouseIds } }).distinct("warehouseId");
+
+        // Check if all warehouseIds are valid
+        if (blockedWarehouses.length >0) {
+            return res.status(400).send(
+                new serviceResponse({ status: 400, errors: [{ message: "can't update these warehouse, distiller has created batch with warehouse." }] })
+            );
+        }
+
         // Prepare bulk operations
         const bulkOperations = [];
 
@@ -505,7 +515,7 @@ module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
         }
 
         const record = await BatchOrderProcess.findOne({ _id: batchId });
-        console.log(record);
+
         if (!record) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
         }
@@ -522,7 +532,8 @@ module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
         // const totalAmount = handleDecimal(record.paymentInfo.totalAmount);
         // const tokenAmount = handleDecimal(record.paymentInfo.advancePayment);
         // const remainingAmount = handleDecimal(record.paymentInfo.balancePayment);
-        const amountToBePaid = handleDecimal(msp * record.quantityRequired);
+        // const amountToBePaid = handleDecimal(msp * record.quantityRequired);
+        const amountToBePaid = handleDecimal(msp * quantity);
 
         record.status = status;
         record.quantityRequired = quantity;
@@ -590,7 +601,7 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
             {
                 $project: {
                     purchaseId: '$purchaseId',
-                    warehouseId: "$wareHouse_code",
+                    warehouseId: "$warehouseDetails.wareHouse_code",
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,
@@ -623,7 +634,7 @@ module.exports.scheduleListList = asyncErrorHandler(async (req, res) => {
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
 
-       
+
         // Export functionality
         if (isExport == 1) {
             const record = records.rows.map((item) => {
@@ -692,7 +703,7 @@ module.exports.batchscheduleDateUpdate = asyncErrorHandler(async (req, res) => {
 
 module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
     try {
-        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
+        const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id, isExport = 0 } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
         if (!order_id) {
@@ -743,7 +754,7 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
             {
                 $project: {
                     purchaseId: '$purchaseId',
-                    warehouseId: "$wareHouse_code",
+                    warehouseId: "$warehouseDetails.wareHouse_code",
                     warehouseName: '$warehouseDetails.basicDetails.warehouseName',
                     warehouseLocation: '$warehouseDetails.addressDetails',
                     quantityRequired: 1,

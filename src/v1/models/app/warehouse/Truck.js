@@ -40,6 +40,10 @@ const truckSchema = new mongoose.Schema({
         vehicle_number: { type: String },
         vehicle_img: { type: String },
     },
+    warehouse : { 
+        receipt : { type : String } , 
+        doc : { type : String } , 
+    } ,
     ..._commonKeys,
 }, {
     timestamps: true,
