@@ -144,6 +144,8 @@ module.exports.stateFilter = async (req, res) => {
         _handleCatchErrors(error, res);  
     }
 };
+
+/*
 module.exports.getCommodity = async (req, res) => {
     try {
         const requests = await RequestModel.find({}, 'product.name');
@@ -156,5 +158,24 @@ module.exports.getCommodity = async (req, res) => {
     } catch (error) {
         // Handle any errors
         _handleCatchErrors(error, res);   
+    }
+};
+*/
+
+module.exports.getCommodity = async (req, res) => {
+    try {
+        const requests = await RequestModel.aggregate([
+            { $group: { _id: "$product.name" } },
+            { $project: { value: "$_id", label: "$_id", _id: 0 } }
+        ]);
+ 
+        sendResponse({
+            res,
+            status: 200,
+            message: _response_message.found("Commodity"),
+            data: requests
+        });
+    } catch (error) {
+        _handleCatchErrors(error, res);
     }
 };

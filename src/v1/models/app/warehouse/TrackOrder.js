@@ -23,6 +23,7 @@ const trackOrderSchema = new mongoose.Schema({
                 qtyAllotment: { type: Number },
                 totalBags: { type: Number },
                 no_of_bags: { type: Number },
+                remaining_bag : { type : Number } ,
             }
         ],
         marked_ready: { type: Boolean, default: false },

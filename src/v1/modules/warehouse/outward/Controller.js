@@ -228,6 +228,8 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _auth_module.allReadyExist("track") }] }))
     }
 
+    let sumOfAllotedQty = 0;
+
     for (let batch of batches) {
 
         const batchRecord = await Batch.findOne({ _id: batch.associate_batch_id });
@@ -244,6 +246,8 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "Qty Allotment should be greater then zero" }] }))
         }
 
+        sumOfAllotedQty += batch.qtyAllotment;
+
         if (batchRecord.available_qty == 0 && batchRecord.allotedQty == 0) {
             batchRecord.available_qty = batchRecord.qty;
         }
@@ -252,6 +256,16 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
         batchRecord.available_qty -= batch.qtyAllotment;
 
         await batchRecord.save();
+    }
+
+    const purchaseOrderRecord = await BatchOrderProcess.findOne({ _id: purchaseOrder_id });
+
+    if (!purchaseOrderRecord) {
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("purcahse order") }] }));
+    }
+
+    if (sumOfAllotedQty > purchaseOrderRecord.quantityRequired) {
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "Alloted quantity exceeds Required quantity!" }] }));
     }
 
 
@@ -274,7 +288,7 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
 module.exports.inTransit = asyncErrorHandler(async (req, res) => {
 
-    const { trackOrder_id, batches = [], truck_capacity, logistics_company, tracking_id, tracking_link, name, contact, aadhar_number, license_number, license_img, loaded_vehicle_weight, vehicle_weight, vehicle_number, vehicle_img , receipt , doc } = req.body;
+    const { trackOrder_id, batches = [], truck_capacity, logistics_company, tracking_id, tracking_link, name, contact, aadhar_number, license_number, license_img, loaded_vehicle_weight, vehicle_weight, vehicle_number, vehicle_img, receipt, doc } = req.body;
 
     if (!truck_capacity || !logistics_company || !tracking_id || !tracking_link || !name || !contact || !aadhar_number || !license_number || !license_img || !loaded_vehicle_weight || !vehicle_weight || !vehicle_number || !vehicle_img || !receipt || !doc) {
         return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _middleware.require("in-transit fields") }] }));
@@ -285,10 +299,12 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
     ])
 
     if (!trackOrderRecord) {
-        return res.status(200).send(new serviceResponse({ status: 404 , errors: [{ message: _response_message.notFound("track order") }] }))
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("track order") }] }))
     }
 
     let totalQtyOfBatches = 0;
+
+    let sumOfRemainingBag = 0; 
 
     for (let batch of batches) {
 
@@ -296,49 +312,74 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "no of bags should not exceeds No. of Bags Alloted" }] }));
         }
 
+        // console.log("batch.associate_id" ,  batch.associate_batch_id ) ;  
+
+        const trackOrderBatch = await TrackOrder.findOne(
+            { "_id" : trackOrder_id , "ready_to_ship.pickup_batch.associate_batch_id": batch.associate_batch_id },
+            { "ready_to_ship.pickup_batch.$": 1 } 
+        );
+
+        // console.log("trackOrderBatch : >> " , JSON.stringify(trackOrderBatch) ) ; 
+
+        if (!trackOrderBatch || !trackOrderBatch.ready_to_ship.pickup_batch.length) {
+            return res.status(200).send(new serviceResponse({ status: 404 , errors: [{ message: "Batch not found" }]}));
+        }
+
+        const existingBatch = trackOrderBatch.ready_to_ship.pickup_batch[0];
+
+        if (existingBatch.remaining_bag == 0) {
+            return res.status(200).send(new serviceResponse({ status: 404 , errors: [{ message: "No bags can be added to this batch as remaining bag is zero." }] }));
+        }
+
+        if (existingBatch.remaining_bag < batch.no_of_bags) {
+            return res.status(200).send(new serviceResponse({status: 404, errors: [{ message: "No of bags exceeds remaining bags in the batch" }]}));
+        }
 
         const perBagUnit = Math.floor(batch.allotedQty.count / batch.noOfBagsAlloted);
 
         const qtyOfEachBag = batch.no_of_bags * perBagUnit;
 
         totalQtyOfBatches += qtyOfEachBag;
-        // const batchRecord = await TrackOrder.findOne({ "ready_to_ship.pickup_batch.associate_batch_id" : batch.associate_batch_id }); 
 
-        // const batchIndex = batchRecord.ready_to_ship.pickup_batch.findIndex(
-        //     (b) => b.associate_batch_id.toString() === batch.associate_batch_id.toString()
-        // );
-
-        // if (batchIndex === -1) {
-        //     return res.status(404).send(
-        //         new serviceResponse({
-        //             status: 404,
-        //             errors: [{ message: "Batch not found in pickup_batch" }],
-        //         })
-        //     );
-        // }
-
-        // batchRecord.ready_to_ship.pickup_batch[batchIndex].no_of_bags -= batch.no_of_bags;
-
-        // // Save the updated batch record
-        // await batchRecord.save();
-        await TrackOrder.updateOne(
+        const updatedBatch = await TrackOrder.findOneAndUpdate(
             {
+                "_id": trackOrder_id,
                 "ready_to_ship.pickup_batch.associate_batch_id": batch.associate_batch_id,
+                "ready_to_ship.pickup_batch.remaining_bag": { $gte: batch.no_of_bags }  
             },
             {
                 $inc: {
-                    "ready_to_ship.pickup_batch.$.no_of_bags": -batch.no_of_bags,
+                    "ready_to_ship.pickup_batch.$.remaining_bag": -batch.no_of_bags, 
                 },
+            },
+            { 
+                new: true, 
+                projection: { "ready_to_ship.pickup_batch": 1 } 
             }
-        );
+        );  
 
+        if (!updatedBatch) {
+            return res.status(200).send(new serviceResponse({status: 404, errors: [{ message: "We can't subtract more bags, insufficient remaining bags." }]}));
+        }
 
+        // console.log("updatedBatch : >>> " , JSON.stringify(updatedBatch)) ; 
+
+        const updatedPickupBatch = updatedBatch?.ready_to_ship?.pickup_batch?.find(
+            (b) => b.associate_batch_id == batch.associate_batch_id
+        )
+
+        // console.log("updatedPickupBatch : >>>>> " , JSON.stringify(updatedPickupBatch)) ; 
+        // console.log("remaning_bag" , updatedPickupBatch["remaining_bag"]) ;
+
+        // sumOfRemainingBag += updatedBatch.ready_to_ship.pickup_batch[0].remaining_bag;  
+        sumOfRemainingBag += updatedPickupBatch["remaining_bag"];
 
     }
 
 
-    console.log("totalQtyOfBatches", totalQtyOfBatches);
-    console.log("truckCapacity ", truck_capacity);
+    // console.log("totalQtyOfBatches", totalQtyOfBatches);
+    // console.log("trackOrderRecord?.purchaseOrder_id?.quantityRequired" , trackOrderRecord?.purchaseOrder_id?.quantityRequired) ;
+    // console.log("truckCapacity ", truck_capacity);
 
     if (totalQtyOfBatches > truck_capacity) {
         return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "total quantity exceeds truck capacity" }] }));
@@ -346,9 +387,15 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
 
     if (totalQtyOfBatches > trackOrderRecord?.purchaseOrder_id?.quantityRequired) {
         trackOrderRecord.in_transit.qtyFulfilled = true;
-        await trackOrderRecord.save();
-        return res.status(200).send(new serviceResponse({ status: 404 , errors: [{ message: "required quantity already shipped!" }] }));
+        await trackOrderRecord.save(); 
+        // console.log("required quantiy shipped") ;
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "required quantity already shipped!" }] }));
 
+    }
+    if (sumOfRemainingBag === 0) { 
+        trackOrderRecord.in_transit.qtyFulfilled = true;
+        await trackOrderRecord.save();
+        // console.log("remaining bag sum is 0") ;
     }
 
     const logistics_details = {
@@ -372,9 +419,9 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
         vehicle_img,
     }
 
-    const warehouse = { 
-        receipt  , 
-        doc , 
+    const warehouse = {
+        receipt,
+        doc,
     }
 
     const truckRecord = await Truck.create({
@@ -384,7 +431,7 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
         logistics_details,
         driver_details,
         vehicle_details,
-        warehouse ,
+        warehouse,
     })
 
     console.log("trackRecord  :>> ", trackOrderRecord);
@@ -421,6 +468,7 @@ module.exports.getBatches = asyncErrorHandler(async (req, res) => {
             },
             receving_date: batch.receving_date,
             noOfBagsAlloted: batch.no_of_bags,
+            remaining_bag : batch.remaining_bag,
         }
 
         data.push(batchData);
@@ -532,10 +580,10 @@ module.exports.batchOrderStatsData = async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
         }
-        
+
         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
         const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
-        
+
         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
             : ownerwarehouseIds;
@@ -543,12 +591,11 @@ module.exports.batchOrderStatsData = async (req, res) => {
         if (!finalwarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
-                data: { records: [], page, limit, pages: 0 },
                 message: "No warehouses found for the user."
             }));
         }
 
-        const query = {"warehousedetails_id": { $in: finalwarehouseIds }};
+        const query = { "warehousedetails_id": { $in: finalwarehouseIds } };
 
         const rows = await BatchOrderProcess.find(query);
         let totalPurchaseOrder = 0;
@@ -556,12 +603,12 @@ module.exports.batchOrderStatsData = async (req, res) => {
         let inTransitPurchaseOrder = 0;
         let rejectedPurchaseOrder = 0;
         let completedPurchaseOrder = 0;
-        
-        
+
+
         rows.forEach(batch => {
             const batchStatus = batch?.status;
-            
-            if(batchStatus == _poBatchStatus.pending) {
+
+            if (batchStatus == _poBatchStatus.pending) {
                 pendingPurchaseOrder++;
             } else if (batchStatus == _poBatchStatus.inProgress) {
                 inTransitPurchaseOrder++;
@@ -573,7 +620,7 @@ module.exports.batchOrderStatsData = async (req, res) => {
 
         });
         const response = {
-            totalPurchaseOrder : pendingPurchaseOrder+inTransitPurchaseOrder+rejectedPurchaseOrder+completedPurchaseOrder,
+            totalPurchaseOrder: pendingPurchaseOrder + inTransitPurchaseOrder + rejectedPurchaseOrder + completedPurchaseOrder,
             pendingPurchaseOrder,
             inTransitPurchaseOrder,
             rejectedPurchaseOrder,
@@ -583,8 +630,8 @@ module.exports.batchOrderStatsData = async (req, res) => {
             status: 200,
             message: 'Batch Order statistics fetch successfully.',
             data: response
-        })); 
-        
+        }));
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -592,7 +639,7 @@ module.exports.batchOrderStatsData = async (req, res) => {
 module.exports.rejectTrack = asyncErrorHandler(async (req, res) => {
 
 
-    const { id , reason } = req.body;
+    const { id, reason } = req.body;
 
     const record = await TrackOrder.findOne({ purchaseOrder_id: id });
 
@@ -600,13 +647,13 @@ module.exports.rejectTrack = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("purchase order") }] }));
     }
 
-    record.rejection.is_reject = true ; 
-    record.rejection.reason = reason ; 
-    record.status = _trackOrderStatus.rejected ; 
+    record.rejection.is_reject = true;
+    record.rejection.reason = reason;
+    record.status = _trackOrderStatus.rejected;
 
-    await record.save() ; 
+    await record.save();
 
-    return res.status(200).send(new serviceResponse({ status : 200 , data : record , message : _response_message.found("purchase order")}));
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("purchase order") }));
 
 
 })
