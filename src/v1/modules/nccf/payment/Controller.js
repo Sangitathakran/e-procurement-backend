@@ -91,12 +91,10 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
             }
         },
         { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
- 
-
     ];
     const withoutPaginationAggregationPipeline = [...aggregationPipeline];
-    if (!isExport) {
-    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+  
+    
     if (!isExport) {
         aggregationPipeline.push(
             { $skip: parseInt(skip) },
@@ -106,7 +104,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
     const records = { count: 0 };
     withoutPaginationAggregationPipeline.push({$count: "count"})
     records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
-    const totalCount = await PurchaseOrderModel.aggregate(withoutPaginationAggregationPipeline); // Total count of documents
+    const totalCount = await PurchaseOrderModel.aggregate(withoutPaginationAggregationPipeline); 
     records.count = totalCount?.[0]?.count ?? 0;
 
     
@@ -116,8 +114,9 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
     
 
     if (isExport == 1) {
-        records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline.slice(0,-3));
+        // records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline.slice(0,-3));
         const record = records.rows.map((item) => {
+            console.log("records", item)
             return {
                 "order Id": item?.order_id || 'NA',
                 "Distiller Name": item?.distillerName || 'NA',
@@ -152,7 +151,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }));
     }
 
-}});
+});
 
 
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
