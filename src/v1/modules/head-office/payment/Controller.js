@@ -821,7 +821,7 @@ module.exports.payment = async (req, res) => {
 
 module.exports.payment = async (req, res) => {
   try {
-    let { page = 1, limit = 50, search = "", isExport = 0 } = req.query;
+    let { page = 1, limit = 50, sortBy, search = "", isExport = 0, state = "", commodity = "" } = req.query;
     page = parseInt(page);
     limit = parseInt(limit);
 
@@ -847,7 +847,50 @@ module.exports.payment = async (req, res) => {
     // Step 2: Construct the Query
     let query = {
       _id: { $in: paymentIds },
-      ...(search ? { reqNo: { $regex: search, $options: "i" } } : {}),
+      // ...(search ? { reqNo: { $regex: search, $options: "i" } } : {}),
+      ...(state || search || commodity ? {
+        $and: [
+          ...(state
+            ? [
+              {
+                "sellers.address.registered.state": {
+                  $regex: state,
+                  $options: "i",
+                },
+              },
+            ]
+            : []),
+          ...(search
+            ? [{
+              $or: [
+                {
+                  "branch.branchName": {
+                    $regex: search,
+                    $options: "i",
+                  },
+                },
+                {
+                  "reqNo": {
+                    $regex: search,
+                    $options: "i",
+                  },
+                },
+              ]
+
+            },
+            ]
+            : []),
+          ...(commodity
+            ? [{
+              "product.name": {
+                $regex: commodity,
+                $options: "i",
+              },
+            },
+            ]
+            : []),
+        ],
+      } : {})
     };
 
     // Step 3: Get total count (without full aggregation)
@@ -1061,8 +1104,11 @@ module.exports.payment = async (req, res) => {
         "Branch Name": item?.branch?.branchName || "NA",
         "Commodity": item?.product?.name || "NA",
         "Quantity Purchased": item?.qtyPurchased || "NA",
+        "TOTAL AMOUNT": item?.amountPayable || "NA",
+        "AMOUNT PAID": item?.amountPaid || "NA",
         "Approval Status": item?.approval_status ?? "NA",
         "Payment Status": item?.payment_status ?? "NA",
+        "ORDER STATUS": item?.overall_payment_status ?? "NA",
       }));
 
       if (record.length > 0) {
