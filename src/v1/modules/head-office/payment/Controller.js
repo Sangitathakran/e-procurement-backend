@@ -932,8 +932,7 @@ module.exports.payment = async (req, res) => {
               then: "Pending",
               else: "Completed",
             },
-          },
-          
+          },          
           overall_payment_status: {
             $switch: {
               branches: [{
@@ -1036,7 +1035,7 @@ module.exports.payment = async (req, res) => {
           amountPayable: 1,
           amountPaid: 1,
           payment_status: 1,
-          overall_payment_status
+          overall_payment_status:1
         },
       },
       { $sort: { payment_status: -1, createdAt: -1 } },
