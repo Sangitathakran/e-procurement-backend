@@ -255,6 +255,10 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
         batchRecord.allotedQty += batch.qtyAllotment;
         batchRecord.available_qty -= batch.qtyAllotment;
 
+        if(batchRecord.available_qty < 0 ) { 
+            return res.status(200).send(new serviceResponse({ status : 404 , errors : [{ message : "Entered quantity not available!"}]}))
+        }
+
         await batchRecord.save();
     }
 
@@ -496,7 +500,7 @@ module.exports.fetchBatches = asyncErrorHandler(async (req, res) => {
     }
 
 
-    const batches = await Batch.find({ warehousedetails_id: record.warehouseId });
+    const batches = await Batch.find({ warehousedetails_id: record.warehouseId , available_qty : { $gt : 0 } });
 
     if (batches.length == 0) {
         return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("batches with this warehouse") }] }))
