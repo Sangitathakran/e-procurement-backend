@@ -26,6 +26,7 @@ const purchaseOrderSchema = new mongoose.Schema(
     },
     product: {
       name: { type: String, required: true },
+      material_code: { type: String },
       grade: { type: String, required: false },
       grade_remark: { type: String, required: false },
       msp: { type: Number, required: true },
