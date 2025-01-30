@@ -326,6 +326,7 @@ module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
         },
         { $sort: { [sortBy]: 1 } },
     ];
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
     if (!isExport) {
         aggregationPipeline.push(
             { $skip: parseInt(skip) },
@@ -334,7 +335,6 @@ module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
     }
 
     const records = { count: 0 };
-    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
     withoutPaginationAggregationPipeline.push({$count: "count"})
     records.rows = await Distiller.aggregate(aggregationPipeline);
     records.count = await Distiller.countDocuments(withoutPaginationAggregationPipeline);

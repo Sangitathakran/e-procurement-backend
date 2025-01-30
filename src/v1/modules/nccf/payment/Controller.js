@@ -96,11 +96,13 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
     ];
     const withoutPaginationAggregationPipeline = [...aggregationPipeline];
     if (!isExport) {
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+    if (!isExport) {
         aggregationPipeline.push(
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit)}
         );
-    } 
+    }
     const records = { count: 0 };
     withoutPaginationAggregationPipeline.push({$count: "count"})
     records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
