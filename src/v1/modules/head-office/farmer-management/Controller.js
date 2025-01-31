@@ -12,7 +12,7 @@ const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 
 module.exports.farmerList = async (req, res) => {
     try {
-        const { page = 1, limit = 10, sortBy = 'name', search = '', isExport = 0 } = req.query;
+        const { page = 1, limit = 10, sortBy = 'name', search = '', isExport = 0, state = null, district = null } = req.query;
         const skip = (page - 1) * limit;
         const searchFields = ['name', 'farmer_id', 'farmer_code', 'mobile_no'];
 
@@ -23,6 +23,15 @@ module.exports.farmerList = async (req, res) => {
         }
 
         const query = search ? makeSearchQuery(searchFields) : {};
+
+        if (state) {
+            query['address.state_id'] = state;
+        }
+        
+        if (district) {
+            query['address.district_id'] = district;
+        }
+
         const records = { count: 0, rows: [] };
 
         // Get all farmers in one query
@@ -129,6 +138,49 @@ module.exports.getSingleFarmer = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.getAllStateAndDistricts = async (req, res) => {
+    try {
+        const farmerStates = await farmer.distinct('address.state_id');
+        const farmerDistricts = await farmer.distinct('address.district_id');
+
+        const stateEntries = await StateDistrictCity.aggregate([
+            { $unwind: "$states" },
+            { $match: { "states._id": { $in: farmerStates } } },
+            { $unwind: "$states.districts" },
+            { $match: { "states.districts._id": { $in: farmerDistricts } } },
+            {
+                $group: {
+                    _id: "$states._id",
+                    state_title: { $first: "$states.state_title" },
+                    districts: {
+                        $push: {
+                            label: "$states.districts.district_title",
+                            value: "$states.districts._id"
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    label: "$state_title",
+                    value: "$_id",
+                    districts: 1
+                }
+            }
+        ]);
+        
+        return sendResponse({
+            res,
+            status: 200,
+            data: stateEntries,
+            message: _response_message.found("All farmer State and districts")
+        });
+    } catch (error) {
+        console.log('error', error);
+        _handleCatchErrors(error, res);
+    }
+}
 
 const getState = async (stateId) => {
     try {
