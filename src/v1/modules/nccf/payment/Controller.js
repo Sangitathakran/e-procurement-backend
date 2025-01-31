@@ -91,17 +91,32 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
             }
         },
         { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
-        { $skip: parseInt(skip) },
-        { $limit: parseInt(limit) }
-
     ];
-   
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+  
+    
+    if (!isExport) {
+        aggregationPipeline.push(
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit)}
+        );
+    }
     const records = { count: 0 };
+    withoutPaginationAggregationPipeline.push({$count: "count"})
+    records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
+    const totalCount = await PurchaseOrderModel.aggregate(withoutPaginationAggregationPipeline); 
+    records.count = totalCount?.[0]?.count ?? 0;
+
+    
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     
 
     if (isExport == 1) {
-        records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline.slice(0,-3));
+        // records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline.slice(0,-3));
         const record = records.rows.map((item) => {
+            console.log("records", item)
             return {
                 "order Id": item?.order_id || 'NA',
                 "Distiller Name": item?.distillerName || 'NA',
@@ -137,6 +152,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
     }
 
 });
+
 
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
     try {
