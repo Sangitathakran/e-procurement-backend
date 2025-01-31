@@ -126,7 +126,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
         //const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
         const ownerwarehouseIds = warehouseDetails.map(id => new mongoose.Types.ObjectId(id));
-
+ 
         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
             : ownerwarehouseIds;
@@ -552,7 +552,6 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) }
         ];
-        console.log(JSON.stringify(pipeline, null, 2)) 
         
         const rows = await Batch.aggregate(pipeline);
 
