@@ -27,20 +27,22 @@ module.exports.getOrder = asyncErrorHandler(async (req, res) => {
         },
         { $unwind: { path: "$branch_id", preserveNullAndEmptyArrays: true } },
     
-        ...(search
-            ? [
-                  {
-                      $match: {
+        {
+            $match: {
+                "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+                distiller_id: new mongoose.Types.ObjectId(user_id),
+                deletedAt: null, // Ensures only active records
+                ...(search
+                    ? {
                           $or: [
-                              { orderId: { $regex: search, $options: "i" } }, // Order ID search
+                              { 'purchasedOrder.poNo': { $regex: search, $options: "i" } }, // Order ID search
                               { "branch_id.branchName": { $regex: search, $options: "i" } }, // Branch Name search
                           ]
                       }
-                  }
-              ]
-            : []),
+                    : {}),
+            }
+        },
     
-        // 📊 Total Count Stage (separate lookup for efficiency)
         {
             $facet: {
                 metadata: [{ $count: "total" }], // Count total matching docs
