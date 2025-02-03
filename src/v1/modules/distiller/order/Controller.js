@@ -383,7 +383,7 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
 
 module.exports.batchPayNow = asyncErrorHandler(async (req, res) => {
     try {
-        const { batchId, amount, transactionId } = req.body;
+        const { batchId, amount, transactionId, paymentProof } = req.body;
 
         if (!batchId) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch/Purchase Id") }] }));
@@ -398,6 +398,7 @@ module.exports.batchPayNow = asyncErrorHandler(async (req, res) => {
         if (!record) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
         }
+       
         if (record.payment.status == _poBatchPaymentStatus.paid) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyUpdated("Batch") }] }));
         }
@@ -407,6 +408,7 @@ module.exports.batchPayNow = asyncErrorHandler(async (req, res) => {
         record.payment.status = _poBatchPaymentStatus.paid;
         record.payment.amount = amountToBePaid;
         record.payment.paymentId = transactionId;
+        record.payment.paymentProof= paymentProof;
 
         await record.save();
 
