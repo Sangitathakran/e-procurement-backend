@@ -13,7 +13,7 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 
 
 module.exports.getOrder = asyncErrorHandler(async (req, res) => {
-    const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+    const { page, limit, skip, sortBy, search = '', isExport = 0 } = req.query
     const { user_id } = req;
     
     const pipeline = [
@@ -55,16 +55,13 @@ module.exports.getOrder = asyncErrorHandler(async (req, res) => {
         }
     ];
     
-    // ✅ Execute Aggregation
     const result = await PurchaseOrderModel.aggregate(pipeline);
     
-    // ✅ Extract Data
     const records = {
         count: result[0].metadata.length ? result[0].metadata[0].total : 0, // Total count
         rows: result[0].data || [], // Paginated data
     };
     
-    // ✅ Pagination info
     if (!isExport) {
         records.page = page;
         records.limit = limit;
