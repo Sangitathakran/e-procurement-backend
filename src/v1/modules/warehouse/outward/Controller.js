@@ -12,6 +12,8 @@ const { PurchaseOrderModel } = require('@src/v1/models/app/distiller/purchaseOrd
 const { TrackOrder } = require('@src/v1/models/app/warehouse/TrackOrder');
 const { batch } = require('../../associate/order/Controller');
 const { _trackOrderStatus } = require('@src/v1/utils/constants');
+const { ExternalBatch } = require("@src/v1/models/app/procurement/ExternalBatch");
+const { ExternalOrder } = require("@src/v1/models/app/warehouse/ExternalOrder");
 const { Truck } = require('@src/v1/models/app/warehouse/Truck');
 
 
@@ -661,3 +663,54 @@ module.exports.rejectTrack = asyncErrorHandler(async (req, res) => {
 
 
 })
+
+module.exports.createExternalOrder = async (req, res) => {
+    try {
+        const { commodity, quantity, external_batch_id, basic_details, address } = req.body;
+        const { user_id } = req;
+
+        if (!commodity || !external_batch_id || !basic_details || !address) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "Missing required fields"
+            }));
+        }
+        const batchExists = await ExternalBatch.findById(external_batch_id);
+        if (!batchExists) {
+            return res.status(404).json(new serviceResponse({
+                status: 404,
+                message: "External Batch not found"
+            }));
+        }
+
+        const orderData = {
+            commodity,
+            quantity: quantity || 0,
+            external_batch_id,
+            basic_details: {
+                buyer_name: basic_details.buyer_name,
+                email: basic_details.email?.toLowerCase(),
+                phone: basic_details.phone,
+                cin_number: basic_details.cin_number,
+                gst_number: basic_details.gst_number,
+            },
+            address: {
+                line1: address.line1,
+                line2: address.line2,
+                state: address.state,
+                district: address.district,
+                city: address.city,
+                tehsil: address.tehsil,
+                pinCode: address.pinCode,
+            },
+        };
+
+        const newExternalOrder = new ExternalOrder(orderData);
+        const savedOrder = await newExternalOrder.save();
+        
+        return res.status(200).send(new serviceResponse({ message: _query.add('External Order'), data: savedOrder }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
