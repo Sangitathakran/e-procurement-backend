@@ -184,48 +184,58 @@ module.exports.getAllStateAndDistricts = async (req, res) => {
 
 module.exports.getStatewiseFarmersCount = async (req, res) => {
     try {
-        const farmerStates = await farmer.distinct('address.state_id');
+    
+        const farmerStates = await farmer.distinct('address.state_id', { "address.state_id": { $ne: null } });
 
 // Aggregate over the StateDistrictCity collection
 const stateEntries = await StateDistrictCity.aggregate([
     { 
-        $unwind: "$states" // Unwind the states array to access each state
+        $unwind: "$states" 
     },
     { 
         $match: { 
-            "states._id": { $in: farmerStates } // Match only the states that have farmers
+            "states._id": { $in: farmerStates.filter(id => id) } 
         }
     },
     {
-        // Join with the farmers collection to count the number of farmers per state
+        // Optimized $lookup with $group to directly get counts
         $lookup: {
-            from: "farmers", // The name of your farmers collection
-            localField: "states._id", // The state _id from the state array
-            foreignField: "address.state_id", // The state_id field in the farmer collection
-            as: "farmers_data" // Store the matched farmers data in farmers_data field
+            from: "farmers",
+            let: { stateId: "$states._id" },
+            pipeline: [
+                { 
+                    $match: { 
+                        $expr: { $eq: ["$address.state_id", "$$stateId"] }
+                    } 
+                },
+                { 
+                    $group: { 
+                        _id: null, 
+                        count: { $sum: 1 } 
+                    } 
+                }
+            ],
+            as: "farmers_count"
         }
     },
     {
-        // Now group by state and calculate count of farmers per state
-        $group: {
-            _id: "$states._id", // Group by state ID
-            state_title: { $first: "$states.state_title" }, // Get the state title
-            count: { $sum: { $size: "$farmers_data" } } // Count the number of farmers in this state
-        }
-    },
-    {
-        // Project the desired fields
+        // Restructure the output with count from lookup
         $project: {
-            state: "$state_title", // State title as label
-            count: 1, // Include the farmer count
-            _id: 0 // Exclude the _id field from the output
+            state: "$states.state_title", 
+            count: { 
+                $ifNull: [{ $arrayElemAt: ["$farmers_count.count", 0] }, 0] 
+            }, // Get count from lookup, default to 0
+            _id: 0 // Exclude _id field
         }
     }
 ]);
+
+const totalFarmers = stateEntries.reduce((sum, state) => sum + state.count, 0);
+
         return sendResponse({
             res,
             status: 200,
-            data: stateEntries,
+            data: {stateWiseCount: stateEntries, totalCount: totalFarmers},
             message: _response_message.found("All farmers count fetch successfully")
         });
     } catch (error) {
