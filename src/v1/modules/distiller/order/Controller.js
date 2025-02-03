@@ -13,29 +13,62 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 
 
 module.exports.getOrder = asyncErrorHandler(async (req, res) => {
-
     const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
     const { user_id } = req;
-    let query = {
-        'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
-        distiller_id: new mongoose.Types.ObjectId(user_id),
-        ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+    
+    const pipeline = [
+        {
+            $lookup: {
+                from: "branches",
+                localField: "branch_id",
+                foreignField: "_id",
+                as: "branch_id"
+            }
+        },
+        { $unwind: { path: "$branch_id", preserveNullAndEmptyArrays: true } },
+    
+        ...(search
+            ? [
+                  {
+                      $match: {
+                          $or: [
+                              { orderId: { $regex: search, $options: "i" } }, // Order ID search
+                              { "branch_id.branchName": { $regex: search, $options: "i" } }, // Branch Name search
+                          ]
+                      }
+                  }
+              ]
+            : []),
+    
+        // 📊 Total Count Stage (separate lookup for efficiency)
+        {
+            $facet: {
+                metadata: [{ $count: "total" }], // Count total matching docs
+                data: [
+                    { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Sorting
+                    { $skip: skip }, // Pagination: Skip records
+                    { $limit: parseInt(limit, 10) } // Limit records
+                ]
+            }
+        }
+    ];
+    
+    // ✅ Execute Aggregation
+    const result = await PurchaseOrderModel.aggregate(pipeline);
+    
+    // ✅ Extract Data
+    const records = {
+        count: result[0].metadata.length ? result[0].metadata[0].total : 0, // Total count
+        rows: result[0].data || [], // Paginated data
     };
-
-    const records = { count: 0 };
-
-    records.rows = paginate == 1 ? await PurchaseOrderModel.find(query)
-        .sort(sortBy)
-        .skip(skip).populate({ path: "branch_id", select: "_id branchName branchId" })
-        .limit(parseInt(limit)) : await PurchaseOrderModel.find(query).sort(sortBy);
-
-    records.count = await PurchaseOrderModel.countDocuments(query);
-
-    if (paginate == 1) {
-        records.page = page
-        records.limit = limit
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+    
+    // ✅ Pagination info
+    if (!isExport) {
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
+    
 
     if (isExport == 1) {
 
