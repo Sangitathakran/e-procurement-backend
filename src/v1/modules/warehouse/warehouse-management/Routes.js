@@ -1,5 +1,5 @@
 const express = require("express");
-const { saveWarehouseDetails, editWarehouseDetails, getWarehouseList, updateWarehouseStatus, getWarehouseDashboardStats } = require("./Controller");
+const { saveWarehouseDetails, editWarehouseDetails, getWarehouseList, updateWarehouseStatus, getWarehouseDashboardStats, warehouseFilterList } = require("./Controller");
 const { verifyWarehouseOwner } = require("../utils/verifyWarehouseOwner");
 
 
@@ -10,6 +10,7 @@ wareHouseManagement.put("/edit-warehouse", verifyWarehouseOwner, editWarehouseDe
 wareHouseManagement.post("/warehouse-list", verifyWarehouseOwner, getWarehouseList);
 wareHouseManagement.put("/warehouse-status/:id", verifyWarehouseOwner, updateWarehouseStatus);
 wareHouseManagement.get("/get-warehouse-dashboardStats",verifyWarehouseOwner, getWarehouseDashboardStats)
+wareHouseManagement.get("/get-warehouse-filter-list",verifyWarehouseOwner, warehouseFilterList)
 
 
 

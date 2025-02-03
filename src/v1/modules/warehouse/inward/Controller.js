@@ -9,11 +9,108 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 
 
+// module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
+//     const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0 } = req.query;
+//     const { warehouseIds = [] } = req.body; // Updated to use warehouseIds
+
+//     try {
+//         const getToken = req.headers.token || req.cookies.token;
+//         if (!getToken) {
+//             return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+//         }
+
+//         const decode = await decryptJwtToken(getToken);
+//         const UserId = decode.data.user_id;
+
+//         if (!mongoose.Types.ObjectId.isValid(UserId)) {
+//             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+//         }
+        
+//         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+//         const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
+        
+//         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
+//             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
+//             : ownerwarehouseIds;
+
+//         if (!finalwarehouseIds.length) {
+//             return res.status(200).send(new serviceResponse({
+//                 status: 200,
+//                 data: { records: [], page, limit, pages: 0 },
+//                 message: "No warehouses found for the user."
+//             }));
+//         }
+
+//         const query = {
+//             "warehousedetails_id": { $in: finalwarehouseIds },
+//             wareHouse_approve_status: 'Received', 
+//             ...(search && {
+//                 $or: [
+//                     { batchId: { $regex: search, $options: 'i' } },
+//                     { "seller_id.basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
+//                     { "procurementCenter_id.center_name": { $regex: search, $options: 'i' } },
+//                 ]
+//             }),
+//         };
+
+//         const rows = await Batch.find(query)
+//             .populate([
+//                 { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
+//                 { path: "procurementCenter_id", select: "center_name" },
+//                 { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
+//                 { path: "req_id", select: "product.name deliveryDate" },
+//             ])
+//             .select("batchId warehousedetails_id commodity qty wareHouse_approve_status final_quality_check receiving_details createdAt")
+//             .sort(sortBy)
+//             .skip((page - 1) * limit)
+//             .limit(parseInt(limit));
+
+//         const count = await Batch.countDocuments(query);
+//         const stats = {
+//             totalBatches: count,
+//             approvedBatches: await Batch.countDocuments({ ...query, status: 'Approved' }),
+//             rejectedBatches: await Batch.countDocuments({ ...query, status: 'Rejected' }),
+//             pendingBatches: await Batch.countDocuments({ ...query, status: 'Pending' }),
+//             pendingReceivingBatches: await Batch.countDocuments({ ...query, "dispatched.received": { $exists: false } })
+//         };
+
+//         if (isExport == 1) {
+//             const exportData = rows.map(item => ({
+//                 "Batch ID": item.batchId || 'NA',
+//                 "Associate Name": item.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
+//                 "Procurement Center": item.procurementCenter_id?.center_name || 'NA',
+//                 "Warehouse": item.warehousedetails_id?.basicDetails?.warehouseName || 'NA',
+//                 "Quantity": item.qty || 'NA',
+//                 "Status": item.wareHouse_approve_status || 'NA'
+//             }));
+
+//             if (exportData.length) {
+//                 return dumpJSONToExcel(req, res, {
+//                     data: exportData,
+//                     fileName: `Warehouse-Batches.xlsx`,
+//                     worksheetName: `Batches`
+//                 });
+//             }
+//             return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
+//         }
+
+//         return res.status(200).send(new serviceResponse({
+//             status: 200,
+//             data: { records: { rows, count, page, limit, pages: Math.ceil(count / limit), ...stats } },
+//             message: "Batches fetched successfully"
+//         }));
+//     } catch (error) {
+//         console.error(error);
+//         return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
+//     }
+// });
+
+//using aggregate for filter and search
 module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
-    const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0 } = req.query;
-    const { warehouseIds = [] } = req.body; // Updated to use warehouseIds
+    const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status, productName, warehouse_name } = req.query;
+    const { warehouseIds = [] } = req.body;
 
-    try {
+    try { 
         const getToken = req.headers.token || req.cookies.token;
         if (!getToken) {
             return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
@@ -25,10 +122,11 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
         }
-        
+
         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
-        const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
-        
+        //const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
+        const ownerwarehouseIds = warehouseDetails.map(id => new mongoose.Types.ObjectId(id));
+ 
         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
             : ownerwarehouseIds;
@@ -36,48 +134,153 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
         if (!finalwarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
-                data: { records: [], page, limit, pages: 0 },
-                message: "No warehouses found for the user."
+                data: { records: { rows: [], count: 0, page, limit, pages: 0 }, message: "No warehouses found for the user." }
             }));
         }
 
+        const searchRegex = search ? new RegExp(search, 'i') : null;
+
+        const pipeline = [
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    localField: 'warehousedetails_id',
+                    foreignField: '_id',
+                    as: 'warehousedetails_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'procurementcenters',
+                    localField: 'procurementCenter_id',
+                    foreignField: '_id',
+                    as: 'procurementCenter_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'seller_id',
+                    foreignField: '_id',
+                    as: 'seller_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'requests',
+                    localField: 'req_id',
+                    foreignField: '_id',
+                    as: 'req_id'
+                }
+            },
+
+            { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
+            {
+                $match: {
+                   "warehousedetails_id._id": { $in: finalwarehouseIds },
+                   ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+                 
+                    wareHouse_approve_status: 'Received',
+                    ...(search && searchRegex && {
+                        $or: [
+                            { batchId: { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+                            { "procurementCenter_id.center_name": { $regex: searchRegex } },
+                            { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+                        ]
+                    }),
+                    ...(status && {
+                        "final_quality_check.status": status  // This checks the status field for exact match
+                    }),
+                    ...(productName && { "req_id.product.name": productName})//{ $regex: new RegExp(productName, 'i') } })  // If productName is provided
+                }
+            },
+            {
+                $project: {
+                    batchId: 1,
+                    qty: 1,
+                    received_on: 1,
+                    qc_report: 1,
+                    wareHouse_code: 1,
+                    //status: 1,
+                    commodity: 1,
+                    "final_quality_check.status":1,
+                    "final_quality_check.product_images":1,
+                    "final_quality_check.qc_images":1,
+                    "final_quality_check.rejected_reason":1,
+                    "final_quality_check.whr_receipt":1,
+                    "final_quality_check.whr_receipt_image":1,
+                    
+                    "req_id.product.name":1,
+                    "req_id._id":1,
+                    "req_id.deliveryDate":1,
+                    "receiving_details.received_on": 1,
+                    "receiving_details.vehicle_details": 1,
+                    "receiving_details.document_pictures": 1,
+                    "receiving_details.bag_weight_per_kg": 1,
+                    "receiving_details.no_of_bags": 1,
+                    "receiving_details.quantity_received": 1,
+                    "receiving_details.truck_photo": 1,
+                    "final_quality_check.whr_receipt": 1,
+                    "warehousedetails_id.basicDetails.warehouseName": 1,
+                    "warehousedetails_id.wareHouse_code": 1,
+                    "warehousedetails_id._id": 1,
+                    "procurementCenter_id.center_name": 1,
+                    "procurementCenter_id._id": 1,
+                    "seller_id.basic_details.associate_details.associate_name": 1,
+                    "seller_id.basic_details.associate_details.organization_name": 1,
+                    "seller_id._id": 1,
+                    wareHouse_approve_status: 1,
+                    createdAt: 1
+                }
+            },
+            { $sort: { [sortBy]: 1 } },
+            { $skip: (page - 1) * limit },
+            { $limit: parseInt(limit) }
+        ];
+
+       //console.log(JSON.stringify(pipeline, null, 2)) 
+        const rows = await Batch.aggregate(pipeline);
+        const totalCount = rows.length;
+       
         const query = {
-            "warehousedetails_id": { $in: finalwarehouseIds },
-            wareHouse_approve_status: 'Received', 
-            ...(search && {
+            "warehousedetails_id._id": { $in: finalwarehouseIds },
+            ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+            wareHouse_approve_status: 'Received',
+            ...(search && searchRegex && {
                 $or: [
-                    { batchId: { $regex: search, $options: 'i' } },
-                    { "seller_id.basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
-                    { "procurementCenter_id.center_name": { $regex: search, $options: 'i' } },
+                    { batchId: { $regex: searchRegex } },
+                    { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+                    { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+                    { "procurementCenter_id.center_name": { $regex: searchRegex } },
+                    { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
                 ]
             }),
+            ...(status && {
+                "final_quality_check.status": status  // This checks the status field for exact match
+            }),
+            ...(productName && { "req_id.product.name": productName})//{ $regex: new RegExp(productName, 'i') } })  // If productName is provided
         };
 
-        const rows = await Batch.find(query)
-            .populate([
-                { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
-                { path: "procurementCenter_id", select: "center_name" },
-                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
-                { path: "req_id", select: "product.name deliveryDate" },
-            ])
-            .select("batchId warehousedetails_id commodity qty wareHouse_approve_status final_quality_check receiving_details createdAt")
-            .sort(sortBy)
-            .skip((page - 1) * limit)
-            .limit(parseInt(limit));
+            const stats = {
+             totalBatches: totalCount,
+             approvedBatches: await Batch.countDocuments({ ...query, status: 'Approved' }),
+             rejectedBatches: await Batch.countDocuments({ ...query, status: 'Rejected' }),
+             pendingBatches: await Batch.countDocuments({ ...query, status: 'Pending' }),
+             pendingReceivingBatches: await Batch.countDocuments({ ...query, "dispatched.received": { $exists: false } })
+         };
 
-        const count = await Batch.countDocuments(query);
-        const stats = {
-            totalBatches: count,
-            approvedBatches: await Batch.countDocuments({ ...query, status: 'Approved' }),
-            rejectedBatches: await Batch.countDocuments({ ...query, status: 'Rejected' }),
-            pendingBatches: await Batch.countDocuments({ ...query, status: 'Pending' }),
-            pendingReceivingBatches: await Batch.countDocuments({ ...query, "dispatched.received": { $exists: false } })
-        };
 
+        // Export functionality
         if (isExport == 1) {
             const exportData = rows.map(item => ({
                 "Batch ID": item.batchId || 'NA',
                 "Associate Name": item.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
+                "Organization Name": item.seller_id?.basic_details?.associate_details?.organization_name || 'NA',
                 "Procurement Center": item.procurementCenter_id?.center_name || 'NA',
                 "Warehouse": item.warehousedetails_id?.basicDetails?.warehouseName || 'NA',
                 "Quantity": item.qty || 'NA',
@@ -96,18 +299,126 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
 
         return res.status(200).send(new serviceResponse({
             status: 200,
-            data: { records: { rows, count, page, limit, pages: Math.ceil(count / limit), ...stats } },
+            data: {
+                records: {
+                    rows,
+                    count: totalCount,
+                    page,
+                    limit,
+                    pages: Math.ceil(totalCount / limit),
+                    ...stats
+                }
+            },
             message: "Batches fetched successfully"
         }));
+
     } catch (error) {
         console.error(error);
         return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
     }
 });
 
+// module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
+//     const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0 } = req.query;
+//     const { warehouseIds = [] } = req.body; // Updated to use warehouseIds
+
+//     try {
+//         const getToken = req.headers.token || req.cookies.token;
+//         if (!getToken) {
+//             return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+//         }
+
+//         const decode = await decryptJwtToken(getToken);
+//         const UserId = decode.data.user_id;
+
+//         if (!mongoose.Types.ObjectId.isValid(UserId)) {
+//             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+//         }
+        
+//         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+//         const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
+        
+//         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
+//             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
+//             : ownerwarehouseIds;
+
+//         if (!finalwarehouseIds.length) {
+//             return res.status(200).send(new serviceResponse({
+//                 status: 200,
+//                 data: { records: [], page, limit, pages: 0 },
+//                 message: "No warehouses found for the user."
+//             }));
+//         }
+        
+//         const query = {
+//             "warehousedetails_id": { $in: finalwarehouseIds },
+//             wareHouse_approve_status: 'Pending', 
+//             ...(search && {
+//                 $or: [
+//                     { batchId: { $regex: search, $options: 'i' } },
+//                     { "seller_id.basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
+//                     { "procurementCenter_id.center_name": { $regex: search, $options: 'i' } },
+//                 ]
+//             }),
+//         };
+
+//         const rows = await Batch.find(query)
+//             .populate([
+//                 { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
+//                 { path: "procurementCenter_id", select: "center_name" },
+//                 { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
+//                 { path: "req_id", select: "product.name deliveryDate" },
+//             ])
+//             .select("batchId warehousedetails_id commodity qty wareHouse_approve_status final_quality_check receiving_details createdAt")
+//             .sort(sortBy)
+//             .skip((page - 1) * limit)
+//             .limit(parseInt(limit));
+
+//         const count = await Batch.countDocuments(query);
+//         const stats = {
+//             totalBatches: count,
+//             approvedBatches: await Batch.countDocuments({ ...query, status: 'Approved' }),
+//             rejectedBatches: await Batch.countDocuments({ ...query, status: 'Rejected' }),
+//             pendingBatches: await Batch.countDocuments({ ...query, status: 'Pending' }),
+//             pendingReceivingBatches: await Batch.countDocuments({ ...query, "dispatched.received": { $exists: false } })
+//         };
+
+//         if (isExport == 1) {
+//             const exportData = rows.map(item => ({
+//                 "Batch ID": item.batchId || 'NA',
+//                 "Associate Name": item.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
+//                 "Procurement Center": item.procurementCenter_id?.center_name || 'NA',
+//                 "Warehouse": item.warehousedetails_id?.basicDetails?.warehouseName || 'NA',
+//                 "Quantity": item.qty || 'NA',
+//                 "Status": item.wareHouse_approve_status || 'NA'
+//             }));
+
+//             if (exportData.length) {
+//                 return dumpJSONToExcel(req, res, {
+//                     data: exportData,
+//                     fileName: `Warehouse-Batches.xlsx`,
+//                     worksheetName: `Batches`
+//                 });
+//             }
+//             return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
+//         }
+
+//         return res.status(200).send(new serviceResponse({
+//             status: 200,
+//             data: { records: { rows, count, page, limit, pages: Math.ceil(count / limit), ...stats } },
+//             message: "Batches fetched successfully"
+//         }));
+//     } catch (error) {
+//         console.error(error);
+//         return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
+//     }
+// });
+
+
+//using aggregate for search and filter getPendingBatchesByWarehouse
 module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
-    const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0 } = req.query;
-    const { warehouseIds = [] } = req.body; // Updated to use warehouseIds
+    const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status, productName,warehouse_name } = req.query;
+    const { warehouseIds = [] } = req.body;
 
     try {
         const getToken = req.headers.token || req.cookies.token;
@@ -121,59 +432,182 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
         }
-        
+
         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
-        const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
-        
+        //const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
+        const ownerwarehouseIds = warehouseDetails.map(id => new mongoose.Types.ObjectId(id));
+
         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
             : ownerwarehouseIds;
-
+        
         if (!finalwarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
-                data: { records: [], page, limit, pages: 0 },
-                message: "No warehouses found for the user."
+                data: { records: { rows: [], count: 0, page, limit, pages: 0 }, message: "No warehouses found for the user." }
             }));
         }
+
+        const searchRegex = search ? new RegExp(search, 'i') : null;
+
+        const pipeline = [
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    localField: 'warehousedetails_id',
+                    foreignField: '_id',
+                    as: 'warehousedetails_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'procurementcenters',
+                    localField: 'procurementCenter_id',
+                    foreignField: '_id',
+                    as: 'procurementCenter_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'seller_id',
+                    foreignField: '_id',
+                    as: 'seller_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'requests',
+                    localField: 'req_id',
+                    foreignField: '_id',
+                    as: 'req_id'
+                }
+            },
+
+            { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
+            {
+                $match: {
+                   "warehousedetails_id._id": { $in: finalwarehouseIds },
+                   ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+                 
+                    wareHouse_approve_status: 'Pending',
+                    ...(search && searchRegex && {
+                        $or: [
+                            { batchId: { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+                            { "procurementCenter_id.center_name": { $regex: searchRegex } },
+                            { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+                        ]
+                    }),
+                    ...(status && {
+                        "final_quality_check.status": status  // This checks the status field for exact match
+                    }),
+                    ...(productName && { "req_id.product.name": productName})//{ $regex: new RegExp(productName, 'i') } })  // If productName is provided
+                }
+            },
+            {
+                $project: {
+                    batchId: 1,
+                    qty: 1,
+                    received_on: 1,
+                    qc_report: 1,
+                    wareHouse_code: 1,
+                    //status: 1,
+                    commodity: 1,
+                    "final_quality_check.status":1,
+                    "final_quality_check.product_images":1,
+                    "final_quality_check.qc_images":1,
+                    "final_quality_check.rejected_reason":1,
+                    "final_quality_check.whr_receipt":1,
+                    "final_quality_check.whr_receipt_image":1,
+                    
+                    "req_id.product.name":1,
+                    "req_id._id":1,
+                    "req_id.deliveryDate":1,
+                    "receiving_details.received_on": 1,
+                    "receiving_details.vehicle_details": 1,
+                    "receiving_details.document_pictures": 1,
+                    "receiving_details.bag_weight_per_kg": 1,
+                    "receiving_details.no_of_bags": 1,
+                    "receiving_details.quantity_received": 1,
+                    "receiving_details.truck_photo": 1,
+                    "final_quality_check.whr_receipt": 1,
+                    "warehousedetails_id.basicDetails.warehouseName": 1,
+                    "warehousedetails_id.wareHouse_code": 1,
+                    "warehousedetails_id._id": 1,
+                    "procurementCenter_id.center_name": 1,
+                    "procurementCenter_id._id": 1,
+                    "seller_id.basic_details.associate_details.associate_name": 1,
+                    "seller_id.basic_details.associate_details.organization_name": 1,
+                    "seller_id._id": 1,
+                    wareHouse_approve_status: 1,
+                    createdAt: 1
+                }
+            },
+            { $sort: { [sortBy]: 1 } },
+            { $skip: (page - 1) * limit },
+            { $limit: parseInt(limit) }
+        ];
         
-        const query = {
-            "warehousedetails_id": { $in: finalwarehouseIds },
-            wareHouse_approve_status: 'Pending', 
-            ...(search && {
-                $or: [
-                    { batchId: { $regex: search, $options: 'i' } },
-                    { "seller_id.basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
-                    { "procurementCenter_id.center_name": { $regex: search, $options: 'i' } },
-                ]
-            }),
-        };
+        const rows = await Batch.aggregate(pipeline);
 
-        const rows = await Batch.find(query)
-            .populate([
-                { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
-                { path: "procurementCenter_id", select: "center_name" },
-                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
-                { path: "req_id", select: "product.name deliveryDate" },
-            ])
-            .select("batchId warehousedetails_id commodity qty wareHouse_approve_status final_quality_check receiving_details createdAt")
-            .sort(sortBy)
-            .skip((page - 1) * limit)
-            .limit(parseInt(limit));
+        const totalCount = rows.length;
 
-        const count = await Batch.countDocuments(query);
+
+        
+        // Modify the query object for consistent filters
+const baseQuery = {
+    "warehousedetails_id._id": { $in: finalwarehouseIds },
+    ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+    wareHouse_approve_status: 'Pending',
+    ...(search && searchRegex && {
+        $or: [
+            { batchId: { $regex: searchRegex } },
+            { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+            { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+            { "procurementCenter_id.center_name": { $regex: searchRegex } },
+            { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+        ]
+    }),
+    ...(productName && { "req_id.product.name": productName }),
+};
+
+
+        const statsPipeline = [
+            { $match: baseQuery }, // Apply common filters
+            {
+                $facet: {
+                    totalBatches: [{ $count: "count" }],
+                    approvedBatches: [{ $match: { status: 'Approved' } }, { $count: "count" }],
+                    rejectedBatches: [{ $match: { status: 'Rejected' } }, { $count: "count" }],
+                    pendingBatches: [{ $match: { status: 'Pending' } }, { $count: "count" }],
+                    pendingReceivingBatches: [{ $match: { "dispatched.received": { $exists: false } } }, { $count: "count" }],
+                },
+            },
+        ];
+        
+        const [result] = await Batch.aggregate(statsPipeline);
+        
         const stats = {
-            totalBatches: count,
-            approvedBatches: await Batch.countDocuments({ ...query, status: 'Approved' }),
-            rejectedBatches: await Batch.countDocuments({ ...query, status: 'Rejected' }),
-            pendingBatches: await Batch.countDocuments({ ...query, status: 'Pending' }),
-            pendingReceivingBatches: await Batch.countDocuments({ ...query, "dispatched.received": { $exists: false } })
+            totalBatches: totalCount || 0,//result.totalBatches?.[0]?.count || 0,
+            approvedBatches: result.approvedBatches?.[0]?.count || 0,
+            rejectedBatches: result.rejectedBatches?.[0]?.count || 0,
+            pendingBatches: result.pendingBatches?.[0]?.count || 0,
+            pendingReceivingBatches: result.pendingReceivingBatches?.[0]?.count || 0,
         };
+        
+        
 
+        // Export functionality
         if (isExport == 1) {
             const exportData = rows.map(item => ({
                 "Batch ID": item.batchId || 'NA',
                 "Associate Name": item.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
+                //"Organization Name": item.seller?.basic_details?.associate_details?.organization_name || 'NA',
                 "Procurement Center": item.procurementCenter_id?.center_name || 'NA',
                 "Warehouse": item.warehousedetails_id?.basicDetails?.warehouseName || 'NA',
                 "Quantity": item.qty || 'NA',
@@ -192,15 +626,24 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
 
         return res.status(200).send(new serviceResponse({
             status: 200,
-            data: { records: { rows, count, page, limit, pages: Math.ceil(count / limit), ...stats } },
+            data: {
+                records: {
+                    rows,
+                    count: totalCount,
+                    page,
+                    limit,
+                    pages: Math.ceil(totalCount / limit),
+                    ...stats
+                }
+            },
             message: "Batches fetched successfully"
         }));
+
     } catch (error) {
         console.error(error);
         return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
     }
 });
-
 
 module.exports.batchApproveOrReject = async (req, res) => {
     try {
@@ -595,3 +1038,79 @@ module.exports.batchStatsData = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+
+
+// Utility function to convert a string to camelCase
+function toCamelCase(str) {
+    return str
+        .split(/[^a-zA-Z0-9]+/)
+        .map((word, index) =>
+            index === 0
+                ? word.toLowerCase()
+                : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        )
+        .join('');
+}
+
+module.exports.getFilterBatchList = async (req, res) => {
+    const { sortBy = "createdAt" } = req.query;
+    try {
+        const getToken = req.headers.token || req.cookies.token;
+        if (!getToken) {
+            return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        }
+
+        const decode = await decryptJwtToken(getToken);
+        const UserId = decode.data.user_id;
+
+        if (!mongoose.Types.ObjectId.isValid(UserId)) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+        }
+
+        const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+        const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
+
+        const query = {
+            "warehousedetails_id": { $in: ownerwarehouseIds },
+        };
+
+        const rows = await Batch.find(query)
+            .populate([
+                { path: "req_id", select: "product.name" },
+            ])
+            .select("final_quality_check.status ")
+            .sort(sortBy);
+
+        // Create key-value pairs for status and name
+        const statusKeyValue = {};
+        const nameKeyValue = {};
+
+        rows.forEach(row => {
+            if (row.final_quality_check?.status) {
+                const camelKey = toCamelCase(row.final_quality_check.status);
+                statusKeyValue[camelKey] = row.final_quality_check.status;
+            }
+            if (row.req_id?.product?.name) {
+                const camelKey = toCamelCase(row.req_id.product.name);
+                nameKeyValue[camelKey] = row.req_id.product.name;
+            }
+        });
+
+        // Prepare final response structure
+        const result = {
+            status: statusKeyValue,
+            name: nameKeyValue,
+        };
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: result,
+            message: "Batches filter list fetched successfully",
+        }));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
+    }
+};
+
