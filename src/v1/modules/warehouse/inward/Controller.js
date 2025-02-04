@@ -3,6 +3,7 @@ const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
+const { ExternalBatch } = require("@src/v1/models/app/procurement/ExternalBatch");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
@@ -1114,3 +1115,37 @@ module.exports.getFilterBatchList = async (req, res) => {
     }
 };
 
+module.exports.createExternalBatch = async (req, res) => {
+    try {
+        const { batchName, associate_name, procurementCenter, quantity, commodity, warehousedetails_id } = req.body;
+        const { user_id } = req;
+
+        const requiredFields = { batchName, procurementCenter, commodity, warehousedetails_id, associate_name };
+
+        for (const [key, value] of Object.entries(requiredFields)) {
+            if (!value) {
+                return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require(key.replace(/_/g, ' ')) }));
+            }
+        }
+        let externalBatchExist = await ExternalBatch.findOne({ batchName  })
+        if (externalBatchExist) {
+            return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.allReadyExist('Batch Name') }));
+        }
+
+        const externalBatchData = new ExternalBatch({ 
+            batchName, 
+            associate_name, 
+            procurementCenter, 
+            quantity: quantity || 0,
+            commodity : commodity || 'Maize',
+            warehousedetails_id
+        });
+
+        const response = await externalBatchData.save();
+
+        return res.status(200).send(new serviceResponse({ message: _query.add('External Batch'), data: response }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};

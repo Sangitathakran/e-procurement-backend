@@ -53,6 +53,8 @@ const _collectionName = {
     BatchOrderProcess: "batchOrderProcess",
     TrackOrder : "TrackOrder",
     Truck : "Truck",
+    ExternalBatch : "ExternalBatch",
+    ExternalOrder : "ExternalOrder"
 
 }
 
