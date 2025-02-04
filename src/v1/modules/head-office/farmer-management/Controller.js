@@ -182,6 +182,58 @@ module.exports.getAllStateAndDistricts = async (req, res) => {
     }
 }
 
+module.exports.getStatewiseFarmersCount = async (req, res) => {
+    try {
+        const farmerStates = await farmer.distinct('address.state_id');
+
+// Aggregate over the StateDistrictCity collection
+const stateEntries = await StateDistrictCity.aggregate([
+    { 
+        $unwind: "$states" // Unwind the states array to access each state
+    },
+    { 
+        $match: { 
+            "states._id": { $in: farmerStates } // Match only the states that have farmers
+        }
+    },
+    {
+        // Join with the farmers collection to count the number of farmers per state
+        $lookup: {
+            from: "farmers", // The name of your farmers collection
+            localField: "states._id", // The state _id from the state array
+            foreignField: "address.state_id", // The state_id field in the farmer collection
+            as: "farmers_data" // Store the matched farmers data in farmers_data field
+        }
+    },
+    {
+        // Now group by state and calculate count of farmers per state
+        $group: {
+            _id: "$states._id", // Group by state ID
+            state_title: { $first: "$states.state_title" }, // Get the state title
+            count: { $sum: { $size: "$farmers_data" } } // Count the number of farmers in this state
+        }
+    },
+    {
+        // Project the desired fields
+        $project: {
+            state: "$state_title", // State title as label
+            count: 1, // Include the farmer count
+            _id: 0 // Exclude the _id field from the output
+        }
+    }
+]);
+        return sendResponse({
+            res,
+            status: 200,
+            data: stateEntries,
+            message: _response_message.found("All farmers count fetch successfully")
+        });
+    } catch (error) {
+        console.log('error', error);
+        _handleCatchErrors(error, res);
+    }
+}
+
 const getState = async (stateId) => {
     try {
         if (!stateId) return "";
