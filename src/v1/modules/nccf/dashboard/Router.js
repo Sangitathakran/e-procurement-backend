@@ -17,8 +17,8 @@ const nccfDashboardRoutes = express.Router();
 nccfDashboardRoutes.get("/", Auth, getDashboardStats);
 nccfDashboardRoutes.get("/onboarding-requests", Auth, getonBoardingRequests);
 nccfDashboardRoutes.get("/penalty-status", Auth, getpenaltyStatus);
-nccfDashboardRoutes.get("/warehouses", getWarehouseList);
-nccfDashboardRoutes.get("/companyNames", getCompanyNames);
+nccfDashboardRoutes.get("/warehouses", Auth, getWarehouseList);
+nccfDashboardRoutes.get("/companyNames", Auth, getCompanyNames);
 
 nccfDashboardRoutes.get("/payment-disteller", Auth, getMonthlyPaidAmount);
 nccfDashboardRoutes.get("/global-states", getPublicStates);
