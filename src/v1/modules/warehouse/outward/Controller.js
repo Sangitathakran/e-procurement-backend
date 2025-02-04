@@ -714,3 +714,13 @@ module.exports.createExternalOrder = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.listExternalbatch = async (req, res) => {
+    try {
+        const batches = await ExternalBatch.find({});
+        return res.status(200).send(new serviceResponse({ message: _response_message.found('batches'), data: batches }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
