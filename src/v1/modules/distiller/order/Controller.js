@@ -200,7 +200,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     const record = await BatchOrderProcess.create({
         distiller_id: user_id,
         warehouseId,
-        warehouseOwnerId:warehouseOwner_Id,
+        warehouseOwnerId: warehouseOwner_Id,
         orderId,
         purchaseId: randomVal,
         quantityRequired: handleDecimal(quantityRequired),
@@ -381,3 +381,40 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
     }
 });
 
+module.exports.batchPayNow = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId, amount, transactionId, paymentProof } = req.body;
+
+        if (!batchId) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch/Purchase Id") }] }));
+        }
+
+        if (!amount) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Amount") }] }));
+        }
+
+        const record = await BatchOrderProcess.findOne({ _id: batchId });
+
+        if (!record) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        }
+       
+        if (record.payment.status == _poBatchPaymentStatus.paid) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyUpdated("Batch") }] }));
+        }
+
+        const amountToBePaid = handleDecimal(amount);
+
+        record.payment.status = _poBatchPaymentStatus.paid;
+        record.payment.amount = amountToBePaid;
+        record.payment.paymentId = transactionId;
+        record.payment.paymentProof= paymentProof;
+
+        await record.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+});

@@ -20,7 +20,8 @@ const batchOrderProcessSchema = new mongoose.Schema({
     paymentId: { type: String },
     amount: { type: Number, required: true },
     status: { type: String, enum: Object.values(_poBatchPaymentStatus), default: _poBatchPaymentStatus.pending },
-    date: { type: Date, default: Date.now }
+    date: { type: Date, default: Date.now },
+    paymentProof : { type: String }
   },
 
   penaltyDetails: {

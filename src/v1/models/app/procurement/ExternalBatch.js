@@ -1,0 +1,18 @@
+const mongoose = require('mongoose');
+const { _collectionName } = require('@src/v1/utils/constants');
+const { required } = require('joi');
+
+const externalBatchsSchema = new mongoose.Schema({
+    warehousedetails_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.WarehouseDetails },
+    batchName: { type: String, trim: true,required:true},
+    associate_name: { type: String, trim: true, required: true },
+    procurementCenter: { type: String, required:true, trim: true },
+    quantity: { type: Number, default: 0 },
+    received_on: { type: Date, default: Date.now },
+    commodity: { type: String, required: true },
+    
+}, { timestamps: true });
+
+const ExternalBatch = mongoose.model(_collectionName.ExternalBatch, externalBatchsSchema);
+
+module.exports = { ExternalBatch };
