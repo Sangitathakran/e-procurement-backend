@@ -29,7 +29,6 @@ const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
-const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const xlsx = require("xlsx");
 const fs = require("fs/promises");
 const fs2 = require("fs")
