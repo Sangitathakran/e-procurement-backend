@@ -1117,7 +1117,7 @@ module.exports.getFilterBatchList = async (req, res) => {
 
 module.exports.createExternalBatch = async (req, res) => {
     try {
-        const { batchName, associate_name, procurementCenter, quantity, commodity, warehousedetails_id } = req.body;
+        const { batchName, associate_name, procurementCenter, inward_quantity, commodity, warehousedetails_id } = req.body;
         const { user_id } = req;
 
         const requiredFields = { batchName, procurementCenter, commodity, warehousedetails_id, associate_name };
@@ -1136,7 +1136,7 @@ module.exports.createExternalBatch = async (req, res) => {
             batchName, 
             associate_name, 
             procurementCenter, 
-            quantity: quantity || 0,
+            inward_quantity: inward_quantity || 0,
             commodity : commodity || 'Maize',
             warehousedetails_id
         });
@@ -1145,6 +1145,48 @@ module.exports.createExternalBatch = async (req, res) => {
 
         return res.status(200).send(new serviceResponse({ message: _query.add('External Batch'), data: response }));
 
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.listExternalBatchList = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
+
+        let query = {};
+        if (search) {
+            query["basicDetails.warehouseName"] = { $regex: search, $options: "i" };
+        }
+
+        const records = { count: 0, rows: [] };
+
+        if (paginate == 1) {
+            records.rows = await ExternalBatch.find(query)
+                .populate({
+                    path: "warehousedetails_id",
+                    select: "basicDetails.warehouseName",
+                })
+                .sort(sortBy)
+                .skip(parseInt(skip))
+                .limit(parseInt(limit));
+
+            records.count = await ExternalBatch.countDocuments(query);
+            records.page = parseInt(page);
+            records.limit = parseInt(limit);
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        } else {
+            records.rows = await ExternalOrder.find(query)
+                .populate({
+                    path: "warehousedetails_id",
+                    select: "basicDetails.warehouseName",
+                })
+                .sort(sortBy);
+        }
+
+        return res.status(200).send(
+            new serviceResponse({ status: 200, data: records, message: _response_message.found("ExternalBatch") })
+        );
     } catch (error) {
         _handleCatchErrors(error, res);
     }
