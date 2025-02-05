@@ -122,23 +122,49 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 
 
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
-  
+  const { limit = 10, page = 1 } = req.query;
+
+  const skip = (page - 1) * limit;
   let pendingPaymentDetails = await Payment.find({payment_status:'Pending'})
   .populate({ path: "req_id", select: "reqNo" })
   .select('req_id qtyProcured amount payment_status')
+  .skip(skip)
+  .limit(limit);
+
+  // Get total count for pagination metadata
+  const totalCount = await Payment.countDocuments({ payment_status: "Pending" });
+
+  
+
  
   return sendResponse({
     res,
     status: 200,
     message: _query.get("Farmer Payments"),
-    data: pendingPaymentDetails,
+    //data: pendingPaymentDetails,
+    data: {
+      rows: pendingPaymentDetails,
+      totalCount: totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      limit: limit,
+      page: page
+    },
   });
 });
 
 module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
+
+  const { limit = 10, page = 1 } = req.query;
+  const skip = (page - 1) * limit;
+
+  // Get total count for pagination metadata
+  const totalCount = await Payment.countDocuments({ ho_approve_status: "Pending" });
+  
   let pendingApprovalDetails = await Payment.find({ ho_approve_status: "Pending" })
     .populate({ path: "req_id", select: "reqNo deliveryDate" })
-    .select("req_id qtyProcured amountPaid ho_approve_status");
+    .select("req_id qtyProcured amountPaid ho_approve_status")
+    .skip(skip)
+    .limit(limit);
 
   // Modify the response to add paymentDueDate (deliveryDate + 72 hours)
   const modifiedDetails = pendingApprovalDetails.map((doc) => {
@@ -154,7 +180,14 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
     res,
     status: 200,
     message: _query.get("Farmer Payments"),
-    data: modifiedDetails,
+    //data: modifiedDetails,
+    data: {
+      rows: modifiedDetails,
+      totalCount: totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      limit: limit,
+      page: page
+    },
   });
 });
 
