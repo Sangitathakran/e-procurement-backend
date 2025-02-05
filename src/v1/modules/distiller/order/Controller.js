@@ -13,29 +13,61 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 
 
 module.exports.getOrder = asyncErrorHandler(async (req, res) => {
-
-    const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+    const { page, limit, skip, sortBy, search = '', isExport = 0 } = req.query
     const { user_id } = req;
-    let query = {
-        'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
-        distiller_id: new mongoose.Types.ObjectId(user_id),
-        ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+    
+    const pipeline = [
+        {
+            $lookup: {
+                from: "branches",
+                localField: "branch_id",
+                foreignField: "_id",
+                as: "branch_id"
+            }
+        },
+        { $unwind: { path: "$branch_id", preserveNullAndEmptyArrays: true } },
+    
+        {
+            $match: {
+                "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+                distiller_id: new mongoose.Types.ObjectId(user_id),
+                deletedAt: null, // Ensures only active records
+                ...(search
+                    ? {
+                          $or: [
+                              { 'purchasedOrder.poNo': { $regex: search, $options: "i" } }, // Order ID search
+                              { "branch_id.branchName": { $regex: search, $options: "i" } }, // Branch Name search
+                          ]
+                      }
+                    : {}),
+            }
+        },
+    
+        {
+            $facet: {
+                metadata: [{ $count: "total" }], // Count total matching docs
+                data: [
+                    { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Sorting
+                    { $skip: skip }, // Pagination: Skip records
+                    { $limit: parseInt(limit, 10) } // Limit records
+                ]
+            }
+        }
+    ];
+    
+    const result = await PurchaseOrderModel.aggregate(pipeline);
+    
+    const records = {
+        count: result[0].metadata.length ? result[0].metadata[0].total : 0, // Total count
+        rows: result[0].data || [], // Paginated data
     };
-
-    const records = { count: 0 };
-
-    records.rows = paginate == 1 ? await PurchaseOrderModel.find(query)
-        .sort(sortBy)
-        .skip(skip).populate({ path: "branch_id", select: "_id branchName branchId" })
-        .limit(parseInt(limit)) : await PurchaseOrderModel.find(query).sort(sortBy);
-
-    records.count = await PurchaseOrderModel.countDocuments(query);
-
-    if (paginate == 1) {
-        records.page = page
-        records.limit = limit
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+    
+    if (!isExport) {
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
+    
 
     if (isExport == 1) {
 
@@ -168,7 +200,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     const record = await BatchOrderProcess.create({
         distiller_id: user_id,
         warehouseId,
-        warehouseOwnerId:warehouseOwner_Id,
+        warehouseOwnerId: warehouseOwner_Id,
         orderId,
         purchaseId: randomVal,
         quantityRequired: handleDecimal(quantityRequired),
@@ -349,3 +381,40 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
     }
 });
 
+module.exports.batchPayNow = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId, amount, transactionId, paymentProof } = req.body;
+
+        if (!batchId) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch/Purchase Id") }] }));
+        }
+
+        if (!amount) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Amount") }] }));
+        }
+
+        const record = await BatchOrderProcess.findOne({ _id: batchId });
+
+        if (!record) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        }
+       
+        if (record.payment.status == _poBatchPaymentStatus.paid) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyUpdated("Batch") }] }));
+        }
+
+        const amountToBePaid = handleDecimal(amount);
+
+        record.payment.status = _poBatchPaymentStatus.paid;
+        record.payment.amount = amountToBePaid;
+        record.payment.paymentId = transactionId;
+        record.payment.paymentProof= paymentProof;
+
+        await record.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+});
