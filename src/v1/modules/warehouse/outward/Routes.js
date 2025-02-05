@@ -1,5 +1,5 @@
 const express = require("express");
-const { orderList, getPuchaseList, getPurchaseOrderById, trackOrder, readyToShip, inTransit, getBatches, fetchBatches, getStatus, getTrucks,batchOrderStatsData, rejectTrack, createExternalOrder, listExternalbatch, listExternalOrderList } = require("./Controller");
+const { orderList, getPuchaseList, getPurchaseOrderById, trackOrder, readyToShip, inTransit, getBatches, fetchBatches, getStatus, getTrucks,batchOrderStatsData, rejectTrack, createExternalOrder, listExternalbatch, listExternalOrderList, viewDetails, transitVeiw, shippedView } = require("./Controller");
 // const { orderList, getPuchaseList, getPurchaseOrderById, trackOrder, readyToShip, inTransit, getBatches, fetchBatches, getStatus, getTrucks, rejectTrack } = require("./Controller");
 const { verifyWarehouseOwner } = require("../utils/verifyWarehouseOwner");
 const { Auth } = require("@src/v1/middlewares/jwt")
@@ -21,6 +21,8 @@ wareHouseOutwardRoutes.put("/reject" , verifyWarehouseOwner , rejectTrack) ;
 wareHouseOutwardRoutes.post("/external-order"  ,verifyWarehouseOwner, createExternalOrder);
 wareHouseOutwardRoutes.get("/list-external-batch", verifyWarehouseOwner, listExternalbatch);
 wareHouseOutwardRoutes.get("/list-external-order", verifyWarehouseOwner, listExternalOrderList);
+wareHouseOutwardRoutes.get("/shipped-view/:id"  , verifyWarehouseOwner , shippedView) ; 
+wareHouseOutwardRoutes.get("/transit-view/:id"  , verifyWarehouseOwner, transitVeiw)
 
 
 
