@@ -80,6 +80,8 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
         // Check URL conditions for specific routes
         const allowedUrls = [
             '/batch-list',
+            '/shipped-view',
+            '/transit-view',
             '/batches',
             '/reject',
             '/status',
