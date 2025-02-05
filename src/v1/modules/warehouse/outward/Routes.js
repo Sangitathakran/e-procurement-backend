@@ -21,8 +21,8 @@ wareHouseOutwardRoutes.put("/reject" , verifyWarehouseOwner , rejectTrack) ;
 wareHouseOutwardRoutes.post("/external-order"  , createExternalOrder);
 wareHouseOutwardRoutes.get("/list-external-batch", listExternalbatch);
 wareHouseOutwardRoutes.get("/list-external-order", listExternalOrderList);
-wareHouseOutwardRoutes.get("/shipped-view/:id"  , shippedView) ; 
-wareHouseOutwardRoutes.get("/transit-view/:id"  , transitVeiw)
+wareHouseOutwardRoutes.get("/shipped-view/:id"  , verifyWarehouseOwner , shippedView) ; 
+wareHouseOutwardRoutes.get("/transit-view/:id"  , verifyWarehouseOwner, transitVeiw)
 
 
 

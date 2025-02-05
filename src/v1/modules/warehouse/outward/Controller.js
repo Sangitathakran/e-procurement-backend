@@ -793,17 +793,17 @@ module.exports.shippedView = asyncErrorHandler(async (req, res) => {
     }
 
 
-    // ask satypal sir for bags weight  and totalQuantity
-
     const batches = trackRecord.ready_to_ship?.pickup_batch;
 
     let totalBags = 0;
+    let totalQty = 0 ;
     for (let batch of batches) {
 
         totalBags += batch.no_of_bags;
+        totalQty+=batch.qtyAllotment ; 
     }
 
-    const orderDetails = { commodity: record.orderId.product.name, orderId: record.orderId.purchasedOrder.poNo, qty: record.quantityRequired, totalBags };
+    const orderDetails = { commodity: record.orderId.product.name, orderId: record.orderId.purchasedOrder.poNo, qty: record.quantityRequired, totalBags , totalQty };
 
     const data = { batches, orderDetails };
 
