@@ -14,9 +14,13 @@ const {
   farmerBenifitted,
   optionRequestId,
   procurementStatus,
+  dashboardWidgetList,
+  farmerPendingPayments,
+  farmerPendingApproval
 } = require("./Controller");
 
 hoDashboardRoutes.get("/widget-list", widgetList);
+hoDashboardRoutes.get("/ho-widget-list", dashboardWidgetList);
 hoDashboardRoutes.get("/farmer-payments", farmerPayments);
 hoDashboardRoutes.get("/revenue-expense", revenueExpenseChart);
 hoDashboardRoutes.get("/location-warehouse", locationWareHouseChart);
@@ -32,4 +36,7 @@ hoDashboardRoutes.get("/procurement-ontime", procurementOnTime);
 hoDashboardRoutes.get("/payment-status-by-date", paymentStatusByDate);
 hoDashboardRoutes.get("/payment-activity",paymentActivity)
 
+
+hoDashboardRoutes.get("/farmer-pending-payments", farmerPendingPayments);
+hoDashboardRoutes.get("/farmer-pending-approval", farmerPendingApproval);
 module.exports = { hoDashboardRoutes };
