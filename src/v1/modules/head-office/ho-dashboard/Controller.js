@@ -12,6 +12,7 @@ const {
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const {
   AssociateOffers,
 } = require("@src/v1/models/app/procurement/AssociateOffers");
@@ -81,6 +82,115 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   }
 
 });
+
+module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
+  try {
+    let widgetDetails = {
+      branchOffice: { total: 0 },
+      farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0 },
+      wareHouse: { total: 0 },
+      //procurementTarget: { total: 0 }
+    };
+
+    // Get counts safely
+    widgetDetails.wareHouse.total = await wareHouse.countDocuments({});
+    widgetDetails.branchOffice.total = await Branches.countDocuments({});
+    widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
+    widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
+
+    //let procurementTargetQty = await RequestModel.find({})
+    widgetDetails.farmerRegistration.totalRegistration =
+      widgetDetails.farmerRegistration.farmertotal +
+      widgetDetails.farmerRegistration.associateFarmerTotal;
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: _query.get("Widget List"),
+      data: widgetDetails,
+    });
+  } catch (error) {
+    console.error("Error in widgetList:", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+});
+
+
+module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
+  const { limit = 10, page = 1 } = req.query;
+
+  const skip = (page - 1) * limit;
+  let pendingPaymentDetails = await Payment.find({payment_status:'Pending'})
+  .populate({ path: "req_id", select: "reqNo" })
+  .select('req_id qtyProcured amount payment_status')
+  .skip(skip)
+  .limit(limit);
+
+  // Get total count for pagination metadata
+  const totalCount = await Payment.countDocuments({ payment_status: "Pending" });
+
+  
+
+ 
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Farmer Payments"),
+    //data: pendingPaymentDetails,
+    data: {
+      rows: pendingPaymentDetails,
+      totalCount: totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      limit: limit,
+      page: page
+    },
+  });
+});
+
+module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
+
+  const { limit = 10, page = 1 } = req.query;
+  const skip = (page - 1) * limit;
+
+  // Get total count for pagination metadata
+  const totalCount = await Payment.countDocuments({ ho_approve_status: "Pending" });
+  
+  let pendingApprovalDetails = await Payment.find({ ho_approve_status: "Pending" })
+    .populate({ path: "req_id", select: "reqNo deliveryDate" })
+    .select("req_id qtyProcured amountPaid ho_approve_status")
+    .skip(skip)
+    .limit(limit);
+
+  // Modify the response to add paymentDueDate (deliveryDate + 72 hours)
+  const modifiedDetails = pendingApprovalDetails.map((doc) => {
+    const deliveryDate = doc.req_id?.deliveryDate ? new Date(doc.req_id.deliveryDate) : null;
+    
+    return {
+      ...doc.toObject(),
+      paymentDueDate: deliveryDate ? moment(deliveryDate).add(72, "hours").toISOString() : null,
+    };
+  });
+
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Farmer Payments"),
+    //data: modifiedDetails,
+    data: {
+      rows: modifiedDetails,
+      totalCount: totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      limit: limit,
+      page: page
+    },
+  });
+});
+
 
 //farmer payments
 module.exports.farmerPayments = asyncErrorHandler(async (req, res) => {
