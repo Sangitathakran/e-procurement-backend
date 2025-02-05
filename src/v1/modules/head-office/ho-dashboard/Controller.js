@@ -17,11 +17,10 @@ const {
   AssociateOffers,
 } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { _query } = require("@src/v1/utils/constants/messages");
-const moment=require('moment');
+const moment = require("moment");
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   try {
-
     report = [
       { monthName: "January", month: 1, total: 0 },
       { monthName: "February", month: 2, total: 0 },
@@ -44,7 +43,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
       farmer: { total: 0, lastMonth: [] },
     };
     let associateFCount = (await farmer.countDocuments({})) ?? 0;
-    widgetDetails.farmer.total =  associateFCount;
+    widgetDetails.farmer.total = associateFCount;
     widgetDetails.associate.total = await User.countDocuments({});
     widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
     let lastMonthUser = await User.aggregate([
@@ -56,7 +55,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
       { $project: { month: { $month: "$createdAt" } } },
       { $group: { _id: "$month", total: { $sum: 1 } } },
     ]);
-   
+
     let getReport = (report, data) => {
       return report.map((item) => {
         let details = data?.find((item2) => item2?._id == item.month);
@@ -69,8 +68,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
     };
     widgetDetails.associate.lastMonth = getReport(report, lastMonthUser);
     widgetDetails.farmer.lastMonth = getReport(report, lastMonthFarmer);
-    
-    
+
     return sendResponse({
       res,
       status: 200,
@@ -78,9 +76,8 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
       data: widgetDetails,
     });
   } catch (error) {
-    console.log('error', error)
+    console.log("error", error);
   }
-
 });
 
 module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
@@ -288,28 +285,29 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
     ],
   };
 
-  const groupStage = option === 'week'
-    ? {
-      // Group by day of the week
-      $group: {
-        _id: {
-          day: { $dayOfWeek: "$createdAt" }, // 1 (Sunday) to 7 (Saturday)
-          payment_collect_by: "$payment_collect_by",
-        },
-        totalAmount: { $sum: "$amount" },
-      },
-    }
-    : {
-      // Group by year and month
-      $group: {
-        _id: {
-          year: { $year: "$createdAt" },
-          month: { $month: "$createdAt" },
-          payment_collect_by: "$payment_collect_by",
-        },
-        totalAmount: { $sum: "$amount" },
-      },
-    };
+  const groupStage =
+    option === "week"
+      ? {
+          // Group by day of the week
+          $group: {
+            _id: {
+              day: { $dayOfWeek: "$createdAt" }, // 1 (Sunday) to 7 (Saturday)
+              payment_collect_by: "$payment_collect_by",
+            },
+            totalAmount: { $sum: "$amount" },
+          },
+        }
+      : {
+          // Group by year and month
+          $group: {
+            _id: {
+              year: { $year: "$createdAt" },
+              month: { $month: "$createdAt" },
+              payment_collect_by: "$payment_collect_by",
+            },
+            totalAmount: { $sum: "$amount" },
+          },
+        };
 
   const results = await Payment.aggregate([
     groupStage,
@@ -317,29 +315,38 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
       // Reshape the output
       $project: {
         _id: 0,
-        ...(option === 'week' ? {
-          day: "$_id.day",
-          payment_collect_by: "$_id.payment_collect_by",
-        } : {
-          year: "$_id.year",
-          month: "$_id.month",
-          payment_collect_by: "$_id.payment_collect_by",
-        }),
+        ...(option === "week"
+          ? {
+              day: "$_id.day",
+              payment_collect_by: "$_id.payment_collect_by",
+            }
+          : {
+              year: "$_id.year",
+              month: "$_id.month",
+              payment_collect_by: "$_id.payment_collect_by",
+            }),
         totalAmount: "$totalAmount",
       },
     },
     {
-
       $group: {
-        _id: option === 'week' ? "$day" : { month: "$month" },
+        _id: option === "week" ? "$day" : { month: "$month" },
         farmer: {
           $sum: {
-            $cond: [{ $eq: ["$payment_collect_by", "farmer"] }, "$totalAmount", 0],
+            $cond: [
+              { $eq: ["$payment_collect_by", "farmer"] },
+              "$totalAmount",
+              0,
+            ],
           },
         },
         agency: {
           $sum: {
-            $cond: [{ $eq: ["$payment_collect_by", "Agency"] }, "$totalAmount", 0],
+            $cond: [
+              { $eq: ["$payment_collect_by", "Agency"] },
+              "$totalAmount",
+              0,
+            ],
           },
         },
       },
@@ -348,27 +355,33 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
       // Final projection to shape the output
       $project: {
         _id: 0,
-        ...(option === 'week' ? { day: "$_id" } : { month: "$_id.month" }),
+        ...(option === "week" ? { day: "$_id" } : { month: "$_id.month" }),
         farmer: 1,
         agency: 1,
       },
     },
     {
       // Sort by day or by year and month
-      $sort: option === 'week' ? { day: 1 } : { month: 1 },
+      $sort: option === "week" ? { day: 1 } : { month: 1 },
     },
   ]);
   let paymentDetails = report[option].map((item) => {
     let payment = results?.find((item2) => item2[option] == item[option]);
-    console.log('payment', payment, item)
+    console.log("payment", payment, item);
     if (payment) {
-      return { [option]: item[`${option}Name`], farmer: payment.farmer, agency: payment.agency };
+      return {
+        [option]: item[`${option}Name`],
+        farmer: payment.farmer,
+        agency: payment.agency,
+      };
     } else {
-      return { [option]: item[`${option}Name`], farmer: item.farmer, agency: item.agency };
+      return {
+        [option]: item[`${option}Name`],
+        farmer: item.farmer,
+        agency: item.agency,
+      };
     }
   });
-
-
 
   return sendResponse({
     res,
@@ -437,7 +450,7 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
     .skip(skip)
     .limit(limit);
 
-  records.count = await RequestModel.countDocuments({})
+  records.count = await RequestModel.countDocuments({});
   records.page = page;
   records.limit = limit;
   records.pages = Math.ceil(records.count / limit);
@@ -449,15 +462,11 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
   });
 });
 module.exports.optionRequestId = asyncErrorHandler(async (req, res) => {
-  
   let records = { count: 0 };
   records.row = await RequestModel.find({
     // head_office_id:req.user.portalId
-  })
-    .select("reqNo")
+  }).select("reqNo");
 
-
- 
   return sendResponse({
     res,
     status: 200,
@@ -661,7 +670,7 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
 });
 //farmerBenifitted
 module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
-    const {startDate,endDate}=req.query;
+  const { startDate, endDate } = req.query;
   const report = {
     month: [
       { monthName: "January", month: 1, farmers: 0 },
@@ -678,7 +687,7 @@ module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
       { monthName: "Decmeber", month: 12, farmers: 0 },
     ],
   };
-  const pipeline=[
+  const pipeline = [
     // query,
     {
       $project: { month: { $month: "$createdAt" } },
@@ -686,20 +695,18 @@ module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
     {
       $group: { _id: "$month", farmers: { $count: {} } },
     },
-  ]
-  if(startDate!=undefined ||endDate!=undefined){
-    let formatStartDate= moment(startDate).format('DD-MM-YYYY');
-    let formatEndDate= moment(endDate).format('DD-MM-YYYY');
-    pipeline.unshift({$match:{createdAt:{$gt:formatStartDate,$lte:formatEndDate}}})
-   
-  }else{
-   
-   
+  ];
+  if (startDate != undefined || endDate != undefined) {
+    let formatStartDate = moment(startDate).format("DD-MM-YYYY");
+    let formatEndDate = moment(endDate).format("DD-MM-YYYY");
+    pipeline.unshift({
+      $match: { createdAt: { $gt: formatStartDate, $lte: formatEndDate } },
+    });
+  } else {
   }
-  
-  let farmerBenifittedDetails = await AssociateOffers.aggregate(pipeline)
- 
-  
+
+  let farmerBenifittedDetails = await AssociateOffers.aggregate(pipeline);
+
   farmerBenifittedDetails = report.month.map((item) => {
     let farmerDetails = farmerBenifittedDetails?.find(
       (item2) => item2?._id == item.month
@@ -827,6 +834,72 @@ module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
     data: statusDetails,
   });
 });
+//payment status by batch
+module.exports.paymentStatusByDate = asyncErrorHandler(async (req, res) => {
+  const { date } = req.query;
+  const paymentDetails = await Payment.aggregate([
+    {
+      $match: {
+        $expr: {
+          $eq: [
+            { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            date,
+          ],
+        },
+      },
+    },
+    {
+      $project: { createdAt: 1, amount: 1, payment_status: 1 },
+    },
+  ]);
+  const totalPendingAmount = await calculateAmount(paymentDetails, "Pending");
+  const totalCompletedAmount = await calculateAmount(
+    paymentDetails,
+    "Completed"
+  );
+  const totalProcureDelivered = await calculateProcureQuantity(
+    paymentDetails,
+    "Completed"
+  );
+  let data = {
+    sentAmount: totalCompletedAmount,
+    dueAmount: totalPendingAmount,
+    ProcurementDelivered: totalProcureDelivered,
+  };
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("PaymentByDate"),
+    data: data,
+  });
+});
+//payment status by batch
+module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
+  console.log("date", moment().format("YYYY-MM-DD"));
+  const paymentDetails = await Payment.find()
+    .select("initiated_at req_id ho_approve_by")
+    .populate({ path: "ho_approve_by", select: "" })
+    .populate({ path: "req_id", select: "reqNo" })
+    .sort({ createdAt: -1 })
+    // .limit(5);
+
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("PaymentActivity"),
+    data: paymentDetails,
+  });
+});
+const calculateProcureQuantity = async (paymentDetails, status) => {
+  return paymentDetails
+    .filter((item) => item.payment_status == status)
+    .reduce((acc, item) => acc + item.qtyProcured, 0);
+};
+const calculateAmount = async (paymentDetails, status) => {
+  return paymentDetails
+    .filter((item) => item.payment_status == status)
+    .reduce((acc, item) => acc + item.amount, 0);
+};
 //procurementOnTime
 module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
   let data = [
