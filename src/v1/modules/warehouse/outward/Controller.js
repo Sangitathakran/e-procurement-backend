@@ -724,3 +724,45 @@ module.exports.listExternalbatch = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.listExternalOrderList = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
+
+        let query = {};
+        if (search) {
+            query["batchName"] = { $regex: search, $options: "i" };
+        }
+
+        const records = { count: 0, rows: [] };
+
+        if (paginate == 1) {
+            records.rows = await ExternalOrder.find(query)
+                .populate({
+                    path: "external_batch_id",
+                    select: "batchName",
+                })
+                .sort(sortBy)
+                .skip(parseInt(skip))
+                .limit(parseInt(limit));
+
+            records.count = await ExternalOrder.countDocuments(query);
+            records.page = parseInt(page);
+            records.limit = parseInt(limit);
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        } else {
+            records.rows = await ExternalOrder.find(query)
+                .populate({
+                    path: "external_batch_id",
+                    select: "batchName",
+                })
+                .sort(sortBy);
+        }
+
+        return res.status(200).send(
+            new serviceResponse({ status: 200, data: records, message: _response_message.found("ExternalOrder") })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
