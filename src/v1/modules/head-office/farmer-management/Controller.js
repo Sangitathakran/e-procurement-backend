@@ -584,65 +584,65 @@ const singlefarmerDetails = async (res, farmerId, farmerType = 1) => {
 
 }
 
-module.exports.getStatewiseFarmersCount = async (req, res) => {
-    try {
+// module.exports.getStatewiseFarmersCount = async (req, res) => {
+//     try {
     
-        const farmerStates = await farmer.distinct('address.state_id', { "address.state_id": { $ne: null } });
+//         const farmerStates = await farmer.distinct('address.state_id', { "address.state_id": { $ne: null } });
 
-// Aggregate over the StateDistrictCity collection
-const stateEntries = await StateDistrictCity.aggregate([
-    { 
-        $unwind: "$states" 
-    },
-    { 
-        $match: { 
-            "states._id": { $in: farmerStates.filter(id => id) } 
-        }
-    },
-    {
-        // Optimized $lookup with $group to directly get counts
-        $lookup: {
-            from: "farmers",
-            let: { stateId: "$states._id" },
-            pipeline: [
-                { 
-                    $match: { 
-                        $expr: { $eq: ["$address.state_id", "$$stateId"] }
-                    } 
-                },
-                { 
-                    $group: { 
-                        _id: null, 
-                        count: { $sum: 1 } 
-                    } 
-                }
-            ],
-            as: "farmers_count"
-        }
-    },
-    {
-        // Restructure the output with count from lookup
-        $project: {
-            state: "$states.state_title", 
-            count: { 
-                $ifNull: [{ $arrayElemAt: ["$farmers_count.count", 0] }, 0] 
-            }, // Get count from lookup, default to 0
-            _id: 0 // Exclude _id field
-        }
-    }
-]);
+// // Aggregate over the StateDistrictCity collection
+// const stateEntries = await StateDistrictCity.aggregate([
+//     { 
+//         $unwind: "$states" 
+//     },
+//     { 
+//         $match: { 
+//             "states._id": { $in: farmerStates.filter(id => id) } 
+//         }
+//     },
+//     {
+//         // Optimized $lookup with $group to directly get counts
+//         $lookup: {
+//             from: "farmers",
+//             let: { stateId: "$states._id" },
+//             pipeline: [
+//                 { 
+//                     $match: { 
+//                         $expr: { $eq: ["$address.state_id", "$$stateId"] }
+//                     } 
+//                 },
+//                 { 
+//                     $group: { 
+//                         _id: null, 
+//                         count: { $sum: 1 } 
+//                     } 
+//                 }
+//             ],
+//             as: "farmers_count"
+//         }
+//     },
+//     {
+//         // Restructure the output with count from lookup
+//         $project: {
+//             state: "$states.state_title", 
+//             count: { 
+//                 $ifNull: [{ $arrayElemAt: ["$farmers_count.count", 0] }, 0] 
+//             }, // Get count from lookup, default to 0
+//             _id: 0 // Exclude _id field
+//         }
+//     }
+// ]);
 
-        return sendResponse({
-            res,
-            status: 200,
-            data: stateEntries,
-            message: _response_message.found("All farmers count fetch successfully")
-        });
-    } catch (error) {
-        console.log('error', error);
-        _handleCatchErrors(error, res);
-    }
-}
+//         return sendResponse({
+//             res,
+//             status: 200,
+//             data: stateEntries,
+//             message: _response_message.found("All farmers count fetch successfully")
+//         });
+//     } catch (error) {
+//         console.log('error', error);
+//         _handleCatchErrors(error, res);
+//     }
+// }
 
 
 
