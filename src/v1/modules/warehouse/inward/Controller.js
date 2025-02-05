@@ -1117,7 +1117,7 @@ module.exports.getFilterBatchList = async (req, res) => {
 
 module.exports.createExternalBatch = async (req, res) => {
     try {
-        const { batchName, associate_name, procurementCenter, quantity, commodity, warehousedetails_id } = req.body;
+        const { batchName, associate_name, procurementCenter, inward_quantity, commodity, warehousedetails_id } = req.body;
         const { user_id } = req;
 
         const requiredFields = { batchName, procurementCenter, commodity, warehousedetails_id, associate_name };
@@ -1136,7 +1136,7 @@ module.exports.createExternalBatch = async (req, res) => {
             batchName, 
             associate_name, 
             procurementCenter, 
-            quantity: quantity || 0,
+            inward_quantity: inward_quantity || 0,
             commodity : commodity || 'Maize',
             warehousedetails_id
         });
