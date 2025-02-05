@@ -13,7 +13,7 @@ module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = '', isExport = 0 } = req.query;
 
     let matchStage = {
-        // is_approved: _userStatus.pending,
+        is_approved: _userStatus.pending,
         deletedAt: null,
     };
 
@@ -326,7 +326,8 @@ module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
         },
         { $sort: { [sortBy]: 1 } },
     ];
-    if (( page === 1 || page === '1') && !isExport) {
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+    if (!isExport) {
         aggregationPipeline.push(
             { $skip: parseInt(skip) },
             { $limit: parseInt(limit) }
@@ -334,8 +335,9 @@ module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
     }
 
     const records = { count: 0 };
+    withoutPaginationAggregationPipeline.push({$count: "count"})
     records.rows = await Distiller.aggregate(aggregationPipeline);
-    records.count = await Distiller.countDocuments(matchStage);
+    records.count = await Distiller.countDocuments(withoutPaginationAggregationPipeline);
     records.page = page;
     records.limit = limit;
     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;

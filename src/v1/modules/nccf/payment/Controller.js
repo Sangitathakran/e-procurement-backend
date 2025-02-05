@@ -22,7 +22,6 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
 
     let aggregationPipeline = [
         { $match: matchStage },
-        { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
         {
             $lookup: {
                 from: "distillers",
@@ -90,18 +89,22 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
                 paymentStatus: 1,
                 penaltyStatus: 1
             }
-        }
+        },
+        { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
     ];
-    if (( page === 1 || page === '1') && !isExport) {
+    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
+  
+    
+    if (!isExport) {
         aggregationPipeline.push(
             { $skip: parseInt(skip) },
-            { $limit: parseInt(limit) }
+            { $limit: parseInt(limit)}
         );
     }
-
     const records = { count: 0 };
+    withoutPaginationAggregationPipeline.push({$count: "count"})
     records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
-    const totalCount = await PurchaseOrderModel.aggregate(aggregationPipeline); // Total count of documents
+    const totalCount = await PurchaseOrderModel.aggregate(withoutPaginationAggregationPipeline); 
     records.count = totalCount?.[0]?.count ?? 0;
 
     
@@ -110,10 +113,10 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     
 
-    // Export functionality
     if (isExport == 1) {
+        // records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline.slice(0,-3));
         const record = records.rows.map((item) => {
-
+            console.log("records", item)
             return {
                 "order Id": item?.order_id || 'NA',
                 "Distiller Name": item?.distillerName || 'NA',
@@ -139,10 +142,17 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
             return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }));
         }
     } else {
+        records.rows = await PurchaseOrderModel.aggregate(aggregationPipeline);
+        const totalCount = await PurchaseOrderModel.aggregate([...aggregationPipeline.slice(0,-3),{$count:"count"}]); // Total count of documents
+        records.count = totalCount?.[0]?.count ?? 0;
+            records.page = page;
+            records.limit = limit;
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Order") }));
     }
 
 });
+
 
 module.exports.batchList = asyncErrorHandler(async (req, res) => {
     try {
