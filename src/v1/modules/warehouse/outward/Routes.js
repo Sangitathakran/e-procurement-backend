@@ -16,11 +16,11 @@ wareHouseOutwardRoutes.post("/track/in-transit", verifyWarehouseOwner, inTransit
 wareHouseOutwardRoutes.get("/batches/:id", verifyWarehouseOwner, getBatches);
 wareHouseOutwardRoutes.get("/status/:id", verifyWarehouseOwner, getStatus);
 wareHouseOutwardRoutes.get("/truck/:id", verifyWarehouseOwner, getTrucks);
-wareHouseOutwardRoutes.get("/batch-order-stats", batchOrderStatsData);
+wareHouseOutwardRoutes.get("/batch-order-stats",verifyWarehouseOwner, batchOrderStatsData);
 wareHouseOutwardRoutes.put("/reject" , verifyWarehouseOwner , rejectTrack) ;
-wareHouseOutwardRoutes.post("/external-order"  , createExternalOrder);
-wareHouseOutwardRoutes.get("/list-external-batch", listExternalbatch);
-wareHouseOutwardRoutes.get("/list-external-order", listExternalOrderList);
+wareHouseOutwardRoutes.post("/external-order"  ,verifyWarehouseOwner, createExternalOrder);
+wareHouseOutwardRoutes.get("/list-external-batch", verifyWarehouseOwner, listExternalbatch);
+wareHouseOutwardRoutes.get("/list-external-order", verifyWarehouseOwner, listExternalOrderList);
 wareHouseOutwardRoutes.get("/shipped-view/:id"  , verifyWarehouseOwner , shippedView) ; 
 wareHouseOutwardRoutes.get("/transit-view/:id"  , verifyWarehouseOwner, transitVeiw)
 
