@@ -12,6 +12,7 @@ const {
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const {
   AssociateOffers,
 } = require("@src/v1/models/app/procurement/AssociateOffers");
@@ -80,6 +81,72 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
     console.log('error', error)
   }
 
+});
+
+module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
+  try {
+    let widgetDetails = {
+      branchOffice: { total: 0 },
+      farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0 },
+      wareHouse: { total: 0 },
+      //procurementTarget: { total: 0 }
+    };
+
+    // Get counts safely
+    widgetDetails.wareHouse.total = await wareHouse.countDocuments({});
+    widgetDetails.branchOffice.total = await Branches.countDocuments({});
+    widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
+    widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
+
+    //let procurementTargetQty = await RequestModel.find({})
+    widgetDetails.farmerRegistration.totalRegistration =
+      widgetDetails.farmerRegistration.farmertotal +
+      widgetDetails.farmerRegistration.associateFarmerTotal;
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: _query.get("Widget List"),
+      data: widgetDetails,
+    });
+  } catch (error) {
+    console.error("Error in widgetList:", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+});
+
+
+module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
+  
+  let pendingPaymentDetails = await Payment.find({payment_status:'Pending'})
+  .populate({ path: "req_id", select: "reqNo" })
+  .select('req_id qtyProcured amount payment_status')
+ 
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Farmer Payments"),
+    data: pendingPaymentDetails,
+  });
+});
+
+module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
+ 
+  let pendingApprovalDetails = await Payment.find({ho_approve_status:"Pending"})
+  .populate({ path: "req_id", select: "reqNo" })
+  .select('req_id qtyProcured amountPaid ho_approve_status')
+ 
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Farmer Payments"),
+    data: pendingApprovalDetails,
+  });
 });
 
 //farmer payments
