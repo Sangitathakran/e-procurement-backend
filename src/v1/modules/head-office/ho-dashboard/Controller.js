@@ -136,18 +136,28 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
- 
-  let pendingApprovalDetails = await Payment.find({ho_approve_status:"Pending"})
-  .populate({ path: "req_id", select: "reqNo" })
-  .select('req_id qtyProcured amountPaid ho_approve_status')
- 
+  let pendingApprovalDetails = await Payment.find({ ho_approve_status: "Pending" })
+    .populate({ path: "req_id", select: "reqNo deliveryDate" })
+    .select("req_id qtyProcured amountPaid ho_approve_status");
+
+  // Modify the response to add paymentDueDate (deliveryDate + 72 hours)
+  const modifiedDetails = pendingApprovalDetails.map((doc) => {
+    const deliveryDate = doc.req_id?.deliveryDate ? new Date(doc.req_id.deliveryDate) : null;
+    
+    return {
+      ...doc.toObject(),
+      paymentDueDate: deliveryDate ? moment(deliveryDate).add(72, "hours").toISOString() : null,
+    };
+  });
+
   return sendResponse({
     res,
     status: 200,
     message: _query.get("Farmer Payments"),
-    data: pendingApprovalDetails,
+    data: modifiedDetails,
   });
 });
+
 
 //farmer payments
 module.exports.farmerPayments = asyncErrorHandler(async (req, res) => {
