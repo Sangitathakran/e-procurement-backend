@@ -682,6 +682,23 @@ module.exports.createExternalOrder = async (req, res) => {
                 message: "External Batch not found"
             }));
         }
+        let errors = [];
+
+        if (quantity <= 0) {
+            errors.push("Quantity must be greater than zero");
+        }
+        if (quantity >= batchExists.remaining_quantity) {
+            errors.push("Quantity must be equal or less than to remaining_quantity");
+        }
+        if (errors.length > 0) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: errors.join(", ") 
+            }));
+        }
+        batchExists.outward_quantity += quantity;
+        batchExists.remaining_quantity = batchExists.inward_quantity - batchExists.outward_quantity;
+        await batchExists.save();
 
         const orderData = {
             commodity,
@@ -708,6 +725,8 @@ module.exports.createExternalOrder = async (req, res) => {
         const newExternalOrder = new ExternalOrder(orderData);
         const savedOrder = await newExternalOrder.save();
         
+        
+
         return res.status(200).send(new serviceResponse({ message: _query.add('External Order'), data: savedOrder }));
 
     } catch (error) {
