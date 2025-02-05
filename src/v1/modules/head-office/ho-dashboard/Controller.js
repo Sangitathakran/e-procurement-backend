@@ -717,6 +717,66 @@ module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
     data: statusDetails,
   });
 });
+//payment status by batch
+module.exports.paymentStatusByDate=asyncErrorHandler(async(req,res)=>{
+     const {date}=req.query;
+     const paymentDetails=await Payment.aggregate([{
+      $match:{
+        $expr: {
+          $eq: [
+            { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            date
+          ]
+        }
+      },
+     },{
+      $project:{createdAt:1,amount:1,payment_status:1}
+     }]);
+   const totalPendingAmount=  await calculateAmount(paymentDetails,'Pending');
+   const totalCompletedAmount= await  calculateAmount(paymentDetails,'Completed');
+   const totalProcureDelivered =await calculateProcureQuantity(paymentDetails,'Completed')
+   let data={
+       sentAmount:totalCompletedAmount,
+       dueAmount:totalPendingAmount,
+       ProcurementDelivered:totalProcureDelivered
+
+   }
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("PaymentByDate"),
+    data: data,
+  });
+                      
+});
+//payment status by batch
+module.exports.paymentActivity=asyncErrorHandler(async(req,res)=>{
+  console.log('date',moment().format("YYYY-MM-DD"))
+  const paymentDetails=await Payment.find().select('initiated_at req_id ho_approve_by')
+  .
+  populate({path:'ho_approve_by',select:''})
+  .
+  populate({path:'req_id',select:''})
+  .sort({updatedAt:-1}).limit(5);
+
+return sendResponse({
+ res,
+ status: 200,
+ message: _query.get("PaymentActivity"),
+ data: paymentDetails,
+});
+                   
+});
+const calculateProcureQuantity=async(paymentDetails,status)=>{
+  return paymentDetails.
+  filter(item=>item.payment_status==status)
+    .reduce((acc,item)=>acc+item.qtyProcured,0)
+}
+const calculateAmount=async(paymentDetails,status)=>{
+  return paymentDetails.
+  filter(item=>item.payment_status==status)
+    .reduce((acc,item)=>acc+item.amount,0)
+}
 //procurementOnTime
 module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
   let data = [

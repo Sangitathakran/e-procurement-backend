@@ -9,6 +9,8 @@ const {
   paymentQuantityPurchase,
   branchOfficeProcurement,
   procurementOnTime,
+  paymentStatusByDate,
+  paymentActivity,
   farmerBenifitted,
   optionRequestId,
   procurementStatus,
@@ -27,4 +29,7 @@ hoDashboardRoutes.get("/branch-officeprocurement", branchOfficeProcurement);
 hoDashboardRoutes.get("/benifitted-farmer", farmerBenifitted);
 hoDashboardRoutes.get("/procurement-status", procurementStatus);
 hoDashboardRoutes.get("/procurement-ontime", procurementOnTime);
+hoDashboardRoutes.get("/payment-status-by-date", paymentStatusByDate);
+hoDashboardRoutes.get("/payment-activity",paymentActivity)
+
 module.exports = { hoDashboardRoutes };
