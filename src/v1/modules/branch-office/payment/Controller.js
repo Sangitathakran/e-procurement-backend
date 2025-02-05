@@ -11,6 +11,8 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { smsService } = require("@src/v1/utils/third_party/SMSservices");
+const OTPModel = require("../../../models/app/auth/OTP")
 
 const validateMobileNumber = async (mobile) => {
     let pattern = /^[0-9]{10}$/;
