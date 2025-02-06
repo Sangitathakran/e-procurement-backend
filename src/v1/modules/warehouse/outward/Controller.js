@@ -250,7 +250,7 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
         sumOfAllotedQty += batch.qtyAllotment;
 
-        if (batchRecord.available_qty == 0 && batchRecord.allotedQty == 0) {
+        if (batchRecord.allotedQty == 0) {
             batchRecord.available_qty = batchRecord.qty;
         }
 
