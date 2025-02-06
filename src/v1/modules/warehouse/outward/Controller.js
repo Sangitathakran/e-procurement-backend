@@ -682,7 +682,7 @@ module.exports.createExternalOrder = async (req, res) => {
                 message: "External Batch not found"
             }));
         }
-        console.log('batchExists.remaining_quantity',batchExists.remaining_quantity)
+        
         let errors = [];
 
         if (quantity <= 0) {
@@ -694,7 +694,7 @@ module.exports.createExternalOrder = async (req, res) => {
                 message: "No remaining quantity available for this batch"
             }));
         }
-        if (quantity >= batchExists.remaining_quantity) {
+        if (quantity > batchExists.remaining_quantity) {
             errors.push("Quantity must be less than remaining_quantity");
         }
         if (errors.length > 0) {
