@@ -36,6 +36,7 @@ module.exports.saveWarehouseDetails = async (req, res) => {
             authorizedPerson,
             bankDetails,
             servicePricing,
+            procurement_partner
         } = req.body;
 
         // Validate required fields
@@ -71,6 +72,7 @@ module.exports.saveWarehouseDetails = async (req, res) => {
             authorizedPerson: authorizedPerson,
             bankDetails,
             servicePricing: Array.isArray(servicePricing) ? servicePricing : [],
+            procurement_partner,
         });
 
         // Save the warehouse to the database

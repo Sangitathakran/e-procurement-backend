@@ -7,7 +7,9 @@ const externalBatchsSchema = new mongoose.Schema({
     batchName: { type: String, trim: true,required:true},
     associate_name: { type: String, trim: true, required: true },
     procurementCenter: { type: String, required:true, trim: true },
-    quantity: { type: Number, default: 0 },
+    inward_quantity: { type: Number, default: 0 },
+    outward_quantity: { type: Number, default: 0 },
+    remaining_quantity: { type: Number, default: 0 },
     received_on: { type: Date, default: Date.now },
     commodity: { type: String, required: true },
     
