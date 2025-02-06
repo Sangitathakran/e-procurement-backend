@@ -6,7 +6,7 @@ const { Commodity } = require("@src/v1/models/master/Commodity");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-
+const { _collectionName, _status, _commodityType, _gradeType, _qualityType } = require("@src/v1/utils/constants/index")
 
 module.exports.createCommodity = asyncErrorHandler(async (req, res) => {
 
@@ -64,8 +64,21 @@ module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
                 _id: 1,
                 commodityId: 1,
                 name: 1,
-                status: 1,
                 commodityType: 1,
+                standard: {
+                    $cond: {
+                        if: { $eq: ["$commodityType", "Grade"] },
+                        then: ["Grade A", "Grade B", "Grade C"],
+                        else: {
+                            $cond: {
+                                if: { $eq: ["$commodityType", "Quality"] },
+                                then: ["Poor", "Average", "Good"],
+                                else: []
+                            }
+                        }
+                    }
+                },
+                status: 1,
             }
         }
     ];
@@ -101,14 +114,11 @@ module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
     if (isExport == 1) {
         const record = rows.map((item) => {
             return {
-                "Order Id": item?.order_id || "NA",
-                "BO Name": item?.branchName || "NA",
-                "Commodity": item?.commodity || "NA",
-                "Grade": item?.grade || "NA",
-                "Quantity": item?.quantityRequired || "NA",
-                "Total Amount": item?.totalAmount || "NA",
-                "Total Penalty Amount": item?.totalPenaltyAmount || "NA",
-                "Payment Status": item?.paymentStatus || "NA"
+                "commodity Id": item?.commodityId || "NA",
+                "Name": item?.name || "NA",
+                "Commodity Type": item?.commodityType || "NA",
+                "Standard": item?.standard || "NA",
+                "Status": item?.status || "NA"
             };
         });
 
@@ -203,7 +213,7 @@ module.exports.deleteCommodity = asyncErrorHandler(async (req, res) => {
     try {
 
         const { id } = req.params;
-        
+
         const existingRecord = await Commodity.findOne({ _id: id });
 
         if (!existingRecord) {
