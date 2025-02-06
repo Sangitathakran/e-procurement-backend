@@ -19,7 +19,7 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 
 module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
-    const { quotedPrice, deliveryDate, name,warehouse_id, commodityImage, grade, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate } = req.body;
+    const { quotedPrice, deliveryDate, name, warehouse_id, commodityImage, grade, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate, schemeId, season, period } = req.body;
 
     if (user_type && user_type != _userType.agent) {
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
@@ -43,7 +43,7 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     }
     // console.log('tetetette');
     // console.log('deliveryLocation',deliveryLocation); return false;
-    
+
 
     const record = await RequestModel.create({
         head_office_id,
@@ -56,7 +56,10 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
             name,
             commodityImage,
             grade,
-            quantity: handleDecimal(quantity)
+            quantity: handleDecimal(quantity),
+            schemeId,
+            season,
+            period
         },
         address: {
             deliveryLocation,
@@ -148,7 +151,7 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .sort(sortBy)
         .skip(skip)
         .populate({ path: "branch_id", select: "_id branchName branchId" })
-        .populate({path:"warehouse_id",select:"addressDetails"})
+        .populate({ path: "warehouse_id", select: "addressDetails" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
     records.count = await RequestModel.countDocuments(query);
@@ -159,12 +162,12 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
     }
 
     // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
-    
+
     if (isExport == 1) {
 
         const allRecords = await RequestModel.find(query)
-        .sort(sortBy)
-        .populate({ path: "branch_id", select: "_id branchName branchId" });
+            .sort(sortBy)
+            .populate({ path: "branch_id", select: "_id branchName branchId" });
         const record = allRecords.map((item) => {
 
             return {
@@ -292,7 +295,7 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
                 'associate._id': 1,
                 'associate.user_code': 1,
                 'associate.basic_details.associate_details.associate_name': 1,
-                'associate.basic_details.associate_details.organization_name':1
+                'associate.basic_details.associate_details.organization_name': 1
             }
         },
         { $match: query }, // Apply query
@@ -560,22 +563,22 @@ module.exports.deleteRequirement = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.deleted("Requirement") }));
 });
 
-module.exports.getWareHouse=asyncErrorHandler(async(req, res)=>{
-    const { page, limit, skip, sortBy,paginate } = req.query
+module.exports.getWareHouse = asyncErrorHandler(async (req, res) => {
+    const { page, limit, skip, sortBy, paginate } = req.query
     const records = { count: 0 };
     const query = {};
     records.count = await wareHouseDetails.countDocuments();
-    if(paginate==1){
-        records.rows = await wareHouseDetails.find(query).select({addressDetails:1 })
-        .sort(sortBy)
-        .skip(skip)
-        .limit(parseInt(limit))
+    if (paginate == 1) {
+        records.rows = await wareHouseDetails.find(query).select({ addressDetails: 1 })
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit))
         records.page = page
-    records.limit = limit
-    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-    }else{
-        records.rows = await wareHouseDetails.find(query).select({addressDetails:1 ,  "basicDetails.warehouseName" : 1})
-        .sort(sortBy)
+        records.limit = limit
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+    } else {
+        records.rows = await wareHouseDetails.find(query).select({ addressDetails: 1, "basicDetails.warehouseName": 1 })
+            .sort(sortBy)
     }
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }))
 })
