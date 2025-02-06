@@ -682,13 +682,20 @@ module.exports.createExternalOrder = async (req, res) => {
                 message: "External Batch not found"
             }));
         }
+        console.log('batchExists.remaining_quantity',batchExists.remaining_quantity)
         let errors = [];
 
         if (quantity <= 0) {
             errors.push("Quantity must be greater than zero");
         }
+        if (batchExists.remaining_quantity <= 0) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "No remaining quantity available for this batch"
+            }));
+        }
         if (quantity >= batchExists.remaining_quantity) {
-            errors.push("Quantity must be equal or less than to remaining_quantity");
+            errors.push("Quantity must be less than remaining_quantity");
         }
         if (errors.length > 0) {
             return res.status(400).json(new serviceResponse({
@@ -704,6 +711,7 @@ module.exports.createExternalOrder = async (req, res) => {
             commodity,
             quantity: quantity || 0,
             external_batch_id,
+            warehousedetails_id : batchExists.warehousedetails_id,
             basic_details: {
                 buyer_name: basic_details.buyer_name,
                 email: basic_details.email?.toLowerCase(),
@@ -760,6 +768,10 @@ module.exports.listExternalOrderList = async (req, res) => {
                 .populate({
                     path: "external_batch_id",
                     select: "batchName",
+                })
+                .populate({
+                    path: "warehousedetails_id",
+                    select: "basicDetails.warehouseName",
                 })
                 .sort(sortBy)
                 .skip(parseInt(skip))
