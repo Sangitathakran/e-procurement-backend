@@ -117,6 +117,7 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             '/list-external-order',
             '/batch-order-stats',
             '/mark-delivered',
+            '/batch-status-update'
             
         ];
 
