@@ -474,7 +474,7 @@ module.exports.optionRequestId = asyncErrorHandler(async (req, res) => {
     data: records,
   });
 });
-//branchOfficeProcurement
+//branchOfficeProcurements
 module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
   let { stateNames } = req.query;
 
