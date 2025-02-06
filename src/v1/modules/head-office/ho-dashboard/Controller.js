@@ -474,7 +474,7 @@ module.exports.optionRequestId = asyncErrorHandler(async (req, res) => {
     data: records,
   });
 });
-//branchOfficeProcurement
+//branchOfficeProcurements
 module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
   let { stateNames } = req.query;
 
@@ -699,7 +699,6 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
     },
   ];
   let pipeline = [
-    
     {
       $lookup: {
         from: "procurementcenters",
@@ -716,18 +715,37 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
         as: "requests",
       },
     },
-
     {
       $unwind: {
         path: "$result",
-        preserveNullAndEmptyArrays: false,
+        preserveNullAndEmptyArrays: false, // Ensures only documents with procurement centers are processed
       },
     },
-
-    { $group: { _id: "$result.address.state", qty: { $sum: "$qty" },amount:{$sum:"$totalPrice"} } },
-
-    { $project: { state: "$_id", qty: 1,amount:1, _id: 0 ,total_qty:"$requests.totalQuantity"} },
+    {
+      $unwind: {
+        path: "$requests",
+        preserveNullAndEmptyArrays: true, // Allows docs with no matching requests to be included
+      },
+    },
+    {
+      $group: {
+        _id: "$result.address.state",
+        qty: { $sum: "$qty" },
+        amount: { $sum: "$totalPrice" },
+        total_qty: { $sum: "$requests.fulfilledQty" }, // Now works after unwinding requests
+      },
+    },
+    {
+      $project: {
+        state: "$_id",
+        qty: 1,
+        amount: 1,
+        total_qty: 1,
+        _id: 0,
+      },
+    },
   ];
+  
   if (stateNames.length > 0) {
     pipeline.push({ $match: { state: { $in: stateNames } } });
   } else {
@@ -738,7 +756,7 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
     let stateDetails=branchOfficeProc.find(item2=>item2.state==item.state);
    
         if(stateDetails){
-          return {...stateDetails,qty:stateDetails.qty,total_qty:item.total_qty}
+          return {...stateDetails}
         }else{
           return {...item}
         }
