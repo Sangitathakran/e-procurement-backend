@@ -40,6 +40,7 @@ const { FarmerPaymentFile } = require("@src/v1/models/app/payment/farmerPaymentF
 const { listenerCount } = require("@src/v1/models/app/auth/OTP");
 const path = require('path');
 const { smsService } = require("@src/v1/utils/third_party/SMSservices");
+const OTPModel = require("../../../models/app/auth/OTP")
 
 
 const validateMobileNumber = async (mobile) => {
