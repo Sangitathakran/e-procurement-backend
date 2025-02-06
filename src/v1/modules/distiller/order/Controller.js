@@ -1,5 +1,5 @@
-const { _generateOrderNumber, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue } = require("@src/v1/utils/helpers")
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { _generateOrderNumber, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue, _handleCatchErrors } = require("@src/v1/utils/helpers")
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { _webSocketEvents, _status, _poAdvancePaymentStatus, _poBatchPaymentStatus, _poPaymentStatus, _poBatchStatus } = require('@src/v1/utils/constants');
 const { _userType } = require('@src/v1/utils/constants');
@@ -13,90 +13,97 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 
 
 module.exports.getOrder = asyncErrorHandler(async (req, res) => {
-    const { page, limit, skip, sortBy, search = '', isExport = 0 } = req.query
-    const { user_id } = req;
-    
-    const pipeline = [
-        {
-            $lookup: {
-                from: "branches",
-                localField: "branch_id",
-                foreignField: "_id",
-                as: "branch_id"
-            }
-        },
-        { $unwind: { path: "$branch_id", preserveNullAndEmptyArrays: true } },
-    
-        {
-            $match: {
-                "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
-                distiller_id: new mongoose.Types.ObjectId(user_id),
-                deletedAt: null, // Ensures only active records
-                ...(search
-                    ? {
-                          $or: [
-                              { 'purchasedOrder.poNo': { $regex: search, $options: "i" } }, // Order ID search
-                              { "branch_id.branchName": { $regex: search, $options: "i" } }, // Branch Name search
-                          ]
-                      }
-                    : {}),
-            }
-        },
-    
-        {
-            $facet: {
-                metadata: [{ $count: "total" }], // Count total matching docs
-                data: [
-                    { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Sorting
-                    { $skip: skip }, // Pagination: Skip records
-                    { $limit: parseInt(limit, 10) } // Limit records
-                ]
-            }
+    try {
+        const { page, limit, skip, sortBy, search = '', isExport = 0 } = req.query
+        const { user_id } = req;
+        if (/[.*+?^${}()|[\]\\]/.test(search)) {
+            return sendResponse({ res, status: 400, errorCode: 400, errors: [{ message: "Do not use any special character" }], message: "Do not use any special character" })
         }
-    ];
-    
-    const result = await PurchaseOrderModel.aggregate(pipeline);
-    
-    const records = {
-        count: result[0].metadata.length ? result[0].metadata[0].total : 0, // Total count
-        rows: result[0].data || [], // Paginated data
-    };
-    
-    if (!isExport) {
-        records.page = page;
-        records.limit = limit;
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-    }
-    
+        const pipeline = [
+            {
+                $lookup: {
+                    from: "branches",
+                    localField: "branch_id",
+                    foreignField: "_id",
+                    as: "branch_id"
+                }
+            },
+            { $unwind: { path: "$branch_id", preserveNullAndEmptyArrays: true } },
 
-    if (isExport == 1) {
+            {
+                $match: {
+                    "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+                    distiller_id: new mongoose.Types.ObjectId(user_id),
+                    deletedAt: null, // Ensures only active records
+                    ...(search
+                        ? {
+                            $or: [
+                                { 'purchasedOrder.poNo': { $regex: search, $options: "i" } }, // Order ID search
+                                { "branch_id.branchName": { $regex: search, $options: "i" } }, // Branch Name search
+                            ]
+                        }
+                        : {}),
+                }
+            },
 
-        const record = records.rows.map((item) => {
-
-            return {
-                "Order Id": item?.reqNo || "NA",
-                "BO Name": item?.branch_id?.branchName || "NA",
-                "Commodity": item?.product?.name || "NA",
-                "Grade": item?.product?.grade || "NA",
-                "Quantity": item?.product?.quantity || "NA",
-                "MSP": item?.quotedPrice || "NA",
-                "Delivery Location": item?.address?.deliveryLocation || "NA"
+            {
+                $facet: {
+                    metadata: [{ $count: "total" }], // Count total matching docs
+                    data: [
+                        { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Sorting
+                        { $skip: skip }, // Pagination: Skip records
+                        { $limit: parseInt(limit, 10) } // Limit records
+                    ]
+                }
             }
-        })
+        ];
 
-        if (record.length > 0) {
-            dumpJSONToExcel(req, res, {
-                data: record,
-                fileName: `Requirement-record.xlsx`,
-                worksheetName: `Requirement-record`
-            });
+        const result = await PurchaseOrderModel.aggregate(pipeline);
+
+        const records = {
+            count: result[0].metadata.length ? result[0].metadata[0].total : 0, // Total count
+            rows: result[0].data || [], // Paginated data
+        };
+
+        if (!isExport) {
+            records.page = page;
+            records.limit = limit;
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        }
+
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+
+                return {
+                    "Order Id": item?.reqNo || "NA",
+                    "BO Name": item?.branch_id?.branchName || "NA",
+                    "Commodity": item?.product?.name || "NA",
+                    "Grade": item?.product?.grade || "NA",
+                    "Quantity": item?.product?.quantity || "NA",
+                    "MSP": item?.quotedPrice || "NA",
+                    "Delivery Location": item?.address?.deliveryLocation || "NA"
+                }
+            })
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Requirement-record.xlsx`,
+                    worksheetName: `Requirement-record`
+                });
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("procurement") }))
+
+            }
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("procurement") }))
-
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
         }
-    } else {
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
+    } catch (error) {
+        _handleCatchErrors(error, res);
     }
+
 
 })
 

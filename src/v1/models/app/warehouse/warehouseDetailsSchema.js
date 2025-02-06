@@ -106,6 +106,7 @@ const warehouseDetailsSchema = new mongoose.Schema(
       ..._commonKeys,
     },
     active: { type: Boolean, default: true },
+    procurement_partner: { type: String, enum: ["Radiant", "Youkta", "Beam", "Agribid", "Supplyvalid", "NEML", "Others"], default: "Radiant" },
     wareHouse_code: { type: String, unique: true },
   },
   { timestamps: true }
