@@ -343,135 +343,88 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 // });
 
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
-  const { limit = 5, companyName } = req.query;
-
-  const page = 1,
-    sortBy = "createdAt",
-    sortOrder = "asc",
-    isExport = 0;
+  const { limit = 5, procurement_partner } = req.query;
+  
+  const page = 1, sortBy = 'createdAt', sortOrder = 'asc', isExport = 0;
 
   try {
-    // Build filter object
-    let filter = {};
-
-    // Apply company name filter
-    if (companyName) {
-      const warehouseOwners = await wareHousev2.find(
-        { "companyDetails.name": { $regex: companyName, $options: "i" } },
-        "_id"
-      );
-      // filter.warehouseOwnerId = { $in: warehouseOwners.map((owner) => owner._id.toString()) };
-
-      filter.warehouseOwnerId = {
-        $in: warehouseOwners.map(
-          (owner) => new mongoose.Types.ObjectId(owner._id)
-        ),
-      };
-    }
-
-    const warehouses = await wareHouseDetails
-      .find(filter)
-      .populate({
-        path: "warehouseOwnerId",
-        select: "companyDetails.name",
-      })
-      .sort({ [sortBy]: sortOrder === "asc" ? 1 : -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    // Count total warehouses
-    const totalWarehouses = await wareHouseDetails.countDocuments(filter);
-    const activeWarehouses = await wareHouseDetails.countDocuments({
-      ...filter,
-      active: true,
-    });
-    const inactiveWarehouses = totalWarehouses - activeWarehouses;
-
-    // Handle export functionality
-    if (isExport == 1) {
-      const exportData = warehouses.map((item) => ({
-        "Warehouse ID": item._id,
-        "Warehouse Name": item.basicDetails?.warehouseName || "NA",
-        City: item.addressDetails?.city || "NA",
-        State: item.addressDetails?.state || "NA",
-        Company: item.warehouseOwnerId?.companyDetails?.name || "NA",
-        Status: item.active ? "Active" : "Inactive",
-      }));
-
-      if (exportData.length) {
-        return dumpJSONToExcel(req, res, {
-          data: exportData,
-          fileName: `Warehouse-List.xlsx`,
-          worksheetName: `Warehouses`,
-        });
+      // Construct filter object
+      let filter = {};
+      if (procurement_partner) {
+          filter.procurement_partner = procurement_partner;
       }
 
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          message: "No data available for export",
-        })
-      );
-    }
+      // Fetch data with pagination and sorting
+      const warehouses = await wareHouseDetails.find(filter)
+          .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+          .skip((page - 1) * limit)
+          .limit(parseInt(limit));
 
-    // Return paginated results
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: {
-          records: warehouses,
-          page,
-          limit,
-          totalRecords: totalWarehouses,
-          activeRecords: activeWarehouses,
-          inactiveRecords: inactiveWarehouses,
-          pages: Math.ceil(totalWarehouses / limit),
-        },
-        message: "Warehouses fetched successfully",
-      })
-    );
+      // Count total warehouses based on filter
+      const totalWarehouses = await wareHouseDetails.countDocuments(filter);
+      const activeWarehouses = await wareHouseDetails.countDocuments({ ...filter, active: true });
+      const inactiveWarehouses = totalWarehouses - activeWarehouses;
+
+      // Handle export functionality
+      if (isExport == 1) {
+          const exportData = warehouses.map(item => ({
+              "Warehouse ID": item._id,
+              "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
+              "City": item.addressDetails?.city || 'NA',
+              "State": item.addressDetails?.state || 'NA',
+              "Status": item.active ? 'Active' : 'Inactive',
+              "Procurement Partner": item.procurement_partner || 'NA'
+          }));
+
+          if (exportData.length) {
+              return dumpJSONToExcel(req, res, {
+                  data: exportData,
+                  fileName: `Warehouse-List.xlsx`,
+                  worksheetName: `Warehouses`
+              });
+          }
+
+          return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
+      }
+
+      // Return paginated results
+      return res.status(200).send(new serviceResponse({
+          status: 200,
+          data: {
+              records: warehouses,
+              page,
+              limit,
+              totalRecords: totalWarehouses,
+              activeRecords: activeWarehouses,
+              inactiveRecords: inactiveWarehouses,
+              pages: Math.ceil(totalWarehouses / limit)
+          },
+          message: "Warehouses fetched successfully"
+      }));
   } catch (error) {
-    console.error(error);
-    return res.status(500).send(
-      new serviceResponse({
-        status: 500,
-        message: "Error fetching warehouses",
-        error: error.message,
-      })
-    );
+      console.error(error);
+      return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching warehouses", error: error.message }));
   }
 });
-
 module.exports.getCompanyNames = async (req, res) => {
   try {
-    const result = await wareHousev2.find({}, { "companyDetails.name": 1 });
+    // FETCH DISTINCT PROCUREMENT PARTNER VALUES
+    const result = await wareHouseDetails.distinct("procurement_partner");
 
     if (!result || result.length === 0) {
       return sendResponse({
         res,
         data: [],
         status: 404,
-        message: _response_message.notFound("company names"),
+        message: _response_message.notFound("procurement partners"),
       });
     }
 
-    // Create a Map to store unique company names by _id
-    const uniqueCompanies = new Map();
-
-    result.forEach(doc => {
-      if (doc.companyDetails?.name) {
-        uniqueCompanies.set(doc._id.toString(), {
-          _id: doc._id,
-          company_name: doc.companyDetails.name,
-        });
-      }
-    });
-
     return sendResponse({
       res,
-      data: Array.from(uniqueCompanies.values()), // Convert Map to Array
+      data: result,
       status: 200,
-      message: _response_message.found("company names"),
+      message: _response_message.found("procurement partners"),
     });
   } catch (err) {
     _handleCatchErrors(err, res);
