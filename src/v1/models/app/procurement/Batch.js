@@ -10,7 +10,7 @@ const batchsSchema = new mongoose.Schema({
     farmerOrderIds: [{ farmerOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.FarmerOrder, required: true }, qty: { type: Number, default: 0 }, amt: { type: Number, default: 0 } }],
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
     qty: { type: Number, default: 0 },
-    available_qty : { type : Number , default : 0 } , 
+    available_qty : { type : Number } , 
     allotedQty : { type : Number , default : 0 } ,
     goodsPrice: { type: Number, trim: true },
     totalPrice: { type: Number, trim: true },
