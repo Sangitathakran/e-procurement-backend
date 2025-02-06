@@ -682,11 +682,36 @@ module.exports.createExternalOrder = async (req, res) => {
                 message: "External Batch not found"
             }));
         }
+        console.log('batchExists.remaining_quantity',batchExists.remaining_quantity)
+        let errors = [];
+
+        if (quantity <= 0) {
+            errors.push("Quantity must be greater than zero");
+        }
+        if (batchExists.remaining_quantity <= 0) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "No remaining quantity available for this batch"
+            }));
+        }
+        if (quantity >= batchExists.remaining_quantity) {
+            errors.push("Quantity must be less than remaining_quantity");
+        }
+        if (errors.length > 0) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: errors.join(", ") 
+            }));
+        }
+        batchExists.outward_quantity += quantity;
+        batchExists.remaining_quantity = batchExists.inward_quantity - batchExists.outward_quantity;
+        await batchExists.save();
 
         const orderData = {
             commodity,
             quantity: quantity || 0,
             external_batch_id,
+            warehousedetails_id : batchExists.warehousedetails_id,
             basic_details: {
                 buyer_name: basic_details.buyer_name,
                 email: basic_details.email?.toLowerCase(),
@@ -707,6 +732,8 @@ module.exports.createExternalOrder = async (req, res) => {
 
         const newExternalOrder = new ExternalOrder(orderData);
         const savedOrder = await newExternalOrder.save();
+        
+        
 
         return res.status(200).send(new serviceResponse({ message: _query.add('External Order'), data: savedOrder }));
 
@@ -741,6 +768,10 @@ module.exports.listExternalOrderList = async (req, res) => {
                 .populate({
                     path: "external_batch_id",
                     select: "batchName",
+                })
+                .populate({
+                    path: "warehousedetails_id",
+                    select: "basicDetails.warehouseName",
                 })
                 .sort(sortBy)
                 .skip(parseInt(skip))
