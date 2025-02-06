@@ -1138,7 +1138,8 @@ module.exports.createExternalBatch = async (req, res) => {
             procurementCenter, 
             inward_quantity: inward_quantity || 0,
             commodity : commodity || 'Maize',
-            warehousedetails_id
+            warehousedetails_id,
+            remaining_quantity : inward_quantity
         });
 
         const response = await externalBatchData.save();
