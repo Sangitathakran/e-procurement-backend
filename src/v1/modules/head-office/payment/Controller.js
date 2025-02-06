@@ -39,6 +39,14 @@ const { default: mongoose } = require("mongoose");
 const { FarmerPaymentFile } = require("@src/v1/models/app/payment/farmerPaymentFile");
 const { listenerCount } = require("@src/v1/models/app/auth/OTP");
 const path = require('path');
+const { smsService } = require("@src/v1/utils/third_party/SMSservices");
+const OTPModel = require("../../../models/app/auth/OTP")
+
+
+const validateMobileNumber = async (mobile) => {
+  let pattern = /^[0-9]{10}$/;
+  return pattern.test(mobile);
+};
 
 /*
 module.exports.payment = async (req, res) => {
