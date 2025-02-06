@@ -9,6 +9,7 @@ const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { wareHousev2 } = require('@src/v1/models/app/warehouse/warehousev2Schema');
 const { PurchaseOrderModel } = require('@src/v1/models/app/distiller/purchaseOrder');
+const { BatchOrderProcess } = require('@src/v1/models/app/distiller/batchOrderProcess');
 
 
 module.exports.saveWarehouseDetails = async (req, res) => {
@@ -264,28 +265,76 @@ module.exports.updateWarehouseStatus = async (req, res) => {
     }
 }
 
+
 module.exports.getWarehouseDashboardStats = async (req, res) => {
     try {
         const { user_id } = req;
+        const {limit, skip, paginate = 1, sortBy, search = ''} = req.query
+        let record = { count: 0 };
+          const warehouseTotalCount = (await wareHouseDetails.countDocuments({warehouseOwnerId:user_id})) ?? 0;
         
-        const warehouseTotalCount = (await wareHouseDetails.countDocuments()) ?? 0;
-        
-
           const wareHouseActiveCount =
-          (await wareHouseDetails.countDocuments({active:true})) ?? 0;  
+          (await wareHouseDetails.countDocuments({$and:[{active:true},{warehouseOwnerId:user_id}]})) ?? 0;  
 
           const wareHouseInactiveCount =
-          (await wareHouseDetails.countDocuments({active:false})) ?? 0;  
+          (await wareHouseDetails.countDocuments({$and:[{active:false},{warehouseOwnerId:user_id}]})) ?? 0;  
 
-          const outwardBatchCount =
-          (await PurchaseOrderModel.countDocuments({})) ?? 0;  
-    
+        //   const outwardBatchCount =
+        //   (await BatchOrderProcess.countDocuments({warehouseOwnerId:user_id})) ?? 0;  
+
+       // Define query with optional search filter
+let query = {
+    ...(search
+      ? { orderId: { $regex: search, $options: "i" }, deletedAt: null }
+      : { deletedAt: null })
+  };
+ 
+  
+record.rows = paginate == 1 ? await PurchaseOrderModel.find(query).select('product.name purchasedOrder.poQuantity purchasedOrder.poNo createdAt')
+        .sort(sortBy)
+        .skip(skip)
+        .populate({ path: "distiller_id", select: "basic_details.distiller_details.organization_name " })
+        //.populate({ path: "branch_id", select: "_id branchName branchId" })
+        .limit(parseInt(limit)) 
+        : await PurchaseOrderModel.find(query)
+             
+  record.rows = await Promise.all(
+      record.rows.map(async (item) => {
+          console.log(item._id)
+          let batchOrderProcess = await BatchOrderProcess.findOne({
+              warehouseOwnerId: user_id,
+              orderId: item._id,
+          }).select('warehouseId orderId');
+
+          return batchOrderProcess ? item : null; // Return the item if found, otherwise null
+      })
+  );
+  // Filter out null values
+  record.rows = record.rows.filter((item) => item !== null);
+  const outwardBatchCount = record.rows.length;
+        
+
+        const warehouseDetails = await wareHouseDetails.find(
+            { warehouseOwnerId: new mongoose.Types.ObjectId(user_id) }, 
+            { _id: 1 } // Only fetch `_id` field
+          );
+          
+          const ownerwarehouseIds = warehouseDetails.map(wh => wh._id); // Extract `_id` array
+            
           const inwardBatchCount =
-          (await Batch.countDocuments({})) ?? 0;  
-    
+            (await Batch.countDocuments({
+              $and: [
+                { warehousedetails_id: { $in: ownerwarehouseIds } },
+                { wareHouse_approve_status: "Received" }
+              ]
+            })) ?? 0;
         
          // Total warehouse capacity
     const totalCapacityResult = await wareHouseDetails.aggregate([
+        {
+            $match:{_id: { $in: ownerwarehouseIds } }
+
+        },
         {
           $group: {
             _id: null,
@@ -293,7 +342,7 @@ module.exports.getWarehouseDashboardStats = async (req, res) => {
           },
         },
       ]);
-  
+
       const totalWarehouseCapacity =
         totalCapacityResult.length > 0 ? totalCapacityResult[0].totalCapacity : 0;
 
