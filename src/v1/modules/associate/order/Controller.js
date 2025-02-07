@@ -118,6 +118,8 @@ module.exports.batch = async (req, res) => {
 
         const findwarehouseUser = await RequestModel.findOne({ _id: req_id });
 
+        const qty_value = handleDecimal(sumOfQtyDecimal) ;
+
         const batchCreated = await Batch.create({
             seller_id: user_id,
             req_id,
@@ -126,8 +128,8 @@ module.exports.batch = async (req, res) => {
             warehousedetails_id : findwarehouseUser.warehouse_id,
             farmerOrderIds: farmerData,
             procurementCenter_id,
-            qty: handleDecimal(sumOfQtyDecimal),  // Apply handleDecimal here
-            available_qty : handleDecimal(sumOfQtyDecimal),
+            qty: qty_value,  // Apply handleDecimal here
+            available_qty : qty_value ,
             goodsPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice), // Apply handleDecimal here
             totalPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice) // Apply handleDecimal here
         });
