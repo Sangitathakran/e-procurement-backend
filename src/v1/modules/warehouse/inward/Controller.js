@@ -1,7 +1,11 @@
 const mongoose = require('mongoose');
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { _query, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
+const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod, _userType } = require("@src/v1/utils/constants");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { ExternalBatch } = require("@src/v1/models/app/procurement/ExternalBatch");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
@@ -878,8 +882,9 @@ module.exports.batchMarkDelivered = async (req, res) => {
             truck_photo,
             vehicle_details,
             document_pictures,
+            weight_slip = [], qc_report = [], data, paymentIsApprove = 0 
         } = req.body;
-        
+        const { user_id, user_type } = req;
         const requiredFields = [
             'quantity_received',
             'no_of_bags',
@@ -913,6 +918,79 @@ module.exports.batchMarkDelivered = async (req, res) => {
                 message: `Missing required fields: ${missingFields.join(', ')}`,
             }));
         }
+
+        const record = await Batch.findOne({ _id: batchId }).populate("req_id").populate("seller_id");
+   
+        if (!record) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        }
+
+        // if (document_pictures.product_images.length > 0) {
+        //     record.dispatched.material_img.received.push(...document_pictures.product_images.map(i => { return { img: i, on: moment() } }))
+        // }
+        // if (qc_report.length > 0) {
+            record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+            record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
+
+            const { farmerOrderIds } = record;
+
+            const paymentRecords = [];
+
+            const request = await RequestModel.findOne({ _id: record?.req_id });
+            // console.log('req_id',record.req_id);return false;
+            for (let farmer of farmerOrderIds) {
+
+                const farmerData = await FarmerOrders.findOne({ _id: farmer?.farmerOrder_id });
+
+                const paymentData = {
+                    req_id: request?._id,
+                    farmer_id: farmerData.farmer_id,
+                    farmer_order_id: farmer.farmerOrder_id,
+                    associate_id: record?.seller_id,
+                    ho_id: request?.head_office_id,
+                    bo_id: request?.branch_id,
+                    associateOffers_id: farmerData?.associateOffers_id,
+                    batch_id: record?._id,
+                    qtyProcured: farmer.qty,
+                    amount: farmer.amt,
+                    initiated_at: new Date(),
+                    payment_method: _paymentmethod.bank_transfer
+                }
+
+                paymentRecords.push(paymentData);
+            }
+
+            await Payment.insertMany(paymentRecords);
+
+            record.delivered.proof_of_delivery = document_pictures.proof_of_delivery;
+            record.delivered.weigh_bridge_slip = document_pictures.weigh_bridge_slip;
+            record.delivered.receiving_copy = document_pictures.receiving_copy;
+            record.delivered.truck_photo = truck_photo;
+            record.delivered.loaded_vehicle_weight = vehicle_details.loaded_vehicle_weight;
+            record.delivered.tare_weight = vehicle_details.tare_weight;
+            record.delivered.net_weight = vehicle_details.net_weight;
+            record.delivered.delivered_at = new Date();
+            record.delivered.delivered_by = user_id;
+    
+            record.status = _batchStatus.delivered;
+        // }
+
+        // if (weight_slip.length > 0) {
+            record.dispatched.weight_slip.received.push(...weight_slip.map(i => { return { img: i, on: moment() } }))
+        // }
+        
+        
+        record.payement_approval_at = new Date();
+        record.payment_approve_by = user_id;
+        await record.save();
+
+
+
+
+
+
+
+
 
         const batchData = await Batch.findById(batchId);
         if (!batchData) {
