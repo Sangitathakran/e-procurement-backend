@@ -16,6 +16,9 @@ const { default: mongoose } = require("mongoose");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { User } = require("@src/v1/models/app/auth/User");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { Commodity } = require("@src/v1/models/master/Commodity");
+const { Scheme } = require("@src/v1/models/master/Scheme");
+
 
 module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
@@ -132,7 +135,6 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     await sendMail("ashita@navankur.org", null, subject, body);
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("procurement") }));
 });
-
 
 module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
@@ -390,7 +392,6 @@ module.exports.getofferedFarmers = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }))
 })
 
-
 module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) => {
     const { user_id } = req;
     const { associateOffer_id, status, comments } = req.body;
@@ -500,7 +501,6 @@ module.exports.getProcurementById = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("order") }))
 })
 
-
 module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
 
     const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, warehouse_id, commodity_image } = req.body;
@@ -582,3 +582,145 @@ module.exports.getWareHouse = asyncErrorHandler(async (req, res) => {
     }
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }))
 })
+
+module.exports.getScheme = asyncErrorHandler(async (req, res) => {
+    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+
+    // Initialize matchQuery
+    let matchQuery = {
+        deletedAt: null
+    };
+    if (search) {
+        matchQuery.schemeId = { $regex: search, $options: "i" };
+    }
+    let aggregationPipeline = [
+        { $match: matchQuery },
+        {
+            $project: {
+                _id: 1,
+                schemeId: 1,
+                schemeName: 1,
+                Schemecommodity: 1,
+                season: 1,
+                period: 1,
+                procurement: 1
+            }
+        }
+    ];
+    if (paginate == 1) {
+        aggregationPipeline.push(
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) }
+        );
+    } else {
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
+    }
+    const rows = await Scheme.aggregate(aggregationPipeline);
+    const countPipeline = [
+        { $match: matchQuery },
+        { $count: "total" }
+    ];
+    const countResult = await Scheme.aggregate(countPipeline);
+    const count = countResult[0]?.total || 0;
+    const records = { rows, count };
+    if (paginate == 1) {
+        records.page = parseInt(page);
+        records.limit = parseInt(limit);
+        records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
+    }
+    if (isExport == 1) {
+        const record = rows.map((item) => {
+            return {
+                "Scheme Id": item?.schemeId || "NA",
+                "scheme Name": item?.schemeName || "NA",
+                "SchemeCommodity": item?.commodity || "NA",
+                "season": item?.season || "NA",
+                "period": item?.period || "NA",
+                "procurement": item?.procurement || "NA"
+            };
+        });
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Scheme-record.xlsx`,
+                worksheetName: `Scheme-record`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Scheme") }));
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme") }));
+    }
+});
+
+module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
+    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+    const { user_id } = req;
+    // Initialize matchQuery
+    let matchQuery = {
+        deletedAt: null
+    };
+    if (search) {
+        matchQuery.commodityId = { $regex: search, $options: "i" };
+    }
+    let aggregationPipeline = [
+        { $match: matchQuery },
+        {
+            $project: {
+                _id: 1,
+                commodityId: 1,
+                name: 1,
+                status: 1,
+                commodityType: 1,
+            }
+        }
+    ];
+    if (paginate == 1) {
+        aggregationPipeline.push(
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) }
+        );
+    } else {
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
+    }
+    const rows = await Commodity.aggregate(aggregationPipeline);
+    const countPipeline = [
+        { $match: matchQuery },
+        { $count: "total" }
+    ];
+    const countResult = await Commodity.aggregate(countPipeline);
+    const count = countResult[0]?.total || 0;
+    const records = { rows, count };
+    if (paginate == 1) {
+        records.page = parseInt(page);
+        records.limit = parseInt(limit);
+        records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
+    }
+    if (isExport == 1) {
+        const record = rows.map((item) => {
+            return {
+                "Order Id": item?.order_id || "NA",
+                "BO Name": item?.branchName || "NA",
+                "Commodity": item?.commodity || "NA",
+                "Grade": item?.grade || "NA",
+                "Quantity": item?.quantityRequired || "NA",
+                "Total Amount": item?.totalAmount || "NA",
+                "Total Penalty Amount": item?.totalPenaltyAmount || "NA",
+                "Payment Status": item?.paymentStatus || "NA"
+            };
+        });
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Commodity-record.xlsx`,
+                worksheetName: `Commodity-record`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Commodity") }));
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Commodity") }));
+    }
+});

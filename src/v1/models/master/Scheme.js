@@ -3,12 +3,7 @@ const { _collectionName, _status, _season, _period, _centralNodalAgency } = requ
 const mongoose = require("mongoose");
 const SchemeSchema = new mongoose.Schema(
   {
-    // agent_id: {
-    //   type: mongoose.Schema.Types.ObjectId,
-    //   ref: _collectionName.Agency,
-    //   required: true,
-    // },
-    schmeCode: { type: String, unique: true },
+    schemeId: { type: String, unique: true },
     schemeName: { type: String, required: true },
     // season: { type: String, enum: ["Kharif", "Rabi", "Zaid"] },
     // period: { type: String, enum: ["2024", "2024-2025", "2025"] },

@@ -8,7 +8,7 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 
 module.exports.createCommodity = asyncErrorHandler(async (req, res) => {
-    const { name, commodityType } = req.body;
+    const { name, commodityType, unit } = req.body;
     let randomVal;
     // Generate a sequential order number
     const lastOrder = await Commodity.findOne().sort({ createdAt: -1 }).select("commodityId").lean();
@@ -22,8 +22,9 @@ module.exports.createCommodity = asyncErrorHandler(async (req, res) => {
     }
     const record = await Commodity.create({
         commodityId: randomVal,
-        commodityType,
         name,
+        commodityType,
+        unit
     });
     return res
         .status(200)
@@ -145,7 +146,7 @@ module.exports.updateCommodity = asyncErrorHandler(async (req, res) => {
                 .send(
                     new serviceResponse({
                         status: 400,
-                        message: _response_message.notFound("request"),
+                        message: _response_message.notFound("Commodity"),
                     })
                 );
         }
@@ -191,7 +192,7 @@ module.exports.statusUpdateCommodity = asyncErrorHandler(async (req, res) => {
                 .send(
                     new serviceResponse({
                         status: 400,
-                        message: _response_message.notFound("request"),
+                        message: _response_message.notFound("Commodity"),
                     })
                 );
         }
