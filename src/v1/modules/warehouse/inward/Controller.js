@@ -246,7 +246,72 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
 
        //console.log(JSON.stringify(pipeline, null, 2)) 
         const rows = await Batch.aggregate(pipeline);
-        const totalCount = rows.length;
+
+
+        const totalCountPipeline = [
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    localField: 'warehousedetails_id',
+                    foreignField: '_id',
+                    as: 'warehousedetails_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'procurementcenters',
+                    localField: 'procurementCenter_id',
+                    foreignField: '_id',
+                    as: 'procurementCenter_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'seller_id',
+                    foreignField: '_id',
+                    as: 'seller_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'requests',
+                    localField: 'req_id',
+                    foreignField: '_id',
+                    as: 'req_id'
+                }
+            },
+            { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
+            {
+                $match: {
+                    "warehousedetails_id._id": { $in: finalwarehouseIds },
+                    ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+                    wareHouse_approve_status: 'Received',
+                    ...(search && searchRegex && {
+                        $or: [
+                            { batchId: { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+                            { "procurementCenter_id.center_name": { $regex: searchRegex } },
+                            { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+                        ]
+                    }),
+                    ...(status && {
+                        "final_quality_check.status": status  // This checks the status field for exact match
+                    }),
+                    ...(productName && { "req_id.product.name": productName })
+                }
+            },
+            { $count: "totalCount" } // This will count all matching documents
+        ];
+        
+        const totalCountResult = await Batch.aggregate(totalCountPipeline);
+        const totalCount = totalCountResult.length > 0 ? totalCountResult[0].totalCount : 0;
+        
+       // const totalCount = rows.length;
        
         const query = {
             "warehousedetails_id._id": { $in: finalwarehouseIds },
@@ -556,10 +621,72 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
         
         const rows = await Batch.aggregate(pipeline);
 
-        const totalCount = rows.length;
-
-
         
+        const totalCountPipeline = [
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    localField: 'warehousedetails_id',
+                    foreignField: '_id',
+                    as: 'warehousedetails_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'procurementcenters',
+                    localField: 'procurementCenter_id',
+                    foreignField: '_id',
+                    as: 'procurementCenter_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'seller_id',
+                    foreignField: '_id',
+                    as: 'seller_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'requests',
+                    localField: 'req_id',
+                    foreignField: '_id',
+                    as: 'req_id'
+                }
+            },
+            { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
+            {
+                $match: {
+                    "warehousedetails_id._id": { $in: finalwarehouseIds },
+                    ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+                    wareHouse_approve_status: 'Pending',
+                    ...(search && searchRegex && {
+                        $or: [
+                            { batchId: { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+                            { "procurementCenter_id.center_name": { $regex: searchRegex } },
+                            { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+                        ]
+                    }),
+                    ...(status && {
+                        "final_quality_check.status": status  // This checks the status field for exact match
+                    }),
+                    ...(productName && { "req_id.product.name": productName })
+                }
+            },
+            { $count: "totalCount" } // This will count all matching documents
+        ];
+        
+        const totalCountResult = await Batch.aggregate(totalCountPipeline);
+        const totalCount = totalCountResult.length > 0 ? totalCountResult[0].totalCount : 0;
+
+       // const totalCount = rows.length;
+
         // Modify the query object for consistent filters
 const baseQuery = {
     "warehousedetails_id._id": { $in: finalwarehouseIds },
