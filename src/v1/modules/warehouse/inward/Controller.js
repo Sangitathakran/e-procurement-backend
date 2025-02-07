@@ -310,7 +310,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                     count: totalCount,
                     page,
                     limit,
-                    pages: Math.ceil(totalCount / limit),
+                    pages: limit != 0 ? Math.ceil(totalCount / limit) : 0,
                     ...stats
                 }
             },
@@ -637,7 +637,7 @@ const baseQuery = {
                     count: totalCount,
                     page,
                     limit,
-                    pages: Math.ceil(totalCount / limit),
+                    pages: limit != 0 ? Math.ceil(totalCount / limit) : 0,
                     ...stats
                 }
             },
