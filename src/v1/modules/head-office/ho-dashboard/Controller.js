@@ -875,19 +875,30 @@ module.exports.paymentStatusByDate = asyncErrorHandler(async (req, res) => {
 });
 //payment status by batch
 module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
-  console.log("date", moment().format("YYYY-MM-DD"));
+  const { page = 1, limit = 10 } = req.query;
+  const skip = (page - 1) * limit;
+
   const paymentDetails = await Payment.find()
     .select("initiated_at req_id ho_approve_by")
     .populate({ path: "ho_approve_by", select: "" })
     .populate({ path: "req_id", select: "reqNo" })
     .sort({ createdAt: -1 })
-    // .limit(5);
+    .skip(skip)
+    .limit(limit);
+
+  const totalCount = await Payment.countDocuments();
 
   return sendResponse({
     res,
     status: 200,
     message: _query.get("PaymentActivity"),
-    data: paymentDetails,
+    data: {
+      paymentDetails,
+      totalCount,
+      pages: Math.ceil(totalCount / limit),
+      limit: limit,
+      page: page,
+    },
   });
 });
 const calculateProcureQuantity = async (paymentDetails, status) => {
