@@ -50,6 +50,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     lat,
     long,
     locationUrl,
+    locationDetails,
     companyDetails,
     additionalDetails,
     qualitySpecificationOfProduct,
@@ -114,6 +115,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
       lat,
       long,
       locationUrl,
+      locationDetails
     },
     paymentInfo: {
       totalAmount: handleDecimal(totalAmount), // Assume this is calculated during the first step
