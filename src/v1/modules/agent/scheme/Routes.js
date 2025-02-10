@@ -7,7 +7,6 @@ const schemeRoute = express.Router();
 schemeRoute.post("/", Auth, createScheme);
 schemeRoute.get("/", Auth, getScheme);
 schemeRoute.get("/:id", Auth, getSchemeById);
-schemeRoute.post("/", Auth, createCommodity);
 schemeRoute.put("/", Auth, updateScheme);
 schemeRoute.delete("/:id", Auth, deleteScheme);
 schemeRoute.patch("/", Auth, statusUpdateScheme);

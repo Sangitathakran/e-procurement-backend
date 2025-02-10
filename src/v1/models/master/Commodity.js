@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const { _collectionName, _status, _commodityType } = require("@src/v1/utils/constants/index")
 const { _commonKeys } = require("@src/v1/utils/helpers/collection")
+
 const commoditySchema = new mongoose.Schema({
   commodityId: { type: String, required: true, immutable: true },
   name: { type: String, required: true, trim: true },

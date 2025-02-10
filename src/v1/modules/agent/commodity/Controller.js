@@ -211,4 +211,3 @@ module.exports.statusUpdateCommodity = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
-

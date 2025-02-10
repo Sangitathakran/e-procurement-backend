@@ -7,6 +7,7 @@ const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 
+
 module.exports.createScheme = asyncErrorHandler(async (req, res) => {
   try {
     const {
@@ -65,6 +66,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   if (search) {
     matchQuery.schemeId = { $regex: search, $options: "i" };
   }
+  
   let aggregationPipeline = [
     { $match: matchQuery },
     {
