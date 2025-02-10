@@ -28,6 +28,7 @@ const _collectionName = {
     StateDistrictCity: "StateDistrictCity",
     Batch: "Batch",
     Payment: "Payment",
+    Whr:"Whr",
     Branch: "Branch",
     DummyWarehouse: "DummyWarehouse",
     Warehouse: "WarehouseV2",
