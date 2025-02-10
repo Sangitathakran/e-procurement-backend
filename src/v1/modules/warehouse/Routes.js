@@ -4,6 +4,8 @@ const { wareHouseAuthRoutes } = require("./auth/Routes");
 const { wareHouseInwardRoutes } = require("./inward/Routes");
 const { wareHouseManagement } = require("./warehouse-management/Routes");
 const {wareHouseOutwardRoutes} =require("./outward/Routes");
+const {thirdPartyRoutes} =require("./third-party/Routes");
+
 const wareHouseRoutes = express.Router();
 
 
@@ -12,5 +14,7 @@ wareHouseRoutes.use("/auth", wareHouseAuthRoutes);
 wareHouseRoutes.use("/management", wareHouseManagement);
 wareHouseRoutes.use("/inward", wareHouseInwardRoutes);
 wareHouseRoutes.use("/outward" ,wareHouseOutwardRoutes);
+wareHouseRoutes.use("/third" ,thirdPartyRoutes);
+
 
 module.exports = { wareHouseRoutes }; 

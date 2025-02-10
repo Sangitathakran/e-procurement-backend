@@ -23,6 +23,7 @@ const externalOrderSchema = new mongoose.Schema({
         pinCode: { type: String, trim: true },
     },
     external_order_code: { type: String, unique: true },
+    third_party_client :  { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ClientToken },
 }, { timestamps: true });
 
 externalOrderSchema.pre('save', async function (next) {
