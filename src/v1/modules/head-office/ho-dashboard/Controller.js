@@ -474,11 +474,230 @@ module.exports.optionRequestId = asyncErrorHandler(async (req, res) => {
     data: records,
   });
 });
-//branchOfficeProcurement
+//branchOfficeProcurements
 module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
   let { stateNames } = req.query;
 
   stateNames = stateNames ? JSON.parse(stateNames) : [];
+  let data = [
+    {
+      state: "Andhra Pradesh",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+
+    {
+      state: "Arunachal Pradesh",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Assam",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Bihar",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Chhattisgarh",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Goa",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Gujarat",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Haryana",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Himachal Pradesh",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Jharkhand",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      name: "Karnataka",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Kerala",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Madhya Pradesh",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Maharashtra",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Manipur",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Meghalaya",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Mizoram",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Nagaland",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Odisha",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Punjab",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      name: "Rajasthan",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Sikkim",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Tamil Nadu",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Telangana",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Tripura",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Uttar Pradesh",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Uttarakhand",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "West Bengal",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Andaman and Nicobar Islands",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Chandigarh",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Dadra and Nagar Haveli and Daman and Diu",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Lakshadweep",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Delhi",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Puducherry",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Ladakh",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+    {
+      state: "Jammu and Kashmir",
+      qty: 0,
+      amount:0,
+      total_qty:0
+    },
+  ];
   let pipeline = [
     {
       $lookup: {
@@ -488,30 +707,67 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
         as: "result",
       },
     },
-
+    {
+      $lookup: {
+        from: "requests",
+        localField: "req_id",
+        foreignField: "_id",
+        as: "requests",
+      },
+    },
     {
       $unwind: {
         path: "$result",
-        preserveNullAndEmptyArrays: false,
+        preserveNullAndEmptyArrays: false, // Ensures only documents with procurement centers are processed
       },
     },
-
-    { $group: { _id: "$result.address.state", farmers: { $count: {} } } },
-
-    { $project: { state: "$_id", farmers: 1, _id: 0 } },
+    {
+      $unwind: {
+        path: "$requests",
+        preserveNullAndEmptyArrays: true, // Allows docs with no matching requests to be included
+      },
+    },
+    {
+      $group: {
+        _id: "$result.address.state",
+        qty: { $sum: "$qty" },
+        amount: { $sum: "$totalPrice" },
+        total_qty: { $sum: "$requests.fulfilledQty" }, // Now works after unwinding requests
+      },
+    },
+    {
+      $project: {
+        state: "$_id",
+        qty: 1,
+        amount: 1,
+        total_qty: 1,
+        _id: 0,
+      },
+    },
   ];
+  
   if (stateNames.length > 0) {
     pipeline.push({ $match: { state: { $in: stateNames } } });
+  } else {
   }
-  const branchOfficeProc = await Batch.aggregate(pipeline);
-  
-  const totalProcuredQty = branchOfficeProc.reduce((accumulator, item) => accumulator + (Number(item.qty) || 0), 0);
-  
+  let branchOfficeProc = await Batch.aggregate(pipeline);
+  let totalProcuredQty = branchOfficeProc.reduce((accumulator, item) => accumulator + (Number(item.qty) || 0), 0);
+  totalProcuredQty = Math.round(totalProcuredQty);
+  data=data.map(item=>{
+    let stateDetails=branchOfficeProc.find(item2=>item2.state==item.state);
+   
+        if(stateDetails){
+          return {...stateDetails}
+        }else{
+          return {...item}
+        }
+  })
+
   return sendResponse({
     res,
     status: 200,
     message: _query.get("BranchOfficeProcurement"),
-    data: {branchOfficeProc, totalProcuredQty},
+    data: {branchOfficeProc: data, totalProcuredQty},
   });
 });
 //farmerBenifitted
