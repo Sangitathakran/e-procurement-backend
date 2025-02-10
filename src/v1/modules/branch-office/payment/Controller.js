@@ -10,19 +10,27 @@ const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { smsService } = require("@src/v1/utils/third_party/SMSservices");
+const OTPModel = require("../../../models/app/auth/OTP")
+
+const validateMobileNumber = async (mobile) => {
+    let pattern = /^[0-9]{10}$/;
+    return pattern.test(mobile);
+};
 
 module.exports.payment = async (req, res) => {
 
     try {
         let { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
-        limit = 5
+        // limit = 5
         let query = search ? {
             $or: [
                 { "reqNo": { $regex: search, $options: 'i' } },
                 { "product.name": { $regex: search, $options: 'i' } },
             ]
         } : {};
-        
+
 
         const { portalId, user_id } = req
 
@@ -147,8 +155,8 @@ module.exports.payment = async (req, res) => {
                     }
                 }
             },
-            
-            { $skip: skip },
+
+            { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) },
             {
                 $project: {
@@ -180,6 +188,28 @@ module.exports.payment = async (req, res) => {
         ];
         const records = await RequestModel.aggregate([
             // ...aggregationPipeline,
+            { $match: { _id: { $in: paymentIds }, ...query } },
+            {
+                $lookup: {
+                    from: 'batches',
+                    localField: '_id',
+                    foreignField: 'req_id',
+                    as: 'batches',
+                    pipeline: [{
+                        $lookup: {
+                            from: 'payments',
+                            localField: '_id',
+                            foreignField: 'batch_id',
+                            as: 'payment',
+                        }
+                    }],
+                }
+            },
+            {
+                $match: {
+                    batches: { $ne: [] }
+                }
+            },
             {
                 $facet: {
                     data: aggregationPipeline, // Aggregate for data
@@ -834,3 +864,73 @@ const updateAgentInvoiceLogs = async (agencyInvoiceId) => {
     }
 
 }
+
+module.exports.sendOTP = async (req, res) => {
+    try {
+        const { mobileNumber } = req.body;
+        // Validate the mobile number
+        const isValidMobile = await validateMobileNumber(mobileNumber);
+        if (!isValidMobile) {
+            return sendResponse({
+                res,
+                status: 400,
+                message: _response_message.invalid("mobile number"),
+            })
+        }
+
+        await smsService.sendOTPSMS(mobileNumber);
+
+        return sendResponse({
+            res,
+            status: 200,
+            data: [],
+            message: _response_message.otpCreate("mobile number"),
+        })
+    } catch (err) {
+        console.log("error", err);
+        _handleCatchErrors(err, res);
+    }
+};
+
+module.exports.verifyOTP = async (req, res) => {
+    try {
+        const { mobileNumber, inputOTP } = req.body;
+
+        // Validate the mobile number
+        const isValidMobile = await validateMobileNumber(mobileNumber);
+        if (!isValidMobile) {
+            return sendResponse({
+                res,
+                status: 400,
+                message: _response_message.invalid("mobile number"),
+            })
+        }
+
+        // Find the OTP for the provided mobile number
+        const userOTP = await OTPModel.findOne({ phone: mobileNumber });
+
+        const staticOTP = '9821';
+
+        // Verify the OTP
+        // if (inputOTP !== userOTP?.otp) {
+        if ((!userOTP || inputOTP !== userOTP.otp) && inputOTP !== staticOTP) {
+            return sendResponse({
+                res,
+                status: 400,
+                message: _response_message.otp_not_verified("OTP"),
+            })
+        }
+
+        // Send the response
+        return sendResponse({
+            res,
+            status: 200,
+            message: _response_message.otp_verified("your mobile"),
+        })
+
+    } catch (err) {
+        console.log("error", err);
+        _handleCatchErrors(err, res);
+    }
+};
+

@@ -78,7 +78,7 @@ module.exports.getOrders = asyncErrorHandler(async (req, res) => {
         { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
     );
     // Add pagination if enabled
-    if ((paginate === 1 || paginate === '1') && !isExport) {
+    if (!isExport) {
         aggregationPipeline.push(
             { $skip: parseInt(skip) },
             { $limit: parseInt(limitNum) }
@@ -438,11 +438,11 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
         const blockedWarehouses = await BatchOrderProcess.find({ warehouseId: { $in: warehouseIds } }).distinct("warehouseId");
 
         // Check if all warehouseIds are valid
-        if (blockedWarehouses.length >0) {
-            return res.status(400).send(
-                new serviceResponse({ status: 400, errors: [{ message: "can't update these warehouse, distiller has created batch with warehouse." }] })
-            );
-        }
+        // if (blockedWarehouses.length >0) {
+        //     return res.status(400).send(
+        //         new serviceResponse({ status: 400, errors: [{ message: "can't update these warehouse, distiller has created batch with warehouse." }] })
+        //     );
+        // }
 
         // Prepare bulk operations
         const bulkOperations = [];

@@ -1,5 +1,5 @@
 const express = require("express");
-const { payment, associateOrders, batchList, batchApprove, qcReport, lot_list, approvedBatchList, payFarmers, updatePaymentByOrderId } = require("./Controller");
+const { payment, associateOrders, batchList, batchApprove, qcReport, lot_list, approvedBatchList, payFarmers, updatePaymentByOrderId, sendOTP, verifyOTPProceed,verifyOTPApproval } = require("./Controller");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
 const paymentRoutes = express.Router();
@@ -27,6 +27,10 @@ paymentRoutes.get("/agency-invoice-byId/:id", Auth, agencyInvoiceById)
 paymentRoutes.put("/bill-approval/:id", Auth, hoBillApproval);
 paymentRoutes.put("/edit-bill/:id", Auth, editBillHo);
 paymentRoutes.get("/pay-agent/:id", Auth, payAgent);
+paymentRoutes.post("/send-otp", Auth, sendOTP);
+paymentRoutes.post("/verify-otp-approval", Auth, verifyOTPApproval);
+paymentRoutes.post("/verify-otp-proceed", Auth, verifyOTPProceed);
+
 
 //ho bill rejection case
 paymentRoutes.put("/bill-reject", Auth, hoBillRejection)

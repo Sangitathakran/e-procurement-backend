@@ -36,6 +36,7 @@ module.exports.saveWarehouseDetails = async (req, res) => {
             authorizedPerson,
             bankDetails,
             servicePricing,
+            procurement_partner
         } = req.body;
 
         // Validate required fields
@@ -71,6 +72,7 @@ module.exports.saveWarehouseDetails = async (req, res) => {
             authorizedPerson: authorizedPerson,
             bankDetails,
             servicePricing: Array.isArray(servicePricing) ? servicePricing : [],
+            procurement_partner,
         });
 
         // Save the warehouse to the database
@@ -91,7 +93,7 @@ module.exports.saveWarehouseDetails = async (req, res) => {
     }
 };
 
-module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
+module.exports.getWarehouseList = async (req, res) => {
     const {
         page = 1,
         limit = 10,
@@ -187,7 +189,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         console.error(error);
         return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching warehouses", error: error.message }));
     }
-});
+};
 
 module.exports.editWarehouseDetails = async (req, res) => {
     try {
@@ -320,6 +322,87 @@ module.exports.getWarehouseDashboardStats = async (req, res) => {
       }
     
 }
+
+module.exports.warehouseFilterList = async (req, res) => {
+    const { sortBy = 'createdAt', sortOrder = 'asc' } = req.query;
+
+    try {
+        // Decode token and get the user ID
+        const token = req.headers.token || req.cookies.token;
+        if (!token) {
+            return res.status(401).send(new serviceResponse({ status: 401, message: "Token is required" }));
+        }
+
+        const decoded = await decryptJwtToken(token);
+        const userId = decoded.data.user_id;
+
+        // Construct query for filtering warehouses
+        const query = {
+            warehouseOwnerId: userId, // Fetch only the warehouses owned by the logged-in user
+        };
+
+        // Fetch data with sorting and ensure both state_name and city are included
+        const warehouses = await wareHouseDetails.find(query)
+            .select("addressDetails.state.state_name addressDetails.city")
+            .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 });
+
+        // Create objects to store state_name and city in key-value pairs
+        const stateNames = {};
+        const cities = {};
+
+        warehouses.forEach((warehouse) => {
+            const stateName = warehouse.addressDetails.state?.state_name; // Safely access state_name
+            const city = warehouse.addressDetails.city;
+
+            if (stateName) {
+                // Convert stateName to camelCase and set it in the stateNames object
+                const stateKey = toCamelCase(stateName); // Convert to camelCase
+                stateNames[stateKey] = stateName;
+            }
+
+            if (city) {
+                // Convert city to camelCase and set it in the cities object
+                const cityKey = toCamelCase(city); // Convert to camelCase
+                cities[cityKey] = city;
+            }
+        });
+
+        
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: {
+                records: {
+                    state_name: stateNames,
+                    city: cities,
+                },
+            },
+            message: "Warehouses filter list fetched successfully",
+        }));
+    } catch (error) {
+        console.error(error);
+        return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching warehouses", error: error.message }));
+    }
+};
+
+function toCamelCase(str) {
+    return str
+        .split(/[^a-zA-Z0-9]+/) // Split by spaces or special characters
+        .map((word, index) => 
+            index === 0 
+                ? word.toLowerCase() // Lowercase the first word
+                : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() // Capitalize subsequent words
+        )
+        .join(''); // Join the words back together
+}
+
+
+
+
+
+
+
+
+
 
 
 

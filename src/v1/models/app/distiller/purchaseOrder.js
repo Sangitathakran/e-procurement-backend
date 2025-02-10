@@ -26,6 +26,7 @@ const purchaseOrderSchema = new mongoose.Schema(
     },
     product: {
       name: { type: String, required: true },
+      material_code: { type: String },
       grade: { type: String, required: false },
       grade_remark: { type: String, required: false },
       msp: { type: Number, required: true },
@@ -39,6 +40,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       lat: { type: String },
       long: { type: String },
       locationUrl: { type: String },
+      locationDetails: { type: object },
     },
     paymentInfo: {
       totalAmount: { type: Number, required: true }, // Assume this is calculated during the first step
