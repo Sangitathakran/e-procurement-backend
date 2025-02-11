@@ -250,9 +250,9 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
         sumOfAllotedQty += batch.qtyAllotment;
 
-        if (batchRecord.available_qty == 0 && batchRecord.allotedQty == 0) {
-            batchRecord.available_qty = batchRecord.qty;
-        }
+        // if (batchRecord.allotedQty == 0) {
+        //     batchRecord.available_qty = batchRecord.qty;
+        // }
 
         batchRecord.allotedQty += batch.qtyAllotment;
         batchRecord.available_qty -= batch.qtyAllotment;
@@ -682,7 +682,7 @@ module.exports.createExternalOrder = async (req, res) => {
                 message: "External Batch not found"
             }));
         }
-        console.log('batchExists.remaining_quantity',batchExists.remaining_quantity)
+        
         let errors = [];
 
         if (quantity <= 0) {
@@ -694,7 +694,7 @@ module.exports.createExternalOrder = async (req, res) => {
                 message: "No remaining quantity available for this batch"
             }));
         }
-        if (quantity >= batchExists.remaining_quantity) {
+        if (quantity > batchExists.remaining_quantity) {
             errors.push("Quantity must be less than remaining_quantity");
         }
         if (errors.length > 0) {
