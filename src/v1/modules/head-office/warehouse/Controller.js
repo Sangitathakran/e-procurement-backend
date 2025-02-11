@@ -158,7 +158,6 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         ];
         if (isExport == 1) {
             const data = await wareHouseDetails.aggregate([...pipeline.slice(0, -2)]);
-            console.log(JSON.stringify(data))
     
             const record = data?.map((item) => {
                 const { addressDetails } = item
@@ -590,7 +589,7 @@ module.exports.getPurchaseOrderDetails = asyncErrorHandler(async (req, res) => {
 
     const record = await BatchOrderProcess.findOne({ _id: id }).select('purchaseId status')
         .populate({ path: 'distiller_id', select: 'basic_details company_details.cin_number' })
-        .populate({ path: 'orderId', select: 'product purchasedOrder' })
+        .populate({ path: 'orderId', select: 'product purchasedOrder deliveryLocation' })
         .populate({ path: 'warehouseId', select: 'basicDetails wareHouse_code addressDetails' });
 
     if (!record) {
