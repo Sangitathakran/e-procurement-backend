@@ -54,7 +54,8 @@ const _collectionName = {
     TrackOrder : "TrackOrder",
     Truck : "Truck",
     ExternalBatch : "ExternalBatch",
-    ExternalOrder : "ExternalOrder"
+    ExternalOrder : "ExternalOrder",
+    ClientToken : "ClientToken",
 
 }
 
