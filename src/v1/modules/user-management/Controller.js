@@ -460,7 +460,7 @@ module.exports.getAgency = async (req, res) => {
           ...(search ? { first_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
       };
 
-      query = {...query, _id: { $ne: req.user.portalId._id } }
+      query = {...query, _id: { $ne: req.user.portalId ?? req.user.portalId._id } }
 
       const records = { count: 0 };
       records.rows = paginate == 1

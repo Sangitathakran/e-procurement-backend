@@ -93,6 +93,8 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             req[key] = value;
         });
 
+        req.user = masterUserExist
+
         // Check URL conditions for specific routes
         const allowedUrls = [
             '/batch-list',
