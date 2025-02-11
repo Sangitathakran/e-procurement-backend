@@ -84,85 +84,105 @@ module.exports.loginOrRegister = async (req, res) => {
             {path: "userRole", select: ""},
             {path: "portalId", select: "organization_name _id email phone"}
         ])
-        
-        if(user?.user_type==="7"){
-            const payload = { userInput: userInput, user_id: user._id, organization_id: user.portalId, user_type: user?.user_type }
-            const expiresIn = 24 * 60 * 60; // 24 hour in seconds
-            const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
-    
-            res.cookie('token', token, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
-                maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
-            });
 
-            let ownerExist = null
-            if(user.isAdmin){
-                 ownerExist = await wareHousev2.findOne(query)
+        if(user){
+
+            if(user?.user_type==="7"){
+                const payload = { userInput: userInput, user_id: user._id, organization_id: user.portalId, user_type: user?.user_type }
+                const expiresIn = 24 * 60 * 60; // 24 hour in seconds
+                const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+        
+                res.cookie('token', token, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
+                    maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+                });
+    
+                let ownerExist = null
+                if(user.isAdmin){
+                     ownerExist = await wareHousev2.findOne(query)
+                }
+    
+                console.log('already available user')
+    
+                const userWithPermission = await getPermission(user)
+        
+                return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: { token, ownerExist , userWithPermission} }));
+            }
+            else{ 
+           
+                    return res.send(new serviceResponse({ status: 400, message: `already existed with this mobile number in Master(${user.user_type})`, 
+                        errors: [{ message: `already existed with this mobile number in Master(${user.user_type})` }] }))
+                
             }
 
-            console.log('already available user')
+        }else{ 
 
-            const userWithPermission = await getPermission(user)
+            let ownerExist = await wareHousev2.findOne(query)
+
+
+
+            if (!user || !ownerExist) {
     
-            return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: { token, ownerExist , userWithPermission} }));
+                // checking user in master user collection
+                const isUserAlreadyExist = await MasterUser.findOne({mobile:userInput.trim()});
+        
+                if(isUserAlreadyExist){
+                    return res.send(new serviceResponse({ status: 400, message: "already existed with this mobile number in Master", 
+                        errors: [{ message: _response_message.allReadyExist("already existed with this mobile number in Master") }] }))
+                }
+    
+    
+                const newUser = {
+                    ownerDetails: isEmailInput
+                        ? { email: userInput }
+                        : { mobile: userInput },
+                    term_condition: true,
+                    user_type: _userType.warehouse,
+                };
+                if (!isEmailInput) {
+                    newUser.is_mobile_verified = true;
+                }
+    
+                ownerExist = await wareHousev2.create(newUser);
+                // warehouse type colllection
+                const type = await TypesModel.findOne({ _id: "67a5ae6df95d35a6da591454" })
+            
+        
+                const masterUser = new MasterUser({
+    
+                    isAdmin : true,
+                    mobile : userInput.trim(),
+                    user_type: type.user_type,
+                    userRole: [type.adminUserRoleId],
+                    portalId: ownerExist._id,
+                    ipAddress: getIpAddress(req)
+                });
+        
+                const masterUserCreated = await masterUser.save();
+    
+                const payload = { userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type }
+                const expiresIn = 24 * 60 * 60; // 24 hour in seconds
+                const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+        
+                res.cookie('token', token, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
+                    maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+                });
+        
+                return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist , masterUserCreated} }));
+    
+            }
+
         }
         
+       
+
+
         
-        let ownerExist = await wareHousev2.findOne(query)
-
-        if (!user || !ownerExist) {
-
-            // checking user in master user collection
-            const isUserAlreadyExist = await MasterUser.findOne({mobile:userInput.trim()});
-    
-            if(isUserAlreadyExist){
-                return res.send(new serviceResponse({ status: 400, message: "already existed with this mobile number in Master", 
-                    errors: [{ message: _response_message.allReadyExist("already existed with this mobile number in Master") }] }))
-            }
-
-
-            const newUser = {
-                ownerDetails: isEmailInput
-                    ? { email: userInput }
-                    : { mobile: userInput },
-                term_condition: true,
-                user_type: _userType.warehouse,
-            };
-            if (!isEmailInput) {
-                newUser.is_mobile_verified = true;
-            }
-
-            ownerExist = await wareHousev2.create(newUser);
-            // warehouse type colllection
-            const type = await TypesModel.findOne({ _id: "67a5ae6df95d35a6da591454" })
         
-    
-            const masterUser = new MasterUser({
-
-                isAdmin : true,
-                mobile : userInput.trim(),
-                user_type: type.user_type,
-                userRole: [type.adminUserRoleId],
-                portalId: ownerExist._id,
-                ipAddress: getIpAddress(req)
-            });
-    
-            const masterUserCreated = await masterUser.save();
-
-            const payload = { userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type }
-            const expiresIn = 24 * 60 * 60; // 24 hour in seconds
-            const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
-    
-            res.cookie('token', token, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
-                maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
-            });
-    
-            return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist , masterUserCreated} }));
-
-        }
+       
 
      
 
