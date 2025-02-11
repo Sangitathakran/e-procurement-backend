@@ -13,6 +13,7 @@ const OTP = require("@src/v1/models/app/auth/OTP");
 const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const { _userType } = require("@src/v1/utils/constants");
 const { TypesModel } = require("@src/v1/models/master/Types");
+const { getPermission } = require("../../user-management/permission");
 
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
@@ -99,12 +100,16 @@ module.exports.loginOrRegister = async (req, res) => {
             if(user.isAdmin){
                  ownerExist = await wareHousev2.findOne(query)
             }
+
+            console.log('already available user')
+
+            const userWithPermission = await getPermission(user)
     
-            return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: { token, ownerExist , user} }));
+            return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: { token, ownerExist , userWithPermission} }));
         }
         
         
-        let ownerExist = await wareHousev2.findOne(query).lean();
+        let ownerExist = await wareHousev2.findOne(query)
 
         if (!user || !ownerExist) {
 
@@ -129,7 +134,6 @@ module.exports.loginOrRegister = async (req, res) => {
             }
 
             ownerExist = await wareHousev2.create(newUser);
-            console.log('ownerExist-->', ownerExist)
             // warehouse type colllection
             const type = await TypesModel.findOne({ _id: "67a5ae6df95d35a6da591454" })
         
@@ -156,7 +160,7 @@ module.exports.loginOrRegister = async (req, res) => {
                 maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
             });
     
-            return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: { token, ownerExist , user} }));
+            return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist , masterUserCreated} }));
 
         }
 
