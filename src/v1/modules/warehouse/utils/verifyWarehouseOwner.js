@@ -8,15 +8,16 @@ const { _handleCatchErrors } = require("@src/v1/utils/helpers")
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { ClientToken } = require("@src/v1/models/app/warehouse/ClientToken");
 const bcrypt = require("bcryptjs");
+const { MasterUser } = require('@src/v1/models/master/MasterUser');
 
 const tokenBlacklist = [];
 
 exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
     const token = req.headers.token || req.cookies.token;
-    console.log("header : ??? " ,  req.headers ); 
+    // console.log("header : ??? " ,  req.headers ); 
 
-    console.log("token : >>> "  , token ) ;  
-    console.log("toke type" , !token) ;
+    // console.log("token : >>> "  , token ) ;  
+    // console.log("toke type" , !token) ;
     // Check if token exists
     if (!token) { 
         console.log("entered if") ;
@@ -50,9 +51,16 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             }));
         }
 
+     
+
+        const masterUserExist = await MasterUser.findOne({ _id: decodedToken.user_id });
+
+
         // Check if the warehouse exists
-        const warehouseExist = await wareHousev2.findOne({ _id: decodedToken.user_id });
-        console.log(decodedToken.user_id)
+        const warehouseExist = await wareHousev2.findOne({ _id: masterUserExist.portalId });
+
+        
+
         if (!warehouseExist) {
             return res.status(401).send(new serviceResponse({
                 status: 401,
