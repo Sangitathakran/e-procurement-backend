@@ -55,6 +55,11 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
 
         const masterUserExist = await MasterUser.findOne({ _id: decodedToken.user_id });
 
+        if(!masterUserExist){
+            return res.send(new serviceResponse({ status: 400, message: _response_message.notFound("User"), 
+                errors: [{ message:  _response_message.notFound("User") }] }))
+        }
+
 
         // Check if the warehouse exists
         const warehouseExist = await wareHousev2.findOne({ _id: masterUserExist.portalId });
