@@ -88,7 +88,7 @@ module.exports.loginOrRegister = async (req, res) => {
         if(user){
 
             if(user?.user_type==="7"){
-                const payload = { userInput: userInput, user_id: user._id, organization_id: user.portalId, user_type: user?.user_type }
+                const payload = { userInput: userInput, user_id: user._id, organization_id: user.portalId._id, user_type: user?.user_type }
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
                 const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
         
