@@ -75,7 +75,8 @@ const _featureType = {
     headOffice: "HeadOffice",
     agency: "Agency",
     associate: "Associate",
-    distiller: "Distiller"
+    distiller: "Distiller",
+    warehouse: "Warehouse"
 }
 
 const _status = {

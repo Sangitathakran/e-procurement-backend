@@ -51,15 +51,17 @@ exports.createUserRole = async (req, res) => {
 
         const userRole = userRoleName.trim().toLowerCase()
 
-        const isUserRoleExist = await UserRole.findOne({userRoleName:userRole, createdBy:req.user._id})
+        // console.log("req.user-->", req.user)
+
+        const isUserRoleExist = await UserRole.findOne({userRoleName:userRole, createdBy:req?.user?._id??req.user_id})
         if(isUserRoleExist){
             return sendResponse({res, status: 400, message: "user role is already exist"})
         }
 
         const newUserRole = new UserRole({ 
             userRoleName: userRole, 
-            createdBy: req?.user?._id,
-            userRoleType: req?.user?.user_type,
+            createdBy: req?.user?._id ??req.user_id ,
+            userRoleType: req?.user?.user_type?? req.user_type,
             features : features,
             ipAddress: getIpAddress(req)
         })
@@ -169,7 +171,7 @@ exports.getUserRoles = async (req, res) => {
 
         const userRoles = await UserRole.find(query).skip(skip).limit(parseInt(limit))
         if(userRoles.length < 1){
-            return sendResponse({res, status: 400, message: "no user role found"})
+            return sendResponse({res, status: 200, message: "no user role found", data: [] })
         }
 
         records.rows = userRoles
@@ -407,7 +409,7 @@ exports.getUsersByUser = async (req, res) => {
       const records = { count: 0, rows: [] };
       const userRoles = await MasterUser.find(query,{password: 0}).populate({path:"userRole", select: "_id userRoleName"}).skip(skip).limit(parseInt(limit))
       if(userRoles.length < 1){
-          return sendResponse({res, status: 400, message: "no user found"})
+          return sendResponse({res, status: 200, message: "no user found"})
       }
 
       records.rows = userRoles
