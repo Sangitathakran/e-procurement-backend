@@ -1062,6 +1062,12 @@ module.exports.batchStatsData = async (req, res) => {
         const query = {"warehousedetails_id": { $in: finalwarehouseIds }};
 
         const rows = await Batch.find(query);
+
+        //////// for external batches
+
+        const externalBatchrows = await ExternalBatch.countDocuments({"warehousedetails_id": { $in: finalwarehouseIds }});
+        
+
         let totalBatches = 0;
         let approvedQC = 0;
         let rejectedQC = 0;
@@ -1106,6 +1112,7 @@ module.exports.batchStatsData = async (req, res) => {
             pendingBatch,
             // rejectedBatch,
             // approvedBatch
+            externalBatch : externalBatchrows
         };
         return res.status(200).send(new serviceResponse({
             status: 200,
