@@ -295,9 +295,10 @@ exports.createUser = async (req, res) => {
 
 exports.getUserPermission = async (req, res) => {
 
+
     try {    
         const response = await MasterUser
-          .findOne({ _id: req.user._id })
+          .findOne({ _id: req.user?._id ?? req.user_id })
           .populate(["portalId","userRole"])
 
         if (response) {
