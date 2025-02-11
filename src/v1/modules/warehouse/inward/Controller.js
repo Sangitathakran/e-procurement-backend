@@ -25,7 +25,7 @@ const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 //         }
 
 //         const decode = await decryptJwtToken(getToken);
-//         const UserId = decode.data.user_id;
+//         const UserId = decode.data.organization_id;
 
 //         if (!mongoose.Types.ObjectId.isValid(UserId)) {
 //             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -122,7 +122,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
         }
 
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -399,7 +399,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
 //         }
 
 //         const decode = await decryptJwtToken(getToken);
-//         const UserId = decode.data.user_id;
+//         const UserId = decode.data.organization_id;
 
 //         if (!mongoose.Types.ObjectId.isValid(UserId)) {
 //             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -497,7 +497,7 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
         }
 
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -785,7 +785,7 @@ module.exports.batchApproveOrReject = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         // Find the batch that is not already approved
         const record = await Batch.findOne({
@@ -1166,7 +1166,7 @@ module.exports.batchStatsData = async (req, res) => {
         }
 
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -1275,7 +1275,7 @@ module.exports.getFilterBatchList = async (req, res) => {
         }
 
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
