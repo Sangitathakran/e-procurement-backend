@@ -12,7 +12,8 @@ const { paymentRoutes } = require("./payment/Routes");
 const { procTrackingRoutes } = require("./procurement-tracking/Routes");
 const { schemeRoute } = require("./scheme/Routes");
 const { commodityRoutes } = require("./commodity/Routes");
-    
+const { slaRoute } = require("./sla-management/Routes");
+
 const agentRoutes = express.Router();
 
 agentRoutes.use('/request', requestRoutes);
@@ -28,5 +29,6 @@ agentRoutes.use("/dashboard", dashboardRoutes);
 agentRoutes.use("/proc-track", procTrackingRoutes);
 agentRoutes.use("/agency", agencyMngmntRoutes);
 agentRoutes.use("/commodity", commodityRoutes);
+agentRoutes.use("/sla", slaRoute);
 
 module.exports = { agentRoutes } 

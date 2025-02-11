@@ -51,12 +51,12 @@ const _collectionName = {
     StorageFacility: "StorageFacility",
     PurchaseOrder: "PurchaseOrder",
     BatchOrderProcess: "batchOrderProcess",
-    TrackOrder : "TrackOrder",
-    Truck : "Truck",
-    ExternalBatch : "ExternalBatch",
-    ExternalOrder : "ExternalOrder",
+    TrackOrder: "TrackOrder",
+    Truck: "Truck",
+    ExternalBatch: "ExternalBatch",
+    ExternalOrder: "ExternalOrder",
     Scheme: "Scheme",
-
+    SLA: "SLA",
 }
 
 const _userType_Feature_Collection = {
@@ -183,7 +183,7 @@ const _userType = {
     agent: "6",
     warehouse: "7",
     distiller: "8",
-    nccf:"9"
+    nccf: "9"
 }
 
 const _userStatus = {
@@ -389,11 +389,11 @@ const received_qc_status = {
     pending: "Pending",
 }
 
-const _trackOrderStatus = { 
-    pending : "pending",
-    readyToShip : "shipped" , 
-    inTransit : "in-transit" ,
-    rejected : "rejected",
+const _trackOrderStatus = {
+    pending: "pending",
+    readyToShip: "shipped",
+    inTransit: "in-transit",
+    rejected: "rejected",
 }
 
 const _individual_farmer_onboarding_steps = [
@@ -518,23 +518,23 @@ const _gradeType = {
 const _qualityType = {
     poor: 'Poor',
     average: "Average",
-    good:'Good'
+    good: 'Good'
 }
 
 const _season = {
     Kharif: 'Kharif',
     Rabi: "Rabi",
-    Zaid:'Zaid'
+    Zaid: 'Zaid'
 }
 const _period = {
     currentYear: '2025',
     previourYear: "2024",
-    range:'2024-2025'
+    range: '2024-2025'
 }
 const _centralNodalAgency = {
     nodal1: 'nodal1',
     nodal2: "nodal2",
-    nodal3:'nodal3'
+    nodal3: 'nodal3'
 }
 
 module.exports = {
