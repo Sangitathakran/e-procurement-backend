@@ -4,7 +4,7 @@ const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 
-module.exports.createSLA = async (req, res) => {
+module.exports.createSLA = asyncErrorHandler(async (req, res) => {
     try {
         const data = req.body;
 
@@ -85,9 +85,9 @@ module.exports.createSLA = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-};
+});
 
-module.exports.getSLAList = async (req, res) => {
+module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
     try {
         const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.body;
@@ -172,9 +172,9 @@ module.exports.getSLAList = async (req, res) => {
             error: "Internal Server Error"
         });
     }
-};
+});
 
-module.exports.deleteSLA = async (req, res) => {
+module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
     try {
         const { sla_id } = req.params; // Get SLA ID from URL params
 
@@ -207,9 +207,9 @@ module.exports.deleteSLA = async (req, res) => {
             error: "Internal Server Error"
         }));
     }
-};
+});
 
-module.exports.updateSLA = async (req, res) => {
+module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
     try {
         const { sla_id } = req.params;
         const updateData = req.body;
@@ -248,9 +248,9 @@ module.exports.updateSLA = async (req, res) => {
             error: "Internal Server Error"
         }));
     }
-};
+});
 
-module.exports.getSLAById = async (req, res) => {
+module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
     try {
         const { sla_id } = req.params; // Get SLA ID from URL params
 
@@ -304,9 +304,9 @@ module.exports.getSLAById = async (req, res) => {
             error: "Internal Server Error"
         }));
     }
-};
+});
 
-module.exports.updateSLAStatus = async (req, res) => {
+module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
     try {
         const { sla_id } = req.params; // Get SLA ID from URL params
         const { status } = req.body; // New status (true/false)
@@ -327,8 +327,8 @@ module.exports.updateSLAStatus = async (req, res) => {
 
         // Find and update SLA status
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ sla_id }, { _id: sla_id }] }, 
-            { $set: { active: status } }, 
+            { $or: [{ sla_id }, { _id: sla_id }] },
+            { $set: { active: status } },
             { new: true }
         );
 
@@ -352,4 +352,50 @@ module.exports.updateSLAStatus = async (req, res) => {
             error: "Internal Server Error"
         }));
     }
-};
+});
+
+module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
+    try {
+        const { sla_id } = req.params;
+        const { scheme, cna, branch } = req.body;
+
+        // Validate input
+        if (!scheme || !cna || !branch) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "Missing required fields: scheme, cna, branch"
+            }));
+        }
+
+        // Find SLA and update with new scheme
+        const updatedSLA = await SLAManagement.findOneAndUpdate(
+            { $or: [{ sla_id }, { _id: sla_id }] },
+            { $push: { schemes: { scheme, cna, branch } } },
+            { new: true }
+        )
+            .populate("schemes.scheme", "name")
+            .populate("schemes.cna", "name")
+            .populate("schemes.branch", "name");
+
+        if (!updatedSLA) {
+            return res.status(404).json({
+                status: 404,
+                message: "SLA not found"
+            });
+        }
+
+        return res.status(200).json(new serviceResponse({
+            status: 200,
+            message: "Scheme added successfully",
+            data: updatedSLA
+        }));
+
+    } catch (error) {
+        console.error("Error adding scheme to SLA:", error);
+        return res.status(500).json(new serviceResponse({
+            status: 500,
+            error: "Internal Server Error"
+        }));
+    }
+});
+

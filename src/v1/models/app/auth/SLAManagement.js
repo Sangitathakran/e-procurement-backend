@@ -85,6 +85,11 @@ const SLASchema = new mongoose.Schema({
     },
     active: { type: Boolean, default: true },
     associatOrder_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers }],
+    schemes: [{
+        scheme: { type: mongoose.Schema.Types.ObjectId, ref: "Scheme" },
+        cna: { type: mongoose.Schema.Types.ObjectId, ref: "HeadOffice" },
+        branch: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" }
+    }],
 }, { timestamps: true });
 
 module.exports = mongoose.model(_collectionName.SLA, SLASchema)
