@@ -11,6 +11,8 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const jwt = require('jsonwebtoken');
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+
 const { generateApiKey, generateApiSecret } = require("../utils/GenerateCred");
 const { ClientToken } = require("@src/v1/models/app/warehouse/ClientToken");
 const crypto = require("crypto");
@@ -318,3 +320,122 @@ module.exports.saveWarehouseOwner= async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.listWarehouseOwner = async (req, res) => {
+    try {
+        const {_id} = req.client;
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
+
+        let query = {third_party_client:_id};
+        if (search) {
+            query["companyDetails.name"] = { $regex: search, $options: "i" };
+        }
+
+        const records = { count: 0, rows: [] };
+
+        if (paginate == 1) {
+            records.rows = await wareHousev2.find(query)
+                .populate({
+                    path: "third_party_client",
+                    select: "name",
+                })
+                .sort(sortBy)
+                .skip(parseInt(skip))
+                .limit(parseInt(limit));
+
+            records.count = await wareHousev2.countDocuments(query);
+            records.page = parseInt(page);
+            records.limit = parseInt(limit);
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        } else {
+            records.rows = await wareHousev2.find(query)
+                .populate({
+                    path: "third_party_client",
+                    select: "name",
+                })
+                .sort(sortBy);
+        }
+
+        return res.status(200).send(
+            new serviceResponse({ status: 200, data: records, message: _response_message.found("Warehouse Owner") })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.saveWarehouseDetails = async (req, res) => {
+    try {
+        const { warehouseOwnerId, basicDetails, addressDetails, inventory, documents, authorizedPerson, bankDetails, servicePricing, procurement_partner } = req.body;
+        const {_id} = req.client;
+        if (!warehouseOwnerId || !basicDetails || !addressDetails) {
+            return res.status(400).json(new serviceResponse({ 
+                success: false, 
+                message: "Missing required fields" 
+            }));
+        }
+
+        const warehouseData = new wareHouseDetails({
+            warehouseOwnerId,
+            basicDetails,
+            addressDetails,
+            inventory,
+            documents,
+            authorizedPerson,
+            bankDetails,
+            servicePricing,
+            procurement_partner,
+            third_party_client : _id
+        });
+        const savedWarehouse = await warehouseData.save();
+        
+        return res.status(200).send(new serviceResponse({ message: _query.add('Warehouse Details'), data: savedWarehouse }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.listWarehouseDetails = async (req, res) => {
+    try {
+        const {_id} = req.client;
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
+
+        let query = {third_party_client:_id};
+        if (search) {
+            query["basicDetails.warehouseName"] = { $regex: search, $options: "i" };
+        }
+
+        const records = { count: 0, rows: [] };
+
+        if (paginate == 1) {
+            records.rows = await wareHouseDetails.find(query)
+                .populate({
+                    path: "third_party_client",
+                    select: "name",
+                })
+                .sort(sortBy)
+                .skip(parseInt(skip))
+                .limit(parseInt(limit));
+
+            records.count = await wareHouseDetails.countDocuments(query);
+            records.page = parseInt(page);
+            records.limit = parseInt(limit);
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        } else {
+            records.rows = await wareHouseDetails.find(query)
+                .populate({
+                    path: "third_party_client",
+                    select: "name",
+                })
+                .sort(sortBy);
+        }
+
+        return res.status(200).send(
+            new serviceResponse({ status: 200, data: records, message: _response_message.found("Warehouse Details") })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+
