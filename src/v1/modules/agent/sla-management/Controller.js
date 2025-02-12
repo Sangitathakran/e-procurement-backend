@@ -88,6 +88,7 @@ module.exports.createSLA = async (req, res) => {
 };
 
 module.exports.getSLAList = async (req, res) => {
+
     try {
         const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.body;
 
@@ -96,14 +97,13 @@ module.exports.getSLAList = async (req, res) => {
         const pageSize = parseInt(limit, 10);
 
         // Define search filter (if search is provided)
-        const searchFilter = search
-            ? {
-                  $or: [
-                      { "basic_details.name": { $regex: search, $options: "i" } },
-                      { "basic_details.email": { $regex: search, $options: "i" } },
-                      { "basic_details.mobile": { $regex: search, $options: "i" } }
-                  ]
-              }
+        const searchFilter = search ? {
+            $or: [
+                { "basic_details.name": { $regex: search, $options: "i" } },
+                { "basic_details.email": { $regex: search, $options: "i" } },
+                { "basic_details.mobile": { $regex: search, $options: "i" } }
+            ]
+        }
             : {};
 
         // Sorting logic (default is createdAt descending)
@@ -112,17 +112,46 @@ module.exports.getSLAList = async (req, res) => {
             sortOptions[sortBy] = -1; // Sort by given field in descending order
         }
 
-        // Fetch SLA records
-        let slaRecords;
+        // Fetch SLA records with projection
+        let slaRecordsQuery = SLAManagement.aggregate([
+            { $match: searchFilter },
+            {
+                $project: {
+                    _id: 1,
+                    sla_id: 1,
+                    sla_name: "$basic_details.name",
+                    associate_count: { $size: "$associatOrder_id" }, // Count of associated orders
+                    address: {
+                        $concat: [
+                            "$address.line1", ", ",
+                            { $ifNull: ["$address.line2", ""] }, ", ",
+                            "$address.city", ", ",
+                            "$address.district", ", ",
+                            "$address.state", ", ",
+                            "$address.pinCode", ", ",
+                            "$address.country"
+                        ]
+                    },
+                    status: "$active"
+                }
+            },
+            { $sort: sortOptions }
+        ]);
+
+        // If exporting, return all data
         if (isExport === 1) {
-            // If exporting, return all data without pagination
-            slaRecords = await SLAManagement.find(searchFilter).sort(sortOptions);
-        } else {
-            slaRecords = await SLAManagement.find(searchFilter)
-                .sort(sortOptions)
-                .skip((pageNumber - 1) * pageSize)
-                .limit(pageSize);
+            const slaRecords = await slaRecordsQuery;
+            return res.status(200).json({
+                status: 200,
+                data: slaRecords,
+                message: "SLA records exported successfully"
+            });
         }
+
+        // Pagination
+        const slaRecords = await slaRecordsQuery
+            .skip((pageNumber - 1) * pageSize)
+            .limit(pageSize);
 
         // Count total records for pagination
         const totalRecords = await SLAManagement.countDocuments(searchFilter);
@@ -142,5 +171,137 @@ module.exports.getSLAList = async (req, res) => {
             status: 500,
             error: "Internal Server Error"
         });
+    }
+};
+
+module.exports.deleteSLA = async (req, res) => {
+    try {
+        const { sla_id } = req.params; // Get SLA ID from URL params
+
+        if (!sla_id) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "SLA ID is required"
+            }));
+        }
+
+        // Find and delete SLA by sla_id or _id
+        const deletedSLA = await SLAManagement.findOneAndDelete({ $or: [{ sla_id }, { _id: sla_id }] });
+
+        if (!deletedSLA) {
+            return res.status(404).json(new serviceResponse({
+                status: 404,
+                message: "SLA record not found"
+            }));
+        }
+
+        return res.status(200).json(new serviceResponse({
+            status: 200,
+            message: "SLA record deleted successfully"
+        }));
+
+    } catch (error) {
+        console.error("Error deleting SLA:", error);
+        return res.status(500).json(new serviceResponse({
+            status: 500,
+            error: "Internal Server Error"
+        }));
+    }
+};
+
+module.exports.updateSLA = async (req, res) => {
+    try {
+        const { sla_id } = req.params;
+        const updateData = req.body;
+
+        if (!sla_id) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "SLA ID is required"
+            }));
+        }
+
+        // Find and update SLA
+        const updatedSLA = await SLAManagement.findOneAndUpdate(
+            { $or: [{ sla_id }, { _id: sla_id }] },
+            { $set: updateData },
+            { new: true, runValidators: true } // Return updated doc
+        );
+
+        if (!updatedSLA) {
+            return res.status(404).json(new serviceResponse({
+                status: 404,
+                message: "SLA record not found"
+            }));
+        }
+
+        return res.status(200).json(new serviceResponse({
+            status: 200,
+            message: "SLA record updated successfully",
+            data: updatedSLA
+        }));
+
+    } catch (error) {
+        console.error("Error updating SLA:", error);
+        return res.status(500).json(new serviceResponse({
+            status: 500,
+            error: "Internal Server Error"
+        }));
+    }
+};
+
+module.exports.getSLAById = async (req, res) => {
+    try {
+        const { sla_id } = req.params; // Get SLA ID from URL params
+
+        if (!sla_id) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "SLA ID is required"
+            }));
+        }
+
+        // Find SLA with selected fields
+        const sla = await SLAManagement.findOne(
+            { $or: [{ sla_id }, { _id: sla_id }] },
+            {
+                _id: 1,
+                sla_id: 1,
+                "basic_details.name": 1,
+                associatOrder_id: 1,
+                address: 1,
+                active: 1
+            }
+        );
+
+        if (!sla) {
+            return res.status(404).json(new serviceResponse({
+                status: 404,
+                message: "SLA record not found"
+            }));
+        }
+
+        // Transform response
+        const response = {
+            _id: sla._id,
+            sla_id: sla.sla_id,
+            sla_name: sla.basic_details.name,
+            accociate_count: sla.associatOrder_id.length,
+            address: `${sla.address.line1}, ${sla.address.city}, ${sla.address.state}, ${sla.address.country}`,
+            status: sla.active
+        };
+
+        return res.status(200).json(new serviceResponse({
+            status: 200,
+            message: "SLA record retrieved successfully",
+            data: response
+        }));
+
+    } catch (error) {
+        console.error("Error fetching SLA:", error);
+        return res.status(500).json(new serviceResponse({
+            status: 500,
+            error: "Internal Server Error"
+        }));
     }
 };
