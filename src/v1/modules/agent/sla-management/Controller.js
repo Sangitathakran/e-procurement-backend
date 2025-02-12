@@ -305,3 +305,51 @@ module.exports.getSLAById = async (req, res) => {
         }));
     }
 };
+
+module.exports.updateSLAStatus = async (req, res) => {
+    try {
+        const { sla_id } = req.params; // Get SLA ID from URL params
+        const { status } = req.body; // New status (true/false)
+
+        if (!sla_id) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "SLA ID is required"
+            }));
+        }
+
+        if (typeof status !== "boolean") {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "Status must be true or false"
+            }));
+        }
+
+        // Find and update SLA status
+        const updatedSLA = await SLAManagement.findOneAndUpdate(
+            { $or: [{ sla_id }, { _id: sla_id }] }, 
+            { $set: { active: status } }, 
+            { new: true }
+        );
+
+        if (!updatedSLA) {
+            return res.status(404).json(new serviceResponse({
+                status: 404,
+                message: "SLA record not found"
+            }));
+        }
+
+        return res.status(200).json(new serviceResponse({
+            status: 200,
+            message: `SLA status updated to ${status ? "Active" : "Inactive"}`,
+            data: { sla_id: updatedSLA.sla_id, status: updatedSLA.active }
+        }));
+
+    } catch (error) {
+        console.error("Error updating SLA status:", error);
+        return res.status(500).json(new serviceResponse({
+            status: 500,
+            error: "Internal Server Error"
+        }));
+    }
+};
