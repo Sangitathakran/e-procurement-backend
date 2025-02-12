@@ -506,6 +506,23 @@ const _penaltypaymentStatus = {
     waiveOff: 'Waive Off',
 }
 
+const _commodityType = {
+    grade: 'Grade',
+    quality: "Quality"
+}
+
+const _gradeType = {
+    gradeA: 'Grade A',
+    gradeB: 'Grade B',
+    gradeC: 'Grade C',
+}
+
+const _qualityType = {
+    poor: 'Poor',
+    average: "Average",
+    good:'Good'
+}
+
 module.exports = {
     _userAction,
     _farmerType,
@@ -569,5 +586,8 @@ module.exports = {
     _poBatchStatus,
     _penaltypaymentStatus,
     _poBatchPaymentStatus,
-    _trackOrderStatus ,
+    _trackOrderStatus,
+    _commodityType,
+    _gradeType,
+    _qualityType
 }
