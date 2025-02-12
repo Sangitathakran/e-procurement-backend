@@ -18,6 +18,9 @@ const {
 } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { _query } = require("@src/v1/utils/constants/messages");
 const moment = require("moment");
+const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
+
+
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   try {
@@ -82,6 +85,9 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
 
 module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   try {
+
+    const hoId = req.portalId;
+
     let widgetDetails = {
       branchOffice: { total: 0 },
       farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0 },
@@ -89,9 +95,11 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       //procurementTarget: { total: 0 }
     };
 
+
+
     // Get counts safely
-    widgetDetails.wareHouse.total = await wareHouse.countDocuments({});
-    widgetDetails.branchOffice.total = await Branches.countDocuments({});
+    widgetDetails.wareHouse.total = await wareHousev2.countDocuments({});
+    widgetDetails.branchOffice.total = await Branches.countDocuments({headOfficeId:hoId});
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
     widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
 
