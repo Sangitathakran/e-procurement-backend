@@ -167,6 +167,7 @@ module.exports.updateCommodity = asyncErrorHandler(async (req, res) => {
     }
 });
 
+/*
 module.exports.deleteCommodity = asyncErrorHandler(async (req, res) => {
     try {
         const { id } = req.params;
@@ -181,6 +182,29 @@ module.exports.deleteCommodity = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+*/
+
+module.exports.deleteCommodity = asyncErrorHandler(async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const existingRecord = await Commodity.findOne({ _id: id, deletedAt: null }); // Ensure it's not already deleted
+        if (!existingRecord) {
+            return sendResponse({ res, status: 400, errors: [{ message: _response_message.notFound("Commodity") }] });
+        }
+
+        const record = await Commodity.findOneAndUpdate(
+            { _id: id },
+            { deletedAt: new Date() }, // Soft delete by setting deletedAt timestamp
+            { new: true }
+        );
+
+        return sendResponse({ res, status: 200, data: record, message: _response_message.deleted("Commodity") });
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+});
+
 
 module.exports.statusUpdateCommodity = asyncErrorHandler(async (req, res) => {
     try {
