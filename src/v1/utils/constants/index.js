@@ -57,6 +57,9 @@ const _collectionName = {
     ExternalOrder: "ExternalOrder",
     Scheme: "Scheme",
     SLA: "SLA",
+    commodityStandard:"commodityStandard",
+    SchemeAssign: "SchemeAssign"
+
 }
 
 const _userType_Feature_Collection = {
@@ -529,8 +532,11 @@ const _season = {
 const _period = {
     currentYear: '2025',
     previourYear: "2024",
-    range: '2024-2025'
+    range: '2024-2025',
+    range1:'2024-2025',
+    range2:'2025-2026'
 }
+
 const _centralNodalAgency = {
     nodal1: 'nodal1',
     nodal2: "nodal2",
