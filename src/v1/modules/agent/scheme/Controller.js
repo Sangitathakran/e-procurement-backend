@@ -16,7 +16,7 @@ module.exports.createScheme = asyncErrorHandler(async (req, res) => {
       period,
       centralNodalAgency,
       procurement,
-      commodity,
+      commodity_id,
       procurementDuration,
       schemeApprovalLetter
     } = req.body;
@@ -41,7 +41,7 @@ module.exports.createScheme = asyncErrorHandler(async (req, res) => {
       period,
       centralNodalAgency,
       procurement,
-      commodity,
+      commodity_id,
       procurementDuration,
       schemeApprovalLetter
     });
