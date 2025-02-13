@@ -74,15 +74,25 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   let aggregationPipeline = [
     { $match: matchQuery },
     {
+      $lookup: {
+          from: 'commodities',
+          localField: 'commodity_id',
+          foreignField: '_id',
+          as: 'commodityDetails',
+      },
+  },
+  { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+    {
       $project: {
         _id: 1,
         schemeId: 1,
         schemeName: 1,
-        Schemecommodity: 1,
+        commodity_id: 1,
         season: 1,
         period: 1,
         procurement: 1,
-        status:1
+        status:1,
+        commodityName:'$commodityDetails.name',
       }
     }
   ];
