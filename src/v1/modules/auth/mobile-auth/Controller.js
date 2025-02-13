@@ -105,6 +105,8 @@ module.exports.loginOrRegister = async (req, res) => {
                 let ownerExist = null
                 if(user.isAdmin){
                      ownerExist = await wareHousev2.findOne(query)
+                }else{ 
+                    ownerExist = await wareHousev2.findOne({_id: user.portalId._id})
                 }
     
                 console.log('already available user')
@@ -240,6 +242,10 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                 if(user.isAdmin){
                      ownerExist = await Distiller.findOne(query)
                 }
+                else{ 
+                    ownerExist = await wareHousev2.findOne({_id: user.portalId._id})
+                }
+    
     
                 console.log('already available user')
     
