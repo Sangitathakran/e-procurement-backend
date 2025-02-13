@@ -53,6 +53,9 @@ const _collectionName = {
     BatchOrderProcess: "batchOrderProcess",
     TrackOrder : "TrackOrder",
     Truck : "Truck",
+    ExternalBatch : "ExternalBatch",
+    ExternalOrder : "ExternalOrder",
+    ClientToken : "ClientToken",
 
 }
 
@@ -73,7 +76,8 @@ const _featureType = {
     headOffice: "HeadOffice",
     agency: "Agency",
     associate: "Associate",
-    distiller: "Distiller"
+    distiller: "Distiller",
+    warehouse: "Warehouse"
 }
 
 const _status = {
