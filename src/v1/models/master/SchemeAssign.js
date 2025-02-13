@@ -4,8 +4,16 @@ const mongoose = require("mongoose");
 
 const SchemeAssignSchema = new mongoose.Schema(
     {
-        bo_id: { type: String, required: true },
-        scheme_id: { type: String, required: true },
+        bo_id: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: _collectionName.Branch,
+                required: true,
+              },
+        scheme_id: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: _collectionName.Scheme,
+                required: true,
+              },
         assignQty: { type: Number },
         status: { type: String, enum: Object.values(_status), default: _status.active },
     },
