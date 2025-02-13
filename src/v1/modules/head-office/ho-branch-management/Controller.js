@@ -20,6 +20,10 @@ const bcrypt = require('bcrypt');
 const { TypesModel } = require("@src/v1/models/master/Types");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
+const { Scheme } = require("@src/v1/models/master/Scheme");
+const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
+const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+
 
 module.exports.importBranches = async (req, res) => {
   try {
@@ -150,7 +154,7 @@ module.exports.importBranches = async (req, res) => {
         address: row.address,
         cityVillageTown: row.cityVillageTown,
         state: correctStateName(row.state),
-        district:row.district,
+        district: row.district,
         pincode: row.pincode,
         status: _status.inactive,
         headOfficeId: headOfficeId,
@@ -232,10 +236,9 @@ module.exports.importBranches = async (req, res) => {
   }
 };
 
+function correctStateName(state) {
+  let correctedState = state.replace(/_/g, ' ');
 
-  function correctStateName(state) {
-  let correctedState = state.replace(/_/g, ' '); 
-  
   // Replace "and" with "&" for specific states
   if (
     correctedState === 'Dadra and Nagar Haveli' ||
@@ -245,20 +248,19 @@ module.exports.importBranches = async (req, res) => {
   ) {
     correctedState = correctedState.replace('and', '&');
   }
-  
+
   return correctedState.trim();
 }
-  
 
 module.exports.exportBranches = async (req, res) => {
   try {
-    const { search = ''} = req.query;
+    const { search = '' } = req.query;
     const { user_id, portalId } = req;
-   
-    let query = { 
+
+    let query = {
       headOfficeId: portalId,
-      ...(search ? {branchName: { $regex: search, $options: 'i' } } : {})
-     };
+      ...(search ? { branchName: { $regex: search, $options: 'i' } } : {})
+    };
 
 
     const branches = await Branches.find(query, 'branchId branchName emailAddress pointOfContact address district cityVillageTown state pincode status createdAt');
@@ -306,7 +308,6 @@ module.exports.exportBranches = async (req, res) => {
     _handleCatchErrors(err, res);
   }
 };
-
 
 module.exports.downloadTemplate = async (req, res) => {
   try {
@@ -359,7 +360,7 @@ module.exports.branchList = async (req, res) => {
   try {
     const { limit = 10, skip = 0, paginate = 1, search = '', page = 1, fromAgent = false } = req.query;
     const { user_id, portalId } = req;
-  
+
     // Adding search filter
     let searchQuery = search ? {
       branchName: { $regex: search, $options: 'i' }        // Case-insensitive search for branchName
@@ -444,3 +445,105 @@ module.exports.toggleBranchStatus = async (req, res) => {
     }));
   }
 };
+
+module.exports.schemeList = async (req, res) => {
+  const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+
+  // Initialize matchQuery
+  let matchQuery = {
+    status: _status.active,
+    deletedAt: null
+  };
+  if (search) {
+    matchQuery.schemeId = { $regex: search, $options: "i" };
+  }
+
+  let aggregationPipeline = [
+    { $match: matchQuery },
+    {
+      $project: {
+        _id: 1,
+        schemeId: 1,
+        schemeName: 1,
+        Schemecommodity: 1,
+        season: 1,
+        period: 1,
+        procurement: 1,
+        status: 1
+      }
+    }
+  ];
+  if (paginate == 1) {
+    aggregationPipeline.push(
+      { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
+      { $skip: parseInt(skip) },
+      { $limit: parseInt(limit) }
+    );
+  } else {
+    aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
+  }
+  const rows = await Scheme.aggregate(aggregationPipeline);
+  const countPipeline = [
+    { $match: matchQuery },
+    { $count: "total" }
+  ];
+  const countResult = await Scheme.aggregate(countPipeline);
+  const count = countResult[0]?.total || 0;
+  const records = { rows, count };
+  if (paginate == 1) {
+    records.page = parseInt(page);
+    records.limit = parseInt(limit);
+    records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
+  }
+  if (isExport == 1) {
+    const record = rows.map((item) => {
+      return {
+        "Scheme Id": item?.schemeId || "NA",
+        "scheme Name": item?.schemeName || "NA",
+        "SchemeCommodity": item?.commodity || "NA",
+        "season": item?.season || "NA",
+        "period": item?.period || "NA",
+        "procurement": item?.procurement || "NA"
+      };
+    });
+    if (record.length > 0) {
+      dumpJSONToExcel(req, res, {
+        data: record,
+        fileName: `Scheme-record.xlsx`,
+        worksheetName: `Scheme-record`
+      });
+    } else {
+      return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Scheme") }));
+    }
+  } else {
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme") }));
+  }
+}
+
+module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
+  try {
+    const {
+      scheme_id,
+      bo_id,
+      assignQty
+    } = req.body;
+
+    const record = await SchemeAssign.create({
+      scheme_id,
+      bo_id,
+      assignQty
+    });
+
+    return res
+      .status(200)
+      .send(
+        new serviceResponse({
+          status: 200,
+          data: record,
+          message: _response_message.created("Scheme Assign"),
+        })
+      );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
