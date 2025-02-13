@@ -120,13 +120,17 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
 
     try {
         const searchFields = ['basicDetails.warehouseName', 'warehouseOwner.ownerDetails.name'];
-
-        const makeSearchQuery = (searchFields) => ({
-            $or: searchFields.map(item => ({
-                [item]: { $regex: search, $options: 'i' }
-            }))
-        });
-
+        const escapeRegExp = (string) => {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+        };
+        const makeSearchQuery = (searchFields) => {
+            const escapedSearch = escapeRegExp(search);
+            return {
+                $or: searchFields.map(item => ({
+                    [item]: { $regex: escapedSearch, $options: 'i' }
+                }))
+            };
+        };
         const query = search ? makeSearchQuery(searchFields) : {};
 
 
