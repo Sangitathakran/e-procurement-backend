@@ -56,6 +56,7 @@ const _collectionName = {
     ExternalBatch : "ExternalBatch",
     ExternalOrder : "ExternalOrder",
     Scheme: "Scheme",
+    Standard:"Standard"
 
 }
 

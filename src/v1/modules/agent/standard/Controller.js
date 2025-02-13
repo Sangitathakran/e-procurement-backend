@@ -2,48 +2,36 @@ const { _handleCatchErrors } = require("@src/v1/utils/helpers")
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Commodity } = require("@src/v1/models/master/Commodity");
-const { Scheme } = require("@src/v1/models/master/Scheme");
+const { Standard } = require("@src/v1/models/master/Standard");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 
 
-module.exports.createScheme = asyncErrorHandler(async (req, res) => {
+module.exports.createStandard = asyncErrorHandler(async (req, res) => {
   try {
     const {
-      schemeName,
-      season,
-      period,
-      centralNodalAgency,
-      procurement,
-      commodity,
-      procurementDuration,
-      schemeApprovalLetter
+      name,
+      subname,
     } = req.body;
     // CREATE NEW SCHEME RECORD
 
     let randomVal;
     // Generate a sequential order number
-    const lastOrder = await Scheme.findOne().sort({ createdAt: -1 }).select("schemeId").lean();
-    if (lastOrder && lastOrder.schemeId) {
+    const lastOrder = await Standard.findOne().sort({ createdAt: -1 }).select("standardId").lean();
+    if (lastOrder && lastOrder.standardId) {
       // Extract the numeric part from the last order's poNo and increment it
-      const lastNumber = parseInt(lastOrder.schemeId.replace(/\D/g, ""), 10); // Remove non-numeric characters
-      randomVal = `SC${lastNumber + 1}`;
+      const lastNumber = parseInt(lastOrder.standardId.replace(/\D/g, ""), 10); // Remove non-numeric characters
+      randomVal = `ST${lastNumber + 1}`;
     } else {
       // Default starting point if no orders exist
-      randomVal = "SC1001";
+      randomVal = "ST1001";
     }
 
-    const record = await Scheme.create({
-      schemeId: randomVal,
-      schemeName,
-      season,
-      period,
-      centralNodalAgency,
-      procurement,
-      commodity,
-      procurementDuration,
-      schemeApprovalLetter
+    const record = await Standard.create({
+      standardId: randomVal,
+      name,
+      subName,
     });
 
     return res
@@ -52,7 +40,7 @@ module.exports.createScheme = asyncErrorHandler(async (req, res) => {
         new serviceResponse({
           status: 200,
           data: record,
-          message: _response_message.created("Scheme"),
+          message: _response_message.created("Standard"),
         })
       );
   } catch (error) {
@@ -60,7 +48,7 @@ module.exports.createScheme = asyncErrorHandler(async (req, res) => {
   }
 });
 
-module.exports.getScheme = asyncErrorHandler(async (req, res) => {
+module.exports.getStandard = asyncErrorHandler(async (req, res) => {
   const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
   // Initialize matchQuery
@@ -68,20 +56,17 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     deletedAt: null
   };
   if (search) {
-    matchQuery.schemeId = { $regex: search, $options: "i" };
+    matchQuery.standardId = { $regex: search, $options: "i" };
   }
-
+  
   let aggregationPipeline = [
     { $match: matchQuery },
     {
       $project: {
         _id: 1,
         schemeId: 1,
-        schemeName: 1,
-        Schemecommodity: 1,
-        season: 1,
-        period: 1,
-        procurement: 1
+        name: 1,
+        subName: 1
       }
     }
   ];
@@ -94,12 +79,12 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   } else {
     aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
   }
-  const rows = await Scheme.aggregate(aggregationPipeline);
+  const rows = await Standard.aggregate(aggregationPipeline);
   const countPipeline = [
     { $match: matchQuery },
     { $count: "total" }
   ];
-  const countResult = await Scheme.aggregate(countPipeline);
+  const countResult = await Standard.aggregate(countPipeline);
   const count = countResult[0]?.total || 0;
   const records = { rows, count };
   if (paginate == 1) {
@@ -110,42 +95,40 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   if (isExport == 1) {
     const record = rows.map((item) => {
       return {
-        "Scheme Id": item?.schemeId || "NA",
-        "scheme Name": item?.schemeName || "NA",
-        "SchemeCommodity": item?.commodity || "NA",
-        "season": item?.season || "NA",
-        "period": item?.period || "NA",
-        "procurement": item?.procurement || "NA"
+        "Standard Id": item?.standardId || "NA",
+        "name": item?.name || "NA",
+        "subName": item?.subName || "NA",
+       
       };
     });
     if (record.length > 0) {
       dumpJSONToExcel(req, res, {
         data: record,
-        fileName: `Scheme-record.xlsx`,
-        worksheetName: `Scheme-record`
+        fileName: `Standard-record.xlsx`,
+        worksheetName: `Standard-record`
       });
     } else {
-      return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Scheme") }));
+      return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Standard") }));
     }
   } else {
-    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme") }));
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Standard") }));
   }
 });
 
-module.exports.getSchemeById = asyncErrorHandler(async (req, res) => {
+module.exports.getStandardById = asyncErrorHandler(async (req, res) => {
   const { id } = req.params;
   // Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ message: "Invalid item ID" });
   }
-  const record = await Scheme.findOne({ _id: id });
+  const record = await Standard.findOne({ _id: id });
   if (!record) {
     return res
       .status(400)
       .send(
         new serviceResponse({
           status: 400,
-          errors: [{ message: _response_message.notFound("Scheme") }],
+          errors: [{ message: _response_message.notFound("Standard") }],
         })
       );
   }
@@ -155,15 +138,15 @@ module.exports.getSchemeById = asyncErrorHandler(async (req, res) => {
       new serviceResponse({
         status: 200,
         data: record,
-        message: _response_message.found("Scheme"),
+        message: _response_message.found("Standard"),
       })
     );
 });
 
-module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
+module.exports.updateStandard = asyncErrorHandler(async (req, res) => {
   try {
-    const { id, schemeName, commodity, season, period, centralNodalAgency, procurement, procurementDuration, schemeApprovalLetter } = req.body;
-    const record = await Scheme.findOne({ _id: id, deletedAt: null })
+    const { id, name, subname } = req.body;
+    const record = await Standard.findOne({ _id: id, deletedAt: null })
 
     if (!record) {
       return res
@@ -176,14 +159,8 @@ module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
         );
     }
 
-    record.schemeName = schemeName || record.schemeName;
-    record.commodity = commodity || record.commodity;
-    record.season = season || record.season;
-    record.period = period || record.period;
-    record.centralNodalAgency = centralNodalAgency || record.centralNodalAgency;
-    record.procurement = procurement || record.procurement;
-    record.procurementDuration = procurementDuration || record.procurementDuration;
-    record.schemeApprovalLetter = schemeApprovalLetter || record.schemeApprovalLetter;
+    record.name = name || record.name;
+    record.subname = subname || record.subname;
 
     await record.save();
     return res
@@ -200,32 +177,32 @@ module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
   }
 });
 
-module.exports.deleteScheme = asyncErrorHandler(async (req, res) => {
+module.exports.deleteStandard = asyncErrorHandler(async (req, res) => {
   try {
     const { id } = req.params;
 
-    const existingRecord = await Scheme.findOne({ _id: id });
+    const existingRecord = await Standard.findOne({ _id: id });
     if (!existingRecord) {
-      return sendResponse({ res, status: 400, errors: [{ message: _response_message.notFound("Scheme") }] })
+      return sendResponse({ res, status: 400, errors: [{ message: _response_message.notFound("Standard") }] })
     }
-    const record = await Scheme.findOneAndUpdate({ _id: id }, { deletedAt: new Date() }, { new: true });
-    return sendResponse({ res, status: 200, data: record, message: _response_message.deleted("Scheme") })
+    const record = await Standard.findOneAndUpdate({ _id: id }, { deletedAt: new Date() }, { new: true });
+    return sendResponse({ res, status: 200, data: record, message: _response_message.deleted("Standard") })
   } catch (error) {
     _handleCatchErrors(error, res);
   }
 });
 
-module.exports.statusUpdateScheme = asyncErrorHandler(async (req, res) => {
+module.exports.statusUpdateStandard = asyncErrorHandler(async (req, res) => {
   try {
     const { id, status } = req.body;
-    const record = await Scheme.findOne({ _id: id, deletedAt: null })
+    const record = await Standard.findOne({ _id: id, deletedAt: null })
     if (!record) {
       return res
         .status(400)
         .send(
           new serviceResponse({
             status: 400,
-            message: _response_message.notFound("Scheme"),
+            message: _response_message.notFound("Standard"),
           })
         );
     }
@@ -237,7 +214,7 @@ module.exports.statusUpdateScheme = asyncErrorHandler(async (req, res) => {
         new serviceResponse({
           status: 200,
           data: record,
-          message: _response_message.updated("Scheme"),
+          message: _response_message.updated("Standard"),
         })
       );
   } catch (error) {
