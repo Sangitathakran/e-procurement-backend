@@ -81,7 +81,8 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
         Schemecommodity: 1,
         season: 1,
         period: 1,
-        procurement: 1
+        procurement: 1,
+        status:1
       }
     }
   ];
@@ -199,23 +200,6 @@ module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
-
-/*
-module.exports.deleteScheme = asyncErrorHandler(async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const existingRecord = await Scheme.findOne({ _id: id });
-    if (!existingRecord) {
-      return sendResponse({ res, status: 400, errors: [{ message: _response_message.notFound("Scheme") }] })
-    }
-    const record = await Scheme.findOneAndUpdate({ _id: id }, { deletedAt: new Date() }, { new: true });
-    return sendResponse({ res, status: 200, data: record, message: _response_message.deleted("Scheme") })
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
-});
-*/
 
 module.exports.deleteScheme = asyncErrorHandler(async (req, res) => {
   try {

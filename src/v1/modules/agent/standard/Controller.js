@@ -2,48 +2,58 @@ const { _handleCatchErrors } = require("@src/v1/utils/helpers")
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Commodity } = require("@src/v1/models/master/Commodity");
-const { Standard } = require("@src/v1/models/master/Standard");
+const { commodityStandard } = require("@src/v1/models/master/commodityStandard");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-
+const { _status } = require("@src/v1/utils/constants");
+const { NULL } = require("xlsx-populate/lib/FormulaError");
+const mongoose = require("mongoose");
 
 module.exports.createStandard = asyncErrorHandler(async (req, res) => {
   try {
-    const {
-      name,
-      subname,
-    } = req.body;
-    // CREATE NEW SCHEME RECORD
+    const { name, subName } = req.body;
 
-    let randomVal;
-    // Generate a sequential order number
-    const lastOrder = await Standard.findOne().sort({ createdAt: -1 }).select("standardId").lean();
-    if (lastOrder && lastOrder.standardId) {
-      // Extract the numeric part from the last order's poNo and increment it
-      const lastNumber = parseInt(lastOrder.standardId.replace(/\D/g, ""), 10); // Remove non-numeric characters
-      randomVal = `ST${lastNumber + 1}`;
-    } else {
-      // Default starting point if no orders exist
-      randomVal = "ST1001";
-    }
-
-    const record = await Standard.create({
-      standardId: randomVal,
-      name,
-      subName,
-    });
-
-    return res
-      .status(200)
-      .send(
+    if (!Array.isArray(subName) || subName.length === 0) {
+      return res.status(400).send(
         new serviceResponse({
-          status: 200,
-          data: record,
-          message: _response_message.created("Standard"),
+          status: 400,
+          message: "subName must be a non-empty array.",
         })
       );
+    }
+
+    // Fetch the last created record and get the highest `standardId`
+    const lastOrder = await commodityStandard
+      .findOne()
+      .sort({ createdAt: -1 })
+      .select("standardId")
+      .lean();
+
+    let lastNumber = lastOrder ? parseInt(lastOrder.standardId.replace(/\D/g, ""), 10) : 1000;
+
+    // Create records for each subName entry
+    const records = await Promise.all(
+      subName.map(async (sub) => {
+        lastNumber++; // Increment for each entry
+
+        return commodityStandard.create({
+          standardId: `ST${lastNumber}`, // Ensure unique ID per document
+          name,
+          subName: sub, // Store a single subName for each record
+        });
+      })
+    );
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.created("Standard"),
+      })
+    );
   } catch (error) {
+    console.error("Error creating standard:", error); // Log error for debugging
     _handleCatchErrors(error, res);
   }
 });
@@ -58,7 +68,7 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
   if (search) {
     matchQuery.standardId = { $regex: search, $options: "i" };
   }
-  
+
   let aggregationPipeline = [
     { $match: matchQuery },
     {
@@ -66,7 +76,8 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
         _id: 1,
         schemeId: 1,
         name: 1,
-        subName: 1
+        subName: 1,
+        status: 1
       }
     }
   ];
@@ -79,12 +90,12 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
   } else {
     aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
   }
-  const rows = await Standard.aggregate(aggregationPipeline);
+  const rows = await commodityStandard.aggregate(aggregationPipeline);
   const countPipeline = [
     { $match: matchQuery },
     { $count: "total" }
   ];
-  const countResult = await Standard.aggregate(countPipeline);
+  const countResult = await commodityStandard.aggregate(countPipeline);
   const count = countResult[0]?.total || 0;
   const records = { rows, count };
   if (paginate == 1) {
@@ -98,7 +109,7 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
         "Standard Id": item?.standardId || "NA",
         "name": item?.name || "NA",
         "subName": item?.subName || "NA",
-       
+
       };
     });
     if (record.length > 0) {
@@ -121,7 +132,7 @@ module.exports.getStandardById = asyncErrorHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ message: "Invalid item ID" });
   }
-  const record = await Standard.findOne({ _id: id });
+  const record = await commodityStandard.findOne({ _id: id });
   if (!record) {
     return res
       .status(400)
@@ -145,8 +156,8 @@ module.exports.getStandardById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateStandard = asyncErrorHandler(async (req, res) => {
   try {
-    const { id, name, subname } = req.body;
-    const record = await Standard.findOne({ _id: id, deletedAt: null })
+    const { id, name, subName } = req.body;
+    const record = await commodityStandard.findOne({ _id: id, deletedAt: null })
 
     if (!record) {
       return res
@@ -154,13 +165,13 @@ module.exports.updateStandard = asyncErrorHandler(async (req, res) => {
         .send(
           new serviceResponse({
             status: 400,
-            message: _response_message.notFound("Scheme"),
+            message: _response_message.notFound("Standard"),
           })
         );
     }
 
     record.name = name || record.name;
-    record.subname = subname || record.subname;
+    record.subName = subName || record.subName;
 
     await record.save();
     return res
@@ -181,11 +192,11 @@ module.exports.deleteStandard = asyncErrorHandler(async (req, res) => {
   try {
     const { id } = req.params;
 
-    const existingRecord = await Standard.findOne({ _id: id });
+    const existingRecord = await commodityStandard.findOne({ _id: id });
     if (!existingRecord) {
       return sendResponse({ res, status: 400, errors: [{ message: _response_message.notFound("Standard") }] })
     }
-    const record = await Standard.findOneAndUpdate({ _id: id }, { deletedAt: new Date() }, { new: true });
+    const record = await commodityStandard.findOneAndUpdate({ _id: id }, { deletedAt: new Date() }, { new: true });
     return sendResponse({ res, status: 200, data: record, message: _response_message.deleted("Standard") })
   } catch (error) {
     _handleCatchErrors(error, res);
@@ -195,7 +206,7 @@ module.exports.deleteStandard = asyncErrorHandler(async (req, res) => {
 module.exports.statusUpdateStandard = asyncErrorHandler(async (req, res) => {
   try {
     const { id, status } = req.body;
-    const record = await Standard.findOne({ _id: id, deletedAt: null })
+    const record = await commodityStandard.findOne({ _id: id, deletedAt: null })
     if (!record) {
       return res
         .status(400)
@@ -220,4 +231,40 @@ module.exports.statusUpdateStandard = asyncErrorHandler(async (req, res) => {
   } catch (error) {
     _handleCatchErrors(error, res);
   }
+});
+
+module.exports.standardListByName = asyncErrorHandler(async (req, res) => {
+  const { name } = req.query;
+
+  if (!name) {
+    return sendResponse({ res, status: 400, errors: [{ message: _response_message.notFound("Name") }] })
+  }
+
+  let query = {
+    name: name,
+    status: _status.active,
+    deletedAt: null
+  };
+
+  const records = await commodityStandard.find(query);
+
+  if (!records) {
+    return res
+      .status(400)
+      .send(
+        new serviceResponse({
+          status: 400,
+          errors: [{ message: _response_message.notFound("Standard") }],
+        })
+      );
+  }
+  return res
+    .status(200)
+    .send(
+      new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("Standard"),
+      })
+    );
 });

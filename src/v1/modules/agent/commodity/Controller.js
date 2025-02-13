@@ -3,9 +3,11 @@ const { Variety } = require("@src/v1/models/master/Variety");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Commodity } = require("@src/v1/models/master/Commodity");
+const { commodityStandard } = require("@src/v1/models/master/commodityStandard");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { _status } = require("@src/v1/utils/constants");
 
 module.exports.createCommodity = asyncErrorHandler(async (req, res) => {
     const { name, commodityType, unit } = req.body;
@@ -56,6 +58,7 @@ module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
                 name: 1,
                 status: 1,
                 commodityType: 1,
+                status: 1
             }
         }
     ];
@@ -167,23 +170,6 @@ module.exports.updateCommodity = asyncErrorHandler(async (req, res) => {
     }
 });
 
-/*
-module.exports.deleteCommodity = asyncErrorHandler(async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const existingRecord = await Commodity.findOne({ _id: id });
-        if (!existingRecord) {
-            return sendResponse({ res, status: 400, errors: [{ message: _response_message.notFound("Commodity") }] })
-        }
-        const record = await Commodity.findOneAndUpdate({ _id: id }, { deletedAt: new Date() }, { new: true });
-        return sendResponse({ res, status: 200, data: record, message: _response_message.deleted("Commodity") })
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-});
-*/
-
 module.exports.deleteCommodity = asyncErrorHandler(async (req, res) => {
     try {
         const { id } = req.params;
@@ -204,7 +190,6 @@ module.exports.deleteCommodity = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
-
 
 module.exports.statusUpdateCommodity = asyncErrorHandler(async (req, res) => {
     try {
@@ -234,4 +219,33 @@ module.exports.statusUpdateCommodity = asyncErrorHandler(async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
+});
+
+module.exports.getStandard = asyncErrorHandler(async (req, res) => {
+    let query = {
+        status: _status.active,
+        deletedAt: null
+    };
+
+    const records = await commodityStandard.find(query).select({"name":1}).sort({ createdAt: -1 }).distinct('name').lean();
+
+    if (!records) {
+        return res
+            .status(400)
+            .send(
+                new serviceResponse({
+                    status: 400,
+                    errors: [{ message: _response_message.notFound("Standard") }],
+                })
+            );
+    }
+    return res
+        .status(200)
+        .send(
+            new serviceResponse({
+                status: 200,
+                data: records,
+                message: _response_message.found("Standard"),
+            })
+        );
 });
