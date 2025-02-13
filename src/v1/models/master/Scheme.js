@@ -11,6 +11,8 @@ const SchemeSchema = new mongoose.Schema(
     centralNodalAgency: { type: String, enum: Object.values(_centralNodalAgency), default: _centralNodalAgency.nodal1 },
     procurement: { type: Number, required: true },
     commodity: { type: String, required: true },
+    procurementDuration: { type: String, required: true },
+    schemeApprovalLetter: { type: String },
     status: { type: String, enum: Object.values(_status), default: _status.active },
   },
   { timestamps: true }

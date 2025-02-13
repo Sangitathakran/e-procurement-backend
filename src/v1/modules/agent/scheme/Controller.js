@@ -17,6 +17,8 @@ module.exports.createScheme = asyncErrorHandler(async (req, res) => {
       centralNodalAgency,
       procurement,
       commodity,
+      procurementDuration,
+      schemeApprovalLetter
     } = req.body;
     // CREATE NEW SCHEME RECORD
 
@@ -39,7 +41,9 @@ module.exports.createScheme = asyncErrorHandler(async (req, res) => {
       period,
       centralNodalAgency,
       procurement,
-      commodity
+      commodity,
+      procurementDuration,
+      schemeApprovalLetter
     });
 
     return res
@@ -66,7 +70,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   if (search) {
     matchQuery.schemeId = { $regex: search, $options: "i" };
   }
-  
+
   let aggregationPipeline = [
     { $match: matchQuery },
     {
@@ -77,7 +81,8 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
         Schemecommodity: 1,
         season: 1,
         period: 1,
-        procurement: 1
+        procurement: 1,
+        status:1
       }
     }
   ];
@@ -158,7 +163,7 @@ module.exports.getSchemeById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
   try {
-    const { id, schemeName, commodity, season, period, centralNodalAgency, procurement } = req.body;
+    const { id, schemeName, commodity, season, period, centralNodalAgency, procurement, procurementDuration, schemeApprovalLetter } = req.body;
     const record = await Scheme.findOne({ _id: id, deletedAt: null })
 
     if (!record) {
@@ -178,6 +183,8 @@ module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
     record.period = period || record.period;
     record.centralNodalAgency = centralNodalAgency || record.centralNodalAgency;
     record.procurement = procurement || record.procurement;
+    record.procurementDuration = procurementDuration || record.procurementDuration;
+    record.schemeApprovalLetter = schemeApprovalLetter || record.schemeApprovalLetter;
 
     await record.save();
     return res
@@ -196,16 +203,22 @@ module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
 
 module.exports.deleteScheme = asyncErrorHandler(async (req, res) => {
   try {
-    const { id } = req.params;
+      const { id } = req.params;
 
-    const existingRecord = await Scheme.findOne({ _id: id });
-    if (!existingRecord) {
-      return sendResponse({ res, status: 400, errors: [{ message: _response_message.notFound("Scheme") }] })
-    }
-    const record = await Scheme.findOneAndUpdate({ _id: id }, { deletedAt: new Date() }, { new: true });
-    return sendResponse({ res, status: 200, data: record, message: _response_message.deleted("Scheme") })
+      const existingRecord = await Scheme.findOne({ _id: id, deletedAt: null }); // Ensure it's not already deleted
+      if (!existingRecord) {
+          return sendResponse({ res, status: 400, errors: [{ message: _response_message.notFound("Scheme") }] });
+      }
+
+      const record = await Scheme.findOneAndUpdate(
+          { _id: id },
+          { deletedAt: new Date() }, // Soft delete by setting deletedAt timestamp
+          { new: true }
+      );
+
+      return sendResponse({ res, status: 200, data: record, message: _response_message.deleted("Scheme") });
   } catch (error) {
-    _handleCatchErrors(error, res);
+      _handleCatchErrors(error, res);
   }
 });
 
