@@ -50,7 +50,10 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
             "bank_details.ifsc_code",
             "bank_details.account_number",
             "bank_details.proof",
-            "sla_id"
+            "sla_id",
+            "schemes.scheme",
+            "schemes.cna",
+            "schemes.branch"
         ];
 
         const missingFields = requiredFields.filter(field => {
@@ -132,7 +135,9 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
                             "$address.country"
                         ]
                     },
-                    status: "$active"
+                    status: "$active",
+                    poc: "$point_of_contact.name",
+                    branch: "$schemes.branch"
                 }
             },
             { $sort: sortOptions }
