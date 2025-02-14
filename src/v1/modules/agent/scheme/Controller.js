@@ -6,7 +6,7 @@ const { Scheme } = require("@src/v1/models/master/Scheme");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-
+const mongoose = require("mongoose");
 
 module.exports.createScheme = asyncErrorHandler(async (req, res) => {
   try {
@@ -75,24 +75,34 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     { $match: matchQuery },
     {
       $lookup: {
-          from: 'commodities',
-          localField: 'commodity_id',
-          foreignField: '_id',
-          as: 'commodityDetails',
+        from: 'commodities',
+        localField: 'commodity_id',
+        foreignField: '_id',
+        as: 'commodityDetails',
       },
-  },
-  { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+    },
+    { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
     {
       $project: {
         _id: 1,
         schemeId: 1,
-        schemeName: 1,
+        // schemeName: 1,
+        schemeName: {
+          $concat: [
+            "$schemeName", "",
+            { $ifNull: ["$commodityDetails.name", ""] }, "",
+            { $ifNull: ["$season", ""] }, "",
+            { $ifNull: ["$period", ""] }
+          ]
+        },
         commodity_id: 1,
         season: 1,
         period: 1,
         procurement: 1,
-        status:1,
-        commodityName:'$commodityDetails.name',
+        status: 1,
+        commodityName: '$commodityDetails.name',
+        procurementDuration: 1,
+        schemeApprovalLetter: 1
       }
     }
   ];
@@ -149,7 +159,48 @@ module.exports.getSchemeById = asyncErrorHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ message: "Invalid item ID" });
   }
-  const record = await Scheme.findOne({ _id: id });
+  // const record = await Scheme.findOne({ _id: id }); 
+  let matchQuery = {
+    _id: new mongoose.Types.ObjectId(id)
+  };
+  let aggregationPipeline = [
+    { $match: matchQuery },
+    {
+      $lookup: {
+        from: 'commodities',
+        localField: 'commodity_id',
+        foreignField: '_id',
+        as: 'commodityDetails',
+      },
+    },
+    { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        _id: 1,
+        schemeId: 1,
+        // schemeName: 1,
+        schemeName: {
+          $concat: [
+            "$schemeName", "",
+            { $ifNull: ["$commodityDetails.name", ""] }, "",
+            { $ifNull: ["$season", ""] }, "",
+            { $ifNull: ["$period", ""] }
+          ]
+        },
+        commodity_id: 1,
+        season: 1,
+        period: 1,
+        procurement: 1,
+        status: 1,
+        commodityName: '$commodityDetails.name',
+        procurementDuration: 1,
+        schemeApprovalLetter: 1
+      }
+    }
+  ];
+
+  const record = await Scheme.aggregate(aggregationPipeline);
+
   if (!record) {
     return res
       .status(400)
@@ -173,7 +224,7 @@ module.exports.getSchemeById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
   try {
-    const { id, schemeName, commodity, season, period, centralNodalAgency, procurement, procurementDuration, schemeApprovalLetter } = req.body;
+    const { id, schemeName, commodity_id, season, period, centralNodalAgency, procurement, procurementDuration, schemeApprovalLetter } = req.body;
     const record = await Scheme.findOne({ _id: id, deletedAt: null })
 
     if (!record) {
@@ -188,7 +239,7 @@ module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
     }
 
     record.schemeName = schemeName || record.schemeName;
-    record.commodity = commodity || record.commodity;
+    record.commodity_id = commodity_id || record.commodity_id;
     record.season = season || record.season;
     record.period = period || record.period;
     record.centralNodalAgency = centralNodalAgency || record.centralNodalAgency;
@@ -213,22 +264,22 @@ module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
 
 module.exports.deleteScheme = asyncErrorHandler(async (req, res) => {
   try {
-      const { id } = req.params;
+    const { id } = req.params;
 
-      const existingRecord = await Scheme.findOne({ _id: id, deletedAt: null }); // Ensure it's not already deleted
-      if (!existingRecord) {
-          return sendResponse({ res, status: 400, errors: [{ message: _response_message.notFound("Scheme") }] });
-      }
+    const existingRecord = await Scheme.findOne({ _id: id, deletedAt: null }); // Ensure it's not already deleted
+    if (!existingRecord) {
+      return sendResponse({ res, status: 400, errors: [{ message: _response_message.notFound("Scheme") }] });
+    }
 
-      const record = await Scheme.findOneAndUpdate(
-          { _id: id },
-          { deletedAt: new Date() }, // Soft delete by setting deletedAt timestamp
-          { new: true }
-      );
+    const record = await Scheme.findOneAndUpdate(
+      { _id: id },
+      { deletedAt: new Date() }, // Soft delete by setting deletedAt timestamp
+      { new: true }
+    );
 
-      return sendResponse({ res, status: 200, data: record, message: _response_message.deleted("Scheme") });
+    return sendResponse({ res, status: 200, data: record, message: _response_message.deleted("Scheme") });
   } catch (error) {
-      _handleCatchErrors(error, res);
+    _handleCatchErrors(error, res);
   }
 });
 
