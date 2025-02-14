@@ -6,7 +6,7 @@ const { Scheme } = require("@src/v1/models/master/Scheme");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-
+const mongoose = require("mongoose");
 
 module.exports.createScheme = asyncErrorHandler(async (req, res) => {
   try {

@@ -151,7 +151,7 @@ module.exports.getCommodityById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateCommodity = asyncErrorHandler(async (req, res) => {
     try {
-        const { id, name, commodityType } = req.body;
+        const { id, name, commodityStandard_id } = req.body;
         const record = await Commodity.findOne({ _id: id, deletedAt: null })
         if (!record) {
             return res
@@ -164,7 +164,7 @@ module.exports.updateCommodity = asyncErrorHandler(async (req, res) => {
                 );
         }
         record.name = name || record.name;
-        record.commodityType = commodityType || record.commodityType;
+        record.commodityStandard_id = commodityStandard_id || record.commodityStandard_id;
         await record.save();
         return res
             .status(200)
