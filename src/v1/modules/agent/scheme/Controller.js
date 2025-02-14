@@ -93,6 +93,8 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
         procurement: 1,
         status:1,
         commodityName:'$commodityDetails.name',
+        procurementDuration:1,
+        schemeApprovalLetter:1
       }
     }
   ];
