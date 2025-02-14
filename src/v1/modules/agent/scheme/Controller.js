@@ -16,7 +16,7 @@ module.exports.createScheme = asyncErrorHandler(async (req, res) => {
       period,
       centralNodalAgency,
       procurement,
-      commodity,
+      commodity_id,
       procurementDuration,
       schemeApprovalLetter
     } = req.body;
@@ -41,7 +41,7 @@ module.exports.createScheme = asyncErrorHandler(async (req, res) => {
       period,
       centralNodalAgency,
       procurement,
-      commodity,
+      commodity_id,
       procurementDuration,
       schemeApprovalLetter
     });
@@ -173,7 +173,7 @@ module.exports.getSchemeById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
   try {
-    const { id, schemeName, commodity, season, period, centralNodalAgency, procurement, procurementDuration, schemeApprovalLetter } = req.body;
+    const { id, schemeName, commodity_id, season, period, centralNodalAgency, procurement, procurementDuration, schemeApprovalLetter } = req.body;
     const record = await Scheme.findOne({ _id: id, deletedAt: null })
 
     if (!record) {
@@ -188,7 +188,7 @@ module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
     }
 
     record.schemeName = schemeName || record.schemeName;
-    record.commodity = commodity || record.commodity;
+    record.commodity_id = commodity_id || record.commodity_id;
     record.season = season || record.season;
     record.period = period || record.period;
     record.centralNodalAgency = centralNodalAgency || record.centralNodalAgency;
