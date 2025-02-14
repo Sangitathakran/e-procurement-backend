@@ -10,6 +10,7 @@ const { _status } = require("@src/v1/utils/constants");
 const { NULL } = require("xlsx-populate/lib/FormulaError");
 const mongoose = require("mongoose");
 
+/*
 module.exports.createStandard = asyncErrorHandler(async (req, res) => {
   try {
     const { name, subName } = req.body;
@@ -49,6 +50,35 @@ module.exports.createStandard = asyncErrorHandler(async (req, res) => {
       new serviceResponse({
         status: 200,
         data: records,
+        message: _response_message.created("Standard"),
+      })
+    );
+  } catch (error) {
+    console.error("Error creating standard:", error); // Log error for debugging
+    _handleCatchErrors(error, res);
+  }
+});
+*/
+
+module.exports.createStandard = asyncErrorHandler(async (req, res) => {
+  try {
+    const { name, subName } = req.body;
+
+    // Validation
+    if (!name || !Array.isArray(subName) || subName.length === 0) {
+      return res.status(400).json({
+        status: 400,
+        message: "Invalid request. 'name' and 'subName' must be provided.",
+      });
+    }
+
+    // Create new entry
+    const newScheme = await commodityStandard.create({ name, subName });
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: newScheme,
         message: _response_message.created("Standard"),
       })
     );
@@ -156,22 +186,39 @@ module.exports.getStandardById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateStandard = asyncErrorHandler(async (req, res) => {
   try {
-    const { id, name, subName } = req.body;
-    const record = await commodityStandard.findOne({ _id: id, deletedAt: null })
+    // const { id, name, subName } = req.body;
+    // const record = await commodityStandard.findOne({ _id: id, deletedAt: null })
 
-    if (!record) {
-      return res
-        .status(400)
-        .send(
-          new serviceResponse({
-            status: 400,
-            message: _response_message.notFound("Standard"),
-          })
-        );
+    // if (!record) {
+    //   return res
+    //     .status(400)
+    //     .send(
+    //       new serviceResponse({
+    //         status: 400,
+    //         message: _response_message.notFound("Standard"),
+    //       })
+    //     );
+    // }
+
+    // record.name = name || record.name;
+    // record.subName = subName || record.subName;
+
+    const { id,name, subName } = req.body;
+
+    // Validation
+    if (!name || !Array.isArray(subName) || subName.length === 0) {
+      return res.status(400).json({
+        status: 400,
+        message: "Invalid request. 'name' and 'subName' must be provided.",
+      });
     }
 
-    record.name = name || record.name;
-    record.subName = subName || record.subName;
+    // Find and update document
+    const record = await commodityStandard.findByIdAndUpdate(
+      id,
+      { name, subName },
+      { new: true, runValidators: true } // Returns updated doc & validates input
+    );
 
     await record.save();
     return res
@@ -180,7 +227,7 @@ module.exports.updateStandard = asyncErrorHandler(async (req, res) => {
         new serviceResponse({
           status: 200,
           data: record,
-          message: _response_message.updated("Scheme"),
+          message: _response_message.updated("Commodity Standard"),
         })
       );
   } catch (error) {
