@@ -10,56 +10,6 @@ const { _status } = require("@src/v1/utils/constants");
 const { NULL } = require("xlsx-populate/lib/FormulaError");
 const mongoose = require("mongoose");
 
-/*
-module.exports.createStandard = asyncErrorHandler(async (req, res) => {
-  try {
-    const { name, subName } = req.body;
-
-    if (!Array.isArray(subName) || subName.length === 0) {
-      return res.status(400).send(
-        new serviceResponse({
-          status: 400,
-          message: "subName must be a non-empty array.",
-        })
-      );
-    }
-
-    // Fetch the last created record and get the highest `standardId`
-    const lastOrder = await commodityStandard
-      .findOne()
-      .sort({ createdAt: -1 })
-      .select("standardId")
-      .lean();
-
-    let lastNumber = lastOrder ? parseInt(lastOrder.standardId.replace(/\D/g, ""), 10) : 1000;
-
-    // Create records for each subName entry
-    const records = await Promise.all(
-      subName.map(async (sub) => {
-        lastNumber++; // Increment for each entry
-
-        return commodityStandard.create({
-          standardId: `ST${lastNumber}`, // Ensure unique ID per document
-          name,
-          subName: sub, // Store a single subName for each record
-        });
-      })
-    );
-
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.created("Standard"),
-      })
-    );
-  } catch (error) {
-    console.error("Error creating standard:", error); // Log error for debugging
-    _handleCatchErrors(error, res);
-  }
-});
-*/
-
 module.exports.createStandard = asyncErrorHandler(async (req, res) => {
   try {
     const { name, subName } = req.body;
@@ -186,23 +136,6 @@ module.exports.getStandardById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateStandard = asyncErrorHandler(async (req, res) => {
   try {
-    // const { id, name, subName } = req.body;
-    // const record = await commodityStandard.findOne({ _id: id, deletedAt: null })
-
-    // if (!record) {
-    //   return res
-    //     .status(400)
-    //     .send(
-    //       new serviceResponse({
-    //         status: 400,
-    //         message: _response_message.notFound("Standard"),
-    //       })
-    //     );
-    // }
-
-    // record.name = name || record.name;
-    // record.subName = subName || record.subName;
-
     const { id,name, subName } = req.body;
 
     // Validation
