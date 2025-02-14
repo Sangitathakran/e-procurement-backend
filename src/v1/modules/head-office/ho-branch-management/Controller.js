@@ -481,7 +481,15 @@ module.exports.schemeList = async (req, res) => {
       $project: {
         _id: 1,
         schemeId: '$schemeDetails.schemeId',
-        schemeName: '$schemeDetails.schemeName',
+        // schemeName: '$schemeDetails.schemeName',
+        schemeName: {
+          $concat: [
+            "$schemeName", "",
+            { $ifNull: ["$commodityDetails.name", ""] }, "",
+            { $ifNull: ["$season", ""] }, "",
+            { $ifNull: ["$period", ""] }
+          ]
+        },
         // branchName: '$branchDetails.branchName',
         // branchLocation: '$branchDetails.state',
         scheme_id: 1,
