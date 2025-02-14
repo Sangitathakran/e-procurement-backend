@@ -27,7 +27,7 @@ module.exports.saveWarehouseDetails = async (req, res) => {
 
         // Decrypt and verify the token
         const decode = await decryptJwtToken(getToken);
-        const ownerId = decode.data.user_id; // Extract owner ID from token
+        const ownerId = decode.data.organization_id; // Extract owner ID from token
 
         // Extract warehouse data from the request body
         const {
@@ -116,7 +116,7 @@ module.exports.getWarehouseList = async (req, res) => {
         }
 
         const decoded = await decryptJwtToken(token);
-        const userId = decoded.data.user_id;
+        const userId = decoded.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -199,7 +199,7 @@ module.exports.editWarehouseDetails = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).json({ status: 400, message: "Invalid user ID in token" });
@@ -268,16 +268,16 @@ module.exports.updateWarehouseStatus = async (req, res) => {
 
 module.exports.getWarehouseDashboardStats = async (req, res) => {
     try {
-        const { user_id } = req;
+        const { user_id, organization_id } = req;
         const {limit, skip, paginate = 1, sortBy, search = ''} = req.query
         let record = { count: 0 };
-          const warehouseTotalCount = (await wareHouseDetails.countDocuments({warehouseOwnerId:user_id})) ?? 0;
+          const warehouseTotalCount = (await wareHouseDetails.countDocuments({warehouseOwnerId:organization_id})) ?? 0;
         
           const wareHouseActiveCount =
-          (await wareHouseDetails.countDocuments({$and:[{active:true},{warehouseOwnerId:user_id}]})) ?? 0;  
+          (await wareHouseDetails.countDocuments({$and:[{active:true},{warehouseOwnerId:organization_id}]})) ?? 0;  
 
           const wareHouseInactiveCount =
-          (await wareHouseDetails.countDocuments({$and:[{active:false},{warehouseOwnerId:user_id}]})) ?? 0;  
+          (await wareHouseDetails.countDocuments({$and:[{active:false},{warehouseOwnerId:organization_id}]})) ?? 0;  
 
         //   const outwardBatchCount =
         //   (await BatchOrderProcess.countDocuments({warehouseOwnerId:user_id})) ?? 0;  
@@ -302,7 +302,7 @@ record.rows = paginate == 1 ? await PurchaseOrderModel.find(query).select('produ
       record.rows.map(async (item) => {
           console.log(item._id)
           let batchOrderProcess = await BatchOrderProcess.findOne({
-              warehouseOwnerId: user_id,
+              warehouseOwnerId: organization_id,
               orderId: item._id,
           }).select('warehouseId orderId');
 
@@ -315,7 +315,7 @@ record.rows = paginate == 1 ? await PurchaseOrderModel.find(query).select('produ
         
 
         const warehouseDetails = await wareHouseDetails.find(
-            { warehouseOwnerId: new mongoose.Types.ObjectId(user_id) }, 
+            { warehouseOwnerId: new mongoose.Types.ObjectId(organization_id) }, 
             { _id: 1 } // Only fetch `_id` field
           );
           
@@ -383,7 +383,7 @@ module.exports.warehouseFilterList = async (req, res) => {
         }
 
         const decoded = await decryptJwtToken(token);
-        const userId = decoded.data.user_id;
+        const userId = decoded.data.organization_id;
 
         // Construct query for filtering warehouses
         const query = {

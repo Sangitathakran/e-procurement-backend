@@ -54,7 +54,8 @@ const _collectionName = {
     TrackOrder : "TrackOrder",
     Truck : "Truck",
     ExternalBatch : "ExternalBatch",
-    ExternalOrder : "ExternalOrder"
+    ExternalOrder : "ExternalOrder",
+    ClientToken : "ClientToken",
 
 }
 
@@ -75,7 +76,8 @@ const _featureType = {
     headOffice: "HeadOffice",
     agency: "Agency",
     associate: "Associate",
-    distiller: "Distiller"
+    distiller: "Distiller",
+    warehouse: "Warehouse"
 }
 
 const _status = {
