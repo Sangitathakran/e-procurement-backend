@@ -84,10 +84,10 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
 
 module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
 
-  const { id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+  const { scheme_id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
   // Initialize matchQuery
-  let matchQuery = { scheme_id: id };
+  let matchQuery = { scheme_id: scheme_id };
 
   // Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(id)) {
