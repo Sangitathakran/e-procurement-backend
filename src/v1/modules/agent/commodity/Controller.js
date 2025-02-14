@@ -237,7 +237,8 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
         deletedAt: null
     };
 
-    const records = await commodityStandard.find(query).select({"name":1}).sort({ createdAt: -1 }).distinct('name').lean();
+    const records = await commodityStandard.find(query)
+    // .select({"name":1}).sort({ createdAt: -1 }).distinct('name').lean();
 
     if (!records) {
         return res
