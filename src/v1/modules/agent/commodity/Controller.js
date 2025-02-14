@@ -10,7 +10,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _status } = require("@src/v1/utils/constants");
 
 module.exports.createCommodity = asyncErrorHandler(async (req, res) => {
-    const { name, commodityType, unit } = req.body;
+    const { name, commodityStandard_id, unit } = req.body;
     let randomVal;
     // Generate a sequential order number
     const lastOrder = await Commodity.findOne().sort({ createdAt: -1 }).select("commodityId").lean();
@@ -25,7 +25,7 @@ module.exports.createCommodity = asyncErrorHandler(async (req, res) => {
     const record = await Commodity.create({
         commodityId: randomVal,
         name,
-        commodityType,
+        commodityStandard_id,
         unit
     });
     return res
@@ -52,12 +52,22 @@ module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
     let aggregationPipeline = [
         { $match: matchQuery },
         {
+            $lookup: {
+                from: 'commoditystandards',
+                localField: 'commodityStandard_id',
+                foreignField: '_id',
+                as: 'standardDetails',
+            },
+        },
+        { $unwind: { path: '$standardDetails', preserveNullAndEmptyArrays: true } },
+        {
             $project: {
                 _id: 1,
                 commodityId: 1,
                 name: 1,
                 status: 1,
-                commodityType: 1,
+                commodityStandard_id: 1,
+                "standardName": '$standardDetails.subName',
                 status: 1
             }
         }
