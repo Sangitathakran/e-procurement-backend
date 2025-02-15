@@ -11,7 +11,6 @@ paymentRoutes.put("/batch-approval", Auth, batchApprove);
 paymentRoutes.get("/lot-list", Auth, lot_list);
 paymentRoutes.get("/qc-report", Auth, qcReport);
 paymentRoutes.get("/approved-batch-list", Auth, approvedBatchList);
-
 paymentRoutes.post("/pay-farmers", Auth, payFarmers)
 paymentRoutes.put("/update-payment-status", Auth, updatePaymentByOrderId)
 
