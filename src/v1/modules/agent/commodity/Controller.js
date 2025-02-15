@@ -46,8 +46,7 @@ module.exports.createCommodity = asyncErrorHandler(async (req, res) => {
 module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
 
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
-    const { user_id } = req;
-
+   
     // Initialize matchQuery
     let matchQuery = {
         deletedAt: null

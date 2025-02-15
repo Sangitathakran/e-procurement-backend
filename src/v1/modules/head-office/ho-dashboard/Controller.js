@@ -18,6 +18,9 @@ const {
 } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { _query } = require("@src/v1/utils/constants/messages");
 const moment = require("moment");
+const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
+
+
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   try {
@@ -82,6 +85,9 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
 
 module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   try {
+
+    const hoId = req.portalId;
+
     let widgetDetails = {
       branchOffice: { total: 0 },
       farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0 },
@@ -89,9 +95,11 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       //procurementTarget: { total: 0 }
     };
 
+
+
     // Get counts safely
-    widgetDetails.wareHouse.total = await wareHouse.countDocuments({});
-    widgetDetails.branchOffice.total = await Branches.countDocuments({});
+    widgetDetails.wareHouse.total = await wareHousev2.countDocuments({});
+    widgetDetails.branchOffice.total = await Branches.countDocuments({headOfficeId:hoId});
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
     widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
 
@@ -751,7 +759,8 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
   } else {
   }
   let branchOfficeProc = await Batch.aggregate(pipeline);
-  console.log(branchOfficeProc)
+  let totalProcuredQty = branchOfficeProc.reduce((accumulator, item) => accumulator + (Number(item.qty) || 0), 0);
+  totalProcuredQty = Math.round(totalProcuredQty);
   data=data.map(item=>{
     let stateDetails=branchOfficeProc.find(item2=>item2.state==item.state);
    
@@ -766,7 +775,7 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
     res,
     status: 200,
     message: _query.get("BranchOfficeProcurement"),
-    data: data,
+    data: {branchOfficeProc: data, totalProcuredQty},
   });
 });
 //farmerBenifitted
@@ -976,19 +985,30 @@ module.exports.paymentStatusByDate = asyncErrorHandler(async (req, res) => {
 });
 //payment status by batch
 module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
-  console.log("date", moment().format("YYYY-MM-DD"));
+  const { page = 1, limit = 10 } = req.query;
+  const skip = (page - 1) * limit;
+
   const paymentDetails = await Payment.find()
     .select("initiated_at req_id ho_approve_by")
     .populate({ path: "ho_approve_by", select: "" })
     .populate({ path: "req_id", select: "reqNo" })
     .sort({ createdAt: -1 })
-    // .limit(5);
+    .skip(skip)
+    .limit(limit);
+
+  const totalCount = await Payment.countDocuments();
 
   return sendResponse({
     res,
     status: 200,
     message: _query.get("PaymentActivity"),
-    data: paymentDetails,
+    data: {
+      paymentDetails,
+      totalCount,
+      pages: Math.ceil(totalCount / limit),
+      limit: limit,
+      page: page,
+    },
   });
 });
 const calculateProcureQuantity = async (paymentDetails, status) => {
