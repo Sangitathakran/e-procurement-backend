@@ -2695,29 +2695,7 @@ module.exports.verifyOTPProceed = async (req, res) => {
         message: _response_message.otp_not_verified("OTP"),
       });
     }
-    const batches = await Batch.find({ _id: { $in: orderIds } });
-
     
-
-    const farmer_order_ids = batches.flatMap((batch) =>
-      batch.farmerOrderIds.map((item) => item.farmerOrder_id)
-    );
-
-    const batchIds = batches.map((batch) => batch._id);
-    await Batch.updateMany(
-      { _id: { $in: batchIds } },
-      { $set: { status: "Payment Complete" } }
-    );
-
-    await FarmerOrders.updateMany(
-      { _id: { $in: farmer_order_ids } },
-      { $set: { payment_status: "Completed" } }
-    );
-
-    await Payment.updateMany(
-      { farmer_order_id: { $in: farmer_order_ids } },
-      { $set: { payment_status: "Completed" } }
-    );
     // Send the response
     return sendResponse({
       res,
