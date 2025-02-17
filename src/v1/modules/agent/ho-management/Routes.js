@@ -1,5 +1,6 @@
 const express = require("express");
-const { getHo, saveHeadOffice, updateStatus, deleteHO, updateHeadOffice, getHeadOfficeById, getScheme, schemeAssign, getAssignedScheme } = require("./Controllers");
+const { getHo, saveHeadOffice, updateStatus, deleteHO, updateHeadOffice, getHeadOfficeById,
+    getScheme, schemeAssign, getAssignedScheme, getBo } = require("./Controllers");
 const { validateForm } = require("@src/v1/modules/agent/ho-management/Validation");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
@@ -8,6 +9,7 @@ const hoMngmntRoutes = express.Router();
 hoMngmntRoutes.get("/schemeList", Auth, getScheme);
 hoMngmntRoutes.post("/schemeAssign", Auth, schemeAssign);
 hoMngmntRoutes.get("/getAssignedScheme", Auth, getAssignedScheme);
+hoMngmntRoutes.get("/getBo", Auth, getBo);
 
 hoMngmntRoutes.patch("/:id/:status", Auth, updateStatus);
 hoMngmntRoutes.get("/", Auth, getHo);

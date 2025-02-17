@@ -16,7 +16,7 @@ const { generateRandomPassword } = require('@src/v1/utils/helpers/randomGenerato
 const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
-
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 
 module.exports.getHo = async (req, res) => {
 
@@ -300,6 +300,8 @@ module.exports.deleteHO = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.deleted("Head Office") }));
 });
 
+// start of Sangita Code
+
 module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
@@ -496,12 +498,12 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
                     ]
                 },
                 headofficeName: '$headOfficeDetails.company_details.name',
-                scheme_id: 1,               
+                scheme_id: 1,
                 assignQty: 1
             }
         }
     ];
-  
+
     if (paginate == 1) {
         aggregationPipeline.push(
             { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
@@ -546,3 +548,83 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
     }
 
 });
+
+module.exports.getBo = asyncErrorHandler(async (req, res) => {
+
+    try {
+        const { ho_id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+
+        let matchQuery = {
+            headOfficeId: new mongoose.Types.ObjectId(ho_id),
+            status: _status.active,
+            ...(search ? { branchName: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }),
+        };
+        
+        let aggregationPipeline = [
+            { $match: matchQuery },
+            {
+                $project: {
+                    _id: 1,
+                    branchId: 1,
+                    branchName: 1,
+                    emailAddress: 1,
+                    'point_of_contact.name': 1,
+                    address: 1,
+                    state: 1,
+                    createdAt: 1,
+                    updatedAt: 1
+                }
+            }
+        ];
+        if (paginate == 1) {
+            aggregationPipeline.push(
+                { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
+                { $skip: parseInt(skip) },
+                { $limit: parseInt(limit) }
+            );
+        } else {
+            aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
+        }
+        const rows = await Branches.aggregate(aggregationPipeline);
+        const countPipeline = [
+            { $match: matchQuery },
+            { $count: "total" }
+        ];
+        const countResult = await Branches.aggregate(countPipeline);
+        const count = countResult[0]?.total || 0;
+        const records = { rows, count };
+        if (paginate == 1) {
+            records.page = parseInt(page);
+            records.limit = parseInt(limit);
+            records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
+        }
+        if (isExport == 1) {
+            const record = rows.map((item) => {
+                return {
+                    "branch Id": item?.branchId || "NA",
+                    "branch Name": item?.branchName || "NA",
+                    "email Address": item?.emailAddress || "NA",
+                    "point of contact": item?.point_of_contact.name || "NA",
+                    "address": item?.address || "NA",
+                    "state": item?.state || "NA"
+                };
+            });
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Branch-record.xlsx`,
+                    worksheetName: `Branch-record`
+                });
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Branch") }));
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Branch") }));
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+})
+
+// End of Sangita Code
