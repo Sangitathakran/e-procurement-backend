@@ -250,6 +250,12 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                 console.log('already available user')
     
                 const userWithPermission = await getPermission(user)
+
+              
+                ownerExist = {...JSON.parse(JSON.stringify(ownerExist)),
+                    onboarding: (ownerExist?.basic_details?.distiller_details?.organization_name && ownerExist?.basic_details?.point_of_contact && ownerExist.address && ownerExist.company_details && ownerExist.authorised && ownerExist.bank_details && ownerExist.is_form_submitted == 'true') ? true : false
+                }
+   
         
                 return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: { token, ownerExist , userWithPermission} }));
             }
@@ -266,7 +272,7 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
 
 
 
-            if (!user || !ownerExist) {
+            if (!ownerExist) {
     
                 // checking user in master user collection
                 const isUserAlreadyExist = await MasterUser.findOne({mobile:userInput.trim()});
@@ -318,6 +324,11 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                     secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
                     maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
                 });
+
+                ownerExist = {...JSON.parse(JSON.stringify(ownerExist)),
+                    onboarding: (ownerExist?.basic_details?.distiller_details?.organization_name && ownerExist?.basic_details?.point_of_contact && ownerExist.address && ownerExist.company_details && ownerExist.authorised && ownerExist.bank_details && ownerExist.is_form_submitted == 'true') ? true : false
+                }
+   
         
                 return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist , masterUserCreated} }));
     
