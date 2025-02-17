@@ -243,7 +243,7 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                      ownerExist = await Distiller.findOne(query)
                 }
                 else{ 
-                    ownerExist = await wareHousev2.findOne({_id: user.portalId._id})
+                    ownerExist = await Distiller.findOne({_id: user.portalId._id})
                 }
     
     
