@@ -39,7 +39,7 @@ const SLASchema = new mongoose.Schema({
         state: { type: String, trim: true, required: true },
         district: { type: String, trim: true, required: true },
         city: { type: String, trim: true, required: true },
-        country: { type: String, trim: true, required: true },
+        country: { type: String, trim: true,  },
     },
     operational_address: {
         line1: { type: String, trim: true, required: true },
@@ -48,7 +48,7 @@ const SLASchema = new mongoose.Schema({
         state: { type: String, trim: true, required: true },
         district: { type: String, trim: true, required: true },
         city: { type: String, trim: true, required: true },
-        country: { type: String, trim: true, required: true },
+        country: { type: String, trim: true},
     },
     company_details: {
         registration_number: { type: String, trim: true, required: true },
@@ -74,21 +74,21 @@ const SLASchema = new mongoose.Schema({
     bank_details: {
         bank_name: { type: String, trim: true, required: true },
         branch_name: { type: String, trim: true, required: true },
-        bank_name: { type: String, trim: true, required: true },
+        account_holder_name: { type: String, trim: true, required: true },
         ifsc_code: { type: String, trim: true, required: true },
         account_number: { type: String, trim: true, required: true },
         proof: { type: String, trim: true, required: true },
     },
-    sla_id: { type: String, required: true, immutable: true },
+    // sla_id: { type: String, required: true, immutable: true },
     activity: {
         ..._commonKeys,
     },
     active: { type: Boolean, default: true },
     associatOrder_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers }],
     schemes: {
-        scheme: { type: mongoose.Schema.Types.ObjectId, ref: "Scheme", required: true },
-        cna: { type: mongoose.Schema.Types.ObjectId, ref: "HeadOffice", required: true },
-        branch: { type: mongoose.Schema.Types.ObjectId, ref: "Branch", required: true }
+        scheme: { type: mongoose.Schema.Types.ObjectId, ref: "Scheme" },
+        cna: { type: mongoose.Schema.Types.ObjectId, ref: "HeadOffice"},
+        branch: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" }
     },
 }, { timestamps: true });
 
