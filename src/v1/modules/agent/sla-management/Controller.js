@@ -28,13 +28,13 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
             "address.state",
             "address.district",
             "address.city",
-            "address.country",
+            // "address.country",
             "operational_address.line1",
             "operational_address.pinCode",
             "operational_address.state",
             "operational_address.district",
             "operational_address.city",
-            "operational_address.country",
+            // "operational_address.country",
             "company_details.registration_number",
             "company_details.cin_image",
             "company_details.pan_card",
@@ -50,10 +50,10 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
             "bank_details.ifsc_code",
             "bank_details.account_number",
             "bank_details.proof",
-            "sla_id",
-            "schemes.scheme",
-            "schemes.cna",
-            "schemes.branch"
+            // "sla_id",
+            // "schemes.scheme",
+            // "schemes.cna",
+            // "schemes.branch"
         ];
 
         const missingFields = requiredFields.filter(field => {
