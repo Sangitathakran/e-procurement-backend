@@ -46,6 +46,19 @@ module.exports.getHo = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: 'schemeassigns', // Name of the Branches collection in the database
+                    localField: '_id',
+                    foreignField: 'ho_id',
+                    as: 'schemeAssigned'
+                }
+            },
+            {
+                $addFields:{
+                    schemeAssignedCount: { $size: '$schemeAssigned' }
+                }
+            },
+            {
                 ...(paginate == 1 && {
                     $project: {
                         _id: 1,
@@ -61,6 +74,7 @@ module.exports.getHo = async (req, res) => {
                         head_office_code: 1,
                         active: 1,
                         address: 1,
+                        schemeAssignedCount:1,
                         createdAt: 1,
                         updatedAt: 1
                     }
