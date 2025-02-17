@@ -1107,8 +1107,8 @@ module.exports.batchMarkDelivered = async (req, res) => {
         // }
         
         
-        record.payement_approval_at = new Date();
-        record.payment_approve_by = user_id;
+        // record.payement_approval_at = new Date();
+        // record.payment_approve_by = user_id;
         await record.save();
 
 
