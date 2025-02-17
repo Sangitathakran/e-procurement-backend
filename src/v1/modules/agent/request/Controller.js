@@ -87,16 +87,16 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
         'basic_details.associate_details.email': { $exists: true }
     }).select('basic_details.associate_details.email basic_details.associate_details.associate_name');
 
-    await Promise.all(
-        users.map(user => {
-            const { email, associate_name } = user.basic_details.associate_details;
-            return emailService.sendProposedQuantityEmail({
-                ...requestData,
-                email,
-                associate_name: associate_name
-            });
-        })
-    );
+    // await Promise.all(
+    //     users.map(user => {
+    //         const { email, associate_name } = user.basic_details.associate_details;
+    //         return emailService.sendProposedQuantityEmail({
+    //             ...requestData,
+    //             email,
+    //             associate_name: associate_name
+    //         });
+    //     })
+    // );
 
     const branchData = await Branches.findOne({ _id: branch_id });
 
