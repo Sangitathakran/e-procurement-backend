@@ -154,6 +154,7 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .skip(skip)
         .populate({ path: "branch_id", select: "_id branchName branchId" })
         .populate({ path: "warehouse_id", select: "addressDetails" })
+        // .populate({ path: "schemeId", select: "schemeName" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
     records.count = await RequestModel.countDocuments(query);
@@ -191,7 +192,6 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
             });
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("procurement") }))
-
         }
     } else {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
