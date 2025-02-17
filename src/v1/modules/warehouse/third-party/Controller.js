@@ -438,4 +438,167 @@ module.exports.listWarehouseDetails = async (req, res) => {
     }
 };
 
+module.exports.saveAgribidDetails = async (req, res) => {
+    try {
+        const { 
+            warehouseName, 
+            commodityName, 
+            capacityInQTL, 
+            procuredQtyInQTL, 
+            dispatchQtyInQTL, 
+            remainingQtyInQTL, 
+            warehouseAddress, 
+            state, 
+            district,
+            city,
+            villageName,
+            pinCode,
+            latitude,
+            longitude,
+            procurementPartner, 
+        } = req.body;
+        const {_id} = req.client;
+        const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, dispatchQtyInQTL,remainingQtyInQTL, warehouseAddress, state,district, city, villageName, pinCode, procurementPartner  };
+
+        for (const [key, value] of Object.entries(requiredFields)) {
+            if (!value) {
+                return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require(key.replace(/_/g, ' ')) }));
+            }
+        }
+
+        const capacityInMT = capacityInQTL ? capacityInQTL * 0.1 : 0;
+        const procuredQtyInMT = procuredQtyInQTL ? procuredQtyInQTL * 0.1 : 0;
+        const dispatchQtyInMT = dispatchQtyInQTL ? dispatchQtyInQTL * 0.1 : 0;
+        const remainingQtyInMT = remainingQtyInQTL ? remainingQtyInQTL * 0.1 : 0;
+
+        const warehouseData = new wareHouseDetails({
+            warehouseOwnerId : "67a9f35a617e73a4055c6614",
+            basicDetails: {
+                "warehouseName": warehouseName,
+                "warehouseCapacity": capacityInMT,
+                "quantityType": "MT",
+                "weighBridge": true,
+                "storageType": "Dry"
+            },
+            "addressDetails": {
+                "addressLine1": warehouseAddress,
+                "addressLine2": villageName,
+                "pincode": pinCode,
+                "city": city,
+                "tehsil": "Tehsil A",
+                "location_url": "https://maps.google.com/?q=28.7041,77.1025",
+                "lat": "28.7041",
+                "long": "77.1025",
+                "state": {
+                    "state_name": state,
+                    "lat": "28.7041",
+                    "long": "77.1025",
+                    "locationUrl": "https://maps.google.com/?q=28.7041,77.1025"
+                },
+                "district": {
+                    "district_name": district,
+                    "lat": "28.7041",
+                    "long": "77.1025",
+                    "locationUrl": "https://maps.google.com/?q=28.7041,77.1025"
+                }
+            },
+            "inventory": {
+                "stock": 2000,
+                "requiredStock": 500,
+                "warehouse_timing": "9 AM - 6 PM"
+            },
+            "documents": {
+                "licenseNumber": "LIC123456",
+                "insuranceNumber": "INS789101",
+                "insurancePhoto": "https://example.com/insurance.jpg",
+                "ownershipType": "Owner",
+                "ownershipProof": "https://example.com/ownership_proof.jpg"
+            },
+            "authorizedPerson": {
+                "name": "Rajesh Kumar",
+                "designation": "Manager",
+                "mobile": "9876543210",
+                "email": "rajesh.kumar@example.com",
+                "aadharNumber": "123412341234",
+                "aadhar_back": "https://example.com/aadhar_back.jpg",
+                "aadhar_front": "https://example.com/aadhar_front.jpg",
+                "panNumber": "ABCDE1234F",
+                "panImage": "https://example.com/pan.jpg",
+                "pointOfContactSame": false,
+                "pointOfContact": {
+                  "name": "Suresh Gupta",
+                  "designation": "Assistant Manager",
+                  "mobileNumber": "9123456789",
+                  "email": "suresh.gupta@example.com",
+                  "aadharNumber": "432143214321",
+                  "aadhar_back": "https://example.com/poc_aadhar_back.jpg",
+                  "aadhar_front": "https://example.com/poc_aadhar_front.jpg",
+                  "panNumber": "FGHIJ5678K",
+                  "panImage": "https://example.com/poc_pan.jpg"
+                }
+            },
+            "bankDetails": {
+                "bankName": "HDFC Bank",
+                "branchName": "Connaught Place",
+                "accountHolderName": "Rajesh Kumar",
+                "accountNumber": "123456789012",
+                "ifscCode": "HDFC0000123",
+                "passbookProof": "https://example.com/passbook.jpg"
+            },
+            "servicePricing": [
+                {
+                  "area": 1000,
+                  "unit": "Sq. Ft.",
+                  "price": 5000
+                }
+            ],
+            procurement_partner : procurementPartner,
+            third_party_client : _id
+        });
+        const savedWarehouse = await warehouseData.save();
+
+        const externalBatchData = new ExternalBatch({ 
+            batchName : "Test Batch", 
+            associate_name : "RajKumar", 
+            procurementCenter : "Center A", 
+            inward_quantity: procuredQtyInMT || 0,
+            commodity : 'Maize',
+            warehousedetails_id : savedWarehouse._id,
+            remaining_quantity : remainingQtyInMT,
+            third_party_client : _id
+        });
+        await externalBatchData.save();
+        
+        const orderData = {
+            commodity : commodityName,
+            quantity: dispatchQtyInMT || 0,
+            external_batch_id : externalBatchData._id,
+            warehousedetails_id : savedWarehouse._id,
+            third_party_client : _id,
+            basic_details: {
+                buyer_name: "Test Buyer",
+                email: "test@gmail.com",
+                phone: "+918789878987",
+                cin_number: "L12345DL2023PLC678901",
+                gst_number: "22AAAAA0000A1Z5",
+            },
+            address: {
+                "line1": "123, Warehouse Road",
+                "line2": "Near Industrial Area",
+                "state": "Maharashtra",
+                "district": "Pune",
+                "city": "Pune",
+                "tehsil": "Haveli",
+                "pinCode": "411001"
+            },
+        };
+
+        const newExternalOrder = new ExternalOrder(orderData);
+        const savedOrder = await newExternalOrder.save();
+        
+        return res.status(200).send(new serviceResponse({ message: _query.add('Warehouse Details'), data: savedWarehouse }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
 
