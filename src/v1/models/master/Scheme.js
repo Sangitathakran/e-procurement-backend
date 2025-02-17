@@ -10,7 +10,7 @@ const SchemeSchema = new mongoose.Schema(
     period: { type: String, enum: Object.values(_period), default: _period.currentYear },
     centralNodalAgency: { type: String, enum: Object.values(_centralNodalAgency), default: _centralNodalAgency.nodal1 },
     procurement: { type: Number, required: true },
-    commodity_id:{
+    commodity_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: _collectionName.Commodity,
       required: true,
@@ -18,7 +18,7 @@ const SchemeSchema = new mongoose.Schema(
     procurementDuration: { type: String, required: true },
     schemeApprovalLetter: { type: String },
     status: { type: String, enum: Object.values(_status), default: _status.active },
-     ..._commonKeys,
+    ..._commonKeys,
   },
   { timestamps: true }
 );
