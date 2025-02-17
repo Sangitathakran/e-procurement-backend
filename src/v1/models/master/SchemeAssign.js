@@ -6,8 +6,11 @@ const SchemeAssignSchema = new mongoose.Schema(
     {
         bo_id: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: _collectionName.Branch,
-            required: true,
+            ref: _collectionName.Branch
+        },
+        ho_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: _collectionName.HeadOffice
         },
         scheme_id: {
             type: mongoose.Schema.Types.ObjectId,
