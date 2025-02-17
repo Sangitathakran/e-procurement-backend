@@ -471,6 +471,10 @@ module.exports.saveAgribidDetails = async (req, res) => {
         const dispatchQtyInMT = dispatchQtyInQTL ? dispatchQtyInQTL * 0.1 : 0;
         const remainingQtyInMT = remainingQtyInQTL ? remainingQtyInQTL * 0.1 : 0;
 
+        if (procuredQtyInQTL > capacityInQTL) {
+            return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message:"Procured Quantity must be less than or equal to warehouse capacity." }] }));
+        }
+
         const warehouseData = new wareHouseDetails({
             warehouseOwnerId : "67a9f35a617e73a4055c6614",
             basicDetails: {
@@ -568,12 +572,127 @@ module.exports.saveAgribidDetails = async (req, res) => {
             third_party_client : _id
         });
         await externalBatchData.save();
+
+        const batchExists = await ExternalBatch.findById(externalBatchData._id);
+        if (!batchExists) {
+            return res.status(404).json(new serviceResponse({
+                status: 404,
+                message: "External Batch not found"
+            }));
+        }
+        
+        batchExists.outward_quantity += dispatchQtyInMT;
+        batchExists.remaining_quantity = batchExists.inward_quantity - batchExists.outward_quantity;
+        await batchExists.save();
+        
+        const orderData = {
+            commodity : commodityName,
+            quantity: dispatchQtyInMT,
+            external_batch_id : externalBatchData._id,
+            warehousedetails_id : savedWarehouse._id,
+            third_party_client : _id,
+            basic_details: {
+                buyer_name: "Test Buyer",
+                email: "test@gmail.com",
+                phone: "+918789878987",
+                cin_number: "L12345DL2023PLC678901",
+                gst_number: "22AAAAA0000A1Z5",
+            },
+            address: {
+                "line1": "123, Warehouse Road",
+                "line2": "Near Industrial Area",
+                "state": "Maharashtra",
+                "district": "Pune",
+                "city": "Pune",
+                "tehsil": "Haveli",
+                "pinCode": "411001"
+            },
+        };
+
+        const newExternalOrder = new ExternalOrder(orderData);
+        const savedOrder = await newExternalOrder.save();
+        
+        return res.status(200).send(new serviceResponse({ message: _query.add('Warehouse Details'), data: savedWarehouse }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.updateAgribidDetails = async (req, res) => {
+    try {
+        const { 
+            warehouseName, 
+            commodityName, 
+            capacityInQTL, 
+            procuredQtyInQTL, 
+            dispatchQtyInQTL, 
+            remainingQtyInQTL, 
+            warehouseAddress, 
+            state, 
+            district,
+            city,
+            villageName,
+            pinCode,
+            latitude,
+            longitude,
+            procurementPartner, 
+            external_batch_id,
+        } = req.body;
+        const {_id} = req.client;
+        const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, dispatchQtyInQTL,remainingQtyInQTL, warehouseAddress, state,district, city, villageName, pinCode, procurementPartner, external_batch_id  };
+
+        for (const [key, value] of Object.entries(requiredFields)) {
+            if (!value) {
+                return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require(key.replace(/_/g, ' ')) }));
+            }
+        }
+
+        const capacityInMT = capacityInQTL ? capacityInQTL * 0.1 : 0;
+        const procuredQtyInMT = procuredQtyInQTL ? procuredQtyInQTL * 0.1 : 0;
+        const dispatchQtyInMT = dispatchQtyInQTL ? dispatchQtyInQTL * 0.1 : 0;
+        const remainingQtyInMT = remainingQtyInQTL ? remainingQtyInQTL * 0.1 : 0;
+
+        const batchExists = await ExternalBatch.findById(external_batch_id);
+        
+        if (!batchExists) {
+            return res.status(404).json(new serviceResponse({
+                status: 404,
+                message: "External Batch not found"
+            }));
+        }
+        
+        let errors = [];
+
+        if (dispatchQtyInMT <= 0) {
+            errors.push("Quantity must be greater than zero");
+        }
+        if (batchExists.remaining_quantity <= 0) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "No remaining quantity available for this batch"
+            }));
+        }
+        if (dispatchQtyInMT > batchExists.remaining_quantity) {
+            errors.push("Quantity must be less than remaining_quantity");
+        }
+        if (errors.length > 0) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: errors.join(", ") 
+            }));
+        }
+        // console.log('batchExists',batchExists);return false;
+        batchExists.outward_quantity += dispatchQtyInMT;
+        batchExists.remaining_quantity = batchExists.inward_quantity - batchExists.outward_quantity;
+        await batchExists.save();
+
+
         
         const orderData = {
             commodity : commodityName,
             quantity: dispatchQtyInMT || 0,
-            external_batch_id : externalBatchData._id,
-            warehousedetails_id : savedWarehouse._id,
+            external_batch_id : external_batch_id,
+            warehousedetails_id : batchExists.warehousedetails_id,
             third_party_client : _id,
             basic_details: {
                 buyer_name: "Test Buyer",
