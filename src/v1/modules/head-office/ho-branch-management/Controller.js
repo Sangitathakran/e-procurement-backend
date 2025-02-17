@@ -391,6 +391,13 @@ module.exports.branchList = async (req, res) => {
       branches = await Branches.find(searchQuery).sort({ createdAt: -1 });
     }
 
+    // Fetch the assigned scheme count for each branch and attach it to the branch object
+    const assignedSchemeCounts = await Promise.all(
+      branches.map(async (branch) => {
+        const count = await SchemeAssign.countDocuments({ bo_id: branch._id });
+        return { ...branch.toObject(), assignedSchemeCount: count }; // Convert Mongoose document to plain object
+      })
+    );
     // Calculate total pages for pagination
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -400,11 +407,12 @@ module.exports.branchList = async (req, res) => {
         status: 200,
         message: "Branches fetched successfully",
         data: {
-          branches: branches,
+          // branches: branches,
+          branches: assignedSchemeCounts,
           totalCount: totalCount,
           totalPages: totalPages,
           limit: effectiveLimit,
-          page: parseInt(page)
+          page: parseInt(page),
         },
       })
     );
@@ -450,7 +458,7 @@ module.exports.schemeList = async (req, res) => {
   const { bo_id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
   // Initialize matchQuery
-  let matchQuery = { bo_id:new mongoose.Types.ObjectId(bo_id) };
+  let matchQuery = { bo_id: new mongoose.Types.ObjectId(bo_id) };
 
   // Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(bo_id)) {
@@ -508,7 +516,7 @@ module.exports.schemeList = async (req, res) => {
   } else {
     aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
   }
-  
+
   const rows = await SchemeAssign.aggregate(aggregationPipeline);
   const countPipeline = [
     { $match: matchQuery },
