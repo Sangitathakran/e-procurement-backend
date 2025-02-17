@@ -40,6 +40,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       lat: { type: String },
       long: { type: String },
       locationUrl: { type: String },
+      locationDetails: { type: Object },
     },
     paymentInfo: {
       totalAmount: { type: Number, required: true }, // Assume this is calculated during the first step

@@ -23,7 +23,7 @@ const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
-
+const { mongoose } = require("mongoose");
 
 module.exports.importBranches = async (req, res) => {
   try {
@@ -447,28 +447,54 @@ module.exports.toggleBranchStatus = async (req, res) => {
 };
 
 module.exports.schemeList = async (req, res) => {
-  const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+  const { bo_id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
   // Initialize matchQuery
-  let matchQuery = {
-    status: _status.active,
-    deletedAt: null
-  };
-  if (search) {
-    matchQuery.schemeId = { $regex: search, $options: "i" };
+  let matchQuery = { bo_id:new mongoose.Types.ObjectId(bo_id) };
+
+  // Validate ObjectId
+  if (!mongoose.Types.ObjectId.isValid(bo_id)) {
+    return res.status(400).json({ message: "Invalid item ID" });
   }
 
   let aggregationPipeline = [
     { $match: matchQuery },
     {
+      $lookup: {
+        from: 'branches',
+        localField: 'bo_id',
+        foreignField: '_id',
+        as: 'branchDetails',
+      },
+    },
+    { $unwind: { path: '$branchDetails', preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: "schemes", // Adjust this to your actual collection name for branches
+        localField: "scheme_id",
+        foreignField: "_id",
+        as: "schemeDetails"
+      }
+    },
+    { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+    {
       $project: {
         _id: 1,
-        schemeId: 1,
-        schemeName: 1,
-        Schemecommodity: 1,
-        season: 1,
-        period: 1,
-        procurement: 1,
+        schemeId: '$schemeDetails.schemeId',
+        // schemeName: '$schemeDetails.schemeName',
+        schemeName: {
+          $concat: [
+            "$schemeName", "",
+            { $ifNull: ["$commodityDetails.name", ""] }, "",
+            { $ifNull: ["$season", ""] }, "",
+            { $ifNull: ["$period", ""] }
+          ]
+        },
+        // branchName: '$branchDetails.branchName',
+        // branchLocation: '$branchDetails.state',
+        scheme_id: 1,
+        // bo_id: 1,
+        assignQty: 1,
         status: 1
       }
     }
@@ -482,12 +508,13 @@ module.exports.schemeList = async (req, res) => {
   } else {
     aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
   }
-  const rows = await Scheme.aggregate(aggregationPipeline);
+  
+  const rows = await SchemeAssign.aggregate(aggregationPipeline);
   const countPipeline = [
     { $match: matchQuery },
     { $count: "total" }
   ];
-  const countResult = await Scheme.aggregate(countPipeline);
+  const countResult = await SchemeAssign.aggregate(countPipeline);
   const count = countResult[0]?.total || 0;
   const records = { rows, count };
   if (paginate == 1) {
@@ -499,11 +526,8 @@ module.exports.schemeList = async (req, res) => {
     const record = rows.map((item) => {
       return {
         "Scheme Id": item?.schemeId || "NA",
-        "scheme Name": item?.schemeName || "NA",
-        "SchemeCommodity": item?.commodity || "NA",
-        "season": item?.season || "NA",
-        "period": item?.period || "NA",
-        "procurement": item?.procurement || "NA"
+        "BO ID": item?.schemeName || "NA",
+        "assign Qty": item?.assignQty || "NA",
       };
     });
     if (record.length > 0) {
@@ -513,37 +537,44 @@ module.exports.schemeList = async (req, res) => {
         worksheetName: `Scheme-record`
       });
     } else {
-      return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Scheme") }));
+      return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Scheme Assign") }));
     }
   } else {
-    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme") }));
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme Assign") }));
   }
 }
 
 module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
   try {
-    const {
-      scheme_id,
-      bo_id,
-      assignQty
-    } = req.body;
+    const { schemeData, bo_id } = req.body;
 
-    const record = await SchemeAssign.create({
-      scheme_id,
-      bo_id,
-      assignQty
-    });
+    // Validate input
+    if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
+      return res.status(400).send(new serviceResponse({
+        status: 400,
+        message: "Invalid request. 'bo_id' and 'schemeData' must be provided.",
+      }));
+    }
 
-    return res
-      .status(200)
-      .send(
-        new serviceResponse({
-          status: 200,
-          data: record,
-          message: _response_message.created("Scheme Assign"),
-        })
-      );
+    // Prepare data for bulk insert
+    const recordsToInsert = schemeData.map(({ _id, qty }) => ({
+      bo_id,
+      scheme_id: _id, // Assuming _id refers to scheme_id
+      assignQty: qty,
+    }));
+
+    // Use Mongoose's insertMany to insert multiple documents
+    const records = await SchemeAssign.insertMany(recordsToInsert);
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.created("Scheme Assign"),
+      })
+    );
   } catch (error) {
     _handleCatchErrors(error, res);
   }
 });
+

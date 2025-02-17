@@ -8,9 +8,10 @@ const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _status } = require("@src/v1/utils/constants");
+const mongoose = require('mongoose');
 
 module.exports.createCommodity = asyncErrorHandler(async (req, res) => {
-    const { name, commodityType, unit } = req.body;
+    const { name, commodityStandard_id, unit } = req.body;
     let randomVal;
     // Generate a sequential order number
     const lastOrder = await Commodity.findOne().sort({ createdAt: -1 }).select("commodityId").lean();
@@ -25,7 +26,7 @@ module.exports.createCommodity = asyncErrorHandler(async (req, res) => {
     const record = await Commodity.create({
         commodityId: randomVal,
         name,
-        commodityType,
+        commodityStandard_id,
         unit
     });
     return res
@@ -52,12 +53,22 @@ module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
     let aggregationPipeline = [
         { $match: matchQuery },
         {
+            $lookup: {
+                from: 'commoditystandards',
+                localField: 'commodityStandard_id',
+                foreignField: '_id',
+                as: 'standardDetails',
+            },
+        },
+        { $unwind: { path: '$standardDetails', preserveNullAndEmptyArrays: true } },
+        {
             $project: {
                 _id: 1,
                 commodityId: 1,
                 name: 1,
                 status: 1,
-                commodityType: 1,
+                commodityStandard_id: 1,
+                "standardName": '$standardDetails.subName',
                 status: 1
             }
         }
@@ -141,7 +152,7 @@ module.exports.getCommodityById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateCommodity = asyncErrorHandler(async (req, res) => {
     try {
-        const { id, name, commodityType } = req.body;
+        const { id, name, commodityStandard_id } = req.body;
         const record = await Commodity.findOne({ _id: id, deletedAt: null })
         if (!record) {
             return res
@@ -154,7 +165,7 @@ module.exports.updateCommodity = asyncErrorHandler(async (req, res) => {
                 );
         }
         record.name = name || record.name;
-        record.commodityType = commodityType || record.commodityType;
+        record.commodityStandard_id = commodityStandard_id || record.commodityStandard_id;
         await record.save();
         return res
             .status(200)
@@ -227,7 +238,8 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
         deletedAt: null
     };
 
-    const records = await commodityStandard.find(query).select({"name":1}).sort({ createdAt: -1 }).distinct('name').lean();
+    const records = await commodityStandard.find(query)
+    // .select({"name":1}).sort({ createdAt: -1 }).distinct('name').lean();
 
     if (!records) {
         return res
