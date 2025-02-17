@@ -39,7 +39,7 @@ const SLASchema = new mongoose.Schema({
         state: { type: String, trim: true, required: true },
         district: { type: String, trim: true, required: true },
         city: { type: String, trim: true, required: true },
-        country: { type: String, trim: true,  },
+        country: { type: String, trim: true, },
     },
     operational_address: {
         line1: { type: String, trim: true, required: true },
@@ -48,7 +48,7 @@ const SLASchema = new mongoose.Schema({
         state: { type: String, trim: true, required: true },
         district: { type: String, trim: true, required: true },
         city: { type: String, trim: true, required: true },
-        country: { type: String, trim: true},
+        country: { type: String, trim: true },
     },
     company_details: {
         registration_number: { type: String, trim: true, required: true },
@@ -79,7 +79,6 @@ const SLASchema = new mongoose.Schema({
         account_number: { type: String, trim: true, required: true },
         proof: { type: String, trim: true, required: true },
     },
-    // sla_id: { type: String, required: true, immutable: true },
     activity: {
         ..._commonKeys,
     },
@@ -87,9 +86,33 @@ const SLASchema = new mongoose.Schema({
     associatOrder_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers }],
     schemes: {
         scheme: { type: mongoose.Schema.Types.ObjectId, ref: "Scheme" },
-        cna: { type: mongoose.Schema.Types.ObjectId, ref: "HeadOffice"},
+        cna: { type: mongoose.Schema.Types.ObjectId, ref: "HeadOffice" },
         branch: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" }
     },
+    sla_id: { type: String, unique: true },
 }, { timestamps: true });
+
+SLASchema.pre('save', async function (next) {
+    if (this.isNew && !this.sla_id) {
+        try {
+            const SLAManagement = mongoose.model(_collectionName.SLA, SLASchema);
+
+            const lastSLA = await SLAManagement.findOne().sort({ createdAt: -1 });
+            let nextSLAId = 'SLA00001';
+
+            if (lastSLA && lastSLA.sla_id) {
+                const lastCodeNumber = parseInt(lastSLA.sla_id.slice(3), 10); // Extract numeric part
+                nextSLAId = 'SLA' + String(lastCodeNumber + 1).padStart(5, '0');
+            }
+
+            this.sla_id = nextSLAId;
+            next();
+        } catch (err) {
+            next(err);
+        }
+    } else {
+        next();
+    }
+});
 
 module.exports = mongoose.model(_collectionName.SLA, SLASchema)
