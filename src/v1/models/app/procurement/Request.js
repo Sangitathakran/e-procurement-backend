@@ -19,7 +19,7 @@ const RequestSchema = new mongoose.Schema({
         commodityImage: { type: String, required: true },
         grade: { type: String, required: true },
         quantity: { type: Number, required: true },
-        schemeId: {type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Scheme, default : 'Open'},
+        schemeId: {type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Scheme},
         season: { type: String },
         period: { type: Date }
     },
