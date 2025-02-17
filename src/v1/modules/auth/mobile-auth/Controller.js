@@ -330,7 +330,7 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                 }
    
         
-                return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist , masterUserCreated} }));
+                return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist , userWithPermission: masterUserCreated} }));
     
             }
 
