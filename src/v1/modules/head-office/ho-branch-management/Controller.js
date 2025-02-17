@@ -552,6 +552,7 @@ module.exports.schemeList = async (req, res) => {
   }
 }
 
+/*
 module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
   try {
     const { schemeData, bo_id } = req.body;
@@ -585,4 +586,72 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+*/
 
+module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
+  try {
+    const { schemeData, bo_id } = req.body;
+
+    // Validate input
+    if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
+      return res.status(400).send(new serviceResponse({
+        status: 400,
+        message: "Invalid request. 'bo_id' and 'schemeData' must be provided.",
+      }));
+    }
+
+    let updatedRecords = [];
+    let newRecords = [];
+
+    for (const { _id, qty } of schemeData) {
+      // Find the scheme and validate procurement limit
+      const scheme = await Scheme.findById(_id);
+      if (!scheme) {
+        return res.status(404).send(new serviceResponse({
+          status: 404,
+          message: `Scheme with ID ${_id} not found.`,
+        }));
+      }
+
+      if (qty > scheme.procurement) {
+        return res.status(400).send(new serviceResponse({
+          status: 400,
+          message: `${_id} Assigned quantity (${qty}) cannot exceed procurement limit (${scheme.procurement}) for scheme ${scheme.schemeName}.`,
+        }));
+      }
+
+      // Check if the record already exists in SchemeAssign
+      const existingRecord = await SchemeAssign.findOne({ ho_id, scheme_id: _id });
+
+      if (existingRecord) {
+        // Update existing record
+        existingRecord.assignQty = qty;
+        await existingRecord.save();
+        updatedRecords.push(existingRecord);
+      } else {
+        // Prepare new record for insertion
+        newRecords.push({
+          bo_id,
+          scheme_id: _id,
+          assignQty: qty,
+        });
+      }
+    }
+
+    // Bulk insert new records if there are any
+    if (newRecords.length > 0) {
+      const insertedRecords = await SchemeAssign.insertMany(newRecords);
+      updatedRecords = [...updatedRecords, ...insertedRecords];
+    }
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: updatedRecords,
+        message: _response_message.created("Scheme Assign Updated Successfully"),
+      })
+    );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
