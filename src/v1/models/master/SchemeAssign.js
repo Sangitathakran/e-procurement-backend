@@ -1,5 +1,5 @@
 const { _collectionName, _status} = require("@src/v1/utils/constants");
-
+const { _commonKeys } = require("@src/v1/utils/helpers/collection")
 const mongoose = require("mongoose");
 
 const SchemeAssignSchema = new mongoose.Schema(
@@ -16,6 +16,7 @@ const SchemeAssignSchema = new mongoose.Schema(
               },
         assignQty: { type: Number },
         status: { type: String, enum: Object.values(_status), default: _status.active },
+         ..._commonKeys,
     },
     { timestamps: true }
 );
