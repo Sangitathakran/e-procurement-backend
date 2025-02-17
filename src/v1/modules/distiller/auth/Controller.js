@@ -181,7 +181,7 @@ module.exports.saveDistillerDetails = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const userId = decode.data.user_id;
+        const userId = decode.data.organization_id;
         const distiller = await Distiller.findById(userId);
         if (!distiller) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
