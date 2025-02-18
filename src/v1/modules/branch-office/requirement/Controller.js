@@ -215,6 +215,18 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
             await Payment.insertMany(paymentRecords);
 
+            record.delivered.proof_of_delivery = proof_of_delivery;
+            record.delivered.weigh_bridge_slip = weigh_bridge_slip;
+            record.delivered.receiving_copy = receiving_copy;
+            record.delivered.truck_photo = truck_photo;
+            record.delivered.loaded_vehicle_weight = loaded_vehicle_weight;
+            record.delivered.tare_weight = tare_weight;
+            record.delivered.net_weight = net_weight;
+            record.delivered.delivered_at = new Date();
+            record.delivered.delivered_by = user_id;
+    
+            record.status = _batchStatus.delivered;
+            
             const subject = `QC Approved Notification for Batch ID ${record?.batchId} under order ID ${record?.req_id.reqNo}`;
             const body = `<p>  Dear ${record?.seller_id?.basic_details.associate_details.associate_name}, </p> <br/>
             <p> This is to inform that you Quality Control (QC) for the following batch has been successfully approved:</p> <br/> 

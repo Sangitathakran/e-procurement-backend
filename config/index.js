@@ -15,6 +15,8 @@ module.exports = {
     apiVersion: process.env.API_VERSION,
     // Default Secret Key For Auth Token
     JWT_SECRET_KEY: process.env.SECRET_KEY,
+    THIRD_PARTY_JWT_SECRET: process.env.THIRD_PARTY_JWT_SECRET,
+    THIRD_PARTY_API_KEY: process.env.THIRD_PARTY_API_KEY,
     connection_string: process.env.CONNECTION_STRING,
     platform_org: process.env.PLATFORM_ORG,
 
