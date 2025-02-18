@@ -11,6 +11,7 @@ const moment = require("moment");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { User } = require("@src/v1/models/app/auth/User");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 
 
 module.exports.batch = async (req, res) => {
@@ -118,8 +119,6 @@ module.exports.batch = async (req, res) => {
 
         const findwarehouseUser = await RequestModel.findOne({ _id: req_id });
 
-        const qty_value = handleDecimal(sumOfQtyDecimal) ;
-
         const batchCreated = await Batch.create({
             seller_id: user_id,
             req_id,
@@ -128,8 +127,7 @@ module.exports.batch = async (req, res) => {
             warehousedetails_id : findwarehouseUser.warehouse_id,
             farmerOrderIds: farmerData,
             procurementCenter_id,
-            qty: qty_value,  // Apply handleDecimal here
-            available_qty : qty_value ,
+            qty: handleDecimal(sumOfQtyDecimal),  // Apply handleDecimal here
             goodsPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice), // Apply handleDecimal here
             totalPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice) // Apply handleDecimal here
         });
@@ -460,3 +458,20 @@ module.exports.updateMarkReady = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+//warehouse list
+module.exports.warehouseList=async(req,res)=>{
+        try{
+           const warehouseList= await (await wareHouseDetails.find({}).select('basicDetails.warehouseName _id')).map(item=>({label:item.basicDetails.warehouseName,value:item._id}))
+          if(warehouseList.length>0){
+            return res.status(200).send(new serviceResponse({ status: 200, data: warehouseList, message: _response_message.found("warehouse list") }))
+          }else{
+            return res.status(200).send(new serviceResponse({
+                status: 404,
+                errors: [{ message: "no warehouse found" }]
+            }));
+          }
+        }catch(error){
+            _handleCatchErrors(error, res);
+        }
+}
