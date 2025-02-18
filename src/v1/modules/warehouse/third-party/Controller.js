@@ -461,9 +461,19 @@ module.exports.saveAgribidDetails = async (req, res) => {
         const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, dispatchQtyInQTL,remainingQtyInQTL, warehouseAddress, state,district, city, villageName, pinCode, procurementPartner  };
 
         for (const [key, value] of Object.entries(requiredFields)) {
-            if (!value) {
+            if (key !== "remainingQtyInQTL" && !value) {
                 return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require(key.replace(/_/g, ' ')) }));
             }
+        }
+        if (remainingQtyInQTL === null || remainingQtyInQTL === undefined || remainingQtyInQTL === '') {  
+            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('remaining quantity in QTL') }));
+        }
+        
+        if (capacityInQTL <= 0 || procuredQtyInQTL <= 0 || dispatchQtyInQTL <= 0) {
+            return res.status(400).send(new serviceResponse({ 
+                status: 400, 
+                message: "Capacity, Procured Quantity, and Dispatch Quantity must be greater than zero." 
+            }));
         }
 
         const capacityInMT = capacityInQTL ? capacityInQTL * 0.1 : 0;
@@ -639,7 +649,7 @@ module.exports.updateAgribidDetails = async (req, res) => {
             external_batch_id,
         } = req.body;
         const {_id} = req.client;
-        const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, dispatchQtyInQTL,remainingQtyInQTL, warehouseAddress, state,district, city, villageName, pinCode, procurementPartner, external_batch_id  };
+        const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, dispatchQtyInQTL, warehouseAddress, state,district, city, villageName, pinCode, procurementPartner, external_batch_id  };
 
         for (const [key, value] of Object.entries(requiredFields)) {
             if (!value) {
@@ -715,7 +725,7 @@ module.exports.updateAgribidDetails = async (req, res) => {
         const newExternalOrder = new ExternalOrder(orderData);
         const savedOrder = await newExternalOrder.save();
         
-        return res.status(200).send(new serviceResponse({ message: _query.add('Warehouse Details'), data: savedWarehouse }));
+        return res.status(200).send(new serviceResponse({ message: _query.update('Updated'), data: savedOrder }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }
