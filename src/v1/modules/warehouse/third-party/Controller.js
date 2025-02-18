@@ -458,6 +458,15 @@ module.exports.saveAgribidDetails = async (req, res) => {
             procurementPartner, 
         } = req.body;
         const {_id} = req.client;
+
+        const existingWarehouse = await wareHouseDetails.findOne({ warehouseName });
+        if (existingWarehouse) {
+            return res.status(400).send(new serviceResponse({ 
+                status: 400, 
+                message: "Warehouse with this name already exists."
+            }));
+        }
+
         const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, dispatchQtyInQTL,remainingQtyInQTL, warehouseAddress, state,district, city, villageName, pinCode, procurementPartner  };
 
         for (const [key, value] of Object.entries(requiredFields)) {
