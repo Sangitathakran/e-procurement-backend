@@ -454,6 +454,7 @@ module.exports.toggleBranchStatus = async (req, res) => {
   }
 };
 
+
 module.exports.schemeList = async (req, res) => {
   const { bo_id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
@@ -552,42 +553,6 @@ module.exports.schemeList = async (req, res) => {
   }
 }
 
-/*
-module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
-  try {
-    const { schemeData, bo_id } = req.body;
-
-    // Validate input
-    if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
-      return res.status(400).send(new serviceResponse({
-        status: 400,
-        message: "Invalid request. 'bo_id' and 'schemeData' must be provided.",
-      }));
-    }
-
-    // Prepare data for bulk insert
-    const recordsToInsert = schemeData.map(({ _id, qty }) => ({
-      bo_id,
-      scheme_id: _id, // Assuming _id refers to scheme_id
-      assignQty: qty,
-    }));
-
-    // Use Mongoose's insertMany to insert multiple documents
-    const records = await SchemeAssign.insertMany(recordsToInsert);
-
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.created("Scheme Assign"),
-      })
-    );
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
-});
-*/
-
 module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
   try {
     const { schemeData, bo_id } = req.body;
@@ -655,3 +620,4 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
