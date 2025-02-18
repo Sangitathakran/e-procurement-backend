@@ -61,7 +61,7 @@ module.exports.createScheme = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getScheme = asyncErrorHandler(async (req, res) => {
-  const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+  const { page = 1, limit, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
   // Initialize matchQuery
   let matchQuery = {
