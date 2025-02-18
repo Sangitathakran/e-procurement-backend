@@ -8,6 +8,7 @@ const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _status } = require("@src/v1/utils/constants");
+const mongoose = require('mongoose');
 
 module.exports.createCommodity = asyncErrorHandler(async (req, res) => {
     const { name, commodityStandard_id, unit } = req.body;
