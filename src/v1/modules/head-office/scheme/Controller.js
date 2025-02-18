@@ -98,8 +98,8 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
   let matchQuery = { scheme_id: scheme_id };
 
   // Validate ObjectId
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ message: "Invalid item ID" });
+  if (!mongoose.Types.ObjectId.isValid(scheme_id)) {
+    return res.status(400).json({ message: "Invalid scheme ID" });
   }
 
   let aggregationPipeline = [
