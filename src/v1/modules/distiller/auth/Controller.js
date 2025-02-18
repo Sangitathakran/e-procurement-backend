@@ -1187,7 +1187,7 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                         user_type: _userType.distiller,
                         is_mobile_verified: false,
                         is_email_verified: false,
-                        is_approved: _userStatus.pending,
+                        is_approved: _userStatus.approved,
                         is_form_submitted: false,
                         is_welcome_email_send: false,
                         is_sms_send: false,
