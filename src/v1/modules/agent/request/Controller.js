@@ -154,7 +154,7 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .skip(skip)
         .populate({ path: "branch_id", select: "_id branchName branchId" })
         .populate({ path: "warehouse_id", select: "addressDetails" })
-        // .populate({ path: "schemeId", select: "schemeName" })
+        .populate({ path: "product.schemeId", select: "schemeName" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
     records.count = await RequestModel.countDocuments(query);
@@ -503,7 +503,7 @@ module.exports.getProcurementById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
 
-    const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, warehouse_id, commodity_image, schemeId, season, period } = req.body;
+    const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, warehouse_id, commodity_image, schemeId, season, period  } = req.body;
 
     const record = await RequestModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
 
