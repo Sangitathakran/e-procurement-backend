@@ -57,7 +57,7 @@ const _collectionName = {
     ExternalOrder: "ExternalOrder",
     Scheme: "Scheme",
     SLA: "SLA",
-    commodityStandard:"commodityStandard",
+    commodityStandard: "commodityStandard",
     SchemeAssign: "SchemeAssign"
 
 }
@@ -533,14 +533,22 @@ const _period = {
     currentYear: '2025',
     previourYear: "2024",
     range: '2024-2025',
-    range1:'2024-2025',
-    range2:'2025-2026'
+    range1: '2024-2025',
+    range2: '2025-2026'
 }
 
 const _centralNodalAgency = {
     nodal1: 'nodal1',
     nodal2: "nodal2",
     nodal3: 'nodal3'
+}
+
+const _schemeName = {
+    PSS: 'PSS',
+    PSP: "PSP",
+    PDPS: 'PDPS',
+    PPPS: "PPPS",
+    Open: "Open"
 }
 
 module.exports = {
@@ -612,5 +620,6 @@ module.exports = {
     _qualityType,
     _season,
     _period,
-    _centralNodalAgency
+    _centralNodalAgency,
+    _schemeName
 }
