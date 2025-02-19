@@ -24,8 +24,8 @@ const schema = Joi.object({
     total_accepted_bag: Joi.number().min(0).required(),
     quantity_loss: Joi.number().min(0).allow(''), // Allows empty string or a number
     bag_loss: Joi.number().min(0).allow(''),
-    quantity_gain: Joi.number().min(0).allow(''),
-    bag_gain: Joi.number().min(0).allow(''),
+    // quantity_gain: Joi.number().min(0).allow(''),
+    // bag_gain: Joi.number().min(0).allow(''),
     
     whr_date: Joi.date().iso().required(), // Ensures ISO format date
     whr_number: Joi.string().trim().required(),
