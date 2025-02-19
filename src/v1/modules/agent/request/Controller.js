@@ -63,7 +63,7 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
             schemeId,
             commodity_id,
             standard,
-            substandard            
+            substandard
         },
         address: {
             deliveryLocation,
@@ -731,5 +731,98 @@ module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
         }
     } else {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Commodity") }));
+    }
+});
+
+module.exports.schemeCommodity = asyncErrorHandler(async (req, res) => {
+    const { scheme_id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+
+    // Initialize matchQuery
+    let matchQuery = {
+        _id: new mongoose.Types.ObjectId(scheme_id),
+        deletedAt: null
+    };
+    if (search) {
+        matchQuery.schemeId = { $regex: search, $options: "i" };
+    }
+    let aggregationPipeline = [
+        { $match: matchQuery },
+        {
+            $lookup: {
+                from: 'commodities',
+                localField: 'commodity_id',
+                foreignField: '_id',
+                as: 'commodityDetails',
+            },
+        },
+        { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+        {
+            $lookup: {
+                from: 'commoditystandards',
+                localField: 'commodityDetails.commodityStandard_id',
+                foreignField: '_id',
+                as: 'commoditystandardsDetails',
+            },
+        },
+        { $unwind: { path: '$commoditystandardsDetails', preserveNullAndEmptyArrays: true } },
+        {
+            $project: {
+                _id: 1,
+                // schemeId: 1,
+                schemeName: 1,
+                Schemecommodity: 1,
+                procurement: 1,
+                comodity_id: "$commodityDetails._id",
+                commodityName: "$commodityDetails.name",
+                standard: "$commoditystandardsDetails.name",
+                subStandard: "$commoditystandardsDetails.subName"
+            }
+        }
+    ];
+    if (paginate == 1) {
+        aggregationPipeline.push(
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) }
+        );
+    } else {
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
+    }
+    console.log(aggregationPipeline);
+    const rows = await Scheme.aggregate(aggregationPipeline);
+    const countPipeline = [
+        { $match: matchQuery },
+        { $count: "total" }
+    ];
+    const countResult = await Scheme.aggregate(countPipeline);
+    const count = countResult[0]?.total || 0;
+    const records = { rows, count };
+    if (paginate == 1) {
+        records.page = parseInt(page);
+        records.limit = parseInt(limit);
+        records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
+    }
+    if (isExport == 1) {
+        const record = rows.map((item) => {
+            return {
+                "Scheme Id": item?.schemeId || "NA",
+                "scheme Name": item?.schemeName || "NA",
+                "SchemeCommodity": item?.commodity || "NA",
+                "season": item?.season || "NA",
+                "period": item?.period || "NA",
+                "procurement": item?.procurement || "NA"
+            };
+        });
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Scheme-record.xlsx`,
+                worksheetName: `Scheme-record`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Scheme") }));
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme") }));
     }
 });
