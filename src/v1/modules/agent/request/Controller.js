@@ -503,7 +503,7 @@ module.exports.getProcurementById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
 
-    const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, warehouse_id, commodity_image } = req.body;
+    const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, warehouse_id, commodity_image, schemeId, season, period } = req.body;
 
     const record = await RequestModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
 
@@ -527,6 +527,9 @@ module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
 
     record.product.name = name;
     record.product.grade = grade;
+    record.product.schemeId = schemeId;
+    record.product.season = season;
+    record.product.period = period;
     record.product.quantity = handleDecimal(quantity);
     record.quotedPrice = handleDecimal(msp);
     record.deliveryDate = delivery_date;
