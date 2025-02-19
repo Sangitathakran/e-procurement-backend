@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _userType, _trader_type } = require('@src/v1/utils/constants');
+const { _collectionName, _status, _userType, _trader_type } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const SLASchema = new mongoose.Schema({
@@ -82,7 +82,8 @@ const SLASchema = new mongoose.Schema({
     activity: {
         ..._commonKeys,
     },
-    active: { type: Boolean, default: true },
+    // active: { type: Boolean, default: true },
+    status: { type: String, enum: Object.values(_status), default: _status.active },
     associatOrder_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers }],
     schemes: {
         scheme: { type: mongoose.Schema.Types.ObjectId, ref: "Scheme" },

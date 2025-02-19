@@ -135,7 +135,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
                             "$address.country"
                         ]
                     },
-                    status: "$active",
+                    status: "$status",
                     poc: "$point_of_contact.name",
                     branch: "$schemes.branch"
                 }
@@ -275,7 +275,7 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
                 "basic_details.name": 1,
                 associatOrder_id: 1,
                 address: 1,
-                active: 1
+                status: 1
             }
         );
 
@@ -293,7 +293,7 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
             sla_name: sla.basic_details.name,
             accociate_count: sla.associatOrder_id.length,
             address: `${sla.address.line1}, ${sla.address.city}, ${sla.address.state}, ${sla.address.country}`,
-            status: sla.active
+            status: sla.status
         };
 
         return res.status(200).json(new serviceResponse({
@@ -333,7 +333,7 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
         // Find and update SLA status
         const updatedSLA = await SLAManagement.findOneAndUpdate(
             { $or: [{ sla_id }, { _id: sla_id }] },
-            { $set: { active: status } },
+            { $set: { status: status } },
             { new: true }
         );
 
