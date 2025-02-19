@@ -12,6 +12,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
         const data = req.body;
 
         // Required fields validation
+
         const requiredFields = [
             "basic_details.name",
             "basic_details.email",
@@ -409,9 +410,25 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
 module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
     try {
-        const { scheme_id, bo_id, sla_id } = req.body;
+        const { schemeData, cna_id, bo_id, sla_id } = req.body;
 
-        const records = await SchemeAssign.create({ bo_id, scheme_id, sla_id })
+        // Validate input
+        if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: "Invalid request. 'bo_id' and 'schemeData' must be provided.",
+            }));
+        }
+
+        // Prepare data for bulk insert
+        const recordsToInsert = schemeData.map(({ _id, qty }) => ({
+            bo_id, ho_id:cna_id, sla_id,
+            scheme_id: _id, // Assuming _id refers to scheme_id
+            assignQty: qty,
+        }));
+
+        // Use Mongoose's insertMany to insert multiple documents
+        const records = await SchemeAssign.insertMany(recordsToInsert);
 
         return res.status(200).send(
             new serviceResponse({
@@ -518,3 +535,4 @@ module.exports.getAssignedScheme = async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme Assign") }));
     }
 }
+

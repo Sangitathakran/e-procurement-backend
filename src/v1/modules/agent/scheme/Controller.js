@@ -3,6 +3,7 @@ const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Commodity } = require("@src/v1/models/master/Commodity");
 const { Scheme } = require("@src/v1/models/master/Scheme");
+const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
@@ -311,4 +312,145 @@ module.exports.statusUpdateScheme = asyncErrorHandler(async (req, res) => {
   } catch (error) {
     _handleCatchErrors(error, res);
   }
+});
+
+module.exports.schemeSummary = asyncErrorHandler(async (req, res) => {
+  const { scheme_id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+
+  // Initialize matchQuery
+  let matchQuery = { scheme_id: new mongoose.Types.ObjectId(scheme_id) };
+
+  // Validate ObjectId
+  if (!mongoose.Types.ObjectId.isValid(scheme_id)) {
+      return res.status(400).json({ message: "Invalid scheme ID" });
+  }
+
+  let aggregationPipeline = [
+      { $match: matchQuery },
+      {
+          $lookup: {
+              from: 'branches',
+              localField: 'bo_id',
+              foreignField: '_id',
+              as: 'branchDetails',
+          },
+      },
+      { $unwind: { path: '$branchDetails', preserveNullAndEmptyArrays: true } },
+      {
+          $lookup: {
+              from: "schemes", // Adjust this to your actual collection name for branches
+              localField: "scheme_id",
+              foreignField: "_id",
+              as: "schemeDetails"
+          }
+      },
+      { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+      {
+          $project: {
+              _id: 1,
+              schemeId: '$schemeDetails.schemeId',
+              // schemeName: '$schemeDetails.schemeName',
+              schemeName: {
+                  $concat: [
+                      "$schemeDetails.schemeName", "",
+                      { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
+                      { $ifNull: ["$schemeDetails.season", ""] }, "",
+                      { $ifNull: ["$schemeDetails.period", ""] }
+                  ]
+              },
+              branchName: '$branchDetails.branchName',
+              createdOn: '$createdAt'
+          }
+      }
+  ];
+  if (paginate == 1) {
+      aggregationPipeline.push(
+          { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
+          { $skip: parseInt(skip) },
+          { $limit: parseInt(limit) }
+      );
+  } else {
+      aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
+  }
+
+  const rows = await SchemeAssign.aggregate(aggregationPipeline);
+  const countPipeline = [
+      { $match: matchQuery },
+      { $count: "total" }
+  ];
+  const countResult = await SchemeAssign.aggregate(countPipeline);
+  const count = countResult[0]?.total || 0;
+  const records = { rows, count };
+  if (paginate == 1) {
+      records.page = parseInt(page);
+      records.limit = parseInt(limit);
+      records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
+  }
+  if (isExport == 1) {
+      const record = rows.map((item) => {
+          return {
+              "Scheme Id": item?.schemeId || "NA",
+              "schemeName": item?.schemeName || "NA",
+              "branchName": item?.branchName || "NA",
+          };
+      });
+      if (record.length > 0) {
+          dumpJSONToExcel(req, res, {
+              data: record,
+              fileName: `Scheme-record.xlsx`,
+              worksheetName: `Scheme-record`
+          });
+      } else {
+          return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Scheme Assign") }));
+      }
+  } else {
+      return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme Assign") }));
+  }
+})
+
+module.exports.getSchemeSummary = asyncErrorHandler(async (req, res) => {
+    try {
+      const { scheme_id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+
+        const schemeDetails = await SchemeAssign.aggregate([
+            { $match: { scheme_id: new mongoose.Types.ObjectId(scheme_id) } },
+            {
+                $lookup: {
+                    from: "headoffices",
+                    localField: "ho_id",
+                    foreignField: "_id",
+                    as: "head_office",
+                },
+            },
+            {
+                $lookup: {
+                    from: "branches",
+                    localField: "bo_id",
+                    foreignField: "_id",
+                    as: "branch_office",
+                },
+            },
+            {
+                $lookup: {
+                    from: "slas",
+                    localField: "sla_id",
+                    foreignField: "_id",
+                    as: "sla",
+                },
+            },
+            {
+                $group: {
+                    _id: "$scheme_id",
+                    headOffices: { $push: { $arrayElemAt: ["$head_office", 0] } },
+                    branchOffices: { $push: { $arrayElemAt: ["$branch_office", 0] } },
+                    slas: { $push: { $arrayElemAt: ["$sla", 0] } },
+                },
+            },
+        ]);
+
+        return schemeDetails[0] || {}; // Return structured response
+    } catch (error) {
+        console.error("Error fetching scheme details:", error);
+        throw error;
+    }
 });
