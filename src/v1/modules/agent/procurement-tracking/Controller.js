@@ -28,7 +28,9 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
     const records = { count: 0 };
 
     records.rows = await RequestModel.find(query)
+        .populate({ path: "head_office_id", select: "company_details.name" })
         .populate({ path: "branch_id", select: "branchName" })
+        .populate({ path: "product.schemeId", select: "schemeName" })
         .sort(sortBy)
         .skip(skip)
         .limit(parseInt(limit))
@@ -173,8 +175,8 @@ module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
     records.rows = paginate == 1 ? await FarmerOrders.find(query)
         .populate("procurementCenter_id")
         .populate({
-            path: "farmer_id", 
-            select: "farmer_id " 
+            path: "farmer_id",
+            select: "farmer_id "
         })
         .sort(sortBy)
         .skip(skip)
