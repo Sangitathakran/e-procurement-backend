@@ -97,7 +97,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
     try {
-        const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.body;
+        const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.query;
 
         // Convert page & limit to numbers
         const pageNumber = parseInt(page, 10);
