@@ -29,6 +29,7 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
 
     records.rows = await RequestModel.find(query)
         .populate({ path: "branch_id", select: "branchName" })
+        .populate({ path: "product.schemeId", select: "schemeName" })
         .sort(sortBy)
         .skip(skip)
         .limit(parseInt(limit))

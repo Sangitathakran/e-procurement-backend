@@ -154,7 +154,7 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .skip(skip)
         .populate({ path: "branch_id", select: "_id branchName branchId" })
         .populate({ path: "warehouse_id", select: "addressDetails" })
-        // .populate({ path: "schemeId", select: "schemeName" })
+        .populate({ path: "product.schemeId", select: "schemeName" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
     records.count = await RequestModel.countDocuments(query);
