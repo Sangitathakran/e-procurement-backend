@@ -22,7 +22,7 @@ const { Scheme } = require("@src/v1/models/master/Scheme");
 
 module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
-    const { quotedPrice, deliveryDate, name, warehouse_id, commodityImage, grade, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate, schemeId, season, period } = req.body;
+    const { quotedPrice, deliveryDate, name, warehouse_id, commodityImage, grade, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate, commodity_id, schemeId, standard, substandard, sla_id } = req.body;
 
     if (user_type && user_type != _userType.agent) {
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
@@ -61,8 +61,9 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
             grade,
             quantity: handleDecimal(quantity),
             schemeId,
-            season,
-            period
+            commodity_id,
+            standard,
+            substandard            
         },
         address: {
             deliveryLocation,
@@ -70,6 +71,7 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
             long: handleDecimal(long)
         },
         warehouse_id: warehouse_id,
+        sla_id,
         quoteExpiry: moment(quoteExpiry).toDate(),
         createdBy: user_id
     });
@@ -153,6 +155,8 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .sort(sortBy)
         .skip(skip)
         .populate({ path: "branch_id", select: "_id branchName branchId" })
+        .populate({ path: "head_office_id", select: "_id company_details.name" })
+        .populate({ path: "sla_id", select: "_id basic_details.name" })
         .populate({ path: "warehouse_id", select: "addressDetails" })
         .populate({ path: "product.schemeId", select: "schemeName" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
@@ -503,7 +507,7 @@ module.exports.getProcurementById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
 
-    const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, warehouse_id, commodity_image, schemeId, season, period  } = req.body;
+    const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, warehouse_id, commodity_image, schemeId, commodity_id, standard, substandard, sla_id } = req.body;
 
     const record = await RequestModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
 
@@ -528,8 +532,10 @@ module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
     record.product.name = name;
     record.product.grade = grade;
     record.product.schemeId = schemeId;
-    record.product.season = season;
-    record.product.period = period;
+    record.product.commodity_id = commodity_id;
+    record.product.standard = standard;
+    record.product.substandard = substandard;
+    record.sla_id = sla_id;
     record.product.quantity = handleDecimal(quantity);
     record.quotedPrice = handleDecimal(msp);
     record.deliveryDate = delivery_date;

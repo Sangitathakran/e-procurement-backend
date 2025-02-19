@@ -12,6 +12,10 @@ const SchemeAssignSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: _collectionName.HeadOffice
         },
+        sla_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: _collectionName.SLA
+        },
         scheme_id: {
             type: mongoose.Schema.Types.ObjectId,
             ref: _collectionName.Scheme,

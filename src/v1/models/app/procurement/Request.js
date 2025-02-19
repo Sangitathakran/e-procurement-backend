@@ -19,9 +19,10 @@ const RequestSchema = new mongoose.Schema({
         commodityImage: { type: String, required: true },
         grade: { type: String, required: true },
         quantity: { type: Number, required: true },
-        schemeId: {type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Scheme},
-        season: { type: String },
-        period: { type: Date }
+        schemeId: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Scheme },
+        standard: { type: String },
+        substandard: { type: String },
+        commodity_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Commodity }
     },
     address: {
         deliveryLocation: { type: String, required: false, trim: true },
@@ -29,7 +30,7 @@ const RequestSchema = new mongoose.Schema({
         long: { type: String, required: false },
         locationUrl: { type: String, required: false }
     },
-   
+    sla_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.SLA },
     comments: [{ user_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true }, comment: { type: String, trim: true } }],
     updatedBy: { type: mongoose.Schema.Types.ObjectId, default: null },
     createdBy: { type: mongoose.Schema.Types.ObjectId, default: null },
