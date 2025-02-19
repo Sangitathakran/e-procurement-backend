@@ -136,10 +136,10 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
                             "$address.district", ", ",
                             "$address.state", ", ",
                             "$address.pinCode", ", ",
-                            "$address.country"
+                            { $ifNull: ["$address.country", ""] }, ", ",
                         ]
                     },
-                    status: "$status",
+                    status: 1,
                     poc: "$point_of_contact.name",
                     branch: "$schemes.branch"
                 }
@@ -422,7 +422,7 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 
         // Prepare data for bulk insert
         const recordsToInsert = schemeData.map(({ _id, qty }) => ({
-            bo_id, ho_id:cna_id, sla_id,
+            bo_id, ho_id: cna_id, sla_id,
             scheme_id: _id, // Assuming _id refers to scheme_id
             assignQty: qty,
         }));
