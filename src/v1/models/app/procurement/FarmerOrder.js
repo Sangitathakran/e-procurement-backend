@@ -25,13 +25,6 @@ const farmerOrderSchema = new mongoose.Schema({
     payment_date: { type: Date },
     payment_status: { type: String, enum: Object.values(_paymentstatus), default: "Pending" },
     net_pay: { type: Number, default: 0 },
-    /////  Add new
-    accepted_quantity: { type: Number, trim: true  },
-    accepted_bag: { type: Number, trim: true  },
-    rejected_quantity: { type: Number },
-    rejected_bag: { type: Number, trim: true  },
-    quantity_gain: { type: Number, trim: true  },
-    bag_gain: { type: Number, trim: true  },
     status: { type: String, enum: Object.values(_procuredStatus), default: _procuredStatus.pending },
     ..._commonKeys
 }, { timestamps: true });
