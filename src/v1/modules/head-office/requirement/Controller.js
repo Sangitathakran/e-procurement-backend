@@ -323,6 +323,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
       search = "",
       state = "",
       commodity = "",
+      schemeName = "",
       isExport = 0,
     } = req.query;
 
@@ -336,7 +337,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
       query.head_office_id = req?.user?.portalId?._id;
     }
 
-    if (state || search || commodity) {
+    if (state || search || commodity || schemeName) {
       query.$and = [
         ...(state ? [{ "sellers.address.registered.state": { $regex: state, $options: "i" } }] : []),
         ...(search
@@ -348,6 +349,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
             }]
           : []),
         ...(commodity ? [{ "product.name": { $regex: commodity, $options: "i" } }] : []),
+        ...(schemeName ? [{ "schemeDetails.schemeName": { $regex: schemeName, $options: "i" } }] : []),
       ];
     }
 
