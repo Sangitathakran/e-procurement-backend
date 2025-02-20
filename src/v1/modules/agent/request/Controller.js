@@ -138,7 +138,7 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
 
 module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+    const { page, limit, skip, paginate = 1, sortBy, search = '',cna, scheme, commodity, branchName, sla, isExport = 0 } = req.query
     let query = search ? {
         $or: [
             { "reqNo": { $regex: search, $options: 'i' } },
@@ -146,6 +146,37 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
             { "product.grade": { $regex: search, $options: 'i' } },
         ]
     } : {};
+    if (scheme) {
+        query["product.schemeId"] = await Scheme.findOne({ schemeName: { $regex: scheme, $options: "i" } }).select("_id");
+    }
+    
+    // Filter by commodity name
+    if (commodity) {
+        query["product.name"] = { $regex: commodity, $options: "i" };
+    }
+    
+    // Filter by CNA (Head Office ID)
+    if (cna) {
+        query["head_office_id"] = cna; // Assuming `cna` is the ID of the head office
+    }
+    
+    // Filter by Branch Office Name
+    if (branchName) {
+        const branches = await Branches.find({
+            branchName: { $regex: branchName, $options: "i" }
+        }).select("_id");
+        if (branches.length > 0) {
+            const branchIds = branches.map(branch => branch._id);
+            query["branch_id"] = { $in: branchIds };
+        } else {
+            query["branch_id"] = null; 
+        }
+    }
+    
+    // Filter by SLA (Service Level Agreement) - Assuming SLA is stored in `status` field
+    if (sla) {
+        query["status"] = sla;
+    }
 
     const records = { count: 0 };
 
@@ -156,6 +187,11 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .populate({ path: "warehouse_id", select: "addressDetails" })
         .populate({ path: "product.schemeId", select: "schemeName" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
+
+       
+
+console.log("Filtered Data:", JSON.stringify(records.rows, null, 2));
+
 
     records.count = await RequestModel.countDocuments(query);
     if (paginate == 1) {
@@ -198,6 +234,107 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
     }
 
 })
+
+// module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
+//     try {
+//         const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = {}, search = '', cna, scheme, commodity, branch, sla, isExport = 0 } = req.query;
+
+//         let query = {};
+
+//         // Search filter
+//         if (search) {
+//             query["$or"] = [
+//                 { "reqNo": { $regex: search, $options: 'i' } },
+//                 { "product.name": { $regex: search, $options: 'i' } },
+//                 { "product.grade": { $regex: search, $options: 'i' } },
+//             ];
+//         }
+
+//         // Filter by Scheme Name
+//         if (scheme) {
+//             query["product.schemeId"] = await Scheme.findOne({ schemeName: { $regex: scheme, $options: "i" } }).select("_id");
+//         }
+
+//         // Filter by Commodity Name
+//         if (commodity) {
+//             query["product.name"] = { $regex: commodity, $options: "i" };
+//         }
+
+//         // Filter by CNA (Head Office ID)
+//         if (cna) {
+//             query["head_office_id"] = cna;
+//         }
+
+//         // Filter by Branch Name
+//         if (branch) {
+//             query["branch_id.branchName"] = { $regex: branch, $options: "i" };
+//         }
+
+//         // Filter by SLA (Status)
+//         if (sla) {
+//             query["status"] = sla;
+//         }
+
+//         console.log("Generated Query:", JSON.stringify(query, null, 2)); // Debugging
+
+//         const records = { count: 0 };
+
+//         if (paginate == 1) {
+//             records.rows = await RequestModel.find(query)
+//                 .sort(sortBy)
+//                 .skip(parseInt(skip))
+//                 .limit(parseInt(limit))
+//                 .populate({ path: "branch_id", select: "_id branchName branchId" })
+//                 .populate({ path: "warehouse_id", select: "addressDetails" })
+//                 .populate({ path: "product.schemeId", select: "schemeName" });
+
+//             records.count = await RequestModel.countDocuments(query);
+//             records.page = parseInt(page);
+//             records.limit = parseInt(limit);
+//             records.pages = records.limit !== 0 ? Math.ceil(records.count / records.limit) : 0;
+//         } else {
+//             records.rows = await RequestModel.find(query)
+//                 .sort(sortBy)
+//                 .populate({ path: "branch_id", select: "_id branchName branchId" })
+//                 .populate({ path: "warehouse_id", select: "addressDetails" })
+//                 .populate({ path: "product.schemeId", select: "schemeName" });
+//             records.count = records.rows.length;
+//         }
+
+//         // If export is requested, prepare data for Excel
+//         if (isExport == 1) {
+//             const allRecords = await RequestModel.find(query)
+//                 .sort(sortBy)
+//                 .populate({ path: "branch_id", select: "_id branchName branchId" });
+
+//             const record = allRecords.map((item) => ({
+//                 "Order Id": item?.reqNo || "NA",
+//                 "BO Name": item?.branch_id?.branchName || "NA",
+//                 "Commodity": item?.product?.name || "NA",
+//                 "Grade": item?.product?.grade || "NA",
+//                 "Quantity": item?.product?.quantity || "NA",
+//                 "MSP": item?.quotedPrice || "NA",
+//                 "Delivery Location": item?.address?.deliveryLocation || "NA"
+//             }));
+
+//             if (record.length > 0) {
+//                 return dumpJSONToExcel(req, res, {
+//                     data: record,
+//                     fileName: `Requirement-record.xlsx`,
+//                     worksheetName: `Requirement-record`
+//                 });
+//             } else {
+//                 return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("procurement") }));
+//             }
+//         }
+
+//         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
+
+//     } catch (error) {
+//         console.error("Error in getProcurement:", error);
+//         return res.status(500).send(new serviceResponse({ status: 500, message: "Internal Server Error", error }));
+//     }
+// });
 
 module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
     const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query;
