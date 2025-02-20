@@ -90,8 +90,8 @@ const SLASchema = new mongoose.Schema({
         cna: { type: mongoose.Schema.Types.ObjectId, ref: "HeadOffice" },
         branch: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" }
     },
-    // sla_id: { type: String, unique: true },
     slaId: { type: String, unique: true },
+    ..._commonKeys,
 }, { timestamps: true });
 
 SLASchema.pre('save', async function (next) {

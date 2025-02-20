@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { _collectionName, _requestStatus } = require('@src/v1/utils/constants');
+const { _commonKeys } = require("@src/v1/utils/helpers/collection");
 
 const RequestSchema = new mongoose.Schema({
     head_office_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice },
@@ -34,6 +35,7 @@ const RequestSchema = new mongoose.Schema({
     comments: [{ user_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true }, comment: { type: String, trim: true } }],
     updatedBy: { type: mongoose.Schema.Types.ObjectId, default: null },
     createdBy: { type: mongoose.Schema.Types.ObjectId, default: null },
+    ..._commonKeys,
 }, { timestamps: true });
 
 const RequestModel = mongoose.model(_collectionName.Request, RequestSchema);
