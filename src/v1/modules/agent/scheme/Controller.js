@@ -180,14 +180,6 @@ module.exports.getSchemeById = asyncErrorHandler(async (req, res) => {
         _id: 1,
         schemeId: 1,
         schemeName: 1,
-        // schemeName: {
-        //   $concat: [
-        //     "$schemeName", "",
-        //     { $ifNull: ["$commodityDetails.name", ""] }, "",
-        //     { $ifNull: ["$season", ""] }, "",
-        //     { $ifNull: ["$period", ""] }
-        //   ]
-        // },
         commodity_id: 1,
         season: 1,
         period: 1,
