@@ -54,7 +54,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
             "bank_details.ifsc_code",
             "bank_details.account_number",
             "bank_details.proof",
-            // "sla_id",
+            // "slaId",
             // "schemes.scheme",
             // "schemes.cna",
             // "schemes.branch"
@@ -97,7 +97,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
     try {
-        const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.body;
+        const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.query;
 
         // Convert page & limit to numbers
         const pageNumber = parseInt(page, 10);
@@ -125,7 +125,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
             {
                 $project: {
                     _id: 1,
-                    sla_id: 1,
+                    slaId: 1,
                     sla_name: "$basic_details.name",
                     associate_count: { $size: "$associatOrder_id" }, // Count of associated orders
                     address: {
@@ -136,10 +136,10 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
                             "$address.district", ", ",
                             "$address.state", ", ",
                             "$address.pinCode", ", ",
-                            "$address.country"
+                            { $ifNull: ["$address.country", ""] }, ", ",
                         ]
                     },
-                    status: "$status",
+                    status: 1,
                     poc: "$point_of_contact.name",
                     branch: "$schemes.branch"
                 }
@@ -185,17 +185,17 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
 module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
     try {
-        const { sla_id } = req.params; // Get SLA ID from URL params
+        const { slaId } = req.params; // Get SLA ID from URL params
 
-        if (!sla_id) {
+        if (!slaId) {
             return res.status(400).json(new serviceResponse({
                 status: 400,
                 message: "SLA ID is required"
             }));
         }
 
-        // Find and delete SLA by sla_id or _id
-        const deletedSLA = await SLAManagement.findOneAndDelete({ $or: [{ sla_id }, { _id: sla_id }] });
+        // Find and delete SLA by slaId or _id
+        const deletedSLA = await SLAManagement.findOneAndDelete({ $or: [{ slaId }, { _id: slaId }] });
 
         if (!deletedSLA) {
             return res.status(404).json(new serviceResponse({
@@ -220,10 +220,10 @@ module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
     try {
-        const { sla_id } = req.params;
+        const { slaId } = req.params;
         const updateData = req.body;
 
-        if (!sla_id) {
+        if (!slaId) {
             return res.status(400).json(new serviceResponse({
                 status: 400,
                 message: "SLA ID is required"
@@ -232,7 +232,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 
         // Find and update SLA
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ sla_id }, { _id: sla_id }] },
+            { $or: [{ slaId }, { _id: slaId }] },
             { $set: updateData },
             { new: true, runValidators: true } // Return updated doc
         );
@@ -261,9 +261,9 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 
 module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
     try {
-        const { sla_id } = req.params; // Get SLA ID from URL params
+        const { slaId } = req.params; // Get SLA ID from URL params
 
-        if (!sla_id) {
+        if (!slaId) {
             return res.status(400).json(new serviceResponse({
                 status: 400,
                 message: "SLA ID is required"
@@ -272,10 +272,10 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
 
         // Find SLA with selected fields
         const sla = await SLAManagement.findOne(
-            { $or: [{ sla_id }, { _id: sla_id }] },
+            { $or: [{ slaId }, { _id: slaId }] },
             {
                 _id: 1,
-                sla_id: 1,
+                slaId: 1,
                 "basic_details.name": 1,
                 associatOrder_id: 1,
                 address: 1,
@@ -293,7 +293,7 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
         // Transform response
         const response = {
             _id: sla._id,
-            sla_id: sla.sla_id,
+            slaId: sla.slaId,
             sla_name: sla.basic_details.name,
             accociate_count: sla.associatOrder_id.length,
             address: `${sla.address.line1}, ${sla.address.city}, ${sla.address.state}, ${sla.address.country}`,
@@ -317,10 +317,10 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
 
 module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
     try {
-        const { sla_id } = req.params; // Get SLA ID from URL params
+        const { slaId } = req.params; // Get SLA ID from URL params
         const { status } = req.body; // New status (true/false)
 
-        if (!sla_id) {
+        if (!slaId) {
             return res.status(400).json(new serviceResponse({
                 status: 400,
                 message: "SLA ID is required"
@@ -336,7 +336,7 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
 
         // Find and update SLA status
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ sla_id }, { _id: sla_id }] },
+            { $or: [{ slaId }, { _id: slaId }] },
             { $set: { status: status } },
             { new: true }
         );
@@ -351,7 +351,7 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
         return res.status(200).json(new serviceResponse({
             status: 200,
             message: `SLA status updated to ${status ? "Active" : "Inactive"}`,
-            data: { sla_id: updatedSLA.sla_id, status: updatedSLA.active }
+            data: { slaId: updatedSLA.slaId, status: updatedSLA.active }
         }));
 
     } catch (error) {
@@ -365,7 +365,7 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
 
 module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
     try {
-        const { sla_id } = req.params;
+        const { slaId } = req.params;
         const { scheme, cna, branch } = req.body;
 
         // Validate input
@@ -378,7 +378,7 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
         // Find SLA and update with new scheme
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ sla_id }, { _id: sla_id }] },
+            { $or: [{ slaId }, { _id: slaId }] },
             { $push: { schemes: { scheme, cna, branch } } },
             { new: true }
         )
@@ -410,7 +410,7 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
 module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
     try {
-        const { schemeData, cna_id, bo_id, sla_id } = req.body;
+        const { schemeData, cna_id, bo_id, slaId } = req.body;
 
         // Validate input
         if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
@@ -422,7 +422,7 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 
         // Prepare data for bulk insert
         const recordsToInsert = schemeData.map(({ _id, qty }) => ({
-            bo_id, ho_id:cna_id, sla_id,
+            bo_id, ho_id: cna_id, slaId,
             scheme_id: _id, // Assuming _id refers to scheme_id
             assignQty: qty,
         }));
@@ -443,13 +443,13 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getAssignedScheme = async (req, res) => {
-    const { sla_id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+    const { slaId, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
     // Initialize matchQuery
-    let matchQuery = { sla_id: new mongoose.Types.ObjectId(sla_id) };
+    let matchQuery = { slaId: new mongoose.Types.ObjectId(slaId) };
 
     // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(sla_id)) {
+    if (!mongoose.Types.ObjectId.isValid(slaId)) {
         return res.status(400).json({ message: "Invalid SLA ID" });
     }
 
