@@ -416,6 +416,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
           createdAt: 1,
           sellers: 1,
           slaName: "$slaDetails.basic_details.name",
+          schemeSeason:"$schemeDetails.season",
           schemeName: {
             $concat: [
               "$schemeDetails.schemeName", " ",
