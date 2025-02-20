@@ -391,6 +391,13 @@ module.exports.branchList = async (req, res) => {
       branches = await Branches.find(searchQuery).sort({ createdAt: -1 });
     }
 
+    // Fetch the assigned scheme count for each branch and attach it to the branch object
+    const assignedSchemeCounts = await Promise.all(
+      branches.map(async (branch) => {
+        const count = await SchemeAssign.countDocuments({ bo_id: branch._id });
+        return { ...branch.toObject(), assignedSchemeCount: count }; // Convert Mongoose document to plain object
+      })
+    );
     // Calculate total pages for pagination
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -400,11 +407,12 @@ module.exports.branchList = async (req, res) => {
         status: 200,
         message: "Branches fetched successfully",
         data: {
-          branches: branches,
+          // branches: branches,
+          branches: assignedSchemeCounts,
           totalCount: totalCount,
           totalPages: totalPages,
           limit: effectiveLimit,
-          page: parseInt(page)
+          page: parseInt(page),
         },
       })
     );
@@ -446,11 +454,12 @@ module.exports.toggleBranchStatus = async (req, res) => {
   }
 };
 
+
 module.exports.schemeList = async (req, res) => {
   const { bo_id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
   // Initialize matchQuery
-  let matchQuery = { bo_id:new mongoose.Types.ObjectId(bo_id) };
+  let matchQuery = { bo_id: new mongoose.Types.ObjectId(bo_id) };
 
   // Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(bo_id)) {
@@ -484,10 +493,10 @@ module.exports.schemeList = async (req, res) => {
         // schemeName: '$schemeDetails.schemeName',
         schemeName: {
           $concat: [
-            "$schemeName", "",
-            { $ifNull: ["$commodityDetails.name", ""] }, "",
-            { $ifNull: ["$season", ""] }, "",
-            { $ifNull: ["$period", ""] }
+            "$schemeDetails.schemeName", "",
+            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
+            { $ifNull: ["$schemeDetails.season", ""] }, "",
+            { $ifNull: ["$schemeDetails.period", ""] }
           ]
         },
         // branchName: '$branchDetails.branchName',
@@ -508,7 +517,7 @@ module.exports.schemeList = async (req, res) => {
   } else {
     aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
   }
-  
+
   const rows = await SchemeAssign.aggregate(aggregationPipeline);
   const countPipeline = [
     { $match: matchQuery },
@@ -556,21 +565,55 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
       }));
     }
 
-    // Prepare data for bulk insert
-    const recordsToInsert = schemeData.map(({ _id, qty }) => ({
-      bo_id,
-      scheme_id: _id, // Assuming _id refers to scheme_id
-      assignQty: qty,
-    }));
+    let updatedRecords = [];
+    let newRecords = [];
 
-    // Use Mongoose's insertMany to insert multiple documents
-    const records = await SchemeAssign.insertMany(recordsToInsert);
+    for (const { _id, qty } of schemeData) {
+      // Find the scheme and validate procurement limit
+      const scheme = await Scheme.findById(_id);
+      if (!scheme) {
+        return res.status(404).send(new serviceResponse({
+          status: 404,
+          message: `Scheme with ID ${_id} not found.`,
+        }));
+      }
+
+      if (qty > scheme.procurement) {
+        return res.status(400).send(new serviceResponse({
+          status: 400,
+          message: `${_id} Assigned quantity (${qty}) cannot exceed procurement limit (${scheme.procurement}) for scheme ${scheme.schemeName}.`,
+        }));
+      }
+
+      // Check if the record already exists in SchemeAssign
+      const existingRecord = await SchemeAssign.findOne({ ho_id, scheme_id: _id });
+
+      if (existingRecord) {
+        // Update existing record
+        existingRecord.assignQty = qty;
+        await existingRecord.save();
+        updatedRecords.push(existingRecord);
+      } else {
+        // Prepare new record for insertion
+        newRecords.push({
+          bo_id,
+          scheme_id: _id,
+          assignQty: qty,
+        });
+      }
+    }
+
+    // Bulk insert new records if there are any
+    if (newRecords.length > 0) {
+      const insertedRecords = await SchemeAssign.insertMany(newRecords);
+      updatedRecords = [...updatedRecords, ...insertedRecords];
+    }
 
     return res.status(200).send(
       new serviceResponse({
         status: 200,
-        data: records,
-        message: _response_message.created("Scheme Assign"),
+        data: updatedRecords,
+        message: _response_message.created("Scheme Assign Updated Successfully"),
       })
     );
   } catch (error) {
