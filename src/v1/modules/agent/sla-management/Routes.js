@@ -5,7 +5,7 @@ const { Auth } = require("@src/v1/middlewares/jwt");
 const slaRoute = express.Router();
 
 slaRoute.post("/schemeAssign", Auth, schemeAssign);
-slaRoute.get("/getAssignedScheme", Auth, getAssignedScheme);
+slaRoute.get("/getAssignedScheme", getAssignedScheme);
 
 slaRoute.post("/", createSLA);
 slaRoute.get("/", getSLAList);
