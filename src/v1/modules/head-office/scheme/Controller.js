@@ -11,15 +11,7 @@ const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { mongoose } = require("mongoose");
 
 module.exports.getScheme = asyncErrorHandler(async (req, res) => {
-  const {
-    page = 1,
-    limit = 10,
-    skip = 0,
-    paginate = 1,
-    sortBy,
-    search = "",
-    isExport = 0,
-  } = req.query;
+  const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, isExport = 0 } = req.query;
 
   // Initialize matchQuery
   let matchQuery = {
@@ -28,6 +20,14 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   };
   if (search) {
     matchQuery.schemeId = { $regex: search, $options: "i" };
+  }
+  if (schemeName) {
+    matchQuery.schemeName = { $regex: schemeName.trim().replace(/\s+/g, ".*"), $options: "i" };
+  }
+  if (status) {
+    matchQuery.status = status.toLowerCase();
+  } else {
+    matchQuery.status = _status.active;
   }
 
   let aggregationPipeline = [
