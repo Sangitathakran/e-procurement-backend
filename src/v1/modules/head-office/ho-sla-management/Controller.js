@@ -6,8 +6,12 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
     try {
-        const data = req.body;
-
+        const data = {
+            ...req.body,
+            schemes: {
+                cna: req.user._id
+            }
+        };
         // Required fields validation
 
         const requiredFields = [
@@ -96,6 +100,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
     try {
         const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.query;
+        const userID = req.user._id
 
         // Convert page & limit to numbers
         const pageNumber = parseInt(page, 10);
@@ -119,7 +124,12 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
         // Fetch SLA records with projection
         let slaRecordsQuery = SLAManagement.aggregate([
-            { $match: searchFilter },
+            {
+                $match: {
+                    ...searchFilter,
+                    "schemes.cna": userID
+                }
+            },
             {
                 $project: {
                     _id: 1,
@@ -161,7 +171,10 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
             .limit(pageSize);
 
         // Count total records for pagination
-        const totalRecords = await SLAManagement.countDocuments(searchFilter);
+        const totalRecords = await SLAManagement.countDocuments({
+            ...searchFilter,
+            "schemes.cna": userID
+        });
 
         return res.status(200).json({
             status: 200,
@@ -184,6 +197,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params; // Get SLA ID from URL params
+        const userID = req.user._id
 
         if (!slaId) {
             return res.status(400).json(new serviceResponse({
@@ -193,7 +207,7 @@ module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
         }
 
         // Find and delete SLA by slaId or _id
-        const deletedSLA = await SLAManagement.findOneAndDelete({ $or: [{ slaId }, { _id: slaId }] });
+        const deletedSLA = await SLAManagement.findOneAndDelete({ $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID });
 
         if (!deletedSLA) {
             return res.status(404).json(new serviceResponse({
@@ -220,6 +234,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params;
         const updateData = req.body;
+        const userID = req.user._i
 
         if (!slaId) {
             return res.status(400).json(new serviceResponse({
@@ -230,7 +245,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 
         // Find and update SLA
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ slaId }, { _id: slaId }] },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
             { $set: updateData },
             { new: true, runValidators: true } // Return updated doc
         );
@@ -260,6 +275,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params; // Get SLA ID from URL params
+        const userID = req.user._id
 
         if (!slaId) {
             return res.status(400).json(new serviceResponse({
@@ -270,7 +286,7 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
 
         // Find SLA with selected fields
         const sla = await SLAManagement.findOne(
-            { $or: [{ slaId }, { _id: slaId }] },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
             {
                 _id: 1,
                 slaId: 1,
@@ -317,6 +333,7 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params; // Get SLA ID from URL params
         const { status } = req.body; // New status (true/false)
+        const userID = req.user._id
 
         if (!slaId) {
             return res.status(400).json(new serviceResponse({
@@ -334,7 +351,7 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
 
         // Find and update SLA status
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ slaId }, { _id: slaId }] },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
             { $set: { status: status } },
             { new: true }
         );
@@ -365,6 +382,7 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params;
         const { scheme, cna, branch } = req.body;
+        const userID = req.user._id
 
         // Validate input
         if (!scheme || !cna || !branch) {
@@ -376,7 +394,7 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
         // Find SLA and update with new scheme
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ slaId }, { _id: slaId }] },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
             { $push: { schemes: { scheme, cna, branch } } },
             { new: true }
         )
