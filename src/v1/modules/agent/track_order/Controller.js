@@ -34,18 +34,41 @@ module.exports.getProcurement = asyncErrorHandler(
             },
             { $unwind: '$myoffer' },
             { $match: { 'myoffer.status': { $in: [_associateOfferStatus.ordered, _associateOfferStatus.partially_ordered] } } },
+
+            // {
+            //     $lookup: {
+            //         from: 'schemes',
+            //         localField: 'product.schemeId',
+            //         foreignField: '_id',
+            //         as: 'schemeDetails',
+            //     },
+            // },
+            // { $unwind: '$schemeDetails' },
+            // {
+            //     $addFields: {
+            //         schemeName: {
+            //             $concat: [
+            //                 "$schemeDetails.schemeName", "",
+            //                 { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
+            //                 { $ifNull: ["$schemeDetails.season", ""] }, "",
+            //                 { $ifNull: ["$schemeDetails.period", ""] }
+            //             ]
+            //         },
+            //     }
+            // },
             ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
             // ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []), // Pagination if required
             // { $limit: limit ? parseInt(limit) : 10 }
+
         ];
         const pipeline = isExport == 1
-        ? basePipeline // Do not apply pagination for export
-        : [
-            ...basePipeline,
-            ...(paginate == 1 ? [{ $skip: parseInt(calculatedSkip) }, { $limit: parseInt(limit) }] : []), // Apply pagination for normal requests
-        ];
-        
-          const [totalCountResult, paginatedResults] = await Promise.all([
+            ? basePipeline // Do not apply pagination for export
+            : [
+                ...basePipeline,
+                ...(paginate == 1 ? [{ $skip: parseInt(calculatedSkip) }, { $limit: parseInt(limit) }] : []), // Apply pagination for normal requests
+            ];
+
+        const [totalCountResult, paginatedResults] = await Promise.all([
             RequestModel.aggregate([...basePipeline, { $count: 'count' }]),
             RequestModel.aggregate(pipeline),
         ]);
@@ -59,7 +82,7 @@ module.exports.getProcurement = asyncErrorHandler(
         // const records = {};
         // records.count = await RequestModel.countDocuments(query);
         // records.rows = await RequestModel.aggregate(pipeline);
-        
+
 
         if (paginate == 1) {
             records.page = page;
@@ -153,12 +176,12 @@ module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
                 'associate._id': 1,
                 'associate.user_code': 1,
                 'associate.basic_details.associate_details.associate_name': 1,  // Ensure this path exists in 'users' collection
-                'associate.basic_details.associate_details.organization_name':1,
+                'associate.basic_details.associate_details.organization_name': 1,
                 batchcount: 1,
                 req_id: 1
             }
         },
-       
+
         ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),
         ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
         {
@@ -210,12 +233,12 @@ module.exports.getBatchByAssociateOfferrs = asyncErrorHandler(async (req, res) =
     let query = search ? {
         $or: [
             // start of Sangita code
-            { batchId: { $regex: search, $options: 'i' } },            
-            { status: { $regex: search, $options: 'i' } }       
+            { batchId: { $regex: search, $options: 'i' } },
+            { status: { $regex: search, $options: 'i' } }
             // End of Sangita code     
         ]
-    } : {};      
-    
+    } : {};
+
     query.associateOffer_id = associateOffer_id;
 
     const records = {};

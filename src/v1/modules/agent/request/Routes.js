@@ -1,11 +1,15 @@
 const express = require("express");
 const { createProcurement, approveRejectOfferByAgent, getProcurement, getAssociateOffer, getofferedFarmers,
     associateOfferbyid, getProcurementById, updateRequirement, deleteRequirement, getWareHouse,
-    getScheme, getCommodity } = require("./Controller");
-    
+    getScheme, getCommodity, schemeCommodity } = require("./Controller");
+
 const requestRoutes = express.Router();
 const { Auth } = require("@src/v1/middlewares/jwt")
 
+
+requestRoutes.get("/schemeCommodity", Auth, schemeCommodity);
+requestRoutes.get("/getScheme", Auth, getScheme);
+requestRoutes.get("/getCommodity", Auth, getCommodity);
 
 requestRoutes.put("/offerStatus", Auth, approveRejectOfferByAgent);
 requestRoutes.get("/associateOffers", Auth, getAssociateOffer);
@@ -18,8 +22,6 @@ requestRoutes.get("/:id", Auth, getProcurementById);
 requestRoutes.patch("/", Auth, updateRequirement);
 requestRoutes.delete("/:id", Auth, deleteRequirement);
 
-requestRoutes.get("/", Auth, getScheme);
-requestRoutes.get("/", Auth, getCommodity);
 
 
 module.exports = { requestRoutes }; 
