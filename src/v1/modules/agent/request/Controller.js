@@ -788,7 +788,7 @@ module.exports.schemeCommodity = asyncErrorHandler(async (req, res) => {
     } else {
         aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
     }
-    console.log(aggregationPipeline);
+   
     const rows = await Scheme.aggregate(aggregationPipeline);
     const countPipeline = [
         { $match: matchQuery },
