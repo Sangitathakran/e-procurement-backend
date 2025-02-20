@@ -5,6 +5,7 @@ const {
   handleDecimal,
 } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const mongoose = require('mongoose');
 const {
   _response_message,
   _middleware,
@@ -281,10 +282,66 @@ const lotList = async (req, res) => {
   }
 }
 
+
+const lotLevelDetailsUpdate = async (req, res) => {
+
+  try {
+      if (!Array.isArray(req.body)) {
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Request body should be an array." }] }));
+      }
+
+      
+      for (const data of req.body) {
+        const { batch_id, accepted_quantity, accepted_bag, rejected_quantity, rejected_bag, quantity_gain, bag_gain } = data;
+
+        if (!mongoose.Types.ObjectId.isValid(batch_id)) {
+          return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('batch_id') }] }));
+        }
+
+        const batch = await Batch.findById(batch_id);
+        if (!batch) {
+          return res.status(404).send(new serviceResponse({ status: 404, errors: [{ message: "Batch not found." }] }));
+        }
+        
+        const batch_date = batch.dispatched.dispatched_at;
+        const batchId = batch._id;
+        for (const lotdata of batch.farmerOrderIds) {
+            const lotIds = lotdata.farmerOrder_id;
+            const dispatch_quantity = lotdata.qty;
+            
+        }
+        const dispatch_bag = '';
+        const dataUpdate = {
+          batch_date : batch_date,
+          batch_id : batchId,
+          lot_id : lotIds,
+          farmer_name : "test",
+          dispatch_quantity : dispatch_quantity,
+          dispatch_bag : 2,
+          accepted_quantity,
+          accepted_bag,
+          rejected_quantity,
+          rejected_bag,
+          quantity_gain,
+          bag_gain
+        }
+        const whrData = await WhrModel.findOne({batch_id : batchId} );
+        if (!whrData) {
+          return res.status(404).send(new serviceResponse({ status: 404, errors: [{ message: "whrData not found." }] }));
+        }
+        whrData.save(dataUpdate)
+    }
+
+  } catch (error) {
+      _handleCatchErrors(error, res);
+  }
+}
+
 module.exports = {
   createWhr,
   updateWhrById,
   getWhrById,
   batchList,
-  lotList
+  lotList,
+  lotLevelDetailsUpdate
 };
