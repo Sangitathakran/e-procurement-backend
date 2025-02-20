@@ -419,7 +419,6 @@ const lotLevelDetailsUpdate = async (req, res) => {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('batch_id') }] }));
       }
 
-      // Find Batch
       const batch = await Batch.findById(batch_id);
       if (!batch) {
         return res.status(404).send(new serviceResponse({ status: 404, errors: [{ message: "Batch not found." }] }));
@@ -428,33 +427,50 @@ const lotLevelDetailsUpdate = async (req, res) => {
       const batch_date = batch.dispatched?.dispatched_at;
       const batchId = batch._id;
 
+      const whrDetails = await WhrModel.find({ "batch_id": { $in: batchId } });
+      
+
+      let total_rejected_quantity = 0;
+      let total_accepted_quantity = 0;
+
+      for (const lot of batch.farmerOrderIds) {
+        console.log('lot',lot)
+        // total_rejected_quantity += lot.rejected_quantity;
+        // total_accepted_quantity += lot.accepted_quantity;
+      }
+
+      console.log('Total Rejected Quantity:', total_rejected_quantity);
+      console.log('Total Accepted Quantity:', total_accepted_quantity);
+
+      // if (parseInt(accepted_quantity) !== total_accepted_quantity || parseInt(rejected_quantity) !== total_rejected_quantity) {
+      //   return res.status(400).send(new serviceResponse({
+      //     status: 400,
+      //     errors: [{
+      //       message: "Mismatch in accepted or rejected quantities. Please verify the data."
+      //     }]
+      //   }));
+      // }
+
       const lotDetails = batch.farmerOrderIds.map(lot => ({
         batch_date,
         batch_id: batchId,
         lot_id: lot.farmerOrder_id,
-        farmer_name: "test",
-        dispatch_quantity: lot.qty, 
-        dispatch_bag: 2, 
-        accepted_quantity,
-        accepted_bag,
-        rejected_quantity,
-        rejected_bag,
-        quantity_gain,
-        bag_gain
+        farmer_name: "Raju",
+        dispatch_quantity: lot.qty,
+        dispatch_bag: 2,
+        accepted_quantity: parseInt(accepted_quantity),
+        accepted_bag: parseInt(accepted_bag),
+        rejected_quantity: parseInt(rejected_quantity),
+        rejected_bag: parseInt(rejected_bag),
+        quantity_gain: parseInt(quantity_gain),
+        bag_gain: parseInt(bag_gain)
       }));
+      
 
-      // Find WHR Data
-      const whrData = await WhrModel.findOne({ "batch_id": { $in: batchId } });
-      if (!whrData) {
-        return res.status(404).send(new serviceResponse({ status: 404, errors: [{ message: "WHR Data not found." }] }));
-      }
-
-      // Update `whr_lot_detail` in `WhrModel`
-      await WhrModel.updateOne(
-        { batch_id: batchId },
+      await Batch.updateOne(
+        { _id: batchId },
         { $push: { whr_lot_detail: { $each: lotDetails } } }
       );
-
     }
 
     return res.status(200).send(new serviceResponse({ status: 200, message: "WHR Lot details updated successfully." }));

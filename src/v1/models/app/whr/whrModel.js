@@ -25,20 +25,7 @@ const whrSchema = new mongoose.Schema({
     whr_date:{type:String,required:true},
     whr_number:{type:String,required:true},
     whr_document:{type:String,required:true},
-    whr_lot_detail : [{
-        batch_date : { type: Date },
-        batch_id : { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch},
-        lot_id : { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.FarmerOrder},
-        farmer_name : { type:String, },
-        dispatch_quantity : { type: Number, trim: true },
-        dispatch_bag : { type: Number, trim: true },
-        accepted_quantity: { type: Number, trim: true },
-        accepted_bag: { type: Number, trim: true },
-        rejected_quantity: { type: Number },
-        rejected_bag: { type: Number, trim: true },
-        quantity_gain: { type: Number, trim: true },
-        bag_gain: { type: Number, trim: true },
-    }],
+    
 }, { timestamps: true });
 
 const WhrModel = mongoose.model(_collectionName.Whr, whrSchema);

@@ -648,7 +648,7 @@ module.exports.saveAgribidDetails = async (req, res) => {
 
 module.exports.updateAgribidDetails = async (req, res) => {
     try {
-        const updates = req.body; // Expecting an array of objects
+        const updates = req.body;
         const { _id } = req.client;
         const results = [];
         const errors = [];
