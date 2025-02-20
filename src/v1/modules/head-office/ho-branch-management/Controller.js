@@ -358,13 +358,32 @@ module.exports.downloadTemplate = async (req, res) => {
 
 module.exports.branchList = async (req, res) => {
   try {
-    const { limit = 10, skip = 0, paginate = 1, search = '', page = 1, fromAgent = false } = req.query;
+    const { limit = 10, skip = 0, paginate = 1, search = '', page = 1, fromAgent = false,state,scheme } = req.query;
     const { user_id, portalId } = req;
 
     // Adding search filter
     let searchQuery = search ? {
       branchName: { $regex: search, $options: 'i' }        // Case-insensitive search for branchName
     } : {};
+
+    if (state) {
+      searchQuery.state = { $regex: `^${state}$`, $options: "i" };
+    }
+
+    let branchIdsForScheme = [];
+    if (scheme) {
+      const schemeData = await Scheme.findOne({ schemeName: scheme }).select('_id');
+      if (schemeData) {
+        const schemeId = schemeData._id;
+
+        const schemeBranches = await SchemeAssign.find({ scheme_id: schemeId }).distinct('bo_id');
+        branchIdsForScheme = schemeBranches;
+        searchQuery._id = { $in: branchIdsForScheme };
+      } else {
+        searchQuery._id = { $in: [] };
+      }
+    }
+    
 
     if (!fromAgent) {
       // searchQuery = { ...searchQuery, headOfficeId: req.user.portalId._id }
@@ -392,10 +411,23 @@ module.exports.branchList = async (req, res) => {
     }
 
     // Fetch the assigned scheme count for each branch and attach it to the branch object
-    const assignedSchemeCounts = await Promise.all(
+    // const assignedSchemeCounts = await Promise.all(
+    //   branches.map(async (branch) => {
+    //     const count = await SchemeAssign.countDocuments({ bo_id: branch._id });
+    //     return { ...branch.toObject(), assignedSchemeCount: count }; // Convert Mongoose document to plain object
+    //   })
+    // );
+    const branchData = await Promise.all(
       branches.map(async (branch) => {
-        const count = await SchemeAssign.countDocuments({ bo_id: branch._id });
-        return { ...branch.toObject(), assignedSchemeCount: count }; // Convert Mongoose document to plain object
+        const schemes = await SchemeAssign.find({ bo_id: branch._id })
+          .populate("scheme_id", "schemeName")
+          .lean();
+
+        return {
+          ...branch.toObject(),
+          assignedSchemes: schemes.map(s => s.scheme_id?.schemeName).filter(Boolean),
+          assignedSchemeCount: schemes.length
+        };
       })
     );
     // Calculate total pages for pagination
@@ -408,7 +440,8 @@ module.exports.branchList = async (req, res) => {
         message: "Branches fetched successfully",
         data: {
           // branches: branches,
-          branches: assignedSchemeCounts,
+          // branches: assignedSchemeCounts,
+          branches: branchData,
           totalCount: totalCount,
           totalPages: totalPages,
           limit: effectiveLimit,
