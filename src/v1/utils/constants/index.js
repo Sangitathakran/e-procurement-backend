@@ -54,7 +54,10 @@ const _collectionName = {
     TrackOrder : "TrackOrder",
     Truck : "Truck",
     ExternalBatch : "ExternalBatch",
-    ExternalOrder : "ExternalOrder"
+    ExternalOrder : "ExternalOrder",
+    Scheme: "Scheme",
+    commodityStandard:"commodityStandard",
+    SchemeAssign: "SchemeAssign"
 
 }
 
@@ -505,6 +508,38 @@ const _penaltypaymentStatus = {
     overdue: 'Overdue',
     waiveOff: 'Waive Off',
 }
+const _commodityType = {
+    grade: 'Grade',
+    quality: "Quality"
+}
+const _gradeType = {
+    gradeA: 'Grade A',
+    gradeB: 'Grade B',
+    gradeC: 'Grade C',
+}
+const _qualityType = {
+    poor: 'Poor',
+    average: "Average",
+    good:'Good'
+}
+
+const _season = {
+    Kharif: 'Kharif',
+    Rabi: "Rabi",
+    Zaid:'Zaid'
+}
+const _period = {
+    currentYear: '2025',
+    previourYear: "2024",
+    range1:'2024-2025',
+    range2:'2025-2026'
+}
+
+const _centralNodalAgency = {
+    nodal1: 'nodal1',
+    nodal2: "nodal2",
+    nodal3:'nodal3'
+}
 
 module.exports = {
     _userAction,
@@ -569,5 +604,11 @@ module.exports = {
     _poBatchStatus,
     _penaltypaymentStatus,
     _poBatchPaymentStatus,
-    _trackOrderStatus ,
+    _trackOrderStatus,
+    _commodityType,
+    _gradeType,
+    _qualityType,
+    _season,
+    _period,
+    _centralNodalAgency
 }
