@@ -280,6 +280,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
   const record = await PurchaseOrderModel.findOne({ _id: id }).populate(
     "branch_id"
   );
+  
   const branch_office_location = `${record.branch_id.state}`;
 
   if (!record) {
@@ -374,16 +375,15 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
   // // Save the updated record
   await record.save();
 
-  const distillerDetails = await Distiller.findOne({ _id: user_id }).select({
-    "basic_details.distiller_details": 1,
-    _id: 0,
-  });
-  // console.log(distillerDetails);
-  const {
-    basic_details: {
-      distiller_details: { organization_name, phone: distillerPhone },
-    } = {},
-  } = distillerDetails || {};
+  const distillerDetails = await Distiller.findOne({ _id: user_id }).select({ "basic_details.distiller_details": 1,_id: 0}).lean();
+  const organization_name = distillerDetails?.basic_details?.distiller_details?.organization_name;
+  const distillerPhone = distillerDetails?.basic_details?.distiller_details?.phone;
+
+  // const {
+  //   basic_details: {
+  //     distiller_details: { organization_name, phone: distillerPhone },
+  //   } = {},
+  // } = distillerDetails || {}; 
 
   const distiller_contact_number = `+91 ${distillerPhone}`;
   const distiller_name = organization_name;
