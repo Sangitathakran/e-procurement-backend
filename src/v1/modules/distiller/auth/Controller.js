@@ -161,7 +161,8 @@ module.exports.loginOrRegister = async (req, res) => {
         const data = {
             token: token,
             user_type: userExist.user_type,
-            is_approved: userExist.is_approved,
+            // is_approved: userExist.is_approved,
+            is_approved: _userStatus.approved,
             phone: userExist.basic_details.distiller_details.phone,
             associate_code: userExist.user_code,
             organization_name: userExist.basic_details.distiller_details.organization_name || null,
