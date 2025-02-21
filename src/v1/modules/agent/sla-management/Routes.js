@@ -9,11 +9,11 @@ slaRoute.get("/getAssignedScheme", Auth, getAssignedScheme);
 
 slaRoute.post("/", createSLA);
 slaRoute.get("/", getSLAList);
-slaRoute.get("/:sla_id", getSLAById);
-slaRoute.put("/:sla_id", updateSLA);
-slaRoute.patch("/:sla_id", updateSLAStatus);
-slaRoute.post("/:sla_id/add-scheme", addSchemeToSLA);
-slaRoute.delete("/:sla_id", deleteSLA);
+slaRoute.get("/:slaId", getSLAById);
+slaRoute.put("/:slaId", updateSLA);
+slaRoute.patch("/:slaId", updateSLAStatus);
+slaRoute.post("/:slaId/add-scheme", addSchemeToSLA);
+slaRoute.delete("/:slaId", deleteSLA);
 
 
 module.exports = { slaRoute };
