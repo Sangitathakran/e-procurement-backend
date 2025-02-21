@@ -95,19 +95,19 @@ const SLASchema = new mongoose.Schema({
 }, { timestamps: true });
 
 SLASchema.pre('save', async function (next) {
-    if (this.isNew && !this.sla_id) {
+    if (this.isNew && !this.slaId) {
         try {
             const SLAManagement = mongoose.model(_collectionName.SLA, SLASchema);
 
             const lastSLA = await SLAManagement.findOne().sort({ createdAt: -1 });
             let nextSLAId = 'SLA00001';
 
-            if (lastSLA && lastSLA.sla_id) {
-                const lastCodeNumber = parseInt(lastSLA.sla_id.slice(3), 10); // Extract numeric part
+            if (lastSLA && lastSLA.slaId) {
+                const lastCodeNumber = parseInt(lastSLA.slaId.slice(3), 10); // Extract numeric part
                 nextSLAId = 'SLA' + String(lastCodeNumber + 1).padStart(5, '0');
             }
 
-            this.sla_id = nextSLAId;
+            this.slaId = nextSLAId;
             next();
         } catch (err) {
             next(err);
