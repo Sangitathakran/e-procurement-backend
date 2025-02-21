@@ -167,7 +167,7 @@ exports.getUserRoles = async (req, res) => {
         let query = search ? makeSearchQuery(searchFields) : {}
         const records = { count: 0, rows: [] };
 
-        query = {...query, createdBy: req.user._id}
+        query = {...query, createdBy: req.user._id,  userRoleName:{$ne:"md ma'am role"}}
 
         const userRoles = await UserRole.find(query).skip(skip).limit(parseInt(limit))
         if(userRoles.length < 1){
