@@ -3,14 +3,15 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
-const { Scheme } = require("@src/v1/models/master/Scheme");
-const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
-const { mongoose } = require("mongoose");
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
     try {
-        const data = req.body;
-
+        const data = {
+            ...req.body,
+            schemes: {
+                cna: req.user._id
+            }
+        };
         // Required fields validation
 
         const requiredFields = [
@@ -58,6 +59,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
             // "schemes.scheme",
             // "schemes.cna",
             // "schemes.branch"
+            "schemes.cna"
         ];
 
         const missingFields = requiredFields.filter(field => {
@@ -98,6 +100,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
     try {
         const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.query;
+        const userID = req.user._id
 
         // Convert page & limit to numbers
         const pageNumber = parseInt(page, 10);
@@ -121,7 +124,12 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
         // Fetch SLA records with projection
         let slaRecordsQuery = SLAManagement.aggregate([
-            { $match: searchFilter },
+            {
+                $match: {
+                    ...searchFilter,
+                    "schemes.cna": userID
+                }
+            },
             {
                 $project: {
                     _id: 1,
@@ -163,7 +171,10 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
             .limit(pageSize);
 
         // Count total records for pagination
-        const totalRecords = await SLAManagement.countDocuments(searchFilter);
+        const totalRecords = await SLAManagement.countDocuments({
+            ...searchFilter,
+            "schemes.cna": userID
+        });
 
         return res.status(200).json({
             status: 200,
@@ -186,6 +197,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params; // Get SLA ID from URL params
+        const userID = req.user._id
 
         if (!slaId) {
             return res.status(400).json(new serviceResponse({
@@ -195,7 +207,7 @@ module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
         }
 
         // Find and delete SLA by slaId or _id
-        const deletedSLA = await SLAManagement.findOneAndDelete({ $or: [{ slaId }, { _id: slaId }] });
+        const deletedSLA = await SLAManagement.findOneAndDelete({ $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID });
 
         if (!deletedSLA) {
             return res.status(404).json(new serviceResponse({
@@ -222,6 +234,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params;
         const updateData = req.body;
+        const userID = req.user._i
 
         if (!slaId) {
             return res.status(400).json(new serviceResponse({
@@ -232,7 +245,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 
         // Find and update SLA
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ slaId }, { _id: slaId }] },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
             { $set: updateData },
             { new: true, runValidators: true } // Return updated doc
         );
@@ -262,6 +275,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params; // Get SLA ID from URL params
+        const userID = req.user._id
 
         if (!slaId) {
             return res.status(400).json(new serviceResponse({
@@ -272,7 +286,7 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
 
         // Find SLA with selected fields
         const sla = await SLAManagement.findOne(
-            { $or: [{ slaId }, { _id: slaId }] },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
             {
                 _id: 1,
                 slaId: 1,
@@ -319,6 +333,7 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params; // Get SLA ID from URL params
         const { status } = req.body; // New status (true/false)
+        const userID = req.user._id
 
         if (!slaId) {
             return res.status(400).json(new serviceResponse({
@@ -336,7 +351,7 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
 
         // Find and update SLA status
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ slaId }, { _id: slaId }] },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
             { $set: { status: status } },
             { new: true }
         );
@@ -367,6 +382,7 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params;
         const { scheme, cna, branch } = req.body;
+        const userID = req.user._id
 
         // Validate input
         if (!scheme || !cna || !branch) {
@@ -378,7 +394,7 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
         // Find SLA and update with new scheme
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ slaId }, { _id: slaId }] },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
             { $push: { schemes: { scheme, cna, branch } } },
             { new: true }
         )
@@ -407,132 +423,3 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
         }));
     }
 });
-
-module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
-    try {
-        const { schemeData, cna_id, bo_id, slaId } = req.body;
-
-        // Validate input
-        if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
-            return res.status(400).send(new serviceResponse({
-                status: 400,
-                message: "Invalid request. 'bo_id' and 'schemeData' must be provided.",
-            }));
-        }
-
-        // Prepare data for bulk insert
-        const recordsToInsert = schemeData.map(({ _id, qty }) => ({
-            bo_id, ho_id: cna_id, slaId,
-            scheme_id: _id, // Assuming _id refers to scheme_id
-            assignQty: qty,
-        }));
-
-        // Use Mongoose's insertMany to insert multiple documents
-        const records = await SchemeAssign.insertMany(recordsToInsert);
-
-        return res.status(200).send(
-            new serviceResponse({
-                status: 200,
-                data: records,
-                message: _response_message.created("Scheme Assign"),
-            })
-        );
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-});
-
-module.exports.getAssignedScheme = async (req, res) => {
-    const { slaId, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
-
-    // Initialize matchQuery
-    let matchQuery = { slaId: new mongoose.Types.ObjectId(slaId) };
-
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(slaId)) {
-        return res.status(400).json({ message: "Invalid SLA ID" });
-    }
-
-    let aggregationPipeline = [
-        { $match: matchQuery },
-        {
-            $lookup: {
-                from: 'branches',
-                localField: 'bo_id',
-                foreignField: '_id',
-                as: 'branchDetails',
-            },
-        },
-        { $unwind: { path: '$branchDetails', preserveNullAndEmptyArrays: true } },
-        {
-            $lookup: {
-                from: "schemes", // Adjust this to your actual collection name for branches
-                localField: "scheme_id",
-                foreignField: "_id",
-                as: "schemeDetails"
-            }
-        },
-        { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
-        {
-            $project: {
-                _id: 1,
-                schemeId: '$schemeDetails.schemeId',
-                // schemeName: '$schemeDetails.schemeName',
-                schemeName: {
-                    $concat: [
-                        "$schemeDetails.schemeName", "",
-                        { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
-                        { $ifNull: ["$schemeDetails.season", ""] }, "",
-                        { $ifNull: ["$schemeDetails.period", ""] }
-                    ]
-                },
-                branchName: '$branchDetails.branchName',
-                createdOn: '$createdAt'
-            }
-        }
-    ];
-    if (paginate == 1) {
-        aggregationPipeline.push(
-            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
-            { $skip: parseInt(skip) },
-            { $limit: parseInt(limit) }
-        );
-    } else {
-        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
-    }
-
-    const rows = await SchemeAssign.aggregate(aggregationPipeline);
-    const countPipeline = [
-        { $match: matchQuery },
-        { $count: "total" }
-    ];
-    const countResult = await SchemeAssign.aggregate(countPipeline);
-    const count = countResult[0]?.total || 0;
-    const records = { rows, count };
-    if (paginate == 1) {
-        records.page = parseInt(page);
-        records.limit = parseInt(limit);
-        records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
-    }
-    if (isExport == 1) {
-        const record = rows.map((item) => {
-            return {
-                "Scheme Id": item?.schemeId || "NA",
-                "schemeName": item?.schemeName || "NA",
-                "branchName": item?.branchName || "NA",
-            };
-        });
-        if (record.length > 0) {
-            dumpJSONToExcel(req, res, {
-                data: record,
-                fileName: `Scheme-record.xlsx`,
-                worksheetName: `Scheme-record`
-            });
-        } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Scheme Assign") }));
-        }
-    } else {
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme Assign") }));
-    }
-}
-

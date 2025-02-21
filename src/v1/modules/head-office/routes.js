@@ -11,6 +11,7 @@ const { farmerManagementRoutes } = require("./farmer-management/Route")
 const { warehouseRoutes } = require("./warehouse/Route");
 const { paymentRoutes } = require("./payment/Routes");
 const { schemeRoutes } = require("./scheme/Routes");
+const { slaRoute } = require("./ho-sla-management/Routes");
 
 headOfficeRoutes.use("/auth", hoAuthRoutes)
 headOfficeRoutes.use("/branch", Auth, hoBranchRoutes)
@@ -20,6 +21,7 @@ headOfficeRoutes.use("/farmer", Auth, farmerManagementRoutes)
 headOfficeRoutes.use("/warehouse", Auth, warehouseRoutes)
 headOfficeRoutes.use("/payment", Auth, paymentRoutes)
 headOfficeRoutes.use("/schemeAssigned", Auth, schemeRoutes)
+headOfficeRoutes.use("/sla", Auth, slaRoute)
 
 
 module.exports = { headOfficeRoutes }
