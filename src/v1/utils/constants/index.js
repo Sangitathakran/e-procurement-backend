@@ -57,7 +57,8 @@ const _collectionName = {
     ExternalOrder : "ExternalOrder",
     Scheme: "Scheme",
     commodityStandard:"commodityStandard",
-    SchemeAssign: "SchemeAssign"
+    SchemeAssign: "SchemeAssign",
+    ClientToken : "ClientToken",
 
 }
 
@@ -78,7 +79,8 @@ const _featureType = {
     headOffice: "HeadOffice",
     agency: "Agency",
     associate: "Associate",
-    distiller: "Distiller"
+    distiller: "Distiller",
+    warehouse: "Warehouse"
 }
 
 const _status = {

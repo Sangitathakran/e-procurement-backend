@@ -14,7 +14,7 @@ const storageFacilitySchema = new mongoose.Schema({
     },
     storage_condition: { type: String, enum: ["Cool","Dry"],  trim: true }, 
     product_produced: { type: String,  trim: true }, 
-    supply_chain_capabilities: { type: String, trim: true },
+    supply_chain_capabilities: { type: String, trim: true }, 
     ..._commonKeys
 }, { timestamps: true });
 

@@ -182,7 +182,8 @@ module.exports.saveDistillerDetails = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const userId = decode.data.user_id;
+        const userId = decode.data.organization_id;
+        console.log('userId-->', userId)
         const distiller = await Distiller.findById(userId);
         if (!distiller) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
@@ -278,11 +279,11 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
 
 module.exports.formPreview = async (req, res) => {
     try {
-        const { user_id } = req;
-        if (!user_id) {
+        const { organization_id } = req;
+        if (!organization_id) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
         }
-        const response = await Distiller.findById({ _id: user_id });
+        const response = await Distiller.findById({ _id: organization_id });
         if (!response) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         } else {
@@ -300,7 +301,7 @@ module.exports.findUserStatus = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const userId = decode.data.user_id;
+        const userId = decode.data.organization_id;
         const user = await Distiller.findById(userId);
         if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
@@ -324,7 +325,7 @@ module.exports.finalFormSubmit = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const userId = decode.data.user_id;
+        const userId = decode.data.organization_id;
         const distiller = await Distiller.findById(userId);
         if (!distiller) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
@@ -363,13 +364,13 @@ module.exports.finalFormSubmit = async (req, res) => {
 
 module.exports.editOnboarding = async (req, res) => {
     try {
-        const { user_id } = req;
+        const { organization_id } = req;
         console.log(user_id);
-        if (!user_id) {
+        if (!organization_id) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
         }
 
-        const response = await Distiller.findById({ _id: user_id });
+        const response = await Distiller.findById({ _id: organization_id });
 
         if (!response) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
@@ -623,9 +624,9 @@ module.exports.updateManufacturingUnit = async (req, res) => {
 module.exports.getManufacturingUnit = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
-        const { user_id } = req;
+        const { organization_id } = req;
        
-        const query = { 'distiller_id': user_id }
+        const query = { 'distiller_id': organization_id }
         const records = { count: 0 };
         const getState = async (stateId) => {
             try {
@@ -844,9 +845,9 @@ module.exports.updateStorageFacility = async (req, res) => {
 module.exports.getStorageFacility = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query;
-        const { user_id } = req;
+        const { organization_id } = req;
        
-        const query = { distiller_id: user_id };
+        const query = { distiller_id: organization_id };
         const records = { count: 0 };
 
         records.rows = paginate == 1
@@ -987,7 +988,7 @@ module.exports.deleteStorageFacility = async (req, res) => {
 
 module.exports.getPendingDistillers = async (req, res) => {
     const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-    const { user_id } = req;
+    const { organization_id } = req;
     let query = {
         is_approved: _userStatus.pending,
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
