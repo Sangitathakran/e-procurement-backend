@@ -361,9 +361,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
   // Payment Info
   (record.paymentInfo.advancePaymentDate =
     paymentInfo?.advancePaymentDate || record?.paymentInfo?.advancePaymentDate),
-    (record.paymentInfo.totalAmount =
-      record?.paymentInfo?.totalAmount + mandiTax ||
-      record?.paymentInfo?.totalAmount),
+    (record.paymentInfo.totalAmount =  record?.paymentInfo?.totalAmount + mandiTax || record?.paymentInfo?.totalAmount),
     (record.paymentInfo.mandiTax = mandiTax || record?.paymentInfo?.mandiTax),
     (record.paymentInfo.advancePaymentUtrNo =
       paymentInfo?.advancePaymentUtrNo ||
@@ -372,7 +370,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
       paymentInfo?.payment_proof || record?.paymentInfo?.payment_proof),
     (record.paymentInfo.advancePaymentStatus = _poAdvancePaymentStatus.paid);
   // console.log("_final_record=>", record);
-  // // Save the updated record
+  // Save the updated record
   await record.save();
 
   const distillerDetails = await Distiller.findOne({ _id: user_id }).select({ "basic_details.distiller_details": 1,_id: 0}).lean();
