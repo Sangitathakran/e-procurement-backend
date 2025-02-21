@@ -483,78 +483,78 @@ const lotLevelDetailsUpdate = async (req, res) => {
 };
 
 const listWHRForDropdown = async (req, res) => {
-    try {
-      
-      const getToken = req.headers.token || req.cookies.token;
-      if (!getToken) {
-          return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+  try {
+    
+    const getToken = req.headers.token || req.cookies.token;
+    if (!getToken) {
+        return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+    }
+
+    const decode = await decryptJwtToken(getToken);
+    const UserId = decode.data.user_id;
+
+    const warehouseIds = [];
+    const batchIds = [];
+
+    if (!mongoose.Types.ObjectId.isValid(UserId)) {
+        return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+    }
+    const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+    const ownerwarehouseIds = warehouseDetails.map(id => new mongoose.Types.ObjectId(id));
+    
+    const wareHouseData = warehouseDetails.map(data => ({
+      warehouseName: data.basicDetails.warehouseName,
+      wareHouseId: data._id,
+      wareHouseCode: data.wareHouse_code
+    }));
+    
+    const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
+        ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
+        : ownerwarehouseIds;
+    
+    if (!finalwarehouseIds.length) {
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            message: "No warehouses found for the user." 
+        }));
+    }
+
+    const batchDetails = await Batch.find({ "warehousedetails_id": { $in: finalwarehouseIds } });
+    
+    const procurementCenterIds = batchDetails.map(data => data.procurementCenter_id);
+    const requestIds = batchDetails.map(data => data.req_id);
+    
+    const procurementDetails = await ProcurementCenter.find({ "_id": { $in: procurementCenterIds } });
+    const commodityDetails = await RequestModel.find({ "_id": { $in: requestIds } });
+    
+
+    const procurementCenterNames = procurementDetails.map(data => ({
+      procurementCenterId: data._id,
+      centerName: data.center_name,
+      address: {
+        stateName: data.address.state,
+        districtName: data.address.district,
+        cityName: data.address.city,
+        pinCode: data.address.postalCode
       }
+    }));
 
-      const decode = await decryptJwtToken(getToken);
-      const UserId = decode.data.user_id;
-
-      const warehouseIds = [];
-      const batchIds = [];
-
-      if (!mongoose.Types.ObjectId.isValid(UserId)) {
-          return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
-      }
-      const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
-      const ownerwarehouseIds = warehouseDetails.map(id => new mongoose.Types.ObjectId(id));
-      
-      const wareHouseData = warehouseDetails.map(data => ({
-        warehouseName: data.basicDetails.warehouseName,
-        wareHouseId: data._id,
-        wareHouseCode: data.wareHouse_code
-      }));
-      
-      const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
-          ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
-          : ownerwarehouseIds;
-      
-      if (!finalwarehouseIds.length) {
-          return res.status(200).send(new serviceResponse({
-              status: 200,
-              message: "No warehouses found for the user." 
-          }));
-      }
-
-      const batchDetails = await Batch.find({ "warehousedetails_id": { $in: finalwarehouseIds } });
-      
-      const procurementCenterIds = batchDetails.map(data => data.procurementCenter_id);
-      const requestIds = batchDetails.map(data => data.req_id);
-      
-      const procurementDetails = await ProcurementCenter.find({ "_id": { $in: procurementCenterIds } });
-      const commodityDetails = await RequestModel.find({ "_id": { $in: requestIds } });
-      
-
-      const procurementCenterNames = procurementDetails.map(data => ({
-        procurementCenterId: data._id,
-        centerName: data.center_name,
-        address: {
-          stateName: data.address.state,
-          districtName: data.address.district,
-          cityName: data.address.city,
-          pinCode: data.address.postalCode
-        }
-      }));
-
-      const commodityNames = commodityDetails.map(data => ({
-        commodityName: data.product.name,
-      }));
+    const commodityNames = commodityDetails.map(data => ({
+      commodityName: data.product.name,
+    }));
 
 
-      const data = {
-        warehouses: wareHouseData,
-        procurementCenters: procurementCenterNames,
-        commodityNames : commodityNames
-      }
-      
-      return res.status(200).send(new serviceResponse({ status: 200, data: data, message: _response_message.found("Farmer") }));
-  
-  } catch (error) {
-      _handleCatchErrors(error, res);
-  }
+    const data = {
+      warehouses: wareHouseData,
+      procurementCenters: procurementCenterNames,
+      commodityNames : commodityNames
+    }
+    
+    return res.status(200).send(new serviceResponse({ status: 200, data: data, message: _response_message.found("data") }));
+
+} catch (error) {
+    _handleCatchErrors(error, res);
+}
 };
 
 module.exports = {
