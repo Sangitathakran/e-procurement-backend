@@ -8,6 +8,10 @@ require("dotenv").config();
 const crypto = require("crypto");
 // const { postReqCCAvenue } = require("./ccAvenueToolkit/ccavRequestHandler");
 var ccav = require("./ccAvenueToolkit/ccavutil.js");
+const {
+  CCAvenueResponse,
+} = require("@src/v1/models/app/payment/ccAvenuePayments.js");
+const { _paymentmethod } = require("@src/v1/utils/constants/index.js");
 
 const { MERCHANT_ID, ACCESS_CODE, WORKING_KEY, REDIRECT_URL, PG_ENV } =
   process.env;
@@ -51,7 +55,7 @@ module.exports.sendRequest = async (req, res) => {
 };
 
 module.exports.paymentStatus = async (req, res) => {
-  const { encResp, orderNo } = req.body;
+  const { encResp = null, orderNo = null } = req.body;
   try {
     if (!encResp)
       return res.status(400).json({ error: "Missing encrypted response" });
@@ -63,12 +67,18 @@ module.exports.paymentStatus = async (req, res) => {
 
     console.log("CCAvenue Payment Response:", responseParams);
 
-    const paymentStatus = responseParams.order_status || "Unknown";
+    const paymentStatus = responseParams?.order_status || "Unknown";
+
+    await CCAvenueResponse.create({
+      order_status: paymentStatus,
+      details: responseParams,
+      order_id: orderNo,
+      // created_at: Date.now(),
+      payment_method: _paymentmethod.bank_transfer,
+    });
 
     if (paymentStatus === "Success") {
-      return res
-        .status(200)
-        .json({ message: "Payment successful", details: responseParams });
+      return res.status(200).json({ message: "Payment successful" });
     } else {
       return res.status(400).json({
         message: "Payment failed or pending",
@@ -76,7 +86,7 @@ module.exports.paymentStatus = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("Decryption Error:", error);
+    console.error("Internal Error:", error);
     res.status(500).json({ error: "Internal Server Error", errorLog: error });
   }
 };
