@@ -429,30 +429,11 @@ const lotLevelDetailsUpdate = async (req, res) => {
 
       const batch_date = batch.dispatched?.dispatched_at;
       const batchId = batch._id;
-
+      
       const whrDetails = await WhrModel.find({ "batch_id": { $in: batchId } });
-      console.log('whrDetails',whrDetails);
-
+      
       let total_rejected_quantity = 0;
       let total_accepted_quantity = 0;
-
-      for (const lot of batch.farmerOrderIds) {
-        // console.log('lot',lot)
-        // total_rejected_quantity += lot.rejected_quantity;
-        // total_accepted_quantity += lot.accepted_quantity;
-      }
-
-      console.log('Total Rejected Quantity:', total_rejected_quantity);
-      console.log('Total Accepted Quantity:', total_accepted_quantity);
-
-      // if (parseInt(accepted_quantity) !== total_accepted_quantity || parseInt(rejected_quantity) !== total_rejected_quantity) {
-      //   return res.status(400).send(new serviceResponse({
-      //     status: 400,
-      //     errors: [{
-      //       message: "Mismatch in accepted or rejected quantities. Please verify the data."
-      //     }]
-      //   }));
-      // }
 
       const lotDetails = batch.farmerOrderIds.map(lot => ({
         batch_date,
@@ -482,7 +463,7 @@ const lotLevelDetailsUpdate = async (req, res) => {
   }
 };
 
-const listWHRForDropdown = async (req, res) => {
+const listWarehouseDropdown = async (req, res) => {
   try {
     
     const getToken = req.headers.token || req.cookies.token;
@@ -494,8 +475,7 @@ const listWHRForDropdown = async (req, res) => {
     const UserId = decode.data.user_id;
 
     const warehouseIds = [];
-    const batchIds = [];
-
+    
     if (!mongoose.Types.ObjectId.isValid(UserId)) {
         return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
     }
@@ -519,7 +499,37 @@ const listWHRForDropdown = async (req, res) => {
         }));
     }
 
-    const batchDetails = await Batch.find({ "warehousedetails_id": { $in: finalwarehouseIds } });
+    const data = { warehouses: wareHouseData}
+    
+    return res.status(200).send(new serviceResponse({ status: 200, data: data, message: _response_message.found("data") }));
+
+} catch (error) {
+    _handleCatchErrors(error, res);
+}
+};
+
+const listWHRForDropdown = async (req, res) => {
+  try {
+    const {wareHouseId} = req.params;
+    const getToken = req.headers.token || req.cookies.token;
+    if (!getToken) {
+        return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+    }
+
+    const decode = await decryptJwtToken(getToken);
+    const UserId = decode.data.user_id;
+
+    const batchIds = [];
+
+    if (!mongoose.Types.ObjectId.isValid(UserId)) {
+        return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+    }
+  
+    let query = {
+      "warehousedetails_id": { $in: wareHouseId},
+    };
+    
+    const batchDetails = await Batch.find(query).select('_id req_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status procurementCenter_id');
     
     const procurementCenterIds = batchDetails.map(data => data.procurementCenter_id);
     const requestIds = batchDetails.map(data => data.req_id);
@@ -545,7 +555,7 @@ const listWHRForDropdown = async (req, res) => {
 
 
     const data = {
-      warehouses: wareHouseData,
+      batchDetails : batchDetails,
       procurementCenters: procurementCenterNames,
       commodityNames : commodityNames
     }
@@ -589,5 +599,6 @@ module.exports = {
   lotLevelDetailsUpdate,
   whrList,
   listWHRForDropdown,
-  deleteWhr
+  deleteWhr,
+  listWarehouseDropdown
 };
