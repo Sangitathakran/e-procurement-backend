@@ -311,7 +311,7 @@ module.exports.getslaByBo = asyncErrorHandler(async (req, res) => {
           _id: 1,
           slaName: '$slaDetails.basic_details.name',
           slaId: '$slaDetails.slaId',
-          assignQty: "$assignQty",
+          targetAssigned: "$assignQty",
           targetAchieved: '$schemeDetails.procurement'
         }
       }
