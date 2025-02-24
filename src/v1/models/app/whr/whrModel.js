@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _paymentmethod, _paymentstatus, _userType, _paymentApproval } = require('@src/v1/utils/constants');
+const { _collectionName, _paymentmethod, _paymentstatus, _whr_status, _userType, _paymentApproval } = require('@src/v1/utils/constants');
 
 const whrSchema = new mongoose.Schema({
     batch_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch, required: true }],
@@ -25,6 +25,12 @@ const whrSchema = new mongoose.Schema({
     whr_date:{type:String,required:true},
     whr_number:{type:String,required:true},
     whr_document:{type:String,required:true},
+    deleted: { type: Boolean, default: false },
+    status: {
+        type: String,
+        enum: Object.values(_whr_status),
+        default: _whr_status.pending,
+      },
     
 }, { timestamps: true });
 

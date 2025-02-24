@@ -4,7 +4,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const {_response_message,_middleware,_query,} = require("@src/v1/utils/constants/messages");
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
-const { _associateOfferStatus, _procuredStatus, _batchStatus, _userType} = require("@src/v1/utils/constants");
+const { _associateOfferStatus, _whr_status, _batchStatus, _userType} = require("@src/v1/utils/constants");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
@@ -124,10 +124,10 @@ const whrList = async (req, res) => {
   try {
       const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = "" } = req.query;
 
-      let query = {};
-      if (search) {
-          query["whr_type"] = { $regex: search, $options: "i" };
-      }
+      let query = {
+        ...(search ? { "whr_type": { $regex: search, $options: "i" }, deleted: false } : { deleted: false })
+      };
+      
 
       const records = { count: 0, rows: [] };
 
@@ -431,13 +431,13 @@ const lotLevelDetailsUpdate = async (req, res) => {
       const batchId = batch._id;
 
       const whrDetails = await WhrModel.find({ "batch_id": { $in: batchId } });
-      
+      console.log('whrDetails',whrDetails);
 
       let total_rejected_quantity = 0;
       let total_accepted_quantity = 0;
 
       for (const lot of batch.farmerOrderIds) {
-        console.log('lot',lot)
+        // console.log('lot',lot)
         // total_rejected_quantity += lot.rejected_quantity;
         // total_accepted_quantity += lot.accepted_quantity;
       }
@@ -557,6 +557,29 @@ const listWHRForDropdown = async (req, res) => {
 }
 };
 
+const deleteWhr = async (req, res) => {
+  try {
+      const { whrId } = req.body;
+
+      if (!whrId) {
+          return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('whrId') }));
+      }
+      const response = await WhrModel.findOneAndUpdate(
+          { _id: whrId, deleted: false },
+          { $set: { deleted: true, status: _whr_status.deleted } },
+          { new: true }
+      );
+
+      if (!response) {
+          return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('WHR') }));
+      } else {
+          return res.status(200).send(new serviceResponse({ status: 200, message: _query.delete("WHR"), data: response }));
+      }
+  } catch (error) {
+      _handleCatchErrors(error, res);
+  }
+}
+
 module.exports = {
   createWhr,
   updateWhrById,
@@ -565,5 +588,6 @@ module.exports = {
   lotList,
   lotLevelDetailsUpdate,
   whrList,
-  listWHRForDropdown
+  listWHRForDropdown,
+  deleteWhr
 };
