@@ -472,7 +472,7 @@ module.exports.saveAgribidDetails = async (req, res) => {
                 }));
             }
 
-            const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, dispatchQtyInQTL, remainingQtyInQTL, warehouseAddress, state, district, city, villageName, pinCode, procurementPartner };
+            const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, remainingQtyInQTL, warehouseAddress, state, district, city, villageName, pinCode, procurementPartner };
 
             for (const [key, value] of Object.entries(requiredFields)) {
                 if (key !== "remainingQtyInQTL" && !value) {
@@ -484,7 +484,7 @@ module.exports.saveAgribidDetails = async (req, res) => {
                 return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('remaining quantity in QTL') }));
             }
 
-            if (capacityInQTL <= 0 || procuredQtyInQTL <= 0 || dispatchQtyInQTL <= 0) {
+            if (capacityInQTL <= 0 || procuredQtyInQTL <= 0) {
                 return res.status(400).send(new serviceResponse({ 
                     status: 400, 
                     message: "Capacity, Procured Quantity, and Dispatch Quantity must be greater than zero." 
@@ -673,7 +673,7 @@ module.exports.updateAgribidDetails = async (req, res) => {
                 external_batch_id,
             } = update;
 
-            const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, dispatchQtyInQTL, warehouseAddress, state, district, city, villageName, pinCode, procurementPartner, external_batch_id };
+            const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, warehouseAddress, state, district, city, villageName, pinCode, procurementPartner, external_batch_id };
 
             for (const [key, value] of Object.entries(requiredFields)) {
                 if (!value) {
@@ -696,9 +696,9 @@ module.exports.updateAgribidDetails = async (req, res) => {
 
             let itemErrors = [];
 
-            if (dispatchQtyInMT <= 0) {
-                itemErrors.push("Quantity must be greater than zero");
-            }
+            // if (dispatchQtyInMT <= 0) {
+            //     itemErrors.push("Quantity must be greater than zero");
+            // }
             if (batchExists.remaining_quantity <= 0) {
                 itemErrors.push("No remaining quantity available for this batch");
             }
