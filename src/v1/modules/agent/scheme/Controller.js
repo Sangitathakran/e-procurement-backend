@@ -498,6 +498,7 @@ module.exports.getBoByScheme = asyncErrorHandler(async (req, res) => {
       {
         $project: {
           _id: 1,
+          branchId: '$branchDetails.branchId',
           branchName: "$branchDetails.branchName",
           branchLocation: "$branchDetails.state",
           targetAchieved: '$schemeDetails.procurement',
@@ -617,7 +618,7 @@ module.exports.getslaByBo = asyncErrorHandler(async (req, res) => {
       bo_id: new mongoose.Types.ObjectId(bo_id),
       sla_id: { $exists: true, $ne: null }
     };
-    
+
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(bo_id)) {
       return res.status(400).json({ message: "Invalid BO ID" });
@@ -633,7 +634,6 @@ module.exports.getslaByBo = asyncErrorHandler(async (req, res) => {
           as: "schemeDetails"
         }
       },
-      // { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
       { $unwind: { path: "$schemeDetails" } },
       {
         $lookup: {
@@ -695,7 +695,7 @@ module.exports.getslaByBo = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Scheme Assign") }));
       }
     } else {
-      return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme Assign") }));
+      return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("SLA Assign") }));
     }
   } catch (error) {
     _handleCatchErrors(error, res);
