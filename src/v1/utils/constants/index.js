@@ -449,7 +449,8 @@ const _whr_status = {
     rejected: 'rejected',
     pending: 'pending',
     archived: "archived",
-    deleted: "deleted"
+    deleted: "deleted",
+    created: "created",
 }
 
 const _frontendLoginRoutes = {

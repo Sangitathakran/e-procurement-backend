@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _batchStatus, received_qc_status, _paymentApproval, _billstatus, _wareHouseApproval } = require('@src/v1/utils/constants');
+const { _collectionName, _batchStatus,_whr_status, received_qc_status, _paymentApproval, _billstatus, _wareHouseApproval } = require('@src/v1/utils/constants');
 
 const batchsSchema = new mongoose.Schema({
     seller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
@@ -149,6 +149,7 @@ const batchsSchema = new mongoose.Schema({
         quantity_gain: { type: Number, trim: true },
         bag_gain: { type: Number, trim: true },
     }],
+    whr_status: { type: String, enum: Object.values(_whr_status), default: _whr_status.pending },  /// it will be pending bydefault when cretae now batch after creat new WHR then will be status created.
 }, { timestamps: true });
 
 const Batch = mongoose.model(_collectionName.Batch, batchsSchema);
