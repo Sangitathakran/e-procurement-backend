@@ -28,6 +28,10 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     const selectValues = "reqNo product quotedPrice createdAt expectedProcurementDate deliveryDate address";
 
     records.rows = paginate == 1 ? await RequestModel.find(query).select(selectValues)
+        .populate({ path: "branch_id", select: "_id branchName branchId" })
+        .populate({ path: "head_office_id", select: "_id company_details.name" })
+        .populate({ path: "product.schemeId", select: "_id schemeId schemeName" })
+        .populate({ path: "sla_id", select: "_id basic_details.name" })
         .sort(sortBy)
         .skip(skip)
         .limit(parseInt(limit)) : await RequestModel.find(query).select(selectValues).sort(sortBy);
@@ -148,7 +152,7 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
 
     const record = await Batch.findOne({ _id: id }).populate("req_id").populate("seller_id");
-   
+
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
     }
@@ -224,9 +228,9 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
             record.delivered.net_weight = net_weight;
             record.delivered.delivered_at = new Date();
             record.delivered.delivered_by = user_id;
-    
+
             record.status = _batchStatus.delivered;
-            
+
             const subject = `QC Approved Notification for Batch ID ${record?.batchId} under order ID ${record?.req_id.reqNo}`;
             const body = `<p>  Dear ${record?.seller_id?.basic_details.associate_details.associate_name}, </p> <br/>
             <p> This is to inform that you Quality Control (QC) for the following batch has been successfully approved:</p> <br/> 
