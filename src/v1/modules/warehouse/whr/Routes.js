@@ -7,7 +7,8 @@ const {
     batchList, 
     lotLevelDetailsUpdate, 
     whrList,
-    listWHRForDropdown
+    listWHRForDropdown,
+    deleteWhr
 } = require("./Controller");
 const { verifyWarehouseOwner } = require("../utils/verifyWarehouseOwner");
 const { validateForm } = require("./Validation");
@@ -21,7 +22,7 @@ whrRoutes.get("/lot-list",lotList);  /// Done
 whrRoutes.post("/whr-lot-detail", lotLevelDetailsUpdate);  
 whrRoutes.get("/whr-list", whrList);  /// Done
 whrRoutes.get("/dropdown-list", listWHRForDropdown);  /// todo
-
+whrRoutes.post("/whr-delete", deleteWhr);  
 
 
 

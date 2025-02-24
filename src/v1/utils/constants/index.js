@@ -442,6 +442,16 @@ const _statusType = {
     inactive: 'inactive'
 }
 
+const _whr_status = {
+    active: "active",
+    inactive: "inactive",
+    approved: 'approved',
+    rejected: 'rejected',
+    pending: 'pending',
+    archived: "archived",
+    deleted: "deleted"
+}
+
 const _frontendLoginRoutes = {
     // agent: "/agent/sign-in",
     // ho: "/head-office/sign-in",
@@ -573,4 +583,5 @@ module.exports = {
     _penaltypaymentStatus,
     _poBatchPaymentStatus,
     _trackOrderStatus ,
+    _whr_status
 }
