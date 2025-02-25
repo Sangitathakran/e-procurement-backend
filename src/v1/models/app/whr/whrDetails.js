@@ -3,7 +3,7 @@ const { _collectionName, _paymentmethod, _paymentstatus, _whr_status, _userType,
 
 const whrSchema = new mongoose.Schema({
     whr_id : { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Whr, required: true },
-    batch_date : { type: String },
+    batch_date : { type: Date , trim: true},
     batch_id : { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch},
     lot_id : { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.FarmerOrder},
     farmer_name : { type:String, },
@@ -19,6 +19,6 @@ const whrSchema = new mongoose.Schema({
     
 }, { timestamps: true });
 
-const WhrModel = mongoose.model(_collectionName.Whr, whrSchema);
+const WhrDetail = mongoose.model(_collectionName.WhrDetail, whrSchema);
 
-module.exports = { WhrModel };
+module.exports = { WhrDetail };

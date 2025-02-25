@@ -10,6 +10,8 @@ const { ProcurementCenter } = require("@src/v1/models/app/procurement/Procuremen
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 
 const { WhrModel } = require("@src/v1/models/app/whr/whrModel");
+const { WhrDetail } = require("@src/v1/models/app/whr/whrDetails");
+
 const moment = require("moment");
 
 //create whr
@@ -429,32 +431,100 @@ const lotLevelDetailsUpdate = async (req, res) => {
 
       const batch_date = batch.dispatched?.dispatched_at;
       const batchId = batch._id;
+      const parsedAcceptedQuantity = parseInt(accepted_quantity) || 0;
+      const parsedAcceptedBag = parseInt(accepted_bag) || 0;
+      const parsedRejectedQuantity = parseInt(rejected_quantity) || 0;
+      const parsedRejectedBag = parseInt(rejected_bag) || 0;
+      const parsedQuantityGain = parseInt(quantity_gain) || 0;
+      const parsedBagGain = parseInt(bag_gain) || 0;
       
-      const whrDetails = await WhrModel.find({ "batch_id": { $in: batchId } });
+      const whrDetails = await WhrModel.findOne({ "batch_id":batchId  });
       
-      let total_rejected_quantity = 0;
-      let total_accepted_quantity = 0;
-
       const lotDetails = batch.farmerOrderIds.map(lot => ({
+        whr_id: whrDetails._id,
         batch_date,
         batch_id: batchId,
         lot_id: lot.farmerOrder_id,
         farmer_name: "Raju",
         dispatch_quantity: lot.qty,
         dispatch_bag: 2,
-        accepted_quantity: parseInt(accepted_quantity),
-        accepted_bag: parseInt(accepted_bag),
-        rejected_quantity: parseInt(rejected_quantity),
-        rejected_bag: parseInt(rejected_bag),
-        quantity_gain: parseInt(quantity_gain),
-        bag_gain: parseInt(bag_gain)
+        accepted_quantity: parsedAcceptedQuantity,
+        accepted_bag: parsedAcceptedBag,
+        rejected_quantity: parsedRejectedQuantity,
+        rejected_bag: parsedRejectedBag,
+        quantity_gain: parsedQuantityGain,
+        bag_gain: parsedBagGain
       }));
-      
 
-      await Batch.updateOne(
-        { _id: batchId },
-        { $push: { whr_lot_detail: { $each: lotDetails } } }
-      );
+      for (const lot of lotDetails) {
+        const WhrDetailData = new WhrDetail(lot);
+        await WhrDetailData.save();
+      }
+      
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, message: "WHR Lot details updated successfully." }));
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+
+const whrLotDetailsUpdate = async (req, res) => {
+  try {
+    if (!Array.isArray(req.body)) {
+      return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Request body should be an array." }] }));
+    }
+
+    for (const data of req.body) {
+      const { batch_id, accepted_quantity, accepted_bag, rejected_quantity, rejected_bag, quantity_gain, bag_gain } = data;
+
+      if (!mongoose.Types.ObjectId.isValid(batch_id)) {
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('batch_id') }] }));
+      }
+
+      const batch = await Batch.findById(batch_id);
+      if (!batch) {
+        return res.status(404).send(new serviceResponse({ status: 404, errors: [{ message: "Batch not found." }] }));
+      }
+
+      const batch_date = batch.dispatched?.dispatched_at;
+      const batchId = batch._id;
+
+      const parsedAcceptedQuantity = parseInt(accepted_quantity) || 0;
+      const parsedAcceptedBag = parseInt(accepted_bag) || 0;
+      const parsedRejectedQuantity = parseInt(rejected_quantity) || 0;
+      const parsedRejectedBag = parseInt(rejected_bag) || 0;
+      const parsedQuantityGain = parseInt(quantity_gain) || 0;
+      const parsedBagGain = parseInt(bag_gain) || 0;
+
+      const whrDetails = await WhrModel.findOne({ batch_id: batchId });
+      if (!whrDetails) {
+        return res.status(404).send(new serviceResponse({ status: 404, errors: [{ message: "WHR details not found for the batch." }] }));
+      }
+
+      const lotDetails = batch.farmerOrderIds.map(lot => ({
+        whr_id: whrDetails._id,
+        batch_date,
+        batch_id: batchId,
+        lot_id: lot.farmerOrder_id,
+        farmer_name: "Raju",
+        dispatch_quantity: lot.qty,
+        dispatch_bag: 2,
+        accepted_quantity: parsedAcceptedQuantity,
+        accepted_bag: parsedAcceptedBag,
+        rejected_quantity: parsedRejectedQuantity,
+        rejected_bag: parsedRejectedBag,
+        quantity_gain: parsedQuantityGain,
+        bag_gain: parsedBagGain
+      }));
+
+      for (const lot of lotDetails) {
+        await WhrDetail.updateOne(
+          { batch_id: lot.batch_id, lot_id: lot.lot_id },
+          { $set: lot },
+          { upsert: true }
+        );
+      }
     }
 
     return res.status(200).send(new serviceResponse({ status: 200, message: "WHR Lot details updated successfully." }));
@@ -600,5 +670,6 @@ module.exports = {
   whrList,
   listWHRForDropdown,
   deleteWhr,
-  listWarehouseDropdown
+  listWarehouseDropdown,
+  whrLotDetailsUpdate
 };
