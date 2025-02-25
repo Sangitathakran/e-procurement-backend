@@ -10,7 +10,7 @@ const ccAvenueResponseSchema = new mongoose.Schema(
   {
     order_status: {
       type: String,
-      enum: Object.values(_ccAvenuePaymentStatus),
+      //   enum: Object.values(_ccAvenuePaymentStatus),
       default: _ccAvenuePaymentStatus.UNKNOWN,
     },
     details: { type: Object, required: true },
