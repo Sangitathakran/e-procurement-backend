@@ -397,13 +397,13 @@ const lotList = async (req, res) => {
   try {
       const { batch_id } = req.query;
       const record = {}
-      record.rows = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" });
+      record.rows = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1, batchId: 1,  "delivered.delivered_at" : 1  }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" });
 
       if (!record) {
           return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
       }
 
-      return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Farmer") }));
+      return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Lot") }));
 
   } catch (error) {
       _handleCatchErrors(error, res);
@@ -439,7 +439,18 @@ const lotLevelDetailsUpdate = async (req, res) => {
       const parsedBagGain = parseInt(bag_gain) || 0;
       
       const whrDetails = await WhrModel.findOne({ "batch_id":batchId  });
-      
+
+      for (const lot of batch.farmerOrderIds) {
+        lot.rejected_quantity = parsedRejectedQuantity;
+        lot.rejected_bags = parsedRejectedBag;
+        lot.gain_quantity = parsedQuantityGain;
+        lot.gain_bags = parsedBagGain;
+        lot.accepted_quantity = parsedAcceptedQuantity;
+        lot.accepted_bags = parsedAcceptedBag;
+      }
+
+      await batch.save();
+
       const lotDetails = batch.farmerOrderIds.map(lot => ({
         whr_id: whrDetails._id,
         batch_date,
@@ -449,11 +460,11 @@ const lotLevelDetailsUpdate = async (req, res) => {
         dispatch_quantity: lot.qty,
         dispatch_bag: 2,
         accepted_quantity: parsedAcceptedQuantity,
-        accepted_bag: parsedAcceptedBag,
+        accepted_bags: parsedAcceptedBag,
         rejected_quantity: parsedRejectedQuantity,
-        rejected_bag: parsedRejectedBag,
-        quantity_gain: parsedQuantityGain,
-        bag_gain: parsedBagGain
+        rejected_bags: parsedRejectedBag,
+        gain_quantity: parsedQuantityGain,
+        gain_bags: parsedBagGain
       }));
 
       for (const lot of lotDetails) {
@@ -502,6 +513,17 @@ const whrLotDetailsUpdate = async (req, res) => {
         return res.status(404).send(new serviceResponse({ status: 404, errors: [{ message: "WHR details not found for the batch." }] }));
       }
 
+      for (const lot of batch.farmerOrderIds) {
+        lot.rejected_quantity = parsedRejectedQuantity;
+        lot.rejected_bags = parsedRejectedBag;
+        lot.gain_quantity = parsedQuantityGain;
+        lot.gain_bags = parsedBagGain;
+        lot.accepted_quantity = parsedAcceptedQuantity;
+        lot.accepted_bags = parsedAcceptedBag;
+      }
+
+      await batch.save();
+
       const lotDetails = batch.farmerOrderIds.map(lot => ({
         whr_id: whrDetails._id,
         batch_date,
@@ -511,11 +533,11 @@ const whrLotDetailsUpdate = async (req, res) => {
         dispatch_quantity: lot.qty,
         dispatch_bag: 2,
         accepted_quantity: parsedAcceptedQuantity,
-        accepted_bag: parsedAcceptedBag,
+        accepted_bags: parsedAcceptedBag,
         rejected_quantity: parsedRejectedQuantity,
-        rejected_bag: parsedRejectedBag,
-        quantity_gain: parsedQuantityGain,
-        bag_gain: parsedBagGain
+        rejected_bags: parsedRejectedBag,
+        gain_quantity: parsedQuantityGain,
+        gain_bags: parsedBagGain
       }));
 
       for (const lot of lotDetails) {
