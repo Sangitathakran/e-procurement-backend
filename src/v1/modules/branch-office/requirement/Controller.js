@@ -6,14 +6,17 @@ const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod, _userType } = require("@src/v1/utils/constants");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { Scheme } = require("@src/v1/models/master/Scheme");
+const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const moment = require("moment");
-const { dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { dumpJSONToExcel } = require("@src/v1/utils/helpers");
+const mongoose = require("mongoose");
 
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
 
     const { user_id, portalId } = req;
-    const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+    const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, slaName, schemeName, commodity, state } = req.query;
 
     let query = search ? {
         $or: [
@@ -21,6 +24,27 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
             { "product.name": { $regex: search, $options: 'i' } },
         ]
     } : {};
+    if (schemeName) {
+        const scheme = await Scheme.findOne({ schemeName: { $regex: schemeName, $options: 'i' } }).select('_id');
+    
+        if (scheme) {
+            query["product.schemeId"] = scheme._id; 
+        }
+    }
+    if (slaName) {
+        const sla = await SLAManagement.findOne({ "basic_details.name": { $regex: slaName, $options: 'i' } }).select('_id');
+        if (sla) {
+            query["sla_id"] = sla._id;
+        }
+    }
+
+    if (commodity) {
+        query["product.name"] = { $regex: commodity, $options: 'i' };
+    }
+
+    if (state) {
+        query["address.state"] = { $regex: state, $options: 'i' };
+    }
 
     query.branch_id = { $in: [user_id, portalId] };
 
