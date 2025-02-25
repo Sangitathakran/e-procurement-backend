@@ -343,15 +343,14 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 // });
 
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
-  const { limit = 5,  } = req.query;
-  const {procurement_partner}= req.body;
+  const { limit = 5,procurement_partner,page = 1  } = req.query;
+  // const {procurement_partner}= req.body;
  
-  const page = 1, sortBy = 'createdAt', sortOrder = 'asc', isExport = Number(req.query.isExport) || 0;
+  const  sortBy = 'createdAt', sortOrder = 'asc', isExport = Number(req.query.isExport) || 0;
 
   try {
       // Construct filter object
       let filter = {};
-     
       if (procurement_partner) {
           const partners = Array.isArray(procurement_partner) 
               ? procurement_partner 
