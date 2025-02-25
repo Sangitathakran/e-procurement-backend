@@ -80,35 +80,106 @@ module.exports.paymentStatus = async (req, res) => {
       payment_method: _paymentmethod.bank_transfer,
     });
 
-    // Determine the frontend redirect URL
-    let redirectUrl =
-      responseParams.order_status === "Success"
-        ? FRONTEND_SUCCESS_URL
-        : FRONTEND_FAILURE_URL;
+    const {
+      tracking_id = "",
+      bank_ref_no = "",
+      payment_mode = "",
+      order_id = "",
+      amount = "",
+    } = responseParams;
 
-    if (paymentStatus === "Success") {
-      // Send an HTML response that automatically redirects the user
-      res.send(`
-                  <html>
-                  <head>
-                      <title>Processing Payment</title>
-                      <script type="text/javascript">
-                          setTimeout(function() {
-                              window.location.href = "${redirectUrl}?order_id=${responseParams.order_id}&status=${responseParams.order_status}";
-                          }, 1000);
-                      </script>
-                  </head>
-                  <body>
-                      <p>Processing your payment...</p>
-                  </body>
-                  </html>
-              `);
-    } else {
-      return res.status(400).json({
-        message: "Payment failed or pending",
-        details: responseParams,
-      });
-    }
+    // Determine the frontend redirect URL
+    let redirectUrlFE =
+      paymentStatus === "Success" ? FRONTEND_SUCCESS_URL : FRONTEND_FAILURE_URL;
+
+    // if (paymentStatus === "Success") {
+    res.send(`
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Payment Status</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            background-color: #f4f4f4;
+                            text-align: center;
+                            margin: 0;
+                            padding: 0;
+                        }
+                        .container {
+                            max-width: 500px;
+                            margin: 50px auto;
+                            background: #fff;
+                            padding: 20px;
+                            border-radius: 10px;
+                            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                        }
+                        h2 {
+                            color: ${
+                              paymentStatus === "Success"
+                                ? "#28a745"
+                                : "#dc3545"
+                            };
+                        }
+                        p {
+                            font-size: 16px;
+                            margin: 8px 0;
+                        }
+                        .btn {
+                            display: inline-block;
+                            margin-top: 20px;
+                            padding: 10px 20px;
+                            font-size: 16px;
+                            color: #fff;
+                            background-color: ${
+                              paymentStatus === "Success"
+                                ? "#28a745"
+                                : "#dc3545"
+                            };
+                            text-decoration: none;
+                            border-radius: 5px;
+                        }
+                        .btn:hover {
+                            background-color: ${
+                              paymentStatus === "Success"
+                                ? "#218838"
+                                : "#c82333"
+                            };
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h2>${
+                          paymentStatus === "Success"
+                            ? "🎉 Payment Successful!"
+                            : "❌ Payment Failed"
+                        }</h2>
+                        <p><strong>Order ID:</strong> ${order_id}</p>
+                        <p><strong>Amount:</strong> ₹${amount}</p>
+                        <p><strong>Status:</strong> ${paymentStatus}</p>
+                        <p><strong>Tracking ID:</strong> ${
+                          tracking_id || "N/A"
+                        }</p>
+                        <p><strong>Payment Mode:</strong> ${
+                          payment_mode || "N/A"
+                        }</p>
+                        <p><strong>Bank Ref No:</strong> ${
+                          bank_ref_no || "N/A"
+                        }</p>
+                        <a class="btn" href="${redirectUrlFE}?order_id=${order_id}&status=${paymentStatus}">Go Back</a>
+                    </div>
+                </body>
+                </html>
+            `);
+    // } else {
+    //   return res.status(400).json({
+    //     message: "Payment failed or pending",
+    //     details: responseParams,
+    //   });
+    // }
   } catch (error) {
     console.error("Internal Error:", error);
     res.status(500).json({ error: "Internal Server Error", errorLog: error });
