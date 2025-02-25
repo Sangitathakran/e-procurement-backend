@@ -16,6 +16,9 @@ const { _paymentmethod } = require("@src/v1/utils/constants/index.js");
 const { MERCHANT_ID, ACCESS_CODE, WORKING_KEY, REDIRECT_URL, PG_ENV } =
   process.env;
 
+const FRONTEND_SUCCESS_URL = "https://testing.distiller.khetisauda.com";
+const FRONTEND_FAILURE_URL = "https://testing.distiller.khetisauda.com";
+
 var workingKey = WORKING_KEY, //Put in the 32-Bit key shared by CCAvenues.
   accessCode = ACCESS_CODE, //Put in the Access Code shared by CCAvenues.
   encRequest = "";
@@ -77,8 +80,29 @@ module.exports.paymentStatus = async (req, res) => {
       payment_method: _paymentmethod.bank_transfer,
     });
 
+    // Determine the frontend redirect URL
+    let redirectUrl =
+      responseParams.order_status === "Success"
+        ? FRONTEND_SUCCESS_URL
+        : FRONTEND_FAILURE_URL;
+
     if (paymentStatus === "Success") {
-      return res.status(200).json({ message: "Payment successful" });
+      // Send an HTML response that automatically redirects the user
+      res.send(`
+                  <html>
+                  <head>
+                      <title>Processing Payment</title>
+                      <script type="text/javascript">
+                          setTimeout(function() {
+                              window.location.href = "${redirectUrl}?order_id=${responseParams.order_id}&status=${responseParams.order_status}";
+                          }, 1000);
+                      </script>
+                  </head>
+                  <body>
+                      <p>Processing your payment...</p>
+                  </body>
+                  </html>
+              `);
     } else {
       return res.status(400).json({
         message: "Payment failed or pending",
