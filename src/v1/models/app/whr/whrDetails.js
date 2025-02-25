@@ -10,11 +10,11 @@ const whrSchema = new mongoose.Schema({
     dispatch_quantity : { type: Number, trim: true },
     dispatch_bag : { type: Number, trim: true },
     accepted_quantity: { type: Number, trim: true },
-    accepted_bag: { type: Number, trim: true },
+    accepted_bags: { type: Number, trim: true },
     rejected_quantity: { type: Number },
-    rejected_bag: { type: Number, trim: true },
-    quantity_gain: { type: Number, trim: true },
-    bag_gain: { type: Number, trim: true },
+    rejected_bags: { type: Number, trim: true },
+    gain_quantity: { type: Number, trim: true },
+    gain_bags: { type: Number, trim: true },
 
     
 }, { timestamps: true });
