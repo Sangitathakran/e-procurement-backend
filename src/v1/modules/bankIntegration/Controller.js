@@ -169,7 +169,7 @@ module.exports.paymentStatus = async (req, res) => {
                         <p><strong>Bank Ref No:</strong> ${
                           bank_ref_no || "N/A"
                         }</p>
-                        <a class="btn" href="${redirectUrlFE}?order_id=${order_id}&status=${paymentStatus}">Go Back</a>
+                        <a class="btn" href="${CANCEL_URL}?order_id=${order_id}&status=${paymentStatus}">Go Back</a>
                     </div>
                 </body>
                 </html>
