@@ -9,7 +9,8 @@ const {
     whrList,
     listWHRForDropdown,
     deleteWhr,
-    listWarehouseDropdown
+    listWarehouseDropdown,
+    whrLotDetailsUpdate
 } = require("./Controller");
 const { verifyWarehouseOwner } = require("../utils/verifyWarehouseOwner");
 const { validateForm } = require("./Validation");
@@ -25,6 +26,8 @@ whrRoutes.get("/whr-list", whrList);  /// Done
 whrRoutes.get("/dropdown-list/:wareHouseId", listWHRForDropdown);  /// todo
 whrRoutes.post("/whr-delete", deleteWhr);  
 whrRoutes.get("/dropdown-warehouse", listWarehouseDropdown);
+whrRoutes.post("/update-lot-details", whrLotDetailsUpdate);
+
 
 
 

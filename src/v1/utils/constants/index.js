@@ -29,6 +29,7 @@ const _collectionName = {
     Batch: "Batch",
     Payment: "Payment",
     Whr:"Whr",
+    WhrDetail : "WhrDetail",
     Branch: "Branch",
     DummyWarehouse: "DummyWarehouse",
     Warehouse: "WarehouseV2",
