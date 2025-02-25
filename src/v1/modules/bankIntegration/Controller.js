@@ -13,8 +13,14 @@ const {
 } = require("@src/v1/models/app/payment/ccAvenuePayments.js");
 const { _paymentmethod } = require("@src/v1/utils/constants/index.js");
 
-const { MERCHANT_ID, ACCESS_CODE, WORKING_KEY, REDIRECT_URL, PG_ENV } =
-  process.env;
+const {
+  MERCHANT_ID,
+  ACCESS_CODE,
+  WORKING_KEY,
+  REDIRECT_URL,
+  PG_ENV,
+  CANCEL_URL,
+} = process.env;
 
 const FRONTEND_SUCCESS_URL = "https://testing.distiller.khetisauda.com";
 const FRONTEND_FAILURE_URL = "https://testing.distiller.khetisauda.com";
