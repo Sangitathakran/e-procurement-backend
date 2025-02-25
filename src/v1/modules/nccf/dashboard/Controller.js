@@ -343,21 +343,27 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 // });
 
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
-  const { limit = 5, procurement_partner } = req.query;
-  
-  const page = 1, sortBy = 'createdAt', sortOrder = 'asc', isExport = 0;
+  const { limit = 5,  } = req.query;
+  const {procurement_partner}= req.body;
+ 
+  const page = 1, sortBy = 'createdAt', sortOrder = 'asc', isExport = Number(req.query.isExport) || 0;
 
   try {
       // Construct filter object
       let filter = {};
+     
       if (procurement_partner) {
-          filter.procurement_partner = procurement_partner;
+          const partners = Array.isArray(procurement_partner) 
+              ? procurement_partner 
+              : procurement_partner.split(',');
+
+          filter.procurement_partner = { $in: partners };
       }
 
       // Fetch data with pagination and sorting
       const warehouses = await wareHouseDetails.find(filter)
           .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
-          .skip((page - 1) * limit)
+          .skip((page - 1) * parseInt(limit))
           .limit(parseInt(limit));
 
       // Count total warehouses based on filter
@@ -366,7 +372,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
       const inactiveWarehouses = totalWarehouses - activeWarehouses;
 
       // Handle export functionality
-      if (isExport == 1) {
+      if (isExport === 1) {
           const exportData = warehouses.map(item => ({
               "Warehouse ID": item._id,
               "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
@@ -393,7 +399,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
           data: {
               records: warehouses,
               page,
-              limit,
+              limit: parseInt(limit),
               totalRecords: totalWarehouses,
               activeRecords: activeWarehouses,
               inactiveRecords: inactiveWarehouses,
@@ -406,6 +412,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
       return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching warehouses", error: error.message }));
   }
 });
+
 module.exports.getCompanyNames = async (req, res) => {
   try {
     // FETCH DISTINCT PROCUREMENT PARTNER VALUES
