@@ -63,6 +63,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
             ],
           },
           schemeSeason: "$schemeDetails.season",
+          schemeStatus: "$schemeDetails.status",
           commodityName: '$commodityDetails.name',
           commodity_id: '$schemeDetails.commodity_id',
           scheme_id: 1,
