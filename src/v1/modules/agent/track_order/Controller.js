@@ -218,7 +218,7 @@ module.exports.getProcurement = asyncErrorHandler(
                     as: "branchDetails",
                 },
             },
-
+            { $unwind: { path: '$branchDetails', preserveNullAndEmptyArrays: true } },
             // Add computed fields
             {
                 $addFields: {
