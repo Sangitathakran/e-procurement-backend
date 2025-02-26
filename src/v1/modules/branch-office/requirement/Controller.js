@@ -26,11 +26,11 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     } : {};
     if (schemeName) {
         const scheme = await Scheme.findOne({ schemeName: { $regex: schemeName, $options: 'i' } }).select('_id');
-    
         if (scheme) {
-            query["product.schemeId"] = scheme._id; 
+            query["product.schemeId"] = new mongoose.Types.ObjectId(scheme._id);
         }
     }
+    
     if (slaName) {
         const sla = await SLAManagement.findOne({ "basic_details.name": { $regex: slaName, $options: 'i' } }).select('_id');
         if (sla) {
