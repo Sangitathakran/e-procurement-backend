@@ -582,9 +582,10 @@ module.exports.getBo = asyncErrorHandler(async (req, res) => {
                     branchId: 1,
                     branchName: 1,
                     emailAddress: 1,
-                    'point_of_contact.name': 1,
+                    pointOfContact:'$pointOfContact.name',
                     address: 1,
                     state: 1,
+                    status: 1,
                     createdAt: 1,
                     updatedAt: 1
                 }

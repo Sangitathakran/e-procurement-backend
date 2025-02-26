@@ -38,6 +38,15 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
       },
       { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
       {
+        $lookup: {
+          from: "commodities",
+          localField: "schemeDetails.commodity_id",
+          foreignField: "_id",
+          as: "commodityDetails",
+        },
+      },
+      { $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true } },
+      {
         $project: {
           _id: 1,
           procurementTarget: '$schemeDetails.procurement',
@@ -53,6 +62,10 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
               { $ifNull: ["$schemeDetails.period", ""] },
             ],
           },
+          schemeSeason: "$schemeDetails.season",
+          schemeStatus: "$schemeDetails.status",
+          commodityName: '$commodityDetails.name',
+          commodity_id: '$schemeDetails.commodity_id',
           scheme_id: 1,
           status: 1,
         },
