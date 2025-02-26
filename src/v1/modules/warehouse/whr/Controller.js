@@ -418,7 +418,7 @@ const lotLevelDetailsUpdate = async (req, res) => {
     }
 
     for (const data of req.body) {
-      const { batch_id,farmerOrder_id, accepted_quantity, accepted_bag, rejected_quantity, rejected_bag, quantity_gain, bag_gain } = data;
+      const { batch_id,farmerOrder_id, accepted_quantity, accepted_bags, rejected_quantity, rejected_bags, gain_quantity, gain_bags } = data;
 
       if (!mongoose.Types.ObjectId.isValid(batch_id)) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('batch_id') }] }));
@@ -432,11 +432,11 @@ const lotLevelDetailsUpdate = async (req, res) => {
       const batch_date = batch.dispatched?.dispatched_at;
       const batchId = batch._id;
       const parsedAcceptedQuantity = parseInt(accepted_quantity) || 0;
-      const parsedAcceptedBag = parseInt(accepted_bag) || 0;
+      const parsedAcceptedBag = parseInt(accepted_bags) || 0;
       const parsedRejectedQuantity = parseInt(rejected_quantity) || 0;
-      const parsedRejectedBag = parseInt(rejected_bag) || 0;
-      const parsedQuantityGain = parseInt(quantity_gain) || 0;
-      const parsedBagGain = parseInt(bag_gain) || 0;
+      const parsedRejectedBag = parseInt(rejected_bags) || 0;
+      const parsedQuantityGain = parseInt(gain_quantity) || 0;
+      const parsedBagGain = parseInt(gain_bags) || 0;
       
       const whrDetails = await WhrModel.findOne({ "batch_id":batchId  });
       const farmerOrder = batch.farmerOrderIds.find(
@@ -493,7 +493,7 @@ const whrLotDetailsUpdate = async (req, res) => {
     }
 
     for (const data of req.body) {
-      const { batch_id, farmerOrder_id, accepted_quantity, accepted_bag, rejected_quantity, rejected_bag, quantity_gain, bag_gain } = data;
+      const { batch_id, farmerOrder_id, accepted_quantity, accepted_bags, rejected_quantity, rejected_bags, gain_quantity, gain_bags } = data;
 
       if (!mongoose.Types.ObjectId.isValid(batch_id)) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('batch_id') }] }));
@@ -508,11 +508,11 @@ const whrLotDetailsUpdate = async (req, res) => {
       const batchId = batch._id;
 
       const parsedAcceptedQuantity = parseInt(accepted_quantity) || 0;
-      const parsedAcceptedBag = parseInt(accepted_bag) || 0;
+      const parsedAcceptedBag = parseInt(accepted_bags) || 0;
       const parsedRejectedQuantity = parseInt(rejected_quantity) || 0;
-      const parsedRejectedBag = parseInt(rejected_bag) || 0;
-      const parsedQuantityGain = parseInt(quantity_gain) || 0;
-      const parsedBagGain = parseInt(bag_gain) || 0;
+      const parsedRejectedBag = parseInt(rejected_bags) || 0;
+      const parsedQuantityGain = parseInt(gain_quantity) || 0;
+      const parsedBagGain = parseInt(gain_bags) || 0;
 
       const whrDetails = await WhrModel.findOne({ batch_id: batchId });
       if (!whrDetails) {
