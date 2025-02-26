@@ -202,6 +202,23 @@ module.exports.getProcurement = asyncErrorHandler(
             },
             { $unwind: { path: '$schemeDetails', preserveNullAndEmptyArrays: true } },
 
+            {
+                $lookup: {
+                    from: "branches",
+                    let: { branch_id: "$branch_id" },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ["$_id", { $toObjectId: "$$branch_id" }] } } },
+                        {
+                            $project: {
+                                branchName: "$branchName",
+                                _id: 0
+                            }
+                        }
+                    ],
+                    as: "branchDetails",
+                },
+            },
+            { $unwind: { path: '$branchDetails', preserveNullAndEmptyArrays: true } },
             // Add computed fields
             {
                 $addFields: {
@@ -214,7 +231,8 @@ module.exports.getProcurement = asyncErrorHandler(
                         ]
                     },
                     slaName: { $ifNull: ["$slaDetails.slaName", "N/A"] },
-                    headOfficesName: { $ifNull: ["$headOfficeDetails.headOfficesName", "N/A"] }
+                    headOfficesName: { $ifNull: ["$headOfficeDetails.headOfficesName", "N/A"] },
+                    branchName: { $ifNull: ["$branchDetails.branchName","N/A"] }
                 }
             },
             ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
