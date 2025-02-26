@@ -446,7 +446,11 @@ module.exports.getAssignedScheme = async (req, res) => {
     const { slaId, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
     // Initialize matchQuery
-    let matchQuery = { slaId: new mongoose.Types.ObjectId(slaId) };
+    let matchQuery = { 
+        slaId: new mongoose.Types.ObjectId(slaId),
+        ho_id: { $exists: true, $ne: null },
+        bo_id: { $exists: true, $ne: null }
+     };
 
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(slaId)) {
