@@ -2655,3 +2655,206 @@ module.exports.addDistrictCity = async (req, res) => {
     return res.status(500).json({ message: "Internal server error.", error: error.message });
   }
 };
+module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
+  try {
+    const { user_id } = req;
+    const { isxlsx = 1 } = req.body;
+    const [file] = req.files;
+
+    if (!file) {
+      return res.status(400).json({
+        message: _response_message.notFound("file"),
+        status: 400
+      });
+    }
+
+    let farmers = [];
+    let headers = [];
+
+    if (isxlsx) {
+      const workbook = xlsx.read(file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      farmers = xlsx.utils.sheet_to_json(worksheet);
+      headers = Object.keys(farmers[0]);
+    } else {
+      const csvContent = file.buffer.toString('utf8');
+      const lines = csvContent.split('\n');
+      headers = lines[0].trim().split(',');
+      const dataContent = lines.slice(1).join('\n');
+
+      const parser = csv({ headers });
+      const readableStream = Readable.from(dataContent);
+
+      readableStream.pipe(parser);
+      parser.on('data', async (data) => {
+        if (Object.values(data).some(val => val !== '')) {
+          const result = await processFarmerRecord(data);
+          if (!result.success) {
+            errorArray = errorArray.concat(result.errors);
+          }
+        }
+      });
+
+      parser.on('end', () => {
+        console.log("Stream end");
+      });
+      parser.on('error', (err) => {
+        console.log("Stream error", err);
+      });
+    }
+
+    let errorArray = [];
+    const processFarmerRecord = async (rec) => {
+      const toLowerCaseIfExists = (value) => value ? value.toLowerCase().trim() : null;
+      const parseBooleanYesNo = (value) => {
+        if (value === true || value?.toLowerCase() === 'yes') return true;
+        if (value === false || value?.toLowerCase() === 'no') return false;
+        return null;
+      };
+    
+      function getValueOrNull(value) {
+        return  value  ? typeof value ==='string'?
+                         value.trim():value 
+                      : null;
+      }
+    
+      const name = getValueOrNull(rec["Farmer Name"]);
+      const father_name = getValueOrNull(rec["Farmer Father Name"]);
+      const mother_name = getValueOrNull(rec["MOTHER NAME"]);
+      const date_of_birth = getValueOrNull(rec["DATE OF BIRTH(DD-MM-YYYY)*"]);
+      const farmer_category = getValueOrNull(rec["FARMER CATEGORY"]);
+      const gender = toLowerCaseIfExists(rec["Gender"]);
+      const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS"]) || 'N/A';
+      const religion = toLowerCaseIfExists(rec["RELIGION"]) || 'N/A';
+      const category = toLowerCaseIfExists(rec["CATEGORY"]) || 'N/A';
+      const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL"]);
+      const edu_details = getValueOrNull(rec["EDU DETAILS"]);
+      const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"]);
+      const aadhar_no = getValueOrNull(rec["AADHAR NUMBER*"]);
+      const address_line = getValueOrNull(rec["ADDRESS LINE*"]);
+      const country = getValueOrNull(rec["COUNTRY NAME"]) || 'India';
+      const state_name = getValueOrNull(rec["STATE NAME*"]);
+      const district_name = getValueOrNull(rec["DISTRICT NAME*"]);
+      const tahshil = getValueOrNull(rec["TAHSHIL*"]);
+      const block = getValueOrNull(rec["BLOCK NAME*"]);
+      const village = getValueOrNull(rec["Village"]);
+      const pinCode = getValueOrNull(rec["PINCODE*"]);
+      const lat = getValueOrNull(rec["LATITUDE"]);
+      const long = getValueOrNull(rec["LONGITUDE"]);
+      const mobile_no = getValueOrNull(rec["MOBILE NO*"]);
+      const email = getValueOrNull(rec["EMAIL ID"]);
+      const bank_name = getValueOrNull(rec["Bank Name"]);
+      const account_no = getValueOrNull(rec["Account No"]);
+      const branch_name = getValueOrNull(rec["Branch"]);
+      const ifsc_code = getValueOrNull(rec["IFSC Code"]);
+      const account_holder_name = getValueOrNull(rec["Farmer Name"]);
+      const farmer_tracent_code = getValueOrNull(rec["Farmer Tracenet Code *"]);
+      // console.log("aadhar_no", aadhar_no)
+      // console.log("mobile_no", mobile_no)
+      const requiredFields = [
+        { field: "AADHAR NUMBER*", label: "AADHAR NUMBER" },
+        { field: "MOBILE NO*", label: "MOBILE NUMBER" },
+      ];
+      let stateName = state_name.replace(/_/g, ' ');
+      if (
+        stateName === 'Dadra and Nagar Haveli' ||
+        stateName === 'Andaman and Nicobar' ||
+        stateName === 'Daman and Diu' ||
+        stateName === 'Jammu and Kashmir'
+      ) {
+        stateName = stateName.replace('and', '&');
+      }
+      let errors = [];
+      let missingFields = [];
+
+      requiredFields.forEach(({ field, label }) => {
+        if (!rec[field]) missingFields.push(label);
+      });
+
+      if (missingFields.length > 0) {
+        errors.push({ record: rec, error: `Required fields missing: ${missingFields.join(', ')}` });
+      }
+      if (!/^\d{12}$/.test(aadhar_no)) {
+        errors.push({ record: rec, error: "Invalid Aadhar Number" });
+      }
+      // if (!/^\d{6,20}$/.test(account_no)) {
+      //   errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 20 digits." });
+      // }
+      if (!/^\d{10}$/.test(mobile_no)) {
+        errors.push({ record: rec, error: "Invalid Mobile Number" });
+      }
+      
+      if (!Object.values(_gender).includes(gender)) {
+        errors.push({ record: rec, error: `Invalid Gender: ${gender}. Valid options: ${Object.values(_gender).join(', ')}` });
+      }
+      if (!Object.values(_maritalStatus).includes(marital_status)) {
+        errors.push({ record: rec, error: `Invalid Marital Status: ${marital_status}. Valid options: ${Object.values(_maritalStatus).join(', ')}` });
+      }
+      if (!Object.values(_religion).includes(religion)) {
+        errors.push({ record: rec, error: `Invalid Religion: ${religion}. Valid options: ${Object.values(_religion).join(', ')}` });
+      }
+      if (!Object.values(_individual_category).includes(category)) {
+        errors.push({ record: rec, error: `Invalid Category: ${category}. Valid options: ${Object.values(_individual_category).join(', ')}` });
+      }
+      if (!Object.values(_proofType).includes(type)) {
+        errors.push({ record: rec, error: `Invalid Proof type: ${type}. Valid options: ${Object.values(_proofType).join(', ')}` });
+      }
+      if (errors.length > 0) return { success: false, errors };
+      // const calulateage = calculateAge(date_of_birth);
+      try {
+        const state_id = await getStateId(stateName);
+        const district_id = await getDistrictId(district_name);
+        // const processedDateOfBirth = parseDateOfBirth(date_of_birth);
+
+        let associateId = user_id;
+        if (!user_id) {
+          const associate = await User.findOne({ 'basic_details.associate_details.organization_name': fpo_name });
+          associateId = associate ? associate._id : null;
+        }
+        let farmerRecord = await farmer.findOne({ 'proof.aadhar_no': aadhar_no });
+        if (farmerRecord) {
+          return { success: false, errors: [{ record: rec, error: `Farmer  with Aadhar No. ${aadhar_no} already registered.` }] };
+          
+          // });
+        } else {
+          farmerRecord = await insertNewFarmerRecord({
+            associate_id: associateId,farmer_tracent_code, name, father_name, mother_name, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, 
+          });
+        }
+
+      } catch (error) {
+        console.log(error)
+        errors.push({ record: rec, error: error.message });
+      }
+
+      return { success: errors.length === 0, errors };
+    };
+
+    for (const farmer of farmers) {
+      const result = await processFarmerRecord(farmer);
+      if (!result.success) {
+        errorArray = errorArray.concat(result.errors);
+      }
+    }
+
+    if (errorArray.length > 0) {
+      const errorData = errorArray.map(err => ({ ...err.record, Error: err.error }));
+      // console.log("error data->",errorData)
+      dumpJSONToExcel(req, res, {
+        data: errorData,
+        fileName: `Farmer-error_records.xlsx`,
+        worksheetName: `Farmer-record-error_records`
+      });
+    } else {
+      return res.status(200).json({
+        status: 200,
+        data: {},
+        message: "Farmers successfully uploaded."
+      });
+    }
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
