@@ -822,7 +822,7 @@ module.exports.payment = async (req, res) => {
 
 module.exports.payment = async (req, res) => {
   try {
-    let { page = 1, limit = 50, search = "", isExport = 0 } = req.query;
+    let { page = 1, limit = 50, search = "", isExport = 0, isApproved = false } = req.query;
     page = parseInt(page);
     limit = parseInt(limit);
 
@@ -1012,7 +1012,7 @@ module.exports.payment = async (req, res) => {
                     },
                   },
                 },
-                then: "Payment initiated",
+                then: "Partially initiated",
               },
               {
                 case: {
@@ -1025,14 +1025,14 @@ module.exports.payment = async (req, res) => {
                           $map: {
                             input: "$$batch.payment",
                             as: "pay",
-                            in: { $in: ["$$pay.payment_status", ["Pending", "In Progress", "Failed", "Rejected"]] },
+                            in: { $in: ["$$pay.payment_status", ["Failed", "Rejected"]] },
                           },
                         },
                       },
                     },
                   },
                 },
-                then: "Partially initiated",
+                then: "Failed",
               }
               ],
               default: "Pending", // Default case when no action is taken
@@ -1062,6 +1062,10 @@ module.exports.payment = async (req, res) => {
     ];
 
     const records = await RequestModel.aggregate(aggregationPipeline);
+    // filtering final records
+    const apStatus = isApproved ? "Approved2" : "Pending";
+    const filteredRecords = records.filter((el)=>el?.approval_status === apStatus);
+    console.log("filteredRes => ", filteredRecords, apStatus, isApproved)
 
     // Step 5: Prepare Response
     const response = {
