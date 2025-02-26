@@ -97,8 +97,7 @@ module.exports.paymentStatus = async (req, res) => {
     // Determine the frontend redirect URL
     let redirectUrlFE =
       paymentStatus === "Success" ? FRONTEND_SUCCESS_URL : FRONTEND_FAILURE_URL;
-
-    // if (paymentStatus === "Success") {
+      
     res.send(`
                 <!DOCTYPE html>
                 <html lang="en">
@@ -180,12 +179,6 @@ module.exports.paymentStatus = async (req, res) => {
                 </body>
                 </html>
             `);
-    // } else {
-    //   return res.status(400).json({
-    //     message: "Payment failed or pending",
-    //     details: responseParams,
-    //   });
-    // }
   } catch (error) {
     console.error("Internal Error:", error);
     res.status(500).json({ error: "Internal Server Error", errorLog: error });
