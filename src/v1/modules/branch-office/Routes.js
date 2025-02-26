@@ -6,6 +6,7 @@ const { procurementCenterRoutes } = require("./procurement_center/Routes");
 const { requirementRoutes } = require("./requirement/Routes");
 const { dashboardRoutes } = require("./dashboard/Routes");
 const { assignSchemeRoutes } = require("./assignScheme/Routes");
+const { slaRoute } = require("./sla-management/Routes");
 const branchOfficeoRoutes = express.Router();
 
 
@@ -15,5 +16,6 @@ branchOfficeoRoutes.use("/center", procurementCenterRoutes);
 branchOfficeoRoutes.use("/req", requirementRoutes);
 branchOfficeoRoutes.use("/dashboard", dashboardRoutes);
 branchOfficeoRoutes.use("/assignScheme", assignSchemeRoutes);
+branchOfficeoRoutes.use("/sla", slaRoute);
 
 module.exports = { branchOfficeoRoutes };
