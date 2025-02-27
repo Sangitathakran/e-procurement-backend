@@ -22,10 +22,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
       bo_id: new mongoose.Types.ObjectId(user_id),
       deletedAt: null,
     };
-    if (search) {
-      matchQuery.schemeId = { $regex: search, $options: "i" };
-    }
-
+    
     let aggregationPipeline = [
       { $match: matchQuery },
       {
@@ -37,27 +34,63 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         },
       },
       { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+
+       // Add schemeName field before filtering
+       {
+        $addFields: {
+          schemeName: {
+            $concat: [
+              "$schemeDetails.schemeName",
+              " ",
+              { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+              " ",
+              { $ifNull: ["$schemeDetails.season", ""] },
+              " ",
+              { $ifNull: ["$schemeDetails.period", ""] },
+            ],
+          },
+        },
+      },
+
+    ];
+
+    if(search?.trim()){
+      aggregationPipeline.push(
+        {
+          $match: {
+            $or: [
+              { "schemeDetails.schemeId": { $regex: search, $options: "i" } },
+              { "schemeName": { $regex: search, $options: "i" } },
+            ],
+          },
+        }
+      );
+    }
+
+    aggregationPipeline.push(
       {
         $project: {
           _id: 1,
           procurementTarget: '$schemeDetails.procurement',
           schemeId: "$schemeDetails.schemeId",
-          schemeName: {
-            $concat: [
-              "$schemeDetails.schemeName",
-              "",
-              { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
-              "",
-              { $ifNull: ["$schemeDetails.season", ""] },
-              "",
-              { $ifNull: ["$schemeDetails.period", ""] },
-            ],
-          },
+          // schemeName: {
+          //   $concat: [
+          //     "$schemeDetails.schemeName",
+          //     "",
+          //     { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+          //     "",
+          //     { $ifNull: ["$schemeDetails.season", ""] },
+          //     "",
+          //     { $ifNull: ["$schemeDetails.period", ""] },
+          //   ],
+          // },
+          schemeName: 1,
           scheme_id: 1,
           status: 1,
         },
       },
-    ];
+    );
+
     if (paginate == 1) {
       aggregationPipeline.push(
         { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Secondary sort by _id for stability
@@ -70,7 +103,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
       });
     }
     const rows = await SchemeAssign.aggregate(aggregationPipeline);
-    const countPipeline = [{ $match: matchQuery }, { $count: "total" }];
+    const countPipeline = [...aggregationPipeline.slice(0, -1), { $count: "total" }]; //[{ $match: matchQuery }, { $count: "total" }];
     const countResult = await SchemeAssign.aggregate(countPipeline);
     const count = countResult[0]?.total || 0;
     const records = { rows, count };
