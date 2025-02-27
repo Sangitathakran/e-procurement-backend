@@ -4,11 +4,13 @@ const { MasterUser } = require("@src/v1/models/master/MasterUser");
 const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { emailService } = require('@src/v1/utils/third_party/EmailServices');
 const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator")
 const bcrypt = require('bcrypt');
 const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
+const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const xlsx = require('xlsx');
 
 module.exports.getAssociates = async (req, res) => {
     try {
@@ -121,7 +123,6 @@ module.exports.getAssociates = async (req, res) => {
     }
 };
 
-
 module.exports.userStatusUpdate = async (req, res) => {
     try {
         const { userId, status } = req.body;
@@ -180,7 +181,6 @@ module.exports.userStatusUpdate = async (req, res) => {
     }
 }
 
-
 module.exports.statusUpdate = async (req, res) => {
 
     try {
@@ -206,7 +206,6 @@ module.exports.statusUpdate = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
 
 module.exports.pendingRequests = async (req, res) => {
 
@@ -245,8 +244,6 @@ module.exports.pendingRequests = async (req, res) => {
     }
 }
 
-
-
 module.exports.getAssociatesById = async (req, res) => {
 
     try {
@@ -266,4 +263,257 @@ module.exports.getAssociatesById = async (req, res) => {
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-} 
+}
+
+module.exports.bulkuplodAssociate = async (req, res) => {
+    try {
+        const { isxlsx = 1 } = req.body;
+        const [file] = req.files;
+
+        if (!file) {
+            return res.status(400).json({
+                message: _response_message.notFound("file"),
+                status: 400
+            });
+        }
+
+        let associate = [];
+        let headers = [];
+
+        if (isxlsx) {
+            const workbook = xlsx.read(file.buffer, { type: 'buffer' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            associate = xlsx.utils.sheet_to_json(worksheet);
+            headers = Object.keys(associate[0]);
+        } else {
+            const csvContent = file.buffer.toString('utf8');
+            const lines = csvContent.split('\n');
+            headers = lines[0].trim().split(',');
+            const dataContent = lines.slice(1).join('\n');
+
+            const parser = csv({ headers });
+            const readableStream = Readable.from(dataContent);
+
+            readableStream.pipe(parser);
+            parser.on('data', async (data) => {
+                if (Object.values(data).some(val => val !== '')) {
+                    const result = await processRecord(data);
+                    if (!result.success) {
+                        errorArray = errorArray.concat(result.errors);
+                    }
+                }
+            });
+
+            parser.on('end', () => {
+                console.log("Stream end");
+            });
+            parser.on('error', (err) => {
+                console.log("Stream error", err);
+            });
+        }
+
+        let errorArray = [];
+        const processRecord = async (rec) => {
+            const organization_name = rec["Organization Name*"] || null;
+            const name = rec["Name*"] || null;
+            const cbbo_name = rec["CBBO"] || null;
+            const implementation_agency = rec["Implementation Agency"] || null;
+            const company_pan = rec["Company PAN*"] || null;
+            const company_cin = rec["Company CIN*"] || null;
+            const email = rec["Email ID*"] || null;
+            const company_mobile = rec["Company Mobile Number*"] || null;
+            const company_address = rec["Company Registered address*"] || null;
+            const pincode = rec["Pincode*"] || null;
+            const state = rec["State*"] || null;
+            const district = rec["District*"] || null;
+            const city = rec["Village/Town/City"] || null;
+
+            const owner_name = rec["Owner Name*"] || null;
+            const owner_aadhar = rec["Owner Aadhar Number*"] || null;
+            const owner_pan = rec["Owner PAN Number*"] || null;
+
+            const poc_name = rec["POC Name*"] || null;
+            const poc_designation = rec["PocDesignation"] || null;
+            const poc_mobile = rec["POC Mobile Number*"] || null;
+            const poc_email = rec["PocEmail*"] || null;
+            const poc_aadhar = rec["POC Aadhar Number*"] || null;
+
+            const auth_name = rec["Authorized Person Name*"] || null;
+            const auth_designation = rec["AuthDesignation"] || null;
+            const auth_mobile = rec["Mobile Number*"] || null;
+            const auth_email = rec["AuthEmail*"] || null;
+            const auth_aadhar = rec["Authorized Person Aadhar Number*"] || null;
+            const auth_pan = rec["Authorized Person PAN Number"] || null;
+
+            const bank_name = rec["Bank Name*"] || null;
+            const branch_name = rec["Branch Name*"] || null;
+            const account_holder_name = rec["Account Holder Name*"] || null;
+            const ifsc_code = rec["IFSC Code*"] || null;
+            const account_number = rec["Account Number*"] || null;
+            const confirm_account_number = rec["Confirm Account Number*"] || null;
+            const requiredFields = [
+                { field: "Organization Name*", label: "Organization Name" },
+                { field: "Name*", label: "Name" },
+                { field: "Company PAN*", label: "Company PAN" },
+                { field: "Company CIN*", label: "Company CIN" },
+                { field: "Email ID*", label: "Email ID" },
+                { field: "Company Mobile Number*", label: "Company Mobile Number" },
+                { field: "Company Registered address*", label: "Company Registered Address" },
+                { field: "Pincode*", label: "Pincode" },
+                { field: "State*", label: "State" },
+                { field: "District*", label: "District" },
+                { field: "Village/Town/City", label: "Village/Town/City" },
+                { field: "Owner Name*", label: "Owner Name" },
+                { field: "Owner Aadhar Number*", label: "Owner Aadhar Number" },
+                { field: "Owner PAN Number*", label: "Owner PAN Number" },
+                { field: "POC Name*", label: "POC Name" },
+                { field: "Designation", label: "POC Designation" },
+                { field: "POC Mobile Number*", label: "POC Mobile Number" },
+                { field: "PocEmail*", label: "POC Email" },
+                { field: "POC Aadhar Number*", label: "POC Aadhar Number" },
+                { field: "Authorized Person Name*", label: "Authorized Person Name" },
+                { field: "Designation", label: "Authorized Person Designation" },
+                { field: "Mobile Number*", label: "Authorized Person Mobile Number" },
+                { field: "AuthEmail*", label: "Authorized Person Email" },
+                { field: "Authorized Person Aadhar Number*", label: "Authorized Person Aadhar Number" },
+                { field: "Bank Name*", label: "Bank Name" },
+                { field: "Branch Name*", label: "Branch Name" },
+                { field: "Account Holder Name*", label: "Account Holder Name" },
+                { field: "IFSC Code*", label: "IFSC Code" },
+                { field: "Account Number*", label: "Account Number" },
+                { field: "Confirm Account Number*", label: "Confirm Account Number" }
+            ];
+
+            let errors = [];
+            let missingFields = [];
+
+            requiredFields.forEach(({ field, label }) => {
+                if (!rec[field]) missingFields.push(label);
+            });
+
+            if (missingFields.length > 0) {
+                errors.push({ record: rec, error: `Required fields missing: ${missingFields.join(', ')}` });
+            }
+            if (!/^\d{12}$/.test(poc_aadhar)) {
+                errors.push({ record: rec, error: "Invalid Aadhar Number" });
+            }
+            if (!/^\d{6,20}$/.test(account_number)) {
+                errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 20 digits." });
+            }
+            if (!/^\d{10}$/.test(poc_mobile)) {
+                errors.push({ record: rec, error: "Invalid Mobile Number" });
+            }
+            if (!String(account_number).trim() || !String(confirm_account_number).trim()) {
+                errors.push("Account Number and Confirm Account Number are required.");
+            } else if (String(account_number).trim() !== String(confirm_account_number).trim()) {
+                errors.push("Account Number and Confirm Account Number must match.");
+            }
+
+            if (errors.length > 0) return { success: false, errors };
+            try {
+
+                let existingRecord = await User.findOne({ 'basic_details.point_of_contact.mobile': poc_mobile });
+                if (existingRecord) {
+                    return { success: false, errors: [{ record: rec, error: `Associate  with Mobile No. ${poc_mobile} already registered.` }] };
+
+                } else {
+                    const newAssociate = new User({
+                        client_id: '9876',
+                        basic_details: {
+                            associate_details: {
+                                organization_name: organization_name,
+                                associate_name: name,
+                                email,
+                                phone: company_mobile,
+                            },
+                            point_of_contact: {
+                                name: poc_name,
+                                email: poc_email,
+                                mobile: poc_mobile,
+                                designation: poc_designation,
+                                aadhar_number: poc_aadhar,
+                            },
+                            company_owner_info: {
+                                name: owner_name,
+                                aadhar_number: owner_aadhar,
+                                pan_card: owner_pan,
+                            },
+                            implementation_agency,
+                            cbbo_name
+                        },
+                        company_details: {
+                            cin_number: company_cin,
+                            pan_card: company_pan,
+                        },
+                        authorised: {
+                            name: auth_name,
+                            designation: auth_designation,
+                            phone: auth_mobile,
+                            email: auth_email,
+                            aadhar_number: auth_aadhar,
+                            pan_card: auth_pan,
+                        },
+                        address: {
+                            registered: {
+                                line1: company_address,
+                                country: 'India',
+                                state,
+                                district,
+                                taluka: city,
+                                pinCode: pincode,
+                            },
+                        },
+                        bank_details: {
+                            bank_name,
+                            branch_name,
+                            account_holder_name,
+                            ifsc_code,
+                            account_number,
+                        },
+                        user_code: null,
+                        user_type: _userType.associate,
+                        is_mobile_verified: true,
+                        is_email_verified: false,
+                        is_approved: _userStatus.approved,
+                        is_form_submitted: false,
+                        active: true
+                    });
+                    await newAssociate.save();
+                }
+
+            } catch (error) {
+                console.log(error)
+                errors.push({ record: rec, error: error.message });
+            }
+
+            return { success: errors.length === 0, errors };
+        };
+
+        for (const associates of associate) {
+            const result = await processRecord(associates);
+            if (!result.success) {
+                errorArray = errorArray.concat(result.errors);
+            }
+        }
+
+        if (errorArray.length > 0) {
+            const errorData = errorArray.map(err => ({ ...err.record, Error: err.error }));
+            // console.log("error data->",errorData)
+            dumpJSONToExcel(req, res, {
+                data: errorData,
+                fileName: `Associate-error_records.xlsx`,
+                worksheetName: `Associate-record-error_records`
+            });
+        } else {
+            return res.status(200).json({
+                status: 200,
+                data: {},
+                message: "Associates successfully uploaded."
+            });
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
