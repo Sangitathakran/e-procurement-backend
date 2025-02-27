@@ -4,6 +4,7 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { mongoose } = require("mongoose");
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
     try {
@@ -427,7 +428,7 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
 module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
     try {
-        const { schemeData, cna_id, bo_id, slaId } = req.body;
+        const { schemeData, cna_id, bo_id, slaId, sla_id } = req.body;
 
         // Validate input
         if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
@@ -439,7 +440,7 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 
         // Prepare data for bulk insert
         const recordsToInsert = schemeData.map(({ _id, qty }) => ({
-            bo_id, ho_id: cna_id, slaId,
+            bo_id, ho_id: cna_id, sla_id: sla_id,
             scheme_id: _id, // Assuming _id refers to scheme_id
             assignQty: qty,
         }));
@@ -463,7 +464,7 @@ module.exports.getAssignedScheme = async (req, res) => {
     const { slaId, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
     // Initialize matchQuery
-    let matchQuery = { slaId: new mongoose.Types.ObjectId(slaId) };
+    let matchQuery = { sla_id: new mongoose.Types.ObjectId(slaId) };
 
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(slaId)) {
@@ -491,6 +492,15 @@ module.exports.getAssignedScheme = async (req, res) => {
         },
         { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
         {
+            $lookup: {
+                from: "headoffices", // Adjust this to your actual collection name for branches
+                localField: "ho_id",
+                foreignField: "_id",
+                as: "headOfficeDetails"
+            }
+        },
+        { $unwind: { path: "$headOfficeDetails", preserveNullAndEmptyArrays: true } },
+        {
             $project: {
                 _id: 1,
                 schemeId: '$schemeDetails.schemeId',
@@ -504,6 +514,7 @@ module.exports.getAssignedScheme = async (req, res) => {
                     ]
                 },
                 branchName: '$branchDetails.branchName',
+                headOfficeName: "$headOfficeDetails.company_details.name",
                 createdOn: '$createdAt'
             }
         }
