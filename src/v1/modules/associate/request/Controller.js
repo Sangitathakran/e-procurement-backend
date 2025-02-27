@@ -79,6 +79,101 @@ module.exports.getProcurement = async (req, res) => {
                             : {}),
                     },
                 },
+                
+                // Lookup Head Office details
+                {
+                    $lookup: {
+                        from: "headoffices",
+                        let: { head_office_id: "$head_office_id" },
+                        pipeline: [
+                            { $match: { $expr: { $eq: ["$_id", { $toObjectId: "$$head_office_id" }] } } },
+                            {
+                                $project: {
+                                    headOfficesName: "$company_details.name",
+                                    _id: 0
+                                }
+                            }
+                        ],
+                        as: "headOfficeDetails",
+                    },
+                },
+                { $unwind: { path: "$headOfficeDetails", preserveNullAndEmptyArrays: true } },
+
+                // Lookup SLA details
+                {
+                    $lookup: {
+                        from: "slas",
+                        let: { sla_id: "$sla_id" },
+                        pipeline: [
+                            { $match: { $expr: { $eq: ["$_id", "$$sla_id"] } } },
+                            {
+                                $project: {
+                                    slaName: "$basic_details.name",
+                                    _id: 0
+                                }
+                            }
+                        ],
+                        as: "slaDetails",
+                    },
+                },
+                { $unwind: { path: "$slaDetails", preserveNullAndEmptyArrays: true } },
+
+                // Lookup Scheme details
+                {
+                    $lookup: {
+                        from: 'schemes',
+                        let: { schemeId: "$product.schemeId" },
+                        pipeline: [
+                            { $match: { $expr: { $eq: ["$_id", "$$schemeId"] } } },
+                            {
+                                $project: {
+                                    schemeName: 1,
+                                    "commodityDetails.name": 1,
+                                    season: 1,
+                                    period: 1,
+                                    _id: 0
+                                }
+                            }
+                        ],
+                        as: 'schemeDetails',
+                    },
+                },
+                { $unwind: { path: '$schemeDetails', preserveNullAndEmptyArrays: true } },
+
+                {
+                    $lookup: {
+                        from: "branches",
+                        let: { branch_id: "$branch_id" },
+                        pipeline: [
+                            { $match: { $expr: { $eq: ["$_id", { $toObjectId: "$$branch_id" }] } } },
+                            {
+                                $project: {
+                                    branchName: "$branchName",
+                                    _id: 0
+                                }
+                            }
+                        ],
+                        as: "branchDetails",
+                    },
+                },
+                { $unwind: { path: '$branchDetails', preserveNullAndEmptyArrays: true } },
+                // Add computed fields
+                {
+                    $addFields: {
+                        schemeName: {
+                            $concat: [
+                                { $ifNull: ["$schemeDetails.schemeName", ""] }, "",
+                                { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
+                                { $ifNull: ["$schemeDetails.season", ""] }, "",
+                                { $ifNull: ["$schemeDetails.period", ""] }
+                            ]
+                        },
+                        slaName: { $ifNull: ["$slaDetails.slaName", "N/A"] },
+                        headOfficesName: { $ifNull: ["$headOfficeDetails.headOfficesName", "N/A"] },
+                        branchName: { $ifNull: ["$branchDetails.branchName", "N/A"] }
+                    }
+                },
+                
                 { $sort: sortBy || { createdAt: -1 } },
                 { $skip: parseInt((page - 1) * limit) || 0 },
                 { $limit: parseInt(limit) || 10 },
