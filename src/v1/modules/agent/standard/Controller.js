@@ -46,7 +46,7 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
     deletedAt: null
   };
   if (search) {
-    matchQuery.standardId = { $regex: search, $options: "i" };
+    matchQuery.name = { $regex: search, $options: "i" };
   }
 
   let aggregationPipeline = [
