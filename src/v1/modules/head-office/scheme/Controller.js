@@ -160,6 +160,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
       {
         $project: {
           _id: 1,
+          branchId: "$branchDetails.branchId",
           branchName: "$branchDetails.branchName",
           branchLocation: "$branchDetails.state",
           targetAchieved: '$schemeDetails.procurement',
@@ -310,7 +311,7 @@ module.exports.getslaByBo = asyncErrorHandler(async (req, res) => {
           _id: 1,
           slaName: '$slaDetails.basic_details.name',
           slaId: '$slaDetails.slaId',
-          assignQty: "$assignQty",
+          targetAssigned: "$assignQty",
           targetAchieved: '$schemeDetails.procurement'
         }
       }
