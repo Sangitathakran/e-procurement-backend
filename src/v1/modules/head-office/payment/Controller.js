@@ -862,7 +862,7 @@ module.exports.payment = async (req, res) => {
 
     // Step 4: Aggregation Pipeline with Optimized Lookups
     const aggregationPipeline = [
-      { $match: query },
+      { $match: query },      
       {
         $lookup: {
           from: "batches",
@@ -880,6 +880,12 @@ module.exports.payment = async (req, res) => {
                 pipeline: [{ $project: { payment_status: 1 } }], // Fetch only needed fields
               },
             },
+            {
+              $project: {
+                ho_approval_at: 1, // Include ho_approval_at
+                payment: 1,
+              },
+            },
           ],
         },
       },
@@ -895,6 +901,7 @@ module.exports.payment = async (req, res) => {
       { $match: { "batches.0": { $exists: true } } }, // Ensure there are batches
       {
         $addFields: {
+          ho_approval_at: { $arrayElemAt: ["$batches.ho_approval_at", 0] },
           approval_status: {
             $cond: {
               if: {
@@ -1041,6 +1048,15 @@ module.exports.payment = async (req, res) => {
         },
       },
       {
+        $lookup: {
+          from: "schemes",
+          localField: "product.schemeId",
+          foreignField: "_id",
+          as: "schemeDetails",
+        },
+      },
+      { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+      {
         $project: {
           _id: 1,
           reqNo: 1,
@@ -1053,7 +1069,16 @@ module.exports.payment = async (req, res) => {
           amountPayable: 1,
           amountPaid: 1,
           payment_status: 1,
-          overall_payment_status:1,
+          overall_payment_status: 1,
+          ho_approval_at: 1,
+          schemeName: {
+            $concat: [
+              "$schemeDetails.schemeName", " ",
+              { $ifNull: ["$schemeDetails.commodityDetails.name", " "] }, " ",
+              { $ifNull: ["$schemeDetails.season", " "] }, " ",
+              { $ifNull: ["$schemeDetails.period", " "] },
+            ],
+          },
         },
       },
       { $sort: { payment_status: -1, createdAt: -1 } },
@@ -1063,11 +1088,11 @@ module.exports.payment = async (req, res) => {
 
     const records = await RequestModel.aggregate(aggregationPipeline) || [];
     // filtering records on the basis of approval_status
-    const apStatus = isApproved ? "Approved":"Pending";
-    var filteredRecords = records.filter((el)=>el?.approval_status === apStatus);
+    const apStatus = isApproved ? "Approved" : "Pending";
+    var filteredRecords = records.filter((el) => el?.approval_status === apStatus);
     // filtering on the basis of overall_payment_status
-    if(paymentStatus){
-      filteredRecords = records.filter((el)=>el?.overall_payment_status === paymentStatus);
+    if (paymentStatus) {
+      filteredRecords = records.filter((el) => el?.overall_payment_status === paymentStatus);
     }
 
     // console.log("filteredRes => ", filteredRecords, apStatus, isApproved, paymentStatus)
@@ -1177,14 +1202,14 @@ module.exports.associateOrders = async (req, res) => {
     records.rows =
       paginate == 1
         ? await AssociateOffers.find(query)
-            .populate({
-              path: "seller_id",
-              select:
-                "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name",
-            })
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit))
+          .populate({
+            path: "seller_id",
+            select:
+              "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name",
+          })
+          .sort(sortBy)
+          .skip(skip)
+          .limit(parseInt(limit))
         : await AssociateOffers.find(query).sort(sortBy);
 
     records.count = await AssociateOffers.countDocuments(query);
@@ -1237,12 +1262,12 @@ module.exports.batchList = async (req, res) => {
     records.rows =
       paginate == 1
         ? await Batch.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .select(
-              "_id procurementCenter_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_approve_by bo_approve_status ho_approve_status"
-            )
-            .limit(parseInt(limit))
+          .sort(sortBy)
+          .skip(skip)
+          .select(
+            "_id procurementCenter_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_approve_by bo_approve_status ho_approve_status"
+          )
+          .limit(parseInt(limit))
         : await Batch.find(query).sort(sortBy);
 
     records.count = await Batch.countDocuments(query);
@@ -1615,9 +1640,9 @@ module.exports.orderList = async (req, res) => {
     // Base query
     let query = search
       ? {
-          // req_id: { $regex: search, $options: "i" },
-          ho_id: { $in: [portalId, user_id] },
-        }
+        // req_id: { $regex: search, $options: "i" },
+        ho_id: { $in: [portalId, user_id] },
+      }
       : { ho_id: { $in: [portalId, user_id] } };
 
     query = { ...query, bo_approve_status: _paymentApproval.approved };
@@ -1629,49 +1654,49 @@ module.exports.orderList = async (req, res) => {
       ...query,
       ...(state || search || commodity
         ? {
-            $and: [
-              ...(state
-                ? [
+          $and: [
+            ...(state
+              ? [
+                {
+                  "sellers.address.registered.state": {
+                    $regex: state,
+                    $options: "i",
+                  },
+                },
+              ]
+              : []),
+            ...(search
+              ? [
+                {
+                  $or: [
                     {
-                      "sellers.address.registered.state": {
-                        $regex: state,
+                      "branch.branchId": {
+                        $regex: search,
                         $options: "i",
                       },
                     },
-                  ]
-                : []),
-              ...(search
-                ? [
                     {
-                      $or: [
-                        {
-                          "branch.branchId": {
-                            $regex: search,
-                            $options: "i",
-                          },
-                        },
-                        {
-                          "requests.reqNo": {
-                            $regex: search,
-                            $options: "i",
-                          },
-                        },
-                      ],
-                    },
-                  ]
-                : []),
-              ...(commodity
-                ? [
-                    {
-                      "requests.product.name": {
-                        $regex: commodity,
+                      "requests.reqNo": {
+                        $regex: search,
                         $options: "i",
                       },
                     },
-                  ]
-                : []),
-            ],
-          }
+                  ],
+                },
+              ]
+              : []),
+            ...(commodity
+              ? [
+                {
+                  "requests.product.name": {
+                    $regex: commodity,
+                    $options: "i",
+                  },
+                },
+              ]
+              : []),
+          ],
+        }
         : {}),
     };
     const unwindBatchIdStage = {
@@ -2172,9 +2197,8 @@ module.exports.payFarmers = async (req, res) => {
           const singular_plural = missingFields.length > 1 ? "are" : "is";
           const errorMessage = `${missingFields.join(
             ", "
-          )} ${singular_plural} missing in ${item.farmer_name} (${
-            item.farmer_id
-          })`;
+          )} ${singular_plural} missing in ${item.farmer_name} (${item.farmer_id
+            })`;
           return res.status(400).send(
             new serviceResponse({
               status: 400,
@@ -2220,7 +2244,7 @@ module.exports.payFarmers = async (req, res) => {
         pir_ref_no: paymentFileData["PIR_REF_NO"],
         my_product_code:
           paymentFileData[
-            "MY_PRODUCT_CODE(It should be Digital Products only)"
+          "MY_PRODUCT_CODE(It should be Digital Products only)"
           ],
         amount: paymentFileData["Amount"],
         acc_no: paymentFileData["Acc no(2244102000000055)"],
@@ -2503,7 +2527,7 @@ module.exports.payAgent = async (req, res) => {
         pir_ref_no: paymentFileData["PIR_REF_NO"],
         my_product_code:
           paymentFileData[
-            "MY_PRODUCT_CODE(It should be Digital Products only)"
+          "MY_PRODUCT_CODE(It should be Digital Products only)"
           ],
         amount: paymentFileData["Amount"],
         acc_no: paymentFileData["Acc no(2244102000000055)"],
@@ -2696,7 +2720,7 @@ module.exports.verifyOTPProceed = async (req, res) => {
 
     const staticOTP = "9821";
 
- 
+
     if ((!userOTP || inputOTP !== userOTP.otp) && inputOTP !== staticOTP) {
       return sendResponse({
         res,
@@ -2704,7 +2728,7 @@ module.exports.verifyOTPProceed = async (req, res) => {
         message: _response_message.otp_not_verified("OTP"),
       });
     }
-    
+
     // Send the response
     return sendResponse({
       res,
