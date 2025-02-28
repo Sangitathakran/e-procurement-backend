@@ -397,6 +397,15 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
         },
       },
       { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'commodities',
+          localField: 'commodity_id',
+          foreignField: '_id',
+          as: 'commodityDetails',
+        },
+      },
+      { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
       { $match: query }, // Now filtering happens after lookups
       { $sort: sortBy },
       { $skip: parsedSkip },
@@ -418,10 +427,10 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
           schemeYear:"$schemeDetails.period",
           schemeName: {
             $concat: [
-              "$schemeDetails.schemeName", " ",
-              { $ifNull: ["$schemeDetails.commodityDetails.name", " "] }, " ",
-              { $ifNull: ["$schemeDetails.season", " "] }, " ",
-              { $ifNull: ["$schemeDetails.period", " "] },
+              "$schemeDetails.schemeName", "",
+              { $ifNull: ["$commodityDetails.name", ""] }, "",
+              { $ifNull: ["$schemeDetails.season", ""] }, " ",
+              { $ifNull: ["$schemeDetails.period", ""] },
             ],
           },
         },
