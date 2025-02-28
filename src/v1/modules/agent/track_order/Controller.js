@@ -226,6 +226,7 @@ module.exports.getProcurement = asyncErrorHandler(
                         $concat: [
                             { $ifNull: ["$schemeDetails.schemeName", ""] }, " ",
                             { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, " ",
+                            { $ifNull: ["$schemeDetails.$procurement", ""] }, "",
                             { $ifNull: ["$schemeDetails.season", ""] }, " ",
                             { $ifNull: ["$schemeDetails.period", ""] }
                         ]
