@@ -19,7 +19,10 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     deletedAt: null,
   };
   if (search) {
-    matchQuery.schemeId = { $regex: search, $options: "i" };
+    matchQuery.$or = [
+      { schemeId: { $regex: search, $options: "i" } },
+      { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
+  ];
   }
   if (schemeName) {
     matchQuery.schemeName = { $regex: schemeName.trim().replace(/\s+/g, ".*"), $options: "i" };
@@ -36,7 +39,6 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       $project: {
         _id: 1,
         schemeId: 1,
-        // schemeName: 1,
         schemeName: {
           $concat: [
             "$schemeName",
@@ -53,6 +55,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
         period: 1,
         procurement: 1,
         status: 1,
+        createdAt:1
       },
     },
   ];
