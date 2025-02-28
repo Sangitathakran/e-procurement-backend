@@ -527,7 +527,8 @@ const _qualityType = {
 const _season = {
     Kharif: 'Kharif',
     Rabi: "Rabi",
-    Zaid: 'Zaid'
+    Zaid: 'Zaid',
+    Other:'Other'
 }
 const _period = {
     currentYear: '2025',
