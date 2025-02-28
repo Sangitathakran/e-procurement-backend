@@ -224,10 +224,10 @@ module.exports.getProcurement = asyncErrorHandler(
                 $addFields: {
                     schemeName: {
                         $concat: [
-                            { $ifNull: ["$schemeDetails.schemeName", ""] }, " ",
-                            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, " ",
-                            { $ifNull: ["$schemeDetails.$procurement", ""] }, "",
-                            { $ifNull: ["$schemeDetails.season", ""] }, " ",
+                            { $ifNull: ["$schemeDetails.schemeName", ""] }, "",
+                            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
+                            { $ifNull: ["$schemeDetails.procurement", ""] }, "",
+                            { $ifNull: ["$schemeDetails.season", ""] }, "",
                             { $ifNull: ["$schemeDetails.period", ""] }
                         ]
                     },
