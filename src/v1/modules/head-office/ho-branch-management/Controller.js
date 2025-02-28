@@ -532,7 +532,6 @@ module.exports.schemeList = async (req, res) => {
       $project: {
         _id: 1,
         schemeId: '$schemeDetails.schemeId',
-        // schemeName: '$schemeDetails.schemeName',
         schemeName: {
           $concat: [
             "$schemeDetails.schemeName", "",
