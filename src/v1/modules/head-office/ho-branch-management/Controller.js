@@ -520,6 +520,15 @@ module.exports.schemeList = async (req, res) => {
     },
     { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
     {
+      $lookup: {
+        from: 'commodities',
+        localField: 'commodity_id',
+        foreignField: '_id',
+        as: 'commodityDetails',
+      },
+    },
+    { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+    {
       $project: {
         _id: 1,
         schemeId: '$schemeDetails.schemeId',
@@ -527,15 +536,13 @@ module.exports.schemeList = async (req, res) => {
         schemeName: {
           $concat: [
             "$schemeDetails.schemeName", "",
-            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
+            { $ifNull: ["$commodityDetails.name", ""] },
+            "",
             { $ifNull: ["$schemeDetails.season", ""] }, "",
             { $ifNull: ["$schemeDetails.period", ""] }
           ]
         },
-        // branchName: '$branchDetails.branchName',
-        // branchLocation: '$branchDetails.state',
         scheme_id: 1,
-        // bo_id: 1,
         assignQty: 1,
         status: 1
       }
