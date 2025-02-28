@@ -358,7 +358,7 @@ module.exports.downloadTemplate = async (req, res) => {
 
 module.exports.branchList = async (req, res) => {
   try {
-    const { limit = 10, skip = 0, paginate = 1, search = '', page = 1, fromAgent = false,state,scheme } = req.query;
+    const { limit = 10, skip = 0, paginate = 1, search = '', page = 1, fromAgent = false, state, scheme } = req.query;
     const { user_id, portalId } = req;
 
     // Adding search filter
@@ -383,7 +383,7 @@ module.exports.branchList = async (req, res) => {
         searchQuery._id = { $in: [] };
       }
     }
-    
+
 
     if (!fromAgent) {
       // searchQuery = { ...searchQuery, headOfficeId: req.user.portalId._id }
@@ -595,7 +595,7 @@ module.exports.schemeList = async (req, res) => {
 module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
   try {
     const { schemeData, bo_id } = req.body;
-
+    const { user_id } = req;
     // Validate input
     if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
       return res.status(400).send(new serviceResponse({
@@ -625,7 +625,7 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
       }
 
       // Check if the record already exists in SchemeAssign
-      const existingRecord = await SchemeAssign.findOne({ ho_id, scheme_id: _id });
+      const existingRecord = await SchemeAssign.findOne({ ho_id:user_id, scheme_id: _id });
 
       if (existingRecord) {
         // Update existing record
