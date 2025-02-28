@@ -47,8 +47,15 @@ module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
     let matchQuery = {
         deletedAt: null
     };
+    // if (search) {
+    //     matchQuery.commodityId = { $regex: search, $options: "i" };
+    // }
+    
     if (search) {
-        matchQuery.commodityId = { $regex: search, $options: "i" };
+        matchQuery.$or = [
+            { commodityId: { $regex: search, $options: "i" } },
+            { name: { $regex: search, $options: "i" } }  // Search by commodity name
+        ];
     }
     let aggregationPipeline = [
         { $match: matchQuery },
