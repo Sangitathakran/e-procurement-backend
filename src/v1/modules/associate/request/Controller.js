@@ -234,7 +234,13 @@ module.exports.getProcurementById = async (req, res) => {
         const { id } = req.params;
         const { user_id } = req;
 
-        const record = await RequestModel.findOne({ _id: id }).lean();
+        // const record = await RequestModel.findOne({ _id: id }).lean();
+        const record = await RequestModel.findOne({ _id: id }).lean().populate([
+                    { path: 'product.schemeId', select: 'schemeName season period' },
+                    { path: "sla_id", select: "basic_details.name" },
+                    { path: 'branch_id', select: '_id branchName branchId' },
+                    { path: "head_office_id", select: "_id company_details.name" }
+                ])      
 
         if (!record) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
