@@ -567,7 +567,8 @@ const _ccAvenuePaymentStatus = {
     CANCELLED : "Cancelled",
     SHIPPED : "Shipped",
     TIMEOUT : "Timeout",
-    UNKNOWN : "Unknown"
+    UNKNOWN : "Unknown",
+    FAILURE : "Failure"
 }
 
 module.exports = {
