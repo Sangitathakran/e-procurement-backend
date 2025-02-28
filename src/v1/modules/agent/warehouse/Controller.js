@@ -115,7 +115,10 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         limit = 10,
         search = '',
         sortBy,
-        isExport = 0
+        isExport = 0,
+        commodityName,
+        associateName,
+        qcStatus
     } = req.query;
 
     try {
@@ -128,6 +131,83 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         });
 
         const query = search ? makeSearchQuery(searchFields) : {};
+        const batchFilters = [];
+        query.active = true;
+
+        if (commodityName) {
+            batchFilters.push({
+                "batches.requests.product.name": { $regex: commodityName, $options: 'i' }
+            });
+        }
+
+        if (associateName) {
+            batchFilters.push({
+                "batches.users.basic_details.associate_details.associate_name": { $regex: associateName, $options: 'i' }
+            });
+        }
+
+        if (qcStatus) {
+            batchFilters.push({
+                "batches.dispatched.qc_report.received_qc_status": qcStatus
+            });
+        }
+        // const pipeline = [
+        //     {
+        //         $lookup: {
+        //             from: "warehousev2",
+        //             localField: "warehouseOwnerId",
+        //             foreignField: "_id",
+        //             as: "warehouseOwner"
+        //         }
+        //     },
+        //     {
+        //         $lookup: {
+        //             from: "batches",
+        //             localField: "_id",
+        //             foreignField: "warehousedetails_id",
+        //             as: "batches",
+        //             pipeline: [
+        //                 {
+        //                     $lookup: {
+        //                         from: "requests",
+        //                         localField: "req_id",
+        //                         foreignField: "_id",
+        //                         as: "requests"
+        //                     }
+        //                 },
+        //                 {$unwind:{path:"$requests", preserveNullAndEmptyArrays:true}},
+        //                 {
+        //                     $lookup: {
+        //                         from: "users",
+        //                         localField: "seller_id",
+        //                         foreignField: "_id",
+        //                         as: "users"
+        //                     }
+        //                 },
+        //                 {$unwind:{path:"$users", preserveNullAndEmptyArrays:true}},
+        //             ]
+        //         }
+        //     },
+        //     { $unwind: { path: "$warehouseOwner", preserveNullAndEmptyArrays: true } },
+        //     // { $unwind: { path: "$batches", preserveNullAndEmptyArrays: true } },
+        //     { $match: {...query,active:true} },
+        //     {
+        //         $project: {
+        //             wareHouse_code: 1,
+        //             basicDetails: 1,
+        //             addressDetails: 1,
+        //             active: 1,
+        //             "warehouseOwner.ownerDetails.name": 1,
+        //             "batches.dispatched.qc_report.received_qc_status":1,
+        //             'batches.requests.product':1,
+        //             'batches.users.basic_details.associate_details.associate_name':1,
+        //             createdAt: 1
+        //         }
+        //     },
+        //     { $sort: sortBy },
+        //     { $skip: (page - 1) * limit },
+        //     { $limit: parseInt(limit) },
+        // ];
         const pipeline = [
             {
                 $lookup: {
@@ -152,7 +232,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                                 as: "requests"
                             }
                         },
-                        {$unwind:{path:"$requests", preserveNullAndEmptyArrays:true}},
+                        { $unwind: { path: "$requests", preserveNullAndEmptyArrays: true } },
                         {
                             $lookup: {
                                 from: "users",
@@ -161,13 +241,20 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                                 as: "users"
                             }
                         },
-                        {$unwind:{path:"$users", preserveNullAndEmptyArrays:true}},
+                        { $unwind: { path: "$users", preserveNullAndEmptyArrays: true } }
                     ]
                 }
             },
             { $unwind: { path: "$warehouseOwner", preserveNullAndEmptyArrays: true } },
-            // { $unwind: { path: "$batches", preserveNullAndEmptyArrays: true } },
-            { $match: {...query,active:true} },
+            { $match: query },  
+        ];
+
+        // Batch Filters Handling (If any filter present, push to pipeline)
+        if (batchFilters.length > 0) {
+            pipeline.push({ $match: { $and: batchFilters } });
+        }
+
+        pipeline.push(
             {
                 $project: {
                     wareHouse_code: 1,
@@ -175,16 +262,16 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                     addressDetails: 1,
                     active: 1,
                     "warehouseOwner.ownerDetails.name": 1,
-                    "batches.dispatched.qc_report.received_qc_status":1,
-                    'batches.requests.product':1,
-                    'batches.users.basic_details.associate_details.associate_name':1,
+                    "batches.dispatched.qc_report.received_qc_status": 1,
+                    'batches.requests.product': 1,
+                    'batches.users.basic_details.associate_details.associate_name': 1,
                     createdAt: 1
                 }
             },
             { $sort: sortBy },
             { $skip: (page - 1) * limit },
-            { $limit: parseInt(limit) },
-        ];
+            { $limit: parseInt(limit) }
+        );
         if (isExport == 1) {
             const data = await wareHouseDetails.aggregate([...pipeline.slice(0, -2)]);
     
