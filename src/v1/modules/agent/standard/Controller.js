@@ -87,8 +87,8 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
     const record = rows.map((item) => {
       return {
         "name": item?.name || "NA",
-        "subName": item?.subName || "NA",
-
+        // "subName": item?.subName || "NA",
+        "subName": Array.isArray(item?.subName) ? item.subName.join(", ") : (item?.subName || "NA"),
       };
     });
     if (record.length > 0) {
