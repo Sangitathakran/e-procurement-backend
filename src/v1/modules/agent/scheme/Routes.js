@@ -1,11 +1,12 @@
 const express = require("express");
-const { createScheme, getScheme, getSchemeById, updateScheme, deleteScheme, statusUpdateScheme, schemeSummary, getSchemeSummary } = require("./Controller");
+const { createScheme, getScheme, getSchemeById, updateScheme, deleteScheme, statusUpdateScheme, schemeSummary, getBoByScheme, getslaByBo } = require("./Controller");
 const { Auth } = require("@src/v1/middlewares/jwt");
 
 const schemeRoutes = express.Router();
 
 schemeRoutes.get("/schemeSummary", Auth, schemeSummary);
-schemeRoutes.get("/getSchemeSummary", Auth, getSchemeSummary);
+schemeRoutes.get("/getBoByScheme", Auth, getBoByScheme);
+schemeRoutes.get("/getslaByBo", Auth, getslaByBo);
 
 schemeRoutes.post("/", Auth, createScheme);
 schemeRoutes.get("/", Auth, getScheme);
