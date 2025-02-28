@@ -62,7 +62,7 @@ module.exports.createScheme = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getScheme = asyncErrorHandler(async (req, res) => {
-  const { page = 1, limit, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+  const { page = 1, limit, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, isExport = 0 } = req.query;
 
   // Initialize matchQuery
   let matchQuery = {
@@ -71,10 +71,18 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
  
   if (search) {
     matchQuery.$or = [
-        { schemeId: { $regex: search, $options: "i" } },
-        { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
-    ];
-}
+      { schemeId: { $regex: search, $options: "i" } },
+      { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
+  ];
+  }
+  if (schemeName) {
+    matchQuery.schemeName = { $regex: new RegExp(schemeName, "i") }; 
+  }
+
+  if (status && status.trim() !== '') {
+    matchQuery.status = status; 
+  }
+   
 
   let aggregationPipeline = [
     { $match: matchQuery },
@@ -91,6 +99,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       $project: {
         _id: 1,
         schemeId: 1,
+        originalSchemeName: "$schemeName",
         // schemeName: 1,
         schemeName: {
           $concat: [
@@ -157,6 +166,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme") }));
   }
 });
+
 
 module.exports.getSchemeById = asyncErrorHandler(async (req, res) => {
   const { id } = req.params;
