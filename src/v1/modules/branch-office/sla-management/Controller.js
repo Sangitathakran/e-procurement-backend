@@ -1,4 +1,6 @@
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
+const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
@@ -420,5 +422,52 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
             status: 500,
             error: "Internal Server Error"
         }));
+    }
+});
+
+module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
+    try {
+        const { schemeData, cna_id, bo_id, slaId, sla_id } = req.body;
+
+        // Validate input
+        if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: "Invalid request. 'bo_id' and 'schemeData' must be provided.",
+            }));
+        }
+
+        // Fetch head office ID (ho_id) from the branches collection
+        const branch = await Branches.findOne({ _id: bo_id }).select("headOfficeId");
+        if (!branch) {
+            return res.status(404).send(new serviceResponse({
+                status: 404,
+                message: "Branch not found.",
+            }));
+        }
+
+        const ho_id = branch.headOfficeId; // Extract ho_id
+
+        // Prepare data for bulk insert
+        const recordsToInsert = schemeData.map(({ _id, qty }) => ({
+            bo_id,
+            ho_id, // Use fetched ho_id
+            sla_id: sla_id, // Ensure proper ID selection
+            scheme_id: _id, // Assuming _id refers to scheme_id
+            assignQty: qty,
+        }));
+
+        // Use Mongoose's insertMany to insert multiple documents
+        const records = await SchemeAssign.insertMany(recordsToInsert);
+
+        return res.status(200).send(
+            new serviceResponse({
+                status: 200,
+                data: records,
+                message: _response_message.created("Scheme Assign"),
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
     }
 });
