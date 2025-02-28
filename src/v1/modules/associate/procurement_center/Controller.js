@@ -126,8 +126,6 @@ module.exports.getHoProcurementCenter = async (req, res) => {
         if (associateName) {
             query["point_of_contact.name"] = { $regex: associateName, $options: "i" };
         }
-
-        // State filter
         if (state) {
             query["address.state"] = { $regex: state, $options: "i" };
         }
