@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal, dumpJSONToPdf  } = require("@src/v1/utils/helpers")
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Commodity } = require("@src/v1/models/master/Commodity");
@@ -68,8 +68,12 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   let matchQuery = {
     deletedAt: null
   };
+ 
   if (search) {
-    matchQuery.schemeId = { $regex: search, $options: "i" };
+    matchQuery.$or = [
+      { schemeId: { $regex: search, $options: "i" } },
+      { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
+  ];
   }
   if (schemeName) {
     matchQuery.schemeName = { $regex: new RegExp(schemeName, "i") }; 
@@ -78,6 +82,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   if (status && status.trim() !== '') {
     matchQuery.status = status; 
   }
+   
 
   let aggregationPipeline = [
     { $match: matchQuery },

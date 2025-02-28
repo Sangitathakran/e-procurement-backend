@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal, dumpJSONToPdf } = require("@src/v1/utils/helpers")
 const { Variety } = require("@src/v1/models/master/Variety");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
@@ -47,10 +47,7 @@ module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
     let matchQuery = {
         deletedAt: null
     };
-    // if (search) {
-    //     matchQuery.commodityId = { $regex: search, $options: "i" };
-    // }
-    
+
     if (search) {
         matchQuery.$or = [
             { commodityId: { $regex: search, $options: "i" } },
@@ -105,14 +102,12 @@ module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
     if (isExport == 1) {
         const record = rows.map((item) => {
             return {
-                "Order Id": item?.order_id || "NA",
-                "BO Name": item?.branchName || "NA",
+                "Commodity Id": item?.commodityId || "NA",
+                "Name": item?.name || "NA",
                 "Commodity": item?.commodity || "NA",
-                "Grade": item?.grade || "NA",
-                "Quantity": item?.quantityRequired || "NA",
-                "Total Amount": item?.totalAmount || "NA",
-                "Total Penalty Amount": item?.totalPenaltyAmount || "NA",
-                "Payment Status": item?.paymentStatus || "NA"
+                "status": item?.status || "NA",
+                // "standardName": item?.standardName || "NA",
+                "Standard Name": Array.isArray(item?.standardName) ? item.standardName.join(", ") : (item?.standardName || "NA"),
             };
         });
         if (record.length > 0) {
