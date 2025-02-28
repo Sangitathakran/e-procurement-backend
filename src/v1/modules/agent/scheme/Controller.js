@@ -68,9 +68,13 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   let matchQuery = {
     deletedAt: null
   };
+ 
   if (search) {
-    matchQuery.schemeId = { $regex: search, $options: "i" };
-  }
+    matchQuery.$or = [
+        { schemeId: { $regex: search, $options: "i" } },
+        { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
+    ];
+}
 
   let aggregationPipeline = [
     { $match: matchQuery },
