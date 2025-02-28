@@ -47,9 +47,6 @@ module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
     let matchQuery = {
         deletedAt: null
     };
-    // if (search) {
-    //     matchQuery.commodityId = { $regex: search, $options: "i" };
-    // }
     
     if (search) {
         matchQuery.$or = [
