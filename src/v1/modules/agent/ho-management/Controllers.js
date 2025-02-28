@@ -386,7 +386,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
             return {
                 "Scheme Id": item?.schemeId || "NA",
                 "scheme Name": item?.schemeName || "NA",
-                "SchemeCommodity": item?.commodity || "NA",
+                "Scheme Commodity": item?.Schemecommodity || "NA",
                 "season": item?.season || "NA",
                 "period": item?.period || "NA",
                 "procurement": item?.procurement || "NA"
