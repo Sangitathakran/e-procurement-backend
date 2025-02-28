@@ -86,7 +86,6 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
   if (isExport == 1) {
     const record = rows.map((item) => {
       return {
-        "Standard Id": item?.standardId || "NA",
         "name": item?.name || "NA",
         "subName": item?.subName || "NA",
 
