@@ -56,7 +56,7 @@ module.exports.sendRequest = async (req, res) => {
     const decrypted = ccav.decrypt(encRequest, keyBase64, ivBase64);
     console.log("decrypted response myEnc=>", decrypted);
 
-    return res.json({ paymentUrl });
+    return res.json({ paymentUrl, status: 200 });
   } catch (error) {
     console.error("Encryption Error:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -97,7 +97,7 @@ module.exports.paymentStatus = async (req, res) => {
     // Determine the frontend redirect URL
     let redirectUrlFE =
       paymentStatus === "Success" ? FRONTEND_SUCCESS_URL : FRONTEND_FAILURE_URL;
-      
+
     res.send(`
                 <!DOCTYPE html>
                 <html lang="en">
