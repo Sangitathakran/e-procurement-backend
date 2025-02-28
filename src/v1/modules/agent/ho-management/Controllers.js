@@ -54,7 +54,7 @@ module.exports.getHo = async (req, res) => {
                 }
             },
             {
-                $addFields:{
+                $addFields: {
                     schemeAssignedCount: { $size: '$schemeAssigned' }
                 }
             },
@@ -74,7 +74,7 @@ module.exports.getHo = async (req, res) => {
                         head_office_code: 1,
                         active: 1,
                         address: 1,
-                        schemeAssignedCount:1,
+                        schemeAssignedCount: 1,
                         createdAt: 1,
                         updatedAt: 1
                     }
@@ -331,10 +331,18 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     let aggregationPipeline = [
         { $match: matchQuery },
         {
+            $lookup: {
+                from: 'commodities',
+                localField: 'commodity_id',
+                foreignField: '_id',
+                as: 'commodityDetails',
+            },
+        },
+        { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+        {
             $project: {
                 _id: 1,
                 schemeId: 1,
-                // schemeName: 1,
                 schemeName: {
                     $concat: [
                         "$schemeName", "",
@@ -501,13 +509,13 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
         {
             $lookup: {
-              from: 'commodities',
-              localField: 'commodity_id',
-              foreignField: '_id',
-              as: 'commodityDetails',
+                from: 'commodities',
+                localField: '$schemeDetails.commodity_id',
+                foreignField: '_id',
+                as: 'commodityDetails',
             },
-          },
-          { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+        },
+        { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
         {
             $project: {
                 _id: 1,
@@ -582,7 +590,7 @@ module.exports.getBo = asyncErrorHandler(async (req, res) => {
             status: _status.active,
             ...(search ? { branchName: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }),
         };
-        
+
         let aggregationPipeline = [
             { $match: matchQuery },
             {
@@ -591,7 +599,7 @@ module.exports.getBo = asyncErrorHandler(async (req, res) => {
                     branchId: 1,
                     branchName: 1,
                     emailAddress: 1,
-                    pointOfContact:'$pointOfContact.name',
+                    pointOfContact: '$pointOfContact.name',
                     address: 1,
                     state: 1,
                     status: 1,
