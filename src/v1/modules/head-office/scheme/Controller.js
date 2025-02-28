@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal, dumpJSONToPdf } = require("@src/v1/utils/helpers");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const {
@@ -22,7 +22,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     matchQuery.$or = [
       { schemeId: { $regex: search, $options: "i" } },
       { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
-  ];
+    ];
   }
   if (schemeName) {
     matchQuery.schemeName = { $regex: schemeName.trim().replace(/\s+/g, ".*"), $options: "i" };
@@ -55,7 +55,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
         period: 1,
         procurement: 1,
         status: 1,
-        createdAt:1
+        createdAt: 1
       },
     },
   ];
