@@ -505,10 +505,11 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
                 schemeId: '$schemeDetails.schemeId',
                 schemeName: {
                     $concat: [
-                        "$schemeName", "",
-                        { $ifNull: ["$commodityDetails.name", " "] }, "",
-                        { $ifNull: ["$season", " "] }, " ",
-                        { $ifNull: ["$period", " "] }
+                        "$schemeDetails.schemeName", "",
+                        { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
+                        { $ifNull: ["$schemeDetails.$procurement", ""] }, "",
+                        { $ifNull: ["$schemeDetails.season", ""] }, "",
+                        { $ifNull: ["$schemeDetails.period", ""] }
                     ]
                 },
                 headofficeName: '$headOfficeDetails.company_details.name',

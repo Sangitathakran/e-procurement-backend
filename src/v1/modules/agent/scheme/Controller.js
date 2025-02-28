@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal, dumpJSONToPdf  } = require("@src/v1/utils/helpers")
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Commodity } = require("@src/v1/models/master/Commodity");
@@ -62,15 +62,27 @@ module.exports.createScheme = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getScheme = asyncErrorHandler(async (req, res) => {
-  const { page = 1, limit, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+  const { page = 1, limit, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, isExport = 0 } = req.query;
 
   // Initialize matchQuery
   let matchQuery = {
     deletedAt: null
   };
+ 
   if (search) {
-    matchQuery.schemeId = { $regex: search, $options: "i" };
+    matchQuery.$or = [
+      { schemeId: { $regex: search, $options: "i" } },
+      { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
+  ];
   }
+  if (schemeName) {
+    matchQuery.schemeName = { $regex: new RegExp(schemeName, "i") }; 
+  }
+
+  if (status && status.trim() !== '') {
+    matchQuery.status = status; 
+  }
+   
 
   let aggregationPipeline = [
     { $match: matchQuery },
@@ -87,6 +99,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       $project: {
         _id: 1,
         schemeId: 1,
+        originalSchemeName: "$schemeName",
         // schemeName: 1,
         schemeName: {
           $concat: [
@@ -153,6 +166,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme") }));
   }
 });
+
 
 module.exports.getSchemeById = asyncErrorHandler(async (req, res) => {
   const { id } = req.params;
