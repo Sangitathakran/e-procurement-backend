@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal, dumpJSONToPdf } = require("@src/v1/utils/helpers")
 const { Variety } = require("@src/v1/models/master/Variety");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
@@ -106,7 +106,8 @@ module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
                 "Name": item?.name || "NA",
                 "Commodity": item?.commodity || "NA",
                 "status": item?.status || "NA",
-                "standardName": item?.standardName || "NA",
+                // "standardName": item?.standardName || "NA",
+                "Standard Name": Array.isArray(item?.standardName) ? item.standardName.join(", ") : (item?.standardName || "NA"),
             };
         });
         if (record.length > 0) {
