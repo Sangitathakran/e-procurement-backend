@@ -120,15 +120,14 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
 
     try {
         const searchFields = ['wareHouse_code', 'basicDetails.warehouseName', 'warehouseOwner.ownerDetails.name'];
+
         const makeSearchQuery = (searchFields) => ({
             $or: searchFields.map(item => ({
                 [item]: { $regex: search, $options: 'i' }
-            })),
-           
+            }))
         });
 
         const query = search ? makeSearchQuery(searchFields) : {};
-
         const pipeline = [
             {
                 $lookup: {
@@ -138,7 +137,36 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                     as: "warehouseOwner"
                 }
             },
+            {
+                $lookup: {
+                    from: "batches",
+                    localField: "_id",
+                    foreignField: "warehousedetails_id",
+                    as: "batches",
+                    pipeline: [
+                        {
+                            $lookup: {
+                                from: "requests",
+                                localField: "req_id",
+                                foreignField: "_id",
+                                as: "requests"
+                            }
+                        },
+                        {$unwind:{path:"$requests", preserveNullAndEmptyArrays:true}},
+                        {
+                            $lookup: {
+                                from: "users",
+                                localField: "seller_id",
+                                foreignField: "_id",
+                                as: "users"
+                            }
+                        },
+                        {$unwind:{path:"$users", preserveNullAndEmptyArrays:true}},
+                    ]
+                }
+            },
             { $unwind: { path: "$warehouseOwner", preserveNullAndEmptyArrays: true } },
+            // { $unwind: { path: "$batches", preserveNullAndEmptyArrays: true } },
             { $match: {...query,active:true} },
             {
                 $project: {
@@ -147,6 +175,9 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                     addressDetails: 1,
                     active: 1,
                     "warehouseOwner.ownerDetails.name": 1,
+                    "batches.dispatched.qc_report.received_qc_status":1,
+                    'batches.requests.product':1,
+                    'batches.users.basic_details.associate_details.associate_name':1,
                     createdAt: 1
                 }
             },
