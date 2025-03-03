@@ -54,7 +54,7 @@ module.exports.getHo = async (req, res) => {
                 }
             },
             {
-                $addFields:{
+                $addFields: {
                     schemeAssignedCount: { $size: '$schemeAssigned' }
                 }
             },
@@ -74,7 +74,7 @@ module.exports.getHo = async (req, res) => {
                         head_office_code: 1,
                         active: 1,
                         address: 1,
-                        schemeAssignedCount:1,
+                        schemeAssignedCount: 1,
                         createdAt: 1,
                         updatedAt: 1
                     }
@@ -331,10 +331,18 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     let aggregationPipeline = [
         { $match: matchQuery },
         {
+            $lookup: {
+                from: 'commodities',
+                localField: 'commodity_id',
+                foreignField: '_id',
+                as: 'commodityDetails',
+            },
+        },
+        { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+        {
             $project: {
                 _id: 1,
                 schemeId: 1,
-                // schemeName: 1,
                 schemeName: {
                     $concat: [
                         "$schemeName", "",
@@ -378,7 +386,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
             return {
                 "Scheme Id": item?.schemeId || "NA",
                 "scheme Name": item?.schemeName || "NA",
-                "SchemeCommodity": item?.commodity || "NA",
+                "Scheme Commodity": item?.Schemecommodity || "NA",
                 "season": item?.season || "NA",
                 "period": item?.period || "NA",
                 "procurement": item?.procurement || "NA"
@@ -500,18 +508,27 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         },
         { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
         {
+            $lookup: {
+                from: 'commodities',
+                localField: 'schemeDetails.commodity_id',
+                foreignField: '_id',
+                as: 'commodityDetails',
+            },
+        },
+        { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+        {
             $project: {
                 _id: 1,
-                schemeId: '$schemeDetails.schemeId',
+                schemeId: "$schemeDetails.schemeId",
                 schemeName: {
                     $concat: [
-                        "$schemeDetails.schemeName", "",
-                        { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
-                        { $ifNull: ["$schemeDetails.season", ""] }, "",
-                        { $ifNull: ["$schemeDetails.period", ""] }
+                        { $ifNull: [{ $getField: { field: "schemeName", input: "$schemeDetails" } }, ""] }, "",
+                        { $ifNull: [{ $getField: { field: "name", input: "$commodityDetails" } }, ""] }, "",
+                        { $ifNull: [{ $getField: { field: "season", input: "$schemeDetails" } }, ""] }, "",
+                        { $ifNull: [{ $getField: { field: "period", input: "$schemeDetails" } }, ""] }
                     ]
                 },
-                headofficeName: '$headOfficeDetails.company_details.name',
+                headofficeName: "$headOfficeDetails.company_details.name",
                 scheme_id: 1,
                 assignQty: 1
             }
@@ -573,7 +590,7 @@ module.exports.getBo = asyncErrorHandler(async (req, res) => {
             status: _status.active,
             ...(search ? { branchName: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }),
         };
-        
+
         let aggregationPipeline = [
             { $match: matchQuery },
             {
@@ -582,7 +599,7 @@ module.exports.getBo = asyncErrorHandler(async (req, res) => {
                     branchId: 1,
                     branchName: 1,
                     emailAddress: 1,
-                    pointOfContact:'$pointOfContact.name',
+                    pointOfContact: '$pointOfContact.name',
                     address: 1,
                     state: 1,
                     status: 1,
