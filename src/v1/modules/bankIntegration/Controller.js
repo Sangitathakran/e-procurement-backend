@@ -3,7 +3,7 @@ const {
   _response_message,
   _middleware,
 } = require("@src/v1/utils/constants/messages");
-const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { _handleCatchErrors, handleDecimal } = require("@src/v1/utils/helpers");
 require("dotenv").config();
 const crypto = require("crypto");
 // const { postReqCCAvenue } = require("./ccAvenueToolkit/ccavRequestHandler");
@@ -11,7 +11,13 @@ var ccav = require("./ccAvenueToolkit/ccavutil.js");
 const {
   CCAvenueResponse,
 } = require("@src/v1/models/app/payment/ccAvenuePayments.js");
-const { _paymentmethod } = require("@src/v1/utils/constants/index.js");
+const {
+  _paymentmethod,
+  _poAdvancePaymentStatus,
+} = require("@src/v1/utils/constants/index.js");
+const {
+  PurchaseOrderModel,
+} = require("@src/v1/models/app/distiller/purchaseOrder.js");
 
 const {
   MERCHANT_ID,
@@ -51,10 +57,9 @@ module.exports.sendRequest = async (req, res) => {
       return res.status(400).json({ error: "Failed to encrypt request" });
 
     const paymentUrl = `https://${PG_ENV}.ccavenue.com/transaction/transaction.do?command=initiateTransaction&encRequest=${encRequest}&access_code=${accessCode}&language=EN`;
-    // const ccAvEnc =
-    //   "5bb30500d8b938f0ffba082f12fe14243cb9671212892c80c1221907e7dde74d336dc5e0361d1c01e30c2ff40a62c4461f6755b6d83d4aa1df3b439da66fb1b4f7530b78201a3e6e3f2495299fabbbe8638a8b1b3dd2956813a09ff068c98c6f56ea975c486b172e23f83a3d1778940db8f61fe6db3e6d09cc1aecaf5bd2f9fbc6ee7a4512488dfda1038f7abb6701574aeaa5dccb41c6f9f3325081df097125982aef609ad0348ab132392cc7e5730c85d61dcbc6731d613b4584ce5a0b5da832c0b29d0693fef0888f3546242a8d31962dbeae5a2d943260bec349f234d260c0c2a695f847d8bba261a781bcdd711cf2c3d8209fe7a3b8c01268b3bf722ca30e6328604e42bdfb23a23bd1821d743c";
-    const decrypted = ccav.decrypt(encRequest, keyBase64, ivBase64);
-    console.log("decrypted response myEnc=>", decrypted);
+
+    // const decrypted = ccav.decrypt(encRequest, keyBase64, ivBase64);
+    // console.log("decrypted response myEnc=>", decrypted);
 
     return res.json({ paymentUrl, status: 200 });
   } catch (error) {
@@ -77,6 +82,29 @@ module.exports.paymentStatus = async (req, res) => {
     console.log("CCAvenue Payment Response:", responseParams);
 
     const paymentStatus = responseParams?.order_status || "Unknown";
+    // const paymentStatus = responseParams?.order_status || "Success";
+
+    const {
+      tracking_id = "",
+      bank_ref_no = "",
+      payment_mode = "",
+      order_id = "",
+      amount = "",
+      cancel_url = "",
+    } = responseParams;
+
+    if (paymentStatus === "Success") {
+      const record = await PurchaseOrderModel.findOne({
+        _id: order_id,
+      }).populate("branch_id");
+
+      // console.log(record);
+      const totalPaid =
+        record.paymentInfo?.advancePayment + record.paymentInfo?.mandiTax;
+      record.paymentInfo.advancePaymentStatus = _poAdvancePaymentStatus.paid;
+      record.paymentInfo.paidAmount = handleDecimal(totalPaid);
+      await record.save();
+    }
 
     await CCAvenueResponse.create({
       order_status: paymentStatus,
@@ -86,17 +114,8 @@ module.exports.paymentStatus = async (req, res) => {
       payment_method: _paymentmethod.bank_transfer,
     });
 
-    const {
-      tracking_id = "",
-      bank_ref_no = "",
-      payment_mode = "",
-      order_id = "",
-      amount = "",
-    } = responseParams;
-
     // Determine the frontend redirect URL
-    let redirectUrlFE =
-      paymentStatus === "Success" ? FRONTEND_SUCCESS_URL : FRONTEND_FAILURE_URL;
+    let redirectUrlFE = cancel_url;
 
     res.send(`
                 <!DOCTYPE html>
@@ -174,7 +193,7 @@ module.exports.paymentStatus = async (req, res) => {
                         <p><strong>Bank Ref No:</strong> ${
                           bank_ref_no || "N/A"
                         }</p>
-                        <a class="btn" href="${CANCEL_URL}?order_id=${order_id}&status=${paymentStatus}">Go Back</a>
+                        <a class="btn" href="${redirectUrlFE}?order_id=${order_id}&status=${paymentStatus}">Go Back</a>
                     </div>
                 </body>
                 </html>
