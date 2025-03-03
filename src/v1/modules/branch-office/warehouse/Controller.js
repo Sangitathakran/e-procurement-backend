@@ -34,7 +34,7 @@ module.exports.warehousedata = async (req, res) => {
 
 module.exports.warehouseList = async (req, res) => {
     try {
-        const { page = 1, limit = 10, sortBy = 'warehouseName', search = '', isExport = 0 } = req.query;
+        const { page = 1, limit = 10, sortBy = 'warehouseName', search = '', isExport = 0, ownerName = '', state = '',city = '' } = req.query;
         const skip = (page - 1) * limit;
         const searchFields = ['warehouseName', 'warehouseId', 'ownerName', 'authorized_personName', 'pointOfContact.name']
 
@@ -43,8 +43,16 @@ module.exports.warehouseList = async (req, res) => {
             query['$or'] = searchFields.map(item => ({ [item]: { $regex: search, $options: 'i' } }))
             return query
         }
-
         const query = search ? makeSearchQuery(searchFields) : {}
+        if (ownerName) {
+            query.ownerName = { $regex: ownerName, $options: 'i' };
+        }
+        if (state) {
+            query['address.state'] = { $regex: state, $options: 'i' };
+        }
+        if (city) {
+            query['address.city'] = { $regex: city, $options: 'i' };
+        }
         const records = { count: 0, rows: [] };
 
         //warehouse list

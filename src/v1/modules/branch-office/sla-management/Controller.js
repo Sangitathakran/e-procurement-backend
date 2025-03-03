@@ -1,16 +1,20 @@
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
+const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
-const { Scheme } = require("@src/v1/models/master/Scheme");
-const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { mongoose } = require("mongoose");
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
     try {
-        const data = req.body;
-
+        const data = {
+            ...req.body,
+            schemes: {
+                branch: req.user._id
+            }
+        };
         // Required fields validation
 
         const requiredFields = [
@@ -57,7 +61,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
             // "slaId",
             // "schemes.scheme",
             // "schemes.cna",
-            // "schemes.branch"
+            "schemes.branch"
         ];
 
         const missingFields = requiredFields.filter(field => {
@@ -98,6 +102,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
     try {
         const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.query;
+        const userID = req.user._id
 
         // Convert page & limit to numbers
         const pageNumber = parseInt(page, 10);
@@ -121,7 +126,12 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
         // Fetch SLA records with projection
         let slaRecordsQuery = SLAManagement.aggregate([
-            { $match: searchFilter },
+            {
+                $match: {
+                    ...searchFilter,
+                    "schemes.branch": userID
+                }
+            },
             {
                 $project: {
                     _id: 1,
@@ -163,7 +173,10 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
             .limit(pageSize);
 
         // Count total records for pagination
-        const totalRecords = await SLAManagement.countDocuments(searchFilter);
+        const totalRecords = await SLAManagement.countDocuments({
+            ...searchFilter,
+            "schemes.branch": userID
+        });
 
         return res.status(200).json({
             status: 200,
@@ -186,6 +199,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params; // Get SLA ID from URL params
+        const userID = req.user._id
 
         if (!slaId) {
             return res.status(400).json(new serviceResponse({
@@ -195,7 +209,7 @@ module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
         }
 
         // Find and delete SLA by slaId or _id
-        const deletedSLA = await SLAManagement.findOneAndDelete({ $or: [{ slaId }, { _id: slaId }] });
+        const deletedSLA = await SLAManagement.findOneAndDelete({ $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID });
 
         if (!deletedSLA) {
             return res.status(404).json(new serviceResponse({
@@ -222,6 +236,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params;
         const updateData = req.body;
+        const userID = req.user._i
 
         if (!slaId) {
             return res.status(400).json(new serviceResponse({
@@ -232,7 +247,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 
         // Find and update SLA
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ slaId }, { _id: slaId }] },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID },
             { $set: updateData },
             { new: true, runValidators: true } // Return updated doc
         );
@@ -262,6 +277,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params; // Get SLA ID from URL params
+        const userID = req.user._id
 
         if (!slaId) {
             return res.status(400).json(new serviceResponse({
@@ -272,7 +288,7 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
 
         // Find SLA with selected fields
         const sla = await SLAManagement.findOne(
-            { $or: [{ slaId }, { _id: slaId }] },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID },
             {
                 _id: 1,
                 slaId: 1,
@@ -319,6 +335,7 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params; // Get SLA ID from URL params
         const { status } = req.body; // New status (true/false)
+        const userID = req.user._id
 
         if (!slaId) {
             return res.status(400).json(new serviceResponse({
@@ -336,7 +353,7 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
 
         // Find and update SLA status
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ slaId }, { _id: slaId }] },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID },
             { $set: { status: status } },
             { new: true }
         );
@@ -367,6 +384,7 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
     try {
         const { slaId } = req.params;
         const { scheme, cna, branch } = req.body;
+        const userID = req.user._id
 
         // Validate input
         if (!scheme || !cna || !branch) {
@@ -378,7 +396,7 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
         // Find SLA and update with new scheme
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ slaId }, { _id: slaId }] },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID },
             { $push: { schemes: { scheme, cna, branch } } },
             { new: true }
         )
@@ -410,7 +428,7 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
 module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
     try {
-        const { schemeData, cna_id, bo_id, slaId } = req.body;
+        const { schemeData, cna_id, bo_id, slaId, sla_id } = req.body;
 
         // Validate input
         if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
@@ -420,9 +438,22 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
             }));
         }
 
+        // Fetch head office ID (ho_id) from the branches collection
+        const branch = await Branches.findOne({ _id: bo_id }).select("headOfficeId");
+        if (!branch) {
+            return res.status(404).send(new serviceResponse({
+                status: 404,
+                message: "Branch not found.",
+            }));
+        }
+
+        const ho_id = branch.headOfficeId; // Extract ho_id
+
         // Prepare data for bulk insert
         const recordsToInsert = schemeData.map(({ _id, qty }) => ({
-            bo_id, ho_id: cna_id, slaId,
+            bo_id,
+            ho_id, // Use fetched ho_id
+            sla_id: sla_id, // Ensure proper ID selection
             scheme_id: _id, // Assuming _id refers to scheme_id
             assignQty: qty,
         }));
@@ -446,11 +477,7 @@ module.exports.getAssignedScheme = async (req, res) => {
     const { slaId, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
     // Initialize matchQuery
-    let matchQuery = { 
-        slaId: new mongoose.Types.ObjectId(slaId),
-        ho_id: { $exists: true, $ne: null },
-        bo_id: { $exists: true, $ne: null }
-     };
+    let matchQuery = { sla_id: new mongoose.Types.ObjectId(slaId) };
 
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(slaId)) {
@@ -478,6 +505,15 @@ module.exports.getAssignedScheme = async (req, res) => {
         },
         { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
         {
+            $lookup: {
+                from: "headoffices", // Adjust this to your actual collection name for branches
+                localField: "ho_id",
+                foreignField: "_id",
+                as: "headOfficeDetails"
+            }
+        },
+        { $unwind: { path: "$headOfficeDetails", preserveNullAndEmptyArrays: true } },
+        {
             $project: {
                 _id: 1,
                 schemeId: '$schemeDetails.schemeId',
@@ -491,6 +527,7 @@ module.exports.getAssignedScheme = async (req, res) => {
                     ]
                 },
                 branchName: '$branchDetails.branchName',
+                headOfficeName: "$headOfficeDetails.company_details.name",
                 createdOn: '$createdAt'
             }
         }
@@ -539,4 +576,3 @@ module.exports.getAssignedScheme = async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme Assign") }));
     }
 }
-
