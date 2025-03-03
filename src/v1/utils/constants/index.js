@@ -59,7 +59,7 @@ const _collectionName = {
     commodityStandard:"commodityStandard",
     SchemeAssign: "SchemeAssign",
     ClientToken : "ClientToken",
-
+    CCAvenueResponse:"CCAvenueResponse",
 }
 
 const _userType_Feature_Collection = {
@@ -543,6 +543,25 @@ const _centralNodalAgency = {
     nodal3:'nodal3'
 }
 
+const _ccAvenuePaymentStatus = {
+    SUCCESS : "Success",
+    DECLINED : "Unsuccessful",
+    ABORTED_SYSTEM : "Aborted/ Transaction aborted by system",
+    ABORTED_BANK : "Aborted/ Transaction aborted at the bank end",
+    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    INITIATED : "Initiated",
+    AUTO_CANCELLED : "Auto-Cancelled",
+    AUTO_REVERSED : "Auto-Reversed",
+    AWAITED : "Awaited",
+    INVALID : "Invalid",
+    CANCELLED : "Cancelled",
+    SHIPPED : "Shipped",
+    TIMEOUT : "Timeout",
+    UNKNOWN : "Unknown",
+    FAILURE : "Failure"
+}
+
 module.exports = {
     _userAction,
     _farmerType,
@@ -612,5 +631,6 @@ module.exports = {
     _qualityType,
     _season,
     _period,
-    _centralNodalAgency
+    _centralNodalAgency,
+    _ccAvenuePaymentStatus
 }
