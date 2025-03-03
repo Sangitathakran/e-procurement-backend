@@ -510,7 +510,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         {
             $lookup: {
                 from: 'commodities',
-                localField: '$schemeDetails.commodity_id',
+                localField: 'schemeDetails.commodity_id',
                 foreignField: '_id',
                 as: 'commodityDetails',
             },
@@ -519,16 +519,16 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         {
             $project: {
                 _id: 1,
-                schemeId: '$schemeDetails.schemeId',
+                schemeId: "$schemeDetails.schemeId",
                 schemeName: {
                     $concat: [
-                        "$schemeDetails.schemeName", "",
-                        { $ifNull: ["$commodityDetails.name", ""] }, "",
-                        { $ifNull: ["$schemeDetails.season", ""] }, "",
-                        { $ifNull: ["$schemeDetails.period", ""] }
+                        { $ifNull: [{ $getField: { field: "schemeName", input: "$schemeDetails" } }, ""] }, "",
+                        { $ifNull: [{ $getField: { field: "name", input: "$commodityDetails" } }, ""] }, "",
+                        { $ifNull: [{ $getField: { field: "season", input: "$schemeDetails" } }, ""] }, "",
+                        { $ifNull: [{ $getField: { field: "period", input: "$schemeDetails" } }, ""] }
                     ]
                 },
-                headofficeName: '$headOfficeDetails.company_details.name',
+                headofficeName: "$headOfficeDetails.company_details.name",
                 scheme_id: 1,
                 assignQty: 1
             }
