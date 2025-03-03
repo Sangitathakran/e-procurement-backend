@@ -122,7 +122,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
       advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 3% of totalAmount
       balancePayment: handleDecimal(remainingAmount), // Auto-calculated: 97% of totalAmount
       tax: _taxValue(),
-      paidAmount: handleDecimal(tokenAmount),
+      // paidAmount: handleDecimal(tokenAmount), // this val
       // advancePaymentStatus:_poAdvancePaymentStatus.pending
       // advancePaymentStatus:_poAdvancePaymentStatus.paid
     },
@@ -368,7 +368,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
       record?.paymentInfo?.advancePaymentUtrNo),
     (record.paymentInfo.payment_proof =
       paymentInfo?.payment_proof || record?.paymentInfo?.payment_proof),
-    (record.paymentInfo.advancePaymentStatus = _poAdvancePaymentStatus.paid);
+    (record.paymentInfo.advancePaymentStatus = record?.paymentInfo?.advancePaymentStatus || "NA"); 
   // console.log("_final_record=>", record);
   // Save the updated record
   await record.save();
