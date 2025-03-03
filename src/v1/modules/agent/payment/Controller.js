@@ -17,34 +17,24 @@ const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOff
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 
+
 module.exports.payment = async (req, res) => {
-
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-
-        // let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
-
-        const paymentIds = (await Payment.find({})).map(i => i.req_id);
-
-        // start of Sangita code
-
+        let { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0,approve_status="Pending" } = req.query
+        // limit = 5
         let query = search ? {
-            _id: { $in: paymentIds },
             $or: [
-                { "product.name": { $regex: search, $options: 'i' } },
                 { "reqNo": { $regex: search, $options: 'i' } },
-                { "payment_status": { $regex: search, $options: 'i' } }
+                { "product.name": { $regex: search, $options: 'i' } },
             ]
         } : {};
 
-        // End of Sangita code 
-
+        const { portalId, user_id } = req
+        const paymentIds = (await Payment.find()).map(i => i.req_id)
+       
         const aggregationPipeline = [
-            // start of Sangita code
-            { $match: query },
-            // End of Sangita code 
-
-            // { $match: { _id: { $in: paymentIds } } },            
+            { $match: { _id: { $in: paymentIds }, ...query } },
+            { $sort: { createdAt: -1 } },
             {
                 $lookup: {
                     from: 'batches',
@@ -60,8 +50,7 @@ module.exports.payment = async (req, res) => {
                         }
                     }],
                 }
-            },      
-            // start of Sangita code      
+            },
             {
                 $lookup: {
                     from: 'branches',
@@ -79,85 +68,42 @@ module.exports.payment = async (req, res) => {
                 }
             },
             {
-                $lookup: {
-                  from: "farmers",
-                  localField: "farmer_order_id",
-                  foreignField: "farmer_order_id",
-                  as: "farmer",
-                },
-              },
-              {
-                $addFields: {
-                    farmer: {
-                        FarmerName: { $arrayElemAt: ['$farmer.name', 0] },
-                        FatherName: { $arrayElemAt: ['$farmer.parents.father_name', 0] },
-                        FatherDOB: { $arrayElemAt: ['$farmer.basic_details.dob', 0] },
-                        FarmerID: { $arrayElemAt: ['$farmer.farmer_id', 0] },
-                        address: {
-                            address_line_1: { $arrayElemAt: ['$farmer.address.address_line_1', 0] },
-                            country: { $arrayElemAt: ['$farmer.address.country', 0] },
-                            tahshil: { $arrayElemAt: ['$farmer.address.tahshil', 0] },
-                            village: { $arrayElemAt: ['$farmer.address.village', 0] },
-                            pin_code: { $arrayElemAt: ['$farmer.address.pin_code', 0] },
-                        }
-                    }
+                $lookup:{
+                    from:"slas",
+                    localField:"sla_id",
+                    foreignField:"_id",
+                    as:"sla"
                 }
             },
             {
-                $lookup: {
-                  from: "users",
-                  localField: "batches.seller_id",
-                  foreignField: "_id",
-                  as: "sellers",
-                },
-              },
-              {
-                $addFields: {
-                    sellers: {
-                        AssociateName: { $arrayElemAt: ['$sellers.basic_details.associate_details.organization_name', 0] },
-                        AssociateId: { $arrayElemAt: ['$sellers.user_code', 0] },
-                    }
+                $unwind:{path:"$sla",preserveNullAndEmptyArrays:true}
+            },
+            {
+                $lookup:{
+                    from:"slas",
+                    localField:"sla_id",
+                    foreignField:"_id",
+                    as:"sla"
                 }
             },
             {
-                $lookup: {
-                  from: "requests",
-                  localField: "batches.req_id",
-                  foreignField: "_id",
-                  as: "request",
-                },
-              },
+                $unwind:{path:"$sla",preserveNullAndEmptyArrays:true}
+            },
             {
-                $lookup: {
-                  from: "procurementcenters",
-                  localField: "batches.procurementCenter_id",
-                  foreignField: "_id",
-                  as: "ProcurementCenter",
-                },
-              },
-              {
-                $addFields: {
-                    ProcurementCenter: {
-                        CenterCode: { $arrayElemAt: ['$ProcurementCenter.center_code', 0] },
-                        CenterName: { $arrayElemAt: ['$ProcurementCenter.center_name', 0] },
-                        Address: {
-                            line1: { $arrayElemAt: ['$ProcurementCenter.address.line1', 0] },
-                            line2: { $arrayElemAt: ['$ProcurementCenter.address.line2', 0] },
-                            country: { $arrayElemAt: ['$ProcurementCenter.address.country', 0] },
-                            state: { $arrayElemAt: ['$ProcurementCenter.address.state', 0] },
-                            district: { $arrayElemAt: ['$ProcurementCenter.address.district', 0] },
-                            city: { $arrayElemAt: ['$ProcurementCenter.address.city', 0] },
-                            postalCode: { $arrayElemAt: ['$ProcurementCenter.address.postalCode', 0] },
-                            lat: { $arrayElemAt: ['$ProcurementCenter.address.lat', 0] },
-                            long: { $arrayElemAt: ['$ProcurementCenter.address.long', 0] },
-                        }
-                    }
+                $lookup:{
+                    from:"schemes",
+                    localField:"product.schemeId",
+                    foreignField:"_id",
+                    as:"scheme"
                 }
             },
-            // end of Sangita code
+            {
+                $unwind:{path:"$scheme",preserveNullAndEmptyArrays:true}
+            },
             {
                 $match: {
-                    batches: { $ne: [] }
+                    batches: { $ne: [] },
+                    "batches.bo_approve_status": approve_status==_paymentApproval.pending?_paymentApproval.pending:{ $ne: _paymentApproval.pending } 
                 }
             },
             {
@@ -165,24 +111,21 @@ module.exports.payment = async (req, res) => {
                     approval_status: {
                         $cond: {
                             if: {
-                                $and: [
-                                    { $eq: ['$bo_approve_status', _paymentApproval.accepted] },
-                                    { $eq: ['$ho_approve_status', _paymentApproval.accepted] }
-                                ]
-                            },
-                            then: 'Accepted',
-                            else: {
-                                $cond: {
-                                    if: {
-                                        $or: [
-                                            { $eq: ['$bo_approve_status', _paymentApproval.pending] },
-                                            { $eq: ['$ho_approve_status', _paymentApproval.pending] }
-                                        ]
-                                    },
-                                    then: 'Pending',
-                                    else: 'Pending' // Assuming you want a rejected state if neither is approved
+                                $anyElementTrue: {
+                                    $map: {
+                                        input: '$batches',
+                                        as: 'batch',
+                                        in: {
+                                            $or: [
+                                                { $not: { $ifNull: ['$$batch.bo_approval_at', true] } },  // Check if the field is missing
+                                                { $eq: ['$$batch.bo_approval_at', null] },  // Check for null value
+                                            ]
+                                        }
+                                    }
                                 }
-                            }
+                            },
+                            then: 'Pending',
+                            else: 'Approved'
                         }
                     },
                     qtyPurchased: {
@@ -221,7 +164,7 @@ module.exports.payment = async (req, res) => {
                                 }
                             },
                             then: 'Pending',
-                            else: 'Approved'
+                            else: 'Completed'
                         }
                     }
                 }
@@ -231,106 +174,88 @@ module.exports.payment = async (req, res) => {
                     _id: 1,
                     reqNo: 1,
                     product: 1,
-                    // 'batches._id': 1,
-                    // 'batches.qty': 1,
+                    'branchDetails.branchName':1,
+                    'branchDetails.branchId':1,
+                    'sla.basic_details.name':1,
+                    'scheme.schemeName':1,
                     approval_status: 1,
                     qtyPurchased: 1,
                     amountPayable: 1,
                     payment_status: 1,
-                    'branchDetails.branchName':1,
-                    'branchDetails.branchId':1,
-                    'farmer.name':1,
-                    'farmer.farmer_id':1,
-                    'farmer.parents.father_name':1,
-                    'farmer.basic_details.dob':1,
-                    'farmer.address.address_line_1':1,
-                    'farmer.address.country':1,
-                    'farmer.address.tahshil':1,
-                    'farmer.address.village':1,
-                    'farmer.address.pin_code':1,
-                    'sellers.basic_details.associate_details.organization_name':1,
-                    'sellers.user_code':1,
-                    'ProcurementCenter.CenterCode': 1,
-                    'ProcurementCenter.CenterName': 1,
-                    'ProcurementCenter.Address.line1': 1,
-                    'ProcurementCenter.Address.line2': 1,
-                    'ProcurementCenter.Address.country': 1,
-                    'ProcurementCenter.Address.state': 1,
-                    'ProcurementCenter.Address.district': 1,
-                    'ProcurementCenter.Address.city': 1,
-                    'ProcurementCenter.Address.postalCode': 1,
-                    'ProcurementCenter.Address.lat': 1,
-                    'ProcurementCenter.Address.long': 1,
-                    batches:1,
-                    request:1,
+                  
                 }
             },
-            { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
-            { $skip: skip },
-            { $limit: parseInt(limit) }
+            { $skip: (page - 1) * limit },
+            { $limit: parseInt(limit) },
+            
         ];
-        const records = { count: 0 }
-        records.rows = await RequestModel.aggregate(aggregationPipeline);
+        let response={count:0}
+        response.rows = await RequestModel.aggregate(aggregationPipeline);
+         const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
+         response.count = countResult?.[0]?.count ?? 0;
 
-        // start of Sangita code
+      
+         response.count = countResult?.[0]?.count ?? 0;
+        ////////// start of Sangita code
 
-        records.count = await RequestModel.countDocuments(query)
+        // response.rows = await Promise.all(records[0].data.map(async record => {
 
-        // End of Sangita code 
+        //     allBatchApprovalStatus = _paymentApproval.pending;
+
+        //     const pendingBatch = await Batch.find({ req_id: record._id, bo_approve_status: _paymentApproval.pending });
+
+        //     if (pendingBatch.length > 0) {
+        //         allBatchApprovalStatus = _paymentApproval.pending;
+        //     } else {
+        //         allBatchApprovalStatus = _paymentApproval.approved;
+        //     }
+
+        //     return { ...record, allBatchApprovalStatus }
+        // }));
+
+        ////////// end of Sangita code
+
 
         if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+            response.page = page
+            response.limit = limit
+            response.pages = limit != 0 ? Math.ceil(response.count / limit) : 0
         }
 
         if (isExport == 1) {
-            const exportPipeline = aggregationPipeline.filter(stage => !('$skip' in stage || '$limit' in stage));
-    
-            const exportRecords = await RequestModel.aggregate(exportPipeline);
-
+            const exportRecords = await RequestModel.aggregate([
+                ...aggregationPipeline,
+            ]);
             const record = exportRecords.map((item) => {
-                const dispatchedDates = item?.batches?.map(batch => batch.dispatched?.dispatched_at || "NA").join(", ") || "NA";
-                const intransitDates = item?.batches?.map(batch => batch.intransit?.intransit_at || "NA").join(", ") || "NA";
-                const deliveredat = item?.batches?.map(batch => batch.delivered?.delivered_at || "NA").join(", ") || "NA";
-                const deliveryDates = item?.request?.map(req => req.deliveryDate).join(", ") || "NA";
-                const receivingDates = item?.batches
-                ?.map(batch => batch?.dispatched?.qc_report?.received?.map(received => received?.on || "NA"))
-                ?.flat()
-                ?.join(", ") || "NA";
+                const procurementAddress = item?.ProcurementCenter[0]?.address;
+                const sellerDetails = item.sellers?.[0]?.basic_details?.associate_details || {};
+                const farmerDetails = item.farmer ? item.farmer[0] || {} : {};
+                const farmerAddress = item.farmer?.address
+                    ? `${farmerDetails.address.village || "NA"}, ${farmerDetails.address.block || "NA"}, 
+                       ${farmerDetails.address.country || "NA"}`
+                    : "NA";
                 return {
-                    "Order Id": item?.reqNo || "NA",
-                    BranchName: item.branchDetails?.[0]?.branchName || '',
-                    BranchId: item.branchDetails?.[0]?.branchId || '',
-                    "Commodity": item?.product.name || "NA",
-                    "Quantity Purchased": item?.qtyPurchased || "NA",
-                    "Payment Status": item?.payment_status || "NA",
-                    "Approval Status": item?.approval_status || "NA",
-                    FarmerName: item.farmer?.[0]?.name || '',
-                    FarmerID: item.farmer?.[0]?.farmer_id || '',
-                    FarmerDOB: item.farmer?.[0]?.basic_details?.dob || '',
-                    FarmerAddrees: item.farmer?.[0]?.address?.address_line_1 || '',
-                    Country: item.farmer?.[0]?.address?.country || '',
-                    FarmerVillage: item.farmer?.[0]?.address?.village || '',
-                    FarmerTahsil: item.farmer?.[0]?.address?.tahshil || '',
-                    FarmerpINCode: item.farmer?.[0]?.address?.pin_code || '',
-                    AssociateName: item.sellers?.[0]?.basic_details.associate_details?.organization_name || '',
-                    AssociateId: item.sellers?.[0]?.user_code || '',
-                    "Procurement Center Code": item.ProcurementCenter?.[0]?.CenterCode || "NA",
-                    "Procurement Center Name": item.ProcurementCenter?.[0]?.CenterName || "NA",
-                    "Procurement Address Line1": item.ProcurementCenter?.[0]?.Address?.line1 || "NA",
-                    "Procurement Address Line2": item.ProcurementCenter?.[0]?.Address?.line2 || "NA",
-                    "Procurement Country": item.ProcurementCenter?.[0]?.Address?.country || "NA",
-                    "Procurement State": item.ProcurementCenter?.[0]?.Address?.state || "NA",
-                    "Procurement District": item.ProcurementCenter?.[0]?.Address?.district || "NA",
-                    "Procurement City": item.ProcurementCenter?.[0]?.Address?.city || "NA",
-                    "Procurement Postal Code": item.ProcurementCenter?.[0]?.Address?.postalCode || "NA",
-                    "Delivery location": "HAUZ KHAS",
-                    "Dispatched Date": dispatchedDates,
-                    "In-Transit Date": intransitDates,
-                    "Delivery Date": deliveredat,
-                    "Expected Delivery Date": deliveryDates,
-                    "Receivinng Date": receivingDates,
+                    "Order ID": item?.reqNo || 'NA',
+                    "Commodity": item?.product.name || 'NA',
+                    "Quantity Purchased": item?.qtyPurchased || 'NA',
+                    "Amount Payable": item?.amountPayable || 'NA',
+                    "Approval Status": item?.approval_status ?? 'NA',
+                    "Payment Status": item?.payment_status ?? 'NA',
+                    "Associate User Code": item.sellers?.[0]?.user_code || "NA",
+                    "Associate Name": sellerDetails?.associate_name || "NA",
+                    "Farmer ID": farmerDetails?.farmer_id || "NA",
+                    "Farmer Name": farmerDetails?.name || "NA",
+                    "Mobile No": farmerDetails?.basic_details?.mobile_no || "NA",
+                    "Farmer DOB": farmerDetails?.basic_details?.dob || "NA",
+                    "Father Name": farmerDetails?.parents?.father_name || "NA",
+                    "Farmer Address": farmerAddress,
+                    "Collection center": item?.ProcurementCenter[0]?.center_name ?? "NA",
+                    "Procurement Address Line 1": procurementAddress?.line1 || "NA",
+                    "Procurement City": procurementAddress?.city || "NA",
+                    "Procurement District": procurementAddress?.district || "NA",
+                    "Procurement State": procurementAddress?.state || "NA",
+                    "Procurement Country": procurementAddress?.country || "NA",
+                    "Procurement Postal Code": procurementAddress?.postalCode || "NA",
                 }
             })
 
@@ -338,20 +263,21 @@ module.exports.payment = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Request-${'Request'}.xlsx`,
-                    worksheetName: `Request-record-${'Request'}`
+                    fileName: `Farmer-Payment-records.xlsx`,
+                    worksheetName: `Farmer-Payment-records`
                 });
             } else {
-                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Request") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: response, message: _response_message.notFound("Payment") }))
             }
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+            return res.status(200).send(new serviceResponse({ status: 200, data: response, message: _response_message.found("Payment") }))
         }
 
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
+
 
 module.exports.associateOrders = async (req, res) => {
 
@@ -429,14 +355,16 @@ module.exports.associateOrders = async (req, res) => {
 
 module.exports.batchList = async (req, res) => {
 
+    
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0,batch_status="Pending" } = req.query
+        const { user_type, portalId, user_id } = req
 
-        const paymentIds = (await Payment.find({ associateOffers_id: associateOffer_id })).map(i => i.batch_id)
-
+        const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, associateOffers_id: associateOffer_id })).map(i => i.batch_id)
         let query = {
             _id: { $in: paymentIds },
             associateOffer_id,
+            bo_approve_status: batch_status==_paymentApproval.pending?_paymentApproval.pending:_paymentApproval.approved,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
@@ -445,17 +373,10 @@ module.exports.batchList = async (req, res) => {
         records.rows = paginate == 1 ? await Batch.find(query)
             .sort(sortBy)
             .skip(skip)
-            .select('_id req_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status')
-            .limit(parseInt(limit)) : await Batch.find(query)
-                .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status')
-                .sort(sortBy);
+            .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status')
+            .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
-
-        // start of sangita code        
-        records.reqDetails = await RequestModel.findOne({ _id: records.rows[0]?.req_id })
-            .select({ _id: 0, reqNo: 1, product: 1, quotedPrice: 1, deliveryDate: 1, expectedProcurementDate: 1, fulfilledQty: 1, totalQuantity: 1, status: 1 });
-        // end of sangita code
 
         if (paginate == 1) {
             records.page = page
@@ -466,14 +387,13 @@ module.exports.batchList = async (req, res) => {
         if (isExport == 1) {
 
             const record = records.rows.map((item) => {
-
                 return {
-                    "Batch Id": item?.batchId || "NA",
-                    "Delivery Date": item?.delivered.delivered_at || "NA",
-                    "Payment Due Date": item?.payement_approval_at || "NA",
-                    "Quantity Purchased": item?.qty || "NA",
-                    "Amount Payable": item?.totalPrice || "NA",
-                    "Payment Status": item?.status || "NA",
+                    "Batch ID": item?.batchId || 'NA',
+                    "Delivey Date": item?.delivered.delivered_at || 'NA',
+                    "Payment Due Date": item?.payment_at || 'NA',
+                    "Quantity Purchased": item?.qty || 'NA',
+                    "Amount Payable": item?.totalPrice || 'NA',
+                    "Approval Status": item?.bo_approve_status ?? 'NA'
                 }
             })
 
@@ -481,13 +401,12 @@ module.exports.batchList = async (req, res) => {
 
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Batch-${'Batch'}.xlsx`,
-                    worksheetName: `Batch-record-${'Batch'}`
+                    fileName: `Associate-Batch-records.xlsx`,
+                    worksheetName: `Associate-Batch-records`
                 });
             } else {
-                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Batch") }))
+                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
             }
-
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
         }
@@ -520,7 +439,7 @@ module.exports.lot_list = async (req, res) => {
 // TODO aggrigation on invoice after a record insert
 module.exports.AssociateTabPaymentRequests = async (req, res) => {
     try {
-        const { page, limit, skip, paginate = 1, sortBy, isExport=0, search = '' } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, isExport = 0, search = '' } = req.query
         // let query = search ? { reqNo: { $regex: search, $options: 'i' } } : {};
         const paymentIds = (await AssociateInvoice.find({})).map(i => i.req_id);
 
@@ -554,13 +473,13 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
             },
             {
                 $lookup: {
-                  from: "farmers",
-                  localField: "farmer_order_id",
-                  foreignField: "farmer_order_id",
-                  as: "farmer",
+                    from: "farmers",
+                    localField: "farmer_order_id",
+                    foreignField: "farmer_order_id",
+                    as: "farmer",
                 },
-              },
-              {
+            },
+            {
                 $addFields: {
                     farmer: {
                         FarmerName: { $arrayElemAt: ['$farmer.name', 0] },
@@ -579,13 +498,13 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
             },
             {
                 $lookup: {
-                  from: "users",
-                  localField: "batches.seller_id",
-                  foreignField: "_id",
-                  as: "sellers",
+                    from: "users",
+                    localField: "batches.seller_id",
+                    foreignField: "_id",
+                    as: "sellers",
                 },
-              },
-              {
+            },
+            {
                 $addFields: {
                     sellers: {
                         AssociateName: { $arrayElemAt: ['$sellers.basic_details.associate_details.organization_name', 0] },
@@ -595,13 +514,13 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
             },
             {
                 $lookup: {
-                  from: "procurementcenters",
-                  localField: "batches.procurementCenter_id",
-                  foreignField: "_id",
-                  as: "ProcurementCenter",
+                    from: "procurementcenters",
+                    localField: "batches.procurementCenter_id",
+                    foreignField: "_id",
+                    as: "ProcurementCenter",
                 },
-              },
-              {
+            },
+            {
                 $addFields: {
                     ProcurementCenter: {
                         CenterCode: { $arrayElemAt: ['$ProcurementCenter.center_code', 0] },
@@ -658,15 +577,15 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
                     qtyProcuredInInvoice: 1,
                     paymentStatus: 1,
                     batches: 1,
-                    'farmer.name':1,
-                    'farmer.farmer_id':1,
-                    'farmer.parents.father_name':1,
-                    'farmer.basic_details.dob':1,
-                    'farmer.address.address_line_1':1,
-                    'farmer.address.country':1,
-                    'farmer.address.tahshil':1,
-                    'farmer.address.village':1,
-                    'farmer.address.pin_code':1,
+                    'farmer.name': 1,
+                    'farmer.farmer_id': 1,
+                    'farmer.parents.father_name': 1,
+                    'farmer.basic_details.dob': 1,
+                    'farmer.address.address_line_1': 1,
+                    'farmer.address.country': 1,
+                    'farmer.address.tahshil': 1,
+                    'farmer.address.village': 1,
+                    'farmer.address.pin_code': 1,
                     'ProcurementCenter.CenterCode': 1,
                     'ProcurementCenter.CenterName': 1,
                     'ProcurementCenter.Address.line1': 1,
@@ -678,8 +597,8 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
                     'ProcurementCenter.Address.postalCode': 1,
                     'ProcurementCenter.Address.lat': 1,
                     'ProcurementCenter.Address.long': 1,
-                    'sellers.basic_details.associate_details.organization_name':1,
-                    'sellers.user_code':1,
+                    'sellers.basic_details.associate_details.organization_name': 1,
+                    'sellers.user_code': 1,
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
@@ -698,14 +617,14 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
         if (isExport == 1) {
             const exportRecords = await RequestModel.aggregate([...aggregationPipeline.filter(stage => !stage.$skip && !stage.$limit)]);
 
-            const record =  exportRecords.map((item) => {
+            const record = exportRecords.map((item) => {
                 const batchIds = item?.batches?.map(batch => batch.batchId).join(', ') || "NA";
                 const dispatchedDates = item?.batches?.map(batch => batch.dispatched?.dispatched_at || "NA").join(", ") || "NA";
                 const intransitDates = item?.batches?.map(batch => batch.intransit?.intransit_at || "NA").join(", ") || "NA";
                 const receivingDates = item?.batches
-                ?.map(batch => batch?.dispatched?.qc_report?.received?.map(received => received?.on || "NA"))
-                ?.flat()
-                ?.join(", ") || "NA";
+                    ?.map(batch => batch?.dispatched?.qc_report?.received?.map(received => received?.on || "NA"))
+                    ?.flat()
+                    ?.join(", ") || "NA";
                 return {
                     "Order ID": item?.reqNo || "NA",
                     "Product Name": item?.product?.name || "NA",
@@ -735,26 +654,26 @@ module.exports.AssociateTabPaymentRequests = async (req, res) => {
                     "Dispatched Date": dispatchedDates,
                     "In-Transit Date": intransitDates,
                     "Receivinng Date": receivingDates,
-                  };
-                });
+                };
+            });
             if (record.length > 0) {
-             return dumpJSONToExcel(req, res, {
-                data: record,
-                fileName: `Agent-associate-Payment-record.xlsx`,
-                worksheetName: `Agent-associate-Payment-record`,
-              });
+                return dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Agent-associate-Payment-record.xlsx`,
+                    worksheetName: `Agent-associate-Payment-record`,
+                });
             } else {
-              return res
-                .status(400)
-                .send(
-                  new serviceResponse({
-                    status: 400,
-                    data: records,
-                    message: _response_message.notFound("Payment"),
-                  })
-                );
+                return res
+                    .status(400)
+                    .send(
+                        new serviceResponse({
+                            status: 400,
+                            data: records,
+                            message: _response_message.notFound("Payment"),
+                        })
+                    );
             }
-          } 
+        }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
 
@@ -826,8 +745,8 @@ module.exports.proceedToPayPaymentRequests = async (req, res) => {
                     product: 1,
                     qtyProcuredInInvoice: 1,
                     paymentStatus: 1,
-                    'branchDetails.branchName':1,
-                    'branchDetails.branchId':1
+                    'branchDetails.branchName': 1,
+                    'branchDetails.branchId': 1
                 }
             },
             { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
@@ -1487,9 +1406,9 @@ module.exports.getBill = async (req, res) => {
 
         const { user_id, user_type } = req;
 
-        const associateInvoiceRecord = await AssociateInvoice.findOne({batch_id:batchId}) 
+        const associateInvoiceRecord = await AssociateInvoice.findOne({ batch_id: batchId })
         const batchRecord = await Batch.findOne({ _id: batchId }).select({ _id: 1, batchId: 1, req_id: 1, dispatchedqty: 1, goodsPrice: 1, totalPrice: 1, dispatched: 1 });
-        const response = {...JSON.parse(JSON.stringify(batchRecord)), logs: associateInvoiceRecord.logs }
+        const response = { ...JSON.parse(JSON.stringify(batchRecord)), logs: associateInvoiceRecord.logs }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: response, message: _query.get('Payment') }))
 
@@ -1610,7 +1529,7 @@ module.exports.associateBillApprove = async (req, res) => {
         };
 
         const batchApprovalStatus = await Batch.find(batchQuery);
-       
+
         if (batchApprovalStatus.length > 0) {
             return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notApproved("Payment") }] }));
         }
@@ -1626,11 +1545,11 @@ module.exports.associateBillApprove = async (req, res) => {
         }
 
         const record = await AssociateInvoice.updateMany(query, { $set: { agent_approve_status: _paymentApproval.approved, agent_approve_by: portalId, agent_approve_at: new Date() } });
-        
+
         await Batch.updateMany({ _id: { $in: batchIds } }, { $set: { agent_approve_status: _paymentApproval.approved } });
 
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("invoice") }))
-        
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -1764,11 +1683,11 @@ module.exports.agentPayments = async (req, res) => {
         records.count = await AgentInvoice.countDocuments(query);
         if (isExport == 1) {
             const recordsdata = await AgentInvoice.find(query)
-        .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
-        .populate([
-            { path: "bo_id", select: "branchId" },
-            { path: "req_id", select: "product deliveryDate quotedPrice reqNo" },
-        ]);
+                .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
+                .populate([
+                    { path: "bo_id", select: "branchId" },
+                    { path: "req_id", select: "product deliveryDate quotedPrice reqNo" },
+                ]);
 
             const exportData = recordsdata.map(record => ({
                 ReqNo: record.req_id?.reqNo || "N/A",
