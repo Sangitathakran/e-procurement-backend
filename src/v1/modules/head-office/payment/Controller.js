@@ -822,10 +822,10 @@ module.exports.payment = async (req, res) => {
 
 module.exports.payment = async (req, res) => {
   try {
-    let { page = 1, limit = 50, search = "", isExport = 0 } = req.query;
+    var { page = 1, limit = 50, search = "", isExport = 0, isApproved, paymentStatus } = req.query;
     page = parseInt(page);
     limit = parseInt(limit);
-
+    isApproved = isApproved === "true";
     const { portalId, user_id } = req;
 
     // Ensure necessary indexes are created (run once in your database setup)
@@ -1012,7 +1012,7 @@ module.exports.payment = async (req, res) => {
                     },
                   },
                 },
-                then: "Payment initiated",
+                then: "Partially initiated",
               },
               {
                 case: {
@@ -1025,14 +1025,14 @@ module.exports.payment = async (req, res) => {
                           $map: {
                             input: "$$batch.payment",
                             as: "pay",
-                            in: { $in: ["$$pay.payment_status", ["Pending", "In Progress", "Failed", "Rejected"]] },
+                            in: { $in: ["$$pay.payment_status", ["Failed", "Rejected"]] },
                           },
                         },
                       },
                     },
                   },
                 },
-                then: "Partially initiated",
+                then: "Failed",
               }
               ],
               default: "Pending", // Default case when no action is taken
@@ -1053,7 +1053,7 @@ module.exports.payment = async (req, res) => {
           amountPayable: 1,
           amountPaid: 1,
           payment_status: 1,
-          overall_payment_status:1
+          overall_payment_status:1,
         },
       },
       { $sort: { payment_status: -1, createdAt: -1 } },
@@ -1061,12 +1061,21 @@ module.exports.payment = async (req, res) => {
       { $limit: limit },
     ];
 
-    const records = await RequestModel.aggregate(aggregationPipeline);
+    const records = await RequestModel.aggregate(aggregationPipeline) || [];
+    // filtering records on the basis of approval_status
+    const apStatus = isApproved ? "Approved":"Pending";
+    var filteredRecords = records.filter((el)=>el?.approval_status === apStatus);
+    // filtering on the basis of overall_payment_status
+    if(paymentStatus){
+      filteredRecords = records.filter((el)=>el?.overall_payment_status === paymentStatus);
+    }
+
+    // console.log("filteredRes => ", filteredRecords, apStatus, isApproved, paymentStatus)
 
     // Step 5: Prepare Response
     const response = {
       count: totalCount,
-      rows: records,
+      rows: filteredRecords,
       page,
       limit,
       pages: Math.ceil(totalCount / limit),
