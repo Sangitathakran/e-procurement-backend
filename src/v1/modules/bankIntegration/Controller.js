@@ -90,7 +90,7 @@ module.exports.paymentStatus = async (req, res) => {
       payment_mode = "",
       order_id = "",
       amount = "",
-      cancel_url = "",
+      cancel_url = "https://testing.distiller.khetisauda.com/distiller/myorders",
     } = responseParams;
 
     if (paymentStatus === "Success") {
