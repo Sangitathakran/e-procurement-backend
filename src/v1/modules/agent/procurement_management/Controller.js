@@ -62,7 +62,6 @@ module.exports.createProcurementCenter = async (req, res) => {
 module.exports.getProcurementCenter = async (req, res) => {
 
     try {
-        console.log("raj")
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, centerType = 'self', state, city, associate_name } = req.query
 
         const { user_id } = req
