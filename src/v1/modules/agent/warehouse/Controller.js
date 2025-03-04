@@ -327,6 +327,9 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
         search = '',
         sortBy,
         id,
+        commodity,
+        associateName,
+        qcStatus,
         isExport=0
     } = req.query;
 
@@ -395,12 +398,33 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
                     "user.basic_details.associate_details.associate_name": 1,
                     "procurementcenter.center_name": 1,
                 }
-            },
-            { $sort: sortBy },
-            { $skip: (page - 1) * limit },
-            { $limit: parseInt(limit) },
-        ]
+            }
+        ];
+        //     { $sort: sortBy },
+        //     { $skip: (page - 1) * limit },
+        //     { $limit: parseInt(limit) },
+        // ]
+        const filterConditions = {};
 
+        if (commodity) {
+            filterConditions['request.product.name'] = { $regex: new RegExp(commodity, 'i') };
+        }
+
+        if (associateName) {
+            filterConditions['user.basic_details.associate_details.associate_name'] = { $regex: new RegExp(associateName, 'i') };
+        }
+
+        if (qcStatus) {
+            filterConditions['final_quality_check.status'] = { $regex: new RegExp(qcStatus, 'i') };
+        }
+
+        if (Object.keys(filterConditions).length > 0) {
+            pipeline.push({ $match: filterConditions });
+        }
+
+        pipeline.push({ $sort: sortBy });
+        pipeline.push({ $skip: (page - 1) * limit });
+        pipeline.push({ $limit: parseInt(limit) });
         if (isExport == 1) {
             const data = await Batch.aggregate([...pipeline.slice(0, -2)]);
     

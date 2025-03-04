@@ -108,7 +108,7 @@ module.exports.getProcurement = asyncErrorHandler(
     async (req, res) => {
         const { page = 1, limit = 10, sortBy, search = '', paginate = 1, isExport = 0 } = req.query;
         const calculatedSkip = (page - 1) * limit;
-
+const { schemeName, commodity, slaName, branchName, cna } = req.query;
         let query = search ? {
             $or: [
                 { "reqNo": { $regex: search, $options: 'i' } },
@@ -233,12 +233,21 @@ module.exports.getProcurement = asyncErrorHandler(
                     },
                     slaName: { $ifNull: ["$slaDetails.slaName", "N/A"] },
                     headOfficesName: { $ifNull: ["$headOfficeDetails.headOfficesName", "N/A"] },
-                    branchName: { $ifNull: ["$branchDetails.branchName","N/A"] }
+                    branchName: { $ifNull: ["$branchDetails.branchName","N/A"] },
+                    commodity: { $ifNull: ["$product.name", "N/A"] },
+                    cna: { $ifNull: ["$headOfficeDetails.headOfficesName", "N/A"] }
                 }
             },
+
+             // Apply dynamic filters if they exist
+             ...(schemeName ? [{ $match: { schemeName: { $regex: schemeName, $options: 'i' } } }] : []),
+             ...(commodity ? [{ $match: { commodity: { $regex: commodity, $options: 'i' } } }] : []),
+             ...(slaName ? [{ $match: { slaName: { $regex: slaName, $options: 'i' } } }] : []),
+             ...(branchName ? [{ $match: { branchName: { $regex: branchName, $options: 'i' } } }] : []),
+             ...(cna ? [{ $match: { cna: { $regex: cna, $options: 'i' } } }] : []),
             ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
         ];
-
+       
         // Pagination
         const pipeline = isExport == 1
             ? basePipeline // No pagination for export
@@ -305,7 +314,6 @@ module.exports.getProcurement = asyncErrorHandler(
         }
     }
 );
-
 
 module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
 
