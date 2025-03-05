@@ -74,7 +74,6 @@ module.exports.sendRequest = async (req, res) => {
 
 module.exports.paymentStatus = async (req, res) => {
   const { encResp = null, orderNo = null } = req.body;
-  var log = null;
   try {
     if (!encResp)
       return res.status(400).json({ error: "Missing encrypted response" });
@@ -217,6 +216,6 @@ module.exports.paymentStatus = async (req, res) => {
             `);
   } catch (error) {
     console.error("Internal Error:", error);
-    res.status(500).json({ error: "Internal Server Error", errorLog: log });
+    res.status(500).json({ error: "Internal Server Error", errorLog: error });
   }
 };
