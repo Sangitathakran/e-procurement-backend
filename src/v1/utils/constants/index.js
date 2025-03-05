@@ -28,6 +28,8 @@ const _collectionName = {
     StateDistrictCity: "StateDistrictCity",
     Batch: "Batch",
     Payment: "Payment",
+    Whr:"Whr",
+    WhrDetail : "WhrDetail",
     Branch: "Branch",
     DummyWarehouse: "DummyWarehouse",
     Warehouse: "WarehouseV2",
@@ -54,7 +56,8 @@ const _collectionName = {
     TrackOrder : "TrackOrder",
     Truck : "Truck",
     ExternalBatch : "ExternalBatch",
-    ExternalOrder : "ExternalOrder"
+    ExternalOrder : "ExternalOrder",
+    ClientToken : "ClientToken",
 
 }
 
@@ -75,7 +78,8 @@ const _featureType = {
     headOffice: "HeadOffice",
     agency: "Agency",
     associate: "Associate",
-    distiller: "Distiller"
+    distiller: "Distiller",
+    warehouse: "Warehouse"
 }
 
 const _status = {
@@ -439,6 +443,17 @@ const _statusType = {
     inactive: 'inactive'
 }
 
+const _whr_status = {
+    active: "active",
+    inactive: "inactive",
+    approved: 'approved',
+    rejected: 'rejected',
+    pending: 'pending',
+    archived: "archived",
+    deleted: "deleted",
+    created: "created",
+}
+
 const _frontendLoginRoutes = {
     // agent: "/agent/sign-in",
     // ho: "/head-office/sign-in",
@@ -570,4 +585,5 @@ module.exports = {
     _penaltypaymentStatus,
     _poBatchPaymentStatus,
     _trackOrderStatus ,
+    _whr_status
 }

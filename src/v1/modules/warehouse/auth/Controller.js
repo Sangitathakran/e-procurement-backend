@@ -121,7 +121,7 @@ module.exports.saveWarehouseDetails = async (req, res) => {
                 .send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const warehouseId = decode.data.user_id;
+        const warehouseId = decode.data.organization_id;
         const warehouse = await wareHousev2.findById(warehouseId);
         if (!warehouse) {
             return res
@@ -177,8 +177,8 @@ module.exports.saveWarehouseDetails = async (req, res) => {
 };
 
 module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
-    const { user_id } = req;
-    let record = await wareHousev2.findOne({ _id: user_id }).lean();
+    const { user_id, organization_id } = req;
+    let record = await wareHousev2.findOne({ _id: organization_id }).lean();
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }));
     }
@@ -193,11 +193,11 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
 
 module.exports.formPreview = async (req, res) => {
     try {
-        const { user_id } = req;
-        if (!user_id) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
+        const { user_id, organization_id } = req;
+        if (!organization_id) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('organization_id') }));
         }
-        const response = await wareHousev2.findById({ _id: user_id });
+        const response = await wareHousev2.findById({ _id: organization_id });
         if (!response) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         } else {
@@ -215,7 +215,7 @@ module.exports.findUserStatus = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const userId = decode.data.user_id;
+        const userId = decode.data.organization_id;
         const user = await wareHousev2.findById(userId);
         if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
@@ -239,7 +239,7 @@ module.exports.finalFormSubmit = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const warehouseId = decode.data.user_id;
+        const warehouseId = decode.data.organization_id;
         const warehouse = await wareHousev2.findById(warehouseId);
         if (!warehouse) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('Warehouse') }));
