@@ -18,7 +18,7 @@ const ccAvenueResponseSchema = new mongoose.Schema(
     payment_method: {
       type: String,
       default: null,
-      enum: Object.values(_paymentmethod),
+      // enum: Object.values(_paymentmethod),
     },
     payment_section: { type: String },
   },
