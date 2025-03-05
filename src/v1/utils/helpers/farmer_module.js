@@ -311,6 +311,7 @@ exports.insertNewHaryanaFarmerRecord = async (data) => {
       user_type: "1",
       farmer_type: "Individual",
       associate_id: null,
+      harynaNewFarmer_code: data.uniqueFarmerCode,
       mobile_no: data.mobile_no,
       is_welcome_msg_send: true,
       basic_details: {
@@ -392,6 +393,7 @@ exports.insertNewHaryanaFarmerRecord = async (data) => {
 
 exports.insertNewHaryanaRelatedRecords = async (farmer_id, data, res) => {
   try{
+    try{
   const newLand = new Land({
       farmer_id,
       land_name: data.land_name,
@@ -400,11 +402,11 @@ exports.insertNewHaryanaRelatedRecords = async (farmer_id, data, res) => {
       khasra_number: data.khasra_number,
       area_unit: data.area_unit,
       khata_number: data.khata_number,
-      land_type: data.land_type,
+      land_type: 'other',
       khtauni_number: data.khtauni_number,
       soil_type: data.soil_type,
       soil_tested: data.soil_tested,
-      khewat_number: data.soil_tested,
+      khewat_number: data.khewat_number,
       karnal_number: data.karnal_number,
       murla_number: data.murla_number,
       revenue_area_karnal: data.revenue_area_karnal,
@@ -421,7 +423,12 @@ exports.insertNewHaryanaRelatedRecords = async (farmer_id, data, res) => {
       soil_testing_agencies:data.soil_testing_agencies,
       upload_geotag: data.upload_geotag,
   });
+  console.log("newLand", newLand)
    await newLand.save();
+  } catch (error) {
+    console.error("Error inserting farmer record:", error);
+    return null;
+  }
 
   const newCrop = new Crop({
       farmer_id,

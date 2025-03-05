@@ -4,6 +4,7 @@ const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { validateIndFarmer, validateRegisterDetail, validateFarmer, validateLand, validateCrop, validateBank } = require("./Validation")
 const { verifyAssociate } = require("../associate/utils/verifyAssociate");
+const { apiKeyAuth } = require("../warehouse/utils/verifyWarehouseOwner");
 const { saveFarmerDetails,updateIndCrop,getLandDetails, getIndCropDetails,sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers, getstatedistrictname, getBoFarmerPreview, uploadFarmerDocument, getFarmerDocument,getLocationOfIpaddress, editFarmerDocument, getStates, getDistrictByState,addDistrictCity, haryanaFarmerUplod } = require("./Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
 // const { verifyAgent } = require("../agent/utils/verifyAgent");
@@ -76,5 +77,5 @@ farmerRoutes.post('/get-state-from-ip-address',getLocationOfIpaddress)
 /* 
  individual farmer haryana bulkuplod
  */
- farmerRoutes.post("/haryana-farmer-uplod", haryanaFarmerUplod);
+ farmerRoutes.post("/haryana-farmer-uplod", apiKeyAuth, haryanaFarmerUplod);
 module.exports = { farmerRoutes } 
