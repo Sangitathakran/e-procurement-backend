@@ -20,7 +20,7 @@ const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoic
 
 module.exports.payment = async (req, res) => {
     try {
-        let { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0,approve_status="Pending" } = req.query
+        let { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0, approve_status = "Pending" } = req.query
         // limit = 5
         let query = search ? {
             $or: [
@@ -31,7 +31,7 @@ module.exports.payment = async (req, res) => {
 
         const { portalId, user_id } = req
         const paymentIds = (await Payment.find()).map(i => i.req_id)
-       
+
         const aggregationPipeline = [
             { $match: { _id: { $in: paymentIds }, ...query } },
             { $sort: { createdAt: -1 } },
@@ -68,42 +68,42 @@ module.exports.payment = async (req, res) => {
                 }
             },
             {
-                $lookup:{
-                    from:"slas",
-                    localField:"sla_id",
-                    foreignField:"_id",
-                    as:"sla"
+                $lookup: {
+                    from: "slas",
+                    localField: "sla_id",
+                    foreignField: "_id",
+                    as: "sla"
                 }
             },
             {
-                $unwind:{path:"$sla",preserveNullAndEmptyArrays:true}
+                $unwind: { path: "$sla", preserveNullAndEmptyArrays: true }
             },
             {
-                $lookup:{
-                    from:"slas",
-                    localField:"sla_id",
-                    foreignField:"_id",
-                    as:"sla"
+                $lookup: {
+                    from: "slas",
+                    localField: "sla_id",
+                    foreignField: "_id",
+                    as: "sla"
                 }
             },
             {
-                $unwind:{path:"$sla",preserveNullAndEmptyArrays:true}
+                $unwind: { path: "$sla", preserveNullAndEmptyArrays: true }
             },
             {
-                $lookup:{
-                    from:"schemes",
-                    localField:"product.schemeId",
-                    foreignField:"_id",
-                    as:"scheme"
+                $lookup: {
+                    from: "schemes",
+                    localField: "product.schemeId",
+                    foreignField: "_id",
+                    as: "scheme"
                 }
             },
             {
-                $unwind:{path:"$scheme",preserveNullAndEmptyArrays:true}
+                $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true }
             },
             {
                 $match: {
                     batches: { $ne: [] },
-                    "batches.bo_approve_status": approve_status==_paymentApproval.pending?_paymentApproval.pending:{ $ne: _paymentApproval.pending } 
+                    "batches.agent_approve_status": approve_status == _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending }
                 }
             },
             {
@@ -117,8 +117,8 @@ module.exports.payment = async (req, res) => {
                                         as: 'batch',
                                         in: {
                                             $or: [
-                                                { $not: { $ifNull: ['$$batch.bo_approval_at', true] } },  // Check if the field is missing
-                                                { $eq: ['$$batch.bo_approval_at', null] },  // Check for null value
+                                                { $not: { $ifNull: ['$$batch.agent_approve_at', true] } },  // Check if the field is missing
+                                                { $eq: ['$$batch.agent_approve_at', null] },  // Check for null value
                                             ]
                                         }
                                     }
@@ -174,28 +174,28 @@ module.exports.payment = async (req, res) => {
                     _id: 1,
                     reqNo: 1,
                     product: 1,
-                    'branchDetails.branchName':1,
-                    'branchDetails.branchId':1,
-                    'sla.basic_details.name':1,
-                    'scheme.schemeName':1,
+                    'branchDetails.branchName': 1,
+                    'branchDetails.branchId': 1,
+                    'sla.basic_details.name': 1,
+                    'scheme.schemeName': 1,
                     approval_status: 1,
                     qtyPurchased: 1,
                     amountPayable: 1,
                     payment_status: 1,
-                  
+
                 }
             },
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) },
-            
-        ];
-        let response={count:0}
-        response.rows = await RequestModel.aggregate(aggregationPipeline);
-         const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
-         response.count = countResult?.[0]?.count ?? 0;
 
-      
-         response.count = countResult?.[0]?.count ?? 0;
+        ];
+        let response = { count: 0 }
+        response.rows = await RequestModel.aggregate(aggregationPipeline);
+        const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
+        response.count = countResult?.[0]?.count ?? 0;
+
+
+        response.count = countResult?.[0]?.count ?? 0;
         ////////// start of Sangita code
 
         // response.rows = await Promise.all(records[0].data.map(async record => {
@@ -210,7 +210,7 @@ module.exports.payment = async (req, res) => {
         //         allBatchApprovalStatus = _paymentApproval.approved;
         //     }
 
-        //     return { ...record, allBatchApprovalStatus }
+        //     return { ...record,  }
         // }));
 
         ////////// end of Sangita code
@@ -279,7 +279,7 @@ module.exports.payment = async (req, res) => {
 };
 
 
-module.exports.associateOrders = async (req, res) => {
+module.exports.associateOrders = async (rallBatchApprovalStatuseq, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
@@ -355,16 +355,16 @@ module.exports.associateOrders = async (req, res) => {
 
 module.exports.batchList = async (req, res) => {
 
-    
+
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0,batch_status="Pending" } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0, batch_status = "Pending" } = req.query
         const { user_type, portalId, user_id } = req
 
-        const paymentIds = (await Payment.find({associateOffers_id: associateOffer_id })).map(i => i.batch_id)
+        const paymentIds = (await Payment.find({ associateOffers_id: associateOffer_id })).map(i => i.batch_id)
         let query = {
             _id: { $in: paymentIds },
             associateOffer_id,
-            bo_approve_status: batch_status==_paymentApproval.pending?_paymentApproval.pending:_paymentApproval.approved,
+            bo_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
@@ -375,7 +375,7 @@ module.exports.batchList = async (req, res) => {
             .skip(skip)
             // .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status')
             .select('_id req_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status createdAt')
-            
+
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
         records.count = await Batch.countDocuments(query);
@@ -967,7 +967,6 @@ module.exports.proceedToPayAssociateOrders = async (req, res) => {
                     as: 'invoice',
 
                 },
-
             },
             {
                 $lookup: {
@@ -1045,7 +1044,6 @@ module.exports.proceedToPayAssociateOrders = async (req, res) => {
             // End of Sangita code
 
         ]
-
 
         records.rows = await AssociateOffers.aggregate(pipeline);
 
@@ -1659,7 +1657,6 @@ module.exports.associateBillReject = async (req, res) => {
     }
 }
 
-
 module.exports.agentPayments = async (req, res) => {
 
     try {
@@ -1771,7 +1768,6 @@ module.exports.editBill = async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("bill") }));
 }
 
-
 const updateAgentInvoiceLogs = async (agencyInvoiceId) => {
 
     try {
@@ -1822,7 +1818,6 @@ const updateAgentInvoiceLogs = async (agencyInvoiceId) => {
 
 }
 
-
 module.exports.getBillProceedToPay = async (req, res) => {
 
     try {
@@ -1843,7 +1838,6 @@ module.exports.getBillProceedToPay = async (req, res) => {
     }
 
 }
-
 
 module.exports.agencyBill = async (req, res) => {
 
@@ -1889,7 +1883,6 @@ module.exports.agencyBill = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
 
 module.exports.editAssociateBill = async (req, res) => {
 
@@ -1980,4 +1973,116 @@ const updateAssociateBillLogs = async (invoiceId) => {
     }
 
 }
+
+/**************************************************************/
+
+module.exports.proceedToPayPayment = async (req, res) => {
+    try {
+        let { page, limit, search = '', isExport = 0, payment_status } = req.query;
+        limit = parseInt(limit) || 10;
+        page = parseInt(page) || 1;
+
+        let query = search ? {
+            _id: { $in: paymentIds },
+            $or: [
+                { "reqNo": { $regex: search, $options: 'i' } },
+                { "product.name": { $regex: search, $options: 'i' } },
+            ]
+        } : {};
+
+        const validStatuses = [_paymentstatus.pending, _paymentstatus.inProgress, _paymentstatus.failed, _paymentstatus.completed, _paymentstatus.rejected];
+
+        if (payment_status && !validStatuses.includes(payment_status)) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: `Invalid payment status. Valid statuses are: ${validStatuses.join(', ')}`
+            }));
+        }
+
+        // Modify the query condition
+        let paymentStatusCondition = payment_status;
+        if (payment_status === "Failed" || payment_status === "Rejected") {
+            paymentStatusCondition = "Failed";
+        }
+
+        const paymentIds = (await Payment.find()).map(i => i.req_id);
+
+        const aggregationPipeline = [
+            { $match: query },
+            { $sort: { createdAt: -1 } },
+            {
+                $lookup: {
+                    from: 'batches',
+                    localField: '_id',
+                    foreignField: 'req_id',
+                    as: 'batches',
+                    pipeline: [
+                        {
+                            $lookup: {
+                                from: 'payments',
+                                localField: '_id',
+                                foreignField: 'batch_id',
+                                as: 'payment',
+                            }
+                        }
+                    ],
+                }
+            },
+            {
+                $match: {
+                    "batches.agent_approve_status": _paymentApproval.approved,
+                    "batches.payment.payment_status": paymentStatusCondition || _paymentstatus.pending
+                }
+            },
+            {
+                $addFields: {
+                    qtyPurchased: {
+                        $sum: "$batches.qty"
+                    },
+                    amountPayable: {
+                        $sum: "$batches.totalPrice"
+                    },
+                    approval_status: "Approved",
+                    payment_status: payment_status || "Pending"
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    reqNo: 1,
+                    product: 1,
+                    qtyPurchased: 1,
+                    amountPayable: 1,
+                    approval_status: 1,
+                    payment_status: 1
+                }
+            },
+            { $skip: (page - 1) * limit },
+            { $limit: limit }
+        ];
+
+        let response = { count: 0 };
+        response.rows = await RequestModel.aggregate(aggregationPipeline);
+
+        const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
+        response.count = countResult?.[0]?.count ?? 0;
+
+        if (isExport == 1) {
+            const exportRecords = await RequestModel.aggregate([...aggregationPipeline]);
+            if (exportRecords.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: exportRecords,
+                    fileName: `Farmer-Payment-records.xlsx`,
+                    worksheetName: `Farmer-Payment-records`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: response, message: "No payments found" }));
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: response, message: "Payments found" }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
 
