@@ -250,6 +250,7 @@ module.exports.getAllStateAndDistricts = async (req, res) => {
           districts: 1,
         },
       },
+      { $sort: { label: 1 } }, // Sort states alphabetically
     ]);
 
     return sendResponse({
@@ -269,7 +270,6 @@ module.exports.getStatewiseFarmersCount = async (req, res) => {
     const farmerStates = await farmer.distinct("address.state_id", {
       "address.state_id": { $ne: null },
     });
-
     // Aggregate over the StateDistrictCity collection
     const stateEntries = await StateDistrictCity.aggregate([
       {
