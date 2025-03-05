@@ -139,7 +139,6 @@ module.exports.getProcurement = async (req, res) => {
                     },
                 },
                 { $unwind: { path: '$schemeDetails', preserveNullAndEmptyArrays: true } },
-
                 {
                     $lookup: {
                         from: "branches",
