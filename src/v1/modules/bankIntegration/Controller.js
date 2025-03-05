@@ -62,8 +62,8 @@ module.exports.sendRequest = async (req, res) => {
 
     const paymentUrl = `https://${PG_ENV}.ccavenue.com/transaction/transaction.do?command=initiateTransaction&encRequest=${encRequest}&access_code=${accessCode}&language=EN`;
 
-    const decrypted = ccav.decrypt(encRequest, keyBase64, ivBase64);
-    console.log("decrypted response myEnc=>", decrypted);
+    // const decrypted = ccav.decrypt(encRequest, keyBase64, ivBase64);
+    // console.log("decrypted response myEnc=>", decrypted);
 
     return res.json({ paymentUrl, status: 200 });
   } catch (error) {
@@ -85,8 +85,8 @@ module.exports.paymentStatus = async (req, res) => {
 
     console.log("CCAvenue Payment Response:", responseParams);
 
-    // const paymentStatus = responseParams?.order_status || "Unknown";
-    const paymentStatus = responseParams?.order_status || "Success";
+    const paymentStatus = responseParams?.order_status || "Unknown";
+    // const paymentStatus = responseParams?.order_status || "Success";
     const {
       tracking_id = "",
       bank_ref_no = "",

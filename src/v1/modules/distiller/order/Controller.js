@@ -419,6 +419,9 @@ module.exports.batchPayNow = asyncErrorHandler(async (req, res) => {
 
         // await record.save();
 
+        // Above code is commented because we've now moved to real-time payment gateway
+        // All these changes will be done post successful payment
+
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Batch") }));
 
     } catch (error) {
