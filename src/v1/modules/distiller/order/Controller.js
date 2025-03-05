@@ -410,16 +410,19 @@ module.exports.batchPayNow = asyncErrorHandler(async (req, res) => {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyUpdated("Batch") }] }));
         }
 
-        const amountToBePaid = handleDecimal(amount);
+        // const amountToBePaid = handleDecimal(amount);
 
-        record.payment.status = _poBatchPaymentStatus.paid;
-        record.payment.amount = amountToBePaid;
-        record.payment.paymentId = transactionId;
-        record.payment.paymentProof= paymentProof;
+        // record.payment.status = _poBatchPaymentStatus.paid;
+        // record.payment.amount = amountToBePaid;
+        // record.payment.paymentId = transactionId;
+        // record.payment.paymentProof= paymentProof;
 
-        await record.save();
+        // await record.save();
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
+        // Above code is commented because we've now moved to real-time payment gateway
+        // All these changes will be done post successful payment
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Batch") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
