@@ -52,7 +52,7 @@ var ivBase64 = Buffer.from([
 module.exports.sendRequest = async (req, res) => {
   try {
     const { order_id, currency, cancel_url, amount, paymentSection } = req.body;
-    const paymentData = `merchant_id=${MERCHANT_ID}&order_id=${order_id}&currency=${currency}&amount=${amount}&redirect_url=${REDIRECT_URL}&cancel_url=${cancel_url}&access_code=${accessCode}&language=EN&paymentSection=${paymentSection}`;
+    const paymentData = `merchant_id=${MERCHANT_ID}&order_id=${order_id}&currency=${currency}&amount=${amount}&redirect_url=${REDIRECT_URL}&cancel_url=${cancel_url}&access_code=${accessCode}&language=EN&merchant_param1=${paymentSection}`;
     // CCAvenue Encryption
     encRequest = ccav.encrypt(paymentData, keyBase64, ivBase64);
     console.log("myEncryption", encRequest);
@@ -74,6 +74,7 @@ module.exports.sendRequest = async (req, res) => {
 
 module.exports.paymentStatus = async (req, res) => {
   const { encResp = null, orderNo = null } = req.body;
+  var log = null;
   try {
     if (!encResp)
       return res.status(400).json({ error: "Missing encrypted response" });
@@ -85,7 +86,7 @@ module.exports.paymentStatus = async (req, res) => {
 
     console.log("CCAvenue Payment Response:", responseParams);
 
-    const paymentStatus = responseParams?.order_status || "Unknown";
+    const paymentStatus = responseParams?.order_status || "Not Found";
     // const paymentStatus = responseParams?.order_status || "Success";
     const {
       tracking_id = "",
@@ -93,7 +94,7 @@ module.exports.paymentStatus = async (req, res) => {
       payment_mode = "",
       order_id = "",
       amount = "",
-      paymentSection = "",
+      merchant_param1: paymentSection = "",
       cancel_url = "https://testing.distiller.khetisauda.com/distiller/myorders",
     } = responseParams;
 
@@ -105,18 +106,20 @@ module.exports.paymentStatus = async (req, res) => {
         record.payment.amount = amountToBePaid;
         record.payment.date = Date.now();
         await record.save();
-        
       } else {
         const record = await PurchaseOrderModel.findOne({
           _id: order_id,
         }).populate("branch_id");
 
-        // console.log(record);
-        const totalPaid =
-          record.paymentInfo?.advancePayment + record.paymentInfo?.mandiTax;
-        record.paymentInfo.advancePaymentStatus = _poAdvancePaymentStatus.paid;
-        record.paymentInfo.paidAmount = handleDecimal(totalPaid);
-        await record.save();
+        if (record) {
+          // console.log(record);
+          const totalPaid =
+            record.paymentInfo?.advancePayment + record.paymentInfo?.mandiTax;
+          record.paymentInfo.advancePaymentStatus =
+            _poAdvancePaymentStatus.paid;
+          record.paymentInfo.paidAmount = handleDecimal(totalPaid);
+          await record.save();
+        }
       }
     }
 
@@ -124,7 +127,7 @@ module.exports.paymentStatus = async (req, res) => {
       order_status: paymentStatus,
       details: responseParams,
       order_id: orderNo,
-      payment_method: _paymentmethod.bank_transfer,
+      payment_method: payment_mode || _paymentmethod.bank_transfer,
       payment_section: paymentSection || "purchase_order",
     });
 
@@ -214,6 +217,6 @@ module.exports.paymentStatus = async (req, res) => {
             `);
   } catch (error) {
     console.error("Internal Error:", error);
-    res.status(500).json({ error: "Internal Server Error", errorLog: error });
+    res.status(500).json({ error: "Internal Server Error", errorLog: log });
   }
 };
