@@ -59,7 +59,8 @@ const _collectionName = {
     ExternalOrder : "ExternalOrder",
     Scheme: "Scheme",
     commodityStandard:"commodityStandard",
-    SchemeAssign: "SchemeAssign"
+    SchemeAssign: "SchemeAssign",
+    ClientToken:"ClientToken"
 
 }
 
@@ -624,5 +625,6 @@ module.exports = {
     _qualityType,
     _season,
     _period,
-    _centralNodalAgency
+    _centralNodalAgency,
+    _whr_status
 }
