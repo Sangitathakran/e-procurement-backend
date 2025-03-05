@@ -1,10 +1,10 @@
 const express = require("express");
 const { payment, associateOrders, batchList, lot_list, AssociateTabPaymentRequests, AssociateTabassociateOrders,
-                 AssociateTabBatchApprove, AssociateTabGenrateBill, AssociateTabBatchList, associateBillApprove,
-                  getBill, agentPayments, proceedToPayPaymentRequests, proceedToPayPayment, proceedToPayAssociateOrders,
-                   proceedToPayAssociateTabBatchList, editBill, getBillProceedToPay, agencyBill,
-                   associateBillReject, editAssociateBill } = require("./Controller");
-                   
+    AssociateTabBatchApprove, AssociateTabGenrateBill, AssociateTabBatchList, associateBillApprove,
+    getBill, agentPayments, proceedToPayPaymentRequests, proceedToPayAssociateOrders,
+    proceedToPayAssociateTabBatchList, editBill, getBillProceedToPay, agencyBill,
+    associateBillReject, editAssociateBill, proceedToPayPayment, proceedToPayBatchList } = require("./Controller");
+
 const { verifyAgent } = require("../utils/verifyAgent");
 const { Auth } = require("@src/v1/middlewares/jwt")
 const paymentRoutes = express.Router();
@@ -27,8 +27,8 @@ paymentRoutes.get("/associate-req/batch-list", Auth, AssociateTabBatchList);
 // paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPaymentRequests);
 paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPayment);
 paymentRoutes.get("/proceed-to-pay-associate-orders", Auth, proceedToPayAssociateOrders);
-paymentRoutes.get("/proceed-to-pay-batch-list", Auth, proceedToPayAssociateTabBatchList);
-
+// paymentRoutes.get("/proceed-to-pay-batch-list", Auth, proceedToPayAssociateTabBatchList);
+paymentRoutes.get("/proceed-to-pay-batch-list", Auth, proceedToPayBatchList);
 
 paymentRoutes.get("/associate-req/getbill", Auth, getBill);
 paymentRoutes.put("/associate-req/batch-approve", Auth, associateBillApprove);

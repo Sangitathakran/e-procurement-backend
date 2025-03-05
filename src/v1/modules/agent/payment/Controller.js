@@ -80,17 +80,6 @@ module.exports.payment = async (req, res) => {
             },
             {
                 $lookup: {
-                    from: "slas",
-                    localField: "sla_id",
-                    foreignField: "_id",
-                    as: "sla"
-                }
-            },
-            {
-                $unwind: { path: "$sla", preserveNullAndEmptyArrays: true }
-            },
-            {
-                $lookup: {
                     from: "schemes",
                     localField: "product.schemeId",
                     foreignField: "_id",
@@ -278,7 +267,6 @@ module.exports.payment = async (req, res) => {
     }
 };
 
-
 module.exports.associateOrders = async (rallBatchApprovalStatuseq, res) => {
 
     try {
@@ -355,7 +343,6 @@ module.exports.associateOrders = async (rallBatchApprovalStatuseq, res) => {
 
 module.exports.batchList = async (req, res) => {
 
-
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0, batch_status = "Pending" } = req.query
         const { user_type, portalId, user_id } = req
@@ -363,7 +350,7 @@ module.exports.batchList = async (req, res) => {
         const paymentIds = (await Payment.find({ associateOffers_id: associateOffer_id })).map(i => i.batch_id)
         let query = {
             _id: { $in: paymentIds },
-            associateOffer_id,
+            associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
             bo_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
@@ -817,7 +804,6 @@ module.exports.AssociateTabassociateOrders = async (req, res) => {
                     as: 'invoice',
 
                 },
-
             },
             {
                 $lookup: {
@@ -1098,8 +1084,6 @@ module.exports.AssociateTabBatchList = async (req, res) => {
             associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
-
-        console.log('query', query);
 
         const records = { count: 0 };
 
@@ -1982,6 +1966,8 @@ module.exports.proceedToPayPayment = async (req, res) => {
         limit = parseInt(limit) || 10;
         page = parseInt(page) || 1;
 
+        const paymentIds = (await Payment.find()).map(i => i.req_id);
+
         let query = search ? {
             _id: { $in: paymentIds },
             $or: [
@@ -2005,8 +1991,6 @@ module.exports.proceedToPayPayment = async (req, res) => {
             paymentStatusCondition = "Failed";
         }
 
-        const paymentIds = (await Payment.find()).map(i => i.req_id);
-
         const aggregationPipeline = [
             { $match: query },
             { $sort: { createdAt: -1 } },
@@ -2029,6 +2013,44 @@ module.exports.proceedToPayPayment = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: 'branches',
+                    localField: 'branch_id',
+                    foreignField: '_id',
+                    as: 'branchDetails'
+                }
+            },
+            {
+                $addFields: {
+                    branchDetails: {
+                        branchName: { $arrayElemAt: ['$branchDetails.branchName', 0] },
+                        branchId: { $arrayElemAt: ['$branchDetails.branchId', 0] },
+                    }
+                }
+            },
+            {
+                $lookup: {
+                    from: "slas",
+                    localField: "sla_id",
+                    foreignField: "_id",
+                    as: "sla"
+                }
+            },
+            {
+                $unwind: { path: "$sla", preserveNullAndEmptyArrays: true }
+            },
+            {
+                $lookup: {
+                    from: "schemes",
+                    localField: "product.schemeId",
+                    foreignField: "_id",
+                    as: "scheme"
+                }
+            },
+            {
+                $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true }
+            },
+            {
                 $match: {
                     "batches.agent_approve_status": _paymentApproval.approved,
                     "batches.payment.payment_status": paymentStatusCondition || _paymentstatus.pending
@@ -2043,7 +2065,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
                         $sum: "$batches.totalPrice"
                     },
                     approval_status: "Approved",
-                    payment_status: payment_status || "Pending"
+                    payment_status: payment_status || _paymentstatus.pending,
                 }
             },
             {
@@ -2054,7 +2076,11 @@ module.exports.proceedToPayPayment = async (req, res) => {
                     qtyPurchased: 1,
                     amountPayable: 1,
                     approval_status: 1,
-                    payment_status: 1
+                    payment_status: 1,
+                    'branchDetails.branchName': 1,
+                    'branchDetails.branchId': 1,
+                    'sla.basic_details.name': 1,
+                    'scheme.schemeName': 1,
                 }
             },
             { $skip: (page - 1) * limit },
@@ -2086,3 +2112,203 @@ module.exports.proceedToPayPayment = async (req, res) => {
     }
 };
 
+module.exports.proceedToPayBatchList = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, req_id, payment_status, isExport = 0 } = req.query
+
+        const paymentIds = (await Payment.find({ req_id })).map(i => i.batch_id);
+
+        let query = {
+            _id: { $in: paymentIds },
+            req_id: new mongoose.Types.ObjectId(req_id),
+            agent_approve_status: _paymentApproval.approved,
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        const validStatuses = [_paymentstatus.pending, _paymentstatus.inProgress, _paymentstatus.failed, _paymentstatus.completed, _paymentstatus.rejected];
+
+        if (payment_status && !validStatuses.includes(payment_status)) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: `Invalid payment status. Valid statuses are: ${validStatuses.join(', ')}`
+            }));
+        }
+
+        // Modify the query condition
+        let paymentStatusCondition = payment_status;
+        if (payment_status === "Failed" || payment_status === "Rejected") {
+            paymentStatusCondition = "Failed";
+        }
+
+
+        const records = { count: 0 };
+
+        const pipeline = [
+            {
+                $match: query,
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'seller_id',
+                    foreignField: '_id',
+                    as: 'users',
+                }
+            },
+            {
+                $unwind: "$users"
+            },
+            {
+                $lookup: {
+                    from: 'requests',
+                    localField: 'req_id',
+                    foreignField: '_id',
+                    as: 'requestDetails',
+                }
+            },
+            {
+                $unwind: "$requestDetails"
+            },
+            {
+                $lookup: {
+                    from: 'associateinvoices',
+                    localField: '_id',
+                    foreignField: 'batch_id',
+                    as: 'invoice',
+                }
+            },
+            // {
+            //     $unwind: "$invoice"
+            // },
+            {
+                $lookup: {
+                    from: 'payments',
+                    localField: '_id',
+                    foreignField: 'batch_id',
+                    as: 'payment',
+                }
+            },
+            {
+                $match: {
+                    "payment.payment_status": paymentStatusCondition || _paymentstatus.pending
+                }
+            },
+            {
+                $addFields: {
+                    qtyPurchased: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: '$$inv.qtyProcured'
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    amountProposed: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: '$$inv.bills.total'
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    amountPayable: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: '$$inv.bills.total'
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    tags: {
+                        $cond: {
+                            if: { $in: ["$payment.payment_status", ["Failed", "Rejected"]] }, 
+                            then: "Re-Initiate",
+                            else: "New"
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    "batchId": 1,
+                    // "invoice.initiated_at": 1,
+                    // "invoice.bills.total": 1,
+                    amountPayable: 1,
+                    qtyPurchased: 1,
+                    amountProposed: 1,
+                    associateName:"$users.basic_details.associate_details.associate_name",
+                    whrNo:"12345",
+                    whrReciept:"whrReciept.jpg",
+                    deliveryDate:"$delivered.delivered_at",
+                    procuredOn:"$requestDetails.createdAt",
+                    tags: 1 
+                }
+            },
+            // Start of Sangita code
+            ...(sortBy ? [{ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
+            }
+            // End of Sangita code
+        ]
+
+        records.rows = await Batch.aggregate(pipeline);
+
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+
+        records.count = await Batch.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+
+                return {
+                    "Associate Id": item?.seller_id.user_code || "NA",
+                    "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || "NA",
+                    "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || "NA",
+                    "Quantity Purchased": item?.offeredQty || "NA",
+                }
+            })
+
+            if (record.length > 0) {
+
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Associate Orders-${'Associate Orders'}.xlsx`,
+                    worksheetName: `Associate Orders-record-${'Associate Orders'}`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
+            }
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
