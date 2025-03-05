@@ -14,10 +14,14 @@ const {
 const {
   _paymentmethod,
   _poAdvancePaymentStatus,
+  _poBatchPaymentStatus,
 } = require("@src/v1/utils/constants/index.js");
 const {
   PurchaseOrderModel,
 } = require("@src/v1/models/app/distiller/purchaseOrder.js");
+const {
+  BatchOrderProcess,
+} = require("@src/v1/models/app/distiller/batchOrderProcess.js");
 
 const {
   MERCHANT_ID,
@@ -47,8 +51,8 @@ var ivBase64 = Buffer.from([
 
 module.exports.sendRequest = async (req, res) => {
   try {
-    const { order_id, currency, cancel_url, amount } = req.body;
-    const paymentData = `merchant_id=${MERCHANT_ID}&order_id=${order_id}&currency=${currency}&amount=${amount}&redirect_url=${REDIRECT_URL}&cancel_url=${cancel_url}&access_code=${accessCode}&language=EN`;
+    const { order_id, currency, cancel_url, amount, paymentSection } = req.body;
+    const paymentData = `merchant_id=${MERCHANT_ID}&order_id=${order_id}&currency=${currency}&amount=${amount}&redirect_url=${REDIRECT_URL}&cancel_url=${cancel_url}&access_code=${accessCode}&language=EN&paymentSection=${paymentSection}`;
     // CCAvenue Encryption
     encRequest = ccav.encrypt(paymentData, keyBase64, ivBase64);
     console.log("myEncryption", encRequest);
@@ -58,8 +62,8 @@ module.exports.sendRequest = async (req, res) => {
 
     const paymentUrl = `https://${PG_ENV}.ccavenue.com/transaction/transaction.do?command=initiateTransaction&encRequest=${encRequest}&access_code=${accessCode}&language=EN`;
 
-    // const decrypted = ccav.decrypt(encRequest, keyBase64, ivBase64);
-    // console.log("decrypted response myEnc=>", decrypted);
+    const decrypted = ccav.decrypt(encRequest, keyBase64, ivBase64);
+    console.log("decrypted response myEnc=>", decrypted);
 
     return res.json({ paymentUrl, status: 200 });
   } catch (error) {
@@ -81,37 +85,47 @@ module.exports.paymentStatus = async (req, res) => {
 
     console.log("CCAvenue Payment Response:", responseParams);
 
-    const paymentStatus = responseParams?.order_status || "Unknown";
-    // const paymentStatus = responseParams?.order_status || "Success";
-
+    // const paymentStatus = responseParams?.order_status || "Unknown";
+    const paymentStatus = responseParams?.order_status || "Success";
     const {
       tracking_id = "",
       bank_ref_no = "",
       payment_mode = "",
       order_id = "",
       amount = "",
+      paymentSection = "",
       cancel_url = "https://testing.distiller.khetisauda.com/distiller/myorders",
     } = responseParams;
 
     if (paymentStatus === "Success") {
-      const record = await PurchaseOrderModel.findOne({
-        _id: order_id,
-      }).populate("branch_id");
+      if (paymentSection && paymentSection === "myorders") {
+        const record = await BatchOrderProcess.findOne({ _id: order_id });
+        const amountToBePaid = handleDecimal(amount);
+        record.payment.status = _poBatchPaymentStatus.paid;
+        record.payment.amount = amountToBePaid;
+        record.payment.date = Date.now();
+        await record.save();
+        
+      } else {
+        const record = await PurchaseOrderModel.findOne({
+          _id: order_id,
+        }).populate("branch_id");
 
-      // console.log(record);
-      const totalPaid =
-        record.paymentInfo?.advancePayment + record.paymentInfo?.mandiTax;
-      record.paymentInfo.advancePaymentStatus = _poAdvancePaymentStatus.paid;
-      record.paymentInfo.paidAmount = handleDecimal(totalPaid);
-      await record.save();
+        // console.log(record);
+        const totalPaid =
+          record.paymentInfo?.advancePayment + record.paymentInfo?.mandiTax;
+        record.paymentInfo.advancePaymentStatus = _poAdvancePaymentStatus.paid;
+        record.paymentInfo.paidAmount = handleDecimal(totalPaid);
+        await record.save();
+      }
     }
 
     await CCAvenueResponse.create({
       order_status: paymentStatus,
       details: responseParams,
       order_id: orderNo,
-      // created_at: Date.now(),
       payment_method: _paymentmethod.bank_transfer,
+      payment_section: paymentSection || "purchase_order",
     });
 
     // Determine the frontend redirect URL
