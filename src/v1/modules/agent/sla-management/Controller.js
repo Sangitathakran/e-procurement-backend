@@ -97,11 +97,12 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
     try {
-        const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.query;
+        const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0, paginate = 1 } = req.query;
 
         // Convert page & limit to numbers
         const pageNumber = parseInt(page, 10);
         const pageSize = parseInt(limit, 10);
+        const skip = (page - 1) * pageSize;
 
         // Define search filter (if search is provided)
         const searchFilter = search ? {
@@ -119,8 +120,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
             sortOptions[sortBy] = -1; // Sort by given field in descending order
         }
 
-        // Fetch SLA records with projection
-        let slaRecordsQuery = SLAManagement.aggregate([
+        const pipeline = [
             { $match: searchFilter },
             {
                 $project: {
@@ -145,34 +145,47 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
                 }
             },
             { $sort: sortOptions }
-        ]);
+        ];
+
+        const countPipeline = [...pipeline, { $count: 'totalRecords' }];
+
+        if(paginate == 1){
+            pipeline.push( {$skip: skip }, {$limit: pageSize});
+        }
+
+        // Fetch SLA records with projection
+        let slaRecordsQuery = await SLAManagement.aggregate(pipeline);
+        const totalRecords = await SLAManagement.countDocuments(countPipeline);
+
+        const response = {
+            message:isExport !== 1 ? "SLA records fetched successfully" : 'SLA records exported successfully',
+            status : 200,
+            data : slaRecordsQuery,
+            totalRecords
+        };
 
         // If exporting, return all data
         if (isExport === 1) {
-            const slaRecords = await slaRecordsQuery;
-            return res.status(200).json({
-                status: 200,
-                data: slaRecords,
-                message: "SLA records exported successfully"
-            });
+          //  const slaRecords =  slaRecordsQuery;
+            return res.status(200).json(response);
         }
 
-        // Pagination
-        const slaRecords = await slaRecordsQuery
-            .skip((pageNumber - 1) * pageSize)
-            .limit(pageSize);
+        // // Pagination
+        // const slaRecords = await slaRecordsQuery
+        //     .skip((pageNumber - 1) * pageSize)
+        //     .limit(pageSize);
 
         // Count total records for pagination
-        const totalRecords = await SLAManagement.countDocuments(searchFilter);
+       // const totalRecords = await SLAManagement.countDocuments(countPipeline);
 
-        return res.status(200).json({
-            status: 200,
-            data: slaRecords,
-            totalRecords,
-            currentPage: pageNumber,
-            totalPages: Math.ceil(totalRecords / pageSize),
-            message: "SLA records fetched successfully"
-        });
+
+        if(paginate == 1){
+            response.currentPage = pageNumber;
+            response.limit = pageSize;
+            response.totalPages = Math.ceil(totalRecords / pageSize);
+        }
+
+        return res.status(200).json(response);
 
     } catch (error) {
         console.error("Error fetching SLA records:", error);
