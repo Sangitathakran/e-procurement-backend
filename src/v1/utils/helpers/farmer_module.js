@@ -314,6 +314,7 @@ exports.insertNewHaryanaFarmerRecord = async (data) => {
       harynaNewFarmer_code: data.uniqueFarmerCode,
       mobile_no: data.mobile_no,
       is_welcome_msg_send: true,
+      is_verify_otp: true,
       basic_details: {
         dob: data.dob,
         age: data.age,
@@ -406,6 +407,7 @@ exports.insertNewHaryanaRelatedRecords = async (farmer_id, data, res) => {
       khtauni_number: data.khtauni_number,
       soil_type: data.soil_type,
       soil_tested: data.soil_tested,
+      ghat_number: data.ghat_number,
       khewat_number: data.khewat_number,
       karnal_number: data.karnal_number,
       murla_number: data.murla_number,
@@ -423,7 +425,6 @@ exports.insertNewHaryanaRelatedRecords = async (farmer_id, data, res) => {
       soil_testing_agencies:data.soil_testing_agencies,
       upload_geotag: data.upload_geotag,
   });
-  console.log("newLand", newLand)
    await newLand.save();
   } catch (error) {
     console.error("Error inserting farmer record:", error);

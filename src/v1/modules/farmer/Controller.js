@@ -2726,59 +2726,51 @@ module.exports.haryanaFarmerUplod = async (req, res) => {
       const email = rec["EMAIL ID"] ? rec["EMAIL ID"] : null;
       const mobile_no = rec["MOBILE NO*"];
       const category = toLowerCaseIfExists(rec["CATEGORY"]) ? toLowerCaseIfExists(rec["CATEGORY"]) : 'N/A';
-      const date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)*"];
+      const date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)"];
       const farmer_category = rec["FARMER CATEGORY"] ? rec["FARMER CATEGORY"] : null;
       const gender = toLowerCaseIfExists(rec["GENDER*"]);
-      const address_line = rec["ADDRESS LINE*"];
+      const address_line = rec["ADDRESS LINE"];
       const country = rec["COUNTRY NAME"] ? rec["COUNTRY NAME"] : 'India';
       const state_name = rec["STATE NAME*"];
       const district_name = rec["DISTRICT NAME*"];
-      const village = rec["VILLAGE NAME*"];
+      const village = rec["VILLAGE NAME"];
       const landPincode = rec["LAND PINCODE"] ? rec["LAND PINCODE"] : null;
       const state = (rec["STATE*"]);
       const district = rec["DISTRICT*"];
       const landvillage = rec["ViLLAGE"] ? rec["ViLLAGE"] : null;
       const LandBlock = rec["LAND BLOCK"] ? rec["LAND BLOCK"] : null;
       const khasra_number = rec["KHASRA NUMBER*"];
-      const khtauni_number = rec["KHATAUNI"] ? rec["KHATAUNI"] : null;
+      const khtauni_number = rec["KHATAUNI*"];
       const land_type = rec["LAND TYPE"] ? rec["LAND TYPE"] : 'other';
-      const total_area = rec["TOTAL AREA"] ? rec["TOTAL AREA"] : null;
-      const sow_area = rec["SOW AREA"] ? rec["SOW AREA"] : null;
-      const ghat_number = rec["Ghat number"] ? rec["Ghat number"] : null;
-      const khewat_number = rec["Khewat number"] ? rec["Khewat number"] : null;
-      const karnal_number = rec["Karnal number"] ? rec["Karnal number"] : null;
-      const murla_number = rec["Murla number"] ? rec["Murla number"] : null;
+      const total_area = rec["TOTAL AREA*"];
+      const sow_area = rec["SOW AREA*"];
+      const ghat_number = rec["Ghat number*"];
+      const khewat_number = rec["Khewat number*"];
+      const karnal_number = rec["Karnal number*"];
+      const murla_number = rec["Murla number*"];
       const revenue_area_karnal = rec["Revenue area karnal"] ? rec["Revenue area karnal"] : null;
       const revenue_area_murla = rec["Revenue area mulla"] ? rec["Revenue area mulla"] : null;
       const sow_area_karnal = rec["Sow area karnal"] ? rec["Sow area karnal"] : null;
       const sow_area_murla = rec["Sow area murla"] ? rec["Sow area murla"] : null;
-      const aadhar_no = rec["AADHAR NUMBER*"];
-      const pan_number = rec["PAN card"];
+      const aadhar_no = rec["AADHAR NUMBER"] ? rec["AADHAR NUMBER"] : null;
+      const pan_number = rec["PAN card"] ? rec["PAN card"] : null;
       const bank_name = rec["BANK NAME*"];
       const account_no = rec["ACCOUNT NUMBER*"];
       const branch_name = rec["BRANCH NAME*"];
       const ifsc_code = rec["IFSC CODE*"];
       const account_holder_name = rec["ACCOUNT HOLDER NAME*"];
 
-      
       const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS"]) ? toLowerCaseIfExists(rec["MARITAL STATUS"]) : 'N/A';
       const religion = toLowerCaseIfExists(rec["RELIGION"]) ? toLowerCaseIfExists(rec["RELIGION"]) : 'N/A';
-      
       const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL"]);
       const edu_details = rec["EDU DETAILS"] ? rec["EDU DETAILS"] : null;
       const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"]) ? toLowerCaseIfExists(rec["ID PROOF TYPE*"]) : 'aadhar' ;
-      
-      
       const tahshil = rec["TAHSHIL*"];
       const block = rec["BLOCK NAME*"];
-      
       const pinCode = rec["PINCODE*"];
       const lat = rec["LATITUDE"] ? rec["LATITUDE"] : null;
       const long = rec["LONGITUDE"] ? rec["LONGITUDE"] : null;
-      
-      
       const warehouse = rec["WAREHOUSE"] && rec["WAREHOUSE"].toLowerCase() === 'yes' ? 'yes' : 'no';
-
       const cold_storage = rec["COLD STORAGE"] && rec["COLD STORAGE"].toLowerCase() === 'yes' ? 'yes' : 'no';
       const processing_unit = rec["PROCESSING UNIT"] && rec["PROCESSING UNIT"].toLowerCase() === 'yes' ? 'yes' : 'no';
       const transportation_facilities = rec["TRANSPORTATION FACILITIES"] && rec["TRANSPORTATION FACILITIES"].toLowerCase() === 'yes' ? 'yes' : 'no';
@@ -2786,18 +2778,10 @@ module.exports.haryanaFarmerUplod = async (req, res) => {
       const source_of_credit = rec["SOURCE OF CREDIT"] ? rec["SOURCE OF CREDIT"] : null;
       const financial_challenges = rec["FINANCIAL CHALLENGE"] ? rec["FINANCIAL CHALLENGE"] : null;
       const support_required = rec["SUPPORT REQUIRED"] ? rec["SUPPORT REQUIRED"] : null;
-     
       const land_name = rec["LAND NAME"] ? rec["LAND NAME"] : null;
       const cultivation_area = rec["CULTIVATION AREA"] ? rec["CULTIVATION AREA"] : null;
       const area_unit = toLowerCaseIfExists(rec["AREA UNIT"]) ? toLowerCaseIfExists(rec["AREA UNIT"]) : 'Other';
-     
-      
       const khata_number = rec["KHATA NUMBER"] ? rec["KHATA NUMBER"] : null;
-      
-      
-      
-      
-      
       const expected_production = rec["EXPECTED PRODUCTION"] ? rec["EXPECTED PRODUCTION"] : null;
       const soil_type = toLowerCaseIfExists(rec["SOIL TYPE"]) ? toLowerCaseIfExists(rec["SOIL TYPE"]) : 'other';
       const soil_tested = toLowerCaseIfExists(rec["SOIL TESTED"]) ? toLowerCaseIfExists(rec["SOIL TESTED"]) : 'yes';
@@ -2825,8 +2809,6 @@ module.exports.haryanaFarmerUplod = async (req, res) => {
       const insurance_premium = rec["INSURANCE PREMIUM"] ? rec["INSURANCE PREMIUM"] : null;
       const insurance_start_date = rec["INSURANCE START DATE(DD-MM-YYYY)"] ? rec["INSURANCE START DATE(DD-MM-YYYY)"] : null;
       const insurance_end_date = rec["INSURANCE END DATE(DD-MM-YYYY)"] ? rec["INSURANCE END DATE(DD-MM-YYYY)"] : null;
-      
-      console.log("land type", land_type)
       const requiredFields = [
         { field: "NAME*", label: "NAME" },
         { field: "FATHER NAME*", label: "FATHER NAME" },
@@ -2841,9 +2823,14 @@ module.exports.haryanaFarmerUplod = async (req, res) => {
         { field: "BRANCH NAME*", label: "BRANCH NAME" },
         { field: "IFSC CODE*", label: "IFSC CODE" },
         { field: "ACCOUNT HOLDER NAME*", label: "ACCOUNT HOLDER NAME" },
-
-
-        
+        { field: "Ghat number*", label: "Ghat number"},
+        { field: "Khewat number*", label: "Khewat number"},
+        { field: "Karnal number*", label: "Karnal number"},
+        { field: "Murla number*", label: "Murla number"},
+        { field: "KHASRA NUMBER*", label: "KHASRA NUMBER"},
+        { field: "KHATAUNI*", label: "KHATAUNI"},
+        { field: "TOTAL AREA*", label: "TOTAL AREA"},
+        { field: "SOW AREA*", label: "SOW AREA"},
       ];
       let stateName = state_name.replace(/_/g, ' ');
       if (
@@ -2901,21 +2888,12 @@ module.exports.haryanaFarmerUplod = async (req, res) => {
 
 
       if (errors.length > 0) return { success: false, errors };
-      // const calulateage = calculateAge(date_of_birth);
       try {
         const state_id = await getStateId(stateName);
         const district_id = await getDistrictId(district_name);
         const land_state_id = await getStateId(state);
         const land_district_id = await getDistrictId(district);
-        
-        // const processedDateOfBirth = parseDateOfBirth(date_of_birth);
-
-        // let associateId = user_id;
-        // if (!user_id) {
-        //   const associate = await User.findOne({ 'basic_details.associate_details.organization_name': fpo_name });
-        //   associateId = associate ? associate._id : null;
-        // }
-        const uniqueFarmerCode = generateFarmerCode(state_name, mobile_no);
+        const uniqueFarmerCode = generateFarmerCode(state_name, mobile_no, name);
 
         let farmerRecord = await farmer.findOne({ 'mobile_no': mobile_no });
         if (farmerRecord) {
@@ -2927,7 +2905,7 @@ module.exports.haryanaFarmerUplod = async (req, res) => {
             name, father_name, uniqueFarmerCode, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, pan_number, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
           });
           await insertNewHaryanaRelatedRecords(farmerRecord._id, {
-            total_area, khasra_number, land_name, cultivation_area, area_unit, khata_number, land_type, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, landvillage, LandBlock, landPincode, expected_production, soil_type, soil_tested, soil_testing_agencies, upload_geotag, crop_name, production_quantity, selling_price,
+            total_area, khasra_number, land_name, cultivation_area, area_unit, khata_number, land_type, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, landvillage, LandBlock, landPincode, expected_production, soil_type, soil_tested, soil_testing_agencies, upload_geotag, crop_name, production_quantity, selling_price, ghat_number,
             khewat_number, karnal_number, murla_number, revenue_area_karnal, revenue_area_murla, sow_area_karnal, sow_area_murla, yield, insurance_company, insurance_worth, crop_season, crop_land_name, crop_growth_stage, crop_disease, crop_rotation, previous_crop_session, previous_crop_name, crop_sold, quantity_sold, average_selling_price,
             marketing_channels_used, challenges_faced, insurance_premium, insurance_start_date, insurance_end_date, crop_variety,
           });
@@ -2972,13 +2950,10 @@ const generateFarmerCode = (state, mobile_no, name) => {
   if (!state || !mobile_no || !name) {
       throw new Error('State Mobile number and Name are required to generate code');
   }
-
-  // State ke first 3 characters (uppercase)
+ const farmerName = name.substring(0, 3).toUpperCase();
   const stateCode = state.substring(0, 3).toUpperCase();
 
-  // Mobile number ke last 4 digits
   const mobileCode = String(mobile_no).slice(-4);
 
-  // Final code
-  return `${stateCode}${mobileCode}`;
+  return `${stateCode}${mobileCode}${farmerName}`;
 };
