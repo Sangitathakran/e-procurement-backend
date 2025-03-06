@@ -3,7 +3,7 @@ const { payment, associateOrders, batchList, lot_list, AssociateTabPaymentReques
     AssociateTabBatchApprove, AssociateTabGenrateBill, AssociateTabBatchList, associateBillApprove,
     getBill, agentPayments, proceedToPayPaymentRequests, proceedToPayAssociateOrders,
     proceedToPayAssociateTabBatchList, editBill, getBillProceedToPay, agencyBill,
-    associateBillReject, editAssociateBill, proceedToPayPayment, proceedToPayBatchList } = require("./Controller");
+    associateBillReject, editAssociateBill, proceedToPayPayment, proceedToPayBatchList, paymentLogsHistory} = require("./Controller");
 
 const { verifyAgent } = require("../utils/verifyAgent");
 const { Auth } = require("@src/v1/middlewares/jwt")
@@ -16,13 +16,11 @@ paymentRoutes.get("/associate-orders", Auth, associateOrders);
 paymentRoutes.get("/batch-list", Auth, batchList);
 paymentRoutes.get("/lot-list", Auth, lot_list);
 
-
 paymentRoutes.get("/agent-req", agentPayments);
 
 paymentRoutes.get("/associate-req", Auth, AssociateTabPaymentRequests);
 paymentRoutes.get("/associate-req/associate-orders", Auth, AssociateTabassociateOrders);
 paymentRoutes.get("/associate-req/batch-list", Auth, AssociateTabBatchList);
-
 
 // paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPaymentRequests);
 paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPayment);
@@ -41,5 +39,6 @@ paymentRoutes.get("/agency-bill", Auth, agencyBill);
 paymentRoutes.put("/associate-req/batch-reject", Auth, associateBillReject);
 
 paymentRoutes.put("/edit-associate-bill/", Auth, editAssociateBill)
+paymentRoutes.get("/payment-logs", Auth, paymentLogsHistory);
 
 module.exports = { paymentRoutes }; 

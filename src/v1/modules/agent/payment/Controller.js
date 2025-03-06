@@ -16,7 +16,7 @@ const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOff
 // const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
-
+const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
 
 module.exports.payment = async (req, res) => {
     try {
@@ -2237,7 +2237,7 @@ module.exports.proceedToPayBatchList = async (req, res) => {
                     },
                     tags: {
                         $cond: {
-                            if: { $in: ["$payment.payment_status", ["Failed", "Rejected"]] }, 
+                            if: { $in: ["$payment.payment_status", ["Failed", "Rejected"]] },
                             then: "Re-Initiate",
                             else: "New"
                         }
@@ -2252,12 +2252,12 @@ module.exports.proceedToPayBatchList = async (req, res) => {
                     amountPayable: 1,
                     qtyPurchased: 1,
                     amountProposed: 1,
-                    associateName:"$users.basic_details.associate_details.associate_name",
-                    whrNo:"12345",
-                    whrReciept:"whrReciept.jpg",
-                    deliveryDate:"$delivered.delivered_at",
-                    procuredOn:"$requestDetails.createdAt",
-                    tags: 1 
+                    associateName: "$users.basic_details.associate_details.associate_name",
+                    whrNo: "12345",
+                    whrReciept: "whrReciept.jpg",
+                    deliveryDate: "$delivered.delivered_at",
+                    procuredOn: "$requestDetails.createdAt",
+                    tags: 1
                 }
             },
             // Start of Sangita code
@@ -2309,6 +2309,23 @@ module.exports.proceedToPayBatchList = async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
 
     } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.paymentLogsHistory = async (req, res) => {
+    try {
+        const { batchId } = req.query
+        if (!batchId) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("batchId") }] }))
+        }
+        const records = { count: 0, rows: [] };
+        records.rows = await PaymentLogsHistory.find({ batch_id: batchId })
+            .populate({ path: 'user_id', select: 'email' })
+        records.count = await PaymentLogsHistory.countDocuments({ batch_id: batchId })
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment logs") }))
+    }
+    catch (error) {
         _handleCatchErrors(error, res);
     }
 }
