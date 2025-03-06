@@ -60,6 +60,7 @@ const _collectionName = {
     commodityStandard: "commodityStandard",
     SchemeAssign: "SchemeAssign",
     CCAvenueResponse:"CCAvenueResponse",
+    PaymentLogsHistory: "PaymentLogsHistory",
 
 }
 
