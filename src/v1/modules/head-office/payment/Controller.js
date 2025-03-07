@@ -823,7 +823,7 @@ module.exports.payment = async (req, res) => {
 
 module.exports.payment = async (req, res) => {
   try {
-    var { page = 1, limit = 50, search = "", isExport = 0, isApproved, paymentStatus } = req.query;
+    var { page = 1, limit = 50, search = "", isExport = 0, isApproved, paymentStatus, approve_status = "Pending" } = req.query;
     page = parseInt(page);
     limit = parseInt(limit);
     isApproved = isApproved === "true";
