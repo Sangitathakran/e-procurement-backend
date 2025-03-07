@@ -79,7 +79,7 @@ module.exports.getProcurement = async (req, res) => {
                             : {}),
                     },
                 },
-                
+
                 // Lookup Head Office details
                 {
                     $lookup: {
@@ -172,7 +172,7 @@ module.exports.getProcurement = async (req, res) => {
                         branchName: { $ifNull: ["$branchDetails.branchName", "N/A"] }
                     }
                 },
-                
+
                 { $sort: sortBy || { createdAt: -1 } },
                 { $skip: parseInt((page - 1) * limit) || 0 },
                 { $limit: parseInt(limit) || 10 },
@@ -201,7 +201,10 @@ module.exports.getProcurement = async (req, res) => {
             // query.quoteExpiry = { $gte: new Date() };
 
             const rows = paginate === 1
-                ? await RequestModel.find(query)
+                ? await RequestModel.find(query).populate({ path: "head_office_id", select: "company_details.name" })
+                    .populate({ path: "sla_id", select: "_id basic_details.name" })
+                    .populate({ path: "branch_id", select: "branchName" })
+                    .populate({ path: "product.schemeId", select: "schemeName" })
                     .sort(sortBy || { createdAt: -1 })
                     .skip(parseInt(skip))
                     .limit(parseInt(limit))
@@ -235,11 +238,11 @@ module.exports.getProcurementById = async (req, res) => {
 
         // const record = await RequestModel.findOne({ _id: id }).lean();
         const record = await RequestModel.findOne({ _id: id }).lean().populate([
-                    { path: 'product.schemeId', select: 'schemeName season period' },
-                    { path: "sla_id", select: "basic_details.name" },
-                    { path: 'branch_id', select: '_id branchName branchId' },
-                    { path: "head_office_id", select: "_id company_details.name" }
-                ])      
+            { path: 'product.schemeId', select: 'schemeName season period' },
+            { path: "sla_id", select: "basic_details.name" },
+            { path: 'branch_id', select: '_id branchName branchId' },
+            { path: "head_office_id", select: "_id company_details.name" }
+        ])
 
         if (!record) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
