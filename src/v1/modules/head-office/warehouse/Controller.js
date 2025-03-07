@@ -115,6 +115,8 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         limit = 10,
         search = '',
         sortBy,
+        state,
+        city,
         isExport = 0
     } = req.query;
 
@@ -128,6 +130,13 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         });
 
         const query = search ? makeSearchQuery(searchFields) : {};
+        if (state) {
+            query['addressDetails.state.state_name'] = { $regex: state, $options: 'i' };
+        }
+        
+        if (city) {
+            query['addressDetails.city'] = { $regex: city, $options: 'i' };
+        }
         const pipeline = [
             {
                 $lookup: {

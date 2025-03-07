@@ -1,4 +1,5 @@
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
@@ -11,7 +12,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
         const data = {
             ...req.body,
             schemes: {
-                cna: req.user._id
+                branch: req.user._id
             }
         };
         // Required fields validation
@@ -60,8 +61,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
             // "slaId",
             // "schemes.scheme",
             // "schemes.cna",
-            // "schemes.branch"
-            "schemes.cna"
+            "schemes.branch"
         ];
 
         const missingFields = requiredFields.filter(field => {
@@ -129,7 +129,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
             {
                 $match: {
                     ...searchFilter,
-                    "schemes.cna": userID
+                    "schemes.branch": userID
                 }
             },
             {
@@ -175,7 +175,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
         // Count total records for pagination
         const totalRecords = await SLAManagement.countDocuments({
             ...searchFilter,
-            "schemes.cna": userID
+            "schemes.branch": userID
         });
 
         return res.status(200).json({
@@ -209,7 +209,7 @@ module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
         }
 
         // Find and delete SLA by slaId or _id
-        const deletedSLA = await SLAManagement.findOneAndDelete({ $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID });
+        const deletedSLA = await SLAManagement.findOneAndDelete({ $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID });
 
         if (!deletedSLA) {
             return res.status(404).json(new serviceResponse({
@@ -247,7 +247,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 
         // Find and update SLA
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID },
             { $set: updateData },
             { new: true, runValidators: true } // Return updated doc
         );
@@ -288,7 +288,7 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
 
         // Find SLA with selected fields
         const sla = await SLAManagement.findOne(
-            { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID },
             {
                 _id: 1,
                 slaId: 1,
@@ -353,7 +353,7 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
 
         // Find and update SLA status
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID },
             { $set: { status: status } },
             { new: true }
         );
@@ -396,7 +396,7 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
         // Find SLA and update with new scheme
         const updatedSLA = await SLAManagement.findOneAndUpdate(
-            { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+            { $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID },
             { $push: { schemes: { scheme, cna, branch } } },
             { new: true }
         )
@@ -438,9 +438,22 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
             }));
         }
 
+        // Fetch head office ID (ho_id) from the branches collection
+        const branch = await Branches.findOne({ _id: bo_id }).select("headOfficeId");
+        if (!branch) {
+            return res.status(404).send(new serviceResponse({
+                status: 404,
+                message: "Branch not found.",
+            }));
+        }
+
+        const ho_id = branch.headOfficeId; // Extract ho_id
+
         // Prepare data for bulk insert
         const recordsToInsert = schemeData.map(({ _id, qty }) => ({
-            bo_id, ho_id: cna_id, sla_id: sla_id,
+            bo_id,
+            ho_id, // Use fetched ho_id
+            sla_id: sla_id, // Ensure proper ID selection
             scheme_id: _id, // Assuming _id refers to scheme_id
             assignQty: qty,
         }));
