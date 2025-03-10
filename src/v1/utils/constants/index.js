@@ -58,6 +58,13 @@ const _collectionName = {
     ExternalBatch : "ExternalBatch",
     ExternalOrder : "ExternalOrder",
     ClientToken : "ClientToken",
+    TrackOrder: "TrackOrder",
+    Scheme: "Scheme",
+    SLA: "SLA",
+    commodityStandard: "commodityStandard",
+    SchemeAssign: "SchemeAssign",
+    CCAvenueResponse:"CCAvenueResponse",
+    PaymentLogsHistory: "PaymentLogsHistory",
 
 }
 
@@ -186,7 +193,7 @@ const _userType = {
     agent: "6",
     warehouse: "7",
     distiller: "8",
-    nccf:"9"
+    nccf: "9"
 }
 
 const _userStatus = {
@@ -392,11 +399,11 @@ const received_qc_status = {
     pending: "Pending",
 }
 
-const _trackOrderStatus = { 
-    pending : "pending",
-    readyToShip : "shipped" , 
-    inTransit : "in-transit" ,
-    rejected : "rejected",
+const _trackOrderStatus = {
+    pending: "pending",
+    readyToShip: "shipped",
+    inTransit: "in-transit",
+    rejected: "rejected",
 }
 
 const _individual_farmer_onboarding_steps = [
@@ -520,6 +527,67 @@ const _penaltypaymentStatus = {
     overdue: 'Overdue',
     waiveOff: 'Waive Off',
 }
+const _commodityType = {
+    grade: 'Grade',
+    quality: "Quality"
+}
+const _gradeType = {
+    gradeA: 'Grade A',
+    gradeB: 'Grade B',
+    gradeC: 'Grade C',
+}
+const _qualityType = {
+    poor: 'Poor',
+    average: "Average",
+    good: 'Good'
+}
+
+const _season = {
+    Kharif: 'Kharif',
+    Rabi: "Rabi",
+    Zaid: 'Zaid',
+    Other:'Other'
+}
+const _period = {
+    currentYear: '2025',
+    previourYear: "2024",
+    range: '2024-2025',
+    range1: '2024-2025',
+    range2: '2025-2026'
+}
+
+const _centralNodalAgency = {
+    nodal1: 'nodal1',
+    nodal2: "nodal2",
+    nodal3: 'nodal3'
+}
+
+const _schemeName = {
+    PSS: 'PSS',
+    PSP: "PSP",
+    PDPS: 'PDPS',
+    PPPS: "PPPS",
+    Open: "Open"
+}
+
+const _ccAvenuePaymentStatus = {
+    SUCCESS : "Success",
+    DECLINED : "Unsuccessful",
+    ABORTED_SYSTEM : "Aborted/ Transaction aborted by system",
+    ABORTED_BANK : "Aborted/ Transaction aborted at the bank end",
+    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    INITIATED : "Initiated",
+    AUTO_CANCELLED : "Auto-Cancelled",
+    AUTO_REVERSED : "Auto-Reversed",
+    AWAITED : "Awaited",
+    INVALID : "Invalid",
+    CANCELLED : "Cancelled",
+    SHIPPED : "Shipped",
+    TIMEOUT : "Timeout",
+    UNKNOWN : "Unknown",
+    FAILURE : "Failure"
+}
 
 module.exports = {
     _userAction,
@@ -585,5 +653,13 @@ module.exports = {
     _penaltypaymentStatus,
     _poBatchPaymentStatus,
     _trackOrderStatus ,
-    _whr_status
+    _whr_status,
+    _commodityType,
+    _gradeType,
+    _qualityType,
+    _season,
+    _period,
+    _centralNodalAgency,
+    _schemeName,
+    _ccAvenuePaymentStatus
 }

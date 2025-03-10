@@ -12,6 +12,7 @@ const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
+const PaymentLogsHistory = require('@src/v1/models/app/procurement/PaymentLogsHistory');
 
 
 // module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
@@ -781,6 +782,7 @@ module.exports.batchApproveOrReject = async (req, res) => {
     try {
         const { batchId, status, product_images = [], qc_images = [] } = req.body;
         const getToken = req.headers.token || req.cookies.token;
+
         if (!getToken) {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
@@ -815,9 +817,24 @@ module.exports.batchApproveOrReject = async (req, res) => {
         record.wareHouse_approve_status = status === "Approved" ? "Approved" : "Rejected";
         record.wareHouse_approve_at = new Date();
         record.wareHouse_approve_by = UserId;
-
+       
         // Save the updated batch record
         await record.save();
+
+        const data=[{
+            batchId:batchId,
+            status:'Approved',
+            actor:'SLA',
+            action: 'Approved',
+            logTime: new Date()
+        },
+        {
+            batchId:batchId,
+            status:'Pending',
+            actor:'Branch Office',
+            action: 'Approved',
+        }]
+        await PaymentLogsHistory.insertMany(data);
 
         return res.status(200).send(new serviceResponse({
             status: 200,
