@@ -50,21 +50,48 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
     { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+      // Add schemeName field before filtering
+      {
+        $addFields: {
+          schemeName: {
+            $concat: [
+              "$schemeName",
+              " ",
+              { $ifNull: ["$commodityDetails.name", ""] },
+              " ",
+              { $ifNull: ["$season", ""] },
+              " ",
+              { $ifNull: ["$period", ""] },
+            ],
+          },
+        },
+      },
+  ];
+
+  if(search.trim()){
+    aggregationPipeline.push({
+      $match: {
+        $or: [{schemeName: { $regex: search, $options: 'i'} }, {schemeId: { $regex: search, $options: 'i'}}]
+      }
+    });
+  }
+  aggregationPipeline.push(
     {
       $project: {
         _id: 1,
         schemeId: 1,
-        schemeName: {
-          $concat: [
-            "$schemeName",
-            "",
-            { $ifNull: ["$commodityDetails.name", ""] },
-            "",
-            { $ifNull: ["$season", ""] },
-            "",
-            { $ifNull: ["$period", ""] },
-          ],
-        },
+         schemeName: 1,
+        // schemeName: {
+        //   $concat: [
+        //     "$schemeName",
+        //     "",
+        //     { $ifNull: ["$commodityDetails.name", ""] },
+        //     "",
+        //     { $ifNull: ["$season", ""] },
+        //     "",
+        //     { $ifNull: ["$period", ""] },
+        //   ],
+        // },
         Schemecommodity: 1,
         season: 1,
         period: 1,
@@ -72,8 +99,9 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
         status: 1,
         createdAt: 1
       },
-    },
-  ];
+    }
+  );
+
   if (paginate == 1) {
     aggregationPipeline.push(
       { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Secondary sort by _id for stability
@@ -187,6 +215,37 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
       },
       { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
       {
+        $addFields: {
+          schemeName: {
+            $concat: [
+              "$schemeDetails.schemeName",
+              " ",
+              { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+              " ",
+              { $ifNull: ["$schemeDetails.season", ""] },
+              " ",
+              { $ifNull: ["$schemeDetails.period", ""] },
+            ],
+          },
+          schemeId: '$schemeDetails.schemeId'
+        },
+      },
+     
+    ];
+
+    if(search.trim()){
+      aggregationPipeline.push({
+        $match: {
+          $or: [
+            {schemeName: { $regex: search, $options: "i"} },
+            { schemeId: {$regex: search, $options: 'i' } }
+          ]
+        }
+      });
+    }
+
+    aggregationPipeline.push(
+      {
         $project: {
           _id: 1,
           branchId: "$branchDetails.branchId",
@@ -195,24 +254,25 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
           targetAchieved: '$schemeDetails.procurement',
           bo_id: 1,
           assignQty: 1,
-          schemeId: "$schemeDetails.schemeId",
-          schemeName: {
-            $concat: [
-              "$schemeDetails.schemeName",
-              "",
-              { $ifNull: ["$commodityDetails.name", ""] },
-              "",
-              { $ifNull: ["$schemeDetails.season", ""] },
-              "",
-              { $ifNull: ["$schemeDetails.period", ""] },
-            ],
-          },
+          schemeId: 1,//"$schemeDetails.schemeId",
+           schemeName: 1,
+          // schemeName: {
+          //   $concat: [
+          //     "$schemeDetails.schemeName",
+          //     "",
+          //     { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+          //     "",
+          //     { $ifNull: ["$schemeDetails.season", ""] },
+          //     "",
+          //     { $ifNull: ["$schemeDetails.period", ""] },
+          //   ],
+          // },
           scheme_id: 1,
           procurement: 1,
           status: 1
         },
       }
-    ];
+    );
 
     if (paginate == 1) {
       aggregationPipeline.push(
@@ -334,6 +394,20 @@ module.exports.getslaByBo = asyncErrorHandler(async (req, res) => {
         }
       },
       { $unwind: { path: "$slaDetails", preserveNullAndEmptyArrays: true } },
+     
+    ];
+
+    if(search){
+      aggregationPipeline.push({
+        $match: {
+          $or:[
+            {'slaDetails.slaId': {$regex: search, $options:'i'}}, 
+            {'slaDetails.basic_details.name':{ $regex: search, $options: 'i'}}
+          ]
+        }
+      });
+    }
+    aggregationPipeline.push(
       {
         $project: {
           _id: 1,
@@ -343,7 +417,7 @@ module.exports.getslaByBo = asyncErrorHandler(async (req, res) => {
           targetAchieved: '$schemeDetails.procurement'
         }
       }
-    ];
+    );
     if (paginate == 1) {
       aggregationPipeline.push(
         { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability

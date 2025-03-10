@@ -855,7 +855,7 @@ module.exports.payment = async (req, res) => {
     // Step 2: Construct the Query
     let query = {
       _id: { $in: paymentIds },
-      ...(search ? { reqNo: { $regex: search, $options: "i" } } : {}),
+      //...(search ? { reqNo: { $regex: search, $options: "i" } } : {}),
     };
 
     // Step 3: Get total count (without full aggregation)
@@ -1054,6 +1054,16 @@ module.exports.payment = async (req, res) => {
           },
         },
       },
+      
+    ];
+
+    if(search){
+      aggregationPipeline.push({
+        $match: { $or: [{reqNo: { $regex: search, $options: "i" } }, {'branch.branchName': { $regex: search, $options: "i" }}]}
+      });
+    }
+
+    aggregationPipeline.push(
       {
         $lookup: {
           from: "schemes",
@@ -1091,7 +1101,7 @@ module.exports.payment = async (req, res) => {
       { $sort: { payment_status: -1, createdAt: -1 } },
       { $skip: (page - 1) * limit },
       { $limit: limit },
-    ];
+    );
 
     const records = await RequestModel.aggregate(aggregationPipeline) || [];
     // filtering records on the basis of approval_status
@@ -1176,7 +1186,6 @@ module.exports.associateOrders = async (req, res) => {
         })
       );
     }
-
     const paymentIds = (
       await Payment.find({
         ho_id: { $in: [portalId, user_id] },
@@ -1185,18 +1194,18 @@ module.exports.associateOrders = async (req, res) => {
       })
     ).map((i) => i.associateOffers_id);
     let query = {
-      _id: { $in: paymentIds },
-      req_id,
+    _id: { $in: paymentIds },
+    req_id,
       status: {
         $in: [
           _associateOfferStatus.partially_ordered,
           _associateOfferStatus.ordered,
         ],
       },
-      ...(search ? { order_no: { $regex: search, $options: "i" } } : {}), // Search functionality
+     // ...(search ? { order_no: { $regex: search, $options: "i" } } : {}), // Search functionality
     };
 
-    const records = { count: 0 };
+    const records = { count: 0 }; 
     records.reqDetails = await RequestModel.findOne({ _id: req_id }).select({
       _id: 1,
       reqNo: 1,
@@ -1219,11 +1228,107 @@ module.exports.associateOrders = async (req, res) => {
           .limit(parseInt(limit))
         : await AssociateOffers.find(query).sort(sortBy);
 
-    records.count = await AssociateOffers.countDocuments(query);
+    // records.rows =
+    //   paginate == 1
+    //     ? await AssociateOffers.find(query)
+    //         .populate({
+    //           path: "seller_id",
+    //           select:
+    //             "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name",           
+    //           })
+    //         .sort(sortBy)
+    //         .skip(skip)
+    //         .limit(parseInt(limit))
+    //     : await AssociateOffers.find(query).sort(sortBy);
 
-    if (paginate == 1) {
+    // records.count = await AssociateOffers.countDocuments(query);
+
+    // if (paginate == 1) {
+    //   records.page = page;
+    //   records.limit = limit;
+    //   records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+    // }
+
+    let pipeline = [
+      { $match: query },
+
+      // Lookup for seller_id instead of populate
+      {
+        $lookup: {
+          from: 'users', 
+          localField: 'seller_id',
+          foreignField: '_id',
+          pipeline: [
+            { $project: { user_code: 1, 'basic_details.associate_details': 1 } }
+          ],
+          as: 'seller_id',
+        },
+      },
+      {
+        $unwind: {
+          path: '$seller_id',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+    ];
+
+    if(search){
+      pipeline.push({
+        $match: {
+          $or: [
+            { 'seller_id.basic_details.associate_details.organization_name': { $regex: search, $options: 'i'}  },
+            { 'seller_id.basic_details.associate_details.associate_name': { $regex: search, $options: 'i'} }
+          ]
+        }
+      });
+    }
+
+    // Count total records
+    const countPipeline = [
+      ...pipeline,
+      { $count: "count" }
+    ];
+
+ // add necessary fields
+    pipeline.push(
+      // Project only required fields
+      {
+        $project: {
+          _id: 1,
+          req_id: 1,
+          seller_id: 1,
+          offeredQty: 1,
+          status: 1,
+          procuredQty: 1,
+          updatedBy: 1,
+          createdBy: 1,
+          deletedAt: 1,
+          deletedBy: 1,
+          comments: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      }
+    );
+    
+    // sorting
+    pipeline.push(
+      // Sorting
+      { $sort: sortBy },
+    );
+
+    if( paginate == 1){
+      pipeline.push( { $skip: parseInt(skip) }, { $limit : parseInt(limit) });
       records.page = page;
       records.limit = limit;
+    }
+    
+    records.rows = await AssociateOffers.aggregate(pipeline);
+
+    countResult = await AssociateOffers.aggregate( countPipeline);
+    records.count = countResult[0]?.count || 0;
+
+    if(paginate == 1){
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
@@ -1543,6 +1648,7 @@ module.exports.approvedBatchList = async (req, res) => {
       bo_approve_status: _paymentApproval.approved,
       ho_approve_status: _paymentApproval.approved,
       // agent_approve_status: _paymentApproval.approved
+      ...( search ? { batchId: { $regex: search, $options: 'i'} }: {})
     };
 
     records.rows = await Batch.find(query).populate({
@@ -1743,55 +1849,89 @@ module.exports.orderList = async (req, res) => {
     if (isFinal == 1) {
       query = { ...query, ho_approve_status: _paymentApproval.approved };
     }
-    query = {
-      ...query,
-      ...(state || search || commodity
-        ? {
-          $and: [
-            ...(state
-              ? [
-                {
-                  "sellers.address.registered.state": {
-                    $regex: state,
-                    $options: "i",
-                  },
-                },
-              ]
-              : []),
-            ...(search
-              ? [
-                {
-                  $or: [
-                    {
-                      "branch.branchId": {
-                        $regex: search,
-                        $options: "i",
-                      },
-                    },
-                    {
-                      "requests.reqNo": {
-                        $regex: search,
-                        $options: "i",
-                      },
-                    },
-                  ],
-                },
-              ]
-              : []),
-            ...(commodity
-              ? [
-                {
-                  "requests.product.name": {
-                    $regex: commodity,
-                    $options: "i",
-                  },
-                },
-              ]
-              : []),
-          ],
-        }
-        : {}),
-    };
+    // query = {
+    //   ...query,
+    //   ...(state || search || commodity
+    //     ? {
+    //         $and: [
+    //           ...(state
+    //             ? [
+    //                 {
+    //                   "sellers.address.registered.state": {
+    //                     $regex: state,
+    //                     $options: "i",
+    //                   },
+    //                 },
+    //               ]
+    //             : []),
+    //           // ...(search
+    //           //   ? 
+    //           //   [{
+    //           //     $or: [
+    //           //       {
+    //           //         "branch.branchId": {
+    //           //           $regex: search,
+    //           //           $options: "i",
+    //           //         },
+    //           //       },
+    //           //       {
+    //           //         "requests.reqNo": {
+    //           //           $regex: search,
+    //           //           $options: "i",
+    //           //         },
+    //           //       },
+    //           //     ],
+    //           //   }]
+    //           //   : []),
+    //           ...(commodity
+    //             ? [
+    //                 {
+    //                   "requests.product.name": {
+    //                     $regex: commodity,
+    //                     $options: "i",
+    //                   },
+    //                 },
+    //               ]
+    //             : []),
+    //         ],
+    //       }
+    //     : {}),
+    // };
+    
+// Initialize $and conditionally
+
+const andConditions = [];
+
+// If state filter is provided
+if (state) {
+  andConditions.push({
+    "sellers.address.registered.state": { $regex: state, $options: "i" },
+  });
+}
+
+// If search filter is provided
+// if (search) {
+//   andConditions.push({
+//     $or: [
+//       { "branch.branchId": { $regex: search, $options: "i" } },
+//       { "requests.reqNo": { $regex: search, $options: "i" } },
+//     ],
+//   });
+// }
+
+// If commodity filter is provided
+if (commodity) {
+  andConditions.push({
+    "requests.product.name": { $regex: commodity, $options: "i" },
+  });
+}
+
+// Add $and condition only if there are filters
+if (andConditions.length > 0) {
+  query.$and = andConditions;
+}
+
+  
     const unwindBatchIdStage = {
       $unwind: {
         path: "$batch_id",
@@ -1880,8 +2020,23 @@ module.exports.orderList = async (req, res) => {
       unwindBrachesStage,
       lookupUserStage,
       matchStateStage,
-      projectStage,
+     // projectStage,
     ];
+
+
+    if(search){
+      pipeline.push( { $match: {$or: [
+        { "branch.branchId": { $regex: search, $options: "i" } },
+        { "requests.reqNo": { $regex: search, $options: "i" } },
+      ], } },)
+    }
+         // Count pipeline
+         const countPipeline = [
+          ...pipeline,
+          { $count: "count" },
+        ];
+    
+    pipeline.push(projectStage);
 
     if (paginate == 1) {
       pipeline.push(skipStage, limitStage);
@@ -1892,18 +2047,19 @@ module.exports.orderList = async (req, res) => {
     // Execute aggregation
     const rows = await AgentInvoice.aggregate(pipeline);
 
-    // Count pipeline
-    const countPipeline = [
-      // matchStage,
-      lookupRequestStage,
-      unwindBatchIdStage,
-      lookupBatchDataStage,
-      lookupBranchesStage,
-      unwindBatchDataStage,
-      lookupUserStage,
-      matchStateStage,
-      { $count: "count" },
-    ];
+    // // Count pipeline
+    // const countPipeline = [
+    //   // matchStage,
+    //   lookupRequestStage,
+    //   unwindBatchIdStage,
+    //   lookupBatchDataStage,
+    //   lookupBranchesStage,
+    //   unwindBatchDataStage,
+    //   lookupUserStage,
+    //   matchStateStage,
+    //   { $count: "count" },
+    // ];
+
 
     const countResult = await AgentInvoice.aggregate(countPipeline);
     records.count = countResult[0]?.count || 0;
