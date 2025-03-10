@@ -1344,6 +1344,16 @@ module.exports.batchList = async (req, res) => {
               then: "Re-Initiate",
               else: "New"
             }
+          },
+          approval_status: {
+            $switch: {
+              branches: [
+                { case: { $eq: [{ $toString: "$ho_approve_status" }, "Pending"] }, then: "Pending from CNA" },
+                { case: { $eq: [{ $toString: "$bo_approval_status" }, "Pending"] }, then: "Pending from BO" },
+                { case: { $eq: [{ $toString: "$agent_approval_status" }, "Pending"] }, then: "Pending from SLA" }
+              ],
+              default: "Approved"
+            }
           }
         }
       },
@@ -1358,7 +1368,8 @@ module.exports.batchList = async (req, res) => {
           whrReciept: "whrReciept.jpg",
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
-          tags: 1
+          tags: 1,
+          approval_status:1
         }
       },
 
@@ -1593,112 +1604,112 @@ module.exports.lot_list = async (req, res) => {
 
 // dileep code
 /*
-module.exports.orderList = async (req, res) => {
-  try {
-    const {
-      page,
-      limit,
-      skip,
-      paginate = 1,
-      sortBy,
-      search = "",
-      user_type,
-      isExport = 0,
-      isFinal = 0,
-    } = req.query;
+  module.exports.orderList = async (req, res) => {
+    try {
+      const {
+        page,
+        limit,
+        skip,
+        paginate = 1,
+        sortBy,
+        search = "",
+        user_type,
+        isExport = 0,
+        isFinal = 0,
+      } = req.query;
 
-    const portalId = req.user.portalId._id;
-    const user_id = req.user._id;
+      const portalId = req.user.portalId._id;
+      const user_id = req.user._id;
 
-    let query = search
-      ? {
-        req_id: { $regex: search, $options: "i" },
-        ho_id: { $in: [portalId, user_id] },
+      let query = search
+        ? {
+          req_id: { $regex: search, $options: "i" },
+          ho_id: { $in: [portalId, user_id] },
+        }
+        : { ho_id: { $in: [portalId, user_id] } };
+
+      const records = { count: 0, rows: [] };
+
+      query = { ...query, bo_approve_status: _paymentApproval.approved };
+
+      if (isFinal == 1) {
+        query = { ...query, ho_approve_status: _paymentApproval.approved };
       }
-      : { ho_id: { $in: [portalId, user_id] } };
+      console.log("query-->", query);
+      records.rows = await AgentInvoice.find(query).populate({
+        path: "req_id",
+        select: " ",
+      });
+      records.count = await AgentInvoice.countDocuments(query);
 
-    const records = { count: 0, rows: [] };
+      if (paginate == 1) {
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+      }
 
-    query = { ...query, bo_approve_status: _paymentApproval.approved };
-
-    if (isFinal == 1) {
-      query = { ...query, ho_approve_status: _paymentApproval.approved };
-    }
-    console.log("query-->", query);
-    records.rows = await AgentInvoice.find(query).populate({
-      path: "req_id",
-      select: " ",
-    });
-    records.count = await AgentInvoice.countDocuments(query);
-
-    if (paginate == 1) {
       records.page = page;
       records.limit = limit;
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-    }
 
-    records.page = page;
-    records.limit = limit;
-    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-
-    records.rows = records.rows.map((item) => {
-      let obj = {
-        _id: item?._id,
-        orderId: item?.req_id?.reqNo,
-        branchNo: item?.batch_id?.branchId,
-        commodity: item?.req_id?.product?.name,
-        quantityPurchased: item?.qtyProcured,
-        billingDate: item?.createdAt,
-        ho_approve_status: item.ho_approve_status,
-        payment_status: item.payment_status
-      };
-
-      return obj;
-    });
-
-    if (isExport == 1) {
-      const record = records.rows.map((item) => {
-        return {
-          "Order ID": item?.orderId || "NA",
-          Commodity: item?.commodity || "NA",
-          "Quantity Purchased": item?.quantityPurchased || "NA",
-          "Billing Date": item?.billingDate ?? "NA",
-          "Approval Status": item?.ho_approve_status ?? "NA",
+      records.rows = records.rows.map((item) => {
+        let obj = {
+          _id: item?._id,
+          orderId: item?.req_id?.reqNo,
+          branchNo: item?.batch_id?.branchId,
+          commodity: item?.req_id?.product?.name,
+          quantityPurchased: item?.qtyProcured,
+          billingDate: item?.createdAt,
+          ho_approve_status: item.ho_approve_status,
+          payment_status: item.payment_status
         };
+
+        return obj;
       });
 
-      if (record.length > 0) {
-        dumpJSONToExcel(req, res, {
-          data: record,
-          fileName: `orderId-record.xlsx`,
-          worksheetName: `orderId-record`,
+      if (isExport == 1) {
+        const record = records.rows.map((item) => {
+          return {
+            "Order ID": item?.orderId || "NA",
+            Commodity: item?.commodity || "NA",
+            "Quantity Purchased": item?.quantityPurchased || "NA",
+            "Billing Date": item?.billingDate ?? "NA",
+            "Approval Status": item?.ho_approve_status ?? "NA",
+          };
         });
+
+        if (record.length > 0) {
+          dumpJSONToExcel(req, res, {
+            data: record,
+            fileName: `orderId-record.xlsx`,
+            worksheetName: `orderId-record`,
+          });
+        } else {
+          return res
+            .status(400)
+            .send(
+              new serviceResponse({
+                status: 400,
+                data: records,
+                message: _response_message.notFound("Order"),
+              })
+            );
+        }
       } else {
         return res
-          .status(400)
+          .status(200)
           .send(
             new serviceResponse({
-              status: 400,
+              status: 200,
               data: records,
-              message: _response_message.notFound("Order"),
+              message: _response_message.found("Order"),
             })
           );
       }
-    } else {
-      return res
-        .status(200)
-        .send(
-          new serviceResponse({
-            status: 200,
-            data: records,
-            message: _response_message.found("Order"),
-          })
-        );
+    } catch (error) {
+      _handleCatchErrors(error, res);
     }
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
-};
+  };
 */
 
 module.exports.orderList = async (req, res) => {
@@ -3136,6 +3147,16 @@ module.exports.proceedToPayBatchList = async (req, res) => {
               then: "Re-Initiate",
               else: "New"
             }
+          },
+          approval_status: {
+            $switch: {
+              branches: [
+                { case: { $eq: [{ $toString: "$ho_approve_status" }, "Pending"] }, then: "Pending from CNA" },
+                { case: { $eq: [{ $toString: "$bo_approval_status" }, "Pending"] }, then: "Pending from BO" },
+                { case: { $eq: [{ $toString: "$agent_approval_status" }, "Pending"] }, then: "Pending from SLA" }
+              ],
+              default: "Approved"
+            }
           }
         }
       },
@@ -3152,7 +3173,8 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           whrReciept: "whrReciept.jpg",
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
-          tags: 1
+          tags: 1,
+          approval_status:1
         }
       },
       // Start of Sangita code
