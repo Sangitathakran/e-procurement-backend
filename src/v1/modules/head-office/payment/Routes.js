@@ -1,6 +1,6 @@
 const express = require("express");
 const { payment, associateOrders, batchList, batchApprove, qcReport, lot_list, approvedBatchList, payFarmers,
-    updatePaymentByOrderId, sendOTP, verifyOTPProceed, verifyOTPApproval, paymentLogsHistory } = require("./Controller");
+    updatePaymentByOrderId, sendOTP, verifyOTPProceed, verifyOTPApproval, paymentLogsHistory, proceedToPayPayment, proceedToPayBatchList } = require("./Controller");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
 const paymentRoutes = express.Router();
@@ -14,9 +14,10 @@ paymentRoutes.get("/qc-report", Auth, qcReport);
 paymentRoutes.get("/approved-batch-list", Auth, approvedBatchList);
 paymentRoutes.post("/pay-farmers", Auth, payFarmers)
 paymentRoutes.put("/update-payment-status", Auth, updatePaymentByOrderId)
+
+paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPayment);
+paymentRoutes.get("/proceed-to-pay-batch-list", Auth, proceedToPayBatchList);
 paymentRoutes.get("/payment-logs", Auth, paymentLogsHistory);
-
-
 // dileep code 
 
 const { orderList, agencyInvoiceById, hoBillApproval, editBillHo, payAgent, hoBillRejection } = require("./Controller");

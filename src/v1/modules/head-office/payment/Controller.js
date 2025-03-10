@@ -2945,7 +2945,9 @@ module.exports.proceedToPayPayment = async (req, res) => {
       },
       {
         $match: {
-          "batches.agent_approve_status": _paymentApproval.approved,
+          batches: { $ne: [] },
+          "batches.bo_approve_status": _paymentApproval.approved,
+          "batches.ho_approve_status": _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending },
           "batches.payment.payment_status": paymentStatusCondition || _paymentstatus.pending
         }
       },
@@ -3015,7 +3017,7 @@ module.exports.proceedToPayBatchList = async (req, res) => {
     let query = {
       _id: { $in: paymentIds },
       req_id: new mongoose.Types.ObjectId(req_id),
-      agent_approve_status: _paymentApproval.approved,
+      bo_approve_status: _paymentApproval.approved,
       ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
     };
 
