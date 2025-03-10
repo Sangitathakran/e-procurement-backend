@@ -1,5 +1,5 @@
 const express = require("express");
-const { createScheme, getScheme, getSchemeById, updateScheme, deleteScheme, statusUpdateScheme, schemeSummary, getBoByScheme, getslaByBo } = require("./Controller");
+const { createScheme, getScheme, getSchemeById, updateScheme, deleteScheme, statusUpdateScheme, schemeSummary, getBoByScheme, getslaByBo, schemeDropdown } = require("./Controller");
 const { Auth } = require("@src/v1/middlewares/jwt");
 
 const schemeRoutes = express.Router();
@@ -16,5 +16,6 @@ schemeRoutes.delete("/:id", Auth, deleteScheme);
 schemeRoutes.patch("/", Auth, statusUpdateScheme);
 
 
+commodityRoutes.get("/schemeDropdown", Auth, schemeDropdown);
 
 module.exports = { schemeRoutes };
