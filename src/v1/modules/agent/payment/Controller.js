@@ -267,7 +267,7 @@ module.exports.payment = async (req, res) => {
     }
 };
 
-module.exports.associateOrders = async (rallBatchApprovalStatuseq, res) => {
+module.exports.associateOrders = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
