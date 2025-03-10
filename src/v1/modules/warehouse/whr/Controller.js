@@ -973,6 +973,8 @@ const deleteWhr = async (req, res) => {
 //     }
 // });
 
+///   67b57284054396b7ff9cbfce
+
 const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
   const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status, productName, warehouse_name } = req.query;
   const { warehouseIds = [] } = req.body;
@@ -1026,7 +1028,7 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
           .populate("warehousedetails_id", "basicDetails.warehouseName wareHouse_code")
           .populate("procurementCenter_id", "center_name")
           .populate("seller_id", "basic_details.associate_details.associate_name basic_details.associate_details.organization_name")
-          .populate("req_id", "product.name deliveryDate product.schemeId.schemeName")
+          .populate("req_id", "product.name deliveryDate product.schemeId")
           .select("_id qty received_on qc_report commodity final_quality_check wareHouse_code receiving_details farmerOrderIds createdAt whr_status");
 
       const batchIds = rows.map(row => row._id);
