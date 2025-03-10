@@ -14,7 +14,6 @@ const { dumpJSONToExcel } = require("@src/v1/utils/helpers");
 const mongoose = require("mongoose");
 
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
-
     const { user_id, portalId } = req;
     const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, slaName, schemeName, commodity, state } = req.query;
 
@@ -64,32 +63,28 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     records.count = records.rows.length;
 
     if (paginate == 1) {
-        records.page = page;
-        records.limit = limit;
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        records.page = parseInt(page);
+        records.limit = parseInt(limit);
+        records.pages = limit !== 0 ? Math.ceil(records.count / limit) : 0;
     }
 
     if (isExport == 1) {
-
-        const record = records.rows.map((item) => {
-            return {
-                "Order ID": item?.reqNo || 'NA',
-                "Commodity": item?.product.name || 'NA',
-                "Quantity": item?.product.quantity || 'NA',
-                "MSP": item?.quotedPrice || 'NA',
-                "Created On": item?.createdAt ?? 'NA',
-                "Expected Procurement": item?.expectedProcurementDate ?? 'NA',
-                "Expected Delivery Date": item?.expectedProcurementDate ?? 'NA',
-                "Delivery Location": item?.address.deliveryLocation ?? 'NA'
-            }
-        })
+        const record = rows.map((item) => ({
+            "Order ID": item.reqNo || "NA",
+            "Commodity": item["product.name"] || "NA",
+            "Quantity": item["product.quantity"] || "NA",
+            "MSP": item.quotedPrice || "NA",
+            "Created On": item.createdAt || "NA",
+            "Expected Procurement": item.expectedProcurementDate || "NA",
+            "Expected Delivery Date": item.deliveryDate || "NA",
+            "Delivery Location": item["address.deliveryLocation"] || "NA",
+        }));
 
         if (record.length > 0) {
-
             dumpJSONToExcel(req, res, {
                 data: record,
-                fileName: `Requirement-record.xlsx`,
-                worksheetName: `Requirement-record`
+                fileName: Requirement-record.xlsx,
+                worksheetName: Requirement-record,
             });
         } else {
             return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("requirement") }));
@@ -97,67 +92,170 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     } else {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
     }
-    // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
+});
 
-})
 
 
 module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
+    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query;
 
-    const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query;
+    let matchQuery = { req_id: new mongoose.Types.ObjectId(req_id) };
 
+    let aggregationPipeline = [
+        { $match: matchQuery },
 
-    let query = search ? {
-        $or: [
-            { "batchId": { $regex: search, $options: 'i' } },
-            { "seller_id.basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
-            { "procurementCenter_id.center_name": { $regex: search, $options: "i" } },
-            { "req_id.address.deliveryLocation": { $regex: search, $options: "i" } },
-        ]
-    } : {};
+        // Lookup seller details
+        {
+            $lookup: {
+                from: "users", 
+                localField: "seller_id",
+                foreignField: "_id",
+                pipeline : [
+                    { $project : { "basic_details.associate_details.organization_name":1, "basic_details.associate_details.associate_name": 1 } }
+                ],
+        
+                as: "seller_id",
+            },
+        },
+        { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
 
-    query.req_id = req_id;
+        // Lookup procurement center details
+        {
+            $lookup: {
+                from: "procurementcenters", 
+                localField: "procurementCenter_id",
+                foreignField: "_id",
+                pipeline: [
+                    { $project: { center_name: 1}}
+                ],
+                as: "procurementCenter_id",
+            },
+        },
+        { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
 
-    const records = {};
+        // Lookup request details
+        {
+            $lookup: {
+                from: "requests", 
+                localField: "req_id",
+                foreignField: "_id",
+                pipeline : [
+                    { $project : { "address.deliveryLocation":1 } }
+                ],
+                as: "req_id",
+            },
+        },
+        { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
 
-    records.rows = paginate == 1 ? await Batch.find(query)
-        .populate([
-            { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
-            { path: "req_id", select: "address.deliveryLocation" },
-            { path: "procurementCenter_id", select: "center_name" },
-        ])
-        .sort(sortBy)
-        .skip(skip)
-        .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
+        // Add  searchable fields
+        {
+            $addFields: {
+                associateName: "$seller_id.basic_details.associate_details.associate_name",
+                procurementCenterName: "$procurementCenter_id.center_name",
+                deliveryLocation: "$req_id.address.deliveryLocation",
+            },
+        },
+    ];
 
-    records.count = records.rows.length;
+    // Apply search filter
+    if (search.trim()) {
+        const escapeRegex = (text) => text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+        const searchTerm = escapeRegex(search.trim());
 
-    if (paginate == 1) {
-        records.page = page;
-        records.limit = limit;
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        aggregationPipeline.push({
+            $match: {
+                $or: [
+                    { batchId: { $regex: searchTerm, $options: "i" } },
+                    { associateName: { $regex: searchTerm, $options: "i" } },
+                    { procurementCenterName: { $regex: searchTerm, $options: "i" } },
+                   // { deliveryLocation: { $regex: searchTerm, $options: "i" } },
+                ],
+            },
+        });
     }
 
+    // Final projection
+    aggregationPipeline.push({
+        $project: {
+            _id: 1,
+            batchId: 1,
+            associateName: 1,
+            procurementCenterName: 1,
+            qty: 1,
+            delivered_at: "$delivered.delivered_at",
+            status: 1,
+            dispatched: 1,
+            intransit: 1,
+            delivered: 1,
+            final_quality_check: 1,
+            receiving_details: 1,
+            seller_id: 1,
+            procurementCenter_id:1,
+            req_id: 1,
+            farmerOrderIds:1,
+            qty: 1,
+            goodsPrice: 1,
+            totalPrice: 1,
+            bo_approve_status: 1,
+            payement_approval_at: 1,
+            payment_approve_by: 1,
+            ho_approval_at: 1,
+            ho_approve_by: 1,
+            ho_approve_status: 1,
+            payment_by: 1,
+            payment_at: 1,
+            status: 1,
+            agent_approve_status: 1,
+            warehousedetails_id: 1,
+            wareHouse_approve_at: 1,
+            wareHouse_approve_status: 1,
+            allotedQty: 1,
+            available_qty: 1,
+            createdAt: 1,
+            updatedAt: 1
+        }
+    });
+    
+    if (paginate == 1) {
+        aggregationPipeline.push(
+            { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) }
+        );
+    } else {
+        aggregationPipeline.push({ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } });
+    }
+
+    const rows = await Batch.aggregate(aggregationPipeline);
+
+    // Count Query
+    const countPipeline = [...aggregationPipeline.slice(0, -1), { $count: "total" }];
+    const countResult = await Batch.aggregate(countPipeline);
+    const count = countResult[0]?.total || 0;
+
+    const records = { rows, count };
+
+    if (paginate == 1) {
+        records.page = parseInt(page);
+        records.limit = parseInt(limit);
+        records.pages = limit !== 0 ? Math.ceil(count / limit) : 0;
+    }
 
     if (isExport == 1) {
-
-        const record = records.rows.map((item) => {
-            return {
-                "Batch ID": item?.batchId || 'NA',
-                "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || 'NA',
-                "Procurement Center": item?.procurementCenter_id.center_name || 'NA',
-                "Quantity Procured": item?.qty || 'NA',
-                "Delivered On": item?.delivered.delivered_at ?? 'NA',
-                "Batch Status": item?.status ?? 'NA'
-            }
-        })
+        const record = rows.map((item) => ({
+            "Batch ID": item?.batchId || "NA",
+            "Associate Name": item?.associateName || "NA",
+            "Procurement Center": item?.procurementCenterName || "NA",
+            "Quantity Procured": item?.qty || "NA",
+            "Delivered On": item?.delivered_at ?? "NA",
+            "Batch Status": item?.status ?? "NA",
+        }));
 
         if (record.length > 0) {
-
             dumpJSONToExcel(req, res, {
                 data: record,
                 fileName: `Requirement-Batch-record.xlsx`,
-                worksheetName: `Requirement-Batch-record`
+                worksheetName: `Requirement-Batch-record`,
             });
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
@@ -165,10 +263,8 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
     } else {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
     }
+});
 
-    // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
-
-})
 
 
 module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
