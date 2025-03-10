@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal, dumpJSONToPdf } = require("@src/v1/utils/helpers");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const {
@@ -19,7 +19,10 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     deletedAt: null,
   };
   if (search) {
-    matchQuery.schemeId = { $regex: search, $options: "i" };
+    matchQuery.$or = [
+      { schemeId: { $regex: search, $options: "i" } },
+      { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
+    ];
   }
   if (schemeName) {
     matchQuery.schemeName = { $regex: schemeName.trim().replace(/\s+/g, ".*"), $options: "i" };
@@ -33,10 +36,18 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   let aggregationPipeline = [
     { $match: matchQuery },
     {
+      $lookup: {
+        from: 'commodities',
+        localField: 'commodity_id',
+        foreignField: '_id',
+        as: 'commodityDetails',
+      },
+    },
+    { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+    {
       $project: {
         _id: 1,
         schemeId: 1,
-        // schemeName: 1,
         schemeName: {
           $concat: [
             "$schemeName",
@@ -53,6 +64,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
         period: 1,
         procurement: 1,
         status: 1,
+        createdAt: 1
       },
     },
   ];
@@ -79,10 +91,11 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   }
   if (isExport == 1) {
     const record = rows.map((item) => {
+      console.log(item);
       return {
         "Scheme Id": item?.schemeId || "NA",
         "scheme Name": item?.schemeName || "NA",
-        SchemeCommodity: item?.commodity || "NA",
+        "Scheme Commodity": item?.Schemecommodity || "NA",
         season: item?.season || "NA",
         period: item?.period || "NA",
         procurement: item?.procurement || "NA",
@@ -91,8 +104,8 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     if (record.length > 0) {
       dumpJSONToExcel(req, res, {
         data: record,
-        fileName: `Scheme-record.xlsx`,
-        worksheetName: `Scheme-record`,
+        fileName: `HO-Scheme-record.xlsx`,
+        worksheetName: `HO-Scheme-record`,
       });
     } else {
       return res.status(200).send(
@@ -150,6 +163,15 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
       { $unwind: { path: "$branchDetails", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
+          from: 'commodities',
+          localField: 'commodity_id',
+          foreignField: '_id',
+          as: 'commodityDetails',
+        },
+      },
+      { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
           from: "schemes",
           localField: "scheme_id",
           foreignField: "_id",
@@ -167,12 +189,11 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
           bo_id: 1,
           assignQty: 1,
           schemeId: "$schemeDetails.schemeId",
-          // schemeName: "$schemeDetails.schemeName",
           schemeName: {
             $concat: [
               "$schemeDetails.schemeName",
               "",
-              { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+              { $ifNull: ["$commodityDetails.name", ""] },
               "",
               { $ifNull: ["$schemeDetails.season", ""] },
               "",
