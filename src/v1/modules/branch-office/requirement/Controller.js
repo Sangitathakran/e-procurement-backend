@@ -6,149 +6,66 @@ const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod, _userType } = require("@src/v1/utils/constants");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { Scheme } = require("@src/v1/models/master/Scheme");
+const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const moment = require("moment");
 const { dumpJSONToExcel } = require("@src/v1/utils/helpers");
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     const { user_id, portalId } = req;
-    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "createdAt", search = "", isExport = 0 } = req.query;
+    const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, slaName, schemeName, commodity, state } = req.query;
 
-    let matchQuery = {
-        branch_id: { $in: [new mongoose.Types.ObjectId(user_id), new mongoose.Types.ObjectId(portalId)] },
-    };
-
+    let query = search ? {
+        $or: [
+            { "reqNo": { $regex: search, $options: 'i' } },
+            { "product.name": { $regex: search, $options: 'i' } },
+        ]
+    } : {};
+    if (schemeName) {
+        const scheme = await Scheme.findOne({ schemeName: { $regex: schemeName, $options: 'i' } }).select('_id');
+        if (scheme) {
+            query["product.schemeId"] = new mongoose.Types.ObjectId(scheme._id);
+        }
+    }
     
-    let aggregationPipeline = [
-        { $match: matchQuery },
-        // lookup for product details
-        {
-            $lookup: {
-                from: "schemes", 
-                localField: "product.schemeId",
-                foreignField: "_id",
-                //pipeline : [{ $project: { schemeId:1, schemeName: 1} }],
-                as: "product.schemeId"
-            }
-        },
-        {
-            $unwind: { path: "$product.schemeId", preserveNullAndEmptyArrays: true }
-        },
-
-        // Lookup for branch details
-        {
-            $lookup: {
-                from: "branches",
-                localField: "branch_id",
-                foreignField: "_id",
-                pipeline: [{ $project: { branchName: 1, branchId: 1}}],
-                as: "branch_id",
-            },
-        },
-        { $unwind: { path: "$branch_id", preserveNullAndEmptyArrays: true } },
-
-        // Lookup for head office details
-        {
-            $lookup: {
-                from: "headoffices",
-                localField: "head_office_id",
-                foreignField: "_id",
-                pipeline: [{ $project: { company_details: 1}}],
-                as: "head_office_id",
-            },
-        },
-        { $unwind: { path: "$head_office_id", preserveNullAndEmptyArrays: true } },
-
-
-        // Lookup for SLA details
-        {
-            $lookup: {
-                from: "slas",
-                localField: "sla_id",
-                foreignField: "_id",
-                pipeline: [{ $project: { basic_details: 1}}],
-                as: "sla_id",
-            },
-        },
-        { $unwind: { path: "$sla_id", preserveNullAndEmptyArrays: true } },
-
-        // Add schemeName field before filtering
-      {
-        $addFields: {
-          schemeName: {
-            $concat: [
-              "$product.schemeId.schemeName",
-              " ",
-              { $ifNull: ["$product.name", ""] },
-              " ",
-              { $ifNull: ["$product.schemeId.season", ""] },
-              " ",
-              { $ifNull: ["$product.schemeId.period", ""] },
-            ],
-          },
-        },
-      },
-
-    ];
-
-
-    if (search?.trim()) {
-        aggregationPipeline.push({
-          $match: {
-            $or: [
-              { reqNo: { $regex: search, $options: "i" } },
-              { "product.name": { $regex: search, $options: "i" } },
-              { schemeName: { $regex: search, $options: "i"} }
-            ],
-          },
-        });
-      }
-  
-  
-
-    aggregationPipeline.push(
-         // Add necessary fields
-         {
-            $project: {
-                reqNo: 1,
-                product: 1,
-                schemeName: 1,
-                quotedPrice: 1,
-                createdAt: 1,
-                expectedProcurementDate: 1,
-                deliveryDate: 1,
-                address: 1,
-                branch_id:1,
-                head_office_id: 1,
-                sla_id: 1,
-            },
-        },
-    );
-
-    if (paginate == 1) {
-        aggregationPipeline.push(
-            { $sort: { [sortBy]: -1 } },
-            { $skip: parseInt(skip) },
-            { $limit: parseInt(limit) }
-        );
-    } else {
-        aggregationPipeline.push({ $sort: { [sortBy]: -1 } });
+    if (slaName) {
+        const sla = await SLAManagement.findOne({ "basic_details.name": { $regex: slaName, $options: 'i' } }).select('_id');
+        if (sla) {
+            query["sla_id"] = sla._id;
+        }
     }
 
-    const rows = await RequestModel.aggregate(aggregationPipeline);
+    if (commodity) {
+        query["product.name"] = { $regex: commodity, $options: 'i' };
+    }
 
-    // Count Query
-    const countPipeline = [...aggregationPipeline.slice(0, -1), { $count: "total" }];
-    const countResult = await RequestModel.aggregate(countPipeline);
-    const count = countResult[0]?.total || 0;
+    if (state) {
+        query["address.state"] = { $regex: state, $options: 'i' };
+    }
 
-    const records = { rows, count };
+    query.branch_id = { $in: [user_id, portalId] };
+
+    const records = {};
+    const selectValues = "reqNo product quotedPrice createdAt expectedProcurementDate deliveryDate address";
+
+    records.rows = paginate == 1 ? await RequestModel.find(query).select(selectValues)
+        .populate({ path: "branch_id", select: "_id branchName branchId" })
+        .populate({ path: "head_office_id", select: "_id company_details.name" })
+        .populate({ path: "product.schemeId", select: "_id schemeId schemeName season status" })
+        .populate({ path: "product.commodity_id", select: "_id name" })
+        .populate({ path: "sla_id", select: "_id basic_details.name" })
+        .sort(sortBy)
+        .skip(skip)
+        .limit(parseInt(limit)) : await RequestModel.find(query).select(selectValues).sort(sortBy);
+
+    records.count = records.rows.length;
 
     if (paginate == 1) {
         records.page = parseInt(page);
         records.limit = parseInt(limit);
-        records.pages = limit !== 0 ? Math.ceil(count / limit) : 0;
+        records.pages = limit !== 0 ? Math.ceil(records.count / limit) : 0;
     }
 
     if (isExport == 1) {
