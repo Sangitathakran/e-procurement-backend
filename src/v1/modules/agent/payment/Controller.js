@@ -2511,3 +2511,26 @@ module.exports.paymentLogsHistory = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+module.exports.qcReport = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const { user_type } = req;
+
+    const qcReport = await Batch.findOne({ _id: id }).populate({
+      path: "req_id",
+      select:
+        "_id reqNo product address quotedPrice fulfilledQty totalQuantity expectedProcurementDate",
+    });
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: qcReport,
+        message: _query.get("Qc Report"),
+      })
+    );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
