@@ -111,9 +111,12 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
         // Define search filter (if search is provided)
         const searchFilter = search ? {
             $or: [
+                // { "basic_details.name": { $regex: search, $options: "i" } },
+                // { "basic_details.email": { $regex: search, $options: "i" } },
+                // { "basic_details.mobile": { $regex: search, $options: "i" } }
+
                 { "basic_details.name": { $regex: search, $options: "i" } },
-                { "basic_details.email": { $regex: search, $options: "i" } },
-                { "basic_details.mobile": { $regex: search, $options: "i" } }
+                { slaId: { $regex: search, $options: "i" } },
             ]
         }
             : {};
@@ -124,8 +127,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
             sortOptions[sortBy] = -1; // Sort by given field in descending order
         }
 
-        // Fetch SLA records with projection
-        let slaRecordsQuery = SLAManagement.aggregate([
+        let pipeline = [
             {
                 $match: {
                     ...searchFilter,
@@ -155,7 +157,9 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
                 }
             },
             { $sort: sortOptions }
-        ]);
+        ]
+        // Fetch SLA records with projection
+        let slaRecordsQuery = SLAManagement.aggregate(pipeline);
 
         // If exporting, return all data
         if (isExport === 1) {
