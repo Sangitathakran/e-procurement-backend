@@ -12,26 +12,32 @@ const { mongoose } = require("mongoose");
 
 module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, isExport = 0 } = req.query;
+  const { user_id } = req;
+
+  const Ids = (await SchemeAssign.find({ ho_id: new mongoose.Types.ObjectId(user_id) })).map(i => i.scheme_id);
 
   // Initialize matchQuery
   let matchQuery = {
-    status: _status.active,
+    _id: { $in: Ids },
     deletedAt: null,
   };
+
   if (search) {
     matchQuery.$or = [
       { schemeId: { $regex: search, $options: "i" } },
       { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
     ];
   }
+
   if (schemeName) {
     matchQuery.schemeName = { $regex: schemeName.trim().replace(/\s+/g, ".*"), $options: "i" };
   }
   if (status) {
     matchQuery.status = status.toLowerCase();
-  } else {
-    matchQuery.status = _status.active;
-  }
+  } 
+  // else {
+    // matchQuery.status = _status.active;
+  // }
 
   let aggregationPipeline = [
     { $match: matchQuery },
@@ -79,6 +85,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       $sort: { [sortBy || "createdAt"]: -1, _id: -1 },
     });
   }
+  
   const rows = await Scheme.aggregate(aggregationPipeline);
   const countPipeline = [{ $match: matchQuery }, { $count: "total" }];
   const countResult = await Scheme.aggregate(countPipeline);
