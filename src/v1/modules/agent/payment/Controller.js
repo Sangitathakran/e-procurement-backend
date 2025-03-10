@@ -411,7 +411,7 @@ module.exports.batchList = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0, batch_status = "Pending" } = req.query
-      
+
         const paymentIds = (await Payment.find({ associateOffers_id: associateOffer_id })).map(i => i.batch_id)
 
         let query = {
@@ -420,7 +420,7 @@ module.exports.batchList = async (req, res) => {
             agent_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
-       
+
         const records = { count: 0 };
 
         const pipeline = [
@@ -468,11 +468,6 @@ module.exports.batchList = async (req, res) => {
                     as: 'payment',
                 }
             },
-            // {
-            //     $match: {
-            //         "payment.payment_status": paymentStatusCondition || _paymentstatus.pending
-            //     }
-            // },
             {
                 $addFields: {
                     qtyPurchased: {
@@ -520,6 +515,16 @@ module.exports.batchList = async (req, res) => {
                             then: "Re-Initiate",
                             else: "New"
                         }
+                    },
+                    approval_status: {
+                        $switch: {
+                            branches: [
+                                { case: { $eq: [{ $toString: "$ho_approve_status" }, "Pending"] }, then: "Pending from CNA" },
+                                { case: { $eq: [{ $toString: "$bo_approval_status" }, "Pending"] }, then: "Pending from BO" },
+                                { case: { $eq: [{ $toString: "$agent_approval_status" }, "Pending"] }, then: "Pending from SLA" }
+                            ],
+                            default: "Approved"
+                        }
                     }
                 }
             },
@@ -534,16 +539,17 @@ module.exports.batchList = async (req, res) => {
                     whrReciept: "whrReciept.jpg",
                     deliveryDate: "$delivered.delivered_at",
                     procuredOn: "$requestDetails.createdAt",
-                    tags: 1
+                    tags: 1,
+                    approval_status: 1
                 }
             },
-           
+
             ...(sortBy ? [{ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }] : []),
             ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
             {
                 $limit: limit ? parseInt(limit) : 10
             }
-           
+
         ]
 
         records.rows = await Batch.aggregate(pipeline);
@@ -2423,14 +2429,22 @@ module.exports.proceedToPayBatchList = async (req, res) => {
                             then: "Re-Initiate",
                             else: "New"
                         }
+                    },
+                    approval_status: {
+                        $switch: {
+                            branches: [
+                                { case: { $eq: [{ $toString: "$ho_approve_status" }, "Pending"] }, then: "Pending from CNA" },
+                                { case: { $eq: [{ $toString: "$bo_approval_status" }, "Pending"] }, then: "Pending from BO" },
+                                { case: { $eq: [{ $toString: "$agent_approval_status" }, "Pending"] }, then: "Pending from SLA" }
+                            ],
+                            default: "Approved"
+                        }
                     }
                 }
             },
             {
                 $project: {
                     "batchId": 1,
-                    // "invoice.initiated_at": 1,
-                    // "invoice.bills.total": 1,
                     amountPayable: 1,
                     qtyPurchased: 1,
                     amountProposed: 1,
@@ -2439,7 +2453,8 @@ module.exports.proceedToPayBatchList = async (req, res) => {
                     whrReciept: "whrReciept.jpg",
                     deliveryDate: "$delivered.delivered_at",
                     procuredOn: "$requestDetails.createdAt",
-                    tags: 1
+                    tags: 1,
+                    approval_status: 1
                 }
             },
             // Start of Sangita code
@@ -2513,24 +2528,24 @@ module.exports.paymentLogsHistory = async (req, res) => {
 }
 
 module.exports.qcReport = async (req, res) => {
-  try {
-    const { id } = req.query;
-    const { user_type } = req;
+    try {
+        const { id } = req.query;
+        const { user_type } = req;
 
-    const qcReport = await Batch.findOne({ _id: id }).populate({
-      path: "req_id",
-      select:
-        "_id reqNo product address quotedPrice fulfilledQty totalQuantity expectedProcurementDate",
-    });
+        const qcReport = await Batch.findOne({ _id: id }).populate({
+            path: "req_id",
+            select:
+                "_id reqNo product address quotedPrice fulfilledQty totalQuantity expectedProcurementDate",
+        });
 
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: qcReport,
-        message: _query.get("Qc Report"),
-      })
-    );
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
+        return res.status(200).send(
+            new serviceResponse({
+                status: 200,
+                data: qcReport,
+                message: _query.get("Qc Report"),
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
 };
