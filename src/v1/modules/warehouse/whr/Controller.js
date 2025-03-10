@@ -8,7 +8,7 @@ const { _associateOfferStatus, _whr_status, _batchStatus, _userType} = require("
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-
+const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { WhrModel } = require("@src/v1/models/app/whr/whrModel");
 const { WhrDetail } = require("@src/v1/models/app/whr/whrDetails");
 
@@ -694,6 +694,383 @@ const deleteWhr = async (req, res) => {
   }
 }
 
+// const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
+  
+//     const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status, productName, warehouse_name } = req.query;
+//     const { warehouseIds = [] } = req.body;
+
+//     try { 
+//         const getToken = req.headers.token || req.cookies.token;
+//         if (!getToken) {
+//             return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+//         }
+
+//         const decode = await decryptJwtToken(getToken);
+//         const UserId = decode.data.user_id;
+
+//         if (!mongoose.Types.ObjectId.isValid(UserId)) {
+//             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+//         }
+
+//         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+//         const ownerwarehouseIds = warehouseDetails.map(id => new mongoose.Types.ObjectId(id));
+ 
+//         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
+//             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
+//             : ownerwarehouseIds;
+        
+//         if (!finalwarehouseIds.length) {
+//             return res.status(200).send(new serviceResponse({
+//                 status: 200,
+//                 data: { records: { rows: [], count: 0, page, limit, pages: 0 }, message: "No warehouses found for the user." }
+//             }));
+//         }
+
+//         const searchRegex = search ? new RegExp(search, 'i') : null;
+
+//         const pipeline = [
+//             {
+//                 $lookup: {
+//                     from: 'warehousedetails',
+//                     localField: 'warehousedetails_id',
+//                     foreignField: '_id',
+//                     as: 'warehousedetails_id'
+//                 }
+//             },
+//             {
+//                 $lookup: {
+//                     from: 'procurementcenters',
+//                     localField: 'procurementCenter_id',
+//                     foreignField: '_id',
+//                     as: 'procurementCenter_id'
+//                 }
+//             },
+//             {
+//                 $lookup: {
+//                     from: 'users',
+//                     localField: 'seller_id',
+//                     foreignField: '_id',
+//                     as: 'seller_id'
+//                 }
+//             },
+//             {
+//                 $lookup: {
+//                     from: 'requests',
+//                     localField: 'req_id',
+//                     foreignField: '_id',
+//                     as: 'req_id'
+//                 }
+//             },
+            
+
+//             { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
+//             { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+//             { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
+//             { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
+//             {
+//                 $match: {
+//                    "warehousedetails_id._id": { $in: finalwarehouseIds },
+//                    ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+                 
+//                     ...(search && searchRegex && {
+//                         $or: [
+//                             { batchId: { $regex: searchRegex } },
+//                             { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+//                             { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+//                             { "procurementCenter_id.center_name": { $regex: searchRegex } },
+//                             { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+//                         ]
+//                     }),
+//                     ...(status && {
+//                         "final_quality_check.status": status
+//                     }),
+//                     ...(productName && { "req_id.product.name": productName})
+//                 }
+//             },
+//             {
+//                 $project: {
+//                     batchId: 1,
+//                     qty: 1,
+//                     received_on: 1,
+//                     qc_report: 1,
+//                     wareHouse_code: 1,
+//                     //status: 1,
+//                     commodity: 1,
+
+//                     "final_quality_check.status":1,
+//                     "final_quality_check.product_images":1,
+//                     "final_quality_check.qc_images":1,
+//                     "final_quality_check.rejected_reason":1,
+//                     "final_quality_check.whr_receipt":1,
+//                     "final_quality_check.whr_receipt_image":1,
+//                     "req_id.product.name":1,
+//                     "req_id._id":1,
+//                     "req_id.deliveryDate":1,
+//                     "receiving_details.received_on": 1,
+//                     "receiving_details.vehicle_details": 1,
+//                     "receiving_details.document_pictures": 1,
+//                     "receiving_details.bag_weight_per_kg": 1,
+//                     "receiving_details.no_of_bags": 1,
+//                     "receiving_details.quantity_received": 1,
+//                     "receiving_details.truck_photo": 1,
+//                     "final_quality_check.whr_receipt": 1,
+//                     "warehousedetails_id.basicDetails.warehouseName": 1,
+//                     "warehousedetails_id.wareHouse_code": 1,
+//                     "warehousedetails_id._id": 1,
+//                     "procurementCenter_id.center_name": 1,
+//                     "procurementCenter_id._id": 1,
+//                     "seller_id.basic_details.associate_details.associate_name": 1,
+//                     "seller_id.basic_details.associate_details.organization_name": 1,
+//                     "seller_id._id": 1,
+//                     wareHouse_approve_status: 1,
+//                     createdAt: 1,
+//                     farmerOrderIds: {
+//                       $map: {
+//                           input: "$farmerOrderIds",
+//                           as: "farmerOrder",
+//                           in: {
+//                               farmerOrder_id: "$$farmerOrder.farmerOrder_id",
+//                               qty: "$$farmerOrder.qty",
+//                               amt: "$$farmerOrder.amt",
+//                               rejected_quantity: "$$farmerOrder.rejected_quantity",
+//                               rejected_bags: "$$farmerOrder.rejected_bags",
+//                               gain_quantity: "$$farmerOrder.gain_quantity",
+//                               gain_bags: "$$farmerOrder.gain_bags",
+//                               accepted_quantity: "$$farmerOrder.accepted_quantity",
+//                               accepted_bags: "$$farmerOrder.accepted_bags"
+//                           }
+//                       }
+//                   }
+//                 }
+//             },
+//             { $sort: { [sortBy]: 1 } },
+//             { $skip: (page - 1) * limit },
+//             { $limit: parseInt(limit) }
+//         ];
+
+//         const rows = await Batch.aggregate(pipeline);
+//         const totalCountPipeline = [
+//             {
+//                 $lookup: {
+//                     from: 'warehousedetails',
+//                     localField: 'warehousedetails_id',
+//                     foreignField: '_id',
+//                     as: 'warehousedetails_id'
+//                 }
+//             },
+//             {
+//                 $lookup: {
+//                     from: 'procurementcenters',
+//                     localField: 'procurementCenter_id',
+//                     foreignField: '_id',
+//                     as: 'procurementCenter_id'
+//                 }
+//             },
+//             {
+//                 $lookup: {
+//                     from: 'users',
+//                     localField: 'seller_id',
+//                     foreignField: '_id',
+//                     as: 'seller_id'
+//                 }
+//             },
+//             {
+//                 $lookup: {
+//                     from: 'requests',
+//                     localField: 'req_id',
+//                     foreignField: '_id',
+//                     as: 'req_id'
+//                 }
+//             },
+//             { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
+//             { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+//             { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
+//             { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
+//             {
+//                 $match: {
+//                     "warehousedetails_id._id": { $in: finalwarehouseIds },
+//                     ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+//                     wareHouse_approve_status: 'Received',
+//                     ...(search && searchRegex && {
+//                         $or: [
+//                             { batchId: { $regex: searchRegex } },
+//                             { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+//                             { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+//                             { "procurementCenter_id.center_name": { $regex: searchRegex } },
+//                             { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+//                         ]
+//                     }),
+//                     ...(status && {
+//                         "final_quality_check.status": status
+//                     }),
+//                     ...(productName && { "req_id.product.name": productName })
+//                 }
+//             },
+//             { $count: "totalCount" }
+//         ];
+        
+//         const totalCountResult = await Batch.aggregate(totalCountPipeline);
+//         const totalCount = totalCountResult.length > 0 ? totalCountResult[0].totalCount : 0;
+        
+//         const query = {
+//             "warehousedetails_id._id": { $in: finalwarehouseIds },
+//             ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+//             wareHouse_approve_status: 'Received',
+//             ...(search && searchRegex && {
+//                 $or: [
+//                     { batchId: { $regex: searchRegex } },
+//                     { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+//                     { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+//                     { "procurementCenter_id.center_name": { $regex: searchRegex } },
+//                     { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+//                 ]
+//             }),
+//             ...(status && {
+//                 "final_quality_check.status": status
+//             }),
+//             ...(productName && { "req_id.product.name": productName})
+//         };
+
+//         // Export functionality
+//         if (isExport == 1) {
+//             const exportData = rows.map(item => ({
+//                 "Batch ID": item.batchId || 'NA',
+//                 "Associate Name": item.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
+//                 "Organization Name": item.seller_id?.basic_details?.associate_details?.organization_name || 'NA',
+//                 "Procurement Center": item.procurementCenter_id?.center_name || 'NA',
+//                 "Warehouse": item.warehousedetails_id?.basicDetails?.warehouseName || 'NA',
+//                 "Quantity": item.qty || 'NA',
+//                 "Status": item.wareHouse_approve_status || 'NA'
+//             }));
+
+//             if (exportData.length) {
+//                 return dumpJSONToExcel(req, res, {
+//                     data: exportData,
+//                     fileName: `Warehouse-Batches.xlsx`,
+//                     worksheetName: `Batches`
+//                 });
+//             }
+//             return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
+//         }
+
+//         return res.status(200).send(new serviceResponse({
+//             status: 200,
+//             data: {
+//                 records: {
+//                     rows,
+//                     count: totalCount,
+//                     page,
+//                     limit,
+//                     pages: Math.ceil(totalCount / limit),
+//                 }
+//             },
+//             message: "Warehouse Management List fetched successfully"
+//         }));
+
+//     } catch (error) {
+//         console.error(error);
+//         return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching batches", error: error.message }));
+//     }
+// });
+
+const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
+  const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status, productName, warehouse_name } = req.query;
+  const { warehouseIds = [] } = req.body;
+
+  try {
+      const getToken = req.headers.token || req.cookies.token;
+      if (!getToken) {
+          return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+      }
+
+      const decode = await decryptJwtToken(getToken);
+      const UserId = decode.data.user_id;
+
+      if (!mongoose.Types.ObjectId.isValid(UserId)) {
+          return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+      }
+
+      const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: UserId }, '_id');
+      const ownerwarehouseIds = warehouseDetails.map(wh => wh._id);
+
+      const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
+          ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
+          : ownerwarehouseIds;
+
+      if (!finalwarehouseIds.length) {
+          return res.status(200).send(new serviceResponse({
+              status: 200,
+              data: { records: { rows: [], count: 0, page, limit, pages: 0 }, message: "No warehouses found for the user." }
+          }));
+      }
+
+      const searchRegex = search ? new RegExp(search, 'i') : null;
+
+      const query = {
+          warehousedetails_id: { $in: finalwarehouseIds },
+          ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+          ...(status && { "final_quality_check.status": status }),
+          ...(productName && { "req_id.product.name": productName }),
+          ...(search && searchRegex && {
+              $or: [
+                  { _id: { $regex: searchRegex } },
+                  { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+                  { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+                  { "procurementCenter_id.center_name": { $regex: searchRegex } },
+                  { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+              ]
+          })
+      };
+
+      const rows = await Batch.find(query)
+          .populate("warehousedetails_id", "basicDetails.warehouseName wareHouse_code")
+          .populate("procurementCenter_id", "center_name")
+          .populate("seller_id", "basic_details.associate_details.associate_name basic_details.associate_details.organization_name")
+          .populate("req_id", "product.name deliveryDate")
+          .select("_id qty received_on qc_report commodity final_quality_check wareHouse_code receiving_details farmerOrderIds createdAt whr_status");
+
+      const batchIds = rows.map(row => row._id);
+      const whrData = await WhrModel.find({ batch_id: { $in: batchIds } })
+          .select("batch_id whr_type");
+
+      const whrMap = {};
+      whrData.forEach(whr => {
+        whr.batch_id.forEach(id => {
+            whrMap[id.toString()] = { 
+                whr_type: whr.whr_type, 
+                whr_number: whr.whr_number 
+            };
+        });
+    });
+
+      const modifiedRows = rows.map(row => ({
+          ...row.toObject(),
+          whr_type: whrMap[row._id.toString()] || null,
+          whr_number: whrMap[row._id.toString()]?.whr_number || null
+      }));
+
+      const totalCount = await Batch.countDocuments(query);
+
+      return res.status(200).send(new serviceResponse({
+          status: 200,
+          data: {
+              records: {
+                  rows: modifiedRows,
+                  count: totalCount,
+                  page,
+                  limit,
+                  pages: Math.ceil(totalCount / limit)
+              }
+          }
+      }));
+  } catch (error) {
+      return res.status(500).send(new serviceResponse({ status: 500, message: error.message }));
+  }
+});
+
+
+
+
 module.exports = {
   createWhr,
   updateWhrById,
@@ -705,5 +1082,6 @@ module.exports = {
   listWHRForDropdown,
   deleteWhr,
   listWarehouseDropdown,
-  whrLotDetailsUpdate
+  whrLotDetailsUpdate,
+  getWarehouseManagementList
 };
