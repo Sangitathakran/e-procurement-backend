@@ -341,6 +341,7 @@ module.exports.associateOrders = async (rallBatchApprovalStatuseq, res) => {
     }
 }
 
+/*
 module.exports.batchList = async (req, res) => {
 
     try {
@@ -351,7 +352,7 @@ module.exports.batchList = async (req, res) => {
         let query = {
             _id: { $in: paymentIds },
             associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
-            bo_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
+            agent_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
@@ -399,6 +400,187 @@ module.exports.batchList = async (req, res) => {
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
         }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+*/
+
+module.exports.batchList = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0, batch_status = "Pending" } = req.query
+      
+        const paymentIds = (await Payment.find({ associateOffers_id: associateOffer_id })).map(i => i.batch_id)
+
+        let query = {
+            _id: { $in: paymentIds },
+            associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
+            agent_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+       
+        const records = { count: 0 };
+
+        const pipeline = [
+            {
+                $match: query,
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'seller_id',
+                    foreignField: '_id',
+                    as: 'users',
+                }
+            },
+            {
+                $unwind: "$users"
+            },
+            {
+                $lookup: {
+                    from: 'requests',
+                    localField: 'req_id',
+                    foreignField: '_id',
+                    as: 'requestDetails',
+                }
+            },
+            {
+                $unwind: "$requestDetails"
+            },
+            {
+                $lookup: {
+                    from: 'associateinvoices',
+                    localField: '_id',
+                    foreignField: 'batch_id',
+                    as: 'invoice',
+                }
+            },
+            // {
+            //     $unwind: "$invoice"
+            // },
+            {
+                $lookup: {
+                    from: 'payments',
+                    localField: '_id',
+                    foreignField: 'batch_id',
+                    as: 'payment',
+                }
+            },
+            // {
+            //     $match: {
+            //         "payment.payment_status": paymentStatusCondition || _paymentstatus.pending
+            //     }
+            // },
+            {
+                $addFields: {
+                    qtyPurchased: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: '$$inv.qtyProcured'
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    amountProposed: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: '$$inv.bills.total'
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    amountPayable: {
+                        $reduce: {
+                            input: {
+                                $map: {
+                                    input: '$invoice',
+                                    as: 'inv',
+                                    in: '$$inv.bills.total'
+                                }
+                            },
+                            initialValue: 0,
+                            in: { $add: ['$$value', '$$this'] }
+                        }
+                    },
+                    tags: {
+                        $cond: {
+                            if: { $in: ["$payment.payment_status", ["Failed", "Rejected"]] },
+                            then: "Re-Initiate",
+                            else: "New"
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    "batchId": 1,
+                    amountPayable: 1,
+                    qtyPurchased: 1,
+                    amountProposed: 1,
+                    associateName: "$users.basic_details.associate_details.associate_name",
+                    whrNo: "12345",
+                    whrReciept: "whrReciept.jpg",
+                    deliveryDate: "$delivered.delivered_at",
+                    procuredOn: "$requestDetails.createdAt",
+                    tags: 1
+                }
+            },
+           
+            ...(sortBy ? [{ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }] : []),
+            ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+            {
+                $limit: limit ? parseInt(limit) : 10
+            }
+           
+        ]
+
+        records.rows = await Batch.aggregate(pipeline);
+
+        records.count = await Batch.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+
+                return {
+                    "Associate Id": item?.seller_id.user_code || "NA",
+                    "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || "NA",
+                    "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || "NA",
+                    "Quantity Purchased": item?.offeredQty || "NA",
+                }
+            })
+
+            if (record.length > 0) {
+
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Associate Orders-${'Associate Orders'}.xlsx`,
+                    worksheetName: `Associate Orders-record-${'Associate Orders'}`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
+            }
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
 
     } catch (error) {
         _handleCatchErrors(error, res);
