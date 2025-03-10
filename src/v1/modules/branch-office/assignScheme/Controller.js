@@ -13,7 +13,7 @@ const { mongoose } = require("mongoose");
 
 module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, isExport = 0 } = req.query;
+    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, commodity, season, isExport = 0 } = req.query;
 
     const { user_id } = req;
 
@@ -25,9 +25,27 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
     if (search) {
       matchQuery.schemeId = { $regex: search, $options: "i" };
     }
+    if (schemeName) {
+      matchQuery["schemeDetails.schemeName"] = { $regex: schemeName, $options: "i" };
+    }
+
+    console.log("schemeName", schemeName)
+    // Commodity filter
+    if (commodity) {
+      matchQuery["commodityDetails.name"] = { $regex: commodity, $options: "i" };
+    }
+
+    // Season filter
+    if (season) {
+      matchQuery["schemeDetails.season"] = { $regex: season, $options: "i" };
+    }
+
+    // Status filter
+    if (status) {
+      matchQuery["schemeDetails.status"] = status;
+    }
 
     let aggregationPipeline = [
-      { $match: matchQuery },
       {
         $lookup: {
           from: "schemes",
@@ -37,6 +55,16 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         },
       },
       { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "commodities",
+          localField: "schemeDetails.commodity_id",
+          foreignField: "_id",
+          as: "commodityDetails",
+        },
+      },
+      { $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true } },
+      { $match: matchQuery },
       {
         $project: {
           _id: 1,
@@ -53,6 +81,10 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
               { $ifNull: ["$schemeDetails.period", ""] },
             ],
           },
+          schemeSeason: "$schemeDetails.season",
+          schemeStatus: "$schemeDetails.status",
+          commodityName: '$commodityDetails.name',
+          commodity_id: '$schemeDetails.commodity_id',
           scheme_id: 1,
           status: 1,
         },
