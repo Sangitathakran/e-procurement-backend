@@ -145,7 +145,7 @@ module.exports.listExternalBatchList = async (req, res) => {
             records.limit = parseInt(limit);
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
         } else {
-            records.rows = await ExternalOrder.find(query)
+            records.rows = await ExternalBatch.find(query)
                 .populate({
                     path: "warehousedetails_id",
                     select: "basicDetails.warehouseName",
@@ -462,6 +462,7 @@ module.exports.saveAgribidDetails = async (req, res) => {
                 latitude,
                 longitude,
                 procurementPartner, 
+                season,
             } = warehouseData;
 
             const existingWarehouse = await wareHouseDetails.findOne({ warehouseName });
@@ -596,7 +597,8 @@ module.exports.saveAgribidDetails = async (req, res) => {
                 commodity: commodityName,
                 warehousedetails_id: savedWarehouse._id,
                 remaining_quantity: remainingQtyInMT,
-                third_party_client: _id
+                third_party_client: _id,
+                season : season,
             });
             await externalBatchData.save();
 
@@ -671,6 +673,7 @@ module.exports.updateAgribidDetails = async (req, res) => {
                 longitude,
                 procurementPartner,
                 external_batch_id,
+                season
             } = update;
 
             const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, warehouseAddress, state, district, city, villageName, pinCode, procurementPartner, external_batch_id };
@@ -712,6 +715,7 @@ module.exports.updateAgribidDetails = async (req, res) => {
 
             batchExists.outward_quantity += dispatchQtyInMT;
             batchExists.remaining_quantity = batchExists.inward_quantity - batchExists.outward_quantity;
+            batchExists.season = season,
             await batchExists.save();
 
             const orderData = {
