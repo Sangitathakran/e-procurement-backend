@@ -263,3 +263,27 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
             })
         );
 });
+
+module.exports.commodityDropdown = asyncErrorHandler(async (req, res) => {
+    const { search = '' } = req.query;
+
+    let matchQuery = { deletedAt: null };
+
+    if (search) {
+        matchQuery.$or = [
+            { commodityId: { $regex: search, $options: "i" } },
+            { name: { $regex: search, $options: "i" } }
+        ];
+    }
+
+    const records = await Commodity.find(matchQuery).populate({
+        path: 'commodityStandard_id',
+        select: 'subName',
+    });
+
+    return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("Commodity")
+    }));
+});
