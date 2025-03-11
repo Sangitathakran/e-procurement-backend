@@ -2549,3 +2549,122 @@ module.exports.qcReport = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.agentDashboardAssociateList = async (req, res) => {
+    try {
+        const { sortBy = { createdAt: -1 } } = req.query;
+
+        const paymentIds = (await Payment.find()).map(i => i.req_id);
+
+        const query = {  _id: { $in: paymentIds } };
+
+        const records = {};
+
+        const pipeline = [
+            { $match: query},
+            {
+                $lookup: {
+                    from: 'batches',
+                    localField: '_id',
+                    foreignField: 'req_id',
+                    as: 'batches',
+                    pipeline: [
+                      {
+                        $lookup: {
+                          from: 'payments',
+                          localField: '_id',
+                          foreignField: 'batch_id',
+                          as: 'payment',
+                        }
+                      }
+                    ],
+                  }
+            },
+            {
+                $addFields: {
+                    order_id: '$reqNo',
+                    quantity_procured: '$product.quantity',
+                    payment_due_date: {
+                        $dateToString: {
+                            format: "%d/%m/%Y",
+                            date: "$createdAt",
+                          },
+                    },
+                    payment_requests: {
+                        $sum: {
+                          $map: {
+                            input: "$batches",
+                            as: "batch",
+                            in: { $size: "$$batch.payment" }
+                          }
+                        }
+                      }
+                },
+            },
+            {
+                $project: {
+                    order_id: 1,
+                    quantity_procured: 1,
+                    payment_due_date: 1,
+                    payment_requests: 1
+                }
+            }
+        ];
+
+        pipeline.push( { $sort: sortBy }, { $limit: 5});
+          
+
+        records.rows = await RequestModel.aggregate(pipeline);
+
+        return res.status(200).send(
+            new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.agentDashboardPaymentList = async (req, res) => {
+    try {
+        const { sortBy = { createdAt: -1 } } = req.query;
+
+        const paymentIds = (await Payment.find()).map(i => i.req_id);
+        const query = {  req_id: { $in: paymentIds } };
+
+        const records = {};
+
+        const pipeline = [
+            {
+                $match: query
+            },
+            {
+                $lookup: {
+                    from: 'requests',
+                    localField: 'req_id',
+                    foreignField: '_id',
+                    pipeline: [ { $project: { reqNo: 1 }  } ],
+                    as: 'requests',
+                  }
+            },
+            {
+                $project: {
+                    order_id: { $arrayElemAt: ["$requests.reqNo", 0] }, 
+                    quantity_procured: '$qtyProcured',
+                    billing_month : { $dateToString: { format: "%B", date: "$createdAt" } },
+                    payment_status: 1,
+                }
+            }
+        ];
+
+        pipeline.push( { $sort: sortBy }, { $limit: 5});
+          
+
+        records.rows = await AgentInvoice.aggregate(pipeline);
+
+        return res.status(200).send(
+            new serviceResponse({ status: 200, data: records, message: _response_message.found("Invoice") })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
