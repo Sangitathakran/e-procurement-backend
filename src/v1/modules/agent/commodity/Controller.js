@@ -276,10 +276,11 @@ module.exports.commodityDropdown = asyncErrorHandler(async (req, res) => {
         ];
     }
 
-    const records = await Commodity.find(matchQuery).populate({
-        path: 'commodityStandard_id',
-        select: 'subName',
-    });
+    const records = await Commodity.find(matchQuery).select({'name':1})
+    // .populate({
+    //     path: 'commodityStandard_id',
+    //     select: 'subName',
+    // });
 
     return res.status(200).send(new serviceResponse({
         status: 200,

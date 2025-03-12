@@ -5,6 +5,8 @@ const { commodityRoutes } = require("../commodity/Routes");
 
 const schemeRoutes = express.Router();
 
+schemeRoutes.get("/schemeDropdown", Auth, schemeDropdown);
+
 schemeRoutes.get("/schemeSummary", Auth, schemeSummary);
 schemeRoutes.get("/getBoByScheme", Auth, getBoByScheme);
 schemeRoutes.get("/getslaByBo", Auth, getslaByBo);
@@ -17,6 +19,5 @@ schemeRoutes.delete("/:id", Auth, deleteScheme);
 schemeRoutes.patch("/", Auth, statusUpdateScheme);
 
 
-commodityRoutes.get("/schemeDropdown", Auth, schemeDropdown);
 
 module.exports = { schemeRoutes };

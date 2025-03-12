@@ -724,19 +724,6 @@ module.exports.schemeDropdown = asyncErrorHandler(async (req, res) => {
   // Initialize matchQuery
   let matchQuery = { deletedAt: null };
 
-  if (search) {
-    matchQuery.$or = [
-      { schemeId: { $regex: search, $options: "i" } },
-      { schemeName: { $regex: search, $options: "i" } }
-    ];
-  }
-  if (schemeName) {
-    matchQuery.schemeName = { $regex: new RegExp(schemeName, "i") };
-  }
-  if (status && status.trim() !== '') {
-    matchQuery.status = status;
-  }
-
   let aggregationPipeline = [
     { $match: matchQuery },
     {
