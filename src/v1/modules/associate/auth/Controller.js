@@ -562,6 +562,7 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
             const pinCode = rec["Pin Code"];
             const gst_no = rec["GST No."];
             const cin_number = rec["Cin Number"];
+            const poc = rec["POC"];
             let errors = [];
             let missingFields = [];
             if (!mobile_no) {
@@ -606,6 +607,9 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
                         },
                         company_details: {
                             cin_number,
+                        },
+                        point_of_contact: {
+                            name: poc,
                         },
                         user_type: _userType.associate,
                         is_mobile_verified: true,
