@@ -14,6 +14,7 @@ nccfOrderRoutes.get('/:id', Auth, getOrderById);
 nccfOrderRoutes.put("/requiredStockUpdate", Auth, requiredStockUpdate);
 nccfOrderRoutes.put("/batchstatusUpdate", Auth, batchstatusUpdate);
 nccfOrderRoutes.put("/batchscheduleDateUpdate", Auth, batchscheduleDateUpdate);
+nccfOrderRoutes.put("/penalty-apply", Auth, penaltyApply);
 
 
 module.exports = { nccfOrderRoutes }; 
