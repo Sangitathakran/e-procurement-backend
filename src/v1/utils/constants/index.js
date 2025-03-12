@@ -60,7 +60,8 @@ const _collectionName = {
     Scheme: "Scheme",
     commodityStandard:"commodityStandard",
     SchemeAssign: "SchemeAssign",
-    ClientToken:"ClientToken"
+    ClientToken:"ClientToken",
+    eKharidHaryana:"eKharidProcurement"
 
 }
 
