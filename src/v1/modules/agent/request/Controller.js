@@ -190,6 +190,7 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .populate({ path: "sla_id", select: "_id basic_details.name" })
         .populate({ path: "warehouse_id", select: "addressDetails" })
         .populate({ path: "product.schemeId", select: "schemeName" })
+        .populate({ path: "product.schemeId", select: "schemeName" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
        
