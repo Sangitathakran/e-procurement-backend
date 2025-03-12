@@ -20,7 +20,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
         'paymentInfo.penaltyStaus': { $ne: _penaltypaymentStatus.NA },
         deletedAt: null
     };
-
+   
     let aggregationPipeline = [
         { $match: matchQuery },
         {
