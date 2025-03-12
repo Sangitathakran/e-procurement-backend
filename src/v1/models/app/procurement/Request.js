@@ -24,7 +24,7 @@ const RequestSchema = new mongoose.Schema({
         season: { type: String },
         period: { type: Date },
         commodity_id:{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Commodity },
-        standard:{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.commodityStandard },
+        standard:{ type: String },
         substandard:{ type: String }
     },
     address: {
