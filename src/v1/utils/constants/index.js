@@ -57,7 +57,8 @@ const _collectionName = {
     ExternalOrder : "ExternalOrder",
     Scheme: "Scheme",
     commodityStandard:"commodityStandard",
-    SchemeAssign: "SchemeAssign"
+    SchemeAssign: "SchemeAssign",
+    eKharidHaryana:"eKharidProcurement"
 
 }
 
