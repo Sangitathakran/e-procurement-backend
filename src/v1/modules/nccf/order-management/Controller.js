@@ -6,7 +6,7 @@ const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const { _userType, _poAdvancePaymentStatus, _poBatchStatus, _poBatchPaymentStatus } = require('@src/v1/utils/constants');
+const { _userType, _poAdvancePaymentStatus, _poBatchStatus, _poBatchPaymentStatus, _penaltypaymentStatus } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
@@ -824,3 +824,40 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+
+module.exports.penaltyApply = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId, penaltyAmount } = req.body;
+
+        if (!batchId) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch/purchase Id") }] }));
+        }
+
+        if (!penaltyAmount) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("penalty Amount") }] }));
+        }
+
+        const record = await BatchOrderProcess.findOne({ _id: batchId });
+
+        if (!record) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        }
+
+        record.penaltyDetails.penaltyAmount = penaltyAmount;
+        record.penaltyDetails.penaltypaymentStatus =  _penaltypaymentStatus.pending
+
+        await record.save();
+
+        const order = await PurchaseOrderModel.findOne({ _id: record.orderId });
+        
+        order.paymentInfo.penaltyAmount = penaltyAmount
+        order.paymentInfo.penaltyStaus=  _penaltypaymentStatus.pending
+
+        await order.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.updated("Batch") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+})
