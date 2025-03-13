@@ -21,9 +21,11 @@ const RequestSchema = new mongoose.Schema({
         grade: { type: String, required: true },
         quantity: { type: Number, required: true },
         schemeId: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Scheme },
-        standard: { type: String },
-        substandard: { type: String },
-        commodity_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Commodity }
+        season: { type: String },
+        period: { type: Date },
+        commodity_id:{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Commodity },
+        standard:{ type: String },
+        substandard:{ type: String }
     },
     address: {
         deliveryLocation: { type: String, required: false, trim: true },

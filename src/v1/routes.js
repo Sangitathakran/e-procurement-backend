@@ -19,6 +19,8 @@ const { FeatureRoutes } = require("@src/v1/modules/Features/Routes")
 const { distillerRoutes } = require("./modules/distiller/Routes");
 const { nccfRoutes } = require("./modules/nccf/routes");
 const { bankIntegrationRoutes } = require("./modules/bankIntegration/Routes");
+const { dropDownRoutes } = require("./modules/dropDown/Routes");
+
 
 /* Define Your Routes */
 router.use(handlePagination)
@@ -43,5 +45,6 @@ router.use("/warehouse", wareHouseRoutes);
 router.use("/auth", authRoutes)
 router.use("/nccf", nccfRoutes)
 router.use("/bank", bankIntegrationRoutes)
+router.use("/dropdown", dropDownRoutes);
 
 module.exports = { router };

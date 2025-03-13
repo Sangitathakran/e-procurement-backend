@@ -97,11 +97,12 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
     try {
-        const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.query;
+        const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0, paginate = 1 } = req.query;
 
         // Convert page & limit to numbers
         const pageNumber = parseInt(page, 10);
         const pageSize = parseInt(limit, 10);
+        const skip = (page - 1) * pageSize;
 
         // Define search filter (if search is provided)
         const searchFilter = search ? {
@@ -119,8 +120,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
             sortOptions[sortBy] = -1; // Sort by given field in descending order
         }
 
-        // Fetch SLA records with projection
-        let slaRecordsQuery = SLAManagement.aggregate([
+        const pipeline = [
             { $match: searchFilter },
             {
                 $project: {
@@ -145,34 +145,47 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
                 }
             },
             { $sort: sortOptions }
-        ]);
+        ];
+
+        const countPipeline = [...pipeline, { $count: 'totalRecords' }];
+
+        if(paginate == 1){
+            pipeline.push( {$skip: skip }, {$limit: pageSize});
+        }
+
+        // Fetch SLA records with projection
+        let slaRecordsQuery = await SLAManagement.aggregate(pipeline);
+        const totalRecords = await SLAManagement.countDocuments(countPipeline);
+
+        const response = {
+            message:isExport !== 1 ? "SLA records fetched successfully" : 'SLA records exported successfully',
+            status : 200,
+            data : slaRecordsQuery,
+            totalRecords
+        };
 
         // If exporting, return all data
         if (isExport === 1) {
-            const slaRecords = await slaRecordsQuery;
-            return res.status(200).json({
-                status: 200,
-                data: slaRecords,
-                message: "SLA records exported successfully"
-            });
+          //  const slaRecords =  slaRecordsQuery;
+            return res.status(200).json(response);
         }
 
-        // Pagination
-        const slaRecords = await slaRecordsQuery
-            .skip((pageNumber - 1) * pageSize)
-            .limit(pageSize);
+        // // Pagination
+        // const slaRecords = await slaRecordsQuery
+        //     .skip((pageNumber - 1) * pageSize)
+        //     .limit(pageSize);
 
         // Count total records for pagination
-        const totalRecords = await SLAManagement.countDocuments(searchFilter);
+       // const totalRecords = await SLAManagement.countDocuments(countPipeline);
 
-        return res.status(200).json({
-            status: 200,
-            data: slaRecords,
-            totalRecords,
-            currentPage: pageNumber,
-            totalPages: Math.ceil(totalRecords / pageSize),
-            message: "SLA records fetched successfully"
-        });
+
+        if(paginate == 1){
+            response.currentPage = pageNumber;
+            response.limit = pageSize;
+            response.totalPages = Math.ceil(totalRecords / pageSize);
+        }
+
+        return res.status(200).json(response);
 
     } catch (error) {
         console.error("Error fetching SLA records:", error);
@@ -410,7 +423,7 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
 module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
     try {
-        const { schemeData, cna_id, bo_id, slaId } = req.body;
+        const { schemeData, cna_id, bo_id, slaId, sla_id } = req.body;
 
         // Validate input
         if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
@@ -422,7 +435,7 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 
         // Prepare data for bulk insert
         const recordsToInsert = schemeData.map(({ _id, qty }) => ({
-            bo_id, ho_id: cna_id, slaId,
+            bo_id, ho_id: cna_id, sla_id: sla_id,
             scheme_id: _id, // Assuming _id refers to scheme_id
             assignQty: qty,
         }));
@@ -446,11 +459,7 @@ module.exports.getAssignedScheme = async (req, res) => {
     const { slaId, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
     // Initialize matchQuery
-    let matchQuery = { 
-        slaId: new mongoose.Types.ObjectId(slaId),
-        ho_id: { $exists: true, $ne: null },
-        bo_id: { $exists: true, $ne: null }
-     };
+    let matchQuery = { sla_id: new mongoose.Types.ObjectId(slaId) };
 
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(slaId)) {
@@ -478,6 +487,15 @@ module.exports.getAssignedScheme = async (req, res) => {
         },
         { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
         {
+            $lookup: {
+                from: "headoffices", // Adjust this to your actual collection name for branches
+                localField: "ho_id",
+                foreignField: "_id",
+                as: "headOfficeDetails"
+            }
+        },
+        { $unwind: { path: "$headOfficeDetails", preserveNullAndEmptyArrays: true } },
+        {
             $project: {
                 _id: 1,
                 schemeId: '$schemeDetails.schemeId',
@@ -491,6 +509,7 @@ module.exports.getAssignedScheme = async (req, res) => {
                     ]
                 },
                 branchName: '$branchDetails.branchName',
+                headOfficeName: "$headOfficeDetails.company_details.name",
                 createdOn: '$createdAt'
             }
         }
