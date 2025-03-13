@@ -24,11 +24,11 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
     if (search) {
       matchQuery.schemeId = { $regex: search, $options: "i" };
     }
-    if (schemeName) {
+  /*  if (schemeName) {
       matchQuery["schemeDetails.schemeName"] = { $regex: schemeName, $options: "i" };
     }
 
-    console.log("schemeName", schemeName)
+    // console.log("schemeName", schemeName)
     // Commodity filter
     if (commodity) {
       matchQuery["commodityDetails.name"] = { $regex: commodity, $options: "i" };
@@ -43,7 +43,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
     if (status) {
       matchQuery["schemeDetails.status"] = status;
     }
-
+*/
     let aggregationPipeline = [
       {
         $lookup: {
