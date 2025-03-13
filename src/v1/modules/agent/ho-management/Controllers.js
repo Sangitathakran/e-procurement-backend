@@ -345,9 +345,9 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
                 schemeId: 1,
                 schemeName: {
                     $concat: [
-                        "$schemeName", "",
-                        { $ifNull: ["$commodityDetails.name", ""] }, "",
-                        { $ifNull: ["$season", ""] }, "",
+                        "$schemeName", " ",
+                        { $ifNull: ["$commodityDetails.name", ""] }, " ",
+                        { $ifNull: ["$season", ""] }, " ",
                         { $ifNull: ["$period", ""] }
                     ]
                 },
@@ -480,7 +480,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
 
     // Initialize matchQuery
     let matchQuery = { ho_id: new mongoose.Types.ObjectId(ho_id) };
-
+    
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(ho_id)) {
         return res.status(400).json({ message: "Invalid HO Id" });
@@ -522,9 +522,9 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
                 schemeId: "$schemeDetails.schemeId",
                 schemeName: {
                     $concat: [
-                        { $ifNull: [{ $getField: { field: "schemeName", input: "$schemeDetails" } }, ""] }, "",
-                        { $ifNull: [{ $getField: { field: "name", input: "$commodityDetails" } }, ""] }, "",
-                        { $ifNull: [{ $getField: { field: "season", input: "$schemeDetails" } }, ""] }, "",
+                        { $ifNull: [{ $getField: { field: "schemeName", input: "$schemeDetails" } }, ""] }, " ",
+                        { $ifNull: [{ $getField: { field: "name", input: "$commodityDetails" } }, ""] }, " ",
+                        { $ifNull: [{ $getField: { field: "season", input: "$schemeDetails" } }, ""] }, " ",
                         { $ifNull: [{ $getField: { field: "period", input: "$schemeDetails" } }, ""] }
                     ]
                 },

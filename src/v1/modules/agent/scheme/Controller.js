@@ -103,9 +103,9 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
         // schemeName: 1,
         schemeName: {
           $concat: [
-            "$schemeName", "",
-            { $ifNull: ["$commodityDetails.name", ""] }, "",
-            { $ifNull: ["$season", ""] }, "",
+            "$schemeName", " ",
+            { $ifNull: ["$commodityDetails.name", ""] }, " ",
+            { $ifNull: ["$season", ""] }, " ",
             { $ifNull: ["$period", ""] }
           ]
         },
@@ -368,11 +368,11 @@ module.exports.schemeSummary = asyncErrorHandler(async (req, res) => {
           schemeName: {
             $concat: [
               "$schemeDetails.schemeName",
-              "",
+              " ",
               { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
-              "",
+              " ",
               { $ifNull: ["$schemeDetails.season", ""] },
-              "",
+              " ",
               { $ifNull: ["$schemeDetails.period", ""] },
             ],
           },
@@ -522,12 +522,9 @@ module.exports.getBoByScheme = asyncErrorHandler(async (req, res) => {
           // schemeName: "$schemeDetails.schemeName",
           schemeName: {
             $concat: [
-              "$schemeDetails.schemeName",
-              "",
-              { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
-              "",
-              { $ifNull: ["$schemeDetails.season", ""] },
-              "",
+              "$schemeDetails.schemeName", " ",
+              { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, " ",
+              { $ifNull: ["$schemeDetails.season", ""] }, " ",
               { $ifNull: ["$schemeDetails.period", ""] },
             ],
           },
@@ -742,9 +739,9 @@ module.exports.schemeDropdown = asyncErrorHandler(async (req, res) => {
         originalSchemeName: "$schemeName",
         schemeName: {
           $concat: [
-            "$schemeName", "",
-            { $ifNull: ["$commodityDetails.name", ""] }, "",
-            { $ifNull: ["$season", ""] }, "",
+            "$schemeName", " ",
+            { $ifNull: ["$commodityDetails.name", ""] }, " ",
+            { $ifNull: ["$season", ""] }, " ",
             { $ifNull: ["$period", ""] }
           ]
         },
