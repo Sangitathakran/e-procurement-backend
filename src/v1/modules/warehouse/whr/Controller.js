@@ -1028,8 +1028,17 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
           .populate("warehousedetails_id", "basicDetails.warehouseName wareHouse_code")
           .populate("procurementCenter_id", "center_name")
           .populate("seller_id", "basic_details.associate_details.associate_name basic_details.associate_details.organization_name")
-          .populate("req_id", "product.name deliveryDate product.schemeId")
-          .select("_id qty received_on qc_report commodity final_quality_check wareHouse_code receiving_details farmerOrderIds createdAt whr_status");
+          .populate({
+            path: "req_id",
+            select: "product.name deliveryDate product.schemeId",
+            populate: {
+                path: "product.schemeId",
+                model: "Scheme",
+                select: "schemeName",
+            },
+        })
+        .select("_id batchId qty received_on qc_report commodity final_quality_check wareHouse_code receiving_details farmerOrderIds createdAt whr_status")
+
 
       const batchIds = rows.map(row => row._id);
       const whrData = await WhrModel.find({ batch_id: { $in: batchIds } })
