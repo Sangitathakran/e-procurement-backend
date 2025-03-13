@@ -623,7 +623,7 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
         .sort(sortBy)) ?? [];
     if (req.query.search) {
 
-      const pattern = new RegExp(req.query.search, 'i');
+      const pattern = new RegExp(search, 'i');
       records.rows = records.rows.filter(item => {
         if (item.branch_id) {
           return true;
@@ -647,8 +647,7 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
 
     records.rows = records.rows.map(item => {
       let batch = {}
-
-      batch['batchId'] = item.batchId
+      batch['batchId'] = item.batchId,
       batch['associate_name'] = item?.seller_id?.basic_details?.associate_details?.associate_name ?? null
       batch['organization_name'] = item?.seller_id?.basic_details?.associate_details?.organization_name ?? null
       batch['procurement_center'] = item?.procurementCenter_id?.center_name ?? null

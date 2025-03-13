@@ -178,11 +178,10 @@ module.exports.getProcurementStatusList = async (req, res) => {
 
     try {
         const { page, limit = 6, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-
+        
         let query = {
             ...(search ? { reqNo: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
-
         const records = { count: 0 };
         const selectedFields = 'reqNo product.name product.quantity totalQuantity fulfilledQty';
         const fetchedRecords = paginate == 1
