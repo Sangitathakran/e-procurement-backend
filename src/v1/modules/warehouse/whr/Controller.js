@@ -397,7 +397,16 @@ const lotList = async (req, res) => {
   try {
       const { batch_id } = req.query;
       const record = {}
-      record.rows = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1, batchId: 1,  "delivered.delivered_at" : 1  }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" });
+      record.rows = await Batch.findOne({ _id: batch_id })
+      .select({ _id: 1, farmerOrderIds: 1, batchId: 1,  "delivered.delivered_at" : 1, dispatched: 1  })
+      .populate({
+          path: "farmerOrderIds.farmerOrder_id",
+          select: "metaData.name order_no farmer_id",
+          populate: {
+              path: "farmer_id",
+              select: "name"
+          }
+      });
 
       if (!record) {
           return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }))
@@ -633,7 +642,18 @@ const listWHRForDropdown = async (req, res) => {
       "warehousedetails_id": { $in: wareHouseId},
     };
     
-    const batchDetails = await Batch.find(query).select('_id req_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status procurementCenter_id');
+    const batchDetails = await Batch.find(query)
+          .populate({
+            path: "req_id",
+            select: "product.schemeId",
+            populate: {
+                path: "product.schemeId",
+                model: "Scheme",
+                select: "schemeName",
+            },
+        })
+        .populate("warehousedetails_id", "basicDetails.warehouseName wareHouse_code")
+        .select('_id req_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status procurementCenter_id');
     
     const procurementCenterIds = batchDetails.map(data => data.procurementCenter_id);
     const requestIds = batchDetails.map(data => data.req_id);
