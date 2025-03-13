@@ -15,6 +15,7 @@ const whrSchema = new mongoose.Schema({
     rejected_bags: { type: Number, trim: true },
     gain_quantity: { type: Number, trim: true },
     gain_bags: { type: Number, trim: true },
+    whr_document : { type: String, trim : true},
 
     
 }, { timestamps: true });
