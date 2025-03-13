@@ -23,7 +23,7 @@ const validateMobileNumber = async (mobile) => {
 module.exports.payment = async (req, res) => {
 
     try {
-        let { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0, approve_status = "Pending" } = req.query
+        let { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0, approve_status = "Pending", scheme, commodity, branchName, state } = req.query
         // limit = 5
         let query = search ? {
             $or: [
@@ -34,6 +34,7 @@ module.exports.payment = async (req, res) => {
 
         const { portalId, user_id } = req
         const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] } })).map(i => i.req_id)
+        if (commodity) query["product.name"] = { $regex: commodity, $options: 'i' };
 
         const aggregationPipeline = [
             { $match: { _id: { $in: paymentIds }, ...query } },
@@ -77,6 +78,15 @@ module.exports.payment = async (req, res) => {
                 $unwind:{path: "$branch", preserveNullAndEmptyArrays: true}
             },
             {
+                $match: query 
+            },
+            {
+                $match: {
+                    ...(branchName ? { "branch.branchName": { $regex: branchName, $options: "i" } } : {}),
+                    ...(state ? { "branch.state": { $regex: state, $options: "i" } } : {})
+                }
+            },
+            {
                 $lookup: {
                     from: "slas",
                     localField: "sla_id",
@@ -97,6 +107,14 @@ module.exports.payment = async (req, res) => {
             },
             {
                 $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true }
+            },
+            {
+                $match: query 
+            },
+            {
+                $match: {
+                    ...(scheme ? { "scheme.name": { $regex: scheme, $options: "i" } } : {})
+                }
             },
             {
                 $match: {
@@ -178,6 +196,7 @@ module.exports.payment = async (req, res) => {
                     'scheme.schemeName': 1,
                     'batches.batchId': 1,
                     'branch.branchName': 1,
+                    'branch.state': 1,
                     approval_status: 1,
                     qtyPurchased: 1,
                     amountPayable: 1,
