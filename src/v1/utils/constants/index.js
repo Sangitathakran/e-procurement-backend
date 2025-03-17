@@ -459,6 +459,7 @@ const _whr_status = {
     archived: "archived",
     deleted: "deleted",
     created: "created",
+    completed : "completed",
 }
 
 const _frontendLoginRoutes = {
