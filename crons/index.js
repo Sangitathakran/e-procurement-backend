@@ -14,6 +14,7 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const xlsx = require("xlsx");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { _paymentstatus } = require("@src/v1/utils/constants");
+const { saveExternalFarmerData } = require("@src/v1/modules/localFarmers/controller");
 main().catch((err) => console.log(err));
 //update
 async function main() {
@@ -38,6 +39,11 @@ async function main() {
   // });
 
   //await downloadFarmerFile();
+
+   // Schedule the API call at 11 PM daily
+   cron.schedule("0 23 * * *", async () => {
+    await callExternalFarmerAPI(); //saveExternalFarmerData();
+  });
 
 }
 
@@ -210,6 +216,25 @@ async function downloadFarmerFile() {
 
   }
 }
+
+async function callExternalFarmerAPI() {
+  console.log('local farmer api is called ..');
+  try {
+    const date = new Date().toISOString().split("T")[0]; // Get current date (YYYY-MM-DD);
+    const baseUrl = process.env.NODE_ENV === 'local' ? process.env.LOCAL_URL : process.env.LIVE_URL;
+    const apiUrl = `${baseUrl}/v1/localFarmers/save_external_farmer_data?date=${date}`;
+
+    console.log(`Sending POST request to API at 11 PM: ${apiUrl}`);
+
+    const response = await axios.post(apiUrl); 
+
+    console.log("✅ API Response:", response.data);
+  } catch (error) {
+    console.error("❌ Error calling API:", error.message);
+  }
+}
+
+
 
 // In farmerpaymentfiles collection, "fileName" consists of following pattern-
 // ex:  AIZER181124006.csv

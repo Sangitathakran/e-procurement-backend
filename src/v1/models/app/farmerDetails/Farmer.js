@@ -103,14 +103,14 @@ const farmerSchema = new mongoose.Schema({
 
     external_farmer_id: { type: Number, require: true, unique: true },
     hr_p_code: {
-        p_DCodeLGD: { type: String, required: true },  // Example: '64'
-        p_BtCodeLGD: { type: String, required: true }, // Example: '496'
-        p_WvCodeLGD: { type: String, required: true }, // Example: '61939'
-        p_address: { type: String, required: true },   // Example: 'JHAJJAR,MATANHAIL BL,Khaparwas'
-        Dis_code: { type: String, required: true },    // Example: '07'
-        Teh_code: { type: String, required: true },    // Example: '045'
-        Vil_code: { type: String, required: true },    // Example: '03448'
-        statecode: { type: String, required: true },   // Example: '06'
+        p_DCodeLGD: { type: String, required: false },  // Example: '64'
+        p_BtCodeLGD: { type: String, required: false }, // Example: '496'
+        p_WvCodeLGD: { type: String, required: false }, // Example: '61939'
+        p_address: { type: String, required: false },   // Example: 'JHAJJAR,MATANHAIL BL,Khaparwas'
+        Dis_code: { type: String, required: false },    // Example: '07'
+        Teh_code: { type: String, required: false },    // Example: '045'
+        Vil_code: { type: String, required: false },    // Example: '03448'
+        statecode: { type: String, required: false },   // Example: '06'
       },
 
 

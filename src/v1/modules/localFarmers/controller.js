@@ -4,6 +4,7 @@ const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const {
   StateDistrictCity,
 } = require("@src/v1/models/master/StateDistrictCity");
+const districtsMapping = require("@src/v1/utils/constants/haryanaFarmerDist");
 const {
   getState,
   getDistrict,
@@ -13,9 +14,11 @@ const {
 } = require("@src/v1/utils/helpers");
 const axios = require("axios");
 const mongoose = require("mongoose");
+const { Console } = require("winston/lib/winston/transports");
 
 module.exports.saveExternalFarmerData = async (req, res) => {
-  const { date } = req.query;
+  const date = req?.query?.date || new Date().toISOString().split("T")[0];
+
   const api_endpoint = `${process.env.HARYANA_F_API_ENDPOINT}?date=${date}`;
   try {
     const response = await axios.post(api_endpoint, {
@@ -24,12 +27,15 @@ module.exports.saveExternalFarmerData = async (req, res) => {
     });
 
     const farmersData = response?.data?.Payload?.Table;
+  
 
     if (!farmersData || !Array.isArray(farmersData)) {
       return res
         .status(400)
         .json({ success: false, message: "Invalid data format from API" });
     }
+
+    let total = farmersData.length, existing = 0, inserted = 0, updatedLandInfo = 0;
 
     for (const data of farmersData) {
       const existingFarmer = await farmer.findOne({
@@ -65,16 +71,21 @@ module.exports.saveExternalFarmerData = async (req, res) => {
             land.RevenueAreaInAcre === updatedValues.RevenueAreaInAcre
         );
 
+        existingRecord ? existing++ : updatedLandInfo++; 
+
         if (!existingRecord) {
           let newLandObj = await Land.create({
             farmer_id: existingFarmer._id,
             ...updatedValues,
           });
+
         }
       } else {
         const state_id = await getStateId("Haryana");
+        let district_name = districtsMapping.find(obj => obj.original === data?.DIS_NAME)?.mappedTo;
+        console.log({district_name, fdistrict: data?.DIS_NAME});
 
-        let district_id = await getDistrictId(data?.DIS_NAME);
+        let district_id = await getDistrictId(district_name);
 
         // Create new farmer
         const newFarmer = new farmer({
@@ -111,7 +122,7 @@ module.exports.saveExternalFarmerData = async (req, res) => {
             Teh_code: data?.Teh_code,
             Vil_code: data?.Vil_code,
             statecode: data?.statecode,
-          }, // na
+          },
         });
 
         const savedFarmer = await newFarmer.save();
@@ -129,7 +140,6 @@ module.exports.saveExternalFarmerData = async (req, res) => {
 
         savedFarmer.farmer_id = await generateFarmerId(obj);
         await savedFarmer.save();
-
         // Handle Land Data
         const newLand = new Land({
           farmer_id: savedFarmer._id,
@@ -160,13 +170,15 @@ module.exports.saveExternalFarmerData = async (req, res) => {
           CommodityVariety: data?.CommodityVariety,
         });
         await newCrop.save();
+
+        inserted++;
       }
     }
-
+console.log( { total, existing, updatedLandInfo, inserted});
     res.json({
       success: true,
-      message: "Farmers and land data synchronized successfully",
-      data: farmersData,
+      message: "Farmers, land and crop data synchronized successfully",
+      data: { total, existing, inserted, updatedLandInfo },
     });
   } catch (error) {
     console.error("Error syncing farmers:", error);
