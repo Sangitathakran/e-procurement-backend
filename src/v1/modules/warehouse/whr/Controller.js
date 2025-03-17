@@ -420,73 +420,183 @@ const lotList = async (req, res) => {
 }
 
 
+// const lotLevelDetailsUpdate = async (req, res) => {
+//   try {
+//     if (!Array.isArray(req.body)) {
+//       return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Request body should be an array." }] }));
+//     }
+
+//     for (const data of req.body) {
+//       const { batch_id,farmerOrder_id, accepted_quantity, accepted_bags, rejected_quantity, rejected_bags, gain_quantity, gain_bags } = data;
+
+//       if (!mongoose.Types.ObjectId.isValid(batch_id)) {
+//         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('batch_id') }] }));
+//       }
+
+//       const batch = await Batch.findById(batch_id);
+//       if (!batch) {
+//         return res.status(404).send(new serviceResponse({ status: 404, errors: [{ message: "Batch not found." }] }));
+//       }
+
+//       const batch_date = batch.dispatched?.dispatched_at;
+//       const batchId = batch._id;
+//       const parsedAcceptedQuantity = parseInt(accepted_quantity) || 0;
+//       const parsedAcceptedBag = parseInt(accepted_bags) || 0;
+//       const parsedRejectedQuantity = parseInt(rejected_quantity) || 0;
+//       const parsedRejectedBag = parseInt(rejected_bags) || 0;
+//       const parsedQuantityGain = parseInt(gain_quantity) || 0;
+//       const parsedBagGain = parseInt(gain_bags) || 0;
+      
+//       const whrDetails = await WhrModel.findOne({ "batch_id":batchId  });
+//       const farmerOrder = batch.farmerOrderIds.find(
+//         (order) => order.farmerOrder_id.toString() === farmerOrder_id
+//       );
+
+//       if (!farmerOrder) {
+//         return res.status(404).send(new serviceResponse({ status: 404, errors: [{ message: "Farmer order not found in the batch." }] }));
+//       }
+
+//       farmerOrder.rejected_quantity = parsedRejectedQuantity;
+//       farmerOrder.rejected_bags = parsedRejectedBag;
+//       farmerOrder.gain_quantity = parsedQuantityGain;
+//       farmerOrder.gain_bags = parsedBagGain;
+//       farmerOrder.accepted_quantity = parsedAcceptedQuantity;
+//       farmerOrder.accepted_bags = parsedAcceptedBag;
+
+//       await batch.save();
+
+
+//       const lotDetails = batch.farmerOrderIds.map(lot => ({
+//         whr_id: whrDetails._id,
+//         batch_date,
+//         batch_id: batchId,
+//         lot_id: lot.farmerOrder_id,
+//         farmer_name: "Raju",
+//         dispatch_quantity: lot.qty,
+//         dispatch_bag: 2,
+//         accepted_quantity: parsedAcceptedQuantity,
+//         accepted_bags: parsedAcceptedBag,
+//         rejected_quantity: parsedRejectedQuantity,
+//         rejected_bags: parsedRejectedBag,
+//         gain_quantity: parsedQuantityGain,
+//         gain_bags: parsedBagGain
+//       }));
+
+//       for (const lot of lotDetails) {
+//         const WhrDetailData = new WhrDetail(lot);
+//         await WhrDetailData.save();
+//       }
+      
+//     }
+
+//     return res.status(200).send(new serviceResponse({ status: 200, message: "WHR Lot details updated successfully." }));
+//   } catch (error) {
+//     _handleCatchErrors(error, res);
+//   }
+// };
+
+
+
 const lotLevelDetailsUpdate = async (req, res) => {
   try {
-    if (!Array.isArray(req.body)) {
-      return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Request body should be an array." }] }));
+
+    const {
+      warehouse, state, district, fpoPacks, batch_id, scheme, Commodity,
+      whr_date, whr_number, total_accepted_quantity, total_accepted_bag,
+      total_quantity_loss, total_bag_loss, total_quantity_gain, total_bag_gain,
+      whr_type, rows
+    } = req.body;
+
+
+
+    if (!mongoose.Types.ObjectId.isValid(batch_id)) {
+      return res.status(400).send(new serviceResponse({
+        status: 400,
+        errors: [{ message: "Invalid batch_id in request." }]
+      }));
     }
 
-    for (const data of req.body) {
-      const { batch_id,farmerOrder_id, accepted_quantity, accepted_bags, rejected_quantity, rejected_bags, gain_quantity, gain_bags } = data;
-
-      if (!mongoose.Types.ObjectId.isValid(batch_id)) {
-        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('batch_id') }] }));
-      }
-
-      const batch = await Batch.findById(batch_id);
-      if (!batch) {
-        return res.status(404).send(new serviceResponse({ status: 404, errors: [{ message: "Batch not found." }] }));
-      }
-
-      const batch_date = batch.dispatched?.dispatched_at;
-      const batchId = batch._id;
-      const parsedAcceptedQuantity = parseInt(accepted_quantity) || 0;
-      const parsedAcceptedBag = parseInt(accepted_bags) || 0;
-      const parsedRejectedQuantity = parseInt(rejected_quantity) || 0;
-      const parsedRejectedBag = parseInt(rejected_bags) || 0;
-      const parsedQuantityGain = parseInt(gain_quantity) || 0;
-      const parsedBagGain = parseInt(gain_bags) || 0;
-      
-      const whrDetails = await WhrModel.findOne({ "batch_id":batchId  });
-      const farmerOrder = batch.farmerOrderIds.find(
-        (order) => order.farmerOrder_id.toString() === farmerOrder_id
-      );
-
-      if (!farmerOrder) {
-        return res.status(404).send(new serviceResponse({ status: 404, errors: [{ message: "Farmer order not found in the batch." }] }));
-      }
-
-      farmerOrder.rejected_quantity = parsedRejectedQuantity;
-      farmerOrder.rejected_bags = parsedRejectedBag;
-      farmerOrder.gain_quantity = parsedQuantityGain;
-      farmerOrder.gain_bags = parsedBagGain;
-      farmerOrder.accepted_quantity = parsedAcceptedQuantity;
-      farmerOrder.accepted_bags = parsedAcceptedBag;
-
-      await batch.save();
-
-
-      const lotDetails = batch.farmerOrderIds.map(lot => ({
-        whr_id: whrDetails._id,
-        batch_date,
-        batch_id: batchId,
-        lot_id: lot.farmerOrder_id,
-        farmer_name: "Raju",
-        dispatch_quantity: lot.qty,
-        dispatch_bag: 2,
-        accepted_quantity: parsedAcceptedQuantity,
-        accepted_bags: parsedAcceptedBag,
-        rejected_quantity: parsedRejectedQuantity,
-        rejected_bags: parsedRejectedBag,
-        gain_quantity: parsedQuantityGain,
-        gain_bags: parsedBagGain
+    const batch = await Batch.findById(batch_id).lean();
+    if (!batch) {
+      return res.status(404).send(new serviceResponse({
+        status: 404,
+        errors: [{ message: `Batch not found for batch_id: ${batch_id}` }]
       }));
+    }
 
-      for (const lot of lotDetails) {
-        const WhrDetailData = new WhrDetail(lot);
-        await WhrDetailData.save();
+    const whrDetails = await WhrModel.findOne({ batch_id }).lean();
+    const whr_document = rows.length > 0 ? rows[0].whr_document || null : null;
+    const lotDetailsBulkInsert = [];
+
+
+    const whrSave = await new WhrModel({
+      batch_id : batch_id,
+      warehouse,
+      state,
+      district,
+      fpoPacks,
+      scheme,
+      Commodity,
+      whr_date,
+      whr_number,
+      total_accepted_quantity,
+      total_accepted_bag,
+      total_quantity_loss,
+      total_bag_loss,
+      total_quantity_gain,
+      total_bag_gain,
+      whr_type,
+      whr_document
+    }).save();
+
+
+
+    for (const row of rows) {
+      const {
+        lot_id, farmer_name, quantity_purchase, dispatch_date, dispatch_quantity,
+        dispatch_bags, accepted_quantity, accepted_bags, rejected_quantity, rejected_bags,
+        quantity_gain, bag_gain, whr_document
+      } = row;
+
+      const farmerOrder = batch.farmerOrderIds.find(order => order.farmerOrder_id.toString() === lot_id);
+      if (!farmerOrder) {
+        return res.status(404).send(new serviceResponse({
+          status: 404,
+          errors: [{ message: `Farmer order not found in batch for lot_id: ${lot_id}` }]
+        }));
       }
+
+      farmerOrder.rejected_quantity = parseInt(rejected_quantity) || 0;
+      farmerOrder.rejected_bags = parseInt(rejected_bags) || 0;
+      farmerOrder.gain_quantity = parseInt(quantity_gain) || 0;
+      farmerOrder.gain_bags = parseInt(bag_gain) || 0;
+      farmerOrder.accepted_quantity = parseInt(accepted_quantity) || 0;
+      farmerOrder.accepted_bags = parseInt(accepted_bags) || 0;
+      farmerOrder.dispatch_quantity = parseInt(dispatch_quantity) || 0;
+      farmerOrder.dispatch_bags = parseInt(dispatch_bags) || 0;
       
+
+      lotDetailsBulkInsert.push({
+        whr_id: whrDetails?._id || null,
+        batch_date: dispatch_date,
+        batch_id: batch._id,
+        farmerOrder_id : lot_id,
+        farmer_name,
+        dispatch_quantity: parseInt(dispatch_quantity) || 0,
+        dispatch_bag: parseInt(dispatch_bags) || 0,
+        accepted_quantity: parseInt(accepted_quantity) || 0,
+        accepted_bags: parseInt(accepted_bags) || 0,
+        rejected_quantity: parseInt(rejected_quantity) || 0,
+        rejected_bags: parseInt(rejected_bags) || 0,
+        gain_quantity: parseInt(quantity_gain) || 0,
+        gain_bags: parseInt(bag_gain) || 0,
+        whr_document: whr_document || "default-doc.png",
+      });
+    }
+
+    await Batch.findByIdAndUpdate(batch_id, { farmerOrderIds: batch.farmerOrderIds });
+    if (lotDetailsBulkInsert.length) {
+      await WhrDetail.insertMany(lotDetailsBulkInsert);
     }
 
     return res.status(200).send(new serviceResponse({ status: 200, message: "WHR Lot details updated successfully." }));
@@ -494,6 +604,8 @@ const lotLevelDetailsUpdate = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
+
 
 const whrLotDetailsUpdate = async (req, res) => {
   try {
@@ -1062,7 +1174,7 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
 
       const batchIds = rows.map(row => row._id);
       const whrData = await WhrModel.find({ batch_id: { $in: batchIds } })
-          .select("batch_id whr_type");
+          .select("batch_id whr_type whr_number");
 
       const whrMap = {};
       whrData.forEach(whr => {
@@ -1072,14 +1184,16 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
                 whr_number: whr.whr_number 
             };
         });
-    });
+      });
+
+      
 
       const modifiedRows = rows.map(row => ({
           ...row.toObject(),
           whr_type: whrMap[row._id.toString()] || null,
           whr_number: whrMap[row._id.toString()]?.whr_number || null
       }));
-
+      
       const totalCount = await Batch.countDocuments(query);
 
       return res.status(200).send(new serviceResponse({
