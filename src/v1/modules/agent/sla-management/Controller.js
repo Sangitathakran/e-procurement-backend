@@ -95,104 +95,90 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
+    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+ 
+    // Initialize matchQuery
+    let matchQuery = search ? {
+        $or: [
+            { "basic_details.name": { $regex: search, $options: "i" } },
+            { "basic_details.email": { $regex: search, $options: "i" } },
+            { "basic_details.mobile": { $regex: search, $options: "i" } }
+        ],
+        deletedAt: null
+    }
+        : { deletedAt: null };
 
-    try {
-        const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0, paginate = 1 } = req.query;
 
-        // Convert page & limit to numbers
-        const pageNumber = parseInt(page, 10);
-        const pageSize = parseInt(limit, 10);
-        const skip = (page - 1) * pageSize;
-
-        // Define search filter (if search is provided)
-        const searchFilter = search ? {
-            $or: [
-                { "basic_details.name": { $regex: search, $options: "i" } },
-                { "basic_details.email": { $regex: search, $options: "i" } },
-                { "basic_details.mobile": { $regex: search, $options: "i" } }
-            ]
+    let aggregationPipeline = [
+        { $match: matchQuery },
+        {
+            $project: {
+                _id: 1,
+                slaId: 1,
+                email: '$basic_details.email',
+                sla_name: "$basic_details.name",
+                associate_count: { $size: "$associatOrder_id" }, // Count of associated orders
+                address: {
+                    $concat: [
+                        "$address.line1", ", ",
+                        { $ifNull: ["$address.line2", ""] }, ", ",
+                        "$address.city", ", ",
+                        "$address.district", ", ",
+                        "$address.state", ", ",
+                        "$address.pinCode", ", ",
+                        { $ifNull: ["$address.country", ""] }, ", ",
+                    ]
+                },
+                status: 1,
+                poc: "$point_of_contact.name",
+                branch: "$schemes.branch"
+            }
         }
-            : {};
-
-        // Sorting logic (default is createdAt descending)
-        const sortOptions = {};
-        if (sortBy) {
-            sortOptions[sortBy] = -1; // Sort by given field in descending order
-        }
-
-        const pipeline = [
-            { $match: searchFilter },
-            {
-                $project: {
-                    _id: 1,
-                    slaId: 1,
-                    sla_name: "$basic_details.name",
-                    associate_count: { $size: "$associatOrder_id" }, // Count of associated orders
-                    address: {
-                        $concat: [
-                            "$address.line1", ", ",
-                            { $ifNull: ["$address.line2", ""] }, ", ",
-                            "$address.city", ", ",
-                            "$address.district", ", ",
-                            "$address.state", ", ",
-                            "$address.pinCode", ", ",
-                            { $ifNull: ["$address.country", ""] }, ", ",
-                        ]
-                    },
-                    status: 1,
-                    poc: "$point_of_contact.name",
-                    branch: "$schemes.branch"
-                }
-            },
-            { $sort: sortOptions }
-        ];
-
-        const countPipeline = [...pipeline, { $count: 'totalRecords' }];
-
-        if(paginate == 1){
-            pipeline.push( {$skip: skip }, {$limit: pageSize});
-        }
-
-        // Fetch SLA records with projection
-        let slaRecordsQuery = await SLAManagement.aggregate(pipeline);
-        const totalRecords = await SLAManagement.countDocuments(countPipeline);
-
-        const response = {
-            message:isExport !== 1 ? "SLA records fetched successfully" : 'SLA records exported successfully',
-            status : 200,
-            data : slaRecordsQuery,
-            totalRecords
-        };
-
-        // If exporting, return all data
-        if (isExport === 1) {
-          //  const slaRecords =  slaRecordsQuery;
-            return res.status(200).json(response);
-        }
-
-        // // Pagination
-        // const slaRecords = await slaRecordsQuery
-        //     .skip((pageNumber - 1) * pageSize)
-        //     .limit(pageSize);
-
-        // Count total records for pagination
-       // const totalRecords = await SLAManagement.countDocuments(countPipeline);
-
-
-        if(paginate == 1){
-            response.currentPage = pageNumber;
-            response.limit = pageSize;
-            response.totalPages = Math.ceil(totalRecords / pageSize);
-        }
-
-        return res.status(200).json(response);
-
-    } catch (error) {
-        console.error("Error fetching SLA records:", error);
-        return res.status(500).json({
-            status: 500,
-            error: "Internal Server Error"
+    ];
+    if (paginate == 1) {
+        aggregationPipeline.push(
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) }
+        );
+    } else {
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
+    }
+    const rows = await SLAManagement.aggregate(aggregationPipeline);
+    const countPipeline = [
+        { $match: matchQuery },
+        { $count: "total" }
+    ];
+    const countResult = await SLAManagement.aggregate(countPipeline);
+    const count = countResult[0]?.total || 0;
+    const records = { rows, count };
+    if (paginate == 1) {
+        records.page = parseInt(page);
+        records.limit = parseInt(limit);
+        records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
+    }
+    if (isExport == 1) {
+        const record = rows.map((item) => {
+            return {
+                "Scheme Id": item?.schemeId || "NA",
+                "scheme Name": item?.schemeName || "NA",
+                "Scheme Commodity": item?.Schemecommodity || "NA",
+                "season": item?.season || "NA",
+                "period": item?.period || "NA",
+                "procurement": item?.procurement || "NA"
+            };
         });
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Scheme-record.xlsx`,
+                worksheetName: `Scheme-record`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Scheme") }));
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme") }));
     }
 });
 
