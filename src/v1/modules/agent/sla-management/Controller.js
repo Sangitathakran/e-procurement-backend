@@ -115,6 +115,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
             $project: {
                 _id: 1,
                 slaId: 1,
+                email: '$basic_details.email',
                 sla_name: "$basic_details.name",
                 associate_count: { $size: "$associatOrder_id" }, // Count of associated orders
                 address: {
