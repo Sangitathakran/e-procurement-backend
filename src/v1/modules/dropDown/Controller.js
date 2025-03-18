@@ -6,6 +6,10 @@ const {
   commodityStandard,
 } = require("@src/v1/models/master/commodityStandard");
 const { Scheme } = require("@src/v1/models/master/Scheme");
+const {
+  StateDistrictCity,
+} = require("@src/v1/models/master/StateDistrictCity");
+const UserRole = require("@src/v1/models/master/UserRole");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { default: mongoose } = require("mongoose");
 module.exports.scheme = async (req, res) => {
@@ -122,6 +126,76 @@ module.exports.sla_list = async (req, res) => {
     ]);
 
     return sendResponse({ res, message: "", data: sla_list });
+  } catch (err) {
+    console.log("ERROR: ", err);
+    return sendResponse({ status: 500, message: err.message });
+  }
+};
+
+module.exports.getStates = async (req, res) => {
+  try {
+    const state_list = await StateDistrictCity.aggregate([
+      { $unwind: "$states" }, // Unwind the states array to extract individual state objects
+      { 
+        $match: { 
+          "states.deletedAt": null, 
+          "states.status": "active" 
+        } 
+      },
+      { 
+        $project: { 
+          _id: 0, 
+          state_title: "$states.state_title", 
+          state_code: "$states.state_code" 
+        } 
+      }
+    ]);
+
+    return sendResponse({ res, message: "", data: state_list });
+  } catch (err) {
+    console.log("ERROR: ", err);
+    return sendResponse({ res, status: 500, message: err.message });
+  }
+};
+
+module.exports.getCitiesByState = async (req, res) => {
+  try {
+    const { state_code } = req.query; 
+
+    if (!state_code) {
+      return sendResponse({ res, status: 400, message: "State code is required" });
+    }
+
+    const city_list = await StateDistrictCity.aggregate([
+      { $unwind: "$states" }, // Flatten states array
+      { $match: { "states.state_code": state_code, "states.status": "active" } }, // Match state by code
+      { $unwind: "$states.districts" }, // Flatten districts array
+      { $unwind: "$states.districts.cities" }, // Flatten cities array
+      { 
+        $match: { "states.districts.cities.status": "active" } // Filter only active cities
+      },
+      { 
+        $project: { 
+          _id: 0, 
+          city_title: "$states.districts.cities.city_title" 
+        } 
+      }
+    ]);
+
+    return sendResponse({ res, message: "", data: city_list });
+  } catch (err) {
+    console.log("ERROR: ", err);
+    return sendResponse({ res, status: 500, message: err.message });
+  }
+};
+
+
+
+module.exports.getRoles = async (req, res) => {
+  const query = { deletedAt: null };
+  try {
+    const role_list = await UserRole.find({ ...query }, { userRoleName: 1, userRoleType: 1, createdBy: 1, updatedBy:1} );
+    return sendResponse({ res, message: "", data: role_list });
   } catch (err) {
     console.log("ERROR: ", err);
     return sendResponse({ status: 500, message: err.message });
