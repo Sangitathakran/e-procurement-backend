@@ -591,9 +591,12 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
                         basic_details: {
                             associate_details: {
                                 phone: mobile_no,
-                                associate_type: "Organisation",
+                                associate_type: "Society",
                                 email,
                                 organization_name: associate_name,
+                            },
+                            point_of_contact: {
+                                name: poc,
                             },
                         },
                         address: {
@@ -607,9 +610,6 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
                         },
                         company_details: {
                             cin_number,
-                        },
-                        point_of_contact: {
-                            name: poc,
                         },
                         user_type: _userType.associate,
                         is_mobile_verified: true,
