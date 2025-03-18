@@ -561,8 +561,10 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
             const taluka = rec["City"];
             const pinCode = rec["Pin Code"];
             const gst_no = rec["GST No."];
+            const pan_card = rec["Pan number"];
             const cin_number = rec["Cin Number"];
             const poc = rec["POC"];
+            const aadhar_number = rec["Aadhar number"];
             let errors = [];
             let missingFields = [];
             if (!mobile_no) {
@@ -610,6 +612,9 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
                         },
                         company_details: {
                             cin_number,
+                            gst_no,
+                            pan_card,
+                            aadhar_number,
                         },
                         user_type: _userType.associate,
                         is_mobile_verified: true,
