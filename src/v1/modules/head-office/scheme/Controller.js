@@ -88,7 +88,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   aggregationPipeline.push(
     {
       $project: {
-        _id: 1,
+        _id: "$scheme_id",
         // schemeId: 1,
         schemeName: 1,
         createdAt: 1,
