@@ -72,7 +72,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
             $concat: [
               "$schemeDetails.schemeName",
               " ",
-              { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+              { $ifNull: ["$commodityDetails.name", ""] },
               " ",
               { $ifNull: ["$schemeDetails.season", ""] },
               " ",
