@@ -9,6 +9,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { default: axios } = require("axios");
 const express = require("express");
 
 // Helper function to handle missing fields with default values
@@ -23,6 +24,10 @@ const extractField = (
   }
   return expectedType === "number" ? fallbackNumber : fallbackString;
 };
+
+// const KRSH_BWN_FMR_API = process.env.KRSH_BWN_FMR_API;
+const KRSH_BWN_FMR_API =
+  "http://103.127.140.148:8443/api/mfmb/getlanddatafornccf";
 
 module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
   try {
@@ -209,3 +214,31 @@ module.exports.createPaymentSlip = asyncErrorHandler(async (req, res) => {
     );
   }
 });
+
+module.exports.getLandData = async (req, res) => {
+  try {
+    // Extracting date from query params
+    const { date } = req.query;
+
+    // Validate if date is provided
+    if (!date) {
+      return res
+        .status(400)
+        .json({ message: "Date query parameter is required." });
+    }
+
+    const apiUrl = `${KRSH_BWN_FMR_API}?date=${encodeURIComponent(date)}`;
+
+    // Fetching data from external API
+    const response = await axios.post(apiUrl);
+
+    // Sending back the fetched data
+    res.status(200).json(response.data);
+  } catch (error) {
+    console.error("Error fetching land data:", error.response.data.Message);
+    res.status(error.response.status).json({
+      message: "Error fetching land data",
+      error: error.response.data.Message || error.message,
+    });
+  }
+};
