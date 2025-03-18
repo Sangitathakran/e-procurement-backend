@@ -6,6 +6,7 @@ const {
   commodityStandard,
 } = require("@src/v1/models/master/commodityStandard");
 const { Scheme } = require("@src/v1/models/master/Scheme");
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { default: mongoose } = require("mongoose");
 module.exports.scheme = async (req, res) => {
@@ -127,3 +128,16 @@ module.exports.sla_list = async (req, res) => {
     return sendResponse({ status: 500, message: err.message });
   }
 };
+
+module.exports.getStates = async (req, res) => {
+  const query = { deletedAt: null };
+  try {
+    const state_list = await StateDistrictCity.find( { ...query } );
+console.log(state_list);
+    return sendResponse({ res, message: "", data: state_list });
+  } catch (err) {
+    console.log("ERROR: ", err);
+    return sendResponse({ status: 500, message: err.message });
+  }
+};
+
