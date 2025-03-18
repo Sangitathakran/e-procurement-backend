@@ -111,6 +111,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
 });
 */
 
+/*
 module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
   try {
     const {
@@ -309,7 +310,241 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+*/
 
+module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      skip = 0,
+      paginate = 1,
+      sortBy = { createdAt: -1 },
+      search = "",
+      state = "",
+      district = "",
+      commodity = "",
+      schemeName = "",
+      schemeYear = "",
+      isExport = 0,
+    } = req.query;
+
+    const parsedSkip = parseInt(skip) || 0;
+    const parsedLimit = parseInt(limit) || 10;
+    const parsedPage = parseInt(page) || 1;
+
+    // Base query
+    let query = {};
+    if (req.user.user_type === 2 || req.user.user_type === "2") {
+      query.head_office_id = req?.user?.portalId?._id;
+    }
+
+    if (state || district || search || commodity || schemeName || schemeYear) {
+      query.$and = [
+        ...(state ? [{ "sellers.address.registered.state": { $regex: state, $options: "i" } }] : []),
+        ...(district ? [{ "sellers.address.registered.district": { $regex: district, $options: "i" } }] : []),
+        ...(search
+          ? [{
+              $or: [
+                { "branchDetails.branchName": { $regex: search, $options: "i" } },
+                { reqNo: { $regex: search, $options: "i" } },
+              ],
+            }]
+          : []),
+        ...(commodity ? [{ "product.name": { $regex: commodity, $options: "i" } }] : []),
+        ...(schemeName ? [{ "schemeDetails.schemeName": { $regex: schemeName, $options: "i" } }] : []),
+        ...(schemeYear ? [{ "schemeDetails.period": { $regex: schemeYear, $options: "i" } }] : []),
+      ];
+    }
+
+    console.log("Filter Query:", JSON.stringify(query, null, 2));
+
+    // Aggregate query to filter and populate details
+    const aggregateQuery = [
+      {
+        $lookup: {
+          from: "associateoffers",
+          localField: "associatOrder_id",
+          foreignField: "_id",
+          as: "associateOrders",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "associateOrders.seller_id",
+          foreignField: "_id",
+          as: "sellers",
+        },
+      },
+      {
+        $lookup: {
+          from: "branches",
+          localField: "branch_id",
+          foreignField: "_id",
+          as: "branchDetails",
+        },
+      },
+      {
+        $lookup: {
+          from: "slas",
+          localField: "sla_id",
+          foreignField: "_id",
+          as: "slaDetails",
+        },
+      },
+      { $unwind: { path: "$slaDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "schemes",
+          localField: "product.schemeId",
+          foreignField: "_id",
+          as: "schemeDetails",
+        },
+      },
+      { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'commodities',
+          localField: 'commodity_id',
+          foreignField: '_id',
+          as: 'commodityDetails',
+        },
+      },
+      { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+      { $match: query }, // Now filtering happens after lookups
+      { $sort: sortBy },
+      { $skip: parsedSkip },
+      { $limit: parsedLimit },
+      {
+        $project: {
+          reqNo: 1,
+          branch_id: 1,
+          branchName: { $arrayElemAt: ["$branchDetails.branchName", 0] },
+          "product.name": 1,
+          quotedPrice: 1,
+          quoteExpiry: 1,
+          fulfilledQty: 1,
+          deliveryDate: 1,
+          createdAt: 1,
+          sellers: 1,
+          slaName: "$slaDetails.basic_details.name",
+          schemeSeason:"$schemeDetails.season",
+          schemeYear:"$schemeDetails.period",
+          schemeName: {
+            $concat: [
+              "$schemeDetails.schemeName", "",
+              { $ifNull: ["$commodityDetails.name", ""] }, "",
+              { $ifNull: ["$schemeDetails.season", ""] }, " ",
+              { $ifNull: ["$schemeDetails.period", ""] },
+            ],
+          },
+        },
+      },
+    ];
+
+    const records = await RequestModel.aggregate(aggregateQuery);
+    console.log("Records fetched:", records.length);
+
+    // Count query with state and search filters
+    const countQuery = [
+      {
+        $lookup: {
+          from: "associateoffers",
+          localField: "associatOrder_id",
+          foreignField: "_id",
+          as: "associateOrders",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "associateOrders.seller_id",
+          foreignField: "_id",
+          as: "sellers",
+        },
+      },
+      {
+        $lookup: {
+          from: "branches",
+          localField: "branch_id",
+          foreignField: "_id",
+          as: "branchDetails",
+        },
+      },
+      {
+        $lookup: {
+          from: "slas",
+          localField: "sla_id",
+          foreignField: "_id",
+          as: "slaDetails",
+        },
+      },
+      { $unwind: { path: "$slaDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "schemes",
+          localField: "product.schemeId",
+          foreignField: "_id",
+          as: "schemeDetails",
+        },
+      },
+      { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+      { $match: query },
+      { $count: "totalCount" },
+    ];
+
+    const countResult = await RequestModel.aggregate(countQuery);
+    const totalCount = countResult.length > 0 ? countResult[0].totalCount : 0;
+
+    console.log("Total Count:", totalCount);
+
+    // Handle export request
+    if (isExport == 1) {
+      const record = records.map((item) => ({
+        "Order ID": item?.reqNo || "NA",
+        "Branch Office": item?.branchName || "NA",
+        "Commodity": item?.product?.name || "NA",
+        "MSP": item?.quotedPrice || "NA",
+        "EST Delivery": item?.fulfilledQty || "NA",
+        "Completion": item?.deliveryDate || "NA",
+        "Created Date": item?.createdAt || "NA",
+      }));
+
+      if (record.length > 0) {
+        dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Requirement-record.xlsx`,
+          worksheetName: `Requirement-record`,
+        });
+      } else {
+        return sendResponse({
+          res,
+          status: 400,
+          data: [],
+          message: _response_message.notFound("Requirement"),
+        });
+      }
+    } else {
+      // Send paginated data
+      return sendResponse({
+        res,
+        status: 200,
+        data: {
+          rows: records,
+          count: totalCount,
+          page: paginate == 1 ? parsedPage : undefined,
+          limit: paginate == 1 ? parsedLimit : undefined,
+          pages: paginate == 1 ? Math.ceil(totalCount / parsedLimit) : undefined,
+        },
+        message: _response_message.found("Requirement"),
+      });
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    _handleCatchErrors(error, res);
+  }
+});
 
 
 module.exports.requirementById = asyncErrorHandler(async (req, res) => {
@@ -388,7 +623,7 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
         .sort(sortBy)) ?? [];
     if (req.query.search) {
 
-      const pattern = new RegExp(req.query.search, 'i');
+      const pattern = new RegExp(search, 'i');
       records.rows = records.rows.filter(item => {
         if (item.branch_id) {
           return true;
@@ -412,8 +647,7 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
 
     records.rows = records.rows.map(item => {
       let batch = {}
-
-      batch['batchId'] = item.batchId
+      batch['batchId'] = item.batchId,
       batch['associate_name'] = item?.seller_id?.basic_details?.associate_details?.associate_name ?? null
       batch['organization_name'] = item?.seller_id?.basic_details?.associate_details?.organization_name ?? null
       batch['procurement_center'] = item?.procurementCenter_id?.center_name ?? null

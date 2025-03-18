@@ -16,10 +16,13 @@ const { default: mongoose } = require("mongoose");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { User } = require("@src/v1/models/app/auth/User");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { Commodity } = require("@src/v1/models/master/Commodity");
+const { Scheme } = require("@src/v1/models/master/Scheme");
+
 
 module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
-    const { quotedPrice, deliveryDate, name,warehouse_id, commodityImage, grade, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate } = req.body;
+    const { quotedPrice, deliveryDate, name, warehouse_id, commodityImage, grade, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate, commodity_id, schemeId, standard, substandard, sla_id } = req.body;
 
     if (user_type && user_type != _userType.agent) {
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
@@ -43,7 +46,7 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     }
     // console.log('tetetette');
     // console.log('deliveryLocation',deliveryLocation); return false;
-    
+
 
     const record = await RequestModel.create({
         head_office_id,
@@ -56,7 +59,11 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
             name,
             commodityImage,
             grade,
-            quantity: handleDecimal(quantity)
+            quantity: handleDecimal(quantity),
+            schemeId,
+            commodity_id,
+            standard,
+            substandard
         },
         address: {
             deliveryLocation,
@@ -64,6 +71,7 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
             long: handleDecimal(long)
         },
         warehouse_id: warehouse_id,
+        sla_id,
         quoteExpiry: moment(quoteExpiry).toDate(),
         createdBy: user_id
     });
@@ -81,16 +89,16 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
         'basic_details.associate_details.email': { $exists: true }
     }).select('basic_details.associate_details.email basic_details.associate_details.associate_name');
 
-    await Promise.all(
-        users.map(user => {
-            const { email, associate_name } = user.basic_details.associate_details;
-            return emailService.sendProposedQuantityEmail({
-                ...requestData,
-                email,
-                associate_name: associate_name
-            });
-        })
-    );
+    // await Promise.all(
+    //     users.map(user => {
+    //         const { email, associate_name } = user.basic_details.associate_details;
+    //         return emailService.sendProposedQuantityEmail({
+    //             ...requestData,
+    //             email,
+    //             associate_name: associate_name
+    //         });
+    //     })
+    // );
 
     const branchData = await Branches.findOne({ _id: branch_id });
 
@@ -130,10 +138,9 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("procurement") }));
 });
 
-
 module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+    const { page, limit, skip, paginate = 1, sortBy, search = '',cna, scheme, commodity, branchName, sla, isExport = 0 } = req.query
     let query = search ? {
         $or: [
             { "reqNo": { $regex: search, $options: 'i' } },
@@ -141,6 +148,37 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
             { "product.grade": { $regex: search, $options: 'i' } },
         ]
     } : {};
+    if (scheme) {
+        query["product.schemeId"] = await Scheme.findOne({ schemeName: { $regex: scheme, $options: "i" } }).select("_id");
+    }
+    
+    // Filter by commodity name
+    if (commodity) {
+        query["product.name"] = { $regex: commodity, $options: "i" };
+    }
+    
+    // Filter by CNA (Head Office ID)
+    if (cna) {
+        query["head_office_id"] = cna; // Assuming `cna` is the ID of the head office
+    }
+    
+    // Filter by Branch Office Name
+    if (branchName) {
+        const branches = await Branches.find({
+            branchName: { $regex: branchName, $options: "i" }
+        }).select("_id");
+        if (branches.length > 0) {
+            const branchIds = branches.map(branch => branch._id);
+            query["branch_id"] = { $in: branchIds };
+        } else {
+            query["branch_id"] = null; 
+        }
+    }
+    
+    // Filter by SLA (Service Level Agreement) - Assuming SLA is stored in `status` field
+    if (sla) {
+        query["status"] = sla;
+    }
 
     const records = { count: 0 };
 
@@ -148,8 +186,14 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .sort(sortBy)
         .skip(skip)
         .populate({ path: "branch_id", select: "_id branchName branchId" })
-        .populate({path:"warehouse_id",select:"addressDetails"})
+        .populate({ path: "head_office_id", select: "_id company_details.name" })
+        .populate({ path: "sla_id", select: "_id basic_details.name" })
+        .populate({ path: "warehouse_id", select: "addressDetails" })
+        .populate({ path: "product.schemeId", select: "schemeName" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
+
+console.log("Filtered Data:", JSON.stringify(records.rows, null, 2));
+
 
     records.count = await RequestModel.countDocuments(query);
     if (paginate == 1) {
@@ -159,12 +203,12 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
     }
 
     // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
-    
+
     if (isExport == 1) {
 
         const allRecords = await RequestModel.find(query)
-        .sort(sortBy)
-        .populate({ path: "branch_id", select: "_id branchName branchId" });
+            .sort(sortBy)
+            .populate({ path: "branch_id", select: "_id branchName branchId" });
         const record = allRecords.map((item) => {
 
             return {
@@ -186,13 +230,113 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
             });
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("procurement") }))
-
         }
     } else {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
     }
 
 })
+
+// module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
+//     try {
+//         const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = {}, search = '', cna, scheme, commodity, branch, sla, isExport = 0 } = req.query;
+
+//         let query = {};
+
+//         // Search filter
+//         if (search) {
+//             query["$or"] = [
+//                 { "reqNo": { $regex: search, $options: 'i' } },
+//                 { "product.name": { $regex: search, $options: 'i' } },
+//                 { "product.grade": { $regex: search, $options: 'i' } },
+//             ];
+//         }
+
+//         // Filter by Scheme Name
+//         if (scheme) {
+//             query["product.schemeId"] = await Scheme.findOne({ schemeName: { $regex: scheme, $options: "i" } }).select("_id");
+//         }
+
+//         // Filter by Commodity Name
+//         if (commodity) {
+//             query["product.name"] = { $regex: commodity, $options: "i" };
+//         }
+
+//         // Filter by CNA (Head Office ID)
+//         if (cna) {
+//             query["head_office_id"] = cna;
+//         }
+
+//         // Filter by Branch Name
+//         if (branch) {
+//             query["branch_id.branchName"] = { $regex: branch, $options: "i" };
+//         }
+
+//         // Filter by SLA (Status)
+//         if (sla) {
+//             query["status"] = sla;
+//         }
+
+//         console.log("Generated Query:", JSON.stringify(query, null, 2)); // Debugging
+
+//         const records = { count: 0 };
+
+//         if (paginate == 1) {
+//             records.rows = await RequestModel.find(query)
+//                 .sort(sortBy)
+//                 .skip(parseInt(skip))
+//                 .limit(parseInt(limit))
+//                 .populate({ path: "branch_id", select: "_id branchName branchId" })
+//                 .populate({ path: "warehouse_id", select: "addressDetails" })
+//                 .populate({ path: "product.schemeId", select: "schemeName" });
+
+//             records.count = await RequestModel.countDocuments(query);
+//             records.page = parseInt(page);
+//             records.limit = parseInt(limit);
+//             records.pages = records.limit !== 0 ? Math.ceil(records.count / records.limit) : 0;
+//         } else {
+//             records.rows = await RequestModel.find(query)
+//                 .sort(sortBy)
+//                 .populate({ path: "branch_id", select: "_id branchName branchId" })
+//                 .populate({ path: "warehouse_id", select: "addressDetails" })
+//                 .populate({ path: "product.schemeId", select: "schemeName" });
+//             records.count = records.rows.length;
+//         }
+
+//         // If export is requested, prepare data for Excel
+//         if (isExport == 1) {
+//             const allRecords = await RequestModel.find(query)
+//                 .sort(sortBy)
+//                 .populate({ path: "branch_id", select: "_id branchName branchId" });
+
+//             const record = allRecords.map((item) => ({
+//                 "Order Id": item?.reqNo || "NA",
+//                 "BO Name": item?.branch_id?.branchName || "NA",
+//                 "Commodity": item?.product?.name || "NA",
+//                 "Grade": item?.product?.grade || "NA",
+//                 "Quantity": item?.product?.quantity || "NA",
+//                 "MSP": item?.quotedPrice || "NA",
+//                 "Delivery Location": item?.address?.deliveryLocation || "NA"
+//             }));
+
+//             if (record.length > 0) {
+//                 return dumpJSONToExcel(req, res, {
+//                     data: record,
+//                     fileName: `Requirement-record.xlsx`,
+//                     worksheetName: `Requirement-record`
+//                 });
+//             } else {
+//                 return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("procurement") }));
+//             }
+//         }
+
+//         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
+
+//     } catch (error) {
+//         console.error("Error in getProcurement:", error);
+//         return res.status(500).send(new serviceResponse({ status: 500, message: "Internal Server Error", error }));
+//     }
+// });
 
 module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
     const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query;
@@ -292,7 +436,7 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
                 'associate._id': 1,
                 'associate.user_code': 1,
                 'associate.basic_details.associate_details.associate_name': 1,
-                'associate.basic_details.associate_details.organization_name':1
+                'associate.basic_details.associate_details.organization_name': 1
             }
         },
         { $match: query }, // Apply query
@@ -386,7 +530,6 @@ module.exports.getofferedFarmers = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }))
 })
-
 
 module.exports.approveRejectOfferByAgent = asyncErrorHandler(async (req, res) => {
     const { user_id } = req;
@@ -497,10 +640,9 @@ module.exports.getProcurementById = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("order") }))
 })
 
-
 module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
 
-    const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, warehouse_id, commodity_image } = req.body;
+    const { id, name, grade, quantity, msp, delivery_date, procurement_date, expiry_date, ho, bo, warehouse_id, commodity_image, schemeId, commodity_id, standard, substandard, sla_id } = req.body;
 
     const record = await RequestModel.findOne({ _id: id }).populate("head_office_id").populate("branch_id");
 
@@ -524,6 +666,11 @@ module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
 
     record.product.name = name;
     record.product.grade = grade;
+    record.product.schemeId = schemeId;
+    record.product.commodity_id = commodity_id;
+    record.product.standard = standard;
+    record.product.substandard = substandard;
+    record.sla_id = sla_id;
     record.product.quantity = handleDecimal(quantity);
     record.quotedPrice = handleDecimal(msp);
     record.deliveryDate = delivery_date;
@@ -560,22 +707,257 @@ module.exports.deleteRequirement = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.deleted("Requirement") }));
 });
 
-module.exports.getWareHouse=asyncErrorHandler(async(req, res)=>{
-    const { page, limit, skip, sortBy,paginate } = req.query
+module.exports.getWareHouse = asyncErrorHandler(async (req, res) => {
+    const { page, limit, skip, sortBy, paginate } = req.query
     const records = { count: 0 };
     const query = {};
     records.count = await wareHouseDetails.countDocuments();
-    if(paginate==1){
-        records.rows = await wareHouseDetails.find(query).select({addressDetails:1 })
-        .sort(sortBy)
-        .skip(skip)
-        .limit(parseInt(limit))
+    if (paginate == 1) {
+        records.rows = await wareHouseDetails.find(query).select({ addressDetails: 1 })
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit))
         records.page = page
-    records.limit = limit
-    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-    }else{
-        records.rows = await wareHouseDetails.find(query).select({addressDetails:1 ,  "basicDetails.warehouseName" : 1})
-        .sort(sortBy)
+        records.limit = limit
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+    } else {
+        records.rows = await wareHouseDetails.find(query).select({ addressDetails: 1, "basicDetails.warehouseName": 1 })
+            .sort(sortBy)
     }
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found() }))
 })
+
+module.exports.getScheme = asyncErrorHandler(async (req, res) => {
+    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+
+    // Initialize matchQuery
+    let matchQuery = {
+        deletedAt: null
+    };
+    if (search) {
+        matchQuery.schemeId = { $regex: search, $options: "i" };
+    }
+    let aggregationPipeline = [
+        { $match: matchQuery },
+        {
+            $project: {
+                _id: 1,
+                schemeId: 1,
+                schemeName: 1,
+                Schemecommodity: 1,
+                season: 1,
+                period: 1,
+                procurement: 1
+            }
+        }
+    ];
+    if (paginate == 1) {
+        aggregationPipeline.push(
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) }
+        );
+    } else {
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
+    }
+    const rows = await Scheme.aggregate(aggregationPipeline);
+    const countPipeline = [
+        { $match: matchQuery },
+        { $count: "total" }
+    ];
+    const countResult = await Scheme.aggregate(countPipeline);
+    const count = countResult[0]?.total || 0;
+    const records = { rows, count };
+    if (paginate == 1) {
+        records.page = parseInt(page);
+        records.limit = parseInt(limit);
+        records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
+    }
+    if (isExport == 1) {
+        const record = rows.map((item) => {
+            return {
+                "Scheme Id": item?.schemeId || "NA",
+                "scheme Name": item?.schemeName || "NA",
+                "SchemeCommodity": item?.commodity || "NA",
+                "season": item?.season || "NA",
+                "period": item?.period || "NA",
+                "procurement": item?.procurement || "NA"
+            };
+        });
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Scheme-record.xlsx`,
+                worksheetName: `Scheme-record`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Scheme") }));
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme") }));
+    }
+});
+
+module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
+    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+    const { user_id } = req;
+    // Initialize matchQuery
+    let matchQuery = {
+        deletedAt: null
+    };
+    if (search) {
+        matchQuery.commodityId = { $regex: search, $options: "i" };
+    }
+    let aggregationPipeline = [
+        { $match: matchQuery },
+        {
+            $project: {
+                _id: 1,
+                commodityId: 1,
+                name: 1,
+                status: 1,
+                commodityType: 1,
+            }
+        }
+    ];
+    if (paginate == 1) {
+        aggregationPipeline.push(
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) }
+        );
+    } else {
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
+    }
+    const rows = await Commodity.aggregate(aggregationPipeline);
+    const countPipeline = [
+        { $match: matchQuery },
+        { $count: "total" }
+    ];
+    const countResult = await Commodity.aggregate(countPipeline);
+    const count = countResult[0]?.total || 0;
+    const records = { rows, count };
+    if (paginate == 1) {
+        records.page = parseInt(page);
+        records.limit = parseInt(limit);
+        records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
+    }
+    if (isExport == 1) {
+        const record = rows.map((item) => {
+            return {
+                "Order Id": item?.order_id || "NA",
+                "BO Name": item?.branchName || "NA",
+                "Commodity": item?.commodity || "NA",
+                "Grade": item?.grade || "NA",
+                "Quantity": item?.quantityRequired || "NA",
+                "Total Amount": item?.totalAmount || "NA",
+                "Total Penalty Amount": item?.totalPenaltyAmount || "NA",
+                "Payment Status": item?.paymentStatus || "NA"
+            };
+        });
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Commodity-record.xlsx`,
+                worksheetName: `Commodity-record`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Commodity") }));
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Commodity") }));
+    }
+});
+
+module.exports.schemeCommodity = asyncErrorHandler(async (req, res) => {
+    const { scheme_id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+
+    // Initialize matchQuery
+    let matchQuery = {
+        _id: new mongoose.Types.ObjectId(scheme_id),
+        deletedAt: null
+    };
+    if (search) {
+        matchQuery.schemeId = { $regex: search, $options: "i" };
+    }
+    let aggregationPipeline = [
+        { $match: matchQuery },
+        {
+            $lookup: {
+                from: 'commodities',
+                localField: 'commodity_id',
+                foreignField: '_id',
+                as: 'commodityDetails',
+            },
+        },
+        { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+        {
+            $lookup: {
+                from: 'commoditystandards',
+                localField: 'commodityDetails.commodityStandard_id',
+                foreignField: '_id',
+                as: 'commoditystandardsDetails',
+            },
+        },
+        { $unwind: { path: '$commoditystandardsDetails', preserveNullAndEmptyArrays: true } },
+        {
+            $project: {
+                _id: 1,
+                // schemeId: 1,
+                schemeName: 1,
+                Schemecommodity: 1,
+                procurement: 1,
+                comodity_id: "$commodityDetails._id",
+                commodityName: "$commodityDetails.name",
+                standard: "$commoditystandardsDetails.name",
+                subStandard: "$commoditystandardsDetails.subName"
+            }
+        }
+    ];
+    if (paginate == 1) {
+        aggregationPipeline.push(
+            { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
+            { $skip: parseInt(skip) },
+            { $limit: parseInt(limit) }
+        );
+    } else {
+        aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
+    }
+   
+    const rows = await Scheme.aggregate(aggregationPipeline);
+    const countPipeline = [
+        { $match: matchQuery },
+        { $count: "total" }
+    ];
+    const countResult = await Scheme.aggregate(countPipeline);
+    const count = countResult[0]?.total || 0;
+    const records = { rows, count };
+    if (paginate == 1) {
+        records.page = parseInt(page);
+        records.limit = parseInt(limit);
+        records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
+    }
+    if (isExport == 1) {
+        const record = rows.map((item) => {
+            return {
+                "Scheme Id": item?.schemeId || "NA",
+                "scheme Name": item?.schemeName || "NA",
+                "SchemeCommodity": item?.commodity || "NA",
+                "season": item?.season || "NA",
+                "period": item?.period || "NA",
+                "procurement": item?.procurement || "NA"
+            };
+        });
+        if (record.length > 0) {
+            dumpJSONToExcel(req, res, {
+                data: record,
+                fileName: `Scheme-record.xlsx`,
+                worksheetName: `Scheme-record`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Scheme") }));
+        }
+    } else {
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme") }));
+    }
+});

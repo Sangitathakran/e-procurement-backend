@@ -28,7 +28,9 @@ module.exports.farmerList = async (req, res) => {
     } = req.query;
     const skip = (page - 1) * limit;
     const searchFields = ["name", "farmer_id", "farmer_code", "mobile_no"];
-
+    if (/[.*+?^${}()|[\]\\]/.test(search)) {
+      return sendResponse({ res, status: 400, errorCode: 400, errors: [{ message: "Do not use any special character" }], message: "Do not use any special character" })
+    }
     const makeSearchQuery = (searchFields) => {
       let query = {};
       query["$or"] = searchFields.map((item) => ({
@@ -50,17 +52,16 @@ module.exports.farmerList = async (req, res) => {
     const records = { count: 0, rows: [] };
 
     // Get all farmers in one query
-
     if (isExport == 1) {
       const stateDistrictData = await StateDistrictCity.find(
         {},
         { states: 1 }
       ).lean();
-
+  
       // **Step 2: Create lookup maps**
       const stateMap = {};
       const districtMap = {};
-
+  
       stateDistrictData.forEach(({ states }) => {
         states.forEach(({ _id, state_title, districts }) => {
           stateMap[_id.toString()] = state_title;
@@ -78,7 +79,6 @@ module.exports.farmerList = async (req, res) => {
         .sort(sortBy)
         .lean();
       const data = records.rows.map((item) => {
-        // let address = await getAddress(item);
         let address = {
           country: item.address?.country || "",
           state: stateMap[item.address?.state_id] || "",
@@ -136,16 +136,8 @@ module.exports.farmerList = async (req, res) => {
       .sort(sortBy)
       .lean();
 
-    const data = records.rows.map((item) => {
-      // let address = await getAddress(item);
-      let address = {
-        country: item.address.country || "",
-        state: state,
-        district: district,
-        block: item.address.block || "",
-        village: item.address.village || "",
-        pin_code: item.address.pin_code || "",
-      };
+    const data = await Promise.all(records.rows.map(async (item) => {
+      let address = await getAddress(item);
       let basicDetails = item?.basic_details || {};
 
       return {
@@ -159,7 +151,7 @@ module.exports.farmerList = async (req, res) => {
         father_spouse_name:
           item?.parents?.father_name || item?.parents?.mother_name || null,
       };
-    });
+    }));
     records.rows = data;
     records.count = await farmer.countDocuments(query);
     records.page = page;
@@ -258,6 +250,7 @@ module.exports.getAllStateAndDistricts = async (req, res) => {
           districts: 1,
         },
       },
+      { $sort: { label: 1 } }, // Sort states alphabetically
     ]);
 
     return sendResponse({
@@ -277,7 +270,6 @@ module.exports.getStatewiseFarmersCount = async (req, res) => {
     const farmerStates = await farmer.distinct("address.state_id", {
       "address.state_id": { $ne: null },
     });
-
     // Aggregate over the StateDistrictCity collection
     const stateEntries = await StateDistrictCity.aggregate([
       {
