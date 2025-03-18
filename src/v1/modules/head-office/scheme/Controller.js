@@ -42,15 +42,6 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     { $match: matchQuery },
     {
       $lookup: {
-        from: 'commodities',
-        localField: 'commodity_id',
-        foreignField: '_id',
-        as: 'commodityDetails',
-      },
-    },
-    { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
-    {
-      $lookup: {
         from: "schemes",
         localField: "scheme_id",
         foreignField: "_id",
@@ -58,27 +49,24 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
     { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: 'commodities',
+        localField: 'schemeDetails.commodity_id',
+        foreignField: '_id',
+        as: 'commodityDetails',
+      },
+    },
+    { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+   
     // Add schemeName field before filtering
     {
-      // $addFields: {
-      //   schemeName: {
-      //     $concat: [
-      //       "$schemeName",
-      //       " ",
-      //       { $ifNull: ["$commodityDetails.name", ""] },
-      //       " ",
-      //       { $ifNull: ["$season", ""] },
-      //       " ",
-      //       { $ifNull: ["$period", ""] },
-      //     ],
-      //   },
-      // },
-      $addFields: {
+      $addFields: {       
         schemeName: {
           $concat: [
             "$schemeDetails.schemeName",
             " ",
-            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+            { $ifNull: ["$commodityDetails.name", ""] }, // Fixed here
             " ",
             { $ifNull: ["$schemeDetails.season", ""] },
             " ",
@@ -103,11 +91,6 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
         _id: 1,
         // schemeId: 1,
         schemeName: 1,
-        // Schemecommodity: 1,
-        // season: 1,
-        // period: 1,
-        // procurement: 1,
-        // status: 1,
         createdAt: 1,
         schemeId: '$schemeDetails.schemeId',
         Schemecommodity:'$schemeDetails.Schemecommodity',
