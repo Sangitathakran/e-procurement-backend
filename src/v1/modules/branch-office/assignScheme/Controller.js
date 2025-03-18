@@ -103,23 +103,12 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
     aggregationPipeline.push({
       $project: {
         _id: 1,
-        procurementTarget: "$schemeDetails.procurement",
-        procurementAchived: "$assignQty",
+        // procurementTarget: "$schemeDetails.procurement",
+        procurementTarget: "$assignQty",
         schemeId: "$schemeDetails.schemeId",
-        // schemeName: {
-        //   $concat: [
-        //     "$schemeDetails.schemeName",
-        //     "",
-        //     { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
-        //     "",
-        //     { $ifNull: ["$schemeDetails.season", ""] },
-        //     "",
-        //     { $ifNull: ["$schemeDetails.period", ""] },
-        //   ],
-        // },
         schemeName: 1,
-        scheme_id: 1,
-        status: 1,
+        scheme_id: "$schemeDetails._id",
+        status: "$schemeDetails.status",
       },
     });
 
