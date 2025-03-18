@@ -733,7 +733,7 @@ module.exports.editFarmerOffer = async (req, res) => {
     try {
         const { id, receving_date, qtyProcured, procurementCenter_id, weighbridge_name, weighbridge_no, tare_weight,
             gross_weight, net_weight, weight_slip, status = _procuredStatus.received, weighbridge_document, subStandard,
-             no_of_bags, type_of_bags } = req.body;
+            no_of_bags, type_of_bags } = req.body;
         const { user_id } = req;
 
         const record = await FarmerOrders.findOne({ _id: id });
@@ -757,14 +757,14 @@ module.exports.editFarmerOffer = async (req, res) => {
         record.weight_slip = weight_slip;
         record.status = status;
         record.updatedBy = user_id;
-        record.weighbridge_document,
-            record.subStandard,
-            record.no_of_bags,
-            record.type_of_bags,
+        record.weighbridge_document = weighbridge_document,
+        record.subStandard = subStandard,
+        record.no_of_bags = no_of_bags,
+        record.type_of_bags = type_of_bags,
 
-            // Start of Sangita code
+        // Start of Sangita code
 
-            record.qtyRemaining = handleDecimal(qtyProcured);
+        record.qtyRemaining = handleDecimal(qtyProcured);
 
         // End of Sangita code
 
