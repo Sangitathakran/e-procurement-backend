@@ -222,17 +222,20 @@ async function callExternalFarmerAPI() {
   try {
     const date = new Date().toISOString().split("T")[0]; // Get current date (YYYY-MM-DD);
     const baseUrl = process.env.NODE_ENV === 'local' ? process.env.LOCAL_URL : process.env.LIVE_URL;
-    const apiUrl = `${baseUrl}/v1/localFarmers/save_external_farmer_data?date=${date}`;
+    const apiUrl = `${baseUrl}/v1/localFarmers/save_external_farmer_data`;
 
     console.log(`Sending POST request to API at 11 PM: ${apiUrl}`);
 
-    const response = await axios.post(apiUrl); 
+    const response = await axios.post(apiUrl, {
+      dates: [date]
+    }); 
 
     console.log("✅ API Response:", response.data);
   } catch (error) {
     console.error("❌ Error calling API:", error.message);
   }
 }
+
 
 
 

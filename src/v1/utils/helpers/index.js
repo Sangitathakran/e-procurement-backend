@@ -187,14 +187,17 @@ const farmerIdGenerator = async (obj) => {
 
 exports.generateFarmerId = async (obj) => {
   let farmerId;
+  console.log('>>>>>>>>>> FROM GENERATE FARMER ID', obj);
 
-  while (true) {
-    farmerId = await farmerIdGenerator(obj);
-    const existingFarmer = await farmer.findOne({ farmer_id: farmerId });
-    if (!existingFarmer) {
-      return farmerId;
-    }
+ try{ while (true) {
+  farmerId = await farmerIdGenerator(obj);
+  const existingFarmer = await farmer.findOne({ farmer_id: farmerId });
+  if (!existingFarmer) {
+    return farmerId;
   }
+}}catch(err){
+  console.log('ERROR IN GENERATE FARMER ID', err);
+}
 };
 
 exports.generateFileName = async (clientCode) => {

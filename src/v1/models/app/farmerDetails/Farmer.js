@@ -112,7 +112,7 @@ const farmerSchema = new mongoose.Schema({
         Vil_code: { type: String, required: false },    // Example: '03448'
         statecode: { type: String, required: false },   // Example: '06'
       },
-
+    date: { type: String, default: new Date().toISOString().split("T")[0] },
 
     all_steps_completed_status: { type: Boolean, default: false },
     ..._commonKeys

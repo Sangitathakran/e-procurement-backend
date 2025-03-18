@@ -13,6 +13,13 @@ const districtsMapping = [
     { original: 'Rohtak', mappedTo: 'Rohtak' },
     { original: 'Gurugram', mappedTo: 'Gurgaon'},
     { original: 'Jhajjar', mappedTo: 'Jhajjar'},
+    { original: 'Yamunanagar', mappedTo: 'Yamuna Nagar'},
+    { original: 'Palwal', mappedTo: 'Palwal' },
+    { original:'Ambala', mappedTo: 'Ambala'},
+    { original: 'Kurukshetra', mappedTo: 'Kurukshetra'},
+    { original: 'Panipat', mappedTo: 'Panipat'},
+    { original: 'Sonipat', mappedTo: 'Sonipat'},
+    
   ];
 
 
