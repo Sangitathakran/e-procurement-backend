@@ -530,7 +530,7 @@ module.exports.schemeList = async (req, res) => {
     {
       $lookup: {
         from: 'commodities',
-        localField: 'commodity_id',
+        localField: 'schemeDetails.commodity_id',
         foreignField: '_id',
         as: 'commodityDetails',
       },
@@ -538,11 +538,22 @@ module.exports.schemeList = async (req, res) => {
     { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
     {
       $addFields: {
+        // schemeName: {
+        //   $concat: [
+        //     "$schemeDetails.schemeName",
+        //     " ",
+        //     { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+        //     " ",
+        //     { $ifNull: ["$schemeDetails.season", ""] },
+        //     " ",
+        //     { $ifNull: ["$schemeDetails.period", ""] },
+        //   ],
+        // },
         schemeName: {
           $concat: [
             "$schemeDetails.schemeName",
             " ",
-            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+            { $ifNull: ["$commodityDetails.name", ""] }, // Fixed here
             " ",
             { $ifNull: ["$schemeDetails.season", ""] },
             " ",
@@ -572,16 +583,6 @@ module.exports.schemeList = async (req, res) => {
         _id: 1,
         schemeId: 1,
         schemeName: 1,
-        // schemeName: {
-        //   $concat: [
-        //     "$schemeDetails.schemeName", "",
-        //     { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
-        //     { $ifNull: ["$schemeDetails.season", ""] }, "",
-        //     { $ifNull: ["$schemeDetails.period", ""] }
-        //   ]
-        // },
-        // branchName: '$branchDetails.branchName',
-        // branchLocation: '$branchDetails.state',
         scheme_id: 1,
         assignQty: 1,
         status: 1
@@ -667,7 +668,7 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
       }
 
       // Check if the record already exists in SchemeAssign
-      const existingRecord = await SchemeAssign.findOne({ ho_id:user_id, scheme_id: _id });
+      const existingRecord = await SchemeAssign.findOne({ bo_id, scheme_id: _id });
 
       if (existingRecord) {
         // Update existing record
