@@ -530,7 +530,7 @@ module.exports.schemeList = async (req, res) => {
     {
       $lookup: {
         from: 'commodities',
-        localField: 'commodity_id',
+        localField: 'schemeDetails.commodity_id',
         foreignField: '_id',
         as: 'commodityDetails',
       },
@@ -538,11 +538,22 @@ module.exports.schemeList = async (req, res) => {
     { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
     {
       $addFields: {
+        // schemeName: {
+        //   $concat: [
+        //     "$schemeDetails.schemeName",
+        //     " ",
+        //     { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+        //     " ",
+        //     { $ifNull: ["$schemeDetails.season", ""] },
+        //     " ",
+        //     { $ifNull: ["$schemeDetails.period", ""] },
+        //   ],
+        // },
         schemeName: {
           $concat: [
             "$schemeDetails.schemeName",
             " ",
-            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+            { $ifNull: ["$commodityDetails.name", ""] }, // Fixed here
             " ",
             { $ifNull: ["$schemeDetails.season", ""] },
             " ",
