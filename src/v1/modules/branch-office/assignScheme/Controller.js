@@ -104,6 +104,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
       $project: {
         _id: 1,
         procurementTarget: "$schemeDetails.procurement",
+        procurementAchived: "$assignQty",
         schemeId: "$schemeDetails.schemeId",
         // schemeName: {
         //   $concat: [
