@@ -192,8 +192,6 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .populate({ path: "product.schemeId", select: "schemeName" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
-       
-
 console.log("Filtered Data:", JSON.stringify(records.rows, null, 2));
 
 

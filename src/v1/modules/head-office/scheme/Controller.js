@@ -12,9 +12,10 @@ const { mongoose } = require("mongoose");
 
 module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, isExport = 0 } = req.query;
-  const { user_id } = req;
-
-  const Ids = (await SchemeAssign.find({ ho_id: new mongoose.Types.ObjectId(user_id) })).map(i => i.scheme_id);
+  const { user_id, portalId } = req;
+  // console.log(user_id);
+  // console.log(portalId);
+  const Ids = (await SchemeAssign.find({ ho_id: new mongoose.Types.ObjectId(portalId) })).map(i => i.scheme_id);
 
   // Initialize matchQuery
   let matchQuery = {
@@ -34,9 +35,9 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   }
   if (status) {
     matchQuery.status = status.toLowerCase();
-  } 
+  }
   // else {
-    // matchQuery.status = _status.active;
+  // matchQuery.status = _status.active;
   // }
 
   let aggregationPipeline = [
@@ -50,28 +51,28 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
     { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
-      // Add schemeName field before filtering
-      {
-        $addFields: {
-          schemeName: {
-            $concat: [
-              "$schemeName",
-              " ",
-              { $ifNull: ["$commodityDetails.name", ""] },
-              " ",
-              { $ifNull: ["$season", ""] },
-              " ",
-              { $ifNull: ["$period", ""] },
-            ],
-          },
+    // Add schemeName field before filtering
+    {
+      $addFields: {
+        schemeName: {
+          $concat: [
+            "$schemeName",
+            " ",
+            { $ifNull: ["$commodityDetails.name", ""] },
+            " ",
+            { $ifNull: ["$season", ""] },
+            " ",
+            { $ifNull: ["$period", ""] },
+          ],
         },
       },
+    },
   ];
 
-  if(search.trim()){
+  if (search.trim()) {
     aggregationPipeline.push({
       $match: {
-        $or: [{schemeName: { $regex: search, $options: 'i'} }, {schemeId: { $regex: search, $options: 'i'}}]
+        $or: [{ schemeName: { $regex: search, $options: 'i' } }, { schemeId: { $regex: search, $options: 'i' } }]
       }
     });
   }
@@ -80,7 +81,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       $project: {
         _id: 1,
         schemeId: 1,
-         schemeName: 1,
+        schemeName: 1,
         // schemeName: {
         //   $concat: [
         //     "$schemeName",
@@ -113,7 +114,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       $sort: { [sortBy || "createdAt"]: -1, _id: -1 },
     });
   }
-  
+
   const rows = await Scheme.aggregate(aggregationPipeline);
   const countPipeline = [{ $match: matchQuery }, { $count: "total" }];
   const countResult = await Scheme.aggregate(countPipeline);
@@ -230,15 +231,15 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
           schemeId: '$schemeDetails.schemeId'
         },
       },
-     
+
     ];
 
-    if(search.trim()){
+    if (search.trim()) {
       aggregationPipeline.push({
         $match: {
           $or: [
-            {schemeName: { $regex: search, $options: "i"} },
-            { schemeId: {$regex: search, $options: 'i' } }
+            { schemeName: { $regex: search, $options: "i" } },
+            { schemeId: { $regex: search, $options: 'i' } }
           ]
         }
       });
@@ -255,7 +256,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
           bo_id: 1,
           assignQty: 1,
           schemeId: 1,//"$schemeDetails.schemeId",
-           schemeName: 1,
+          schemeName: 1,
           // schemeName: {
           //   $concat: [
           //     "$schemeDetails.schemeName",
@@ -394,15 +395,15 @@ module.exports.getslaByBo = asyncErrorHandler(async (req, res) => {
         }
       },
       { $unwind: { path: "$slaDetails", preserveNullAndEmptyArrays: true } },
-     
+
     ];
 
-    if(search){
+    if (search) {
       aggregationPipeline.push({
         $match: {
-          $or:[
-            {'slaDetails.slaId': {$regex: search, $options:'i'}}, 
-            {'slaDetails.basic_details.name':{ $regex: search, $options: 'i'}}
+          $or: [
+            { 'slaDetails.slaId': { $regex: search, $options: 'i' } },
+            { 'slaDetails.basic_details.name': { $regex: search, $options: 'i' } }
           ]
         }
       });

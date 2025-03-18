@@ -3,7 +3,9 @@ const { payment, associateOrders, batchList, lot_list, AssociateTabPaymentReques
     AssociateTabBatchApprove, AssociateTabGenrateBill, AssociateTabBatchList, associateBillApprove,
     getBill, agentPayments, proceedToPayPaymentRequests, proceedToPayAssociateOrders,
     proceedToPayAssociateTabBatchList, editBill, getBillProceedToPay, agencyBill,
-    associateBillReject, editAssociateBill, proceedToPayPayment, proceedToPayBatchList, paymentLogsHistory, qcReport} = require("./Controller");
+    associateBillReject, editAssociateBill, proceedToPayPayment, proceedToPayBatchList, paymentLogsHistory, qcReport,
+    agentDashboardPaymentList,
+    agentDashboardAssociateList} = require("./Controller");
 
 const { verifyAgent } = require("../utils/verifyAgent");
 const { Auth } = require("@src/v1/middlewares/jwt")
@@ -34,6 +36,9 @@ paymentRoutes.get("/associate-req/genrate-bill", Auth, AssociateTabGenrateBill);
 paymentRoutes.get("/proceed-to-pay-bill-view", Auth, getBillProceedToPay);
 paymentRoutes.patch("/edit-bill", Auth, editBill);
 paymentRoutes.get("/agency-bill", Auth, agencyBill);
+paymentRoutes.get('/agent-dashboard-associate-list', agentDashboardAssociateList);
+paymentRoutes.get('/agent-dashboard-payment-list', agentDashboardPaymentList);
+
 
 // reject case
 paymentRoutes.put("/associate-req/batch-reject", Auth, associateBillReject);
