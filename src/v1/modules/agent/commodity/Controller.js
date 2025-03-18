@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal, dumpJSONToPdf } = require("@src/v1/utils/helpers")
 const { Variety } = require("@src/v1/models/master/Variety");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
@@ -47,8 +47,12 @@ module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
     let matchQuery = {
         deletedAt: null
     };
+
     if (search) {
-        matchQuery.commodityId = { $regex: search, $options: "i" };
+        matchQuery.$or = [
+            { commodityId: { $regex: search, $options: "i" } },
+            { name: { $regex: search, $options: "i" } }  // Search by commodity name
+        ];
     }
     let aggregationPipeline = [
         { $match: matchQuery },
@@ -98,14 +102,12 @@ module.exports.getCommodity = asyncErrorHandler(async (req, res) => {
     if (isExport == 1) {
         const record = rows.map((item) => {
             return {
-                "Order Id": item?.order_id || "NA",
-                "BO Name": item?.branchName || "NA",
+                "Commodity Id": item?.commodityId || "NA",
+                "Name": item?.name || "NA",
                 "Commodity": item?.commodity || "NA",
-                "Grade": item?.grade || "NA",
-                "Quantity": item?.quantityRequired || "NA",
-                "Total Amount": item?.totalAmount || "NA",
-                "Total Penalty Amount": item?.totalPenaltyAmount || "NA",
-                "Payment Status": item?.paymentStatus || "NA"
+                "status": item?.status || "NA",
+                // "standardName": item?.standardName || "NA",
+                "Standard Name": Array.isArray(item?.standardName) ? item.standardName.join(", ") : (item?.standardName || "NA"),
             };
         });
         if (record.length > 0) {
@@ -260,4 +262,29 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
                 message: _response_message.found("Standard"),
             })
         );
+});
+
+module.exports.commodityDropdown = asyncErrorHandler(async (req, res) => {
+    const { search = '' } = req.query;
+
+    let matchQuery = { deletedAt: null };
+
+    if (search) {
+        matchQuery.$or = [
+            { commodityId: { $regex: search, $options: "i" } },
+            { name: { $regex: search, $options: "i" } }
+        ];
+    }
+
+    const records = await Commodity.find(matchQuery).select({'name':1})
+    // .populate({
+    //     path: 'commodityStandard_id',
+    //     select: 'subName',
+    // });
+
+    return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("Commodity")
+    }));
 });

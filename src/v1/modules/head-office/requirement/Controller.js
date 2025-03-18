@@ -403,6 +403,15 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
         },
       },
       { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'commodities',
+          localField: 'commodity_id',
+          foreignField: '_id',
+          as: 'commodityDetails',
+        },
+      },
+      { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
       { $match: query }, // Now filtering happens after lookups
       { $sort: sortBy },
       { $skip: parsedSkip },
@@ -424,10 +433,10 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
           schemeYear:"$schemeDetails.period",
           schemeName: {
             $concat: [
-              "$schemeDetails.schemeName", " ",
-              { $ifNull: ["$schemeDetails.commodityDetails.name", " "] }, " ",
-              { $ifNull: ["$schemeDetails.season", " "] }, " ",
-              { $ifNull: ["$schemeDetails.period", " "] },
+              "$schemeDetails.schemeName", "",
+              { $ifNull: ["$commodityDetails.name", ""] }, "",
+              { $ifNull: ["$schemeDetails.season", ""] }, " ",
+              { $ifNull: ["$schemeDetails.period", ""] },
             ],
           },
         },
@@ -614,7 +623,7 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
         .sort(sortBy)) ?? [];
     if (req.query.search) {
 
-      const pattern = new RegExp(req.query.search, 'i');
+      const pattern = new RegExp(search, 'i');
       records.rows = records.rows.filter(item => {
         if (item.branch_id) {
           return true;
@@ -638,8 +647,7 @@ module.exports.batchListByRequestId = asyncErrorHandler(async (req, res) => {
 
     records.rows = records.rows.map(item => {
       let batch = {}
-
-      batch['batchId'] = item.batchId
+      batch['batchId'] = item.batchId,
       batch['associate_name'] = item?.seller_id?.basic_details?.associate_details?.associate_name ?? null
       batch['organization_name'] = item?.seller_id?.basic_details?.associate_details?.organization_name ?? null
       batch['procurement_center'] = item?.procurementCenter_id?.center_name ?? null

@@ -14,21 +14,21 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
   try {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, commodity, season, isExport = 0 } = req.query;
 
-    const { user_id } = req;
+    const { user_id, portalId } = req;
 
     // Initialize matchQuery
     let matchQuery = {
-      bo_id: new mongoose.Types.ObjectId(user_id),
+      bo_id: new mongoose.Types.ObjectId(portalId),
       deletedAt: null,
     };
     if (search) {
       matchQuery.schemeId = { $regex: search, $options: "i" };
     }
-    if (schemeName) {
+  /*  if (schemeName) {
       matchQuery["schemeDetails.schemeName"] = { $regex: schemeName, $options: "i" };
     }
 
-    console.log("schemeName", schemeName)
+    // console.log("schemeName", schemeName)
     // Commodity filter
     if (commodity) {
       matchQuery["commodityDetails.name"] = { $regex: commodity, $options: "i" };
@@ -43,7 +43,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
     if (status) {
       matchQuery["schemeDetails.status"] = status;
     }
-
+*/
     let aggregationPipeline = [
       {
         $lookup: {

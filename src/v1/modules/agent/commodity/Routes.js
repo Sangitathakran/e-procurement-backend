@@ -1,8 +1,10 @@
 const express = require("express");
-const { getCommodity, getCommodityById, createCommodity, updateCommodity, deleteCommodity, statusUpdateCommodity, standardListByName, getStandard } = require("./Controller");
+const { getCommodity, getCommodityById, createCommodity, updateCommodity, deleteCommodity, statusUpdateCommodity, standardListByName, getStandard, commodityDropdown } = require("./Controller");
 const { Auth } = require("@src/v1/middlewares/jwt");
 const commodityRoutes = express.Router();
 
+
+commodityRoutes.get("/commodityDropdown", Auth, commodityDropdown);
 
 commodityRoutes.get("/standardList", Auth, getStandard);
 commodityRoutes.get("/", Auth, getCommodity);
