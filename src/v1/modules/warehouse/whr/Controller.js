@@ -496,18 +496,14 @@ const lotList = async (req, res) => {
 // };
 
 
-
 const lotLevelDetailsUpdate = async (req, res) => {
   try {
-
     const {
       warehouse, state, district, fpoPacks, batch_id, scheme, Commodity,
       whr_date, whr_number, total_accepted_quantity, total_accepted_bag,
       total_quantity_loss, total_bag_loss, total_quantity_gain, total_bag_gain,
       whr_type, rows
     } = req.body;
-
-
 
     if (!mongoose.Types.ObjectId.isValid(batch_id)) {
       return res.status(400).send(new serviceResponse({
@@ -524,32 +520,30 @@ const lotLevelDetailsUpdate = async (req, res) => {
       }));
     }
 
-    const whrDetails = await WhrModel.findOne({ batch_id }).lean();
+    let whrDetails = await WhrModel.findOne({ batch_id });
+
     const whr_document = rows.length > 0 ? rows[0].whr_document || null : null;
     const lotDetailsBulkInsert = [];
 
-
-    const whrSave = await new WhrModel({
-      batch_id : batch_id,
-      warehouse,
-      state,
-      district,
-      fpoPacks,
-      scheme,
-      Commodity,
-      whr_date,
-      whr_number,
-      total_accepted_quantity,
-      total_accepted_bag,
-      total_quantity_loss,
-      total_bag_loss,
-      total_quantity_gain,
-      total_bag_gain,
-      whr_type,
-      whr_document
-    }).save();
-
-
+    const whr_status = whr_type ? _whr_status.completed : _whr_status.pending;
+    
+    // WHR document exists, update it
+    if (whrDetails) {
+      await WhrModel.findByIdAndUpdate(whrDetails._id, {
+        warehouse, state, district, fpoPacks, scheme, Commodity,
+        whr_date, whr_number, total_accepted_quantity, total_accepted_bag,
+        total_quantity_loss, total_bag_loss, total_quantity_gain, total_bag_gain,
+        whr_type, whr_document
+      });
+    } else {
+      // Create a new WHR document if it does not exist
+      whrDetails = await new WhrModel({
+        batch_id, warehouse, state, district, fpoPacks, scheme, Commodity,
+        whr_date, whr_number, total_accepted_quantity, total_accepted_bag,
+        total_quantity_loss, total_bag_loss, total_quantity_gain, total_bag_gain,
+        whr_type, whr_document
+      }).save();
+    }
 
     for (const row of rows) {
       const {
@@ -574,13 +568,12 @@ const lotLevelDetailsUpdate = async (req, res) => {
       farmerOrder.accepted_bags = parseInt(accepted_bags) || 0;
       farmerOrder.dispatch_quantity = parseInt(dispatch_quantity) || 0;
       farmerOrder.dispatch_bags = parseInt(dispatch_bags) || 0;
-      
 
       lotDetailsBulkInsert.push({
-        whr_id: whrDetails?._id || null,
+        whr_id: whrDetails._id,
         batch_date: dispatch_date,
         batch_id: batch._id,
-        farmerOrder_id : lot_id,
+        farmerOrder_id: lot_id,
         farmer_name,
         dispatch_quantity: parseInt(dispatch_quantity) || 0,
         dispatch_bag: parseInt(dispatch_bags) || 0,
@@ -594,7 +587,11 @@ const lotLevelDetailsUpdate = async (req, res) => {
       });
     }
 
-    await Batch.findByIdAndUpdate(batch_id, { farmerOrderIds: batch.farmerOrderIds });
+    // await Batch.findByIdAndUpdate(batch_id, { farmerOrderIds: batch.farmerOrderIds });
+    await Batch.findByIdAndUpdate(batch_id, { 
+      farmerOrderIds: batch.farmerOrderIds,
+      whr_status
+    });
     if (lotDetailsBulkInsert.length) {
       await WhrDetail.insertMany(lotDetailsBulkInsert);
     }
@@ -604,6 +601,7 @@ const lotLevelDetailsUpdate = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
 
 
 
