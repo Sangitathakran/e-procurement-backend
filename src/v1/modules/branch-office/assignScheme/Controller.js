@@ -85,6 +85,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
           commodity_id: '$schemeDetails.commodity_id',
           scheme_id: 1,
           status: 1,
+          createdAt:1
         },
       },
     ];
@@ -109,6 +110,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         schemeName: 1,
         scheme_id: "$schemeDetails._id",
         status: "$schemeDetails.status",
+        createdAt: "$schemeDetails.createdAt"
       },
     });
 
