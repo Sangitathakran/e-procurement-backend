@@ -51,6 +51,15 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
     { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: 'schemeassigns',
+        localField: '_id',
+        foreignField: 'scheme_id',
+        as: 'schemeAssignesDetails',
+      },
+    },
+    { $unwind: { path: '$schemeAssignesDetails', preserveNullAndEmptyArrays: true } },
     // Add schemeName field before filtering
     {
       $addFields: {
@@ -82,21 +91,11 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
         _id: 1,
         schemeId: 1,
         schemeName: 1,
-        // schemeName: {
-        //   $concat: [
-        //     "$schemeName",
-        //     "",
-        //     { $ifNull: ["$commodityDetails.name", ""] },
-        //     "",
-        //     { $ifNull: ["$season", ""] },
-        //     "",
-        //     { $ifNull: ["$period", ""] },
-        //   ],
-        // },
         Schemecommodity: 1,
         season: 1,
         period: 1,
-        procurement: 1,
+        // procurement: 1,
+        procurement:'$schemeAssignesDetails.assignQty',
         status: 1,
         createdAt: 1
       },
