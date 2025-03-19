@@ -16,6 +16,7 @@ const { User } = require("@src/v1/models/app/auth/User");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
+
 module.exports.getProcurement = async (req, res) => {
     try {
         const { user_id } = req;
@@ -131,7 +132,8 @@ module.exports.getProcurement = async (req, res) => {
                                     "commodityDetails.name": 1,
                                     season: 1,
                                     period: 1,
-                                    _id: 0
+                                    _id: 0,
+                                    procurementDuration:1
                                 }
                             }
                         ],
@@ -169,7 +171,8 @@ module.exports.getProcurement = async (req, res) => {
                         },
                         slaName: { $ifNull: ["$slaDetails.slaName", "N/A"] },
                         headOfficesName: { $ifNull: ["$headOfficeDetails.headOfficesName", "N/A"] },
-                        branchName: { $ifNull: ["$branchDetails.branchName", "N/A"] }
+                        branchName: { $ifNull: ["$branchDetails.branchName", "N/A"] },
+                        procurementDuration: { $ifNull: ["$schemeDetails.procurementDuration", "N/A"] },
                     }
                 },
 
@@ -204,7 +207,7 @@ module.exports.getProcurement = async (req, res) => {
                 ? await RequestModel.find(query).populate({ path: "head_office_id", select: "company_details.name" })
                     .populate({ path: "sla_id", select: "_id basic_details.name" })
                     .populate({ path: "branch_id", select: "branchName" })
-                    .populate({ path: "product.schemeId", select: "schemeName" })
+                    .populate({ path: "product.schemeId", select: "schemeName procurementDuration" })
                     .sort(sortBy || { createdAt: -1 })
                     .skip(parseInt(skip))
                     .limit(parseInt(limit))

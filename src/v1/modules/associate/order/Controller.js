@@ -204,15 +204,14 @@ async function generateBatchId() {
     return batchId;
 }
 
-
 module.exports.editTrackDelivery = async (req, res) => {
 
     try {
 
         const { form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching,
-             loading_unloading, transportation, driage, storageExp, qc_report = [], lab_report = [], name, contact, license, 
-             aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number,
-              intransit_weight_slip, no_of_bags, weight, warehousedetails_id } = req.body;
+            loading_unloading, transportation, driage, storageExp, qc_report = [], lab_report = [], name, contact, license,
+            aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number,
+            intransit_weight_slip, no_of_bags, weight, warehousedetails_id } = req.body;
         const { user_id } = req
 
         const record = await Batch.findOne({ _id: id });
@@ -294,9 +293,9 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.intransit.weight = handleDecimal(weight);
                     record.intransit.intransit_at = new Date();
                     record.intransit.intransit_by = user_id;
-                    
+
                     record.status = _batchStatus.intransit;
-                    record.warehousedetails_id= warehousedetails_id;
+                    record.warehousedetails_id = warehousedetails_id;
 
                     const associateInvoice = await AssociateInvoice.findOne({ batch_id: record?._id });
                     if (reqRec && !associateInvoice) {
@@ -388,116 +387,115 @@ module.exports.viewTrackDelivery = async (req, res) => {
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
         // Modify each record to concatenate schemeName, season, and period
-       
-            records.count = await Batch.countDocuments(query);
 
-            if (paginate == 1) {
-                records.page = page
-                records.limit = limit
-                records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-            }
+        records.count = await Batch.countDocuments(query);
 
-            if (isExport == 1) {
-
-                const record = records.rows.map((item) => {
-                    return {
-                        "Batch ID": item?.batchId || 'NA',
-                        "Quantity": item?.qty || 'NA',
-                        "Dispatched On": item?.dispatched.dispatched_at || 'NA',
-                        "Delivered On": item?.delivered.delivered_at || "NA",
-                        "Procurement Center": item?.procurementCenter_id.center_name || "NA",
-                        "Status": item?.status || "NA",
-                    }
-                })
-
-                if (record.length > 0) {
-                    dumpJSONToExcel(req, res, {
-                        data: record,
-                        fileName: `Batch-${'Batch'}.xlsx`,
-                        worksheetName: `Batch-record-${'Batch'}`
-                    });
-
-                } else {
-                    return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track Order") }] }))
-                }
-            } else {
-                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Track order") }));
-            }
-        } catch (error) {
-            _handleCatchErrors(error, res);
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+                return {
+                    "Batch ID": item?.batchId || 'NA',
+                    "Quantity": item?.qty || 'NA',
+                    "Dispatched On": item?.dispatched.dispatched_at || 'NA',
+                    "Delivered On": item?.delivered.delivered_at || "NA",
+                    "Procurement Center": item?.procurementCenter_id.center_name || "NA",
+                    "Status": item?.status || "NA",
+                }
+            })
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Batch-${'Batch'}.xlsx`,
+                    worksheetName: `Batch-record-${'Batch'}`
+                });
+
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track Order") }] }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Track order") }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
     }
+}
 
 module.exports.trackDeliveryByBatchId = async (req, res) => {
 
-        try {
+    try {
 
-            const { id } = req.params;
-            console.log('check trandsitt', id)
-            const record = await Batch.findOne({ _id: id })
-                .select({ dispatched: 1, intransit: 1, status: 1, delivered: 1 })
-                .populate({
-                    path: 'req_id', select: 'product address'
-                });
+        const { id } = req.params;
+        console.log('check trandsitt', id)
+        const record = await Batch.findOne({ _id: id })
+            .select({ dispatched: 1, intransit: 1, status: 1, delivered: 1 })
+            .populate({
+                path: 'req_id', select: 'product address'
+            });
 
-            if (!record) {
-                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
-            }
-
-            return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Track order") }));
-
-        } catch (error) {
-            _handleCatchErrors(error, res);
+        if (!record) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
         }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Track order") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
     }
+}
 
+module.exports.updateMarkReady = async (req, res) => {
+    try {
+        const { id, material_img = [], weight_slip = [], qc_report = [], lab_report = [] } = req.body;
+        const { user_id } = req;
+        const record = await Batch.findOne({ _id: id });
+        if (!record) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }));
+        }
 
-    module.exports.updateMarkReady = async (req, res) => {
-        try {
-            const { id, material_img = [], weight_slip = [], qc_report = [], lab_report = [] } = req.body;
-            const { user_id } = req;
-            const record = await Batch.findOne({ _id: id });
-            if (!record) {
-                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }));
-            }
-
-            if (record.status == _batchStatus.delivered) {
-                return res.status(400).send(new serviceResponse({
-                    status: 400,
-                    errors: [{ message: "Order already has been delivered." }]
-                }));
-            }
-
-            // Overwrite the arrays with the new payload data
-            record.dispatched.material_img.inital = material_img.map(i => ({ img: i, on: moment() }));
-            record.dispatched.weight_slip.inital = weight_slip.map(i => ({ img: i, on: moment() }));
-            record.dispatched.qc_report.inital = qc_report.map(i => ({ img: i, on: moment() }));
-            record.dispatched.lab_report.inital = lab_report.map(i => ({ img: i, on: moment() }));
-
-            await record.save();
-            return res.status(200).send(new serviceResponse({
-                status: 200,
-                data: record,
-                message: _response_message.updated("batch")
+        if (record.status == _batchStatus.delivered) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                errors: [{ message: "Order already has been delivered." }]
             }));
-        } catch (error) {
-            _handleCatchErrors(error, res);
         }
-    };
 
-    //warehouse list
-    module.exports.warehouseList = async (req, res) => {
-        try {
-            const warehouseList = await (await wareHouseDetails.find({}).select('basicDetails.warehouseName _id')).map(item => ({ label: item.basicDetails.warehouseName, value: item._id }))
-            if (warehouseList.length > 0) {
-                return res.status(200).send(new serviceResponse({ status: 200, data: warehouseList, message: _response_message.found("warehouse list") }))
-            } else {
-                return res.status(200).send(new serviceResponse({
-                    status: 404,
-                    errors: [{ message: "no warehouse found" }]
-                }));
-            }
-        } catch (error) {
-            _handleCatchErrors(error, res);
-        }
+        // Overwrite the arrays with the new payload data
+        record.dispatched.material_img.inital = material_img.map(i => ({ img: i, on: moment() }));
+        record.dispatched.weight_slip.inital = weight_slip.map(i => ({ img: i, on: moment() }));
+        record.dispatched.qc_report.inital = qc_report.map(i => ({ img: i, on: moment() }));
+        record.dispatched.lab_report.inital = lab_report.map(i => ({ img: i, on: moment() }));
+
+        await record.save();
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: record,
+            message: _response_message.updated("batch")
+        }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
     }
+};
+
+//warehouse list
+module.exports.warehouseList = async (req, res) => {
+    try {
+        const warehouseList = await (await wareHouseDetails.find({}).select('basicDetails.warehouseName _id')).map(item => ({ label: item.basicDetails.warehouseName, value: item._id }))
+        if (warehouseList.length > 0) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: warehouseList, message: _response_message.found("warehouse list") }))
+        } else {
+            return res.status(200).send(new serviceResponse({
+                status: 404,
+                errors: [{ message: "no warehouse found" }]
+            }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
