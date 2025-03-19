@@ -119,7 +119,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
     } = req.query;
 
     try {
-        const searchFields = ['basicDetails.warehouseName', 'warehouseOwner.ownerDetails.name'];
+        const searchFields = ['wareHouse_code', 'basicDetails.warehouseName', 'warehouseOwner.ownerDetails.name'];
 
         const makeSearchQuery = (searchFields) => ({
             $or: searchFields.map(item => ({
@@ -128,9 +128,6 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         });
 
         const query = search ? makeSearchQuery(searchFields) : {};
-
-
-
         const pipeline = [
             {
                 $lookup: {
@@ -141,7 +138,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                 }
             },
             { $unwind: { path: "$warehouseOwner", preserveNullAndEmptyArrays: true } },
-            { $match: query },
+            { $match: {...query,active:true} },
             {
                 $project: {
                     wareHouse_code: 1,
@@ -226,6 +223,7 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
             warehousedetails_id: new mongoose.Types.ObjectId(id),
             wareHouse_approve_status: 'Received'
         }
+        const searchField=['user.basic_details.associate_details.associate_name', 'batchId', 'warehouse.wareHouse_code']
         const pipeline = [
             { $match: query },
             {
@@ -257,7 +255,7 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
                 },
             },
             { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
-            { $match: { "user.basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } } },
+            { $match: search ? makeSearchQuery(searchField, search) : {} },
             {
                 $lookup: {
                     from: "procurementcenters",
