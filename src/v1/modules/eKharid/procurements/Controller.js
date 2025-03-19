@@ -78,6 +78,7 @@ module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
         procurementDetails.receivedAtDestinationDate
       ),
       jformApprovalDate: extractField(procurementDetails.jformApprovalDate),
+      mspRateMT: extractField(procurementDetails.mspRateMT, "number"),
     };
 
     const structuredData = {
