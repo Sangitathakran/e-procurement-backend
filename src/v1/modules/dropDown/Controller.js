@@ -2,6 +2,7 @@ const { Associate } = require("@src/v1/models/app/auth/Associate");
 const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Commodity } = require("@src/v1/models/master/Commodity");
 const {
   commodityStandard,
@@ -217,6 +218,26 @@ module.exports.getAssociates = async (req, res) => {
     ]);
 
     return sendResponse({ res, message: "", data: associate_list });
+  } catch (err) {
+    console.log("ERROR: ", err);
+    return sendResponse({ status: 500, message: err.message });
+  }
+};
+
+module.exports.getWarehouses = async (req, res) => {
+  const query = { active: true };
+
+  try {
+    const warehouse_list = await wareHouseDetails.aggregate([
+      { $match: query },
+      {
+        $project: {
+          name: "$basicDetails.warehouseName",
+        },
+      },
+    ]);
+
+    return sendResponse({ res, message: "", data: warehouse_list });
   } catch (err) {
     console.log("ERROR: ", err);
     return sendResponse({ status: 500, message: err.message });
