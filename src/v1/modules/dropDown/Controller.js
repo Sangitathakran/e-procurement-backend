@@ -1,3 +1,4 @@
+const { Associate } = require("@src/v1/models/app/auth/Associate");
 const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
@@ -201,3 +202,25 @@ module.exports.getRoles = async (req, res) => {
     return sendResponse({ status: 500, message: err.message });
   }
 };
+
+module.exports.getAssociates = async (req, res) => {
+  const query = { deletedAt: null };
+
+  try {
+    const associate_list = await Associate.aggregate([
+      { $match: query },
+      {
+        $project: {
+          name: "$basic_details.associate_details.associate_name",
+        },
+      },
+    ]);
+
+    return sendResponse({ res, message: "", data: associate_list });
+  } catch (err) {
+    console.log("ERROR: ", err);
+    return sendResponse({ status: 500, message: err.message });
+  }
+};
+
+
