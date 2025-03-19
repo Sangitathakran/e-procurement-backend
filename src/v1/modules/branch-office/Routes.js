@@ -5,7 +5,10 @@ const { warehouseRoutes } = require("./warehouse/Routes");
 const { procurementCenterRoutes } = require("./procurement_center/Routes");
 const { requirementRoutes } = require("./requirement/Routes");
 const { dashboardRoutes } = require("./dashboard/Routes");
+const { assignSchemeRoutes } = require("./assignScheme/Routes");
+const { slaRoute } = require("./sla-management/Routes");
 const branchOfficeoRoutes = express.Router();
+const { Auth } = require("@src/v1/middlewares/jwt");
 
 
 branchOfficeoRoutes.use("/payment", paymentRoutes);
@@ -13,6 +16,7 @@ branchOfficeoRoutes.use("/warehouse", warehouseRoutes);
 branchOfficeoRoutes.use("/center", procurementCenterRoutes);
 branchOfficeoRoutes.use("/req", requirementRoutes);
 branchOfficeoRoutes.use("/dashboard", dashboardRoutes);
-
+branchOfficeoRoutes.use("/assignScheme", assignSchemeRoutes);
+branchOfficeoRoutes.use("/sla", Auth, slaRoute);
 
 module.exports = { branchOfficeoRoutes };

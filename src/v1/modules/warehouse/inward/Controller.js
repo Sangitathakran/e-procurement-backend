@@ -8,6 +8,7 @@ const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
+const PaymentLogsHistory = require('@src/v1/models/app/procurement/PaymentLogsHistory');
 
 
 // module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
@@ -650,6 +651,7 @@ module.exports.batchApproveOrReject = async (req, res) => {
     try {
         const { batchId, status, product_images = [], qc_images = [] } = req.body;
         const getToken = req.headers.token || req.cookies.token;
+
         if (!getToken) {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
@@ -684,9 +686,24 @@ module.exports.batchApproveOrReject = async (req, res) => {
         record.wareHouse_approve_status = status === "Approved" ? "Approved" : "Rejected";
         record.wareHouse_approve_at = new Date();
         record.wareHouse_approve_by = UserId;
-
+       
         // Save the updated batch record
         await record.save();
+
+        const data=[{
+            batchId:batchId,
+            status:'Approved',
+            actor:'SLA',
+            action: 'Approved',
+            logTime: new Date()
+        },
+        {
+            batchId:batchId,
+            status:'Pending',
+            actor:'Branch Office',
+            action: 'Approved',
+        }]
+        await PaymentLogsHistory.insertMany(data);
 
         return res.status(200).send(new serviceResponse({
             status: 200,
@@ -1117,7 +1134,7 @@ module.exports.getFilterBatchList = async (req, res) => {
 
 module.exports.createExternalBatch = async (req, res) => {
     try {
-        const { batchName, associate_name, procurementCenter, quantity, commodity, warehousedetails_id } = req.body;
+        const { batchName, associate_name, procurementCenter, inward_quantity, commodity, warehousedetails_id } = req.body;
         const { user_id } = req;
 
         const requiredFields = { batchName, procurementCenter, commodity, warehousedetails_id, associate_name };
@@ -1136,7 +1153,7 @@ module.exports.createExternalBatch = async (req, res) => {
             batchName, 
             associate_name, 
             procurementCenter, 
-            quantity: quantity || 0,
+            inward_quantity: inward_quantity || 0,
             commodity : commodity || 'Maize',
             warehousedetails_id
         });
@@ -1145,6 +1162,48 @@ module.exports.createExternalBatch = async (req, res) => {
 
         return res.status(200).send(new serviceResponse({ message: _query.add('External Batch'), data: response }));
 
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.listExternalBatchList = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
+
+        let query = {};
+        if (search) {
+            query["basicDetails.warehouseName"] = { $regex: search, $options: "i" };
+        }
+
+        const records = { count: 0, rows: [] };
+
+        if (paginate == 1) {
+            records.rows = await ExternalBatch.find(query)
+                .populate({
+                    path: "warehousedetails_id",
+                    select: "basicDetails.warehouseName",
+                })
+                .sort(sortBy)
+                .skip(parseInt(skip))
+                .limit(parseInt(limit));
+
+            records.count = await ExternalBatch.countDocuments(query);
+            records.page = parseInt(page);
+            records.limit = parseInt(limit);
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        } else {
+            records.rows = await ExternalOrder.find(query)
+                .populate({
+                    path: "warehousedetails_id",
+                    select: "basicDetails.warehouseName",
+                })
+                .sort(sortBy);
+        }
+
+        return res.status(200).send(
+            new serviceResponse({ status: 200, data: records, message: _response_message.found("ExternalBatch") })
+        );
     } catch (error) {
         _handleCatchErrors(error, res);
     }

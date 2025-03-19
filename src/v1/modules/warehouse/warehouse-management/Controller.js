@@ -36,6 +36,7 @@ module.exports.saveWarehouseDetails = async (req, res) => {
             authorizedPerson,
             bankDetails,
             servicePricing,
+            procurement_partner
         } = req.body;
 
         // Validate required fields

@@ -1,5 +1,5 @@
 const express = require("express");
-const { payment, associateOrders, batchList, batchApprove, qcReport, paymentApprove, getBill, lot_list, agentPaymentList, agentBill, boBillRejection} = require("./Controller");
+const { payment, paymentLogsHistory, associateOrders, batchList, batchApprove, qcReport, paymentApprove, getBill, lot_list, agentPaymentList, agentBill, boBillRejection, verifyOTP, sendOTP} = require("./Controller");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
 const paymentRoutes = express.Router();
@@ -14,16 +14,19 @@ paymentRoutes.patch("/payment-approval", Auth, paymentApprove);
 paymentRoutes.get("/bill-view", Auth, getBill);
 paymentRoutes.get("/agent-payment-list", Auth, agentPaymentList);
 paymentRoutes.get("/agent-bill", Auth, agentBill);
+paymentRoutes.get("/payment-logs", Auth, paymentLogsHistory);
 
 
 /// dileep code 
 
-const { orderList , agencyInvoiceById, boBillApproval } = require("./Controller")
+const { orderList , agencyInvoiceById, boBillApproval } = require("./Controller");
 
 
 paymentRoutes.get('/order-list' ,Auth, orderList)
 paymentRoutes.get('/agency-invoice-byId/:id' ,Auth, agencyInvoiceById)
 paymentRoutes.put("/bill-approval/:id",Auth, boBillApproval);
+paymentRoutes.post("/send-otp", Auth, sendOTP);
+paymentRoutes.post("/verify-otp", Auth, verifyOTP);
 
 // agent bill rejection case 
 paymentRoutes.put("/bill-reject", Auth, boBillRejection)
