@@ -708,7 +708,6 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
   try {
     const { schemeData, bo_id } = req.body;
-    const { user_id } = req;
 
     // Validate input
     if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
@@ -720,26 +719,26 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
       );
     }
 
-    // Extract scheme IDs from input
-    const schemeIds = schemeData.map(({ _id }) => new mongoose.Types.ObjectId(_id));
-
-    // Fetch existing records in one query
-    const existingRecords = await SchemeAssign.find({
-      scheme_id: { $in: schemeIds },
-      bo_id: new mongoose.Types.ObjectId(bo_id),
-    });
-
-    // Create a map for quick lookup
-    const existingRecordsMap = new Map(
-      existingRecords.map((record) => [record.scheme_id.toString(), record])
-    );
-
     let updatedRecords = [];
     let newRecords = [];
 
     for (const { _id, qty } of schemeData) {
-      const scheme_id = new mongoose.Types.ObjectId(_id);
-      const existingRecord = existingRecordsMap.get(scheme_id.toString());
+      // Find the SchemeAssign record using `_id`
+      const schemeAssignRecord = await SchemeAssign.findById(_id);
+      if (!schemeAssignRecord) {
+        return res.status(404).send(
+          new serviceResponse({
+            status: 404,
+            message: `SchemeAssign record with ID ${_id} not found.`,
+          })
+        );
+      }
+
+      // Check if a record already exists for the given `bo_id` and `scheme_id`
+      const existingRecord = await SchemeAssign.findOne({
+        scheme_id: schemeAssignRecord.scheme_id, // Get scheme_id from the found record
+        bo_id: new mongoose.Types.ObjectId(bo_id),
+      });
 
       if (existingRecord) {
         // Update existing record
@@ -747,10 +746,10 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
         await existingRecord.save();
         updatedRecords.push(existingRecord);
       } else {
-        // Insert new record
+        // Insert new record with the correct scheme_id
         newRecords.push({
           bo_id,
-          scheme_id,
+          scheme_id: schemeAssignRecord.scheme_id, // Correctly fetch scheme_id from existing SchemeAssign
           assignQty: qty,
         });
       }
@@ -773,3 +772,4 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
