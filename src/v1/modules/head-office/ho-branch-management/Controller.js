@@ -366,10 +366,10 @@ module.exports.branchList = async (req, res) => {
     //   branchName: { $regex: search, $options: 'i' }        // Case-insensitive search for branchName
     // } : {};
     let searchQuery = {};
-    if(search.trim()){
+    if (search.trim()) {
       searchQuery.$or = [
-        {branchName: { $regex: search, $options: 'i' }},
-        {branchId: { $regex: search, $options: 'i' }}
+        { branchName: { $regex: search, $options: 'i' } },
+        { branchId: { $regex: search, $options: 'i' } }
       ]
     }
 
@@ -563,7 +563,7 @@ module.exports.schemeList = async (req, res) => {
         schemeId: { $ifNull: ["$schemeDetails.schemeId", ""] }
       },
     },
-   
+
   ];
 
   if (search) {
@@ -578,7 +578,7 @@ module.exports.schemeList = async (req, res) => {
   }
 
   aggregationPipeline.push(
-     {
+    {
       $project: {
         _id: 1,
         schemeId: 1,
@@ -635,6 +635,7 @@ module.exports.schemeList = async (req, res) => {
   }
 }
 
+/*
 module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
   try {
     const { schemeData, bo_id } = req.body;
@@ -702,4 +703,73 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+*/
 
+module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
+  try {
+    const { schemeData, bo_id } = req.body;
+    const { user_id } = req;
+
+    // Validate input
+    if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
+      return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          message: "Invalid request. 'bo_id' and 'schemeData' must be provided.",
+        })
+      );
+    }
+
+    // Extract scheme IDs from input
+    const schemeIds = schemeData.map(({ _id }) => new mongoose.Types.ObjectId(_id));
+
+    // Fetch existing records in one query
+    const existingRecords = await SchemeAssign.find({
+      scheme_id: { $in: schemeIds },
+      bo_id: new mongoose.Types.ObjectId(bo_id),
+    });
+
+    // Create a map for quick lookup
+    const existingRecordsMap = new Map(
+      existingRecords.map((record) => [record.scheme_id.toString(), record])
+    );
+
+    let updatedRecords = [];
+    let newRecords = [];
+
+    for (const { _id, qty } of schemeData) {
+      const scheme_id = new mongoose.Types.ObjectId(_id);
+      const existingRecord = existingRecordsMap.get(scheme_id.toString());
+
+      if (existingRecord) {
+        // Update existing record
+        existingRecord.assignQty = qty;
+        await existingRecord.save();
+        updatedRecords.push(existingRecord);
+      } else {
+        // Insert new record
+        newRecords.push({
+          bo_id,
+          scheme_id,
+          assignQty: qty,
+        });
+      }
+    }
+
+    // Bulk insert new records if any
+    if (newRecords.length > 0) {
+      const insertedRecords = await SchemeAssign.insertMany(newRecords);
+      updatedRecords = [...updatedRecords, ...insertedRecords];
+    }
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: updatedRecords,
+        message: _response_message.created("Scheme Assign Updated Successfully"),
+      })
+    );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
