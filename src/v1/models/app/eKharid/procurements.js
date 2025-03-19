@@ -21,6 +21,7 @@ const ProcurementDetailsSchema = new mongoose.Schema({
   destinationWarehouseName: { type: String },
   receivedAtDestinationDate: { type: String },
   jformApprovalDate: { type: String },
+  mspRateMT: { type: Number },
 });
 
 // Payment Details Schema
