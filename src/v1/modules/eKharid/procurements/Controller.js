@@ -25,9 +25,7 @@ const extractField = (
   return expectedType === "number" ? fallbackNumber : fallbackString;
 };
 
-// const KRSH_BWN_FMR_API = process.env.KRSH_BWN_FMR_API;
-const KRSH_BWN_FMR_API =
-  "http://103.127.140.148:8443/api/mfmb/getlanddatafornccf";
+const KRSH_BWN_FMR_API = process.env.KRSH_BWN_FMR_API;
 
 module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
   try {
@@ -86,6 +84,7 @@ module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
       session: extractField(session),
       procurementDetails: procurement,
       paymentDetails: {},
+      warehouseData: {},
     };
 
     try {
@@ -100,6 +99,8 @@ module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
         })
       );
     } catch (err) {
+      console.log(err);
+
       return res.status(400).send(
         new serviceResponse({
           status: 400,
@@ -232,6 +233,8 @@ module.exports.getLandData = async (req, res) => {
     // Fetching data from external API
     const response = await axios.post(apiUrl);
 
+    console.log(response.data);
+
     // Sending back the fetched data
     res.status(200).json(response.data);
   } catch (error) {
@@ -239,6 +242,83 @@ module.exports.getLandData = async (req, res) => {
     res.status(error.response.status).json({
       message: "Error fetching land data",
       error: error.response.data.Message || error.message,
+    });
+  }
+};
+
+module.exports.updateWarehouseData = async (req, res) => {
+  try {
+    const {
+      jformID,
+      exitGatePassId,
+      destinationAddress,
+      warehouseName,
+      warehouseId,
+      inwardDate,
+      truckNo,
+      driverName,
+      transporterName,
+    } = req.body;
+
+    if (!jformID) {
+      return res
+        .status(400)
+        .json({ success: false, message: "jformID is required" });
+    }
+
+    const existingRecord = await eKharidHaryanaProcurementModel.findOne({
+      "procurementDetails.jformID": jformID,
+    });
+
+    if (!existingRecord) {
+      return res.status(404).json({
+        success: false,
+        message: "Record not found for given jformID",
+      });
+    }
+
+    const warehouseUpdate = {
+      "warehouseData.jformID": extractField(jformID, "number"),
+      "warehouseData.exitGatePassId": extractField(exitGatePassId, "number"),
+      "warehouseData.destinationAddress": extractField(destinationAddress),
+      "warehouseData.warehouseName": extractField(warehouseName),
+      "warehouseData.warehouseId": extractField(warehouseId),
+      "warehouseData.inwardDate": extractField(inwardDate),
+      "warehouseData.truckNo": extractField(truckNo),
+      "warehouseData.driverName": extractField(driverName),
+      "warehouseData.transporterName": extractField(transporterName),
+    };
+
+    const isWarehouseDataPresent =
+      existingRecord.warehouseData !== null &&
+      typeof existingRecord.warehouseData === "object";
+
+    if (!isWarehouseDataPresent) {
+      await eKharidHaryanaProcurementModel.updateOne(
+        { "procurementDetails.jformID": jformID },
+        { $set: { warehouseData: warehouseUpdate.warehouseData } }
+      );
+    } else {
+      await eKharidHaryanaProcurementModel.updateOne(
+        { "procurementDetails.jformID": jformID },
+        { $set: warehouseUpdate }
+      );
+    }
+
+    const updatedRecord = await eKharidHaryanaProcurementModel.findOne({
+      "procurementDetails.jformID": jformID,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Warehouse data updated successfully",
+      data: updatedRecord,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: err.message,
     });
   }
 };
