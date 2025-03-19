@@ -1,5 +1,5 @@
 const express = require('express');
-const { scheme, commodity, commodity_standard, bo_list, cna_list, sla_list, getStates, getRoles, getCitiesByState } = require('./Controller');
+const { scheme, commodity, commodity_standard, bo_list, cna_list, sla_list, getStates, getRoles, getCitiesByState, getAssociates } = require('./Controller');
 const { verifyDistiller } = require('../distiller/utils/verifyDistiller');
 
 const dropDownRoutes = express.Router();
@@ -13,6 +13,8 @@ dropDownRoutes.get('/sla', sla_list);
 dropDownRoutes.get('/state', getStates);
 dropDownRoutes.get('/roles', getRoles);
 dropDownRoutes.get('/cities', getCitiesByState);
+dropDownRoutes.get('/associates', getAssociates);
+
 
 
 module.exports = { dropDownRoutes};
