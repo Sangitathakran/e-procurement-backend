@@ -5,6 +5,8 @@ const path = require('path');
 const accessLogPath = path.join(__dirname, 'logs/access.log');
 const errorLogPath = path.join(__dirname, 'logs/error.log');
 const combinedLogPath = path.join(__dirname, 'logs/combined.log');
+const localFarmersLogPath = path.join(__dirname, 'logs/localFarmers.log');
+
 
 
 // Create writable stream for combined logging
@@ -35,4 +37,20 @@ const combinedLogger = winston.createLogger({
     ]
 });
 
-module.exports = { accessLogger, errorLogger, combinedLogger, combinedLogStream };
+// Configure Winston logger for local farmers 
+const localFarmersLogger = winston.createLogger({
+    level: "info",
+    format: winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.printf(({ timestamp, level, message }) => {
+        return `${timestamp} [${level.toUpperCase()}]: ${message}`;
+      })
+    ),
+    transports: [
+      new winston.transports.Console(),
+      new winston.transports.File({ filename: localFarmersLogPath })
+    ],
+  });
+  
+
+module.exports = { accessLogger, errorLogger, combinedLogger, combinedLogStream, localFarmersLogger };
