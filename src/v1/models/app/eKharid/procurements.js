@@ -33,11 +33,25 @@ const PaymentDetailsSchema = new mongoose.Schema({
   reason: { type: String }, // In case of failure
 });
 
+// Warehouse Data Schema
+const WarehouseDataSchema = new mongoose.Schema({
+  jformID: { type: Number }, // Must match with jFormID in procurementDetails
+  exitGatePassId: { type: Number },
+  destinationAddress: { type: String },
+  warehouseName: { type: String },
+  warehouseId: { type: String },
+  inwardDate: { type: String },
+  truckNo: { type: String },
+  driverName: { type: String },
+  transporterName: { type: String },
+});
+
 // Main e-Kharid Schema
 const EKhairidSchema = new mongoose.Schema({
   session: { type: String },
   procurementDetails: { type: ProcurementDetailsSchema },
   paymentDetails: { type: PaymentDetailsSchema },
+  warehouseData: { type: WarehouseDataSchema },
 });
 
 const eKharidHaryanaProcurementModel = mongoose.model(
