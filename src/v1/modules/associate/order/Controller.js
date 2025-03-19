@@ -209,7 +209,10 @@ module.exports.editTrackDelivery = async (req, res) => {
 
     try {
 
-        const { form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching, loading_unloading, transportation, driage, storageExp, qc_report = [], lab_report = [], name, contact, license, aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number, intransit_weight_slip, no_of_bags, weight } = req.body;
+        const { form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching,
+             loading_unloading, transportation, driage, storageExp, qc_report = [], lab_report = [], name, contact, license, 
+             aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number,
+              intransit_weight_slip, no_of_bags, weight, warehousedetails_id } = req.body;
         const { user_id } = req
 
         const record = await Batch.findOne({ _id: id });
@@ -291,8 +294,9 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.intransit.weight = handleDecimal(weight);
                     record.intransit.intransit_at = new Date();
                     record.intransit.intransit_by = user_id;
-
+                    
                     record.status = _batchStatus.intransit;
+                    record.warehousedetails_id= warehousedetails_id;
 
                     const associateInvoice = await AssociateInvoice.findOne({ batch_id: record?._id });
                     if (reqRec && !associateInvoice) {
