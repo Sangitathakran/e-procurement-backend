@@ -17,6 +17,8 @@ const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
+const xlsx = require("xlsx");
+const { validateBranchData } = require("@src/v1/modules/head-office/ho-branch-management/Validations")
 
 module.exports.getHo = async (req, res) => {
 
@@ -54,7 +56,7 @@ module.exports.getHo = async (req, res) => {
                 }
             },
             {
-                $addFields:{
+                $addFields: {
                     schemeAssignedCount: { $size: '$schemeAssigned' }
                 }
             },
@@ -74,7 +76,7 @@ module.exports.getHo = async (req, res) => {
                         head_office_code: 1,
                         active: 1,
                         address: 1,
-                        schemeAssignedCount:1,
+                        schemeAssignedCount: 1,
                         createdAt: 1,
                         updatedAt: 1
                     }
@@ -156,7 +158,7 @@ module.exports.saveHeadOffice = async (req, res) => {
                 firstName: authorised.name,
                 isAdmin: true,
                 email: authorised.email?.trim(),
-                mobile: authorised?.mobile?.trim(),
+                mobile: authorised?.phone?.trim(),
                 password: hashedPassword,
                 user_type: type.user_type,
                 userRole: [type.adminUserRoleId],
@@ -331,15 +333,23 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     let aggregationPipeline = [
         { $match: matchQuery },
         {
+            $lookup: {
+                from: 'commodities',
+                localField: 'commodity_id',
+                foreignField: '_id',
+                as: 'commodityDetails',
+            },
+        },
+        { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+        {
             $project: {
                 _id: 1,
                 schemeId: 1,
-                // schemeName: 1,
                 schemeName: {
                     $concat: [
-                        "$schemeName", "",
-                        { $ifNull: ["$commodityDetails.name", ""] }, "",
-                        { $ifNull: ["$season", ""] }, "",
+                        "$schemeName", " ",
+                        { $ifNull: ["$commodityDetails.name", ""] }, " ",
+                        { $ifNull: ["$season", ""] }, " ",
                         { $ifNull: ["$period", ""] }
                     ]
                 },
@@ -378,7 +388,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
             return {
                 "Scheme Id": item?.schemeId || "NA",
                 "scheme Name": item?.schemeName || "NA",
-                "SchemeCommodity": item?.commodity || "NA",
+                "Scheme Commodity": item?.Schemecommodity || "NA",
                 "season": item?.season || "NA",
                 "period": item?.period || "NA",
                 "procurement": item?.procurement || "NA"
@@ -500,18 +510,27 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         },
         { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
         {
+            $lookup: {
+                from: 'commodities',
+                localField: 'schemeDetails.commodity_id',
+                foreignField: '_id',
+                as: 'commodityDetails',
+            },
+        },
+        { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+        {
             $project: {
                 _id: 1,
-                schemeId: '$schemeDetails.schemeId',
+                schemeId: "$schemeDetails.schemeId",
                 schemeName: {
                     $concat: [
-                        "$schemeName", "",
-                        { $ifNull: ["$commodityDetails.name", " "] }, "",
-                        { $ifNull: ["$season", " "] }, " ",
-                        { $ifNull: ["$period", " "] }
+                        { $ifNull: [{ $getField: { field: "schemeName", input: "$schemeDetails" } }, ""] }, " ",
+                        { $ifNull: [{ $getField: { field: "name", input: "$commodityDetails" } }, ""] }, " ",
+                        { $ifNull: [{ $getField: { field: "season", input: "$schemeDetails" } }, ""] }, " ",
+                        { $ifNull: [{ $getField: { field: "period", input: "$schemeDetails" } }, ""] }
                     ]
                 },
-                headofficeName: '$headOfficeDetails.company_details.name',
+                headofficeName: "$headOfficeDetails.company_details.name",
                 scheme_id: 1,
                 assignQty: 1
             }
@@ -573,7 +592,7 @@ module.exports.getBo = asyncErrorHandler(async (req, res) => {
             status: _status.active,
             ...(search ? { branchName: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }),
         };
-        
+
         let aggregationPipeline = [
             { $match: matchQuery },
             {
@@ -582,7 +601,7 @@ module.exports.getBo = asyncErrorHandler(async (req, res) => {
                     branchId: 1,
                     branchName: 1,
                     emailAddress: 1,
-                    pointOfContact:'$pointOfContact.name',
+                    pointOfContact: '$pointOfContact.name',
                     address: 1,
                     state: 1,
                     status: 1,
@@ -641,5 +660,262 @@ module.exports.getBo = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 })
+
+
+module.exports.importBranches = async (req, res) => {
+    try {
+
+        const { headOfficeId } = req.body;
+        // const headOfficeId = req.user.portalId._id;
+        if (!headOfficeId) {
+            return res.status(403).json({ message: "HeadOffice not found", status: 403 });
+        }
+
+        // Check if the file is provided via the global multer setup
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.fileMissing }));
+        }
+
+        // Access the uploaded file
+        const uploadedFile = req.files[0];
+
+
+        // Read the Excel file using xlsx
+        const workbook = xlsx.read(uploadedFile.buffer, { type: 'buffer' });
+        const sheet_name_list = workbook.SheetNames;
+        const excelData = xlsx.utils.sheet_to_json(workbook.Sheets[sheet_name_list[0]]); // Convert first sheet to JSON
+
+        // Expected headers
+        const expectedHeaders = [
+            'branchName', 'emailAddress', 'pointOfContactName', 'pointOfContactPhone', 'pointOfContactEmail',
+            'address', 'district', 'cityVillageTown', 'state', 'pincode'
+        ];
+
+        // Validate headers
+        const fileHeaders = Object.keys(excelData[0] || {});
+        const missingHeaders = expectedHeaders.filter(header => !fileHeaders.includes(header));
+
+        if (missingHeaders.length > 0) {
+            return res.status(400).send(new serviceResponse({ status: 400, message: `Missing required headers: ${missingHeaders.join(', ')}`, }));
+        }
+
+        // Extract all emailAddresses from the Excel data
+        const emailAddresses = excelData.map(row => row.emailAddress);
+
+        // Check if any of the email addresses already exist in the database
+        const existingBranches = await Branches.find({ emailAddress: { $in: emailAddresses } });
+
+        if (existingBranches.length > 0) {
+            // If there are existing email addresses, send an error response with email address details
+            const existingEmails = existingBranches.map(branch => branch.emailAddress);
+            return res.status(400).json({
+                status: 400,
+                message: `The following email addresses already exist in the system: ${existingEmails.join(', ')}`,
+            });
+        }
+
+        const validationError = await validateBranchData(excelData, expectedHeaders, existingBranches);
+        if (validationError) {
+            return res.status(validationError.status).send(new serviceResponse(validationError));
+        }
+
+        // checking duplicate email and mobile number in masterUser collection
+        const checkExistingEmailAndPhone = await Promise.all(excelData.map(async (item) => {
+            const existingEmail = await MasterUser.findOne({ email: item.pointOfContactEmail })
+            const existingMobile = await MasterUser.findOne({ mobile: item.pointOfContactPhone })
+
+
+            if (existingEmail) {
+                return { message: `Email ${existingEmail.email} is already exist in master`, status: true }
+            }
+
+            if (existingMobile) {
+                return { message: `Mobile number ${existingMobile.mobile} is already exist in master`, status: true }
+            }
+
+            return { message: null, status: false }
+        }))
+
+        const alreadyExisted = checkExistingEmailAndPhone.find(item => item.status)
+
+        if (alreadyExisted) {
+            return sendResponse({ res, status: 400, message: alreadyExisted.message })
+        }
+
+        function checkForDuplicates(data) {
+            const emailSet = new Set();
+            const phoneSet = new Set();
+            const duplicates = [];
+
+            data.forEach((item, index) => {
+                const { pointOfContactEmail, pointOfContactPhone } = item;
+
+                if (emailSet.has(pointOfContactEmail)) {
+                    duplicates.push(`Duplicate email found: ${pointOfContactEmail} at row ${index}`);
+                } else {
+                    emailSet.add(pointOfContactEmail);
+                }
+
+                if (phoneSet.has(pointOfContactPhone)) {
+                    duplicates.push(`Duplicate phone found: ${pointOfContactPhone} at row ${index}`);
+                } else {
+                    phoneSet.add(pointOfContactPhone);
+                }
+            });
+
+            if (duplicates.length > 0) {
+                return duplicates
+            }
+
+            return null
+        }
+
+        //checking duplicate value in excel data
+        const isDuplicate = checkForDuplicates(excelData)
+        if (isDuplicate !== null) {
+            return sendResponse({ res, status: 400, message: isDuplicate[0] })
+        }
+
+        // Parse the rows into Branch objects, with status set to inactive by default
+        const branches = await Promise.all(excelData.map(async (row) => {
+            const password = generateRandomPassword();
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            return {
+                branchName: row.branchName,
+                emailAddress: row.emailAddress,
+                pointOfContact: {
+                    name: row.pointOfContactName,
+                    phone: row.pointOfContactPhone,
+                    email: row.pointOfContactEmail
+                },
+                address: row.address,
+                cityVillageTown: row.cityVillageTown,
+                state: correctStateName(row.state),
+                district: row.district,
+                pincode: row.pincode,
+                status: _status.inactive,
+                headOfficeId: headOfficeId,
+                password: password,
+                hashedPassword: hashedPassword,
+            };
+        }));
+        //this is to get the type object of head office  
+        const type = await TypesModel.findOne({ _id: "67110087f1cae6b6aadc2421" })
+        // Send an email to each branch email address notifying them that the branch has been created
+        const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes.bo}`
+
+
+        // Insert the branches into the database
+        for (const branchData of branches) {
+            // checking the existing user in Master User collectio
+            const newBranchPayload = {
+                branchName: branchData.branchName,
+                emailAddress: branchData.emailAddress,
+                pointOfContact: {
+                    name: branchData.pointOfContact.name,
+                    phone: branchData.pointOfContact.phone.toString(),
+                    email: branchData.pointOfContact.email
+                },
+                address: branchData.address,
+                cityVillageTown: branchData.cityVillageTown,
+                district: branchData.district,
+                state: branchData.state,
+                pincode: branchData.pincode,
+                headOfficeId: headOfficeId,
+                password: branchData.hashedPassword,
+            }
+            const branch = new Branches(newBranchPayload);
+            const newBranch = await branch.save();
+
+
+            if (newBranch._id) {
+                const masterUser = new MasterUser({
+                    firstName: branchData.pointOfContact.name,
+                    isAdmin: true,
+                    email: branchData.pointOfContact.email.trim(),
+                    mobile: branchData.pointOfContact.phone.toString().trim(),
+                    password: branchData.hashedPassword,
+                    user_type: type.user_type,
+                    createdBy: req.user._id,
+                    userRole: [type.adminUserRoleId],
+                    portalId: newBranch._id,
+                    ipAddress: getIpAddress(req)
+                });
+
+                await masterUser.save();
+
+                const emailPayload = {
+                    email: branchData.pointOfContact.email,
+                    name: branchData.pointOfContact.name,
+                    password: branchData.password,
+                    login_url: login_url
+                }
+
+                await emailService.sendBoCredentialsEmail(emailPayload);
+
+            } else {
+
+                throw new Error("branch office not created")
+            }
+        }
+
+        return res
+            .status(200)
+            .send(
+                new serviceResponse({
+                    status: 200,
+                    message: _response_message.importSuccess(),
+                    // data:branches
+                })
+            );
+    } catch (err) {
+        _handleCatchErrors(err, res);
+    }
+};
+
+function checkForDuplicates(data) {
+    const emailSet = new Set();
+    const phoneSet = new Set();
+    const duplicates = [];
+
+    data.forEach((item, index) => {
+        const { pointOfContactEmail, pointOfContactPhone } = item;
+
+        if (emailSet.has(pointOfContactEmail)) {
+            duplicates.push(`Duplicate email found: ${pointOfContactEmail} at row ${index}`);
+        } else {
+            emailSet.add(pointOfContactEmail);
+        }
+
+        if (phoneSet.has(pointOfContactPhone)) {
+            duplicates.push(`Duplicate phone found: ${pointOfContactPhone} at row ${index}`);
+        } else {
+            phoneSet.add(pointOfContactPhone);
+        }
+    });
+
+    if (duplicates.length > 0) {
+        return duplicates
+    }
+
+    return null
+}
+
+function correctStateName(state) {
+    let correctedState = state.replace(/_/g, ' ');
+
+    // Replace "and" with "&" for specific states
+    if (
+        correctedState === 'Dadra and Nagar Haveli' ||
+        correctedState === 'Andaman and Nicobar' ||
+        correctedState === 'Daman and Diu' ||
+        correctedState === 'Jammu and Kashmir'
+    ) {
+        correctedState = correctedState.replace('and', '&');
+    }
+
+    return correctedState.trim();
+}
 
 // End of Sangita Code

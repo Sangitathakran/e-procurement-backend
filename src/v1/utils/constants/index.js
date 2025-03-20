@@ -58,7 +58,9 @@ const _collectionName = {
     Scheme: "Scheme",
     SLA: "SLA",
     commodityStandard: "commodityStandard",
-    SchemeAssign: "SchemeAssign"
+    SchemeAssign: "SchemeAssign",
+    CCAvenueResponse:"CCAvenueResponse",
+    PaymentLogsHistory: "PaymentLogsHistory",
 
 }
 
@@ -527,7 +529,8 @@ const _qualityType = {
 const _season = {
     Kharif: 'Kharif',
     Rabi: "Rabi",
-    Zaid: 'Zaid'
+    Zaid: 'Zaid',
+    Other:'Other'
 }
 const _period = {
     currentYear: '2025',
@@ -549,6 +552,25 @@ const _schemeName = {
     PDPS: 'PDPS',
     PPPS: "PPPS",
     Open: "Open"
+}
+
+const _ccAvenuePaymentStatus = {
+    SUCCESS : "Success",
+    DECLINED : "Unsuccessful",
+    ABORTED_SYSTEM : "Aborted/ Transaction aborted by system",
+    ABORTED_BANK : "Aborted/ Transaction aborted at the bank end",
+    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    INITIATED : "Initiated",
+    AUTO_CANCELLED : "Auto-Cancelled",
+    AUTO_REVERSED : "Auto-Reversed",
+    AWAITED : "Awaited",
+    INVALID : "Invalid",
+    CANCELLED : "Cancelled",
+    SHIPPED : "Shipped",
+    TIMEOUT : "Timeout",
+    UNKNOWN : "Unknown",
+    FAILURE : "Failure"
 }
 
 module.exports = {
@@ -621,5 +643,6 @@ module.exports = {
     _season,
     _period,
     _centralNodalAgency,
-    _schemeName
+    _schemeName,
+    _ccAvenuePaymentStatus
 }

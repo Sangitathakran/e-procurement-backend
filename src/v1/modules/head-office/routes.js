@@ -25,4 +25,3 @@ headOfficeRoutes.use("/sla", Auth, slaRoute)
 
 
 module.exports = { headOfficeRoutes }
-

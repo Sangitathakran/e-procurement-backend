@@ -12,10 +12,20 @@ const Readable = require('stream').Readable;
 module.exports.getProcurementCenter = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, associateName, state, city } = req.query
         let query = {
             ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
+        if (associateName) {
+            query["user_id.basic_details.associate_details.associate_name"] = { $regex: `^${associateName}$`, $options: "i" };
+        }
+
+        if (state) {
+            query["address.state"] = { $regex: state, $options: "i" };
+        }
+        if (city) {
+            query["address.city"] = { $regex: city, $options: "i" };
+        }
         const records = { count: 0 };
         records.rows = paginate == 1
             ? await ProcurementCenter.find(query)

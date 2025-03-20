@@ -7,7 +7,7 @@ const slaRoute = express.Router();
 slaRoute.post("/schemeAssign", Auth, schemeAssign);
 slaRoute.get("/getAssignedScheme", Auth, getAssignedScheme);
 
-slaRoute.post("/", createSLA);
+slaRoute.post("/", Auth, createSLA);
 slaRoute.get("/", getSLAList);
 slaRoute.get("/:slaId", getSLAById);
 slaRoute.put("/:slaId", updateSLA);

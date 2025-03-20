@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal, dumpJSONToPdf } = require("@src/v1/utils/helpers");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const {
@@ -12,50 +12,97 @@ const { mongoose } = require("mongoose");
 
 module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, isExport = 0 } = req.query;
+  const { user_id, portalId } = req;
+  // console.log(user_id);
+  // console.log(portalId);
+  const Ids = (await SchemeAssign.find({ ho_id: new mongoose.Types.ObjectId(portalId) })).map(i => i.scheme_id);
 
   // Initialize matchQuery
   let matchQuery = {
-    status: _status.active,
+    _id: { $in: Ids },
     deletedAt: null,
   };
+
   if (search) {
-    matchQuery.schemeId = { $regex: search, $options: "i" };
+    matchQuery.$or = [
+      { schemeId: { $regex: search, $options: "i" } },
+      { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
+    ];
   }
+
   if (schemeName) {
     matchQuery.schemeName = { $regex: schemeName.trim().replace(/\s+/g, ".*"), $options: "i" };
   }
   if (status) {
     matchQuery.status = status.toLowerCase();
-  } else {
-    matchQuery.status = _status.active;
   }
+  // else {
+  // matchQuery.status = _status.active;
+  // }
 
   let aggregationPipeline = [
     { $match: matchQuery },
     {
-      $project: {
-        _id: 1,
-        schemeId: 1,
-        // schemeName: 1,
+      $lookup: {
+        from: 'commodities',
+        localField: 'commodity_id',
+        foreignField: '_id',
+        as: 'commodityDetails',
+      },
+    },
+    { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+    // Add schemeName field before filtering
+    {
+      $addFields: {
         schemeName: {
           $concat: [
             "$schemeName",
-            "",
+            " ",
             { $ifNull: ["$commodityDetails.name", ""] },
-            "",
+            " ",
             { $ifNull: ["$season", ""] },
-            "",
+            " ",
             { $ifNull: ["$period", ""] },
           ],
         },
+      },
+    },
+  ];
+
+  if (search.trim()) {
+    aggregationPipeline.push({
+      $match: {
+        $or: [{ schemeName: { $regex: search, $options: 'i' } }, { schemeId: { $regex: search, $options: 'i' } }]
+      }
+    });
+  }
+  aggregationPipeline.push(
+    {
+      $project: {
+        _id: 1,
+        schemeId: 1,
+        schemeName: 1,
+        // schemeName: {
+        //   $concat: [
+        //     "$schemeName",
+        //     "",
+        //     { $ifNull: ["$commodityDetails.name", ""] },
+        //     "",
+        //     { $ifNull: ["$season", ""] },
+        //     "",
+        //     { $ifNull: ["$period", ""] },
+        //   ],
+        // },
         Schemecommodity: 1,
         season: 1,
         period: 1,
         procurement: 1,
         status: 1,
+        createdAt: 1
       },
-    },
-  ];
+    }
+  );
+
   if (paginate == 1) {
     aggregationPipeline.push(
       { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Secondary sort by _id for stability
@@ -67,6 +114,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       $sort: { [sortBy || "createdAt"]: -1, _id: -1 },
     });
   }
+
   const rows = await Scheme.aggregate(aggregationPipeline);
   const countPipeline = [{ $match: matchQuery }, { $count: "total" }];
   const countResult = await Scheme.aggregate(countPipeline);
@@ -79,10 +127,11 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   }
   if (isExport == 1) {
     const record = rows.map((item) => {
+      console.log(item);
       return {
         "Scheme Id": item?.schemeId || "NA",
         "scheme Name": item?.schemeName || "NA",
-        SchemeCommodity: item?.commodity || "NA",
+        "Scheme Commodity": item?.Schemecommodity || "NA",
         season: item?.season || "NA",
         period: item?.period || "NA",
         procurement: item?.procurement || "NA",
@@ -91,8 +140,8 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     if (record.length > 0) {
       dumpJSONToExcel(req, res, {
         data: record,
-        fileName: `Scheme-record.xlsx`,
-        worksheetName: `Scheme-record`,
+        fileName: `HO-Scheme-record.xlsx`,
+        worksheetName: `HO-Scheme-record`,
       });
     } else {
       return res.status(200).send(
@@ -150,6 +199,15 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
       { $unwind: { path: "$branchDetails", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
+          from: 'commodities',
+          localField: 'commodity_id',
+          foreignField: '_id',
+          as: 'commodityDetails',
+        },
+      },
+      { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
           from: "schemes",
           localField: "scheme_id",
           foreignField: "_id",
@@ -157,6 +215,37 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         },
       },
       { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          schemeName: {
+            $concat: [
+              "$schemeDetails.schemeName",
+              " ",
+              { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+              " ",
+              { $ifNull: ["$schemeDetails.season", ""] },
+              " ",
+              { $ifNull: ["$schemeDetails.period", ""] },
+            ],
+          },
+          schemeId: '$schemeDetails.schemeId'
+        },
+      },
+
+    ];
+
+    if (search.trim()) {
+      aggregationPipeline.push({
+        $match: {
+          $or: [
+            { schemeName: { $regex: search, $options: "i" } },
+            { schemeId: { $regex: search, $options: 'i' } }
+          ]
+        }
+      });
+    }
+
+    aggregationPipeline.push(
       {
         $project: {
           _id: 1,
@@ -166,25 +255,25 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
           targetAchieved: '$schemeDetails.procurement',
           bo_id: 1,
           assignQty: 1,
-          schemeId: "$schemeDetails.schemeId",
-          // schemeName: "$schemeDetails.schemeName",
-          schemeName: {
-            $concat: [
-              "$schemeDetails.schemeName",
-              "",
-              { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
-              "",
-              { $ifNull: ["$schemeDetails.season", ""] },
-              "",
-              { $ifNull: ["$schemeDetails.period", ""] },
-            ],
-          },
+          schemeId: 1,//"$schemeDetails.schemeId",
+          schemeName: 1,
+          // schemeName: {
+          //   $concat: [
+          //     "$schemeDetails.schemeName",
+          //     "",
+          //     { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+          //     "",
+          //     { $ifNull: ["$schemeDetails.season", ""] },
+          //     "",
+          //     { $ifNull: ["$schemeDetails.period", ""] },
+          //   ],
+          // },
           scheme_id: 1,
           procurement: 1,
           status: 1
         },
       }
-    ];
+    );
 
     if (paginate == 1) {
       aggregationPipeline.push(
@@ -306,6 +395,20 @@ module.exports.getslaByBo = asyncErrorHandler(async (req, res) => {
         }
       },
       { $unwind: { path: "$slaDetails", preserveNullAndEmptyArrays: true } },
+
+    ];
+
+    if (search) {
+      aggregationPipeline.push({
+        $match: {
+          $or: [
+            { 'slaDetails.slaId': { $regex: search, $options: 'i' } },
+            { 'slaDetails.basic_details.name': { $regex: search, $options: 'i' } }
+          ]
+        }
+      });
+    }
+    aggregationPipeline.push(
       {
         $project: {
           _id: 1,
@@ -315,7 +418,7 @@ module.exports.getslaByBo = asyncErrorHandler(async (req, res) => {
           targetAchieved: '$schemeDetails.procurement'
         }
       }
-    ];
+    );
     if (paginate == 1) {
       aggregationPipeline.push(
         { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
