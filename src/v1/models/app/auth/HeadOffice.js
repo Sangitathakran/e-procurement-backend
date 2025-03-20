@@ -16,7 +16,7 @@ const headOfficeSchema = new mongoose.Schema({
         name: {type: String, trim: true},
         email: {type: String, lowercase: true, trim: true},
         mobile: {type: String, trim: true},
-        designation: {type: String, trim: true},
+        designation: {type: String, trim: true}, 
         aadhar_number: {type: String, trim: true},
         aadhar_image: {
             front: {type: String, trim: true},

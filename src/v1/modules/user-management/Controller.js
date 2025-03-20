@@ -152,7 +152,7 @@ exports.editUserRole = async ( req, res, next) =>{
 exports.getUserRoles = async (req, res) => { 
     try {
 
-        const { page = 1, limit = 10, search = ''} = req.query;
+        const { page = 1, limit = 10, search = '', paginate = 1} = req.query;
         const skip = (page - 1) * limit;
         const searchFields = ['userRoleName']
 
@@ -165,9 +165,10 @@ exports.getUserRoles = async (req, res) => {
         let query = search ? makeSearchQuery(searchFields) : {}
         const records = { count: 0, rows: [] };
 
-        query = {...query, createdBy: req.user._id}
+        query = {...query, createdBy: req.user._id,  userRoleName:{$ne:"md ma'am role"}}
 
-        const userRoles = await UserRole.find(query).skip(skip).limit(parseInt(limit))
+        const userRoles = paginate? await UserRole.find(query).skip(skip).limit(parseInt(limit)) : await UserRole.find(query);
+       
         if(userRoles.length < 1){
             return sendResponse({res, status: 400, message: "no user role found"})
         }
@@ -177,9 +178,11 @@ exports.getUserRoles = async (req, res) => {
         records.count =  await UserRole.countDocuments(query);
 
 
+       if(paginate == 1){
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+       }
 
 
         return sendResponse({res,status: 200,data: records,message: "user role list"});

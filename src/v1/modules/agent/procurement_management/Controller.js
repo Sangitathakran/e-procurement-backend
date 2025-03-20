@@ -62,7 +62,7 @@ module.exports.createProcurementCenter = async (req, res) => {
 module.exports.getProcurementCenter = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, centerType = 'self' } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, centerType = 'self', state, city, associate_name } = req.query
 
         const { user_id } = req
 
@@ -79,12 +79,15 @@ module.exports.getProcurementCenter = async (req, res) => {
         } else if (centerType === 'associate') {
             query.user_id = { $ne: user_id };
         }
+        if (state) query["address.state"] = state;
+        if (city) query["address.city"] = city;
 
         const records = { count: 0 };
         records.rows = paginate == 1
             ? await ProcurementCenter.find(query)
                 .populate({
                     path: 'user_id',
+                    match: associate_name ? { "basic_details.associate_details.associate_name": { $regex: associate_name, $options: "i" } } : {},
                     select: 'basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code basic_details.associate_details.organization_name'
                 })
                 .sort(sortBy)
@@ -94,10 +97,10 @@ module.exports.getProcurementCenter = async (req, res) => {
             : await ProcurementCenter.find(query)
                 .populate({
                     path: 'user_id',
+                    match: associate_name ? { "basic_details.associate_details.associate_name": { $regex: associate_name, $options: "i" } } : {},
                     select: 'basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code basic_details.associate_details.organization_name'
                 })
                 .sort(sortBy);
-
         records.count = await ProcurementCenter.countDocuments(query);
 
         if (paginate == 1) {
@@ -142,6 +145,114 @@ module.exports.getProcurementCenter = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+// module.exports.getProcurementCenter = async (req, res) => {
+//     try {
+//         console.log("Fetching Procurement Centers...");
+        
+//         const { 
+//             page = 1, 
+//             limit = 10, 
+//             sortBy = { createdAt: -1 }, 
+//             search = '', 
+//             isExport = 0, 
+//             centerType = 'self', 
+//             associate_name, 
+//             state, 
+//             city 
+//         } = req.query;
+
+//         const { user_id } = req;
+//         const skip = (page - 1) * limit;
+
+//         let query = { deletedAt: null };
+
+//         // 🏢 Center Type Filtering
+//         if (centerType === 'self') {
+//             query.user_id = user_id;
+//         } else if (centerType === 'associate') {
+//             query.user_id = { $ne: user_id };
+//         }
+
+//         // 🌍 State & City Filtering
+//         if (state) query["address.state"] = state;
+//         if (city) query["address.city"] = city;
+
+//         // 🔍 Search Filter
+//         if (search) {
+//             query.$or = [
+//                 { center_name: { $regex: search, $options: "i" } },
+//                 { center_code: { $regex: search, $options: "i" } }
+//             ];
+//         }
+
+//         // 📌 Fetch Data with Population
+//         let records = await ProcurementCenter.find(query)
+//             .populate({
+//                 path: 'user_id',
+//                 match: associate_name ? { "basic_details.associate_details.associate_name": { $regex: associate_name, $options: "i" } } : {}
+//             })
+//             .sort(sortBy)
+//             .skip(skip)
+//             .limit(parseInt(limit));
+
+//         // 🎯 Filter Only Matched Users (Avoid Null Users)
+//         records = records.filter(center => center.user_id !== null);
+
+//         // 📊 Count Total Records
+//         const totalCount = await ProcurementCenter.countDocuments(query);
+
+//         // 📂 Export Data if Required
+//         if (isExport == 1) {
+//             const record = records.map(item => ({
+//                 "Address Line 1": item?.address?.line1 || 'NA',
+//                 "Address Line 2": item?.address?.line2 || 'NA',
+//                 "Country": item?.address?.country || 'NA',
+//                 "State": item?.address?.state || 'NA',
+//                 "District": item?.address?.district || 'NA',
+//                 "City": item?.address?.city || 'NA',
+//                 "PIN Code": item?.address?.postalCode || 'NA',
+//                 "Name": item?.point_of_contact?.name || 'NA',
+//                 "Email": item?.point_of_contact?.email || 'NA',
+//                 "Mobile": item?.point_of_contact?.mobile || 'NA',
+//                 "Designation": item?.point_of_contact?.designation || 'NA',
+//                 "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
+//             }));
+
+//             if (record.length > 0) {
+//                 return dumpJSONToExcel(req, res, {
+//                     data: record,
+//                     fileName: `collection-center.xlsx`,
+//                     worksheetName: `collection-center`
+//                 });
+//             } else {
+//                 return res.status(400).json({ status: 400, message: "No data available for export" });
+//             }
+//         }
+
+//         // ✅ Return Paginated Response
+//         return res.status(200).json({
+//             status: 200,
+//             data: {
+//                 rows: records,
+//                 count: totalCount,
+//                 page: parseInt(page),
+//                 limit: parseInt(limit),
+//                 pages: Math.ceil(totalCount / limit)
+//             },
+//             message: records.length ? "Collection centers found." : "Collection center not found.",
+//             event: {},
+//             errorCode: "",
+//             errors: [],
+//             version: "1.0"
+//         });
+
+//     } catch (error) {
+//         console.error("Error in getProcurementCenter:", error);
+//         return res.status(500).json({ status: 500, message: "Internal Server Error" });
+//     }
+// };
+
 
 module.exports.ImportProcurementCenter = async (req, res) => {
     try {
@@ -256,6 +367,7 @@ module.exports.ImportProcurementCenter = async (req, res) => {
     }
 };
 
+/*
 module.exports.generateCenterCode = async (req, res) => {
     try {
         const lastCenter = await ProcurementCenter.findOne({ center_code: { $exists: true } }).sort({ center_code: -1 });
@@ -270,6 +382,29 @@ module.exports.generateCenterCode = async (req, res) => {
         }
 
         return res.status(200).send(new serviceResponse({ status: 200, data: { CenterCode }, message: _response_message.found("next center code") }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+*/
+
+module.exports.generateCenterCode = async (req, res) => {
+    try {
+        // Fetch the last center code sorted correctly as a number
+        const lastCenter = await ProcurementCenter.findOne({ center_code: { $regex: /^CC\d{5}$/ } })
+            .sort({ center_code: -1 })
+            .collation({ locale: "en", numericOrdering: true });
+
+        let CenterCode = '';
+
+        if (lastCenter && lastCenter.center_code) {
+            const lastCodeNumber = parseInt(lastCenter.center_code.replace(/\D/g, ''), 10);
+            CenterCode = 'CC' + String(lastCodeNumber + 1).padStart(5, '0');
+        } else {
+            CenterCode = 'CC00001';
+        }
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: { CenterCode }, message: _response_message.found("Next center code") }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }

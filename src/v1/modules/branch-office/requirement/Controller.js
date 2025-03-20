@@ -6,14 +6,17 @@ const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod, _userType } = require("@src/v1/utils/constants");
 const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { Scheme } = require("@src/v1/models/master/Scheme");
+const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const moment = require("moment");
-const { dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { dumpJSONToExcel } = require("@src/v1/utils/helpers");
+const mongoose = require("mongoose");
 
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
 
     const { user_id, portalId } = req;
-    const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+    const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, slaName, schemeName, commodity, state } = req.query;
 
     let query = search ? {
         $or: [
@@ -21,6 +24,27 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
             { "product.name": { $regex: search, $options: 'i' } },
         ]
     } : {};
+    if (schemeName) {
+        const scheme = await Scheme.findOne({ schemeName: { $regex: schemeName, $options: 'i' } }).select('_id');
+        if (scheme) {
+            query["product.schemeId"] = new mongoose.Types.ObjectId(scheme._id);
+        }
+    }
+    
+    if (slaName) {
+        const sla = await SLAManagement.findOne({ "basic_details.name": { $regex: slaName, $options: 'i' } }).select('_id');
+        if (sla) {
+            query["sla_id"] = sla._id;
+        }
+    }
+
+    if (commodity) {
+        query["product.name"] = { $regex: commodity, $options: 'i' };
+    }
+
+    if (state) {
+        query["address.state"] = { $regex: state, $options: 'i' };
+    }
 
     query.branch_id = { $in: [user_id, portalId] };
 
@@ -28,6 +52,11 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     const selectValues = "reqNo product quotedPrice createdAt expectedProcurementDate deliveryDate address";
 
     records.rows = paginate == 1 ? await RequestModel.find(query).select(selectValues)
+        .populate({ path: "branch_id", select: "_id branchName branchId" })
+        .populate({ path: "head_office_id", select: "_id company_details.name" })
+        .populate({ path: "product.schemeId", select: "_id schemeId schemeName season status" })
+        .populate({ path: "product.commodity_id", select: "_id name" })
+        .populate({ path: "sla_id", select: "_id basic_details.name" })
         .sort(sortBy)
         .skip(skip)
         .limit(parseInt(limit)) : await RequestModel.find(query).select(selectValues).sort(sortBy);
@@ -148,7 +177,7 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
 
     const record = await Batch.findOne({ _id: id }).populate("req_id").populate("seller_id");
-   
+
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
     }
@@ -224,9 +253,9 @@ module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
             record.delivered.net_weight = net_weight;
             record.delivered.delivered_at = new Date();
             record.delivered.delivered_by = user_id;
-    
+
             record.status = _batchStatus.delivered;
-            
+
             const subject = `QC Approved Notification for Batch ID ${record?.batchId} under order ID ${record?.req_id.reqNo}`;
             const body = `<p>  Dear ${record?.seller_id?.basic_details.associate_details.associate_name}, </p> <br/>
             <p> This is to inform that you Quality Control (QC) for the following batch has been successfully approved:</p> <br/> 

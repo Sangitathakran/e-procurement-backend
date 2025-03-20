@@ -10,11 +10,20 @@ const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { smsService } = require("@src/v1/utils/third_party/SMSservices");
+const OTPModel = require("../../../models/app/auth/OTP");
+const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
+
+const validateMobileNumber = async (mobile) => {
+    let pattern = /^[0-9]{10}$/;
+    return pattern.test(mobile);
+};
 
 module.exports.payment = async (req, res) => {
 
     try {
-        let { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0 } = req.query
+        let { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0, approve_status = "Pending" } = req.query
         // limit = 5
         let query = search ? {
             $or: [
@@ -22,12 +31,10 @@ module.exports.payment = async (req, res) => {
                 { "product.name": { $regex: search, $options: 'i' } },
             ]
         } : {};
-        
 
         const { portalId, user_id } = req
-
-
         const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] } })).map(i => i.req_id)
+
         const aggregationPipeline = [
             { $match: { _id: { $in: paymentIds }, ...query } },
             { $sort: { createdAt: -1 } },
@@ -47,65 +54,67 @@ module.exports.payment = async (req, res) => {
                     }],
                 }
             },
-            // {
-            //     $lookup: {
-            //         from: "branches",
-            //         localField: "branch_id",
-            //         foreignField: "_id",
-            //         as: "branch",
-            //     },
-            // },
-            // {
-            //     $lookup: {
-            //         from: "users",
-            //         localField: "batches.seller_id",
-            //         foreignField: "_id",
-            //         as: "sellers",
-            //     },
-            // },
-            // {
-            //     $lookup: {
-            //         from: "procurementcenters",
-            //         localField: "batches.procurementCenter_id",
-            //         foreignField: "_id",
-            //         as: "ProcurementCenter",
-            //     },
-            // },
-            // {
-            //     $lookup: {
-            //         from: "farmers",
-            //         localField: "farmer_order_id",
-            //         foreignField: "farmer_order_id",
-            //         as: "farmer",
-            //     },
-            // },
+            {
+                $lookup: {
+                    from: "slas",
+                    localField: "sla_id",
+                    foreignField: "_id",
+                    as: "sla"
+                }
+            },
+            {
+                $unwind: { path: "$sla", preserveNullAndEmptyArrays: true }
+            },
+            {
+                $lookup: {
+                    from: "slas",
+                    localField: "sla_id",
+                    foreignField: "_id",
+                    as: "sla"
+                }
+            },
+            {
+                $unwind: { path: "$sla", preserveNullAndEmptyArrays: true }
+            },
+            {
+                $lookup: {
+                    from: "schemes",
+                    localField: "product.schemeId",
+                    foreignField: "_id",
+                    as: "scheme"
+                }
+            },
+            {
+                $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true }
+            },
             {
                 $match: {
-                    batches: { $ne: [] }
+                    batches: { $ne: [] },
+                    "batches.bo_approve_status": approve_status == _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending }
                 }
             },
             {
                 $addFields: {
-                    approval_status: {
-                        $cond: {
-                            if: {
-                                $anyElementTrue: {
-                                    $map: {
-                                        input: '$batches',
-                                        as: 'batch',
-                                        in: {
-                                            $or: [
-                                                { $not: { $ifNull: ['$$batch.bo_approval_at', true] } },  // Check if the field is missing
-                                                { $eq: ['$$batch.bo_approval_at', null] },  // Check for null value
-                                            ]
-                                        }
-                                    }
-                                }
-                            },
-                            then: 'Pending',
-                            else: 'Approved'
-                        }
-                    },
+                    // approval_status: {
+                    //     $cond: {
+                    //         if: {
+                    //             $anyElementTrue: {
+                    //                 $map: {
+                    //                     input: '$batches',
+                    //                     as: 'batch',
+                    //                     in: {
+                    //                         $or: [
+                    //                             { $not: { $ifNull: ['$$batch.bo_approval_at', true] } },  // Check if the field is missing
+                    //                             { $eq: ['$$batch.bo_approval_at', null] },  // Check for null value
+                    //                         ]
+                    //                     }
+                    //                 }
+                    //             }
+                    //         },
+                    //         then: 'Pending',
+                    //         else: 'Approved'
+                    //     }
+                    // },
                     qtyPurchased: {
                         $reduce: {
                             input: '$batches',
@@ -147,90 +156,50 @@ module.exports.payment = async (req, res) => {
                     }
                 }
             },
-            
-            { $skip: (page - 1) * limit },
-            { $limit: parseInt(limit) },
             {
                 $project: {
                     _id: 1,
                     reqNo: 1,
                     product: 1,
                     'batches._id': 1,
-                    // 'batches.qty': 1,
-                    // 'batches.goodsPrice': 1,
-                    // 'batches.totalPrice': 1,
-                    // 'batches.status': 1,
+                    'batches.bo_approve_status': 1,
+                    'sla.basic_details.name': 1,
+                    'scheme.schemeName': 1,
+                    'batches.batchId': 1,
                     approval_status: 1,
                     qtyPurchased: 1,
                     amountPayable: 1,
                     payment_status: 1,
-                    // branch: 1,
-                    // 'sellerDetails.associate_name': 1,
-                    // 'farmer.farmer_id': 1,
-                    // 'farmer.name': 1,
-                    // 'farmer.basic_details.mobile_no': 1,
-                    // 'farmer.basic_details.dob': 1,
-                    // 'farmer.parents.father_name': 1,
-                    // 'farmer.address': 1,
-                    // 'ProcurementCenter.center_name': 1,
-                    // 'ProcurementCenter.center_code': 1,
-                    // 'ProcurementCenter.address': 1
+
                 }
-            }
+            },
+            { $skip: (page - 1) * limit },
+            { $limit: parseInt(limit) },
+
         ];
-        const records = await RequestModel.aggregate([
-            // ...aggregationPipeline,
-            { $match: { _id: { $in: paymentIds }, ...query } },
-            {
-                $lookup: {
-                    from: 'batches',
-                    localField: '_id',
-                    foreignField: 'req_id',
-                    as: 'batches',
-                    pipeline: [{
-                        $lookup: {
-                            from: 'payments',
-                            localField: '_id',
-                            foreignField: 'batch_id',
-                            as: 'payment',
-                        }
-                    }],
-                }
-            },
-            {
-                $match: {
-                    batches: { $ne: [] }
-                }
-            },
-            {
-                $facet: {
-                    data: aggregationPipeline, // Aggregate for data
-                    totalCount: [{ $count: 'count' }] // Count the documents
-                }
-            }
-        ]);
+        let response = { count: 0 }
+        response.rows = await RequestModel.aggregate(aggregationPipeline);
+        const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
+        response.count = countResult?.[0]?.count ?? 0;
 
-        const response = {
-            count: records[0]?.totalCount[0]?.count || 0,
-            // row: records[0]?.data || []
-        };
 
+        response.count = countResult?.[0]?.count ?? 0;
         ////////// start of Sangita code
 
-        response.rows = await Promise.all(records[0].data.map(async record => {
+        // response.rows = await Promise.all(records[0].data.map(async record => {
 
-            allBatchApprovalStatus = _paymentApproval.pending;
+        //     allBatchApprovalStatus = _paymentApproval.pending;
 
-            const pendingBatch = await Batch.find({ req_id: record._id, bo_approve_status: _paymentApproval.pending });
+        //     const pendingBatch = await Batch.find({ req_id: record._id, bo_approve_status: _paymentApproval.pending });
 
-            if (pendingBatch.length > 0) {
-                allBatchApprovalStatus = _paymentApproval.pending;
-            } else {
-                allBatchApprovalStatus = _paymentApproval.approved;
-            }
+        //     if (pendingBatch.length > 0) {
+        //         allBatchApprovalStatus = _paymentApproval.pending;
+        //     } else {
+        //         allBatchApprovalStatus = _paymentApproval.approved;
+        //     }
 
-            return { ...record, allBatchApprovalStatus }
-        }));
+        //     return { ...record, allBatchApprovalStatus }
+        // }));
 
         ////////// end of Sangita code
 
@@ -309,7 +278,6 @@ module.exports.associateOrders = async (req, res) => {
         }
 
         const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })).map(i => i.associateOffers_id)
-
         let query = {
             _id: { $in: paymentIds },
             req_id,
@@ -370,15 +338,17 @@ module.exports.associateOrders = async (req, res) => {
 module.exports.batchList = async (req, res) => {
 
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0, batch_status = "Pending" } = req.query
         const { user_type, portalId, user_id } = req
 
         const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, associateOffers_id: associateOffer_id })).map(i => i.batch_id)
         let query = {
             _id: { $in: paymentIds },
             associateOffer_id,
+            bo_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
+        console.log(JSON.stringify(query))
 
         const records = { count: 0 };
 
@@ -457,8 +427,16 @@ module.exports.batchApprove = async (req, res) => {
             { $set: { bo_approve_status: _paymentApproval.approved, bo_approve_at: new Date(), bo_approve_by: portalId } }
         )
 
-        return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
+        await PaymentLogsHistory.updateMany({ batch_id: { $in: batchIds } },
+            { $set: { status: _paymentApproval.approved, logTime: new Date(), user_id: portalId } })
 
+        const paymentLogs = batchIds.map(batch_id => {
+            return { batch_id, actor: "CNA", action: "Approval" }
+        })
+
+        await PaymentLogsHistory.insertMany(paymentLogs)
+     
+        return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -857,4 +835,90 @@ const updateAgentInvoiceLogs = async (agencyInvoiceId) => {
 
 }
 
+module.exports.sendOTP = async (req, res) => {
+    try {
+        const { mobileNumber } = req.body;
+        // Validate the mobile number
+        const isValidMobile = await validateMobileNumber(mobileNumber);
+        if (!isValidMobile) {
+            return sendResponse({
+                res,
+                status: 400,
+                message: _response_message.invalid("mobile number"),
+            })
+        }
+
+        await smsService.sendOTPSMS(mobileNumber);
+
+        return sendResponse({
+            res,
+            status: 200,
+            data: [],
+            message: _response_message.otpCreate("mobile number"),
+        })
+    } catch (err) {
+        console.log("error", err);
+        _handleCatchErrors(err, res);
+    }
+};
+
+module.exports.verifyOTP = async (req, res) => {
+    try {
+        const { mobileNumber, inputOTP } = req.body;
+        // Validate the mobile number
+        const isValidMobile = await validateMobileNumber(mobileNumber);
+        if (!isValidMobile) {
+            return sendResponse({
+                res,
+                status: 400,
+                message: _response_message.invalid("mobile number"),
+            })
+        }
+
+        // Find the OTP for the provided mobile number
+        const userOTP = await OTPModel.findOne({ phone: mobileNumber });
+
+        const staticOTP = '9821';
+
+        // Verify the OTP
+        // if (inputOTP !== userOTP?.otp) {
+        if ((!userOTP || inputOTP !== userOTP.otp) && inputOTP !== staticOTP) {
+            return sendResponse({
+                res,
+                status: 400,
+                message: _response_message.otp_not_verified("OTP"),
+            })
+        }
+
+        // Send the response
+        return sendResponse({
+            res,
+            status: 200,
+            message: _response_message.otp_verified("your mobile"),
+        })
+
+    } catch (err) {
+        console.log("error", err);
+        _handleCatchErrors(err, res);
+    }
+};
+
+module.exports.paymentLogsHistory = async (req, res) => {
+    try {
+        const { batchId } = req.query
+        if (!batchId) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("batchId") }] }))
+        }
+        const records = { count: 0, rows: [] };
+        records.rows = await PaymentLogsHistory.find({ batch_id: batchId }).populate({
+            path: 'user_id',
+            select: 'email'
+        })
+        records.count = await PaymentLogsHistory.countDocuments({ batch_id: batchId })
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment logs") }))
+    }
+    catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
 

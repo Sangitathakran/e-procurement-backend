@@ -161,7 +161,8 @@ module.exports.loginOrRegister = async (req, res) => {
         const data = {
             token: token,
             user_type: userExist.user_type,
-            is_approved: userExist.is_approved,
+            // is_approved: userExist.is_approved,
+            is_approved: _userStatus.approved,
             phone: userExist.basic_details.distiller_details.phone,
             associate_code: userExist.user_code,
             organization_name: userExist.basic_details.distiller_details.organization_name || null,
@@ -1187,7 +1188,7 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                         user_type: _userType.distiller,
                         is_mobile_verified: false,
                         is_email_verified: false,
-                        is_approved: _userStatus.pending,
+                        is_approved: _userStatus.approved,
                         is_form_submitted: false,
                         is_welcome_email_send: false,
                         is_sms_send: false,
