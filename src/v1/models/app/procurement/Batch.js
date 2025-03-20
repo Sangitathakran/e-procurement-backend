@@ -19,7 +19,7 @@ const batchsSchema = new mongoose.Schema({
         accepted_bags : { type: Number, default: 0 }, 
         dispatch_quantity : { type: Number, default: 0 }, 
         dispatch_bags : { type: Number, default: 0 }, 
-        whr_document : [{ type: String }],
+        whr_document : { type: String },
     }],
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
     qty: { type: Number, default: 0 },
