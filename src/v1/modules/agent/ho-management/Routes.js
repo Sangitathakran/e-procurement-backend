@@ -1,6 +1,6 @@
 const express = require("express");
 const { getHo, saveHeadOffice, updateStatus, deleteHO, updateHeadOffice, getHeadOfficeById,
-    getScheme, schemeAssign, getAssignedScheme, getBo } = require("./Controllers");
+    getScheme, schemeAssign, getAssignedScheme, getBo, importBranches } = require("./Controllers");
 const { validateForm } = require("@src/v1/modules/agent/ho-management/Validation");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
@@ -17,6 +17,8 @@ hoMngmntRoutes.post("/", Auth, validateForm, saveHeadOffice);
 hoMngmntRoutes.delete("/:id", Auth, deleteHO);
 hoMngmntRoutes.put("/:id", Auth, updateHeadOffice);
 hoMngmntRoutes.get('/:id', Auth, getHeadOfficeById);
+
+hoMngmntRoutes.post("/import-bo", Auth, importBranches);
 
 
 

@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal, dumpJSONToPdf } = require("@src/v1/utils/helpers")
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Commodity } = require("@src/v1/models/master/Commodity");
@@ -62,15 +62,27 @@ module.exports.createScheme = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getScheme = asyncErrorHandler(async (req, res) => {
-  const { page = 1, limit, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+  const { page = 1, limit, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, isExport = 0 } = req.query;
 
   // Initialize matchQuery
   let matchQuery = {
     deletedAt: null
   };
+
   if (search) {
-    matchQuery.schemeId = { $regex: search, $options: "i" };
+    matchQuery.$or = [
+      { schemeId: { $regex: search, $options: "i" } },
+      { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
+    ];
   }
+  if (schemeName) {
+    matchQuery.schemeName = { $regex: new RegExp(schemeName, "i") };
+  }
+
+  if (status && status.trim() !== '') {
+    matchQuery.status = status;
+  }
+
 
   let aggregationPipeline = [
     { $match: matchQuery },
@@ -87,12 +99,13 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       $project: {
         _id: 1,
         schemeId: 1,
+        originalSchemeName: "$schemeName",
         // schemeName: 1,
         schemeName: {
           $concat: [
-            "$schemeName", "",
-            { $ifNull: ["$commodityDetails.name", ""] }, "",
-            { $ifNull: ["$season", ""] }, "",
+            "$schemeName", " ",
+            { $ifNull: ["$commodityDetails.name", ""] }, " ",
+            { $ifNull: ["$season", ""] }, " ",
             { $ifNull: ["$period", ""] }
           ]
         },
@@ -153,6 +166,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme") }));
   }
 });
+
 
 module.exports.getSchemeById = asyncErrorHandler(async (req, res) => {
   const { id } = req.params;
@@ -354,11 +368,11 @@ module.exports.schemeSummary = asyncErrorHandler(async (req, res) => {
           schemeName: {
             $concat: [
               "$schemeDetails.schemeName",
-              "",
+              " ",
               { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
-              "",
+              " ",
               { $ifNull: ["$schemeDetails.season", ""] },
-              "",
+              " ",
               { $ifNull: ["$schemeDetails.period", ""] },
             ],
           },
@@ -508,12 +522,9 @@ module.exports.getBoByScheme = asyncErrorHandler(async (req, res) => {
           // schemeName: "$schemeDetails.schemeName",
           schemeName: {
             $concat: [
-              "$schemeDetails.schemeName",
-              "",
-              { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
-              "",
-              { $ifNull: ["$schemeDetails.season", ""] },
-              "",
+              "$schemeDetails.schemeName", " ",
+              { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, " ",
+              { $ifNull: ["$schemeDetails.season", ""] }, " ",
               { $ifNull: ["$schemeDetails.period", ""] },
             ],
           },
@@ -701,3 +712,58 @@ module.exports.getslaByBo = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 })
+
+
+
+module.exports.schemeDropdown = asyncErrorHandler(async (req, res) => {
+  const { search = '', schemeName, status, isExport = 0 } = req.query;
+
+  // Initialize matchQuery
+  let matchQuery = { deletedAt: null };
+
+  let aggregationPipeline = [
+    { $match: matchQuery },
+    {
+      $lookup: {
+        from: 'commodities',
+        localField: 'commodity_id',
+        foreignField: '_id',
+        as: 'commodityDetails',
+      },
+    },
+    { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        _id: 1,
+        schemeId: 1,
+        originalSchemeName: "$schemeName",
+        schemeName: {
+          $concat: [
+            "$schemeName", " ",
+            { $ifNull: ["$commodityDetails.name", ""] }, " ",
+            { $ifNull: ["$season", ""] }, " ",
+            { $ifNull: ["$period", ""] }
+          ]
+        },
+      }
+    },
+    { $sort: { createdAt: -1, _id: -1 } } // Sorting without pagination
+  ];
+
+  const rows = await Scheme.aggregate(aggregationPipeline);
+
+  if (rows.lengh > 0) {
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: rows,
+      message: _response_message.notFound("Scheme")
+    }));
+  }
+  else {
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: rows,
+      message: _response_message.found("Scheme")
+    }));
+  }
+});

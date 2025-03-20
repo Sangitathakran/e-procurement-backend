@@ -48,6 +48,7 @@ const { listenerCount } = require("@src/v1/models/app/auth/OTP");
 const path = require("path");
 const { smsService } = require("@src/v1/utils/third_party/SMSservices");
 const OTPModel = require("../../../models/app/auth/OTP");
+const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
 
 const validateMobileNumber = async (mobile) => {
   let pattern = /^[0-9]{10}$/;
@@ -822,10 +823,10 @@ module.exports.payment = async (req, res) => {
 
 module.exports.payment = async (req, res) => {
   try {
-    let { page = 1, limit = 50, search = "", isExport = 0 } = req.query;
+    var { page = 1, limit = 50, search = "", isExport = 0, isApproved, paymentStatus, approve_status = "Pending" } = req.query;
     page = parseInt(page);
     limit = parseInt(limit);
-
+    isApproved = isApproved === "true";
     const { portalId, user_id } = req;
 
     // Ensure necessary indexes are created (run once in your database setup)
@@ -854,7 +855,7 @@ module.exports.payment = async (req, res) => {
     // Step 2: Construct the Query
     let query = {
       _id: { $in: paymentIds },
-      ...(search ? { reqNo: { $regex: search, $options: "i" } } : {}),
+      //...(search ? { reqNo: { $regex: search, $options: "i" } } : {}),
     };
 
     // Step 3: Get total count (without full aggregation)
@@ -880,6 +881,12 @@ module.exports.payment = async (req, res) => {
                 pipeline: [{ $project: { payment_status: 1 } }], // Fetch only needed fields
               },
             },
+            {
+              $project: {
+                ho_approval_at: 1, // Include ho_approval_at
+                payment: 1,
+              },
+            },
           ],
         },
       },
@@ -892,9 +899,16 @@ module.exports.payment = async (req, res) => {
         },
       },
       { $unwind: "$branch" },
-      { $match: { "batches.0": { $exists: true } } }, // Ensure there are batches
+      // { $match: { "batches.0": { $exists: true } } }, // Ensure there are batches
+      {
+        $match: {
+          batches: { $ne: [] },
+          "batches.ho_approve_status": approve_status == _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending }
+        }
+      },
       {
         $addFields: {
+          ho_approval_at: { $arrayElemAt: ["$batches.ho_approval_at", 0] },
           approval_status: {
             $cond: {
               if: {
@@ -1012,7 +1026,7 @@ module.exports.payment = async (req, res) => {
                     },
                   },
                 },
-                then: "Payment initiated",
+                then: "Partially initiated",
               },
               {
                 case: {
@@ -1025,14 +1039,14 @@ module.exports.payment = async (req, res) => {
                           $map: {
                             input: "$$batch.payment",
                             as: "pay",
-                            in: { $in: ["$$pay.payment_status", ["Pending", "In Progress", "Failed", "Rejected"]] },
+                            in: { $in: ["$$pay.payment_status", ["Failed", "Rejected"]] },
                           },
                         },
                       },
                     },
                   },
                 },
-                then: "Partially initiated",
+                then: "Failed",
               }
               ],
               default: "Pending", // Default case when no action is taken
@@ -1040,6 +1054,25 @@ module.exports.payment = async (req, res) => {
           },
         },
       },
+      
+    ];
+
+    if(search){
+      aggregationPipeline.push({
+        $match: { $or: [{reqNo: { $regex: search, $options: "i" } }, {'branch.branchName': { $regex: search, $options: "i" }}]}
+      });
+    }
+
+    aggregationPipeline.push(
+      {
+        $lookup: {
+          from: "schemes",
+          localField: "product.schemeId",
+          foreignField: "_id",
+          as: "schemeDetails",
+        },
+      },
+      { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
       {
         $project: {
           _id: 1,
@@ -1053,20 +1086,38 @@ module.exports.payment = async (req, res) => {
           amountPayable: 1,
           amountPaid: 1,
           payment_status: 1,
-          overall_payment_status:1
+          overall_payment_status: 1,
+          ho_approval_at: 1,
+          schemeName: {
+            $concat: [
+              "$schemeDetails.schemeName", " ",
+              { $ifNull: ["$schemeDetails.commodityDetails.name", " "] }, " ",
+              { $ifNull: ["$schemeDetails.season", " "] }, " ",
+              { $ifNull: ["$schemeDetails.period", " "] },
+            ],
+          },
         },
       },
       { $sort: { payment_status: -1, createdAt: -1 } },
       { $skip: (page - 1) * limit },
       { $limit: limit },
-    ];
+    );
 
-    const records = await RequestModel.aggregate(aggregationPipeline);
+    const records = await RequestModel.aggregate(aggregationPipeline) || [];
+    // filtering records on the basis of approval_status
+    const apStatus = isApproved ? "Approved" : "Pending";
+    var filteredRecords = records.filter((el) => el?.approval_status === apStatus);
+    // filtering on the basis of overall_payment_status
+    if (paymentStatus) {
+      filteredRecords = records.filter((el) => el?.overall_payment_status === paymentStatus);
+    }
+
+    // console.log("filteredRes => ", filteredRecords, apStatus, isApproved, paymentStatus)
 
     // Step 5: Prepare Response
     const response = {
       count: totalCount,
-      rows: records,
+      rows: filteredRecords,
       page,
       limit,
       pages: Math.ceil(totalCount / limit),
@@ -1135,7 +1186,6 @@ module.exports.associateOrders = async (req, res) => {
         })
       );
     }
-
     const paymentIds = (
       await Payment.find({
         ho_id: { $in: [portalId, user_id] },
@@ -1144,18 +1194,18 @@ module.exports.associateOrders = async (req, res) => {
       })
     ).map((i) => i.associateOffers_id);
     let query = {
-      _id: { $in: paymentIds },
-      req_id,
+    _id: { $in: paymentIds },
+    req_id,
       status: {
         $in: [
           _associateOfferStatus.partially_ordered,
           _associateOfferStatus.ordered,
         ],
       },
-      ...(search ? { order_no: { $regex: search, $options: "i" } } : {}), // Search functionality
+     // ...(search ? { order_no: { $regex: search, $options: "i" } } : {}), // Search functionality
     };
 
-    const records = { count: 0 };
+    const records = { count: 0 }; 
     records.reqDetails = await RequestModel.findOne({ _id: req_id }).select({
       _id: 1,
       reqNo: 1,
@@ -1168,21 +1218,117 @@ module.exports.associateOrders = async (req, res) => {
     records.rows =
       paginate == 1
         ? await AssociateOffers.find(query)
-            .populate({
-              path: "seller_id",
-              select:
-                "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name",
-            })
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit))
+          .populate({
+            path: "seller_id",
+            select:
+              "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name",
+          })
+          .sort(sortBy)
+          .skip(skip)
+          .limit(parseInt(limit))
         : await AssociateOffers.find(query).sort(sortBy);
 
-    records.count = await AssociateOffers.countDocuments(query);
+    // records.rows =
+    //   paginate == 1
+    //     ? await AssociateOffers.find(query)
+    //         .populate({
+    //           path: "seller_id",
+    //           select:
+    //             "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name",           
+    //           })
+    //         .sort(sortBy)
+    //         .skip(skip)
+    //         .limit(parseInt(limit))
+    //     : await AssociateOffers.find(query).sort(sortBy);
 
-    if (paginate == 1) {
+    // records.count = await AssociateOffers.countDocuments(query);
+
+    // if (paginate == 1) {
+    //   records.page = page;
+    //   records.limit = limit;
+    //   records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+    // }
+
+    let pipeline = [
+      { $match: query },
+
+      // Lookup for seller_id instead of populate
+      {
+        $lookup: {
+          from: 'users', 
+          localField: 'seller_id',
+          foreignField: '_id',
+          pipeline: [
+            { $project: { user_code: 1, 'basic_details.associate_details': 1 } }
+          ],
+          as: 'seller_id',
+        },
+      },
+      {
+        $unwind: {
+          path: '$seller_id',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+    ];
+
+    if(search){
+      pipeline.push({
+        $match: {
+          $or: [
+            { 'seller_id.basic_details.associate_details.organization_name': { $regex: search, $options: 'i'}  },
+            { 'seller_id.basic_details.associate_details.associate_name': { $regex: search, $options: 'i'} }
+          ]
+        }
+      });
+    }
+
+    // Count total records
+    const countPipeline = [
+      ...pipeline,
+      { $count: "count" }
+    ];
+
+ // add necessary fields
+    pipeline.push(
+      // Project only required fields
+      {
+        $project: {
+          _id: 1,
+          req_id: 1,
+          seller_id: 1,
+          offeredQty: 1,
+          status: 1,
+          procuredQty: 1,
+          updatedBy: 1,
+          createdBy: 1,
+          deletedAt: 1,
+          deletedBy: 1,
+          comments: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      }
+    );
+    
+    // sorting
+    pipeline.push(
+      // Sorting
+      { $sort: sortBy },
+    );
+
+    if( paginate == 1){
+      pipeline.push( { $skip: parseInt(skip) }, { $limit : parseInt(limit) });
       records.page = page;
       records.limit = limit;
+    }
+    
+    records.rows = await AssociateOffers.aggregate(pipeline);
+
+    countResult = await AssociateOffers.aggregate( countPipeline);
+    records.count = countResult[0]?.count || 0;
+
+    if(paginate == 1){
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
@@ -1200,96 +1346,182 @@ module.exports.associateOrders = async (req, res) => {
 
 module.exports.batchList = async (req, res) => {
   try {
-    const {
-      page,
-      limit,
-      skip,
-      paginate = 1,
-      sortBy,
-      search = "",
-      associateOffer_id,
-    } = req.query;
-    const { user_type, portalId, user_id } = req;
+    const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0, batch_status = "Pending" } = req.query
 
-    const paymentIds = (
-      await Payment.find({
-        ho_id: { $in: [portalId, user_id] },
-        associateOffers_id: associateOffer_id,
-        bo_approve_status: _paymentApproval.approved,
-      })
-    ).map((i) => i.batch_id);
+    const paymentIds = (await Payment.find({ associateOffers_id: associateOffer_id })).map(i => i.batch_id)
+
     let query = {
       _id: { $in: paymentIds },
-      associateOffer_id,
-      ...(search ? { order_no: { $regex: search, $options: "i" } } : {}), // Search functionality
+      associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
+      bo_approve_status: _paymentApproval.approved,
+      ho_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
+      ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
     };
+
     const records = { count: 0 };
 
-    records.rows =
-      paginate == 1
-        ? await Batch.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .select(
-              "_id procurementCenter_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_approve_by bo_approve_status ho_approve_status"
-            )
-            .limit(parseInt(limit))
-        : await Batch.find(query).sort(sortBy);
+    const pipeline = [
+      {
+        $match: query,
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'seller_id',
+          foreignField: '_id',
+          as: 'users',
+        }
+      },
+      {
+        $unwind: "$users"
+      },
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'req_id',
+          foreignField: '_id',
+          as: 'requestDetails',
+        }
+      },
+      {
+        $unwind: "$requestDetails"
+      },
+      {
+        $lookup: {
+          from: 'associateinvoices',
+          localField: '_id',
+          foreignField: 'batch_id',
+          as: 'invoice',
+        }
+      },
+      {
+        $lookup: {
+          from: 'payments',
+          localField: '_id',
+          foreignField: 'batch_id',
+          as: 'payment',
+        }
+      },
+      {
+        $addFields: {
+          qtyPurchased: {
+            $reduce: {
+              input: {
+                $map: {
+                  input: '$invoice',
+                  as: 'inv',
+                  in: '$$inv.qtyProcured'
+                }
+              },
+              initialValue: 0,
+              in: { $add: ['$$value', '$$this'] }
+            }
+          },
+          amountProposed: {
+            $reduce: {
+              input: {
+                $map: {
+                  input: '$invoice',
+                  as: 'inv',
+                  in: '$$inv.bills.total'
+                }
+              },
+              initialValue: 0,
+              in: { $add: ['$$value', '$$this'] }
+            }
+          },
+          amountPayable: {
+            $reduce: {
+              input: {
+                $map: {
+                  input: '$invoice',
+                  as: 'inv',
+                  in: '$$inv.bills.total'
+                }
+              },
+              initialValue: 0,
+              in: { $add: ['$$value', '$$this'] }
+            }
+          },
+          tags: {
+            $cond: {
+              if: { $in: ["$payment.payment_status", ["Failed", "Rejected"]] },
+              then: "Re-Initiate",
+              else: "New"
+            }
+          },
+          approval_status: {
+            $switch: {
+              branches: [
+                { case: { $eq: [{ $toString: "$ho_approve_status" }, "Pending"] }, then: "Pending from CNA" },
+                { case: { $eq: [{ $toString: "$bo_approval_status" }, "Pending"] }, then: "Pending from BO" },
+                { case: { $eq: [{ $toString: "$agent_approval_status" }, "Pending"] }, then: "Pending from SLA" }
+              ],
+              default: "Approved"
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          "batchId": 1,
+          amountPayable: 1,
+          qtyPurchased: 1,
+          amountProposed: 1,
+          associateName: "$users.basic_details.associate_details.associate_name",
+          whrNo: "12345",
+          whrReciept: "whrReciept.jpg",
+          deliveryDate: "$delivered.delivered_at",
+          procuredOn: "$requestDetails.createdAt",
+          tags: 1,
+          approval_status:1
+        }
+      },
+
+      ...(sortBy ? [{ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }] : []),
+      ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+      {
+        $limit: limit ? parseInt(limit) : 10
+      }
+
+    ]
+
+    records.rows = await Batch.aggregate(pipeline);
 
     records.count = await Batch.countDocuments(query);
 
-    records.rows = await Promise.all(
-      records.rows.map(async (item) => {
-        let paidFarmer = 0;
-        let unPaidFarmer = 0;
-        let rejectedFarmer = 0;
-        let totalFarmer = 0;
-        const paymentData = await Payment.find({
-          ho_id: { $in: [portalId, user_id] },
-          associateOffers_id: associateOffer_id,
-          bo_approve_status: _paymentApproval.approved,
-        });
-
-        paymentData.forEach((item) => {
-          if (item.payment_status === _paymentstatus.completed) {
-            paidFarmer += 1;
-          }
-          if (
-            item.payment_status === _paymentstatus.pending ||
-            item.payment_status === _paymentstatus.rejected
-          ) {
-            unPaidFarmer += 1;
-          }
-          if (item.payment_status === _paymentstatus.rejected) {
-            rejectedFarmer += 1;
-          }
-
-          totalFarmer += 1;
-        });
-
-        return {
-          ...JSON.parse(JSON.stringify(item)),
-          paidFarmer,
-          unPaidFarmer,
-          rejectedFarmer,
-          totalFarmer,
-        };
-      })
-    );
-
     if (paginate == 1) {
-      records.page = page;
-      records.limit = limit;
-      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+      records.page = page
+      records.limit = limit
+      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
     }
 
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: records,
-        message: _query.get("Payment"),
+    if (isExport == 1) {
+
+      const record = records.rows.map((item) => {
+
+        return {
+          "Associate Id": item?.seller_id.user_code || "NA",
+          "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || "NA",
+          "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || "NA",
+          "Quantity Purchased": item?.offeredQty || "NA",
+        }
       })
-    );
+
+      if (record.length > 0) {
+
+        dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Associate Orders-${'Associate Orders'}.xlsx`,
+          worksheetName: `Associate Orders-record-${'Associate Orders'}`
+        });
+      } else {
+        return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
+      }
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+
   } catch (error) {
     _handleCatchErrors(error, res);
   }
@@ -1416,6 +1648,7 @@ module.exports.approvedBatchList = async (req, res) => {
       bo_approve_status: _paymentApproval.approved,
       ho_approve_status: _paymentApproval.approved,
       // agent_approve_status: _paymentApproval.approved
+      ...( search ? { batchId: { $regex: search, $options: 'i'} }: {})
     };
 
     records.rows = await Batch.find(query).populate({
@@ -1477,112 +1710,112 @@ module.exports.lot_list = async (req, res) => {
 
 // dileep code
 /*
-module.exports.orderList = async (req, res) => {
-  try {
-    const {
-      page,
-      limit,
-      skip,
-      paginate = 1,
-      sortBy,
-      search = "",
-      user_type,
-      isExport = 0,
-      isFinal = 0,
-    } = req.query;
+  module.exports.orderList = async (req, res) => {
+    try {
+      const {
+        page,
+        limit,
+        skip,
+        paginate = 1,
+        sortBy,
+        search = "",
+        user_type,
+        isExport = 0,
+        isFinal = 0,
+      } = req.query;
 
-    const portalId = req.user.portalId._id;
-    const user_id = req.user._id;
+      const portalId = req.user.portalId._id;
+      const user_id = req.user._id;
 
-    let query = search
-      ? {
-        req_id: { $regex: search, $options: "i" },
-        ho_id: { $in: [portalId, user_id] },
+      let query = search
+        ? {
+          req_id: { $regex: search, $options: "i" },
+          ho_id: { $in: [portalId, user_id] },
+        }
+        : { ho_id: { $in: [portalId, user_id] } };
+
+      const records = { count: 0, rows: [] };
+
+      query = { ...query, bo_approve_status: _paymentApproval.approved };
+
+      if (isFinal == 1) {
+        query = { ...query, ho_approve_status: _paymentApproval.approved };
       }
-      : { ho_id: { $in: [portalId, user_id] } };
+      console.log("query-->", query);
+      records.rows = await AgentInvoice.find(query).populate({
+        path: "req_id",
+        select: " ",
+      });
+      records.count = await AgentInvoice.countDocuments(query);
 
-    const records = { count: 0, rows: [] };
+      if (paginate == 1) {
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+      }
 
-    query = { ...query, bo_approve_status: _paymentApproval.approved };
-
-    if (isFinal == 1) {
-      query = { ...query, ho_approve_status: _paymentApproval.approved };
-    }
-    console.log("query-->", query);
-    records.rows = await AgentInvoice.find(query).populate({
-      path: "req_id",
-      select: " ",
-    });
-    records.count = await AgentInvoice.countDocuments(query);
-
-    if (paginate == 1) {
       records.page = page;
       records.limit = limit;
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-    }
 
-    records.page = page;
-    records.limit = limit;
-    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-
-    records.rows = records.rows.map((item) => {
-      let obj = {
-        _id: item?._id,
-        orderId: item?.req_id?.reqNo,
-        branchNo: item?.batch_id?.branchId,
-        commodity: item?.req_id?.product?.name,
-        quantityPurchased: item?.qtyProcured,
-        billingDate: item?.createdAt,
-        ho_approve_status: item.ho_approve_status,
-        payment_status: item.payment_status
-      };
-
-      return obj;
-    });
-
-    if (isExport == 1) {
-      const record = records.rows.map((item) => {
-        return {
-          "Order ID": item?.orderId || "NA",
-          Commodity: item?.commodity || "NA",
-          "Quantity Purchased": item?.quantityPurchased || "NA",
-          "Billing Date": item?.billingDate ?? "NA",
-          "Approval Status": item?.ho_approve_status ?? "NA",
+      records.rows = records.rows.map((item) => {
+        let obj = {
+          _id: item?._id,
+          orderId: item?.req_id?.reqNo,
+          branchNo: item?.batch_id?.branchId,
+          commodity: item?.req_id?.product?.name,
+          quantityPurchased: item?.qtyProcured,
+          billingDate: item?.createdAt,
+          ho_approve_status: item.ho_approve_status,
+          payment_status: item.payment_status
         };
+
+        return obj;
       });
 
-      if (record.length > 0) {
-        dumpJSONToExcel(req, res, {
-          data: record,
-          fileName: `orderId-record.xlsx`,
-          worksheetName: `orderId-record`,
+      if (isExport == 1) {
+        const record = records.rows.map((item) => {
+          return {
+            "Order ID": item?.orderId || "NA",
+            Commodity: item?.commodity || "NA",
+            "Quantity Purchased": item?.quantityPurchased || "NA",
+            "Billing Date": item?.billingDate ?? "NA",
+            "Approval Status": item?.ho_approve_status ?? "NA",
+          };
         });
+
+        if (record.length > 0) {
+          dumpJSONToExcel(req, res, {
+            data: record,
+            fileName: `orderId-record.xlsx`,
+            worksheetName: `orderId-record`,
+          });
+        } else {
+          return res
+            .status(400)
+            .send(
+              new serviceResponse({
+                status: 400,
+                data: records,
+                message: _response_message.notFound("Order"),
+              })
+            );
+        }
       } else {
         return res
-          .status(400)
+          .status(200)
           .send(
             new serviceResponse({
-              status: 400,
+              status: 200,
               data: records,
-              message: _response_message.notFound("Order"),
+              message: _response_message.found("Order"),
             })
           );
       }
-    } else {
-      return res
-        .status(200)
-        .send(
-          new serviceResponse({
-            status: 200,
-            data: records,
-            message: _response_message.found("Order"),
-          })
-        );
+    } catch (error) {
+      _handleCatchErrors(error, res);
     }
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
-};
+  };
 */
 
 module.exports.orderList = async (req, res) => {
@@ -1606,9 +1839,9 @@ module.exports.orderList = async (req, res) => {
     // Base query
     let query = search
       ? {
-          // req_id: { $regex: search, $options: "i" },
-          ho_id: { $in: [portalId, user_id] },
-        }
+        // req_id: { $regex: search, $options: "i" },
+        ho_id: { $in: [portalId, user_id] },
+      }
       : { ho_id: { $in: [portalId, user_id] } };
 
     query = { ...query, bo_approve_status: _paymentApproval.approved };
@@ -1616,55 +1849,89 @@ module.exports.orderList = async (req, res) => {
     if (isFinal == 1) {
       query = { ...query, ho_approve_status: _paymentApproval.approved };
     }
-    query = {
-      ...query,
-      ...(state || search || commodity
-        ? {
-            $and: [
-              ...(state
-                ? [
-                    {
-                      "sellers.address.registered.state": {
-                        $regex: state,
-                        $options: "i",
-                      },
-                    },
-                  ]
-                : []),
-              ...(search
-                ? [
-                    {
-                      $or: [
-                        {
-                          "branch.branchId": {
-                            $regex: search,
-                            $options: "i",
-                          },
-                        },
-                        {
-                          "requests.reqNo": {
-                            $regex: search,
-                            $options: "i",
-                          },
-                        },
-                      ],
-                    },
-                  ]
-                : []),
-              ...(commodity
-                ? [
-                    {
-                      "requests.product.name": {
-                        $regex: commodity,
-                        $options: "i",
-                      },
-                    },
-                  ]
-                : []),
-            ],
-          }
-        : {}),
-    };
+    // query = {
+    //   ...query,
+    //   ...(state || search || commodity
+    //     ? {
+    //         $and: [
+    //           ...(state
+    //             ? [
+    //                 {
+    //                   "sellers.address.registered.state": {
+    //                     $regex: state,
+    //                     $options: "i",
+    //                   },
+    //                 },
+    //               ]
+    //             : []),
+    //           // ...(search
+    //           //   ? 
+    //           //   [{
+    //           //     $or: [
+    //           //       {
+    //           //         "branch.branchId": {
+    //           //           $regex: search,
+    //           //           $options: "i",
+    //           //         },
+    //           //       },
+    //           //       {
+    //           //         "requests.reqNo": {
+    //           //           $regex: search,
+    //           //           $options: "i",
+    //           //         },
+    //           //       },
+    //           //     ],
+    //           //   }]
+    //           //   : []),
+    //           ...(commodity
+    //             ? [
+    //                 {
+    //                   "requests.product.name": {
+    //                     $regex: commodity,
+    //                     $options: "i",
+    //                   },
+    //                 },
+    //               ]
+    //             : []),
+    //         ],
+    //       }
+    //     : {}),
+    // };
+    
+// Initialize $and conditionally
+
+const andConditions = [];
+
+// If state filter is provided
+if (state) {
+  andConditions.push({
+    "sellers.address.registered.state": { $regex: state, $options: "i" },
+  });
+}
+
+// If search filter is provided
+// if (search) {
+//   andConditions.push({
+//     $or: [
+//       { "branch.branchId": { $regex: search, $options: "i" } },
+//       { "requests.reqNo": { $regex: search, $options: "i" } },
+//     ],
+//   });
+// }
+
+// If commodity filter is provided
+if (commodity) {
+  andConditions.push({
+    "requests.product.name": { $regex: commodity, $options: "i" },
+  });
+}
+
+// Add $and condition only if there are filters
+if (andConditions.length > 0) {
+  query.$and = andConditions;
+}
+
+  
     const unwindBatchIdStage = {
       $unwind: {
         path: "$batch_id",
@@ -1753,8 +2020,23 @@ module.exports.orderList = async (req, res) => {
       unwindBrachesStage,
       lookupUserStage,
       matchStateStage,
-      projectStage,
+     // projectStage,
     ];
+
+
+    if(search){
+      pipeline.push( { $match: {$or: [
+        { "branch.branchId": { $regex: search, $options: "i" } },
+        { "requests.reqNo": { $regex: search, $options: "i" } },
+      ], } },)
+    }
+         // Count pipeline
+         const countPipeline = [
+          ...pipeline,
+          { $count: "count" },
+        ];
+    
+    pipeline.push(projectStage);
 
     if (paginate == 1) {
       pipeline.push(skipStage, limitStage);
@@ -1765,18 +2047,19 @@ module.exports.orderList = async (req, res) => {
     // Execute aggregation
     const rows = await AgentInvoice.aggregate(pipeline);
 
-    // Count pipeline
-    const countPipeline = [
-      // matchStage,
-      lookupRequestStage,
-      unwindBatchIdStage,
-      lookupBatchDataStage,
-      lookupBranchesStage,
-      unwindBatchDataStage,
-      lookupUserStage,
-      matchStateStage,
-      { $count: "count" },
-    ];
+    // // Count pipeline
+    // const countPipeline = [
+    //   // matchStage,
+    //   lookupRequestStage,
+    //   unwindBatchIdStage,
+    //   lookupBatchDataStage,
+    //   lookupBranchesStage,
+    //   unwindBatchDataStage,
+    //   lookupUserStage,
+    //   matchStateStage,
+    //   { $count: "count" },
+    // ];
+
 
     const countResult = await AgentInvoice.aggregate(countPipeline);
     records.count = countResult[0]?.count || 0;
@@ -2163,9 +2446,8 @@ module.exports.payFarmers = async (req, res) => {
           const singular_plural = missingFields.length > 1 ? "are" : "is";
           const errorMessage = `${missingFields.join(
             ", "
-          )} ${singular_plural} missing in ${item.farmer_name} (${
-            item.farmer_id
-          })`;
+          )} ${singular_plural} missing in ${item.farmer_name} (${item.farmer_id
+            })`;
           return res.status(400).send(
             new serviceResponse({
               status: 400,
@@ -2211,7 +2493,7 @@ module.exports.payFarmers = async (req, res) => {
         pir_ref_no: paymentFileData["PIR_REF_NO"],
         my_product_code:
           paymentFileData[
-            "MY_PRODUCT_CODE(It should be Digital Products only)"
+          "MY_PRODUCT_CODE(It should be Digital Products only)"
           ],
         amount: paymentFileData["Amount"],
         acc_no: paymentFileData["Acc no(2244102000000055)"],
@@ -2494,7 +2776,7 @@ module.exports.payAgent = async (req, res) => {
         pir_ref_no: paymentFileData["PIR_REF_NO"],
         my_product_code:
           paymentFileData[
-            "MY_PRODUCT_CODE(It should be Digital Products only)"
+          "MY_PRODUCT_CODE(It should be Digital Products only)"
           ],
         amount: paymentFileData["Amount"],
         acc_no: paymentFileData["Acc no(2244102000000055)"],
@@ -2687,7 +2969,7 @@ module.exports.verifyOTPProceed = async (req, res) => {
 
     const staticOTP = "9821";
 
- 
+
     if ((!userOTP || inputOTP !== userOTP.otp) && inputOTP !== staticOTP) {
       return sendResponse({
         res,
@@ -2695,7 +2977,7 @@ module.exports.verifyOTPProceed = async (req, res) => {
         message: _response_message.otp_not_verified("OTP"),
       });
     }
-    
+
     // Send the response
     return sendResponse({
       res,
@@ -2734,3 +3016,389 @@ module.exports.sendOTP = async (req, res) => {
     _handleCatchErrors(err, res);
   }
 };
+
+
+/**************************************************************/
+
+module.exports.proceedToPayPayment = async (req, res) => {
+  try {
+    let { page, limit, search = '', isExport = 0, payment_status } = req.query;
+    limit = parseInt(limit) || 10;
+    page = parseInt(page) || 1;
+
+    const paymentIds = (await Payment.find()).map(i => i.req_id);
+
+    let query = search ? {
+      _id: { $in: paymentIds },
+      $or: [
+        { "reqNo": { $regex: search, $options: 'i' } },
+        { "product.name": { $regex: search, $options: 'i' } },
+      ]
+    } : {};
+
+    const validStatuses = [_paymentstatus.pending, _paymentstatus.inProgress, _paymentstatus.failed, _paymentstatus.completed, _paymentstatus.rejected];
+
+    if (payment_status && !validStatuses.includes(payment_status)) {
+      return res.status(400).send(new serviceResponse({
+        status: 400,
+        message: `Invalid payment status. Valid statuses are: ${validStatuses.join(', ')}`
+      }));
+    }
+
+    // Modify the query condition
+    let paymentStatusCondition = payment_status;
+    if (payment_status === "Failed" || payment_status === "Rejected") {
+      paymentStatusCondition = "Failed";
+    }
+
+    const aggregationPipeline = [
+      { $match: query },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: 'batches',
+          localField: '_id',
+          foreignField: 'req_id',
+          as: 'batches',
+          pipeline: [
+            {
+              $lookup: {
+                from: 'payments',
+                localField: '_id',
+                foreignField: 'batch_id',
+                as: 'payment',
+              }
+            }
+          ],
+        }
+      },
+      {
+        $lookup: {
+          from: 'branches',
+          localField: 'branch_id',
+          foreignField: '_id',
+          as: 'branchDetails'
+        }
+      },
+      {
+        $addFields: {
+          branchDetails: {
+            branchName: { $arrayElemAt: ['$branchDetails.branchName', 0] },
+            branchId: { $arrayElemAt: ['$branchDetails.branchId', 0] },
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "slas",
+          localField: "sla_id",
+          foreignField: "_id",
+          as: "sla"
+        }
+      },
+      {
+        $unwind: { path: "$sla", preserveNullAndEmptyArrays: true }
+      },
+      {
+        $lookup: {
+          from: "schemes",
+          localField: "product.schemeId",
+          foreignField: "_id",
+          as: "scheme"
+        }
+      },
+      {
+        $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true }
+      },
+      {
+        $match: {
+          batches: { $ne: [] },
+          "batches.bo_approve_status": _paymentApproval.approved,
+          "batches.ho_approve_status": _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending },
+          "batches.payment.payment_status": paymentStatusCondition || _paymentstatus.pending
+        }
+      },
+      {
+        $addFields: {
+          qtyPurchased: {
+            $sum: "$batches.qty"
+          },
+          amountPayable: {
+            $sum: "$batches.totalPrice"
+          },
+          approval_status: "Approved",
+          payment_status: payment_status || _paymentstatus.pending,
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          reqNo: 1,
+          product: 1,
+          qtyPurchased: 1,
+          amountPayable: 1,
+          approval_status: 1,
+          payment_status: 1,
+          'branchDetails.branchName': 1,
+          'branchDetails.branchId': 1,
+          'sla.basic_details.name': 1,
+          'scheme.schemeName': 1,
+        }
+      },
+      { $skip: (page - 1) * limit },
+      { $limit: limit }
+    ];
+
+    let response = { count: 0 };
+    response.rows = await RequestModel.aggregate(aggregationPipeline);
+
+    const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
+    response.count = countResult?.[0]?.count ?? 0;
+
+    if (isExport == 1) {
+      const exportRecords = await RequestModel.aggregate([...aggregationPipeline]);
+      if (exportRecords.length > 0) {
+        dumpJSONToExcel(req, res, {
+          data: exportRecords,
+          fileName: `Farmer-Payment-records.xlsx`,
+          worksheetName: `Farmer-Payment-records`
+        });
+      } else {
+        return res.status(400).send(new serviceResponse({ status: 400, data: response, message: "No payments found" }));
+      }
+    } else {
+      return res.status(200).send(new serviceResponse({ status: 200, data: response, message: "Payments found" }));
+    }
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+
+module.exports.proceedToPayBatchList = async (req, res) => {
+
+  try {
+    const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, req_id, payment_status, isExport = 0 } = req.query
+
+    const paymentIds = (await Payment.find({ req_id })).map(i => i.batch_id);
+
+    let query = {
+      _id: { $in: paymentIds },
+      req_id: new mongoose.Types.ObjectId(req_id),
+      bo_approve_status: _paymentApproval.approved,
+      ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+    };
+
+    const validStatuses = [_paymentstatus.pending, _paymentstatus.inProgress, _paymentstatus.failed, _paymentstatus.completed, _paymentstatus.rejected];
+
+    if (payment_status && !validStatuses.includes(payment_status)) {
+      return res.status(400).send(new serviceResponse({
+        status: 400,
+        message: `Invalid payment status. Valid statuses are: ${validStatuses.join(', ')}`
+      }));
+    }
+
+    // Modify the query condition
+    let paymentStatusCondition = payment_status;
+    if (payment_status === "Failed" || payment_status === "Rejected") {
+      paymentStatusCondition = "Failed";
+    }
+
+
+    const records = { count: 0 };
+
+    const pipeline = [
+      {
+        $match: query,
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'seller_id',
+          foreignField: '_id',
+          as: 'users',
+        }
+      },
+      {
+        $unwind: "$users"
+      },
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'req_id',
+          foreignField: '_id',
+          as: 'requestDetails',
+        }
+      },
+      {
+        $unwind: "$requestDetails"
+      },
+      {
+        $lookup: {
+          from: 'associateinvoices',
+          localField: '_id',
+          foreignField: 'batch_id',
+          as: 'invoice',
+        }
+      },
+      // {
+      //     $unwind: "$invoice"
+      // },
+      {
+        $lookup: {
+          from: 'payments',
+          localField: '_id',
+          foreignField: 'batch_id',
+          as: 'payment',
+        }
+      },
+      {
+        $match: {
+          "payment.payment_status": paymentStatusCondition || _paymentstatus.pending
+        }
+      },
+      {
+        $addFields: {
+          qtyPurchased: {
+            $reduce: {
+              input: {
+                $map: {
+                  input: '$invoice',
+                  as: 'inv',
+                  in: '$$inv.qtyProcured'
+                }
+              },
+              initialValue: 0,
+              in: { $add: ['$$value', '$$this'] }
+            }
+          },
+          amountProposed: {
+            $reduce: {
+              input: {
+                $map: {
+                  input: '$invoice',
+                  as: 'inv',
+                  in: '$$inv.bills.total'
+                }
+              },
+              initialValue: 0,
+              in: { $add: ['$$value', '$$this'] }
+            }
+          },
+          amountPayable: {
+            $reduce: {
+              input: {
+                $map: {
+                  input: '$invoice',
+                  as: 'inv',
+                  in: '$$inv.bills.total'
+                }
+              },
+              initialValue: 0,
+              in: { $add: ['$$value', '$$this'] }
+            }
+          },
+          tags: {
+            $cond: {
+              if: { $in: ["$payment.payment_status", ["Failed", "Rejected"]] },
+              then: "Re-Initiate",
+              else: "New"
+            }
+          },
+          approval_status: {
+            $switch: {
+              branches: [
+                { case: { $eq: [{ $toString: "$ho_approve_status" }, "Pending"] }, then: "Pending from CNA" },
+                { case: { $eq: [{ $toString: "$bo_approval_status" }, "Pending"] }, then: "Pending from BO" },
+                { case: { $eq: [{ $toString: "$agent_approval_status" }, "Pending"] }, then: "Pending from SLA" }
+              ],
+              default: "Approved"
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          "batchId": 1,
+          // "invoice.initiated_at": 1,
+          // "invoice.bills.total": 1,
+          amountPayable: 1,
+          qtyPurchased: 1,
+          amountProposed: 1,
+          associateName: "$users.basic_details.associate_details.associate_name",
+          whrNo: "12345",
+          whrReciept: "whrReciept.jpg",
+          deliveryDate: "$delivered.delivered_at",
+          procuredOn: "$requestDetails.createdAt",
+          tags: 1,
+          approval_status:1
+        }
+      },
+      // Start of Sangita code
+      ...(sortBy ? [{ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }] : []),
+      ...(paginate == 1 ? [{ $skip: parseInt(skip) }, { $limit: parseInt(limit) }] : []),
+      {
+        $limit: limit ? parseInt(limit) : 10
+      }
+      // End of Sangita code
+    ]
+
+    records.rows = await Batch.aggregate(pipeline);
+
+    records.reqDetails = await RequestModel.findOne({ _id: req_id })
+      .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+
+    records.count = await Batch.countDocuments(query);
+
+    if (paginate == 1) {
+      records.page = page
+      records.limit = limit
+      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+    }
+
+    if (isExport == 1) {
+
+      const record = records.rows.map((item) => {
+
+        return {
+          "Associate Id": item?.seller_id.user_code || "NA",
+          "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || "NA",
+          "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || "NA",
+          "Quantity Purchased": item?.offeredQty || "NA",
+        }
+      })
+
+      if (record.length > 0) {
+
+        dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Associate Orders-${'Associate Orders'}.xlsx`,
+          worksheetName: `Associate Orders-record-${'Associate Orders'}`
+        });
+      } else {
+        return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
+      }
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+}
+
+module.exports.paymentLogsHistory = async (req, res) => {
+  try {
+    const { batchId } = req.query
+    if (!batchId) {
+      return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("batchId") }] }))
+    }
+    const records = { count: 0, rows: [] };
+    records.rows = await PaymentLogsHistory.find({ batch_id: batchId })
+      .populate({ path: 'user_id', select: 'email' })
+    records.count = await PaymentLogsHistory.countDocuments({ batch_id: batchId })
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment logs") }))
+  }
+  catch (error) {
+    _handleCatchErrors(error, res);
+  }
+}
