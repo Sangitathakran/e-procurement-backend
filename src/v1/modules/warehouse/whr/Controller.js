@@ -796,7 +796,8 @@ const listWHRForDropdown = async (req, res) => {
       procurementCenters: procurementCenterNames,
       commodityNames : commodityNames,
       whr_date : whrModelData?.whr_date || 'Null',
-      whr_number: whrModelData.whr_number || 'Null'
+      whr_number: whrModelData.whr_number || 'Null',
+      whr_document: whrModelData.whr_document || 'Null'
     }
     
     return res.status(200).send(new serviceResponse({ status: 200, data: data, message: _response_message.found("data") }));
