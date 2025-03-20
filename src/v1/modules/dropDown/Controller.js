@@ -1,6 +1,7 @@
 const { Associate } = require("@src/v1/models/app/auth/Associate");
 const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
+const { User } = require("@src/v1/models/app/auth/User");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Commodity } = require("@src/v1/models/master/Commodity");
@@ -205,10 +206,10 @@ module.exports.getRoles = async (req, res) => {
 };
 
 module.exports.getAssociates = async (req, res) => {
-  const query = { deletedAt: null };
+  const query = { active: true, deletedAt: null };
 
   try {
-    const associate_list = await Associate.aggregate([
+    const associate_list = await User.aggregate([
       { $match: query },
       {
         $project: {
