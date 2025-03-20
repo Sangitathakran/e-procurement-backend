@@ -521,7 +521,7 @@ const lotLevelDetailsUpdate = async (req, res) => {
     }
 
     let whrDetails = await WhrModel.findOne({ batch_id });
-
+    console.log('whrDetails',whrDetails)
     const whr_document = rows.length > 0 ? rows[0].whr_document || null : null;
     const lotDetailsBulkInsert = [];
 
@@ -767,9 +767,12 @@ const listWHRForDropdown = async (req, res) => {
     
     const procurementCenterIds = batchDetails.map(data => data.procurementCenter_id);
     const requestIds = batchDetails.map(data => data.req_id);
+    const batchIdsList = batchDetails.map(data => data._id);
     
     const procurementDetails = await ProcurementCenter.find({ "_id": { $in: procurementCenterIds } });
     const commodityDetails = await RequestModel.find({ "_id": { $in: requestIds } });
+    const whrModelData = await WhrModel.findOne({ "batch_id": batchIdsList  });
+    
     
 
     const procurementCenterNames = procurementDetails.map(data => ({
@@ -787,11 +790,13 @@ const listWHRForDropdown = async (req, res) => {
       commodityName: data.product.name,
     }));
 
-
+    
     const data = {
       batchDetails : batchDetails,
       procurementCenters: procurementCenterNames,
-      commodityNames : commodityNames
+      commodityNames : commodityNames,
+      whr_date : whrModelData?.whr_date || 'Null',
+      whr_number: whrModelData.whr_number || 'Null'
     }
     
     return res.status(200).send(new serviceResponse({ status: 200, data: data, message: _response_message.found("data") }));
@@ -1103,10 +1108,10 @@ const deleteWhr = async (req, res) => {
 //     }
 // });
 
-///   67b57284054396b7ff9cbfce
+  // 67b57284054396b7ff9cbfce
 
 const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
-  const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status, productName, warehouse_name } = req.query;
+  const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status,batch_code, productName, warehouse_name } = req.query;
   const { warehouseIds = [] } = req.body;
 
   try {
@@ -1138,20 +1143,13 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
 
       const searchRegex = search ? new RegExp(search, 'i') : null;
 
+      
       const query = {
           warehousedetails_id: { $in: finalwarehouseIds },
           ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
-          ...(status && { "final_quality_check.status": status }),
+          ...(status && { whr_status: status }),
+          ...(batch_code && { batchId: batch_code }),
           ...(productName && { "req_id.product.name": productName }),
-          ...(search && searchRegex && {
-              $or: [
-                  { _id: { $regex: searchRegex } },
-                  { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
-                  { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
-                  { "procurementCenter_id.center_name": { $regex: searchRegex } },
-                  { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
-              ]
-          })
       };
 
       const rows = await Batch.find(query)
@@ -1172,14 +1170,15 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
 
       const batchIds = rows.map(row => row._id);
       const whrData = await WhrModel.find({ batch_id: { $in: batchIds } })
-          .select("batch_id whr_type whr_number");
+          .select("batch_id whr_type whr_number whr_date");
 
       const whrMap = {};
       whrData.forEach(whr => {
         whr.batch_id.forEach(id => {
             whrMap[id.toString()] = { 
                 whr_type: whr.whr_type, 
-                whr_number: whr.whr_number 
+                whr_number: whr.whr_number,
+                whr_date : whr.whr_date 
             };
         });
       });
@@ -1189,10 +1188,90 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
       const modifiedRows = rows.map(row => ({
           ...row.toObject(),
           whr_type: whrMap[row._id.toString()] || null,
-          whr_number: whrMap[row._id.toString()]?.whr_number || null
+          whr_number: whrMap[row._id.toString()]?.whr_number || null,
       }));
       
       const totalCount = await Batch.countDocuments(query);
+
+      if (isExport == 1) {
+        const batchIds = rows.map(row => row._id);
+        const whrData = await WhrModel.find({ batch_id: { $in: batchIds } }).select("batch_id whr_type whr_number");
+
+        const whrMap = {};
+        whrData.forEach(whr => {
+            whr.batch_id.forEach(id => {
+                whrMap[id.toString()] = { 
+                    whr_type: whr.whr_type, 
+                    whr_number: whr.whr_number 
+                };
+            });
+        });
+
+        const modifiedRows = rows.map(row => {
+            const farmerOrders = row.farmerOrderIds || [];
+
+            const totalQty = farmerOrders.reduce((sum, order) => sum + (order.qty || 0), 0);
+            const totalAmt = farmerOrders.reduce((sum, order) => sum + (order.amt || 0), 0);
+            const totalRejectedQty = farmerOrders.reduce((sum, order) => sum + (order.rejected_quantity || 0), 0);
+            const totalRejectedBags = farmerOrders.reduce((sum, order) => sum + (order.rejected_bags || 0), 0);
+            const totalGainQty = farmerOrders.reduce((sum, order) => sum + (order.gain_quantity || 0), 0);
+            const totalGainBags = farmerOrders.reduce((sum, order) => sum + (order.gain_bags || 0), 0);
+            const totalAcceptedQty = farmerOrders.reduce((sum, order) => sum + (order.accepted_quantity || 0), 0);
+            const totalAcceptedBags = farmerOrders.reduce((sum, order) => sum + (order.accepted_bags || 0), 0);
+            const totalDispatchQty = farmerOrders.reduce((sum, order) => sum + (order.dispatch_quantity || 0), 0);
+            const totalDispatchBags = farmerOrders.reduce((sum, order) => sum + (order.dispatch_bags || 0), 0);
+
+            return {
+                ...row.toObject(),
+                whr_type: whrMap[row._id.toString()] || null,
+                whr_number: whrMap[row._id.toString()]?.whr_number || null,
+                totalQty,
+                totalAmt,
+                totalRejectedQty,
+                totalRejectedBags,
+                totalGainQty,
+                totalGainBags,
+                totalAcceptedQty,
+                totalAcceptedBags,
+                totalDispatchQty,
+                totalDispatchBags
+            };
+        });
+
+        const exportData = modifiedRows.map(item => ({
+            "Batch ID": item.batchId || 'NA',
+            "Associate Name": item.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
+            "Organization Name": item.seller_id?.basic_details?.associate_details?.organization_name || 'NA',
+            "Procurement Center": item.procurementCenter_id?.center_name || 'NA',
+            "Warehouse": item.warehousedetails_id?.basicDetails?.warehouseName || 'NA',
+            "Quantity": item.qty || 'NA',
+            "Status": item.wareHouse_approve_status || 'NA',
+            "WHR Number": item.whr_number || 'NA',
+            "Scheme": item.req_id.product?.schemeId?.schemeName || 'NA',
+            "Commodity": item.req_id.product?.name || 'NA',
+            "Warehouse Name": item.warehousedetails_id.basicDetails?.warehouseName || 'NA',
+            "WHR Status": item.whr_status || 'NA',
+            "Received Qty": item.totalQty || 0,
+            "Accepted Qty": item.totalAcceptedQty || 0,
+            "Accepted Bags": item.totalAcceptedBags || 0,
+            "Rejected Qty": item.totalRejectedQty || 0,
+            "Rejected Bags": item.totalRejectedBags || 0,
+            "Gain Qty": item.totalGainQty || 0,
+            "Gain Bags": item.totalGainBags || 0,
+          }));
+
+        
+
+          if (exportData.length) {
+              return dumpJSONToExcel(req, res, {
+                  data: exportData,
+                  fileName: `Warehouse-Batches.xlsx`,
+                  worksheetName: `Batches`
+              });
+          }
+          return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
+      }
+
 
       return res.status(200).send(new serviceResponse({
           status: 200,
@@ -1211,6 +1290,55 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
   }
 });
 
+const filterDropdownList = asyncErrorHandler(async (req, res) => {
+  
+  try {
+    const {wareHouseId} = req.params;
+    const getToken = req.headers.token || req.cookies.token;
+    if (!getToken) {
+        return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+    }
+
+    const decode = await decryptJwtToken(getToken);
+    const UserId = decode.data.user_id;
+
+    const batchIds = [];
+
+    if (!mongoose.Types.ObjectId.isValid(UserId)) {
+        return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+    }
+  
+    let query = {
+      "warehousedetails_id": { $in: wareHouseId},
+    };
+    
+    const batchDetails = await Batch.find(query)
+          .populate({
+            path: "req_id",
+            select: "product.schemeId",
+            populate: {
+                path: "product.schemeId",
+                model: "Scheme",
+                select: "schemeName",
+            },
+        })
+        .select('_id batchId');
+    
+    
+
+
+    const data = {
+      batchDetails : batchDetails,
+    }
+    
+    return res.status(200).send(new serviceResponse({ status: 200, data: data, message: _response_message.found("data") }));
+
+} catch (error) {
+    _handleCatchErrors(error, res);
+}
+  
+});
+
 
 
 
@@ -1226,5 +1354,6 @@ module.exports = {
   deleteWhr,
   listWarehouseDropdown,
   whrLotDetailsUpdate,
-  getWarehouseManagementList
+  getWarehouseManagementList,
+  filterDropdownList
 };
