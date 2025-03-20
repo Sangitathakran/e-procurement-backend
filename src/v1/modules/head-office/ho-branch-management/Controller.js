@@ -667,7 +667,7 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
       }
 
       // Check if the record already exists in SchemeAssign
-      const existingRecord = await SchemeAssign.findOne({ ho_id:user_id, scheme_id: _id });
+      const existingRecord = await SchemeAssign.findOne({ bo_id, scheme_id: _id });
 
       if (existingRecord) {
         // Update existing record
