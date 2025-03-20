@@ -18,6 +18,12 @@ const farmerOrderSchema = new mongoose.Schema({
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
     weighbridge_name: { type: String, trim: true },
     weighbridge_no: { type: Number },
+
+    weighbridge_document: { type: String },
+    subStandard: { type: String },
+    no_of_bags: { type: Number, default: 0  },
+    type_of_bags: { type: String },
+
     tare_weight: { type: Number },
     gross_weight: { type: Number },
     net_weight: { type: Number },

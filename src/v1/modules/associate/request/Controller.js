@@ -16,6 +16,7 @@ const { User } = require("@src/v1/models/app/auth/User");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
+
 module.exports.getProcurement = async (req, res) => {
     try {
         const { user_id } = req;
@@ -79,6 +80,102 @@ module.exports.getProcurement = async (req, res) => {
                             : {}),
                     },
                 },
+
+                // Lookup Head Office details
+                {
+                    $lookup: {
+                        from: "headoffices",
+                        let: { head_office_id: "$head_office_id" },
+                        pipeline: [
+                            { $match: { $expr: { $eq: ["$_id", { $toObjectId: "$$head_office_id" }] } } },
+                            {
+                                $project: {
+                                    headOfficesName: "$company_details.name",
+                                    _id: 0
+                                }
+                            }
+                        ],
+                        as: "headOfficeDetails",
+                    },
+                },
+                { $unwind: { path: "$headOfficeDetails", preserveNullAndEmptyArrays: true } },
+
+                // Lookup SLA details
+                {
+                    $lookup: {
+                        from: "slas",
+                        let: { sla_id: "$sla_id" },
+                        pipeline: [
+                            { $match: { $expr: { $eq: ["$_id", "$$sla_id"] } } },
+                            {
+                                $project: {
+                                    slaName: "$basic_details.name",
+                                    _id: 0
+                                }
+                            }
+                        ],
+                        as: "slaDetails",
+                    },
+                },
+                { $unwind: { path: "$slaDetails", preserveNullAndEmptyArrays: true } },
+
+                // Lookup Scheme details
+                {
+                    $lookup: {
+                        from: 'schemes',
+                        let: { schemeId: "$product.schemeId" },
+                        pipeline: [
+                            { $match: { $expr: { $eq: ["$_id", "$$schemeId"] } } },
+                            {
+                                $project: {
+                                    schemeName: 1,
+                                    "commodityDetails.name": 1,
+                                    season: 1,
+                                    period: 1,
+                                    _id: 0,
+                                    procurementDuration:1
+                                }
+                            }
+                        ],
+                        as: 'schemeDetails',
+                    },
+                },
+                { $unwind: { path: '$schemeDetails', preserveNullAndEmptyArrays: true } },
+                {
+                    $lookup: {
+                        from: "branches",
+                        let: { branch_id: "$branch_id" },
+                        pipeline: [
+                            { $match: { $expr: { $eq: ["$_id", { $toObjectId: "$$branch_id" }] } } },
+                            {
+                                $project: {
+                                    branchName: "$branchName",
+                                    _id: 0
+                                }
+                            }
+                        ],
+                        as: "branchDetails",
+                    },
+                },
+                { $unwind: { path: '$branchDetails', preserveNullAndEmptyArrays: true } },
+                // Add computed fields
+                {
+                    $addFields: {
+                        schemeName: {
+                            $concat: [
+                                { $ifNull: ["$schemeDetails.schemeName", ""] }, "",
+                                { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
+                                { $ifNull: ["$schemeDetails.season", ""] }, "",
+                                { $ifNull: ["$schemeDetails.period", ""] }
+                            ]
+                        },
+                        slaName: { $ifNull: ["$slaDetails.slaName", "N/A"] },
+                        headOfficesName: { $ifNull: ["$headOfficeDetails.headOfficesName", "N/A"] },
+                        branchName: { $ifNull: ["$branchDetails.branchName", "N/A"] },
+                        procurementDuration: { $ifNull: ["$schemeDetails.procurementDuration", "N/A"] },
+                    }
+                },
+
                 { $sort: sortBy || { createdAt: -1 } },
                 { $skip: parseInt((page - 1) * limit) || 0 },
                 { $limit: parseInt(limit) || 10 },
@@ -107,7 +204,10 @@ module.exports.getProcurement = async (req, res) => {
             // query.quoteExpiry = { $gte: new Date() };
 
             const rows = paginate === 1
-                ? await RequestModel.find(query)
+                ? await RequestModel.find(query).populate({ path: "head_office_id", select: "company_details.name" })
+                    .populate({ path: "sla_id", select: "_id basic_details.name" })
+                    .populate({ path: "branch_id", select: "branchName" })
+                    .populate({ path: "product.schemeId", select: "schemeName procurementDuration" })
                     .sort(sortBy || { createdAt: -1 })
                     .skip(parseInt(skip))
                     .limit(parseInt(limit))
@@ -139,7 +239,13 @@ module.exports.getProcurementById = async (req, res) => {
         const { id } = req.params;
         const { user_id } = req;
 
-        const record = await RequestModel.findOne({ _id: id }).lean();
+        // const record = await RequestModel.findOne({ _id: id }).lean();
+        const record = await RequestModel.findOne({ _id: id }).lean().populate([
+            { path: 'product.schemeId', select: 'schemeName season period procurementDuration' },
+            { path: "sla_id", select: "basic_details.name" },
+            { path: 'branch_id', select: '_id branchName branchId' },
+            { path: "head_office_id", select: "_id company_details.name" }
+        ])
 
         if (!record) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("procurement") }] }))
@@ -628,8 +734,9 @@ module.exports.getAcceptedProcurement = async (req, res) => {
 module.exports.editFarmerOffer = async (req, res) => {
 
     try {
-
-        const { id, receving_date, qtyProcured, procurementCenter_id, weighbridge_name, weighbridge_no, tare_weight, gross_weight, net_weight, weight_slip, status = _procuredStatus.received } = req.body;
+        const { id, receving_date, qtyProcured, procurementCenter_id, weighbridge_name, weighbridge_no, tare_weight,
+            gross_weight, net_weight, weight_slip, status = _procuredStatus.received, weighbridge_document, subStandard,
+            no_of_bags, type_of_bags } = req.body;
         const { user_id } = req;
 
         const record = await FarmerOrders.findOne({ _id: id });
@@ -653,6 +760,10 @@ module.exports.editFarmerOffer = async (req, res) => {
         record.weight_slip = weight_slip;
         record.status = status;
         record.updatedBy = user_id;
+        record.weighbridge_document = weighbridge_document,
+        record.subStandard = subStandard,
+        record.no_of_bags = no_of_bags,
+        record.type_of_bags = type_of_bags,
 
         // Start of Sangita code
 
