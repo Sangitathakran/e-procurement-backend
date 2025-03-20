@@ -502,7 +502,7 @@ const lotLevelDetailsUpdate = async (req, res) => {
       warehouse, state, district, fpoPacks, batch_id, scheme, Commodity,
       whr_date, whr_number, total_accepted_quantity, total_accepted_bag,
       total_quantity_loss, total_bag_loss, total_quantity_gain, total_bag_gain,
-      whr_type, rows
+      whr_type,whr_document, rows
     } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(batch_id)) {
@@ -522,7 +522,7 @@ const lotLevelDetailsUpdate = async (req, res) => {
 
     let whrDetails = await WhrModel.findOne({ batch_id });
     console.log('whrDetails',whrDetails)
-    const whr_document = rows.length > 0 ? rows[0].whr_document || null : null;
+    // const whr_document = rows.length > 0 ? rows[0].whr_document || null : null;
     const lotDetailsBulkInsert = [];
 
     const whr_status = whr_type ? _whr_status.completed : _whr_status.pending;
@@ -549,7 +549,7 @@ const lotLevelDetailsUpdate = async (req, res) => {
       const {
         lot_id, farmer_name, quantity_purchase, dispatch_date, dispatch_quantity,
         dispatch_bags, accepted_quantity, accepted_bags, rejected_quantity, rejected_bags,
-        quantity_gain, bag_gain, whr_document
+        quantity_gain, bag_gain
       } = row;
 
       const farmerOrder = batch.farmerOrderIds.find(order => order.farmerOrder_id.toString() === lot_id);
@@ -583,7 +583,7 @@ const lotLevelDetailsUpdate = async (req, res) => {
         rejected_bags: parseInt(rejected_bags) || 0,
         gain_quantity: parseInt(quantity_gain) || 0,
         gain_bags: parseInt(bag_gain) || 0,
-        whr_document: whr_document || "default-doc.png",
+        // whr_document: whr_document || "default-doc.png",
       });
     }
 
@@ -1170,7 +1170,7 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
 
       const batchIds = rows.map(row => row._id);
       const whrData = await WhrModel.find({ batch_id: { $in: batchIds } })
-          .select("batch_id whr_type whr_number whr_date");
+          .select("batch_id whr_type whr_number whr_date whr_document");
 
       const whrMap = {};
       whrData.forEach(whr => {
@@ -1178,7 +1178,8 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
             whrMap[id.toString()] = { 
                 whr_type: whr.whr_type, 
                 whr_number: whr.whr_number,
-                whr_date : whr.whr_date 
+                whr_date : whr.whr_date,
+                whr_document : whr.whr_document 
             };
         });
       });
