@@ -31,7 +31,7 @@ whrRoutes.post("/whr-delete", deleteWhr);
 whrRoutes.get("/dropdown-warehouse", listWarehouseDropdown);
 whrRoutes.post("/update-lot-details", whrLotDetailsUpdate);
 whrRoutes.get("/warehouse-management-list", getWarehouseManagementList);
-whrRoutes.get("/filter-dropdown-list/:wareHouseId", filterDropdownList);
+whrRoutes.get("/filter-dropdown-list", filterDropdownList);
 whrRoutes.get("/batch-details", viewBatchDetails);
 
 
