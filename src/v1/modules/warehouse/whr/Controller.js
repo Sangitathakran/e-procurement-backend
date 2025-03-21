@@ -1295,14 +1295,32 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
 const filterDropdownList = asyncErrorHandler(async (req, res) => {
   
   try {
-    const {wareHouseId} = req.params;
+    const { warehouseIds = [] } = req.body;
     const getToken = req.headers.token || req.cookies.token;
-    if (!getToken) {
-        return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
-    }
+      if (!getToken) {
+          return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+      }
 
-    const decode = await decryptJwtToken(getToken);
-    const UserId = decode.data.user_id;
+      const decode = await decryptJwtToken(getToken);
+      const UserId = decode.data.user_id;
+
+      if (!mongoose.Types.ObjectId.isValid(UserId)) {
+          return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+      }
+
+      const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: UserId }, '_id');
+      const ownerwarehouseIds = warehouseDetails.map(wh => wh._id);
+
+      const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
+          ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
+          : ownerwarehouseIds;
+
+      if (!finalwarehouseIds.length) {
+          return res.status(200).send(new serviceResponse({
+              status: 200,
+              data: { records: { rows: [], count: 0, page, limit, pages: 0 }, message: "No warehouses found for the user." }
+          }));
+      }
 
     const batchIds = [];
 
@@ -1311,7 +1329,7 @@ const filterDropdownList = asyncErrorHandler(async (req, res) => {
     }
   
     let query = {
-      "warehousedetails_id": { $in: wareHouseId},
+      "warehousedetails_id": { $in: finalwarehouseIds},
     };
     
     const batchDetails = await Batch.find(query)
@@ -1342,6 +1360,72 @@ const filterDropdownList = asyncErrorHandler(async (req, res) => {
 });
 
 
+const viewBatchDetails = async (req, res) => {
+    try {
+        const { batch_id } = req.query;
+
+        if (!batch_id) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                errors: [{ message: "Batch ID is required" }]
+            }));
+        }
+
+        const batch = await Batch.findById(batch_id)
+            .populate([
+                { path: "procurementCenter_id", select: "center_name" },
+                { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
+                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" },
+                { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
+                { path: "req_id", select: "product.name deliveryDate" },
+            ])
+
+        if (!batch) {
+            return res.status(404).send(new serviceResponse({
+                status: 404,
+                errors: [{ message: "Batch not found" }]
+            }));
+        }
+        console.log('batch',batch)
+        const response = {
+            basic_details : {
+                batch_id: batch.batchId,
+                fpoName: batch.seller_id,
+                commodity: batch.req_id || "NA",
+                intransit: batch.intransit || "NA",
+                receivingDetails: batch.receiving_details || "NA",
+                procurementDate: batch.procurementDate,
+                procurementCenter: batch.procurementCenter_id?.center_name || "NA",
+                warehouse: batch.warehousedetails_id,
+                msp: batch.msp || "NA",
+                final_quality_check : batch.final_quality_check,
+                dispatched : batch.dispatched, 
+                delivered : batch.delivered
+            },
+            
+            lotDetails: batch.farmerOrderIds.map(order => ({
+                lotId: order.farmerOrder_id?.order_no || "NA",
+                farmerName: order.farmerOrder_id?.metaData?.name || "NA",
+                quantityPurchased: order.qty || "NA"
+            })),
+            
+            document_pictures : {
+                document_pictures : batch.document_pictures
+            },
+            
+        };
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: response,
+            batch: batch,
+            message: "Batch details fetched successfully"
+        }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
 
 
 module.exports = {
@@ -1357,5 +1441,6 @@ module.exports = {
   listWarehouseDropdown,
   whrLotDetailsUpdate,
   getWarehouseManagementList,
-  filterDropdownList
+  filterDropdownList,
+  viewBatchDetails
 };

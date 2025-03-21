@@ -12,7 +12,8 @@ const {
     listWarehouseDropdown,
     whrLotDetailsUpdate,
     getWarehouseManagementList,
-    filterDropdownList
+    filterDropdownList,
+    viewBatchDetails
 } = require("./Controller");
 const { verifyWarehouseOwner } = require("../utils/verifyWarehouseOwner");
 const { validateForm } = require("./Validation");
@@ -31,6 +32,8 @@ whrRoutes.get("/dropdown-warehouse", listWarehouseDropdown);
 whrRoutes.post("/update-lot-details", whrLotDetailsUpdate);
 whrRoutes.get("/warehouse-management-list", getWarehouseManagementList);
 whrRoutes.get("/filter-dropdown-list/:wareHouseId", filterDropdownList);
+whrRoutes.get("/batch-details", viewBatchDetails);
+
 
 
 
