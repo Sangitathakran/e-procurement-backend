@@ -1189,14 +1189,14 @@ module.exports.associateOrders = async (req, res) => {
     const paymentIds = (
       await Payment.find({
         ho_id: { $in: [new mongoose.Types.ObjectId(portalId), new mongoose.Types.ObjectId(user_id)] },
-        req_id:new mongoose.Types.ObjectId(req_id),
+        req_id: new mongoose.Types.ObjectId(req_id),
         bo_approve_status: _paymentApproval.approved,
       })
     ).map((i) => i.associateOffers_id);
-    
+
     let query = {
       _id: { $in: paymentIds },
-      req_id:new mongoose.Types.ObjectId(req_id),
+      req_id: new mongoose.Types.ObjectId(req_id),
       status: {
         $in: [
           _associateOfferStatus.partially_ordered,
@@ -1205,7 +1205,7 @@ module.exports.associateOrders = async (req, res) => {
       },
       // ...(search ? { order_no: { $regex: search, $options: "i" } } : {}), // Search functionality
     };
-    
+
     const records = { count: 0 };
     records.reqDetails = await RequestModel.findOne({ _id: req_id }).select({
       _id: 1,
@@ -3131,6 +3131,9 @@ module.exports.proceedToPayPayment = async (req, res) => {
           amountPayable: {
             $sum: "$batches.totalPrice"
           },
+          amountPaid: {
+            $sum: "$batches.goodsPrice"
+          },
           approval_status: "Approved",
           payment_status: payment_status || _paymentstatus.pending,
         }
@@ -3142,6 +3145,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           product: 1,
           qtyPurchased: 1,
           amountPayable: 1,
+          amountPaid: 1,
           approval_status: 1,
           payment_status: 1,
           'branchDetails.branchName': 1,
