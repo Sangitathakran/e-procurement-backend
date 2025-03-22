@@ -3151,7 +3151,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           'branchDetails.branchName': 1,
           'branchDetails.branchId': 1,
           'sla.basic_details.name': 1,
-          'scheme.schemeName': 1,
+          'scheme.schemeName': 1
         }
       },
       { $skip: (page - 1) * limit },
@@ -3339,7 +3339,8 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
-          approval_status: 1
+          approval_status: 1,
+          payment_date:'$payment_at'
         }
       },
       // Start of Sangita code
