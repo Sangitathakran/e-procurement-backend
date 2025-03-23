@@ -41,7 +41,11 @@ const combinedLogger = winston.createLogger({
 const localFarmersLogger = winston.createLogger({
     level: "info",
     format: winston.format.combine(
-      winston.format.timestamp(),
+        winston.format.colorize(), // Enable colorized logs
+        winston.format.timestamp({
+          format: () =>
+            new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), // Set IST timezone
+        }),
       winston.format.printf(({ timestamp, level, message }) => {
         return `${timestamp} [${level.toUpperCase()}]: ${message}`;
       })
