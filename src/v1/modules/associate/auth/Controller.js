@@ -499,7 +499,6 @@ module.exports.associateBulkuplod = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
-
 module.exports.associateNorthEastBulkuplod = async (req, res) => {
     try {
         const { isxlsx = 1 } = req.body;
