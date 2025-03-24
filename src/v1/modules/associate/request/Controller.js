@@ -456,31 +456,14 @@ module.exports.getFarmerListById = async (req, res) => {
         }
 
         // Build query to find farmers associated with the current user (associate)
-        // let query = {
-        //     associate_id: new mongoose.Types.ObjectId(user_id), // Match farmers under current associate
-        //     ...(search && { name: { $regex: search, $options: 'i' } }) // Search functionality
-        // };
-
         let query = {
-            external_farmer_id: { $ne: null }, // Match farmers under current associate
+            associate_id: new mongoose.Types.ObjectId(user_id), // Match farmers under current associate
             ...(search && { name: { $regex: search, $options: 'i' } }) // Search functionality
         };
 
         // Build aggregation pipeline
         let aggregationPipeline = [
             { $match: query }, // Match by associate_id and optional search
-            
-            // start of sangita code
-            {
-                $lookup: {
-                    from: 'ekharidprocurements', // Collection name for farmers
-                    localField: 'procurementDetails.farmer_id',
-                    foreignField: 'external_farmer_id',
-                    as: 'ekharidprocurementDetails'
-                }
-            },
-            { $unwind: { path: '$ekharidprocurementDetails', preserveNullAndEmptyArrays: true } },
-             // end of sangita code
             {
                 // $sort: { [sortBy]: 1 } // Sort by the `sortBy` field, default to `name`
                 $sort: sortBy ? sortBy : { createdAt: -1 },
