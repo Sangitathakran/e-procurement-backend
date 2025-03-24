@@ -3340,7 +3340,8 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
           approval_status: 1,
-          payment_date:'$payment_at'
+          payment_date:'$payment_at',
+          payment_status:"$payment.payment_status"
         }
       },
       // Start of Sangita code
