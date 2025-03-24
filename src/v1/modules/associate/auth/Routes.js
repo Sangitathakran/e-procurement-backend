@@ -1,4 +1,4 @@
-const { sendOtp, loginOrRegister, saveAssociateDetails, onboardingStatus, formPreview, findUserStatus, finalFormSubmit, editOnboarding, associateBulkuplod } = require("./Controller")
+const { sendOtp, loginOrRegister, saveAssociateDetails, onboardingStatus, formPreview, findUserStatus, finalFormSubmit, editOnboarding, associateBulkuplod, associateNorthEastBulkuplod } = require("./Controller")
 const { validateForm } = require("@src/v1/modules/associate/auth/Validation")
 const express = require("express");
 const { verifyAssociate } = require("../utils/verifyAssociate");
@@ -14,4 +14,5 @@ userAuthRoutes.patch("/final-submit", verifyAssociate, finalFormSubmit);
 
 userAuthRoutes.get("/editOnboarding", verifyAssociate, editOnboarding);
 userAuthRoutes.post("/associate-bulkuplod", associateBulkuplod);
+userAuthRoutes.post("/associateNorthEastFarmer-bulkuplod", associateNorthEastBulkuplod);
 module.exports = { userAuthRoutes }; 
