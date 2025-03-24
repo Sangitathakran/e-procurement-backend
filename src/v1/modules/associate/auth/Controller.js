@@ -593,7 +593,7 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
                         basic_details: {
                             associate_details: {
                                 phone: mobile_no,
-                                associate_type: "Society",
+                                associate_type: "Organisation",
                                 email,
                                 organization_name: associate_name,
                             },
@@ -618,6 +618,7 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
                         },
                         user_type: _userType.associate,
                         is_mobile_verified: true,
+                        is_approved: 'approved',
                         is_form_submitted: true,
                         is_welcome_email_send: true,
                         term_condition:true,

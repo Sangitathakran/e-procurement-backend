@@ -277,7 +277,8 @@ const _soilType = {
     Clayey: "clayey",
     Red_soil: "red_soil",
     Alkaline: "alkaline",
-    Other: "other"
+    Other: "other",
+    Brown_soil: "brown soil",
 }
 const _landType = {
     OwnLand: "own land",
