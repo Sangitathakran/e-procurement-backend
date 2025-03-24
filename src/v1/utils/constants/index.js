@@ -452,7 +452,8 @@ const _frontendLoginRoutes = {
     agent: "https://ep.navbazar.com/agent/sign-in",
     ho: "https://ep.navbazar.com/head-office/sign-in",
     bo: "https://ep.navbazar.com/branch-office/sign-in",
-    nccf: "https://ep.navbazar.com/nccf/sign-in"
+    nccf: "https://ep.navbazar.com/nccf/sign-in",
+    sla: "https://sla.khetisauda.com/sla/sign-in",
 }
 
 const _userTypeFrontendRouteMapping = {

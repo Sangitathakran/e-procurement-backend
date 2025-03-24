@@ -122,14 +122,16 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
       }
       
       const type = await TypesModel.findOne({ _id: '67110114f1cae6b6aadc2425' });
-       if(!type){
-        return sendResponse({
-            res,
-            status: 400,
-            message:
-              'could not find type for _id: 67110114f1cae6b6aadc2425',
-          });
-       }
+    //    if(!type){
+    //     return sendResponse({
+    //         res,
+    //         status: 400,
+    //         message:
+    //           'could not find type for _id: 67110114f1cae6b6aadc2425',
+    //       });
+    //    }
+
+    
       // Create SLA document
       const sla = await SLAManagement.create(data);
   
@@ -142,7 +144,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
   
       const hashedPassword = await bcrypt.hash(password, 10);
   
-      const login_url = `${_frontendLoginRoutes.agent}`;
+      const login_url = `${_frontendLoginRoutes.sla}`;
       const emailPayload = {
         email: data.basic_details.email,
         user_name: data.basic_details.name,
@@ -159,7 +161,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
         password: hashedPassword,
         user_type: type.user_type,
         createdBy: req.user._id,
-        userRole: [type.adminUserRoleId],
+        userRole: [new mongoose.Types.ObjectId('6719c40ed5366fae365ae084')], //[type.adminUserRoleId],
         portalId: sla._id,
         ipAddress: getIpAddress(req),
       });
