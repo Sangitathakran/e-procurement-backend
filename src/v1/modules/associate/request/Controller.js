@@ -456,8 +456,13 @@ module.exports.getFarmerListById = async (req, res) => {
         }
 
         // Build query to find farmers associated with the current user (associate)
+        // let query = {
+        //     associate_id: new mongoose.Types.ObjectId(user_id), // Match farmers under current associate
+        //     ...(search && { name: { $regex: search, $options: 'i' } }) // Search functionality
+        // };
+
         let query = {
-            associate_id: new mongoose.Types.ObjectId(user_id), // Match farmers under current associate
+            external_farmer_id: { $ne: null }, // Match farmers under current associate
             ...(search && { name: { $regex: search, $options: 'i' } }) // Search functionality
         };
 
