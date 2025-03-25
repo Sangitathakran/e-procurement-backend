@@ -99,102 +99,218 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
-
-    try {
-        const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.query;
-        const userID = req.user._id
-
-        // Convert page & limit to numbers
-        const pageNumber = parseInt(page, 10);
-        const pageSize = parseInt(limit, 10);
-
-        // Define search filter (if search is provided)
-        const searchFilter = search ? {
-            $or: [
-                { "basic_details.name": { $regex: search, $options: "i" } },
-                { "basic_details.email": { $regex: search, $options: "i" } },
-                { "basic_details.mobile": { $regex: search, $options: "i" } }
-            ]
-        }
-            : {};
-
-        // Sorting logic (default is createdAt descending)
-        const sortOptions = {};
-        if (sortBy) {
-            sortOptions[sortBy] = -1; // Sort by given field in descending order
-        }
-
-        // Fetch SLA records with projection
-        let slaRecordsQuery = SLAManagement.aggregate([
-            {
-                $match: {
-                    ...searchFilter,
-                    "schemes.branch": userID
-                }
+    const {
+      page = 1,
+      limit = 10,
+      skip = 0,
+      paginate = 1,
+      sortBy,
+      search = "",
+      isExport = 0,
+      scheme_id,
+      state,
+    } = req.query;
+  
+    const userID = req.user._id;
+  
+    if (scheme_id) {
+      let matchQuery = {
+        sla_id: { $exists: true },
+        deletedAt: null,
+        "schemes.branch": userID,
+      };
+    //   if (bo_id) matchQuery.bo_id = new ObjectId(bo_id);
+  
+      if (scheme_id) matchQuery.scheme_id = new ObjectId(scheme_id);
+      let aggregationPipeline = [
+        { $match: matchQuery }, // Match `bo_id`, `ho_id`, `scheme_id`
+        { $addFields: { sla_id: { $toObjectId: "$sla_id" } } },
+        {
+          $lookup: {
+            from: "slas",
+            localField: "sla_id",
+            foreignField: "_id",
+            as: "sla_details",
+          },
+        },
+        { $unwind: { path: "$sla_details", preserveNullAndEmptyArrays: true } },
+      ];
+      if (state) {
+        aggregationPipeline.push({
+          $match: {
+            "sla_details.address.state": { $regex: state, $options: "i" },
+          },
+        });
+      }
+  
+      aggregationPipeline.push({
+        $group: {
+          _id: "$sla_id",
+          scheme_id: { $first: "$scheme_id" },
+          assignQty: { $first: "$assignQty" },
+          status: { $first: "$status" },
+          slaId: { $first: "$sla_details.slaId" },
+          associate_count: { $first: { $size: "$sla_details.associatOrder_id" } },
+          sla_name: { $first: "$sla_details.basic_details.name" },
+          sla_email: { $first: "$sla_details.basic_details.email" },
+          sla_mobile: { $first: "$sla_details.basic_details.mobile" },
+          address: {
+            $first: {
+              $concat: [
+                "$sla_details.address.line1",
+                ", ",
+                { $ifNull: ["$sla_details.address.line2", ""] },
+                ", ",
+                "$sla_details.address.city",
+                ", ",
+                "$sla_details.address.district",
+                ", ",
+                "$sla_details.address.state",
+                ", ",
+                "$sla_details.address.pinCode",
+                ", ",
+                { $ifNull: ["$sla_details.address.country", ""] },
+              ],
             },
-            {
-                $project: {
-                    _id: 1,
-                    slaId: 1,
-                    sla_name: "$basic_details.name",
-                    associate_count: { $size: "$associatOrder_id" }, // Count of associated orders
-                    address: {
-                        $concat: [
-                            "$address.line1", ", ",
-                            { $ifNull: ["$address.line2", ""] }, ", ",
-                            "$address.city", ", ",
-                            "$address.district", ", ",
-                            "$address.state", ", ",
-                            "$address.pinCode", ", ",
-                            { $ifNull: ["$address.country", ""] }, ", ",
-                        ]
-                    },
-                    status: 1,
-                    poc: "$point_of_contact.name",
-                    branch: "$schemes.branch"
-                }
-            },
-            { $sort: sortOptions }
-        ]);
-
-        // If exporting, return all data
-        if (isExport === 1) {
-            const slaRecords = await slaRecordsQuery;
-            return res.status(200).json({
-                status: 200,
-                data: slaRecords,
-                message: "SLA records exported successfully"
-            });
-        }
-
-        // Pagination
-        const slaRecords = await slaRecordsQuery
-            .skip((pageNumber - 1) * pageSize)
-            .limit(pageSize);
-
-        // Count total records for pagination
-        const totalRecords = await SLAManagement.countDocuments({
-            ...searchFilter,
-            "schemes.branch": userID
+          },
+          poc: { $first: "$sla_details.point_of_contact.name" },
+          branch: { $first: "$sla_details.schemes.branch" },
+        },
+      });
+  
+      aggregationPipeline.push({
+        $sort: { [sortBy || "createdAt"]: -1, _id: -1 },
+      });
+  
+      if (paginate == 1)
+        aggregationPipeline.push(
+          { $skip: parseInt(skip) },
+          { $limit: parseInt(limit) }
+        );
+  
+      const rows = await SchemeAssign.aggregate(aggregationPipeline);
+      const countResult = await SchemeAssign.aggregate([
+        { $match: matchQuery },
+        { $count: "total" },
+      ]);
+      const count = countResult[0]?.total || 0;
+  
+      const records = { rows, count };
+      if (paginate == 1) {
+        records.page = parseInt(page);
+        records.limit = parseInt(limit);
+        records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
+      }
+  
+      if (isExport == 1) {
+        return dumpJSONToExcel(req, res, {
+          data: rows.map((item) => ({
+            "Scheme Id": item?.schemeId || "NA",
+            "Scheme Name": item?.schemeName || "NA",
+            "Scheme Commodity": item?.Schemecommodity || "NA",
+            season: item?.season || "NA",
+            period: item?.period || "NA",
+            procurement: item?.procurement || "NA",
+          })),
+          fileName: "Scheme-Assignments.xlsx",
+          worksheetName: "Scheme Assignments",
         });
-
-        return res.status(200).json({
-            status: 200,
-            data: slaRecords,
-            totalRecords,
-            currentPage: pageNumber,
-            totalPages: Math.ceil(totalRecords / pageSize),
-            message: "SLA records fetched successfully"
-        });
-
-    } catch (error) {
-        console.error("Error fetching SLA records:", error);
-        return res.status(500).json({
-            status: 500,
-            error: "Internal Server Error"
-        });
+      }
+  
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: records,
+          message: _response_message.found("Scheme Assignments"),
+        })
+      );
     }
-});
+  
+    let matchQuery = search
+      ? {
+          $or: [
+            { "basic_details.name": { $regex: search, $options: "i" } },
+            { "basic_details.email": { $regex: search, $options: "i" } },
+            { "basic_details.mobile": { $regex: search, $options: "i" } },
+          ],
+          deletedAt: null,
+        }
+      : { deletedAt: null };
+  
+    if (state) matchQuery["address.state"] = { $regex: state, $options: "i" };
+  
+    let aggregationPipeline = [
+      {
+        $match: {
+          ...matchQuery,
+          "schemes.branch": userID,
+        },
+      },
+      //   { $match: matchQuery },
+      {
+        $project: {
+          _id: 1,
+          slaId: 1,
+          email: "$basic_details.email",
+          sla_name: "$basic_details.name",
+          associate_count: { $size: "$associatOrder_id" },
+          address: {
+            $concat: [
+              "$address.line1",
+              ", ",
+              { $ifNull: ["$address.line2", ""] },
+              ", ",
+              "$address.city",
+              ", ",
+              "$address.district",
+              ", ",
+              "$address.state",
+              ", ",
+              "$address.pinCode",
+              ", ",
+              { $ifNull: ["$address.country", ""] },
+            ],
+          },
+          status: 1,
+          poc: "$point_of_contact.name",
+          branch: "$schemes.branch",
+        },
+      },
+    ];
+  
+    if (paginate == 1)
+      aggregationPipeline.push(
+        { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
+        { $skip: parseInt(skip) },
+        { $limit: parseInt(limit) }
+      );
+  
+    const rows = await SLAManagement.aggregate(aggregationPipeline);
+    const countResult = await SLAManagement.aggregate([
+      {
+        $match: {
+          ...matchQuery,
+          "schemes.cna": userID,
+        },
+      },
+      { $count: "total" },
+    ]);
+    const count = countResult[0]?.total || 0;
+  
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: {
+          rows,
+          count,
+          page,
+          limit,
+          pages: limit != 0 ? Math.ceil(count / limit) : 0,
+        },
+        message: _response_message.found("Scheme"),
+      })
+    );
+  });
 
 module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
     try {
@@ -576,3 +692,86 @@ module.exports.getAssignedScheme = async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme Assign") }));
     }
 }
+
+
+module.exports.getUniqueStates = async (req, res) => {
+    try {
+      const userID = req.user._id;
+      const states = await SLAManagement.aggregate([
+        {
+          $match: { "schemes.branch": userID }, // Filter by userID
+        },
+        { $group: { _id: "$address.state" } }, // Group by state
+        { $project: { _id: 0, name: "$_id" } }, // Format output
+        { $sort: { name: 1 } }, // Sort alphabetically
+      ]);
+  
+      return res.status(200).json({
+        status: 200,
+        states,
+      });
+    } catch (error) {
+      console.error(error);
+      return res
+        .status(500)
+        .json({ status: 500, message: "Internal Server Error" });
+    }
+  };
+  
+  module.exports.getUniqueSchemes = async (req, res) => {
+    try {
+  
+      const userID = req.user._id;// Ensure userID is an ObjectId
+  
+      const schemes = await SLAManagement.aggregate([
+        {
+          $match: { "schemes.branch": userID }, // Filter by userID
+        },
+        {
+          $lookup: {
+            from: "schemes", // Reference the Scheme collection
+            localField: "schemes.scheme",
+            foreignField: "_id",
+            as: "schemeDetails",
+          },
+        },
+        {
+          $unwind: "$schemeDetails", // Flatten the schemeDetails array
+        },
+        {
+          $group: {
+            _id: "$schemeDetails._id", // Group by scheme ID
+            fullName: {
+              $first: {
+                $concat: [
+                  "$schemeDetails.schemeName",
+                  " - ",
+                  "$schemeDetails.season",
+                  " (",
+                  "$schemeDetails.period",
+                  ")",
+                ],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            schemeId: "$_id",
+            schemeName: "$fullName",
+          },
+        },
+      ]);
+  
+      return res.status(200).json({
+        status: 200,
+        schemes,
+      });
+    } catch (error) {
+      console.error(error);
+      return res
+        .status(500)
+        .json({ status: 500, message: "Internal Server Error" });
+    }
+  };
