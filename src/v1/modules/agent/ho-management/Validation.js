@@ -43,7 +43,8 @@ const headOfficeSchema = Joi.object({
         line1: Joi.string().trim().required().messages({
             'string.empty': _middleware.require('address line1'),
         }),
-        line2: Joi.string().trim().optional(),
+        // line2: Joi.string().trim().optional(),
+        line2: Joi.string().optional().allow(null, ''),
         state: Joi.string().trim().required().messages({
             'string.empty': _middleware.require('state'),
         }),
