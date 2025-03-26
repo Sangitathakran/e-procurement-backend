@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { User } = require("@src/v1/models/app/auth/User");
 const { MasterUser } = require("@src/v1/models/master/MasterUser");
+const { EkharidProcurement } = require("@src/v1/models/master/ekharidprocurements");
 const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
@@ -11,6 +12,7 @@ const bcrypt = require('bcrypt');
 const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const xlsx = require('xlsx');
+
 
 module.exports.getAssociates = async (req, res) => {
     try {
@@ -271,49 +273,45 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
     }
 };
 
-const mongoose = require("mongoose");
+// const updateOrInsertUsers = async () => {
+module.exports.updateOrInsertUsers = async (req, res) => {
+    try {
+        // Fetch all procurement records
+        const procurements = await EkharidProcurement.find({});
 
-// Define your models
-const EkharidProcurement = mongoose.model("ekharidprocurements");
-const User = mongoose.model("users");
+        for (const procurement of procurements) {
+            const commisionAgentName = procurement?.procurementDetails?.commisionAgentName;
 
-const updateOrInsertUsers = async () => {
-  try {
-    // Fetch all procurement records
-    const procurements = await EkharidProcurement.find({});
+            if (!commisionAgentName) continue; // Skip if no commission agent name
 
-    for (const procurement of procurements) {
-      const commisionAgentName = procurement?.procurementDetails?.commisionAgentName;
+            // Check if the user already exists in the `users` collection
+            const existingUser = await User.findOne({
+                "basic_details.associate_details.organization_name": commisionAgentName,
+            });
 
-      if (!commisionAgentName) continue; // Skip if no commission agent name
-
-      // Check if the user already exists in the `users` collection
-      const existingUser = await User.findOne({
-        "basic_details.associate_details.organization_name": commisionAgentName,
-      });
-
-      if (existingUser) {
-        // Update the existing user entry if found
-        await User.updateOne(
-          { _id: existingUser._id },
-          { $set: { "basic_details.associate_details.organization_name": commisionAgentName } }
-        );
-      } else {
-        // Create a new user entry
-        await User.create({
-          basic_details: {
-            associate_details: {
-              organization_name: commisionAgentName,
-            },
-          },
-        });
-      }
+            if (existingUser) {
+                // Update the existing user entry if found
+                await User.updateOne(
+                    { _id: existingUser._id },
+                    { $set: { "basic_details.associate_details.organization_name": commisionAgentName } }
+                );
+            } else {
+                // Create a new user entry
+                await User.create({
+                    basic_details: {
+                        associate_details: {
+                            organization_name: commisionAgentName,
+                        },
+                    },
+                });
+            }
+        }
+        console.log("Users collection updated successfully.");
+    } catch (error) {
+        console.error("Error updating users collection:", error);
     }
-    console.log("Users collection updated successfully.");
-  } catch (error) {
-    console.error("Error updating users collection:", error);
-  }
-};
+    // };
+}
 
 // Run the function
-updateOrInsertUsers();
+// updateOrInsertUsers();
