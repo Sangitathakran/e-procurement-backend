@@ -2,9 +2,9 @@ const mongoose = require('mongoose');
 const { User } = require("@src/v1/models/app/auth/User");
 const { MasterUser } = require("@src/v1/models/master/MasterUser");
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
-const { _userType, _userStatus } = require("@src/v1/utils/constants");
+const { _userType, _userStatus, _requestStatus, _webSocketEvents, _procuredStatus, _collectionName } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
-const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
+const { _handleCatchErrors, dumpJSONToExcel, _generateOrderNumber, _addDays, handleDecimal } = require("@src/v1/utils/helpers");
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { emailService } = require('@src/v1/utils/third_party/EmailServices');
 const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator")
@@ -12,6 +12,13 @@ const bcrypt = require('bcrypt');
 const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const xlsx = require('xlsx');
+const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
+const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
+const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+// const { Batch } = require("@src/v1/models/app/procurement/Batch");
+// const { RequestModel } = require("@src/v1/models/app/procurement/Request");
+
 
 
 module.exports.getAssociates = async (req, res) => {
@@ -334,30 +341,10 @@ module.exports.updateOrInsertUsers = async (req, res) => {
     }
 };
 
-
+/*
 module.exports.associateFarmerList = async (req, res) => {
     try {
         const groupedData = await eKharidHaryanaProcurementModel.aggregate([
-            // {
-            //     $lookup: {
-            //         from: "farmers",
-            //         let: { farmerId: "$procurementDetails.farmerID" },  // Keep as string
-            //         pipeline: [
-            //             {
-            //                 $addFields: {
-            //                     external_farmer_id_str: { $toString: "$external_farmer_id" } // Convert numeric to string
-            //                 }
-            //             },
-            //             {
-            //                 $match: {
-            //                     $expr: { $eq: ["$external_farmer_id_str", "$$farmerId"] } // Match converted values
-            //                 }
-            //             }
-            //         ],
-            //         as: "farmerDetails"
-            //     }
-            // },
-            // { $unwind: { path: '$farmerDetails', preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
                     from: "farmers",
@@ -397,7 +384,7 @@ module.exports.associateFarmerList = async (req, res) => {
             {
                 $group: {
                     _id: "$procurementDetails.commisionAgentName",
-                    userDetails: { $first: "$userDetails._id" },
+                    seller_id: { $first: "$userDetails._id" },
                     farmer_data: {
                         $push: {
                             _id: "$farmerDetails._id",
@@ -408,6 +395,171 @@ module.exports.associateFarmerList = async (req, res) => {
                 }
             }
         ]);
+
+        return res.send(
+            new serviceResponse({
+                status: 200,
+                data: groupedData,
+                message: _response_message.found("Associate farmer data successfully"),
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+*/
+
+module.exports.associateFarmerList = async (req, res) => {
+    try {
+        const groupedData = await eKharidHaryanaProcurementModel.aggregate([
+            {
+                $lookup: {
+                    from: "farmers",
+                    let: { farmerId: "$procurementDetails.farmerID" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: [{ $toString: "$external_farmer_id" }, "$$farmerId"] }
+                            }
+                        },
+                        {
+                            $project: { _id: 1 } // Only fetch _id
+                        }
+                    ],
+                    as: "farmerDetails"
+                }
+            },
+            { $unwind: { path: "$farmerDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "users",
+                    let: { organization_name: "$procurementDetails.commisionAgentName" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ["$basic_details.associate_details.organization_name", "$$organization_name"] }
+                            }
+                        },
+                        {
+                            $project: { _id: 1 } // Only fetch _id
+                        }
+                    ],
+                    as: "userDetails"
+                }
+            },
+            { $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $group: {
+                    _id: "$procurementDetails.commisionAgentName",
+                    seller_id: { $first: "$userDetails._id" },
+                    farmer_data: {
+                        $push: {
+                            _id: "$farmerDetails._id",
+                            qty: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } // Convert Qtl to MT
+                        }
+                    },
+                    qtyOffered: { $sum: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } } // Convert Qtl to MT
+                }
+            }
+        ]);
+
+        ////////////////////// create farmerOffer and farmerOrder /////////////////////////
+
+        const existingRecord = await AssociateOffers.findOne({ seller_id: data.seller_id, req_id: req_id });
+        let associateOfferRecord;
+
+        if (existingRecord) {
+            existingRecord.offeredQty = data.qtyOffered;
+            associateOfferRecord = existingRecord.save();
+            // update request's fulfilledQty and status
+            const existingRequestModel = await RequestModel.findOne({ _id: req_id });
+
+            existingRequestModel.fulfilledQty = handleDecimal(existingRequestModel.fulfilledQty + sumOfFarmerQty);
+            if (handleDecimal(existingRequestModel.fulfilledQty) == handleDecimal(existingRequestModel?.product?.quantity)) {
+                existingRequestModel.status = _requestStatus.fulfilled;
+            } else if (handleDecimal(existingRequestModel.fulfilledQty) < handleDecimal(existingRequestModel?.product?.quantity)) {
+                existingRequestModel.status = _requestStatus.partially_fulfulled;
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }));
+            }
+            await existingRequestModel.save();
+
+            const dataToBeInserted = [];
+            const offerToBeInserted = [];
+
+            for (let harvester of data.farmer_data) {
+
+                const existingFarmer = await farmer.findOne({ _id: harvester._id });
+                const { name, father_name, address_line, mobile_no, farmer_code } = existingFarmer;
+
+                const metaData = { name, father_name, address_line, mobile_no, farmer_code };
+
+                const FarmerOfferData = {
+                    associateOffers_id: existingRecord._id,
+                    farmer_id: harvester._id,
+                    metaData,
+                    offeredQty: handleDecimal(harvester.qty),
+                    order_no: "OD" + _generateOrderNumber(),
+                    status: _procuredStatus.received,
+                }
+
+                const FarmerOffer = {
+                    associateOffers_id: existingRecord._id,
+                    farmer_id: harvester._id,
+                    metaData,
+                    offeredQty: handleDecimal(harvester.qty),
+                    createdBy: user_id,
+                }
+
+                dataToBeInserted.push(FarmerOfferData);
+
+                offerToBeInserted.push(FarmerOffer);
+            }
+
+            await FarmerOrders.insertMany(dataToBeInserted);
+
+            await FarmerOffers.insertMany(offerToBeInserted);
+        } else {
+
+            associateOfferRecord = await AssociateOffers.create({ seller_id: data.seller_id, req_id: req_id, offeredQty: data.qtyOffered, createdBy: data.seller_id });
+
+            const dataToBeInserted = [];
+            const offerToBeInserted = [];
+
+            for (let harvester of farmer_data) {
+
+                const existingFarmer = await farmer.findOne({ _id: harvester._id });
+                const { name, father_name, address_line, mobile_no, farmer_code } = existingFarmer;
+
+                const metaData = { name, father_name, address_line, mobile_no, farmer_code };
+
+                const FarmerOfferData = {
+                    associateOffers_id: associateOfferRecord._id,
+                    farmer_id: harvester._id,
+                    metaData,
+                    offeredQty: handleDecimal(harvester.qty),
+                    order_no: "OD" + _generateOrderNumber(),
+                    status: _procuredStatus.received,
+                }
+
+                const FarmerOffer = {
+                    associateOffers_id: associateOfferRecord._id,
+                    farmer_id: harvester._id,
+                    metaData,
+                    offeredQty: handleDecimal(harvester.qty),
+                    createdBy: data.seller_id,
+                }
+
+                dataToBeInserted.push(FarmerOfferData);
+                offerToBeInserted.push(FarmerOffer);
+            }
+
+            await FarmerOrders.insertMany(dataToBeInserted);
+            await FarmerOffers.insertMany(offerToBeInserted);
+        }
+
+
+        ///////////////////////////////////////////////////////////////////////////////
 
         return res.send(
             new serviceResponse({
