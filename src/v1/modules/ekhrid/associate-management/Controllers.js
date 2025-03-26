@@ -23,6 +23,7 @@ module.exports.getAssociates = async (req, res) => {
         let matchQuery = {
             user_type: _userType.associate,
             is_approved: _userStatus.approved,
+            ekhridUser: true
             // bank_details: { $ne: null }
         };
 
@@ -273,47 +274,110 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
     }
 };
 
-// const updateOrInsertUsers = async () => {
+/*
 module.exports.updateOrInsertUsers = async (req, res) => {
     try {
-        // Fetch all procurement records
-        const procurements = await eKharidHaryanaProcurementModel.find({});
+        // Fetch unique commission agent names from procurement records
+        const procurements = await eKharidHaryanaProcurementModel.aggregate([
+            { $group: { _id: "$procurementDetails.commisionAgentName" } },
+            { $match: { _id: { $ne: null } } }
+        ]);
 
+        const bulkOps = [];
+        
         for (const procurement of procurements) {
-            const commisionAgentName = procurement?.procurementDetails?.commisionAgentName;
-
-            if (!commisionAgentName) continue; // Skip if no commission agent name
-
-            // Check if the user already exists in the `users` collection
-            const existingUser = await User.findOne({
-                "basic_details.associate_details.organization_name": commisionAgentName,
-            });
-
-            if (existingUser) {
-                // Update the existing user entry if found
-                await User.updateOne(
-                    { _id: existingUser._id },
-                    { $set: { "basic_details.associate_details.organization_name": commisionAgentName } }
-                );
-            } else {
-                // Create a new user entry
-                await User.create({
-                    basic_details: {
-                        associate_details: {
-                            organization_name: commisionAgentName,
-                        },
-                    },
-                    ekhridUser:true,
-                    client_id: "9877",
-                });
+            console.log(procurement._id);
+            const commisionAgentName = procurement._id;
+            
+            // Generate the next user code
+            const lastUser = await User.findOne().sort({ createdAt: -1 });
+            let nextUserCode = 'AS00001';
+            if (lastUser && lastUser.user_code) {
+                const lastCodeNumber = parseInt(lastUser.user_code.slice(2));
+                nextUserCode = 'AS' + String(lastCodeNumber + 1).padStart(5, '0');
             }
+
+            bulkOps.push({
+                updateOne: {
+                    filter: { "basic_details.associate_details.organization_name": commisionAgentName },
+                    update: {
+                        $set: { "basic_details.associate_details.organization_name": commisionAgentName },
+                        $setOnInsert: {
+                            ekhridUser: true,
+                            client_id: "9877",
+                            user_type: _userType.associate,
+                            is_approved: _userStatus.approved,
+                            user_code: nextUserCode
+                        }
+                    },
+                    upsert: true
+                }
+            });
         }
+
+        if (bulkOps.length > 0) {
+            await User.bulkWrite(bulkOps);
+        }
+
         console.log("Users collection updated successfully.");
     } catch (error) {
         console.error("Error updating users collection:", error);
     }
-    // };
-}
+};
+*/
 
-// Run the function
-// updateOrInsertUsers();
+module.exports.updateOrInsertUsers = async (req, res) => {
+    try {
+        // Fetch unique commission agent names from procurement records
+        const procurements = await eKharidHaryanaProcurementModel.aggregate([
+            { $group: { _id: "$procurementDetails.commisionAgentName" } },
+            { $match: { _id: { $ne: null } } }
+        ]);
+
+        const bulkOps = [];
+
+        // Fetch the last user_code from the User collection
+        const lastUser = await User.findOne({}, { user_code: 1 })
+            .sort({ createdAt: -1 });
+
+        let lastCodeNumber = 1; // Default if no users exist
+
+        if (lastUser && lastUser.user_code) {
+            lastCodeNumber = parseInt(lastUser.user_code.slice(2), 10) + 1;
+        }
+
+        for (const procurement of procurements) {
+
+            const commisionAgentName = procurement._id;
+            // Generate the next user_code in sequence
+            const nextUserCode = 'AS' + String(lastCodeNumber).padStart(5, '0');
+            lastCodeNumber++; // Increment for the next procurement       
+
+            bulkOps.push({
+                updateOne: {
+                    filter: { "basic_details.associate_details.organization_name": commisionAgentName },
+                    update: {
+                        $set: { "basic_details.associate_details.organization_name": commisionAgentName },
+                        $setOnInsert: {
+                            ekhridUser: true,
+                            client_id: "9877",
+                            user_type: _userType.associate,
+                            is_approved: _userStatus.approved,
+                            user_code: nextUserCode
+                        }
+                    },
+                    upsert: true
+                }
+            });
+        }
+
+        if (bulkOps.length > 0) {
+            await User.bulkWrite(bulkOps);
+        }
+
+        console.log("Users collection updated successfully.");
+    } catch (error) {
+        console.error("Error updating users collection:", error);
+    }
+};
+
