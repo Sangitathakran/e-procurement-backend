@@ -58,7 +58,7 @@ const ProcurementCenterSchema = new mongoose.Schema(
       bank_name: { type: String, trim: true },
       branch_name: { type: String, trim: true },
       account_holder_name: { type: String, trim: true },
-      ifsc_code: { type: String, trim: true, required: true },
+      ifsc_code: { type: String, trim: true, },
       account_number: { type: String, trim: true },
       proof: { type: String, trim: true },
     },
