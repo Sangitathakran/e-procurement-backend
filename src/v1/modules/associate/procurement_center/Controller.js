@@ -40,6 +40,18 @@ module.exports.createProcurementCenter = async (req, res) => {
       long,
       addressType,
       location_url,
+      center_mobile,
+      center_email,
+      registration_image,
+      pan_number,
+      pan_image,
+      bank_name,
+      branch_name,
+      account_holder_name,
+      ifsc_code,
+      account_number,
+      proof,
+
     } = req.body;
 
     let center_type;
