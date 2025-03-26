@@ -303,6 +303,8 @@ module.exports.updateOrInsertUsers = async (req, res) => {
                             organization_name: commisionAgentName,
                         },
                     },
+                    ekhridUser:true,
+                    client_id: "9877",
                 });
             }
         }
