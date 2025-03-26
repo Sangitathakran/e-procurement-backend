@@ -341,38 +341,70 @@ module.exports.associateFarmerList = async (req, res) => {
             // {
             //     $lookup: {
             //         from: "farmers",
-            //         localField: "procurementDetails.farmerID",
-            //         foreignField: "external_farmer_id",
+            //         let: { farmerId: "$procurementDetails.farmerID" },  // Keep as string
+            //         pipeline: [
+            //             {
+            //                 $addFields: {
+            //                     external_farmer_id_str: { $toString: "$external_farmer_id" } // Convert numeric to string
+            //                 }
+            //             },
+            //             {
+            //                 $match: {
+            //                     $expr: { $eq: ["$external_farmer_id_str", "$$farmerId"] } // Match converted values
+            //                 }
+            //             }
+            //         ],
             //         as: "farmerDetails"
             //     }
             // },
+            // { $unwind: { path: '$farmerDetails', preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
                     from: "farmers",
-                    let: { farmerId: { $toString: "$procurementDetails.farmerID" } },
+                    let: { farmerId: "$procurementDetails.farmerID" },
                     pipeline: [
                         {
                             $match: {
-                                $expr: { $eq: ["$external_farmer_id", "$$farmerId"] }
+                                $expr: { $eq: [{ $toString: "$external_farmer_id" }, "$$farmerId"] }
                             }
+                        },
+                        {
+                            $project: { _id: 1 } // Only fetch _id
                         }
                     ],
                     as: "farmerDetails"
                 }
             },
-            { $unwind: { path: '$farmerDetails', preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$farmerDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "users",
+                    let: { organization_name: "$procurementDetails.commisionAgentName" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ["$basic_details.associate_details.organization_name", "$$organization_name"] }
+                            }
+                        },
+                        {
+                            $project: { _id: 1 } // Only fetch _id
+                        }
+                    ],
+                    as: "userDetails"
+                }
+            },
+            { $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true } },
             {
                 $group: {
                     _id: "$procurementDetails.commisionAgentName",
-                    procurements: {
+                    userDetails: { $first: "$userDetails._id" },
+                    farmer_data: {
                         $push: {
-                            // _id: "$_id",
-                            farmerID: "$procurementDetails.farmerID",
-                            farmerDetails: "$farmerDetails._id",
+                            _id: "$farmerDetails._id",
                             qty: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } // Convert Qtl to MT
                         }
                     },
-                    procuredQty: { $sum: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } } // Convert Qtl to MT
+                    qtyOffered: { $sum: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } } // Convert Qtl to MT
                 }
             }
         ]);
