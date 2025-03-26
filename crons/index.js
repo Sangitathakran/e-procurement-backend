@@ -15,6 +15,8 @@ const xlsx = require("xlsx");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { _paymentstatus } = require("@src/v1/utils/constants");
 const { saveExternalFarmerData } = require("@src/v1/modules/localFarmers/controller");
+const { getState, getDistrict, generateFarmerId } = require("@src/v1/utils/helpers");
+const { generateFarmersIdLogger } = require("@config/logger");
 main().catch((err) => console.log(err));
 //update
 async function main() {
@@ -44,6 +46,12 @@ async function main() {
    cron.schedule("0 23 * * *", async () => {
     await callExternalFarmerAPI(); //saveExternalFarmerData();
   });
+
+
+  cron.schedule("0 3 * * *", async () => {
+    console.log("Running scheduled task to genearte farmer id at 3 AM...");
+    await updateFarmersWithFarmerId(); 
+});
 
 }
 
@@ -220,14 +228,20 @@ async function downloadFarmerFile() {
 async function callExternalFarmerAPI() {
   console.log('local farmer api is called ..');
   try {
-    const date = new Date().toISOString().split("T")[0]; // Get current date (YYYY-MM-DD);
+    //const date = new Date().toISOString().split("T")[0]; // Get current date (YYYY-MM-DD);
+
+    const previousDate = new Date();
+    previousDate.setDate(previousDate.getDate() - 1); // Subtract 1 day
+    const formattedDate = previousDate.toISOString().split("T")[0];
+
     const baseUrl = process.env.NODE_ENV === 'local' ? process.env.LOCAL_URL : process.env.LIVE_URL;
     const apiUrl = `${baseUrl}/v1/localFarmers/save_external_farmer_data`;
 
     console.log(`Sending POST request to API at 11 PM: ${apiUrl}`);
 
     const response = await axios.post(apiUrl, {
-      dates: [date]
+      dates: [formattedDate],
+      isExport: 0,
     }); 
 
     console.log("✅ API Response:", response.data);
@@ -235,6 +249,45 @@ async function callExternalFarmerAPI() {
     console.error("❌ Error calling API:", error.message);
   }
 }
+
+// Function to update farmers with missing farmer_id
+async function updateFarmersWithFarmerId() {
+  try {
+    // Step 1: Find farmers with external_farmer_id but missing farmer_id
+    const farmers = await farmer.find({
+      external_farmer_id: { $exists: true },
+      $or: [{ farmer_id: null }, { farmer_id: '' }],
+    }, { address: 1, farmer_id: 1} );
+
+    generateFarmersIdLogger.info(`Found ${farmers.length} farmers to update.`);
+
+    // Step 2: Iterate over each farmer and generate farmer_id
+    for (const farmer of farmers) {
+      const state = await getState(farmer.address.state_id);
+      const district = await getDistrict(farmer.address.district_id);
+
+      let obj = {
+        _id: farmer._id,
+        address: {
+          state: state.state_title,
+          district: district.district_title,
+        },
+      };
+
+      // Step 3: Generate and update farmer_id
+      farmer.farmer_id = await generateFarmerId(obj);
+      await farmer.save();
+      generateFarmersIdLogger.info(
+        `Updated farmer ${farmer._id} with farmer_id: ${farmer.farmer_id}`
+      );
+    }
+
+    generateFarmersIdLogger.info('✅ All farmers updated successfully!');
+  } catch (error) {
+    generateFarmersIdLogger.error('❌ Error updating farmers:', error);
+  }
+}
+
 
 
 

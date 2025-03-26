@@ -3,6 +3,7 @@ const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const districtsMapping = require("@src/v1/utils/constants/haryanaFarmerDist");
+const { Farmersdata } = require("./files/farmers_0_to_2lac");
 const {
   getState,
   getDistrict,
@@ -13,15 +14,17 @@ const {
 const axios = require("axios");
 
 module.exports.saveExternalFarmerData = async (req, res) => {
-  const dates = req?.body?.dates;
+  const {dates, isExport = 0} = req?.body;
   if (!dates || dates.length === 0) {
     localFarmersLogger.warn("dates field is required");
     return res.json({ success: false, message: "dates field is required " });
   }
-  let farmersData = [];
-  const api_endpoint = dates.map(
+  let farmersData = isExport ? Farmersdata.slice(72020) : [];
+  // return res.json( { data: farmersData.length} );
+  const api_endpoint = isExport ? [] : dates.map(
     (date) => `${process.env.HARYANA_F_API_ENDPOINT}?date=${date}`
   );
+    
   try {
     for (let i = 0; i < api_endpoint.length; i++) {
       const response = await axios.post(api_endpoint[i], {
@@ -46,15 +49,14 @@ module.exports.saveExternalFarmerData = async (req, res) => {
         continue;
       }
     }
-    //  return res.json( {end: api_endpoint, farmersData} );
 
     if (!farmersData || !Array.isArray(farmersData)) {
-      localFarmersLogger.warn('Invalid data format from API');
+      localFarmersLogger.warn("Invalid data format from API");
       return res
         .status(400)
         .json({ success: false, message: "Invalid data format from API" });
     }
-  //  farmersData = farmersData.slice(30, 40);
+    
     let total = farmersData.length,
       existing = 0,
       inserted = 0,
@@ -98,8 +100,6 @@ module.exports.saveExternalFarmerData = async (req, res) => {
             land.RevenueKanal === updatedValues.RevenueKanal &&
             land.RevenueMarla === updatedValues.RevenueMarla &&
             land.RevenueAreaInAcre === updatedValues.RevenueAreaInAcre
-
-            
         );
 
         existingRecord ? existing++ : updatedLandInfo++;
@@ -117,11 +117,10 @@ module.exports.saveExternalFarmerData = async (req, res) => {
           localFarmersLogger.info(
             `new Land created for farmer: ${existingFarmer._id} `
           );
-          existingFarmer.date = data?.date;
-          await existingFarmer.save();
+          // existingFarmer.date = data?.date;
+          // await existingFarmer.save();
         }
       } else {
-        // const state_id = await getStateId("Haryana");
         let district_name = districtsMapping.find(
           (obj) => obj.original === data?.DIS_NAME
         )?.mappedTo;
@@ -172,18 +171,18 @@ module.exports.saveExternalFarmerData = async (req, res) => {
 
         const savedFarmer = await newFarmer.save();
 
-        const state = await getState(savedFarmer.address.state_id);
-        const district = await getDistrict(savedFarmer.address.district_id);
+        // const state = await getState(savedFarmer.address.state_id);
+        //const district = await getDistrict(savedFarmer.address.district_id);
 
-        let obj = {
-          _id: savedFarmer._id,
-          address: {
-            state: state.state_title,
-            district: district.district_title,
-          },
-        };
+        // let obj = {
+        //   _id: savedFarmer._id,
+        //   address: {
+        //     state: state.state_title,
+        //     district: district.district_title,
+        //   },
+        // };
 
-        savedFarmer.farmer_id = await generateFarmerId(obj);
+        // savedFarmer.farmer_id = await generateFarmerId(obj);
         await savedFarmer.save();
 
         // added inserted farmers ids
@@ -248,6 +247,3 @@ module.exports.saveExternalFarmerData = async (req, res) => {
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
-
-
-
