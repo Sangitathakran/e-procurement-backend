@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { User } = require("@src/v1/models/app/auth/User");
 const { MasterUser } = require("@src/v1/models/master/MasterUser");
-const { EkharidProcurement } = require("@src/v1/models/master/ekharidprocurements");
+const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
 const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
@@ -277,7 +277,7 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
 module.exports.updateOrInsertUsers = async (req, res) => {
     try {
         // Fetch all procurement records
-        const procurements = await EkharidProcurement.find({});
+        const procurements = await eKharidHaryanaProcurementModel.find({});
 
         for (const procurement of procurements) {
             const commisionAgentName = procurement?.procurementDetails?.commisionAgentName;
