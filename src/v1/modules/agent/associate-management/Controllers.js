@@ -476,8 +476,11 @@ module.exports.bulkuplodAssociate = async (req, res) => {
                         is_mobile_verified: true,
                         is_email_verified: false,
                         is_approved: _userStatus.approved,
-                        is_form_submitted: false,
-                        active: true
+                        is_form_submitted: true,
+                        active: true,
+                        is_welcome_email_send: "true",
+                        is_sms_send: "true",
+                        term_condition: "true"
                     });
                     await newAssociate.save();
                 }
@@ -630,7 +633,7 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
                         is_approved: 'approved',
                         is_form_submitted: true,
                         is_welcome_email_send: true,
-                        term_condition:true,
+                        term_condition: true,
                         active: true,
                         is_sms_send: true,
                     });
