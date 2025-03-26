@@ -13,6 +13,11 @@ procurementCenterRoutes.post("/generateCenterCode", generateCenterCode);
 procurementCenterRoutes.post("/", validateErrors, verifyAssociate, createProcurementCenter, [
     body("center_name", _middleware.require("center_name")).notEmpty().trim(),
     body("center_code", _middleware.require("center_code")).notEmpty().trim(),
+    body("center_mobile", _middleware.require("center_mobile")).notEmpty().trim(),
+    body("center_email", _middleware.require("center_email")).notEmpty().trim(),
+    body("registration_image").optional().trim(),
+    body("pan_number").optional().trim(),
+    body("pan_image").optional().trim(),
     body("line1", _middleware.require("line1")).notEmpty().trim(),
     body("line2").optional().trim(),
     body("country", _middleware.require("country")).notEmpty().trim(),
@@ -28,8 +33,14 @@ procurementCenterRoutes.post("/", validateErrors, verifyAssociate, createProcure
     body("aadhar_image", _middleware.require("aadhar_image")).notEmpty().trim(),
     body("location_url", _middleware.require("location_url")).notEmpty().trim(),
     body("addressType", _middleware.require("addressType")).isIn(['Residential', 'Business', 'Billing', 'Shipping']),
+    body("bank_name").optional().trim(),
+    body("branch_name").optional().trim(),
+    body("account_holder_name").optional().trim(),
+    body("ifsc_code").optional().trim(),
+    body("account_number").optional().trim(),
+    body("proof").optional().trim(),
     body("isPrimary").optional().isBoolean()
 ]);
-procurementCenterRoutes.get("/ho-list",verifyJwtToken, getHoProcurementCenter);
+procurementCenterRoutes.get("/ho-list", verifyJwtToken, getHoProcurementCenter);
 
 module.exports = { procurementCenterRoutes }; 
