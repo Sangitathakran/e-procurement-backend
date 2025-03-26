@@ -1,10 +1,10 @@
 const express = require("express");
-const { requestRoutes } = require("./request/Routes");
+// const { requestRoutes } = require("./request/Routes");
 const { associateMngmntRoutes } = require("./associate-management/Routes");
 
-const agentRoutes = express.Router();
+const ekhridRoutes = express.Router();
 
 
-agentRoutes.use("/associate", associateMngmntRoutes);
+ekhridRoutes.use("/associate", associateMngmntRoutes);
 
-module.exports = { agentRoutes } 
+module.exports = { ekhridRoutes } 
