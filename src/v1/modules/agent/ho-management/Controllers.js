@@ -115,12 +115,14 @@ module.exports.getHo = async (req, res) => {
 module.exports.saveHeadOffice = async (req, res) => {
     try {
         const { company_details, point_of_contact, address, authorised } = req.body;
+       
         const password = generateRandomPassword();
 
         // this is to get the type object of head office
         const type = await TypesModel.findOne({ _id: "671100dbf1cae6b6aadc2423" })
 
         const hashedPassword = await bcrypt.hash(password, 10);
+              
         const headOffice = new HeadOffice({
             password: hashedPassword,
             email_verified: false,
