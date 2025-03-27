@@ -47,6 +47,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
       "company_details.pan_card",
       "company_details.pan_image",
       "authorised.name",
+      "authorised.phone",
       "authorised.designation",
       "authorised.email",
       "authorised.aadhar_number",
@@ -529,17 +530,18 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
     }
 
     // Find SLA with selected fields
-    const sla = await SLAManagement.findOne(
-      { $or: [{ slaId }, { _id: slaId }] },
-      {
-        _id: 1,
-        slaId: 1,
-        "basic_details.name": 1,
-        associatOrder_id: 1,
-        address: 1,
-        status: 1,
-      }
-    );
+    const sla = await SLAManagement.findById(slaId);
+    // const sla = await SLAManagement.findOne(
+    //   { $or: [{ slaId }, { _id: slaId }] },
+    //   {
+    //     _id: 1,
+    //     slaId: 1,
+    //     "basic_details.name": 1,
+    //     associatOrder_id: 1,
+    //     address: 1,
+    //     status: 1,
+    //   }
+    // );
 
     if (!sla) {
       return res.status(404).json(
@@ -550,21 +552,11 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
       );
     }
 
-    // Transform response
-    const response = {
-      _id: sla._id,
-      slaId: sla.slaId,
-      sla_name: sla.basic_details.name,
-      accociate_count: sla.associatOrder_id.length,
-      address: `${sla.address.line1}, ${sla.address.city}, ${sla.address.state}, ${sla.address.country}`,
-      status: sla.status,
-    };
-
     return res.status(200).json(
       new serviceResponse({
         status: 200,
         message: "SLA record retrieved successfully",
-        data: response,
+        data: sla,
       })
     );
   } catch (error) {
