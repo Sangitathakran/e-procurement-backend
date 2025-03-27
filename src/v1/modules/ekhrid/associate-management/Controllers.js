@@ -17,7 +17,7 @@ const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 // const { Batch } = require("@src/v1/models/app/procurement/Batch");
-// const { RequestModel } = require("@src/v1/models/app/procurement/Request");
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 
 module.exports.getAssociates = async (req, res) => {
     try {
@@ -207,15 +207,11 @@ module.exports.updateOrInsertUsers = async (req, res) => {
 
         return res.send(new serviceResponse({
             status: 200,
-            message: _response_message.found("Associates and Farmers uploaded successfully"),
+            message: _response_message.found("Associates uploaded successfully"),
         }));
 
     } catch (error) {
-        console.error("Error updating users and farmers collection:", error);
-        return res.status(500).send(new serviceResponse({
-            status: 500,
-            message: "Internal server error"
-        }));
+        _handleCatchErrors(error, res);
     }
 };
 
@@ -291,15 +287,11 @@ module.exports.addFarmers = async (req, res) => {
 
         return res.send(new serviceResponse({
             status: 200,
-            message: _response_message.found("Associates and Farmers uploaded successfully"),
+            message: _response_message.found("Farmers uploaded successfully"),
         }));
 
     } catch (error) {
-        console.error("Error updating users and farmers collection:", error);
-        return res.status(500).send(new serviceResponse({
-            status: 500,
-            message: "Internal server error"
-        }));
+        _handleCatchErrors(error, res);
     }
 };
 
@@ -307,9 +299,12 @@ module.exports.associateFarmerList = async (req, res) => {
     try {
         const groupedData = await eKharidHaryanaProcurementModel.aggregate([
             {
+                $match: { "procurementDetails.offerCreatedAt": null } // Ensure offerCreatedAt is not null
+            },
+            {
                 $lookup: {
                     from: "farmers",
-                    let: { farmerId: "$procurementDetails.farmerID" },
+                    let: { farmerId: { $toString: "$procurementDetails.farmerID" } }, // Ensure both are strings
                     pipeline: [
                         {
                             $match: {
@@ -317,13 +312,12 @@ module.exports.associateFarmerList = async (req, res) => {
                             }
                         },
                         {
-                            $project: { _id: 1, external_farmer_id: 1 } // Only fetch _id
+                            $project: { _id: 1, external_farmer_id: 1 } // Only fetch necessary fields
                         }
                     ],
                     as: "farmerDetails"
                 }
             },
-            { $unwind: { path: "$farmerDetails", preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
                     from: "users",
@@ -335,50 +329,78 @@ module.exports.associateFarmerList = async (req, res) => {
                             }
                         },
                         {
-                            $project: { _id: 1 } // Only fetch _id
+                            $project: { _id: 1 } // Only fetch necessary fields
                         }
                     ],
                     as: "userDetails"
                 }
             },
-            { $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true } },
-            { $match: { "$procurementDetails.offerCreatedAt" : null } }, // Exclude records with no farmer
             {
                 $group: {
                     _id: "$procurementDetails.commisionAgentName",
                     seller_id: { $first: "$userDetails._id" },
                     farmer_data: {
                         $push: {
-                            _id: "$farmerDetails._id",
-                            farmerID: "$procurementDetails.farmerID",
-                            external_farmer_id: "$farmerDetails.external_farmer_id",
+                            _id: { $arrayElemAt: ["$farmerDetails._id", 0] }, // Ensure single farmer details
+                            // farmerID: "$procurementDetails.farmerID",
+                            // external_farmer_id: { $arrayElemAt: ["$farmerDetails.external_farmer_id", 0] },
                             qty: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } // Convert Qtl to MT
                         }
                     },
-                    total_farmers: { $sum: { $cond: [{ $gt: ["$farmerDetails._id", null] }, 1, 0] } }, // Count only valid farmers
-                    total_ekhrid_farmers: { $sum: { $cond: [{ $gt: ["$procurementDetails.farmerID", null] }, 1, 0] } }, // Count only valid farmers
+                    total_farmers: {
+                        $sum: {
+                            $cond: [{ $gt: [{ $arrayElemAt: ["$farmerDetails._id", 0] }, null] }, 1, 0]
+                        }
+                    }, // Count valid farmers
+                    total_ekhrid_farmers: {
+                        $sum: {
+                            $cond: [{ $gt: ["$procurementDetails.farmerID", null] }, 1, 0]
+                        }
+                    }, // Count only valid farmers
                     qtyOffered: { $sum: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } } // Convert Qtl to MT
                 }
             }
         ]);
 
-
         return res.send(
             new serviceResponse({
                 status: 200,
                 data: groupedData,
-                message: _response_message.found("Associate farmer data successfully"),
+                message: _response_message.found("Associate farmer"),
             })
         );
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
 
 module.exports.createOfferOrder = async (req, res) => {
     try {
+        const { req_id, seller_id, farmer_data = [], qtyOffered } = req.body;
+       
+        const existingProcurementRecord = await RequestModel.findOne({ _id: req_id });
 
-        const existingRecord = await AssociateOffers.findOne({ seller_id: data.seller_id, req_id: req_id });
+        if (!existingProcurementRecord) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
+        }
+
+        const existingRecord = await AssociateOffers.findOne({ seller_id: new mongoose.Types.ObjectId(seller_id), req_id: new mongoose.Types.ObjectId(req_id) });
+
+        const sumOfFarmerQty = farmer_data.reduce((acc, curr) => {
+            acc = acc + handleDecimal(curr.qty);
+            return handleDecimal(acc);
+        }, 0);
+
+        if (sumOfFarmerQty != handleDecimal(qtyOffered)) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "please check details! quantity mismatched" }] }))
+        }
+
+        const { fulfilledQty, product } = existingProcurementRecord;
+
+        if (qtyOffered > (product?.quantity - fulfilledQty)) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "incorrect quantity of request" }] }))
+        }
+
         let associateOfferRecord;
 
         if (existingRecord) {
@@ -433,8 +455,8 @@ module.exports.createOfferOrder = async (req, res) => {
 
             await FarmerOffers.insertMany(offerToBeInserted);
         } else {
-
-            associateOfferRecord = await AssociateOffers.create({ seller_id: data.seller_id, req_id: req_id, offeredQty: data.qtyOffered, createdBy: data.seller_id });
+            console.log("else");
+            associateOfferRecord = await AssociateOffers.create({ seller_id: seller_id, req_id: req_id, offeredQty: qtyOffered, createdBy: seller_id });
 
             const dataToBeInserted = [];
             const offerToBeInserted = [];
@@ -460,7 +482,7 @@ module.exports.createOfferOrder = async (req, res) => {
                     farmer_id: harvester._id,
                     metaData,
                     offeredQty: handleDecimal(harvester.qty),
-                    createdBy: data.seller_id,
+                    createdBy: seller_id,
                 }
 
                 dataToBeInserted.push(FarmerOfferData);

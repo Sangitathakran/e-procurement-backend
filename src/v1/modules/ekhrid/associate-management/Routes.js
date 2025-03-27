@@ -8,5 +8,5 @@ associateMngmntRoutes.get("/", getAssociates);
 associateMngmntRoutes.get("/updateOrInsertUsers", updateOrInsertUsers);
 associateMngmntRoutes.get("/addFarmers", addFarmers);
 associateMngmntRoutes.get("/associateFarmerList", associateFarmerList);
-associateMngmntRoutes.get("/createOfferOrder", createOfferOrder);
+associateMngmntRoutes.post("/createOfferOrder", createOfferOrder);
 module.exports = { associateMngmntRoutes }; 
