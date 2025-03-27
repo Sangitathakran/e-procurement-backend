@@ -234,7 +234,7 @@ async function callExternalFarmerAPI() {
     previousDate.setDate(previousDate.getDate() - 1); // Subtract 1 day
     const formattedDate = previousDate.toISOString().split("T")[0];
 
-    const baseUrl = process.env.NODE_ENV === 'local' ? process.env.LOCAL_URL : process.env.LIVE_URL;
+    const baseUrl = process.env.NODE_ENV === 'local' ? process.env.LOCAL_URL : process.env.LOCAL_FARMER_PROD_URL;
     const apiUrl = `${baseUrl}/v1/localFarmers/save_external_farmer_data`;
 
     console.log(`Sending POST request to API at 11 PM: ${apiUrl}`);
