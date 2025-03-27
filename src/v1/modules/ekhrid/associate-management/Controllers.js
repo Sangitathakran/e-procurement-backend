@@ -292,7 +292,7 @@ module.exports.updateOrInsertUsers = async (req, res) => {
                     farmerId: { $first: "$procurementDetails.farmerID" } // Fetch first farmerId per commission agent
                 }
             },
-            { $match: { _id: { $ne: null }, farmerId: { $ne: null } } }
+            { $match: { _id: { $ne: null }, farmerId: { $ne: null }, offerCreatedAt: null } }
         ]);
 
         if (!procurements.length) {
@@ -370,21 +370,22 @@ module.exports.updateOrInsertUsers = async (req, res) => {
     }
 };
 
-module.exports.updateOrInsertFarmers = async (req, res) => {
+module.exports.addFarmers = async (req, res) => {
     try {
         // Fetch unique farmer IDs and jForm IDs from procurement records
         const procurements = await eKharidHaryanaProcurementModel.aggregate([
             {
                 $match: {
-                    "procurementDetails.farmerID": { $ne: null } // Ensure farmerID is not null
+                    "procurementDetails.farmerID": { $ne: null }, // Ensure farmerID is not null
+                    offerCreatedAt: null
                 }
             },
             {
-                $lookup:{
+                $lookup: {
                     from: "users",
-                    localField:"procurementDetails.commisionAgentName",
-                    foreignField:"basic_details.associate_details.organization_name",
-                    as:"associateDetails"                        
+                    localField: "procurementDetails.commisionAgentName",
+                    foreignField: "basic_details.associate_details.organization_name",
+                    as: "associateDetails"
                 }
             },
             {
@@ -426,7 +427,7 @@ module.exports.updateOrInsertFarmers = async (req, res) => {
                             external_farmer_id: farmerId,
                             farmer_type: "Associate",
                             farmer_id: jformId,
-                            associate_id : associateDetailsId
+                            associate_id: associateDetailsId
                         }
                     }
                 });
