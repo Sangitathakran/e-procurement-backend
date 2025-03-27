@@ -281,67 +281,6 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
     }
 };
 
-/*
-module.exports.updateOrInsertUsers = async (req, res) => {
-    try {
-        // Fetch unique commission agent names from procurement records
-        const procurements = await eKharidHaryanaProcurementModel.aggregate([
-            { $group: { _id: "$procurementDetails.commisionAgentName", farmerId: 1 } },
-            { $match: { _id: { $ne: null } } }
-        ]);
-
-        const bulkOps = [];
-
-        // Fetch the last user_code from the User collection
-        const lastUser = await User.findOne({}, { user_code: 1 }).sort({ createdAt: -1 });
-
-        let lastCodeNumber = 1; // Default if no users exist
-
-        if (lastUser && lastUser.user_code) {
-            lastCodeNumber = parseInt(lastUser.user_code.slice(2), 10) + 1;
-        }
-
-        for (const procurement of procurements) {
-
-            const commisionAgentName = procurement._id;
-            // Generate the next user_code in sequence
-            const nextUserCode = 'AS' + String(lastCodeNumber).padStart(5, '0');
-            lastCodeNumber++; // Increment for the next procurement       
-
-            bulkOps.push({
-                updateOne: {
-                    filter: { "basic_details.associate_details.organization_name": commisionAgentName },
-                    update: {
-                        $set: { "basic_details.associate_details.organization_name": commisionAgentName },
-                        $setOnInsert: {
-                            ekhridUser: true,
-                            client_id: "9877",
-                            user_type: _userType.associate,
-                            is_approved: _userStatus.approved,
-                            user_code: nextUserCode
-                        }
-                    },
-                    upsert: true
-                }
-            });
-        }
-
-        if (bulkOps.length > 0) {
-            await User.bulkWrite(bulkOps);
-        }
-
-        return res.send(
-            new serviceResponse({
-                status: 200,
-                message: _response_message.found("Associate uploaded successfully"),
-            })
-        );
-        // console.log("Users collection updated successfully.");
-    } catch (error) {
-        console.error("Error updating users collection:", error);
-    }
-};
-*/
 
 module.exports.updateOrInsertUsers = async (req, res) => {
     try {
@@ -380,6 +319,7 @@ module.exports.updateOrInsertUsers = async (req, res) => {
         }
 
         for (const procurement of procurements) {
+
             const commisionAgentName = procurement._id;
             const farmerId = procurement.farmerId;
 
@@ -405,33 +345,6 @@ module.exports.updateOrInsertUsers = async (req, res) => {
                 }
             });
 
-            // Check if the farmer exists
-            const existingFarmer = await farmer.findOne({ external_farmer_id: farmerId });
-
-            if (!existingFarmer) {
-                // Insert a new farmer record if not found
-                farmerBulkOps.push({
-                    insertOne: {
-                        document: {
-                            external_farmer_id: farmerId
-                        }
-                    }
-                });
-            }
-            /*else {
-                // Optionally, update the farmer's record if needed (Modify fields accordingly)
-                farmerBulkOps.push({
-                    updateOne: {
-                        filter: { external_farmer_id: farmerId },
-                        update: {
-                            $set: {
-                                last_updated: new Date() // Optional: Tracking last update
-                            }
-                        }
-                    }
-                });
-            }
-            */
         }
 
         // Execute bulk operations
@@ -457,6 +370,88 @@ module.exports.updateOrInsertUsers = async (req, res) => {
     }
 };
 
+module.exports.updateOrInsertFarmers = async (req, res) => {
+    try {
+        // Fetch unique farmer IDs and jForm IDs from procurement records
+        const procurements = await eKharidHaryanaProcurementModel.aggregate([
+            {
+                $match: {
+                    "procurementDetails.farmerID": { $ne: null } // Ensure farmerID is not null
+                }
+            },
+            {
+                $lookup:{
+                    from: "users",
+                    localField:"procurementDetails.commisionAgentName",
+                    foreignField:"basic_details.associate_details.organization_name",
+                    as:"associateDetails"                        
+                }
+            },
+            {
+                $unwind: "$associateDetails"
+            },
+            {
+                $project: {
+                    _id: 0,
+                    farmerId: "$procurementDetails.farmerID",
+                    jformID: "$procurementDetails.jformID",
+                    associateDetailsId: "$associateDetails._id"
+                }
+            }
+        ]);
+
+        if (!procurements.length) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: "No valid commission agent names or farmer IDs found."
+            }));
+        }
+
+        const farmerBulkOps = [];
+
+        for (const procurement of procurements) {
+
+            // const commisionAgentName = procurement._id;
+            const farmerId = procurement.farmerId;
+            const jformId = procurement.jformID;
+            const associateDetailsId = procurement.associateDetailsId;
+            // Check if the farmer exists
+            const existingFarmer = await farmer.findOne({ external_farmer_id: farmerId });
+
+            if (!existingFarmer) {
+                // Insert a new farmer record if not found
+                farmerBulkOps.push({
+                    insertOne: {
+                        document: {
+                            external_farmer_id: farmerId,
+                            farmer_type: "Associate",
+                            farmer_id: jformId,
+                            associate_id : associateDetailsId
+                        }
+                    }
+                });
+            }
+        }
+
+        // Execute bulk operations
+
+        if (farmerBulkOps.length > 0) {
+            await farmer.bulkWrite(farmerBulkOps);
+        }
+
+        return res.send(new serviceResponse({
+            status: 200,
+            message: _response_message.found("Associates and Farmers uploaded successfully"),
+        }));
+
+    } catch (error) {
+        console.error("Error updating users and farmers collection:", error);
+        return res.status(500).send(new serviceResponse({
+            status: 500,
+            message: "Internal server error"
+        }));
+    }
+};
 
 module.exports.associateFarmerList = async (req, res) => {
     try {
@@ -472,7 +467,7 @@ module.exports.associateFarmerList = async (req, res) => {
                             }
                         },
                         {
-                            $project: { _id: 1,external_farmer_id:1 } // Only fetch _id
+                            $project: { _id: 1, external_farmer_id: 1 } // Only fetch _id
                         }
                     ],
                     as: "farmerDetails"
@@ -509,6 +504,8 @@ module.exports.associateFarmerList = async (req, res) => {
                             qty: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } // Convert Qtl to MT
                         }
                     },
+                    total_farmers: { $sum: { $cond: [{ $gt: ["$farmerDetails._id", null] }, 1, 0] } }, // Count only valid farmers
+                    total_ekhrid_farmers: { $sum: { $cond: [{ $gt: ["$procurementDetails.farmerID", null] }, 1, 0] } }, // Count only valid farmers
                     qtyOffered: { $sum: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } } // Convert Qtl to MT
                 }
             }
