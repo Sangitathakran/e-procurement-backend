@@ -26,9 +26,9 @@ async function main() {
   //0 */3 * * *
   //*/30 * * * * *
 
-  cron.schedule("0 */3 * * *", async () => {
-    await downloadAgentFile();
-  });
+  // cron.schedule("0 */3 * * *", async () => {
+  //   await downloadAgentFile();
+  // });
   // cron.schedule("0 */3 * * *", async () => {
   //   await downloadFarmerFile();
   // });

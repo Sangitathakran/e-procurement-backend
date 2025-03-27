@@ -495,3 +495,8 @@ exports.formatDate = (timestamp, format = "DD/MM/YYYY") => {
 
   return `${day}/${month}/${year}`;
 }
+exports.makeSearchQuery = (searchFields,search) => ({
+  $or: searchFields.map(item => ({
+      [item]: { $regex: search, $options: 'i' }
+  }))
+});

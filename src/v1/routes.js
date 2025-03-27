@@ -19,6 +19,7 @@ const { FeatureRoutes } = require("@src/v1/modules/Features/Routes")
 const { distillerRoutes } = require("./modules/distiller/Routes");
 const { nccfRoutes } = require("./modules/nccf/routes");
 const { localFarmersRoutes } = require("./modules/localFarmers/routes");
+const { eKharidRoutes } = require("./modules/eKharid/Routes");
 
 /* Define Your Routes */
 router.use(handlePagination)
@@ -43,5 +44,6 @@ router.use("/warehouse", wareHouseRoutes);
 router.use("/auth", authRoutes)
 router.use("/nccf", nccfRoutes)
 router.use('/localFarmers', localFarmersRoutes);
+router.use("/eKharid", eKharidRoutes)
 
 module.exports = { router };
