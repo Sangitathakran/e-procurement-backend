@@ -296,8 +296,8 @@ module.exports.addProcurementCenter = async (req, res) => {
         const procurements = await eKharidHaryanaProcurementModel.aggregate([
             {
                 $match: {
-                    "procurementDetails.farmerID": { $ne: null }, // Ensure farmerID is not null
-                    "procurementDetails.offerCreatedAt": null
+                    "procurementDetails.mandiName": { $ne: null }, // Ensure farmerID is not null
+                    // "procurementDetails.offerCreatedAt": null
                 }
             },
             {
@@ -314,7 +314,7 @@ module.exports.addProcurementCenter = async (req, res) => {
             {
                 $project: {
                     _id: 0,
-                    farmerId: "$procurementDetails.farmerID",
+                    mandiName: "$procurementDetails.mandiName",
                     jformID: "$procurementDetails.jformID",
                     associateDetailsId: "$associateDetails._id"
                 }
@@ -328,26 +328,29 @@ module.exports.addProcurementCenter = async (req, res) => {
             }));
         }
 
-        const farmerBulkOps = [];
+        const procurementBulkOps = [];
+        const eKharidUpdates = [];
 
         for (const procurement of procurements) {
 
             // const commisionAgentName = procurement._id;
-            const farmerId = procurement.farmerId;
-            const jformId = procurement.jformID;
+            const mandiName = procurement.mandiName;
             const associateDetailsId = procurement.associateDetailsId;
             // Check if the farmer exists
-            const existingFarmer = await ProcurementCenter.findOne({ external_farmer_id: farmerId });
-
-            if (!existingFarmer) {
-                // Insert a new farmer record if not found
-                farmerBulkOps.push({
+            const existingCenter = await ProcurementCenter.findOne({ center_name: mandiName });
+            eKharidUpdates.push({
+                updateOne: {
+                    filter: { "procurementDetails.mandiName": { $in: [mandiName] } },
+                    update: { $set: { "procurementDetails.centerCreatedAt": new Date() } }
+                }
+            });
+            if (!existingCenter) {
+                procurementBulkOps.push({
                     insertOne: {
                         document: {
-                            external_farmer_id: farmerId,
-                            farmer_type: "Associate",
-                            farmer_id: jformId,
-                            associate_id: associateDetailsId
+                            center_name: mandiName,
+                            center_type: "associate",
+                            user_id: associateDetailsId
                         }
                     }
                 });
@@ -355,14 +358,18 @@ module.exports.addProcurementCenter = async (req, res) => {
         }
 
         // Execute bulk operations
+        if(eKharidUpdates.length > 0) {
+            await eKharidHaryanaProcurementModel.bulkWrite(eKharidUpdates);
+        }
 
-        if (farmerBulkOps.length > 0) {
-            await farmer.bulkWrite(farmerBulkOps);
+        if (procurementBulkOps.length > 0) {
+            await ProcurementCenter.bulkWrite(procurementBulkOps);
         }
 
         return res.send(new serviceResponse({
             status: 200,
-            message: _response_message.found("Farmers uploaded successfully"),
+            data:procurements,
+            message: _response_message.found("Procurement center uploaded successfully"),
         }));
 
     } catch (error) {
