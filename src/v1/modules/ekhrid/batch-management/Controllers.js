@@ -7,6 +7,8 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { _procuredStatus } = require("@src/v1/utils/constants");
+const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const mongoose = require('mongoose');
 
 /*
