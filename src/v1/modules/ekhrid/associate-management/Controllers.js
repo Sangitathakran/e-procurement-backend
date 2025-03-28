@@ -1,22 +1,17 @@
 const mongoose = require('mongoose');
 const { User } = require("@src/v1/models/app/auth/User");
-const { MasterUser } = require("@src/v1/models/master/MasterUser");
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
 const { _userType, _userStatus, _requestStatus, _webSocketEvents, _procuredStatus, _collectionName } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors, dumpJSONToExcel, _generateOrderNumber, _addDays, handleDecimal } = require("@src/v1/utils/helpers");
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
-const { emailService } = require('@src/v1/utils/third_party/EmailServices');
-const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator")
-const bcrypt = require('bcrypt');
-const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const xlsx = require('xlsx');
 const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
-// const { Batch } = require("@src/v1/models/app/procurement/Batch");
+const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 
 module.exports.getAssociates = async (req, res) => {
@@ -295,6 +290,86 @@ module.exports.addFarmers = async (req, res) => {
     }
 };
 
+module.exports.addProcurementCenter = async (req, res) => {
+    try {
+        // Fetch unique farmer IDs and jForm IDs from procurement records
+        const procurements = await eKharidHaryanaProcurementModel.aggregate([
+            {
+                $match: {
+                    "procurementDetails.farmerID": { $ne: null }, // Ensure farmerID is not null
+                    "procurementDetails.offerCreatedAt": null
+                }
+            },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "procurementDetails.commisionAgentName",
+                    foreignField: "basic_details.associate_details.organization_name",
+                    as: "associateDetails"
+                }
+            },
+            {
+                $unwind: "$associateDetails"
+            },
+            {
+                $project: {
+                    _id: 0,
+                    farmerId: "$procurementDetails.farmerID",
+                    jformID: "$procurementDetails.jformID",
+                    associateDetailsId: "$associateDetails._id"
+                }
+            }
+        ]);
+
+        if (!procurements.length) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: "No valid commission agent names or farmer IDs found."
+            }));
+        }
+
+        const farmerBulkOps = [];
+
+        for (const procurement of procurements) {
+
+            // const commisionAgentName = procurement._id;
+            const farmerId = procurement.farmerId;
+            const jformId = procurement.jformID;
+            const associateDetailsId = procurement.associateDetailsId;
+            // Check if the farmer exists
+            const existingFarmer = await ProcurementCenter.findOne({ external_farmer_id: farmerId });
+
+            if (!existingFarmer) {
+                // Insert a new farmer record if not found
+                farmerBulkOps.push({
+                    insertOne: {
+                        document: {
+                            external_farmer_id: farmerId,
+                            farmer_type: "Associate",
+                            farmer_id: jformId,
+                            associate_id: associateDetailsId
+                        }
+                    }
+                });
+            }
+        }
+
+        // Execute bulk operations
+
+        if (farmerBulkOps.length > 0) {
+            await farmer.bulkWrite(farmerBulkOps);
+        }
+
+        return res.send(new serviceResponse({
+            status: 200,
+            message: _response_message.found("Farmers uploaded successfully"),
+        }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
 module.exports.associateFarmerList = async (req, res) => {
     try {
         const groupedData = await eKharidHaryanaProcurementModel.aggregate([
@@ -377,123 +452,145 @@ module.exports.associateFarmerList = async (req, res) => {
 module.exports.createOfferOrder = async (req, res) => {
     try {
         const { req_id, seller_id, farmer_data = [], qtyOffered } = req.body;
-       
-        const existingProcurementRecord = await RequestModel.findOne({ _id: req_id });
+
+        const existingProcurementRecord = await RequestModel.findOne(
+            { _id: new mongoose.Types.ObjectId(req_id) },
+            { fulfilledQty: 1, product: 1 } // Fetch only necessary fields
+        ).lean();
 
         if (!existingProcurementRecord) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }));
         }
 
-        const existingRecord = await AssociateOffers.findOne({ seller_id: new mongoose.Types.ObjectId(seller_id), req_id: new mongoose.Types.ObjectId(req_id) });
+        const existingRecord = await AssociateOffers.findOne(
+            { seller_id: new mongoose.Types.ObjectId(seller_id), req_id: new mongoose.Types.ObjectId(req_id) },
+            { offeredQty: 1 }
+        ).lean();
 
-        const sumOfFarmerQty = farmer_data.reduce((acc, curr) => {
-            acc = acc + handleDecimal(curr.qty);
-            return handleDecimal(acc);
-        }, 0);
-
-        if (sumOfFarmerQty != handleDecimal(qtyOffered)) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "please check details! quantity mismatched" }] }))
+        // const sumOfFarmerQty = farmer_data.reduce((acc, curr) => acc + handleDecimal(curr.qty), 0);
+        const sumOfFarmerQty = farmer_data.reduce((acc, curr) => acc + curr.qty, 0);
+        if (handleDecimal(sumOfFarmerQty) !== handleDecimal(qtyOffered)) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Please check details! Quantity mismatched" }] }));
         }
 
         const { fulfilledQty, product } = existingProcurementRecord;
-
-        if (qtyOffered > (product?.quantity - fulfilledQty)) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "incorrect quantity of request" }] }))
+        if (qtyOffered > (product.quantity - fulfilledQty)) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Incorrect quantity of request" }] }));
         }
 
-        let associateOfferRecord;
+        // Fetch all farmers in a single query
+        const farmerIds = farmer_data.map(farmer => new mongoose.Types.ObjectId(farmer._id));
+        const farmers = await farmer.find({ _id: { $in: farmerIds } }).lean();
+
+        // Create a mapping for quick lookup
+        const farmerMap = new Map(farmers.map(f => [f._id.toString(), f]));
+
+        // Convert external_farmer_id to both String and Number for querying eKharid
+        const externalFarmerIdsString = farmers.map(f => String(f.external_farmer_id));  // Convert to String
+        const externalFarmerIdsNumber = farmers.map(f => Number(f.external_farmer_id)).filter(n => !isNaN(n));  // Convert to Number & remove NaN values
+
+        // console.log("🔍 Querying eKharid for farmer IDs:", { externalFarmerIdsString, externalFarmerIdsNumber }); // Debugging
+
+        const eKharidRecords = await eKharidHaryanaProcurementModel.find({
+            $or: [
+                { "procurementDetails.farmerID": { $in: externalFarmerIdsString } },  // Match as String
+                { "procurementDetails.farmerID": { $in: externalFarmerIdsNumber } }   // Match as Number
+            ]
+        }).lean(); // Use lean() for performance
+
+        // console.log("✅ eKharid Records Found:", eKharidRecords.map(r => r.procurementDetails.farmerID)); // Debugging
+
+        // Create a mapping for quick lookup
+        const eKharidMap = new Map(eKharidRecords.map(record => [String(record.procurementDetails.farmerID), record]));
+
+        let associateOfferRecord = existingRecord;
 
         if (existingRecord) {
-            existingRecord.offeredQty = data.qtyOffered;
-            associateOfferRecord = existingRecord.save();
-            // update request's fulfilledQty and status
-            const existingRequestModel = await RequestModel.findOne({ _id: req_id });
-
-            existingRequestModel.fulfilledQty = handleDecimal(existingRequestModel.fulfilledQty + sumOfFarmerQty);
-            if (handleDecimal(existingRequestModel.fulfilledQty) == handleDecimal(existingRequestModel?.product?.quantity)) {
-                existingRequestModel.status = _requestStatus.fulfilled;
-            } else if (handleDecimal(existingRequestModel.fulfilledQty) < handleDecimal(existingRequestModel?.product?.quantity)) {
-                existingRequestModel.status = _requestStatus.partially_fulfulled;
-            } else {
-                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "this request cannot be processed! quantity exceeds" }] }));
-            }
-            await existingRequestModel.save();
-
-            const dataToBeInserted = [];
-            const offerToBeInserted = [];
-
-            for (let harvester of data.farmer_data) {
-
-                const existingFarmer = await farmer.findOne({ _id: harvester._id });
-                const { name, father_name, address_line, mobile_no, farmer_code } = existingFarmer;
-
-                const metaData = { name, father_name, address_line, mobile_no, farmer_code };
-
-                const FarmerOfferData = {
-                    associateOffers_id: existingRecord._id,
-                    farmer_id: harvester._id,
-                    metaData,
-                    offeredQty: handleDecimal(harvester.qty),
-                    order_no: "OD" + _generateOrderNumber(),
-                    status: _procuredStatus.received,
-                }
-
-                const FarmerOffer = {
-                    associateOffers_id: existingRecord._id,
-                    farmer_id: harvester._id,
-                    metaData,
-                    offeredQty: handleDecimal(harvester.qty),
-                    createdBy: user_id,
-                }
-
-                dataToBeInserted.push(FarmerOfferData);
-
-                offerToBeInserted.push(FarmerOffer);
-            }
-
-            await FarmerOrders.insertMany(dataToBeInserted);
-
-            await FarmerOffers.insertMany(offerToBeInserted);
+            console.log("Updating existing record");
+            await AssociateOffers.updateOne(
+                { _id: existingRecord._id },
+                { offeredQty: qtyOffered }
+            );
         } else {
-            console.log("else");
-            associateOfferRecord = await AssociateOffers.create({ seller_id: seller_id, req_id: req_id, offeredQty: qtyOffered, createdBy: seller_id });
-
-            const dataToBeInserted = [];
-            const offerToBeInserted = [];
-
-            for (let harvester of farmer_data) {
-
-                const existingFarmer = await farmer.findOne({ _id: harvester._id });
-                const { name, father_name, address_line, mobile_no, farmer_code } = existingFarmer;
-
-                const metaData = { name, father_name, address_line, mobile_no, farmer_code };
-
-                const FarmerOfferData = {
-                    associateOffers_id: associateOfferRecord._id,
-                    farmer_id: harvester._id,
-                    metaData,
-                    offeredQty: handleDecimal(harvester.qty),
-                    order_no: "OD" + _generateOrderNumber(),
-                    status: _procuredStatus.received,
-                }
-
-                const FarmerOffer = {
-                    associateOffers_id: associateOfferRecord._id,
-                    farmer_id: harvester._id,
-                    metaData,
-                    offeredQty: handleDecimal(harvester.qty),
-                    createdBy: seller_id,
-                }
-
-                dataToBeInserted.push(FarmerOfferData);
-                offerToBeInserted.push(FarmerOffer);
-            }
-
-            await FarmerOrders.insertMany(dataToBeInserted);
-            await FarmerOffers.insertMany(offerToBeInserted);
+            console.log("Creating new record");
+            associateOfferRecord = await AssociateOffers.create({
+                seller_id,
+                req_id,
+                offeredQty: qtyOffered,
+                createdBy: seller_id
+            });
         }
 
+        // Update RequestModel fulfilledQty in one go
+        const updatedFulfilledQty = handleDecimal(fulfilledQty + sumOfFarmerQty);
+        let newStatus = _requestStatus.partially_fulfulled;
+        if (updatedFulfilledQty === handleDecimal(product.quantity)) {
+            newStatus = _requestStatus.fulfilled;
+        } else if (updatedFulfilledQty > handleDecimal(product.quantity)) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "This request cannot be processed! Quantity exceeds" }] }));
+        }
+
+        await RequestModel.updateOne({ _id: req_id }, { fulfilledQty: updatedFulfilledQty, status: newStatus });
+
+        // Prepare bulk insert operations
+        const farmerOrdersToInsert = [];
+        const farmerOffersToInsert = [];
+        const eKharidUpdates = [];
+
+        for (let harvester of farmer_data) {
+            const existingFarmer = farmerMap.get(harvester._id.toString());
+            if (!existingFarmer) continue;
+
+            const eKharidRecord = eKharidMap.get(String(existingFarmer.external_farmer_id));
+            if (!eKharidRecord) {
+                // console.log(`No eKharid record found for farmerId: ${existingFarmer.external_farmer_id}`);
+                // return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `No procurement record found for farmerId: ${existingFarmer.external_farmer_id}` }] }));
+            }
+
+            // Prepare metadata
+            const metaData = {
+                name: existingFarmer.name,
+                father_name: existingFarmer.father_name,
+                address_line: existingFarmer.address_line,
+                mobile_no: existingFarmer.mobile_no,
+                farmer_code: existingFarmer.farmer_code
+            };
+
+            // Insert order and offer data
+            farmerOrdersToInsert.push({
+                associateOffers_id: associateOfferRecord._id,
+                farmer_id: harvester._id,
+                metaData,
+                offeredQty: handleDecimal(harvester.qty),
+                order_no: "OD" + _generateOrderNumber(),
+                status: _procuredStatus.received,
+            });
+
+            farmerOffersToInsert.push({
+                associateOffers_id: associateOfferRecord._id,
+                farmer_id: harvester._id,
+                metaData,
+                offeredQty: handleDecimal(harvester.qty),
+                createdBy: seller_id,
+            });
+
+            // Prepare eKharid update
+            eKharidUpdates.push({
+                updateOne: {
+                    filter: { "procurementDetails.farmerID": { $in: [String(existingFarmer.external_farmer_id), Number(existingFarmer.external_farmer_id)] } },
+                    update: { $set: { "procurementDetails.offerCreatedAt": new Date() } }
+                }
+            });
+        }
+
+        // Perform batch inserts and updates
+        if (farmerOrdersToInsert.length) await FarmerOrders.insertMany(farmerOrdersToInsert);
+        if (farmerOffersToInsert.length) await FarmerOffers.insertMany(farmerOffersToInsert);
+        if (eKharidUpdates.length) await eKharidHaryanaProcurementModel.bulkWrite(eKharidUpdates);
+
+        res.status(200).send(new serviceResponse({ status: 200, message: "Offer created successfully" }));
     } catch (error) {
+        console.error("❌ Error in createOfferOrder:", error);
         _handleCatchErrors(error, res);
     }
-}
+};

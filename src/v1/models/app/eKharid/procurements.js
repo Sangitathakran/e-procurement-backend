@@ -7,7 +7,7 @@ const ProcurementDetailsSchema = new mongoose.Schema({
   commodityName: { type: String },
   mandiName: { type: String },
   gatePassWeightQtl: { type: Number },
-  farmerID: { type: String },
+  farmerID: { type: Number },
   gatePassID: { type: Number },
   gatePassDate: { type: String },
   auctionID: { type: Number },

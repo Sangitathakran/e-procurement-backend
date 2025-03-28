@@ -7,17 +7,20 @@ const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { _procuredStatus } = require("@src/v1/utils/constants");
+const mongoose = require('mongoose');
 
+/*
 module.exports.farmerOrderList = async (req, res) => {
     try {
         const { req_id, seller_id } = req.body;
 
         // Find the offer
-        const offer = (await AssociateOffers.findOne({ req_id, seller_id }).lean())._id;
-        if (!offer) {
-            return res
-                .status(400)
-                .send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
+        const offer = await AssociateOffers.findOne({ req_id, seller_id }).lean();
+        if (!offer || !offer._id) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                errors: [{ message: _response_message.notFound("offer") }]
+            }));
         }
 
         const offerId = offer._id;
@@ -29,9 +32,9 @@ module.exports.farmerOrderList = async (req, res) => {
 
         // Aggregation Pipeline
         const aggregation = [
-            {
-                $match: query,
-            },
+            { $match: query },
+
+            // Lookup Farmer Details
             {
                 $lookup: {
                     from: "farmers",
@@ -41,48 +44,62 @@ module.exports.farmerOrderList = async (req, res) => {
                 },
             },
             { $unwind: "$farmerDetails" },
-        
-            // Convert farmerDetails.external_farmer_id to Int32
+
+            // Safely Convert farmerDetails.external_farmer_id to Number
             {
                 $addFields: {
                     "farmerDetails.external_farmer_id": {
-                        $toInt: "$farmerDetails.external_farmer_id",
-                    },
-                },
+                        $convert: {
+                            input: "$farmerDetails.external_farmer_id",
+                            to: "int",
+                            onError: 0, // Default to 0 on error
+                            onNull: 0   // Default to 0 if null
+                        }
+                    }
+                }
             },
-        
+
+            // Lookup eKharid Procurement Details
             {
                 $lookup: {
                     from: "ekharidprocurements",
                     let: { ext_farmer_id: "$farmerDetails.external_farmer_id" },
                     pipeline: [
+                        // Ensure procurementDetails.farmerID is safely converted to Number
+                        {
+                            $addFields: {
+                                "procurementDetails.farmerID": {
+                                    $convert: {
+                                        input: "$procurementDetails.farmerID",
+                                        to: "int",
+                                        onError: 0,
+                                        onNull: 0
+                                    }
+                                }
+                            }
+                        },
                         {
                             $match: {
                                 $expr: {
-                                    $eq: [
-                                        "$procurementDetails.farmerID",
-                                        { $toInt: "$$ext_farmer_id" }, // Convert to Int32 for comparison
-                                    ],
-                                },
-                            },
-                        },
+                                    $eq: ["$procurementDetails.farmerID", "$$ext_farmer_id"]
+                                }
+                            }
+                        }
                     ],
                     as: "ekharidprocurements",
                 },
             },
             { $unwind: "$ekharidprocurements" },
             { $unwind: "$ekharidprocurements.procurementDetails" },
-        
+
             // Grouping by gatePassID
             {
                 $group: {
                     _id: "$ekharidprocurements.procurementDetails.gatePassID",
                     gatePassID: { $first: "$ekharidprocurements.procurementDetails.gatePassID" },
                     truck_capacity: { $sum: "$offeredQty" },
-                    // totalQtyRemaining: { $sum: "$qtyRemaining" },
                     farmerData: {
                         $push: {
-                            // orderId: "$_id",
                             qty: "$offeredQty",
                             farmerOrder_id: "$farmerDetails._id",
                             external_farmer_id: "$farmerDetails.external_farmer_id",
@@ -91,12 +108,13 @@ module.exports.farmerOrderList = async (req, res) => {
                     count: { $sum: 1 },
                 },
             },
+
+            // Project required fields
             {
                 $project: {
                     _id: 0,
                     gatePassID: 1,
                     truck_capacity: 1,
-                    // totalQtyRemaining: 1,
                     farmerData: 1,
                     count: 1,
                 },
@@ -105,8 +123,10 @@ module.exports.farmerOrderList = async (req, res) => {
 
         const records = { count: 0 };
 
+        // Execute Aggregation
         records.rows = await FarmerOrders.aggregate(aggregation);
-        records.count = await FarmerOrders.aggregate([...aggregation, { $count: "count" }]);
+        const countResult = await FarmerOrders.aggregate([...aggregation, { $count: "count" }]);
+        records.count = countResult.length > 0 ? countResult[0].count : 0;
 
         return res.status(200).send(
             new serviceResponse({
@@ -116,6 +136,7 @@ module.exports.farmerOrderList = async (req, res) => {
             })
         );
     } catch (error) {
+        console.error("❌ Error in farmerOrderList:", error);
         _handleCatchErrors(error, res);
     }
 };
@@ -136,11 +157,11 @@ module.exports.createBatch = async (req, res) => {
             {
                 $match: { _id: { $in: farmerIds } },
             },
-            
+
             {
                 $project: {
                     _id: 1,
-                 
+
                     // Add any specific fields you want to return
                 },
             },
@@ -163,175 +184,207 @@ module.exports.createBatch = async (req, res) => {
         );
     }
 };
+*/
+module.exports.getFarmerOrders = async (req, res) => {
+    try {
 
-// module.exports.createBatch = async (req, res) => {
-//     try {
-//         const { req_id, truck_capacity, farmerData = [], seller_id } = req.body;
-//         for (let value of farmerData){
-//             const data= await farmer.findById({_id:value._id})
-//         }
+        const { req_id, seller_id } = req.body;
 
+        const associateOfferIds = (await AssociateOffers.find({ req_id: new mongoose.Types.ObjectId(req_id), seller_id: new mongoose.Types.ObjectId(seller_id) })).map(i => i._id);
 
-//         return res.status(200).send(new serviceResponse({ status: 200, data: data, message: _response_message.created("batch") }))
+        let query = { associateOffers_id: { $in: associateOfferIds }, status: "Received" };
 
-//         return false
-//         const procurementRecord = await RequestModel.findOne({ _id: req_id });
-//         if (!procurementRecord) {
-//             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
-//         }
+        const farmerOrders = await FarmerOrders.aggregate([
+            { $match: query },
+            {
+                $lookup: {
+                    from: "farmers",
+                    localField: "farmer_id",
+                    foreignField: "_id",
+                    as: "farmerDetails"
+                }
+            },
 
-//         const record = await AssociateOffers.findOne({ seller_id: seller_id, req_id: req_id });
-//         if (!record) {
-//             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
-//         }
+            {
+                $lookup: {
+                    from: "ekharidprocurements",
+                    let: { externalFarmerId: "$farmerDetails.external_farmer_id" },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ["$farmerID", "$$externalFarmerId"] } } }
+                    ],
+                    as: "procurementDetails"
+                }
+            },
 
-//         const sumOfQty = farmerData.reduce((acc, curr) => {
-//             acc = acc + curr.qty;
-//             return acc;
-//         }, 0);
+            {
+                $group: {
+                    _id: 1,
+                    req_id: { $first: req_id }, // Include req_id
+                    seller_id: { $first: seller_id }, // Include seller_id
+                    truck_capacity: { $first: 301 }, // Static truck_capacity value
+                    farmerData: {
+                        $push: {
+                            farmerOrder_id: "$_id",
+                            qty: "$offeredQty",
+                        }
+                    },
+                    count: { $sum: 1 } // Count number of farmerData                    
+                }
+            }
+        ]);
 
-//         // Apply handleDecimal to sumOfQty and truck_capacity if neededs
-//         const sumOfQtyDecimal = handleDecimal(sumOfQty);
-//         const truckCapacityDecimal = handleDecimal(truck_capacity);
+        return res.status(200).json({ status: 200, data: farmerOrders });
 
-//         if (sumOfQtyDecimal > truckCapacityDecimal) {
-//             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "quantity should not exceed truck capacity" }] }))
-//         }
+    } catch (error) {
+        console.error("Error fetching farmer orders:", error);
+        return res.status(500).json({ status: 500, message: "Internal Server Error" });
+    }
+}
 
-//         //////////////// Start of Sangita code
+module.exports.createBatch = async (req, res) => {
+    try {
+        const { req_id, truck_capacity, farmerData = [], seller_id } = req.body;
+        //  procurement Request exist or not 
+        const procurementRecord = await RequestModel.findOne({ _id: req_id });
+        if (!procurementRecord) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }))
+        }
 
-//         if (sumOfQtyDecimal > record.offeredQty) {
-//             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceed offered Qty." }] }))
-//         }
+        const record = await AssociateOffers.findOne({ seller_id: new mongoose.Types.ObjectId(seller_id), req_id: new mongoose.Types.ObjectId(req_id) });
+        if (!record) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
+        }
 
-//         const existBatch = await Batch.find({ seller_id: user_id, req_id, associateOffer_id: record._id });
-//         if (existBatch) {
-//             const addedQty = existBatch.reduce((sum, existBatch) => sum + existBatch.qty, 0);
+        const sumOfQty = farmerData.reduce((acc, curr) => {
+            acc = acc + curr.qty;
+            return acc;
+        }, 0);
+        console.log("sumOfQty", sumOfQty);
+        // Apply handleDecimal to sumOfQty and truck_capacity if neededs
+        const sumOfQtyDecimal = handleDecimal(sumOfQty);
+        const truckCapacityDecimal = handleDecimal(truck_capacity);
 
-//             if (addedQty >= record.offeredQty) {
-//                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Cannot create more Batch, Offered qty already fulfilled." }] }))
-//             }
-//         }
+        if (sumOfQtyDecimal > truckCapacityDecimal) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "quantity should not exceed truck capacity" }] }))
+        }
 
-//         //////////////// End of Sangita code
+        if (sumOfQtyDecimal > record.offeredQty) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceed offered Qty." }] }))
+        }
 
-//         const farmerOrderIds = [];
-//         let partiallyFulfilled = 0;
-//         let procurementCenter_id;
+        const existBatch = await Batch.find({ seller_id: user_id, req_id, associateOffer_id: record._id });
+        if (existBatch) {
+            const addedQty = existBatch.reduce((sum, existBatch) => sum + existBatch.qty, 0);
 
-//         for (let farmer of farmerData) {
+            if (addedQty >= record.offeredQty) {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Cannot create more Batch, Offered qty already fulfilled." }] }))
+            }
+        }
 
-//             const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).lean();
+        const farmerOrderIds = [];
+        let partiallyFulfilled = 0;
+        let procurementCenter_id;
 
-//             // farmer order exist or not 
-//             if (!farmerOrder) {
-//                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer order") }] }));
-//             }
+        for (let farmer of farmerData) {
 
-//             // order should be procured from these farmers 
-//             if (farmerOrder.status != _procuredStatus.received) {
-//                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "farmer order should not be pending" }] }));
-//             }
+            const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).lean();
 
-//             // procurement Center should be same in current batch
-//             if (!procurementCenter_id) {
-//                 procurementCenter_id = farmerOrder?.procurementCenter_id.toString();
-//             } else if (procurementCenter_id && procurementCenter_id != farmerOrder.procurementCenter_id.toString()) {
-//                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "procurement center should be the same for all the orders" }] }))
-//             }
+            // farmer order exist or not 
+            if (!farmerOrder) {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer order") }] }));
+            }
 
-//             // qty should not exceed from qty procured 
-//             if (farmerOrder?.qtyProcured < farmer.qty) {
-//                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "added quantity should not exceed quantity procured" }] }));
-//             }
-//             // is the order full filled partially 
-//             if ((farmerOrder?.qtyProcured - farmer.qty) > 0) {
-//                 partiallyFulfilled = 1;
-//             }
+            // order should be procured from these farmers 
+            if (farmerOrder.status != _procuredStatus.received) {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "farmer order should not be pending" }] }));
+            }
 
-//             // Apply handleDecimal to amt for each farmer
-//             farmer.amt = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
-//             farmerOrderIds.push(farmer.farmerOrder_id);
-//         }
+            // procurement Center should be same in current batch
+            if (!procurementCenter_id) {
+                procurementCenter_id = farmerOrder?.procurementCenter_id.toString();
+            } else if (procurementCenter_id && procurementCenter_id != farmerOrder.procurementCenter_id.toString()) {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "procurement center should be the same for all the orders" }] }))
+            }
 
-//         // given farmer's order should be in received state
-//         const farmerRecords = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $in: farmerOrderIds } });
-//         if (farmerRecords)
-//             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
+            // qty should not exceed from qty procured 
+            if (farmerOrder?.qtyProcured < farmer.qty) {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "added quantity should not exceed quantity procured" }] }));
+            }
+            // is the order full filled partially 
+            if ((farmerOrder?.qtyProcured - farmer.qty) > 0) {
+                partiallyFulfilled = 1;
+            }
 
-//         // update status based on fulfillment 
-//         const farmerRecordsPending = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $nin: farmerOrderIds } });
-//         record.status = (farmerRecordsPending || partiallyFulfilled == 1) ? _associateOfferStatus.partially_ordered : _associateOfferStatus.ordered;
+            // Apply handleDecimal to amt for each farmer
+            farmer.amt = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
+            farmerOrderIds.push(farmer.farmerOrder_id);
+        }
 
-//         // create unique batch Number 
-//         let batchId, isUnique = false;
-//         while (!isUnique) {
-//             batchId = await generateBatchId();
-//             if (!(await Batch.findOne({ batchId: batchId }))) isUnique = true;
-//         }
+        // given farmer's order should be in received state
+        const farmerRecords = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $in: farmerOrderIds } });
+        if (farmerRecords)
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.pending("contribution") }] }));
 
-//         const findwarehouseUser = await RequestModel.findOne({ _id: req_id });
+        // update status based on fulfillment 
+        const farmerRecordsPending = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $nin: farmerOrderIds } });
+        record.status = (farmerRecordsPending || partiallyFulfilled == 1) ? _associateOfferStatus.partially_ordered : _associateOfferStatus.ordered;
 
-//         const qty_value = handleDecimal(sumOfQtyDecimal);
+        // create unique batch Number 
+        let batchId, isUnique = false;
+        while (!isUnique) {
+            batchId = await generateBatchId();
+            if (!(await Batch.findOne({ batchId: batchId }))) isUnique = true;
+        }
 
-//         const batchCreated = await Batch.create({
-//             seller_id: user_id,
-//             req_id,
-//             associateOffer_id: record._id,
-//             batchId,
-//             warehousedetails_id: findwarehouseUser.warehouse_id,
-//             farmerOrderIds: farmerData,
-//             procurementCenter_id,
-//             qty: qty_value,  // Apply handleDecimal here
-//             available_qty: qty_value,
-//             goodsPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice), // Apply handleDecimal here
-//             totalPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice) // Apply handleDecimal here
-//         });
+        const findwarehouseUser = await RequestModel.findOne({ _id: req_id });
 
-//         for (let farmer of farmerData) {
-//             const farmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).lean();
+        const qty_value = handleDecimal(sumOfQtyDecimal);
 
-//             // Fetch the latest qtyRemaining from the database
-//             const latestFarmerOrder = await FarmerOrders.findOne({ _id: farmer.farmerOrder_id }).select('qtyRemaining qtyProcured').lean();
+        const batchCreated = await Batch.create({
+            seller_id,
+            req_id,
+            associateOffer_id: record._id,
+            batchId,
+            warehousedetails_id: findwarehouseUser.warehouse_id,
+            farmerOrderIds: farmerData,
+            procurementCenter_id,
+            qty: qty_value,  // Apply handleDecimal here
+            available_qty: qty_value,
+            goodsPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice), // Apply handleDecimal here
+            totalPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice) // Apply handleDecimal here
+        });
 
-//             if (!latestFarmerOrder) {
-//                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Farmer order not found." }] }));
-//             }
+        return res.status(200).send(
+            new serviceResponse({
+                status: 200,
+                // data: farmers,
+                message: _response_message.created("batch"),
+            })
+        );
 
-//             const currentRemaining = latestFarmerOrder.qtyRemaining ?? latestFarmerOrder.qtyProcured;
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
 
-//             // Validate remaining quantity
-//             if (currentRemaining < farmer.qty) {
-//                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Added quantity exceeds the remaining quantity." }] }));
-//             }
+}
 
-//             // Update the quantity remaining
-//             await FarmerOrders.updateOne(
-//                 { _id: farmer.farmerOrder_id },
-//                 { $set: { qtyRemaining: handleDecimal(currentRemaining - farmer.qty) } }
-//             );
-//         }
+async function generateBatchId() {
+    // Fetch the most recent batch by sorting in descending order
+    const latestBatch = await Batch.findOne({})
+        .sort({ _id: -1 }) // Sort by `_id` in descending order (latest first)
+        .select("batchId"); // Only fetch the `batchId` field to minimize data transfer
 
+    let nextSequence = 1;
 
-//         procurementRecord.associatOrder_id.push(record._id);
-//         await record.save();
-//         await procurementRecord.save();
+    if (latestBatch && latestBatch.batchId) {
+        // Extract the sequence number from the latest batch ID
+        const match = latestBatch.batchId.match(/BH-(\d+)$/);
+        if (match) {
+            nextSequence = parseInt(match[1], 10) + 1; // Increment the sequence
+        }
+    }
 
-//         // const users = await User.find({
-//         //     'basic_details.associate_details.email': { $exists: true }
-//         // }).select('basic_details.associate_details.email basic_details.associate_details.associate_name associate.basic_details.associate_details.organization_name');
-
-//         // await Promise.all(
-//         //     users.map(({ basic_details: { associate_details } }) => {
-//         //         const { email, associate_name } = associate_details;
-
-//         //         return emailService.sendCreateBatchEmail(email, associate_name);
-//         //     })
-//         // );
-
-//         return res.status(200).send(new serviceResponse({ status: 200, data: batchCreated, message: _response_message.created("batch") }))
-
-//     } catch (error) {
-//         _handleCatchErrors(error, res);
-//     }
-// };
+    // Generate the new batch ID
+    const batchId = `BH-${nextSequence.toString().padStart(4, "0")}`; // Zero-padded to 4 digits
+    return batchId;
+}
