@@ -612,6 +612,7 @@ module.exports.createOfferOrder = async (req, res) => {
             if (!existingFarmer) continue;
 
             const eKharidRecord = eKharidMap.get(String(existingFarmer.external_farmer_id));
+            const procurementCenter = await ProcurementCenter.findOne({ center_name: eKharidRecord.procurementDetails.mandiName }).lean().select("_id");
             if (!eKharidRecord) {
                 // console.log(`No eKharid record found for farmerId: ${existingFarmer.external_farmer_id}`);
                 // return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `No procurement record found for farmerId: ${existingFarmer.external_farmer_id}` }] }));
@@ -636,6 +637,7 @@ module.exports.createOfferOrder = async (req, res) => {
                 status: _procuredStatus.received,
                 gatePassID: harvester.gatePassID,
                 createdAt: harvester.createdAt,
+                procurementCenter_id: procurementCenter?._id || null,
             });
 
             farmerOffersToInsert.push({

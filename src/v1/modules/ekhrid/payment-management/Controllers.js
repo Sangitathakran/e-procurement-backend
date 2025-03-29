@@ -1,17 +1,10 @@
-const { _handleCatchErrors, handleDecimal } = require("@src/v1/utils/helpers");
-const { farmerOrderList } = require("../../associate/request/Controller");
+const { _handleCatchErrors,  } = require("@src/v1/utils/helpers");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
-const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
-const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
-const { _procuredStatus, _associateOfferStatus, _paymentApproval, _batchStatus, received_qc_status, _paymentmethod } = require("@src/v1/utils/constants");
-const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
+const {  _batchStatus, received_qc_status, _paymentmethod } = require("@src/v1/utils/constants");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const mongoose = require('mongoose');
-const { Payment } = require("@src/v1/models/app/procurement/Payment");
-
+const { Payment } = require("@src/v1/models/app/procurement/Payment")
 
 module.exports.getBatches = async (req, res) => {
     try {
@@ -56,6 +49,7 @@ module.exports.batchMarkDelivered = async (req, res) => {
             // }
 
             const request = await RequestModel.findOne({ _id: record?.req_id });
+            
             for (let farmer of record.farmerOrderIds) {
                 const farmerData = await FarmerOrders.findOne({ _id: farmer?.farmerOrder_id });
                 paymentRecords.push({
