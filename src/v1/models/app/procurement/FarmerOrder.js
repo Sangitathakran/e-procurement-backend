@@ -33,6 +33,7 @@ const farmerOrderSchema = new mongoose.Schema({
     net_pay: { type: Number, default: 0 },
     status: { type: String, enum: Object.values(_procuredStatus), default: _procuredStatus.pending },
     batchCreatedAt:{ type: Date },
+    gatePassID: { type: Number },
     ..._commonKeys
 }, { timestamps: true });
 

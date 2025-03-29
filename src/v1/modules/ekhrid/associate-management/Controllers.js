@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { User } = require("@src/v1/models/app/auth/User");
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
-const { _userType, _userStatus, _requestStatus, _webSocketEvents, _procuredStatus, _collectionName } = require("@src/v1/utils/constants");
+const { _userType, _userStatus, _requestStatus, _webSocketEvents, _procuredStatus, _associateOfferStatus, _collectionName } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors, dumpJSONToExcel, _generateOrderNumber, _addDays, handleDecimal } = require("@src/v1/utils/helpers");
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
@@ -419,7 +419,10 @@ module.exports.associateFarmerList = async (req, res) => {
                             _id: { $arrayElemAt: ["$farmerDetails._id", 0] }, // Ensure single farmer details
                             // farmerID: "$procurementDetails.farmerID",
                             // external_farmer_id: { $arrayElemAt: ["$farmerDetails.external_farmer_id", 0] },
-                            qty: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } // Convert Qtl to MT
+                            qty: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] }, // Convert Qtl to MT
+                            gatePassID: "$procurementDetails.gatePassID",
+                            jformID: "$procurementDetails.jformID",
+                            jformDate: "$procurementDetails.jformDate",
                         }
                     },
                     total_farmers: {
@@ -517,7 +520,8 @@ module.exports.createOfferOrder = async (req, res) => {
                 seller_id,
                 req_id,
                 offeredQty: qtyOffered,
-                createdBy: seller_id
+                createdBy: seller_id,
+                status: _associateOfferStatus.accepted
             });
         }
 
@@ -562,8 +566,10 @@ module.exports.createOfferOrder = async (req, res) => {
                 farmer_id: harvester._id,
                 metaData,
                 offeredQty: handleDecimal(harvester.qty),
-                order_no: "OD" + _generateOrderNumber(),
+                order_no: harvester.jformID,
                 status: _procuredStatus.received,
+                gatePassID: harvester.gatePassID,
+                createdAt: harvester.createdAt,
             });
 
             farmerOffersToInsert.push({

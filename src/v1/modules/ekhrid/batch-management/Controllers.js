@@ -31,7 +31,6 @@ module.exports.getFarmerOrders = async (req, res) => {
                     as: "farmerDetails"
                 }
             },
-
             {
                 $lookup: {
                     from: "ekharidprocurements",
@@ -41,8 +40,7 @@ module.exports.getFarmerOrders = async (req, res) => {
                     ],
                     as: "procurementDetails"
                 }
-            },
-
+            },          
             {
                 $group: {
                     _id: 1,
@@ -53,6 +51,10 @@ module.exports.getFarmerOrders = async (req, res) => {
                         $push: {
                             farmerOrder_id: "$_id",
                             qty: "$offeredQty",
+                            gatePassId: "$gatePassID",
+                            // driverName: { $ifNull: ["$procurementDetails.warehouseData.driverName", "N/A"] },
+                            // transporterName: { $ifNull: ["$procurementDetails.warehouseData.transporterName", "N/A"] },
+                            // truckNo: { $ifNull: ["$procurementDetails.warehouseData.truckNo", "N/A"] }
                         }
                     },
                     count: { $sum: 1 } // Count number of farmerData                    
@@ -228,7 +230,7 @@ async function generateBatchId() {
 module.exports.createBatch = async (req, res) => {
     try {
         const { req_id, truck_capacity, farmerData = [], seller_id } = req.body;
-        
+
         // Check if procurement request exists
         const procurementRecord = await RequestModel.findOne({ _id: req_id });
         if (!procurementRecord) {
@@ -247,12 +249,13 @@ module.exports.createBatch = async (req, res) => {
         const batches = [];
 
         for (let farmer of farmerData) {
-           
+
             // Convert farmerOrder_id to ObjectId
             const farmerOrderId = new mongoose.Types.ObjectId(farmer.farmerOrder_id);
 
             // Check if farmer order exists
             const farmerOrder = await FarmerOrders.findOne({ _id: farmerOrderId }).lean();
+
             if (!farmerOrder) {
                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("farmer order") }] }));
             }
@@ -260,11 +263,6 @@ module.exports.createBatch = async (req, res) => {
             // Farmer order should be in "Received" state
             if (farmerOrder.status !== _procuredStatus.received) {
                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Farmer order should be in received state" }] }));
-            }
-
-            // Quantity should not exceed procured quantity
-            if (farmerOrder?.qtyProcured < farmer.qty) {
-                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Added quantity should not exceed procured quantity" }] }));
             }
 
             // Generate unique batch ID
@@ -283,7 +281,7 @@ module.exports.createBatch = async (req, res) => {
                 seller_id,
                 req_id,
                 associateOffer_id: record._id,
-                batchId,
+                batchId: farmer.gatePassId,
                 warehousedetails_id: findwarehouseUser.warehouse_id,
                 farmerOrderIds: [{ farmerOrder_id: farmerOrderId }], // ✅ Fix: Use an array of objects
                 procurementCenter_id: farmerOrder.procurementCenter_id, // Assign correct procurement center
@@ -297,7 +295,10 @@ module.exports.createBatch = async (req, res) => {
                 bo_approve_status: _paymentApproval.approved,
                 ho_approve_status: _paymentApproval.approved,
                 ho_approval_at: new Date(),
-                status: _batchStatus.intransit
+                status: _batchStatus.intransit,
+                // 'intransit.driver.name': farmer.driverName,
+                // 'intransit.transport.service_name': farmer.transporterName,
+                // 'intransit.transport.vehicleNo': farmer.truckNo
             });
 
             batches.push(batchCreated);
