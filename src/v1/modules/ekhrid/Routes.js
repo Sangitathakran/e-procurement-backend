@@ -2,7 +2,7 @@ const express = require("express");
 // const { requestRoutes } = require("./request/Routes");
 const { associateMngmntRoutes } = require("./associate-management/Routes");
 const { batchManagementRoutes } = require("./batch-management/Routes");
-const { orderManagementRoutes } = require("./order-management/Routes");
+const { orderManagementRoutes } = require("./payment-management/Routes");
 
 const ekhridRoutes = express.Router();
 

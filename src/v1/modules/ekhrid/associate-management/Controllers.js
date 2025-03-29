@@ -13,6 +13,7 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
+const Joi = require('joi');
 
 module.exports.getAssociates = async (req, res) => {
     try {
@@ -289,80 +290,145 @@ module.exports.addFarmers = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
-
 module.exports.addProcurementCenter = async (req, res) => {
     try {
         // Fetch unique farmer IDs and jForm IDs from procurement records
         const procurements = await eKharidHaryanaProcurementModel.aggregate([
             {
                 $match: {
-                    "procurementDetails.farmerID": { $ne: null }, // Ensure farmerID is not null
-                    "procurementDetails.offerCreatedAt": null
+                    "procurementDetails.mandiName": { $ne: null },
+                    "procurementDetails.centerCreatedAt": null
                 }
+            },
+            {
+                $group: {
+                    _id: "$procurementDetails.mandiName",
+                    commisionAgentName: { $first: "$procurementDetails.commisionAgentName" }
+                }
+            },
+            {
+                $match: { _id: { $ne: null }, commisionAgentName: { $ne: null } }
             },
             {
                 $lookup: {
                     from: "users",
-                    localField: "procurementDetails.commisionAgentName",
+                    localField: "commisionAgentName",
                     foreignField: "basic_details.associate_details.organization_name",
                     as: "associateDetails"
                 }
             },
             {
-                $unwind: "$associateDetails"
-            },
-            {
                 $project: {
                     _id: 0,
-                    farmerId: "$procurementDetails.farmerID",
-                    jformID: "$procurementDetails.jformID",
-                    associateDetailsId: "$associateDetails._id"
+                    mandiName: "$_id",
+                    associateDetailsId: { $arrayElemAt: ["$associateDetails._id", 0] }, // Extract first match
+                    commisionAgentName: 1
                 }
             }
         ]);
 
+
         if (!procurements.length) {
             return res.status(400).send(new serviceResponse({
                 status: 400,
-                message: "No valid commission agent names or farmer IDs found."
+                message: "No valid mandi names or commission agent names found."
             }));
         }
 
-        const farmerBulkOps = [];
+        const newCenters = [];
+        const eKharidUpdates = [];
 
-        for (const procurement of procurements) {
+        const CenterCodeFn = async () => {
+            let CenterCode = "";
+            let isUnique = false;
+            const lastCenter = await ProcurementCenter.findOne({ center_code: { $exists: true } }).sort({ center_code: -1 });
 
-            // const commisionAgentName = procurement._id;
-            const farmerId = procurement.farmerId;
-            const jformId = procurement.jformID;
-            const associateDetailsId = procurement.associateDetailsId;
-            // Check if the farmer exists
-            const existingFarmer = await ProcurementCenter.findOne({ external_farmer_id: farmerId });
-
-            if (!existingFarmer) {
-                // Insert a new farmer record if not found
-                farmerBulkOps.push({
-                    insertOne: {
-                        document: {
-                            external_farmer_id: farmerId,
-                            farmer_type: "Associate",
-                            farmer_id: jformId,
-                            associate_id: associateDetailsId
-                        }
-                    }
-                });
+            if (lastCenter && lastCenter.center_code) {
+                const lastCodeNumber = parseInt(lastCenter.center_code.slice(2), 10);
+                CenterCode = "CC" + String(lastCodeNumber + 1).padStart(5, "0");
+            } else {
+                CenterCode = "CC00001";
             }
+
+            // Ensure uniqueness by checking existing center codes
+            while (!isUnique) {
+                const existingCenter = await ProcurementCenter.findOne({ center_code: CenterCode });
+                if (!existingCenter) {
+                    isUnique = true; // No conflict found, code is unique
+                } else {
+                    // Increment the number and regenerate CenterCode
+                    const currentCodeNumber = parseInt(CenterCode.slice(2), 10);
+                    CenterCode = "CC" + String(currentCodeNumber + 1).padStart(5, "0");
+                }
+            }
+            return CenterCode;
+        }
+        // Get the last center code and generate the next one
+        for (const procurement of procurements) {
+            const mandiName = procurement.mandiName;
+            const associateDetailsId = procurement.associateDetailsId;
+
+            // Check if the center exists
+            const existingCenter = await ProcurementCenter.findOne({ center_name: mandiName });
+            if (!existingCenter) {
+                // Insert a new center record if not found
+                const centerCode = await CenterCodeFn();
+                const updateProcurementCenter = await ProcurementCenter.create({
+                    center_name: mandiName,
+                    center_code: centerCode,
+                    user_id: associateDetailsId,
+                    center_type: "associate",
+                    address: {
+                        line1: "NA",
+                        line2: "NA",
+                        country: "India",
+                        state: "Haryana",
+                        district: "NA",
+                        city: "NA",
+                        postalCode: "NA",
+                        lat: "NA",
+                        long: "NA"
+                    },
+                    point_of_contact: {
+                        name: "NA",
+                        email: "NA",
+                        mobile: "NA",
+                        designation: "NA",
+                        aadhar_number: "NA",
+                        aadhar_image: "NA"
+                    },
+                    location_url: "NA",
+                    addressType: "Residential",
+                    isPrimary: false
+                });
+                const data = await updateProcurementCenter.save();
+                newCenters.push(data);
+            }
+            //update eKharid record by mandiName manyUpdate
+            eKharidUpdates.push({
+                updateMany: {
+                    filter: { "procurementDetails.mandiName": mandiName },
+                    update: { $set: { "procurementDetails.centerCreatedAt": new Date() } }
+                }
+            });
         }
 
-        // Execute bulk operations
 
-        if (farmerBulkOps.length > 0) {
-            await farmer.bulkWrite(farmerBulkOps);
+
+
+        // // Execute bulk operations
+        let eKharidUpdatedData = []
+        if (eKharidUpdates.length > 0) {
+            eKharidUpdatedData = await eKharidHaryanaProcurementModel.bulkWrite(eKharidUpdates);
         }
+        // if (newCenters.length > 0) {
+        //     await ProcurementCenter.insertMany(newCenters);
+        // }
 
         return res.send(new serviceResponse({
             status: 200,
-            message: _response_message.found("Farmers uploaded successfully"),
+            data: { procurements, eKharidUpdatedData, newCenters },
+            message: _response_message.found("Procurement center uploaded successfully"),
         }));
 
     } catch (error) {

@@ -23,6 +23,7 @@ const ProcurementDetailsSchema = new mongoose.Schema({
   jformApprovalDate: { type: String },
   offerCreatedAt: {  type: Date },
   batchCreatedAt: {  type: Date },
+  centerCreatedAt: {  type: Date },
 });
 
 // Payment Details Schema
