@@ -226,6 +226,7 @@ async function generateBatchId() {
     return batchId;
 }
 
+/*
 
 module.exports.createBatch = async (req, res) => {
     try {
@@ -272,6 +273,8 @@ module.exports.createBatch = async (req, res) => {
                 if (!(await Batch.findOne({ batchId: batchId }))) isUnique = true;
             }
 
+            console.log(farmer.gatePassId);
+            
             // Calculate values
             const qty_value = handleDecimal(farmer.qty);
             const total_price = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
@@ -296,9 +299,7 @@ module.exports.createBatch = async (req, res) => {
                 ho_approve_status: _paymentApproval.approved,
                 ho_approval_at: new Date(),
                 status: _batchStatus.intransit,
-                // 'intransit.driver.name': farmer.driverName,
-                // 'intransit.transport.service_name': farmer.transporterName,
-                // 'intransit.transport.vehicleNo': farmer.truckNo
+                ekhridBatch:true
             });
 
             batches.push(batchCreated);
@@ -316,5 +317,96 @@ module.exports.createBatch = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+*/
 
+module.exports.createBatch = async (req, res) => {
+    try {
+        const { req_id, truck_capacity, farmerData = [], seller_id } = req.body;
 
+        // Fetch procurement request and warehouse user in a single call
+        const procurementRecord = await RequestModel.findOne({ _id: req_id }).lean();
+        if (!procurementRecord) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }));
+        }
+
+        // Find associate offer
+        const record = await AssociateOffers.findOne({ seller_id: new mongoose.Types.ObjectId(seller_id), req_id: new mongoose.Types.ObjectId(req_id) }).lean();
+        if (!record) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
+        }
+
+        // Get warehouse details (Assuming it’s stored in RequestModel)
+        const warehouseDetails = procurementRecord.warehouse_id || null;
+
+        // Collect all farmerOrder IDs
+        const farmerOrderIds = farmerData.map(farmer => new mongoose.Types.ObjectId(farmer.farmerOrder_id));
+
+        // Fetch all farmer orders in one query
+        const farmerOrders = await FarmerOrders.find({ _id: { $in: farmerOrderIds } }).lean();
+        if (farmerOrders.length !== farmerOrderIds.length) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "One or more farmer orders not found" }] }));
+        }
+
+        // Validate farmer order status
+        for (const order of farmerOrders) {
+            if (order.status !== _procuredStatus.received) {
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "All farmer orders must be in received state" }] }));
+            }
+        }
+
+        // Generate unique batch IDs
+        // const batchIds = new Set();
+        // while (batchIds.size < farmerData.length) {
+        //     batchIds.add(await generateBatchId());
+        // }
+        // const batchIdArray = Array.from(batchIds);
+
+        // Prepare bulk insert operations
+        const bulkOps = farmerData.map((farmer, index) => {
+            const farmerOrder = farmerOrders.find(order => order._id.toString() === farmer.farmerOrder_id);
+            const qty_value = handleDecimal(farmer.qty);
+            const total_price = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
+
+            return {
+                insertOne: {
+                    document: {
+                        seller_id,
+                        req_id,
+                        associateOffer_id: record._id,
+                        // batchId: batchIdArray[index],  // Assign unique batch ID
+                        batchId: farmer.gatePassId,  
+                        gatePassId: farmer.gatePassId,
+                        warehousedetails_id: warehouseDetails,
+                        farmerOrderIds: [{ farmerOrder_id: new mongoose.Types.ObjectId(farmer.farmerOrder_id) }],
+                        procurementCenter_id: farmerOrder.procurementCenter_id,
+                        qty: qty_value,
+                        available_qty: qty_value,
+                        goodsPrice: total_price,
+                        totalPrice: total_price,
+                        ekhridBatch: true,
+                        agent_approve_at: new Date(),
+                        agent_approve_status: _paymentApproval.approved,
+                        bo_approve_status: _paymentApproval.approved,
+                        ho_approve_status: _paymentApproval.approved,
+                        ho_approval_at: new Date(),
+                        status: _batchStatus.intransit
+                    }
+                }
+            };
+        });
+
+        // Execute bulk insert in one go
+        const result = await Batch.bulkWrite(bulkOps);
+
+        return res.status(200).send(
+            new serviceResponse({
+                status: 200,
+                data: result.insertedIds,
+                message: _response_message.created("batches"),
+            })
+        );
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};

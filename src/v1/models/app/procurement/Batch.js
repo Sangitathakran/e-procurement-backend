@@ -126,6 +126,7 @@ const batchsSchema = new mongoose.Schema({
     wareHouse_approve_at: { type: Date, default: null },
     wareHouse_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
     ekhridBatch: { type: Boolean, default: false },
+    gatePassId: { type: Number, default: null },
 }, { timestamps: true });
 
 const Batch = mongoose.model(_collectionName.Batch, batchsSchema);
