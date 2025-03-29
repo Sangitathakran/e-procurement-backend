@@ -23,6 +23,7 @@ const PaymentSchema = new mongoose.Schema({
     payment_id: { type: String, default: null },
     transaction_id: { type: String, default: null },
     payment_method: { type: String, enum: Object.values(_paymentmethod) },
+    ekhrid_payment: { type: Boolean, default: false },
 }, { timestamps: true });
 
 const Payment = mongoose.model(_collectionName.Payment, PaymentSchema);
