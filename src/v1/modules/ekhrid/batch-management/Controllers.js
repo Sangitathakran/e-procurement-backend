@@ -397,6 +397,8 @@ module.exports.createBatch = async (req, res) => {
 
         // Execute bulk insert in one go
         const result = await Batch.bulkWrite(bulkOps);
+        record.status = _associateOfferStatus.ordered;
+        await record.save();
 
         return res.status(200).send(
             new serviceResponse({

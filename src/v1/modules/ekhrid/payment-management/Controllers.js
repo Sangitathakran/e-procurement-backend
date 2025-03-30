@@ -2,7 +2,7 @@ const { _handleCatchErrors,  } = require("@src/v1/utils/helpers");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
-const {  _batchStatus, received_qc_status, _paymentmethod } = require("@src/v1/utils/constants");
+const {  _batchStatus, received_qc_status, _paymentmethod,_paymentApproval } = require("@src/v1/utils/constants");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Payment } = require("@src/v1/models/app/procurement/Payment")
 
@@ -54,6 +54,7 @@ module.exports.batchMarkDelivered = async (req, res) => {
                 const farmerData = await FarmerOrders.findOne({ _id: farmer?.farmerOrder_id });
                 paymentRecords.push({
                     req_id: request?._id,
+                    sla_id: request?.sla_id,
                     farmer_id: farmerData?.farmer_id,
                     farmer_order_id: farmer?.farmerOrder_id,
                     associate_id: record?.seller_id,
@@ -65,7 +66,20 @@ module.exports.batchMarkDelivered = async (req, res) => {
                     amount: farmer.amt,
                     initiated_at: new Date(),
                     payment_method: _paymentmethod.bank_transfer,
-                    ekhrid_payment: true
+                    ekhrid_payment: true,
+                    bo_approve_status:_paymentApproval.approved,
+                    bo_approve_by: request?.branch_id,
+                    bo_approve_at: new Date(),
+                    ho_approve_status:_paymentApproval.approved,
+                    ho_approve_at: new Date(),
+                    ho_approve_by: request?.head_office_id,
+                    sla_approve_status:_paymentApproval.approved,
+                    sla_approve_by: request?.sla_id,
+                    sla_approve_at: new Date(),
+
+
+
+
                 });
             }
 
