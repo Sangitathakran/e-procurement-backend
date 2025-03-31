@@ -137,7 +137,9 @@ module.exports.updateOrInsertUsers = async (req, res) => {
                     farmerId: { $first: "$procurementDetails.farmerID" } // Fetch first farmerId per commission agent
                 }
             },
-            { $match: { _id: { $ne: null }, farmerId: { $ne: null }, "procurementDetails.offerCreatedAt": null } }
+            { $match: { _id: { $ne: null }, farmerId: { $ne: null },
+             "procurementDetails.offerCreatedAt": null 
+            } }
         ]);
 
         if (!procurements.length) {
@@ -193,16 +195,18 @@ module.exports.updateOrInsertUsers = async (req, res) => {
         }
 
         // Execute bulk operations
+       let  userBulkUpdated = {}
         if (userBulkOps.length > 0) {
-            await User.bulkWrite(userBulkOps);
+            userBulkUpdated= await User.bulkWrite(userBulkOps);
         }
-
+    let farmerBulkUpdated = {}
         if (farmerBulkOps.length > 0) {
-            await farmer.bulkWrite(farmerBulkOps);
+            farmerBulkUpdated= await farmer.bulkWrite(farmerBulkOps);
         }
 
         return res.send(new serviceResponse({
             status: 200,
+            data: { userBulkUpdated, farmerBulkUpdated },
             message: _response_message.found("Associates uploaded successfully"),
         }));
 
@@ -276,13 +280,14 @@ module.exports.addFarmers = async (req, res) => {
         }
 
         // Execute bulk operations
-
+        let farmerBulkUpdated = null;
         if (farmerBulkOps.length > 0) {
-            await farmer.bulkWrite(farmerBulkOps);
+            farmerBulkUpdated= await farmer.bulkWrite(farmerBulkOps);
         }
 
         return res.send(new serviceResponse({
             status: 200,
+            data:farmerBulkUpdated,
             message: _response_message.found("Farmers uploaded successfully"),
         }));
 
@@ -517,63 +522,62 @@ module.exports.associateFarmerList = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
-
 module.exports.createOfferOrder = async (req, res) => {
     try {
         const { req_id, seller_id, farmer_data = [], qtyOffered } = req.body;
-
+ 
         const existingProcurementRecord = await RequestModel.findOne(
             { _id: new mongoose.Types.ObjectId(req_id) },
             { fulfilledQty: 1, product: 1 } // Fetch only necessary fields
         ).lean();
-
+ 
         if (!existingProcurementRecord) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }));
         }
-
+ 
         const existingRecord = await AssociateOffers.findOne(
             { seller_id: new mongoose.Types.ObjectId(seller_id), req_id: new mongoose.Types.ObjectId(req_id) },
             { offeredQty: 1 }
         ).lean();
-
+ 
         // const sumOfFarmerQty = farmer_data.reduce((acc, curr) => acc + handleDecimal(curr.qty), 0);
         const sumOfFarmerQty = farmer_data.reduce((acc, curr) => acc + curr.qty, 0);
         if (handleDecimal(sumOfFarmerQty) !== handleDecimal(qtyOffered)) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Please check details! Quantity mismatched" }] }));
         }
-
+ 
         const { fulfilledQty, product } = existingProcurementRecord;
         if (qtyOffered > (product.quantity - fulfilledQty)) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Incorrect quantity of request" }] }));
         }
-
+ 
         // Fetch all farmers in a single query
         const farmerIds = farmer_data.map(farmer => new mongoose.Types.ObjectId(farmer._id));
         const farmers = await farmer.find({ _id: { $in: farmerIds } }).lean();
-
+ 
         // Create a mapping for quick lookup
         const farmerMap = new Map(farmers.map(f => [f._id.toString(), f]));
-
+ 
         // Convert external_farmer_id to both String and Number for querying eKharid
         const externalFarmerIdsString = farmers.map(f => String(f.external_farmer_id));  // Convert to String
         const externalFarmerIdsNumber = farmers.map(f => Number(f.external_farmer_id)).filter(n => !isNaN(n));  // Convert to Number & remove NaN values
-
+ 
         // console.log("🔍 Querying eKharid for farmer IDs:", { externalFarmerIdsString, externalFarmerIdsNumber }); // Debugging
-
+ 
         const eKharidRecords = await eKharidHaryanaProcurementModel.find({
             $or: [
                 { "procurementDetails.farmerID": { $in: externalFarmerIdsString } },  // Match as String
                 { "procurementDetails.farmerID": { $in: externalFarmerIdsNumber } }   // Match as Number
             ]
         }).lean(); // Use lean() for performance
-
-        // console.log("✅ eKharid Records Found:", eKharidRecords.map(r => r.procurementDetails.farmerID)); // Debugging
-
+ 
+        console.log("✅ eKharid Records Found:", eKharidRecords.map(r => r.procurementDetails.farmerID)); // Debugging
+ 
         // Create a mapping for quick lookup
         const eKharidMap = new Map(eKharidRecords.map(record => [String(record.procurementDetails.farmerID), record]));
-
+ 
         let associateOfferRecord = existingRecord;
-
+ 
         if (existingRecord) {
             console.log("Updating existing record");
             await AssociateOffers.updateOne(
@@ -590,7 +594,7 @@ module.exports.createOfferOrder = async (req, res) => {
                 status: _associateOfferStatus.accepted
             });
         }
-
+ 
         // Update RequestModel fulfilledQty in one go
         const updatedFulfilledQty = handleDecimal(fulfilledQty + sumOfFarmerQty);
         let newStatus = _requestStatus.partially_fulfulled;
@@ -599,25 +603,25 @@ module.exports.createOfferOrder = async (req, res) => {
         } else if (updatedFulfilledQty > handleDecimal(product.quantity)) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "This request cannot be processed! Quantity exceeds" }] }));
         }
-
+ 
         await RequestModel.updateOne({ _id: req_id }, { fulfilledQty: updatedFulfilledQty, status: newStatus });
-
+ 
         // Prepare bulk insert operations
         const farmerOrdersToInsert = [];
         const farmerOffersToInsert = [];
         const eKharidUpdates = [];
-
+ 
         for (let harvester of farmer_data) {
             const existingFarmer = farmerMap.get(harvester._id.toString());
             if (!existingFarmer) continue;
-
+ 
             const eKharidRecord = eKharidMap.get(String(existingFarmer.external_farmer_id));
-            const procurementCenter = await ProcurementCenter.findOne({ center_name: eKharidRecord.procurementDetails.mandiName }).lean().select("_id");
+            console.log("🔍 eKharid Record Found:", eKharidRecord); // Debugging
             if (!eKharidRecord) {
                 // console.log(`No eKharid record found for farmerId: ${existingFarmer.external_farmer_id}`);
                 // return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `No procurement record found for farmerId: ${existingFarmer.external_farmer_id}` }] }));
             }
-
+ 
             // Prepare metadata
             const metaData = {
                 name: existingFarmer.name,
@@ -626,7 +630,7 @@ module.exports.createOfferOrder = async (req, res) => {
                 mobile_no: existingFarmer.mobile_no,
                 farmer_code: existingFarmer.farmer_code
             };
-
+ 
             // Insert order and offer data
             farmerOrdersToInsert.push({
                 associateOffers_id: associateOfferRecord._id,
@@ -637,9 +641,8 @@ module.exports.createOfferOrder = async (req, res) => {
                 status: _procuredStatus.received,
                 gatePassID: harvester.gatePassID,
                 createdAt: harvester.createdAt,
-                procurementCenter_id: procurementCenter?._id || null,
             });
-
+ 
             farmerOffersToInsert.push({
                 associateOffers_id: associateOfferRecord._id,
                 farmer_id: harvester._id,
@@ -647,7 +650,7 @@ module.exports.createOfferOrder = async (req, res) => {
                 offeredQty: handleDecimal(harvester.qty),
                 createdBy: seller_id,
             });
-
+ 
             // Prepare eKharid update
             eKharidUpdates.push({
                 updateOne: {
@@ -656,12 +659,12 @@ module.exports.createOfferOrder = async (req, res) => {
                 }
             });
         }
-
+ 
         // Perform batch inserts and updates
         if (farmerOrdersToInsert.length) await FarmerOrders.insertMany(farmerOrdersToInsert);
         if (farmerOffersToInsert.length) await FarmerOffers.insertMany(farmerOffersToInsert);
         if (eKharidUpdates.length) await eKharidHaryanaProcurementModel.bulkWrite(eKharidUpdates);
-
+ 
         res.status(200).send(new serviceResponse({ status: 200, message: "Offer created successfully" }));
     } catch (error) {
         console.error("❌ Error in createOfferOrder:", error);
