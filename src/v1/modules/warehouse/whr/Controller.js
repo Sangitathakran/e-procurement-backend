@@ -49,7 +49,7 @@ const createWhr = async (req, res) => {
     }
 
     const decode = await decryptJwtToken(getToken);
-    const UserId = decode.data.user_id;
+    const UserId = decode.data.organization_id;
 
     const warehouseIds = [];
     const batchIds = [];
@@ -218,7 +218,7 @@ const updateWhrById = async (req, res) => {
     }
 
     const decode = await decryptJwtToken(getToken);
-    const UserId = decode.data.user_id;
+    const UserId = decode.data.organization_id;
 
     const warehouseIds = [];
     const batchIds = [];
@@ -312,7 +312,7 @@ const batchList = async (req, res) => {
     }
 
     const decode = await decryptJwtToken(getToken);
-    const UserId = decode.data.user_id;
+    const UserId = decode.data.organization_id;
 
     const warehouseIds = [];
     const batchIds = [];
@@ -695,7 +695,7 @@ const listWarehouseDropdown = async (req, res) => {
     }
 
     const decode = await decryptJwtToken(getToken);
-    const UserId = decode.data.user_id;
+    const UserId = decode.data.organization_id;
 
     const warehouseIds = [];
     
@@ -740,7 +740,7 @@ const listWHRForDropdown = async (req, res) => {
     }
 
     const decode = await decryptJwtToken(getToken);
-    const UserId = decode.data.user_id;
+    const UserId = decode.data.organization_id;
 
     const batchIds = [];
 
@@ -842,7 +842,7 @@ const deleteWhr = async (req, res) => {
 //         }
 
 //         const decode = await decryptJwtToken(getToken);
-//         const UserId = decode.data.user_id;
+//         const UserId = decode.data.organization_id;
 
 //         if (!mongoose.Types.ObjectId.isValid(UserId)) {
 //             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -1122,7 +1122,7 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
       }
 
       const decode = await decryptJwtToken(getToken);
-      const UserId = decode.data.user_id;
+      const UserId = decode.data.organization_id;
 
       if (!mongoose.Types.ObjectId.isValid(UserId)) {
           return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -1302,7 +1302,7 @@ const filterDropdownList = asyncErrorHandler(async (req, res) => {
       }
 
       const decode = await decryptJwtToken(getToken);
-      const UserId = decode.data.user_id;
+      const UserId = decode.data.organization_id;
 
       if (!mongoose.Types.ObjectId.isValid(UserId)) {
           return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
