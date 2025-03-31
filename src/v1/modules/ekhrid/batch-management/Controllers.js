@@ -381,6 +381,7 @@ module.exports.createBatch = async (req, res) => {
             const farmerOrder = farmerOrders.find(order => order._id.toString() === farmer.farmerOrder_id);
             const qty_value = handleDecimal(farmer.qty);
             const total_price = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
+            console.log("farmerOrder",farmerOrder)
             return {
                 insertOne: {
                     document: {

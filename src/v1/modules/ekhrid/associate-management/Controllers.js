@@ -465,6 +465,14 @@ module.exports.associateFarmerList = async (req, res) => {
                 }
             },
             {
+              $lookup:{
+                from:'procurementcenters',
+                localField:'procurementDetails.mandiName',
+                foreignField:'center_name',
+                as:'procurementCenter'
+              }
+            },
+            {
                 $lookup: {
                     from: "users",
                     let: { organization_name: "$procurementDetails.commisionAgentName" },
@@ -481,6 +489,9 @@ module.exports.associateFarmerList = async (req, res) => {
                     as: "userDetails"
                 }
             },
+        {
+            $unwind: "$procurementCenter"
+        },
             {
                 $group: {
                     _id: "$procurementDetails.commisionAgentName",
@@ -494,6 +505,7 @@ module.exports.associateFarmerList = async (req, res) => {
                             gatePassID: "$procurementDetails.gatePassID",
                             jformID: "$procurementDetails.jformID",
                             jformDate: "$procurementDetails.jformDate",
+                            procurementId:"$procurementCenter._id",
                         }
                     },
                     total_farmers: {
@@ -641,6 +653,7 @@ module.exports.createOfferOrder = async (req, res) => {
                 status: _procuredStatus.received,
                 gatePassID: harvester.gatePassID,
                 createdAt: harvester.createdAt,
+                procurementCenter_id: harvester.procurementId,
             });
  
             farmerOffersToInsert.push({
