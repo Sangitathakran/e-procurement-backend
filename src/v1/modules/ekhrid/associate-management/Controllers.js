@@ -591,10 +591,13 @@ module.exports.createOfferOrder = async (req, res) => {
         let associateOfferRecord = existingRecord;
  
         if (existingRecord) {
+            const updatedQty = (existingRecord.offeredQty || 0) + qtyOffered;
             console.log("Updating existing record");
             await AssociateOffers.updateOne(
                 { _id: existingRecord._id },
-                { offeredQty: qtyOffered }
+                { offeredQty: updatedQty,
+                  procuredQty:updatedQty
+                 }
             );
         } else {
             console.log("Creating new record");
@@ -602,6 +605,7 @@ module.exports.createOfferOrder = async (req, res) => {
                 seller_id,
                 req_id,
                 offeredQty: qtyOffered,
+                procuredQty:qtyOffered,
                 createdBy: seller_id,
                 status: _associateOfferStatus.accepted
             });

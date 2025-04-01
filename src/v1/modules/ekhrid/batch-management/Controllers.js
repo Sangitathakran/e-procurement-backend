@@ -381,7 +381,6 @@ module.exports.createBatch = async (req, res) => {
             const farmerOrder = farmerOrders.find(order => order._id.toString() === farmer.farmerOrder_id);
             const qty_value = handleDecimal(farmer.qty);
             const total_price = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
-            console.log("farmerOrder",farmerOrder)
             return {
                 insertOne: {
                     document: {
@@ -392,7 +391,10 @@ module.exports.createBatch = async (req, res) => {
                         batchId: farmer.gatePassId,  
                         gatePassId: farmer.gatePassId,
                         warehousedetails_id: warehouseDetails,
-                        farmerOrderIds: [{ farmerOrder_id: new mongoose.Types.ObjectId(farmer.farmerOrder_id) }],
+                        farmerOrderIds: [{ farmerOrder_id: new mongoose.Types.ObjectId(farmer.farmerOrder_id),
+                            qty: qty_value,
+                            amt: total_price,
+                         }],
                         procurementCenter_id: farmerOrder.procurementCenter_id,
                         qty: qty_value,
                         available_qty: qty_value,

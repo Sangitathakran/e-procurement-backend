@@ -31,43 +31,39 @@ const mongoose = require("mongoose");
 
 
 module.exports.batchMarkDelivered = async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    
     try {
-        const { batchIds, quantity_received, no_of_bags, bag_weight_per_kg, truck_photo, vehicle_details = {}, document_pictures = {}, weight_slip = [], qc_report = [], paymentIsApprove = 0 } = req.body;
-        const { user_id } = req;
-
+        const { batchIds, quantity_received, no_of_bags, bag_weight_per_kg, truck_photo, vehicle_details = {}, document_pictures = {}, weight_slip = [], user_id } = req.body;
+        
         if (!Array.isArray(batchIds) || batchIds.length === 0) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Batch IDs must be an array with at least one ID." }));
         }
-
-        const batches = await Batch.find({ _id: { $in: batchIds } }).populate("req_id").populate("seller_id").session(session);
+        
+        const batches = await Batch.find({ _id: { $in: batchIds } }).populate("req_id").populate("seller_id");
         if (!batches.length) {
             return res.status(404).send(new serviceResponse({ status: 404, message: "No matching batches found." }));
         }
-
-        const batchUpdates = [];
+        
+        const paymentUpdates = [];
         for (let record of batches) {
             record.dispatched.qc_report["received_qc_status"] = received_qc_status.accepted;
-
-            const request = await RequestModel.findOne({ _id: record?.req_id }).session(session);
+            
+            const request = record.req_id;
+            const farmerOrders = await FarmerOrders.find({ _id: { $in: record.farmerOrderIds.map(f => f.farmerOrder_id) } });
             
             for (let farmer of record.farmerOrderIds) {
-                const farmerData = await FarmerOrders.findOne({ _id: farmer?.farmerOrder_id }).session(session);
-
-                const existingPayment = await Payment.findOne({ batch_id: record._id, farmer_id: farmerData?.farmer_id }).session(session);
-
+                const farmerData = farmerOrders.find(f => f._id.equals(farmer.farmerOrder_id));
+                if (!farmerData) continue;
+                
                 const paymentData = {
                     req_id: request?._id,
                     sla_id: request?.sla_id,
-                    farmer_id: farmerData?.farmer_id,
+                    farmer_id: farmerData.farmer_id,
                     farmer_order_id: farmer?.farmerOrder_id,
-                    associate_id: record?.seller_id,
+                    associate_id: record.seller_id,
                     ho_id: request?.head_office_id,
                     bo_id: request?.branch_id,
                     associateOffers_id: farmerData?.associateOffers_id,
-                    batch_id: record?._id,
+                    batch_id: record._id,
                     qtyProcured: farmer.qty,
                     amount: farmer.amt,
                     initiated_at: new Date(),
@@ -83,17 +79,16 @@ module.exports.batchMarkDelivered = async (req, res) => {
                     sla_approve_by: request?.sla_id,
                     sla_approve_at: new Date(),
                 };
-
-                if (existingPayment) {
-                    // Update existing payment
-                    await Payment.updateOne({ _id: existingPayment._id }, { $set: paymentData }, { session });
-                } else {
-                    // Insert new payment record
-                    await Payment.create([paymentData], { session });
-                }
+                
+                paymentUpdates.push(
+                    Payment.findOneAndUpdate(
+                        { batch_id: record._id, farmer_id: farmerData.farmer_id },
+                        { $set: paymentData },
+                        { upsert: true, new: true }
+                    )
+                );
             }
 
-            // Update batch details
             record.delivered = {
                 proof_of_delivery: document_pictures.proof_of_delivery,
                 weigh_bridge_slip: document_pictures.weigh_bridge_slip,
@@ -105,18 +100,14 @@ module.exports.batchMarkDelivered = async (req, res) => {
                 delivered_at: new Date(),
                 delivered_by: user_id
             };
-
             record.status = _batchStatus.delivered;
-
             if (weight_slip.length > 0) {
                 record.dispatched.weight_slip.received.push(...weight_slip.map(i => ({ img: i, on: moment() })));
             }
-
-            batchUpdates.push(record.save({ session }));
         }
 
-        await Promise.all(batchUpdates);
-
+        await Promise.all([...batches.map(b => b.save()), ...paymentUpdates]);
+        
         await Batch.updateMany(
             { _id: { $in: batchIds } },
             {
@@ -130,12 +121,8 @@ module.exports.batchMarkDelivered = async (req, res) => {
                     wareHouse_approve_status: 'Received',
                     ekhrid_payment: new Date()
                 }
-            },
-            { session }
+            }
         );
-
-        await session.commitTransaction();
-        session.endSession();
 
         return res.status(200).send(new serviceResponse({
             status: 200,
@@ -143,8 +130,6 @@ module.exports.batchMarkDelivered = async (req, res) => {
             data: batchIds
         }));
     } catch (error) {
-        await session.abortTransaction();
-        session.endSession();
         _handleCatchErrors(error, res);
     }
 };
