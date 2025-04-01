@@ -51,6 +51,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
       "company_details.pan_image",
       "authorised.name",
       "authorised.designation",
+      "authorised.phone",
       "authorised.email",
       "authorised.aadhar_number",
       "authorised.aadhar_certificate.front",
@@ -479,7 +480,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const updateData = req.body;
-    const userID = req.user._i;
+    const userID = req.user._id;
 
     if (!slaId) {
       return res.status(400).json(
