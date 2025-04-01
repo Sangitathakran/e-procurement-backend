@@ -20,7 +20,15 @@ module.exports.getFarmerOrders = async (req, res) => {
 
         const associateOfferIds = (await AssociateOffers.find({ req_id: new mongoose.Types.ObjectId(req_id), seller_id: new mongoose.Types.ObjectId(seller_id) })).map(i => i._id);
 
-        let query = { associateOffers_id: { $in: associateOfferIds }, status: "Received" };
+        // let query = { associateOffers_id: { $in: associateOfferIds }, status: "Received" };
+        let query = {
+            associateOffers_id: { $in: associateOfferIds },
+            status: "Received",
+            $or: [
+                { batchCreatedAt: { $eq: null } }, // batchCreatedAt is null
+                { batchCreatedAt: { $exists: false } } // batchCreatedAt does not exist
+            ]
+        };
 
         const farmerOrders = await FarmerOrders.aggregate([
             { $match: query },
@@ -407,6 +415,7 @@ module.exports.createBatch = async (req, res) => {
                         ho_approve_status: _paymentApproval.approved,
                         ho_approval_at: new Date(),
                         status: _batchStatus.intransit,
+                        "final_quality_check.whr_receipt": farmer.gatePassId,
                         'dispatched.dispatched_at':moment(farmer.liftedDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
                         'intransit.no_of_bags':farmer.noOfBags,
 

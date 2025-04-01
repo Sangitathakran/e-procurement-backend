@@ -272,7 +272,8 @@ module.exports.addFarmers = async (req, res) => {
                             external_farmer_id: farmerId,
                             farmer_type: "Associate",
                             farmer_id: jformId,
-                            associate_id: associateDetailsId
+                            associate_id: associateDetailsId,
+                            ekhrid: true
                         }
                     }
                 });
@@ -295,6 +296,7 @@ module.exports.addFarmers = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
 module.exports.addProcurementCenter = async (req, res) => {
     try {
         // Fetch unique farmer IDs and jForm IDs from procurement records
@@ -396,7 +398,7 @@ module.exports.addProcurementCenter = async (req, res) => {
                     },
                     point_of_contact: {
                         name: "NA",
-                        email: "NA",
+                        email: `${mandiName}32@gmail.com`,
                         mobile: "NA",
                         designation: "NA",
                         aadhar_number: "NA",
@@ -404,7 +406,8 @@ module.exports.addProcurementCenter = async (req, res) => {
                     },
                     location_url: "NA",
                     addressType: "Residential",
-                    isPrimary: false
+                    isPrimary: false,
+                    ekhrid: true
                 });
                 const data = await updateProcurementCenter.save();
                 newCenters.push(data);
@@ -443,9 +446,17 @@ module.exports.addProcurementCenter = async (req, res) => {
 
 module.exports.associateFarmerList = async (req, res) => {
     try {
+
+        let query = {
+            $or: [
+                { "procurementDetails.offerCreatedAt": { $eq: null } }, // "procurementDetails.offerCreatedAt" is null
+                { "procurementDetails.offerCreatedAt": { $exists: false } } // "procurementDetails.offerCreatedAt" does not exist
+            ]
+        };
+
         const groupedData = await eKharidHaryanaProcurementModel.aggregate([
             {
-                $match: { "procurementDetails.offerCreatedAt": null } // Ensure offerCreatedAt is not null
+                $match: query // Match records based on the query
             },
             {
                 $lookup: {
@@ -582,9 +593,9 @@ module.exports.createOfferOrder = async (req, res) => {
                 { "procurementDetails.farmerID": { $in: externalFarmerIdsNumber } }   // Match as Number
             ]
         }).lean(); // Use lean() for performance
- 
+
         console.log("✅ eKharid Records Found:", eKharidRecords.map(r => r.procurementDetails.farmerID)); // Debugging
- 
+
         // Create a mapping for quick lookup
         const eKharidMap = new Map(eKharidRecords.map(record => [String(record.procurementDetails.farmerID), record]));
  
@@ -658,6 +669,7 @@ module.exports.createOfferOrder = async (req, res) => {
                 gatePassID: harvester.gatePassID,
                 createdAt: harvester.createdAt,
                 procurementCenter_id: harvester.procurementId,
+                ekhrid: true
             });
  
             farmerOffersToInsert.push({
@@ -666,12 +678,15 @@ module.exports.createOfferOrder = async (req, res) => {
                 metaData,
                 offeredQty: handleDecimal(harvester.qty),
                 createdBy: seller_id,
+                ekhrid: true
             });
  
             // Prepare eKharid update
+
             eKharidUpdates.push({
                 updateOne: {
-                    filter: { "procurementDetails.farmerID": { $in: [String(existingFarmer.external_farmer_id), Number(existingFarmer.external_farmer_id)] } },
+                    // filter: { "procurementDetails.farmerID": { $in: [String(existingFarmer.external_farmer_id), Number(existingFarmer.external_farmer_id)] } },
+                    filter: { "procurementDetails.jformID": { $in: harvester.jformID } },
                     update: { $set: { "procurementDetails.offerCreatedAt": new Date() } }
                 }
             });
