@@ -19,7 +19,15 @@ module.exports.getFarmerOrders = async (req, res) => {
 
         const associateOfferIds = (await AssociateOffers.find({ req_id: new mongoose.Types.ObjectId(req_id), seller_id: new mongoose.Types.ObjectId(seller_id) })).map(i => i._id);
 
-        let query = { associateOffers_id: { $in: associateOfferIds }, status: "Received" };
+        // let query = { associateOffers_id: { $in: associateOfferIds }, status: "Received" };
+        let query = {
+            associateOffers_id: { $in: associateOfferIds },
+            status: "Received",
+            $or: [
+                { batchCreatedAt: { $eq: null } }, // batchCreatedAt is null
+                { batchCreatedAt: { $exists: false } } // batchCreatedAt does not exist
+            ]
+        };
 
         const farmerOrders = await FarmerOrders.aggregate([
             { $match: query },

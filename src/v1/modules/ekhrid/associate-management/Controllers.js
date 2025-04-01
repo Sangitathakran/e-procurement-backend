@@ -290,6 +290,7 @@ module.exports.addFarmers = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
 module.exports.addProcurementCenter = async (req, res) => {
     try {
         // Fetch unique farmer IDs and jForm IDs from procurement records
@@ -438,9 +439,17 @@ module.exports.addProcurementCenter = async (req, res) => {
 
 module.exports.associateFarmerList = async (req, res) => {
     try {
+
+        let query = {
+            $or: [
+                { "procurementDetails.offerCreatedAt": { $eq: null } }, // "procurementDetails.offerCreatedAt" is null
+                { "procurementDetails.offerCreatedAt": { $exists: false } } // "procurementDetails.offerCreatedAt" does not exist
+            ]
+        };
+   
         const groupedData = await eKharidHaryanaProcurementModel.aggregate([
             {
-                $match: { "procurementDetails.offerCreatedAt": null } // Ensure offerCreatedAt is not null
+                $match: query // Match records based on the query
             },
             {
                 $lookup: {
@@ -567,7 +576,7 @@ module.exports.createOfferOrder = async (req, res) => {
             ]
         }).lean(); // Use lean() for performance
 
-        // console.log("✅ eKharid Records Found:", eKharidRecords.map(r => r.procurementDetails.farmerID)); // Debugging
+        console.log("✅ eKharid Records Found:", eKharidRecords.map(r => r.procurementDetails.farmerID)); // Debugging
 
         // Create a mapping for quick lookup
         const eKharidMap = new Map(eKharidRecords.map(record => [String(record.procurementDetails.farmerID), record]));
