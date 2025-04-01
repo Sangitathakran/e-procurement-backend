@@ -268,7 +268,8 @@ module.exports.addFarmers = async (req, res) => {
                             external_farmer_id: farmerId,
                             farmer_type: "Associate",
                             farmer_id: jformId,
-                            associate_id: associateDetailsId
+                            associate_id: associateDetailsId,
+                            ekhrid: true
                         }
                     }
                 });
@@ -392,7 +393,7 @@ module.exports.addProcurementCenter = async (req, res) => {
                     },
                     point_of_contact: {
                         name: "NA",
-                        email: "NA",
+                        email: `${mandiName}32@gmail.com`,
                         mobile: "NA",
                         designation: "NA",
                         aadhar_number: "NA",
@@ -400,7 +401,8 @@ module.exports.addProcurementCenter = async (req, res) => {
                     },
                     location_url: "NA",
                     addressType: "Residential",
-                    isPrimary: false
+                    isPrimary: false,
+                    ekhrid: true
                 });
                 const data = await updateProcurementCenter.save();
                 newCenters.push(data);
@@ -446,7 +448,7 @@ module.exports.associateFarmerList = async (req, res) => {
                 { "procurementDetails.offerCreatedAt": { $exists: false } } // "procurementDetails.offerCreatedAt" does not exist
             ]
         };
-   
+
         const groupedData = await eKharidHaryanaProcurementModel.aggregate([
             {
                 $match: query // Match records based on the query
@@ -645,6 +647,7 @@ module.exports.createOfferOrder = async (req, res) => {
                 status: _procuredStatus.received,
                 gatePassID: harvester.gatePassID,
                 createdAt: harvester.createdAt,
+                ekhrid: true
             });
 
             farmerOffersToInsert.push({
@@ -653,12 +656,15 @@ module.exports.createOfferOrder = async (req, res) => {
                 metaData,
                 offeredQty: handleDecimal(harvester.qty),
                 createdBy: seller_id,
+                ekhrid: true
             });
 
             // Prepare eKharid update
+
             eKharidUpdates.push({
                 updateOne: {
-                    filter: { "procurementDetails.farmerID": { $in: [String(existingFarmer.external_farmer_id), Number(existingFarmer.external_farmer_id)] } },
+                    // filter: { "procurementDetails.farmerID": { $in: [String(existingFarmer.external_farmer_id), Number(existingFarmer.external_farmer_id)] } },
+                    filter: { "procurementDetails.jformID": { $in: harvester.jformID } },
                     update: { $set: { "procurementDetails.offerCreatedAt": new Date() } }
                 }
             });

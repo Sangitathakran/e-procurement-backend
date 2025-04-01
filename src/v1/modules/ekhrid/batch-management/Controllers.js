@@ -397,7 +397,8 @@ module.exports.createBatch = async (req, res) => {
                         bo_approve_status: _paymentApproval.approved,
                         ho_approve_status: _paymentApproval.approved,
                         ho_approval_at: new Date(),
-                        status: _batchStatus.intransit
+                        status: _batchStatus.intransit,
+                        "final_quality_check.whr_receipt": farmer.gatePassId,
                     }
                 }
             };

@@ -103,6 +103,7 @@ const farmerSchema = new mongoose.Schema({
 
     external_farmer_id : {type:Number},
     all_steps_completed_status: { type: Boolean, default: false },
+    ekhrid: { type: Boolean, default: false },
     ..._commonKeys
 }, { timestamps: true });
 
