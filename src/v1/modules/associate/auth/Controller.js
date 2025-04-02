@@ -97,9 +97,10 @@ module.exports.loginOrRegister = async (req, res) => {
             } else {
                 newUser.is_mobile_verified = true;
             }
+           
             userExist = await User.create(newUser);
         }
-
+        
         if (userExist.active == false) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "you are not an active user!" }] }));
         }
@@ -113,6 +114,7 @@ module.exports.loginOrRegister = async (req, res) => {
             secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
             maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
         });
+
         const data = {
             token: token,
             user_type: userExist.user_type,
@@ -620,7 +622,7 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
                         is_approved: 'approved',
                         is_form_submitted: true,
                         is_welcome_email_send: true,
-                        term_condition:true,
+                        term_condition: true,
                         active: true,
                         is_sms_send: true,
                     });
