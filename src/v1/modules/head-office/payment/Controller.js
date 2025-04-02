@@ -1416,6 +1416,7 @@ module.exports.payment = async (req, res) => {
           payment_status: { $first: "$payment_status" },
           overall_payment_status: { $first: "$overall_payment_status" },
           ho_approval_at: { $first: "$ho_approval_at" },
+          commodity: { $first: "$product.name" },
           schemeName: { $first: "$schemeDetails.schemeName" },
           schemeName: {
             $first: {
@@ -1433,6 +1434,7 @@ module.exports.payment = async (req, res) => {
         $project: {
           _id: 1,
           reqNo: 1,
+          commodity:1,
           branch_id: 1,
           branchName: 1,
           approval_status: 1,
