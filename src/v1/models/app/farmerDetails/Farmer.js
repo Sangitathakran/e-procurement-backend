@@ -93,6 +93,7 @@ const farmerSchema = new mongoose.Schema({
         doc: { type: String, trim: true },
         aadhar_no: { type: String, required: false, trim: true },
     },
+    farmer_tracent_code: { type: String, trim: true, },
     status: { type: String, enum: Object.values(_status), default: _status.active },
     // steps: [{
     //     label: { type: String },
