@@ -445,9 +445,11 @@ module.exports.addProcurementCenter = async (req, res) => {
 };
 
 module.exports.associateFarmerList = async (req, res) => {
+    const { associateName } = req.body;
     try {
 
         let query = {
+            'procurementDetails.commisionAgentName': associateName,
             $or: [
                 { "procurementDetails.offerCreatedAt": { $eq: null } }, // "procurementDetails.offerCreatedAt" is null
                 { "procurementDetails.offerCreatedAt": { $exists: false } } // "procurementDetails.offerCreatedAt" does not exist
