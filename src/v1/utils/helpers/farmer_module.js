@@ -15,6 +15,8 @@ exports.insertNewFarmerRecord = async (data) => {
       const newFarmer = new farmer({
         user_type: _center_type.associate,
         associate_id: data.associate_id,
+        mobile_no: data.mobile_no,
+        farmer_tracent_code: data.farmer_tracent_code,
         basic_details: {
           dob: data.dob,
           age: data.age,
@@ -52,18 +54,18 @@ exports.insertNewFarmerRecord = async (data) => {
           ifsc_code: data.ifsc_code,
           account_holder_name: data.account_holder_name,
         },
-        infrastructure_needs: {
-          warehouse: data.warehouse,
-          cold_storage: data.cold_storage,
-          processing_unit: data.processing_unit,
-          transportation_facilities: data.transportation_facilities,
-        },
-        financial_support: {
-          credit_facilities: data.credit_facilities, 
-          source_of_credit:data.source_of_credit, 
-          financial_challenges:data.financial_challenges, 
-          support_required: data.support_required,
-        },
+        // infrastructure_needs: {
+        //   warehouse: data.warehouse,
+        //   cold_storage: data.cold_storage,
+        //   processing_unit: data.processing_unit,
+        //   transportation_facilities: data.transportation_facilities,
+        // },
+        // financial_support: {
+        //   credit_facilities: data.credit_facilities, 
+        //   source_of_credit:data.source_of_credit, 
+        //   financial_challenges:data.financial_challenges, 
+        //   support_required: data.support_required,
+        // },
       });
   
       const savedFarmer = await newFarmer.save();
