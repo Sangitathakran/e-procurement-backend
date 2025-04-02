@@ -1490,7 +1490,7 @@ module.exports.payment = async (req, res) => {
       const record = response.rows.map((item) => ({
         "Order ID": item?.reqNo || "NA",
         "Branch Name": item?.branchName || "NA",
-        Commodity: item?.product?.name || "NA",
+        "Commodity": item?.Commodity || "NA",
         "Quantity Purchased": item?.qtyPurchased || "NA",
         "Approval Status": item?.approval_status ?? "NA",
         "Payment Status": item?.payment_status ?? "NA",
