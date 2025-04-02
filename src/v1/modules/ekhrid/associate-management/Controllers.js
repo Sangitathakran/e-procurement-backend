@@ -555,6 +555,7 @@ module.exports.associateFarmerList = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
 module.exports.createOfferOrder = async (req, res) => {
     try {
         const { req_id, seller_id, farmer_data = [], qtyOffered } = req.body;
