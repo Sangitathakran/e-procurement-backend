@@ -64,6 +64,7 @@ const ProcurementCenterSchema = new mongoose.Schema(
     },
     isPrimary: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
+    ekhrid:{ type: Boolean, default: false },
     ..._commonKeys,
   },
   { timestamps: true }

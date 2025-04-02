@@ -245,7 +245,10 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
              ...(slaName ? [{ $match: { slaName: { $regex: slaName, $options: 'i' } } }] : []),
              ...(branchName ? [{ $match: { branchName: { $regex: branchName, $options: 'i' } } }] : []),
              ...(cna ? [{ $match: { cna: { $regex: cna, $options: 'i' } } }] : []),
-            ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
+            // ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
+            // Sorting (Always Descending)
+            { $sort: { [sortBy || "createdAt"]: -1 } }  
+
         ];
        
         // Pagination
