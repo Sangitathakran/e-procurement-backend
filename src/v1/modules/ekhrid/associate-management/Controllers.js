@@ -439,6 +439,7 @@ module.exports.addProcurementCenter = async (req, res) => {
     }
 };
 
+
 module.exports.associateFarmerList = async (req, res) => {
     try {
 
@@ -514,6 +515,10 @@ module.exports.associateFarmerList = async (req, res) => {
                     }, // Count only valid farmers
                     qtyOffered: { $sum: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } } // Convert Qtl to MT
                 }
+            }
+            ,
+            {
+                $limit: 1 // Apply limit here
             }
         ]);
 
