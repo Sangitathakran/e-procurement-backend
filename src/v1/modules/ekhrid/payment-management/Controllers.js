@@ -1,17 +1,10 @@
-const { _handleCatchErrors, handleDecimal } = require("@src/v1/utils/helpers");
-const { farmerOrderList } = require("../../associate/request/Controller");
+const { _handleCatchErrors,  } = require("@src/v1/utils/helpers");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
-const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
-const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
-const { _procuredStatus, _associateOfferStatus, _paymentApproval, _batchStatus, received_qc_status, _paymentmethod } = require("@src/v1/utils/constants");
-const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
+const {  _batchStatus, received_qc_status, _paymentmethod,_paymentApproval } = require("@src/v1/utils/constants");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const mongoose = require('mongoose');
-const { Payment } = require("@src/v1/models/app/procurement/Payment");
-
+const { Payment } = require("@src/v1/models/app/procurement/Payment")
 
 module.exports.getBatches = async (req, res) => {
     try {
@@ -34,45 +27,66 @@ module.exports.getBatches = async (req, res) => {
 };
 
 
+const mongoose = require("mongoose");
+
+
 module.exports.batchMarkDelivered = async (req, res) => {
     try {
-        const { batchIds, quantity_received, no_of_bags, bag_weight_per_kg, truck_photo, vehicle_details={}, document_pictures={}, weight_slip = [], qc_report = [], paymentIsApprove = 0 } = req.body;
-        const { user_id } = req;
+        const { batchIds, quantity_received, no_of_bags, bag_weight_per_kg, truck_photo, vehicle_details = {}, document_pictures = {}, weight_slip = [], user_id } = req.body;
         
         if (!Array.isArray(batchIds) || batchIds.length === 0) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Batch IDs must be an array with at least one ID." }));
         }
-
+        
         const batches = await Batch.find({ _id: { $in: batchIds } }).populate("req_id").populate("seller_id");
         if (!batches.length) {
             return res.status(404).send(new serviceResponse({ status: 404, message: "No matching batches found." }));
         }
-
-        const paymentRecords = [];
+        
+        const paymentUpdates = [];
         for (let record of batches) {
-            // if (qc_report.length >= 0) {
-                // record.dispatched.qc_report.received.push(...qc_report.map(i => ({ img: i, on: moment() })));
-                record.dispatched.qc_report["received_qc_status"] = received_qc_status.accepted;
-            // }
-
-            const request = await RequestModel.findOne({ _id: record?.req_id });
+            record.dispatched.qc_report["received_qc_status"] = received_qc_status.accepted;
+            
+            const request = record.req_id;
+            const farmerOrders = await FarmerOrders.find({ _id: { $in: record.farmerOrderIds.map(f => f.farmerOrder_id) } });
+            
             for (let farmer of record.farmerOrderIds) {
-                const farmerData = await FarmerOrders.findOne({ _id: farmer?.farmerOrder_id });
-                paymentRecords.push({
+                const farmerData = farmerOrders.find(f => f._id.equals(farmer.farmerOrder_id));
+                if (!farmerData) continue;
+                
+                const paymentData = {
                     req_id: request?._id,
-                    farmer_id: farmerData?.farmer_id,
+                    sla_id: request?.sla_id,
+                    farmer_id: farmerData.farmer_id,
                     farmer_order_id: farmer?.farmerOrder_id,
-                    associate_id: record?.seller_id,
+                    associate_id: record.seller_id,
                     ho_id: request?.head_office_id,
                     bo_id: request?.branch_id,
                     associateOffers_id: farmerData?.associateOffers_id,
-                    batch_id: record?._id,
+                    batch_id: record._id,
                     qtyProcured: farmer.qty,
                     amount: farmer.amt,
                     initiated_at: new Date(),
                     payment_method: _paymentmethod.bank_transfer,
-                    ekhrid_payment: true
-                });
+                    ekhrid_payment: true,
+                    bo_approve_status: _paymentApproval.approved,
+                    bo_approve_by: request?.branch_id,
+                    bo_approve_at: new Date(),
+                    ho_approve_status: _paymentApproval.approved,
+                    ho_approve_at: new Date(),
+                    ho_approve_by: request?.head_office_id,
+                    sla_approve_status: _paymentApproval.approved,
+                    sla_approve_by: request?.sla_id,
+                    sla_approve_at: new Date(),
+                };
+                
+                paymentUpdates.push(
+                    Payment.findOneAndUpdate(
+                        { batch_id: record._id, farmer_id: farmerData.farmer_id },
+                        { $set: paymentData },
+                        { upsert: true, new: true }
+                    )
+                );
             }
 
             record.delivered = {
@@ -90,11 +104,10 @@ module.exports.batchMarkDelivered = async (req, res) => {
             if (weight_slip.length > 0) {
                 record.dispatched.weight_slip.received.push(...weight_slip.map(i => ({ img: i, on: moment() })));
             }
-            await record.save();
         }
 
-        await Payment.insertMany(paymentRecords);
-
+        await Promise.all([...batches.map(b => b.save()), ...paymentUpdates]);
+        
         await Batch.updateMany(
             { _id: { $in: batchIds } },
             {
@@ -120,6 +133,8 @@ module.exports.batchMarkDelivered = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+
 
 
 

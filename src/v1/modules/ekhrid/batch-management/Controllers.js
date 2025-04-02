@@ -10,6 +10,7 @@ const { _procuredStatus, _associateOfferStatus, _paymentApproval, _batchStatus }
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const mongoose = require('mongoose');
+const moment = require('moment');
 
 
 module.exports.getFarmerOrders = async (req, res) => {
@@ -39,16 +40,21 @@ module.exports.getFarmerOrders = async (req, res) => {
                     as: "farmerDetails"
                 }
             },
+            {$unwind: "$farmerDetails"},
             {
                 $lookup: {
                     from: "ekharidprocurements",
-                    let: { externalFarmerId: "$farmerDetails.external_farmer_id" },
-                    pipeline: [
-                        { $match: { $expr: { $eq: ["$farmerID", "$$externalFarmerId"] } } }
-                    ],
+                    localField: "gatePassID",
+                    foreignField: "procurementDetails.gatePassID",
+                    // // let: { gatePassID: {$toString: "$farmerDetails.gatePassID"} },
+                    // pipeline: [
+                    //     { $match: { $expr: { $eq: ["$procurementDetails.gatePassID", "gatePassID"] } } }
+                    // ],
                     as: "procurementDetails"
                 }
-            },          
+            },
+            {$unwind: {path: "$procurementDetails", preserveNullAndEmptyArrays: true}},
+            {$match:{"batchCreatedAt": null}},          
             {
                 $group: {
                     _id: 1,
@@ -60,6 +66,13 @@ module.exports.getFarmerOrders = async (req, res) => {
                             farmerOrder_id: "$_id",
                             qty: "$offeredQty",
                             gatePassId: "$gatePassID",
+                            liftedDate:"$procurementDetails.procurementDetails.liftedDate",
+                            noOfBags:"$procurementDetails.procurementDetails.totalBags",
+                            driverName:"$procurementDetails.warehouseData.driverName",
+                            transporterName:"$procurementDetails.warehouseData.transporterName",
+                            truckNo:"$procurementDetails.warehouseData.truckNo",
+                            warehouseId:"$procurementDetails.warehouseData.warehouseId", 
+                            warehouseName:"$procurementDetails.warehouseData.warehouseName",   
                             // driverName: { $ifNull: ["$procurementDetails.warehouseData.driverName", "N/A"] },
                             // transporterName: { $ifNull: ["$procurementDetails.warehouseData.transporterName", "N/A"] },
                             // truckNo: { $ifNull: ["$procurementDetails.warehouseData.truckNo", "N/A"] }
@@ -338,7 +351,7 @@ module.exports.createBatch = async (req, res) => {
         }
 
         // Find associate offer
-        const record = await AssociateOffers.findOne({ seller_id: new mongoose.Types.ObjectId(seller_id), req_id: new mongoose.Types.ObjectId(req_id) }).lean();
+        const record = await AssociateOffers.findOne({ seller_id: new mongoose.Types.ObjectId(seller_id), req_id: new mongoose.Types.ObjectId(req_id) })
         if (!record) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
         }
@@ -351,6 +364,7 @@ module.exports.createBatch = async (req, res) => {
 
         // Fetch all farmer orders in one query
         const farmerOrders = await FarmerOrders.find({ _id: { $in: farmerOrderIds } }).lean();
+        console.log(farmerOrders.length,farmerOrderIds.length)
         if (farmerOrders.length !== farmerOrderIds.length) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "One or more farmer orders not found" }] }));
         }
@@ -368,13 +382,13 @@ module.exports.createBatch = async (req, res) => {
         //     batchIds.add(await generateBatchId());
         // }
         // const batchIdArray = Array.from(batchIds);
+        
 
         // Prepare bulk insert operations
         const bulkOps = farmerData.map((farmer, index) => {
             const farmerOrder = farmerOrders.find(order => order._id.toString() === farmer.farmerOrder_id);
             const qty_value = handleDecimal(farmer.qty);
             const total_price = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
-
             return {
                 insertOne: {
                     document: {
@@ -385,7 +399,10 @@ module.exports.createBatch = async (req, res) => {
                         batchId: farmer.gatePassId,  
                         gatePassId: farmer.gatePassId,
                         warehousedetails_id: warehouseDetails,
-                        farmerOrderIds: [{ farmerOrder_id: new mongoose.Types.ObjectId(farmer.farmerOrder_id) }],
+                        farmerOrderIds: [{ farmerOrder_id: new mongoose.Types.ObjectId(farmer.farmerOrder_id),
+                            qty: qty_value,
+                            amt: total_price,
+                         }],
                         procurementCenter_id: farmerOrder.procurementCenter_id,
                         qty: qty_value,
                         available_qty: qty_value,
@@ -399,13 +416,28 @@ module.exports.createBatch = async (req, res) => {
                         ho_approval_at: new Date(),
                         status: _batchStatus.intransit,
                         "final_quality_check.whr_receipt": farmer.gatePassId,
+                        'dispatched.dispatched_at':moment(farmer.liftedDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+                        'intransit.no_of_bags':farmer.noOfBags,
+
                     }
                 }
             };
         });
+      
+        const bulkFarmersOrder = farmerData.map((farmer, index) => {
+            return {
+                updateOne: {
+                    filter: { _id: new mongoose.Types.ObjectId(farmer.farmerOrder_id) },
+                    update: { $set: { batchCreatedAt: new Date() } }
+                }
+            };
+        });
+         await FarmerOrders.bulkWrite(bulkFarmersOrder);
 
         // Execute bulk insert in one go
         const result = await Batch.bulkWrite(bulkOps);
+        record.status = _associateOfferStatus.ordered;
+        await record.save();
 
         return res.status(200).send(
             new serviceResponse({
