@@ -1104,6 +1104,8 @@ module.exports.payment = async (req, res) => {
     );
 
     const records = await RequestModel.aggregate(aggregationPipeline) || [];
+    console.log("Total records from aggregation: ", records.length);
+
     // filtering records on the basis of approval_status
     const apStatus = isApproved ? "Approved" : "Pending";
     var filteredRecords = records.filter((el) => el?.approval_status === apStatus);
@@ -1117,7 +1119,8 @@ module.exports.payment = async (req, res) => {
     // Step 5: Prepare Response
     const response = {
       count: totalCount,
-      rows: filteredRecords,
+      // rows: filteredRecords,
+      rows: records,
       page,
       limit,
       pages: Math.ceil(totalCount / limit),

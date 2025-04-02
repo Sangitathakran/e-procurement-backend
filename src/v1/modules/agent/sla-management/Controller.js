@@ -1,98 +1,185 @@
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { mongoose } = require("mongoose");
+const { MasterUser } = require("@src/v1/models/master/MasterUser");
+const bcrypt = require('bcryptjs');
+const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator");
+const { _frontendLoginRoutes } = require("@src/v1/utils/constants");
+const { emailService } = require("@src/v1/utils/third_party/EmailServices");
+const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
+const { TypesModel } = require("@src/v1/models/master/Types");
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
     try {
-        const data = req.body;
-
-        // Required fields validation
-
-        const requiredFields = [
-            "basic_details.name",
-            "basic_details.email",
-            "basic_details.mobile",
-            "company_owner_information.owner_name",
-            "company_owner_information.mobile",
-            "company_owner_information.email",
-            "company_owner_information.aadhar_number",
-            "company_owner_information.pan_card",
-            "point_of_contact.name",
-            "point_of_contact.designation",
-            "point_of_contact.mobile",
-            "point_of_contact.email",
-            "point_of_contact.aadhar_number",
-            "address.line1",
-            "address.pinCode",
-            "address.state",
-            "address.district",
-            "address.city",
-            // "address.country",
-            "operational_address.line1",
-            "operational_address.pinCode",
-            "operational_address.state",
-            "operational_address.district",
-            "operational_address.city",
-            // "operational_address.country",
-            "company_details.registration_number",
-            "company_details.cin_image",
-            "company_details.pan_card",
-            "company_details.pan_image",
-            "authorised.name",
-            "authorised.designation",
-            "authorised.email",
-            "authorised.aadhar_number",
-            "authorised.aadhar_certificate.front",
-            "authorised.aadhar_certificate.back",
-            "bank_details.bank_name",
-            "bank_details.branch_name",
-            "bank_details.ifsc_code",
-            "bank_details.account_number",
-            "bank_details.proof",
-            // "slaId",
-            // "schemes.scheme",
-            // "schemes.cna",
-            // "schemes.branch"
-        ];
-
-        const missingFields = requiredFields.filter(field => {
-            const keys = field.split(".");
-            let value = data;
-            for (let key of keys) {
-                if (value[key] === undefined || value[key] === null || value[key] === "") {
-                    return true;
-                }
-                value = value[key];
-            }
-            return false;
-        });
-
-        if (missingFields.length > 0) {
-            return res.status(400).send(new serviceResponse({
-                status: 400,
-                message: `Missing required fields: ${missingFields.join(", ")}`,
-                data: null
-            }));
+      const data = req.body;
+  
+      // Required fields validation
+      const requiredFields = [
+        'basic_details.name',
+        'basic_details.email',
+        'basic_details.mobile',
+        'company_owner_information.owner_name',
+        'company_owner_information.mobile',
+        'company_owner_information.email',
+        'company_owner_information.aadhar_number',
+        'company_owner_information.pan_card',
+        'point_of_contact.name',
+        'point_of_contact.designation',
+        'point_of_contact.mobile',
+        'point_of_contact.email',
+        'point_of_contact.aadhar_number',
+        'address.line1',
+        'address.pinCode',
+        'address.state',
+        'address.district',
+        'address.city',
+        // "address.country",
+        'operational_address.line1',
+        'operational_address.pinCode',
+        'operational_address.state',
+        'operational_address.district',
+        'operational_address.city',
+        // "operational_address.country",
+        'company_details.registration_number',
+        'company_details.cin_image',
+        'company_details.pan_card',
+        'company_details.pan_image',
+        'authorised.name',
+        'authorised.designation',
+        'authorised.email',
+        'authorised.aadhar_number',
+        'authorised.aadhar_certificate.front',
+        'authorised.aadhar_certificate.back',
+        'bank_details.bank_name',
+        'bank_details.branch_name',
+        'bank_details.ifsc_code',
+        'bank_details.account_number',
+        'bank_details.proof',
+        // "slaId",
+        // "schemes.scheme",
+        // "schemes.cna",
+        // "schemes.branch"
+      ];
+  
+      const missingFields = requiredFields.filter(field => {
+        const keys = field.split('.');
+        let value = data;
+        for (let key of keys) {
+          if (
+            value[key] === undefined ||
+            value[key] === null ||
+            value[key] === ''
+          ) {
+            return true;
+          }
+          value = value[key];
         }
+        return false;
+      });
+  
+      if (missingFields.length > 0) {
+        return res.status(400).send(
+          new serviceResponse({
+            status: 400,
+            message: `Missing required fields: ${missingFields.join(', ')}`,
+            data: null,
+          })
+        );
+      }
 
-        // Create SLA document
-        const sla = await SLAManagement.create(data);
+      const existUser = await SLAManagement.findOne({
+        'basic_details.email': data.basic_details.email,
+      });
+      if (existUser) {
+        return res.send(
+          new serviceResponse({
+            status: 400,
+            errors: [{ message: _response_message.allReadyExist('Email') }],
+          })
+        );
+      }
+ 
+      // checking the existing user in Master User collection
+      const isUserAlreadyExist = await MasterUser.findOne({
+        $or: [
+          { mobile: { $exists: true, $eq: data.basic_details.mobile.trim() } },
+          { email: { $exists: true, $eq: data.basic_details.email.trim() } },
+        ],
+      });
 
-        return res.status(200).send(new serviceResponse({
-            status: 200,
-            data: sla,
-            message: _response_message.created("SLA")
-        }));
-
+      if (isUserAlreadyExist) {
+        return sendResponse({
+          res,
+          status: 400,
+          message:
+            'user already existed with this mobile number or email in Master',
+        });
+      }
+      
+      const type = await TypesModel.findOne({ _id: '67110114f1cae6b6aadc2425' });
+       if(!type){
+        return sendResponse({
+            res,
+            status: 400,
+            message:
+              'could not find type for _id: 67110114f1cae6b6aadc2425',
+          });
+       }
+      // Create SLA document
+      const sla = await SLAManagement.create(data);
+  
+      if (!sla?._id) {
+        await SLAManagement.deleteOne({ _id: sla._id });
+        throw new Error('Agency not created ');
+      }
+      // create master user document
+      const password = generateRandomPassword();
+  
+      const hashedPassword = await bcrypt.hash(password, 10);
+  
+      const login_url = `${_frontendLoginRoutes.agent}`;
+      const emailPayload = {
+        email: data.basic_details.email,
+        user_name: data.basic_details.name,
+        name: data.basic_details.name,
+        password: password,
+        login_url: login_url,
+      };
+  
+      const masterUser = new MasterUser({
+        firstName: data.basic_details.name,
+        isAdmin: true,
+        email: data.basic_details.email.trim(),
+        mobile: data.basic_details.mobile.trim(),
+        password: hashedPassword,
+        user_type: type.user_type,
+        createdBy: req.user._id,
+        userRole: [type.adminUserRoleId],
+        portalId: sla._id,
+        ipAddress: getIpAddress(req),
+      });
+  
+      await masterUser.save();
+  
+      await emailService.sendAgencyCredentialsEmail(emailPayload);
+  
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: sla,
+          message: _response_message.created('SLA'),
+        })
+      );
     } catch (error) {
-        _handleCatchErrors(error, res);
+      _handleCatchErrors(error, res);
     }
-});
+  });
+  
 
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
@@ -115,6 +202,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
             $project: {
                 _id: 1,
                 slaId: 1,
+                email: '$basic_details.email',
                 sla_name: "$basic_details.name",
                 associate_count: { $size: "$associatOrder_id" }, // Count of associated orders
                 address: {
@@ -234,7 +322,6 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
             { $set: updateData },
             { new: true, runValidators: true } // Return updated doc
         );
-
         if (!updatedSLA) {
             return res.status(404).json(new serviceResponse({
                 status: 404,
