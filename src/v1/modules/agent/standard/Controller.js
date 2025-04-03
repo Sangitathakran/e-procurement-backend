@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal, dumpJSONToPdf  } = require("@src/v1/utils/helpers")
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Commodity } = require("@src/v1/models/master/Commodity");
@@ -46,7 +46,7 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
     deletedAt: null
   };
   if (search) {
-    matchQuery.standardId = { $regex: search, $options: "i" };
+    matchQuery.name = { $regex: search, $options: "i" };
   }
 
   let aggregationPipeline = [
@@ -86,10 +86,9 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
   if (isExport == 1) {
     const record = rows.map((item) => {
       return {
-        "Standard Id": item?.standardId || "NA",
         "name": item?.name || "NA",
-        "subName": item?.subName || "NA",
-
+        // "subName": item?.subName || "NA",
+        "subName": Array.isArray(item?.subName) ? item.subName.join(", ") : (item?.subName || "NA"),
       };
     });
     if (record.length > 0) {

@@ -10,7 +10,10 @@ const {
     listWHRForDropdown,
     deleteWhr,
     listWarehouseDropdown,
-    whrLotDetailsUpdate
+    whrLotDetailsUpdate,
+    getWarehouseManagementList,
+    filterDropdownList,
+    viewBatchDetails
 } = require("./Controller");
 const { verifyWarehouseOwner } = require("../utils/verifyWarehouseOwner");
 const { validateForm } = require("./Validation");
@@ -27,6 +30,12 @@ whrRoutes.get("/dropdown-list/:wareHouseId", listWHRForDropdown);  /// todo
 whrRoutes.post("/whr-delete", deleteWhr);  
 whrRoutes.get("/dropdown-warehouse", listWarehouseDropdown);
 whrRoutes.post("/update-lot-details", whrLotDetailsUpdate);
+whrRoutes.get("/warehouse-management-list", getWarehouseManagementList);
+whrRoutes.get("/filter-dropdown-list", filterDropdownList);
+whrRoutes.get("/batch-details", viewBatchDetails);
+
+
+
 
 
 

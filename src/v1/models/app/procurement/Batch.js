@@ -17,6 +17,9 @@ const batchsSchema = new mongoose.Schema({
         gain_bags : { type: Number, default: 0 }, 
         accepted_quantity : { type: Number, default: 0 }, 
         accepted_bags : { type: Number, default: 0 }, 
+        dispatch_quantity : { type: Number, default: 0 }, 
+        dispatch_bags : { type: Number, default: 0 }, 
+        whr_document : { type: String },
     }],
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
     qty: { type: Number, default: 0 },
@@ -136,7 +139,7 @@ const batchsSchema = new mongoose.Schema({
     wareHouse_approve_at: { type: Date, default: null },
     wareHouse_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
     
-    whr_status: { type: String, enum: Object.values(_whr_status), default: _whr_status.pending },  /// it will be pending bydefault when cretae now batch after creat new WHR then will be status created.
+    whr_status: { type: String, enum: Object.values(_whr_status), default: _whr_status.pending }, 
 }, { timestamps: true });
 
 const Batch = mongoose.model(_collectionName.Batch, batchsSchema);

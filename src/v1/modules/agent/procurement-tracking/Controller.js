@@ -4,12 +4,15 @@ const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { Scheme } = require("@src/v1/models/master/Scheme");
+const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const mongoose = require("mongoose");
 
 
 module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
+    const { page, limit, skip, paginate = 1, sortBy, search = '',schemeName, commodity, cnaName, branchOffice } = req.query
 
     const requestIds = (await AssociateOffers.find({})).map((ele) => ele.req_id);
 
@@ -24,11 +27,44 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
     } : {};
 
     query._id = { $in: requestIds };
-
+    if (schemeName) {
+        const schemeIds = await Scheme.find({ schemeName: { $regex: schemeName, $options: 'i' } }).distinct('_id');
+        if (schemeIds.length > 0) {
+            query["product.schemeId"] = { $in: schemeIds };
+        } else {
+            query["product.schemeId"] = { $in: [] };
+        }
+    }
+    
+    if (commodity) {
+        query["product.name"] = { $regex: commodity, $options: 'i' };
+    }
+    
+    if (cnaName) {
+        const slaIds = await HeadOffice.find({ "company_details.name": { $regex: cnaName, $options: 'i' } }).distinct('_id');
+        if (slaIds.length > 0) {
+            query.head_office_id = { $in: slaIds };
+        } else {
+            query.head_office_id = { $in: [] };
+        }
+    }
+    
+    
+    if (branchOffice) {
+        const branchIds = await Branches.find({ branchName: { $regex: branchOffice, $options: 'i' } }).distinct('_id');
+        if (branchIds.length > 0) {
+            query.branch_id = { $in: branchIds };
+        } else {
+            query.branch_id = { $in: [] };
+        }
+    }
     const records = { count: 0 };
 
     records.rows = await RequestModel.find(query)
+        .populate({ path: "head_office_id", select: "company_details.name" })
+        .populate({ path: "sla_id", select: "_id basic_details.name" })
         .populate({ path: "branch_id", select: "branchName" })
+        .populate({ path: "product.schemeId", select: "schemeName" })
         .sort(sortBy)
         .skip(skip)
         .limit(parseInt(limit))
@@ -173,8 +209,8 @@ module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
     records.rows = paginate == 1 ? await FarmerOrders.find(query)
         .populate("procurementCenter_id")
         .populate({
-            path: "farmer_id", 
-            select: "farmer_id " 
+            path: "farmer_id",
+            select: "farmer_id "
         })
         .sort(sortBy)
         .skip(skip)
