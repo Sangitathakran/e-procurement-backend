@@ -1,7 +1,4 @@
-
-const Farmersdata = [];
-
-
+let Farmersdata = [];
 
 
 module.exports = { Farmersdata };
