@@ -17,6 +17,8 @@ const { _paymentstatus } = require("@src/v1/utils/constants");
 const { saveExternalFarmerData } = require("@src/v1/modules/localFarmers/controller");
 const { getState, getDistrict, generateFarmerId } = require("@src/v1/utils/helpers");
 const { generateFarmersIdLogger } = require("@config/logger");
+const { Land } = require("@src/v1/models/app/farmerDetails/Land");
+const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 main().catch((err) => console.log(err));
 //update
 async function main() {
@@ -51,7 +53,12 @@ async function main() {
   cron.schedule("0 3 * * *", async () => {
     console.log("Running scheduled task to genearte farmer id at 3 AM...");
     await updateFarmersWithFarmerId(); 
-});
+  });
+
+  cron.schedule("* 6 * * *", async () => {
+    console.log("Running scheduled task to remove duplicate haryana farmers entries at 6 AM...");
+    await removeDuplicateFarmers(); 
+  });
 
 }
 
@@ -285,6 +292,56 @@ async function updateFarmersWithFarmerId() {
     generateFarmersIdLogger.info('✅ All farmers updated successfully!');
   } catch (error) {
     generateFarmersIdLogger.error('❌ Error updating farmers:', error);
+  }
+}
+
+// remove duplicate haryana farmers
+async function removeDuplicateFarmers() {
+  try {
+    console.log("Fetching duplicate farmers...");
+    let duplicates = await farmer.aggregate([
+      {
+        $match: {
+          external_farmer_id: { $exists: true, $ne: null },
+        },
+      },
+      {
+        $group: {
+          _id: "$external_farmer_id",
+          ids: { $push: "$_id" },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $match: {
+          count: { $gt: 1 },
+        },
+      },
+    ]);
+    let duplicateFarmersCount = 0;
+    duplicates = duplicates.slice(0, 20000);
+    for (const dup of duplicates) {
+      const [keep, ...remove] = dup.ids; // Keep one, delete the rest
+      console.log(
+        `Keeping farmer ${keep}, removing ${remove.length} duplicates...`
+      );
+
+      duplicateFarmersCount = duplicateFarmersCount + remove.length;
+
+      // Delete associated lands and crops
+      await Land.deleteMany({ farmer_id: { $in: remove } });
+      await Crop.deleteMany({ farmer_id: { $in: remove } });
+
+      // Delete duplicate farmers
+      await farmer.deleteMany({ _id: { $in: remove } });
+    }
+
+    console.log(
+      "Duplicate farmers and associated records deleted successfully."
+    );
+    
+  } catch (error) {
+    console.error("Error cleaning up duplicates:", error);
   }
 }
 

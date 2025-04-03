@@ -14,17 +14,17 @@ const {
 const axios = require("axios");
 
 module.exports.saveExternalFarmerData = async (req, res) => {
-  const {dates, isExport = 0} = req?.body;
+  const { dates, isExport = 0 } = req?.body;
   if (!dates || dates.length === 0) {
     localFarmersLogger.warn("dates field is required");
     return res.json({ success: false, message: "dates field is required " });
   }
-  let farmersData = isExport ? Farmersdata : [];
+  let farmersData = isExport ? Farmersdata.slice(61622) : [];
   // return res.json( { data: farmersData.length} );
-  const api_endpoint = isExport ? [] : dates.map(
-    (date) => `${process.env.HARYANA_F_API_ENDPOINT}?date=${date}`
-  );
-    
+  const api_endpoint = isExport
+    ? []
+    : dates.map((date) => `${process.env.HARYANA_F_API_ENDPOINT}?date=${date}`);
+
   try {
     for (let i = 0; i < api_endpoint.length; i++) {
       const response = await axios.post(api_endpoint[i], {
@@ -56,7 +56,7 @@ module.exports.saveExternalFarmerData = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Invalid data format from API" });
     }
-    
+
     let total = farmersData.length,
       existing = 0,
       inserted = 0,
@@ -68,6 +68,50 @@ module.exports.saveExternalFarmerData = async (req, res) => {
       const existingFarmer = await farmer.findOne({
         external_farmer_id: data.farmerid,
       });
+
+      let district_name = getDistrictName(data?.DIS_NAME);
+      localFarmersLogger.info(
+        JSON.stringify({ district_name, fdistrict: data?.DIS_NAME }, null, 2)
+      );
+      let district_id = await getDistrictId(district_name);
+
+      let newFarmerObj = {
+        external_farmer_id: data.farmerid,
+        name: data?.farmername,
+        parents: {
+          father_name: data?.farhername,
+        },
+        basic_details: {
+          name: data.farmername,
+          gender: data.gender === "F" ? "female" : "male",
+        },
+        mobile_no: data.mobile,
+        bank_details: {
+          account_no: data.Account,
+          ifsc_code: data.IFSC,
+          accountstatus: data?.accountstatus,
+          account_holder_name: data?.farmername,
+        },
+
+        address: {
+          tahshil: data.TEH_NAME,
+          village: data.VIL_NAME,
+          district_id: district_id,
+          state_id: state_id,
+        },
+
+        hr_p_code: {
+          p_DCodeLGD: data?.p_DCodeLGD,
+          p_BtCodeLGD: data?.p_BtCodeLGD,
+          p_WvCodeLGD: data?.p_WvCodeLGD,
+          p_address: data?.p_address,
+          Dis_code: data?.Dis_code,
+          Teh_code: data?.Teh_code,
+          Vil_code: data?.Vil_code,
+          statecode: data?.statecode,
+        },
+        date: data?.date,
+      };
 
       if (existingFarmer) {
         localFarmersLogger.info(
@@ -88,7 +132,50 @@ module.exports.saveExternalFarmerData = async (req, res) => {
         const landDetails = await Land.find({
           farmer_id: existingFarmer._id,
         });
-        //console.log(updatedValues, landDetails);
+
+        if (landDetails.length === 0) {
+          // need to update farmer info, create land and crops data for the farmer
+          delete newFarmerObj.external_farmer_id;
+
+          const savedFarmer = await farmer.findOneAndUpdate(
+            { external_farmer_id: data.farmerid }, // Find by external_farmer_id
+            { $set: newFarmerObj }, // Update fields
+            { new: true, upsert: false } // Return updated doc, do not insert if not found
+          );
+          // Handle Land Data
+          const newLand = new Land({
+            farmer_id: savedFarmer._id,
+            LandCropID: Number(data?.LandCropID),
+            Muraba: data?.Muraba,
+            khasra_number: data.khasra.trim(),
+            khewat: data?.khewat,
+            khtauni_number: data?.khatoni,
+            sownkanal: Number(data?.sownkanal),
+            SownMarla: Number(data?.SownMarla),
+            SownAreaInAcre: Number(data?.SownAreaInAcre),
+            RevenueKanal: Number(data?.RevenueKanal),
+            RevenueMarla: Number(data?.RevenueMarla),
+            RevenueAreaInAcre: Number(data?.RevenueAreaInAcre),
+          });
+          await newLand.save();
+
+          // handle crop data
+          const newCrop = new Crop({
+            farmer_id: savedFarmer._id,
+            seasonname: data?.seasonname,
+            seasonid: data?.seasonid,
+            L_LGD_DIS_CODE: data?.L_LGD_DIS_CODE,
+            L_LGD_TEH_CODE: data?.L_LGD_TEH_CODE,
+            L_LGD_VIL_CODE: data?.L_LGD_VIL_CODE,
+            SownCommodityID: data?.SownCommodityID,
+            SownCommodityName: data?.SownCommodityName,
+            CommodityVariety: data?.CommodityVariety,
+          });
+          await newCrop.save();
+          localFarmersLogger.info(`farmer details updated, land and crop created for external_farmer_id: ${data.farmerid}`);
+          continue;
+        }
+
         // Check if a record with the same values already exists
         const existingRecord = landDetails.some(
           (land) =>
@@ -121,68 +208,8 @@ module.exports.saveExternalFarmerData = async (req, res) => {
           // await existingFarmer.save();
         }
       } else {
-        let district_name = districtsMapping.find(
-          (obj) => obj.original === data?.DIS_NAME
-        )?.mappedTo;
-        localFarmersLogger.info(
-          JSON.stringify({ district_name, fdistrict: data?.DIS_NAME }, null, 2)
-        );
-
-        let district_id = await getDistrictId(district_name || data?.DIS_NAME);
-
         // Create new farmer
-        const newFarmer = new farmer({
-          external_farmer_id: data.farmerid,
-          name: data?.farmername,
-          parents: {
-            father_name: data?.farhername,
-          },
-          basic_details: {
-            name: data.farmername,
-            gender: data.gender === "F" ? "female" : "male",
-          },
-          mobile_no: data.mobile,
-          bank_details: {
-            account_no: data.Account,
-            ifsc_code: data.IFSC,
-            accountstatus: data?.accountstatus,
-            account_holder_name: data?.farmername,
-          },
-
-          address: {
-            tahshil: data.TEH_NAME,
-            village: data.VIL_NAME,
-            district_id: district_id,
-            state_id: state_id,
-          },
-
-          hr_p_code: {
-            p_DCodeLGD: data?.p_DCodeLGD,
-            p_BtCodeLGD: data?.p_BtCodeLGD,
-            p_WvCodeLGD: data?.p_WvCodeLGD,
-            p_address: data?.p_address,
-            Dis_code: data?.Dis_code,
-            Teh_code: data?.Teh_code,
-            Vil_code: data?.Vil_code,
-            statecode: data?.statecode,
-          },
-          date: data?.date,
-        });
-
-        const savedFarmer = await newFarmer.save();
-
-        // const state = await getState(savedFarmer.address.state_id);
-        //const district = await getDistrict(savedFarmer.address.district_id);
-
-        // let obj = {
-        //   _id: savedFarmer._id,
-        //   address: {
-        //     state: state.state_title,
-        //     district: district.district_title,
-        //   },
-        // };
-
-        // savedFarmer.farmer_id = await generateFarmerId(obj);
+        const savedFarmer = new farmer(newFarmerObj);
         await savedFarmer.save();
 
         // added inserted farmers ids
@@ -247,3 +274,11 @@ module.exports.saveExternalFarmerData = async (req, res) => {
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+
+function getDistrictName(dis_name) {
+  const district_name = districtsMapping.find(
+    (obj) => obj.original === dis_name
+  )?.mappedTo;
+  return district_name || dis_name;
+}
