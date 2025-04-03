@@ -19,7 +19,7 @@ module.exports.saveExternalFarmerData = async (req, res) => {
     localFarmersLogger.warn("dates field is required");
     return res.json({ success: false, message: "dates field is required " });
   }
-  let farmersData = isExport ? Farmersdata.slice(61622) : [];
+  let farmersData = isExport ? Farmersdata.slice(0) : [];
   // return res.json( { data: farmersData.length} );
   const api_endpoint = isExport
     ? []

@@ -55,7 +55,7 @@ async function main() {
     await updateFarmersWithFarmerId(); 
   });
 
-  cron.schedule("* 6 * * *", async () => {
+  cron.schedule("* 13 * * *", async () => {
     console.log("Running scheduled task to remove duplicate haryana farmers entries at 6 AM...");
     await removeDuplicateFarmers(); 
   });
