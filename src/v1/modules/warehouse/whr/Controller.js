@@ -50,7 +50,7 @@ const createWhr = async (req, res) => {
 
     const decode = await decryptJwtToken(getToken);
     const UserId = decode.data.organization_id;
-
+    
     const warehouseIds = [];
     const batchIds = [];
 
@@ -741,7 +741,7 @@ const listWHRForDropdown = async (req, res) => {
 
     const decode = await decryptJwtToken(getToken);
     const UserId = decode.data.organization_id;
-
+    // console.log('wareHouseId',wareHouseId);
     const batchIds = [];
 
     if (!mongoose.Types.ObjectId.isValid(UserId)) {
@@ -764,15 +764,19 @@ const listWHRForDropdown = async (req, res) => {
         })
         .populate("warehousedetails_id", "basicDetails.warehouseName wareHouse_code")
         .select('_id req_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status procurementCenter_id');
-    
+    // console.log('batchDetails',batchDetails);
     const procurementCenterIds = batchDetails.map(data => data.procurementCenter_id);
     const requestIds = batchDetails.map(data => data.req_id);
     const batchIdsList = batchDetails.map(data => data._id);
     
     const procurementDetails = await ProcurementCenter.find({ "_id": { $in: procurementCenterIds } });
-    const commodityDetails = await RequestModel.find({ "_id": { $in: requestIds } });
-    const whrModelData = await WhrModel.findOne({ "batch_id": batchIdsList  });
     
+    const commodityDetails = await RequestModel.find({ "_id": { $in: requestIds } });
+    
+    // const whrModelData = await WhrModel.findOne({ "batch_id": batchIdsList  });
+    const whrModelData = await WhrModel.findOne({ batch_id: { $in: batchIdsList } });
+    // console.log('batchIdsList',batchIdsList);
+    console.log('whrModelData',whrModelData);
     
 
     const procurementCenterNames = procurementDetails.map(data => ({
@@ -796,7 +800,7 @@ const listWHRForDropdown = async (req, res) => {
       procurementCenters: procurementCenterNames,
       commodityNames : commodityNames,
       whr_date : whrModelData?.whr_date || 'Null',
-      whr_number: whrModelData.whr_number || 'Null',
+      whr_number: whrModelData.whr_number || Null,
       whr_document: whrModelData.whr_document || 'Null'
     }
     
@@ -842,7 +846,7 @@ const deleteWhr = async (req, res) => {
 //         }
 
 //         const decode = await decryptJwtToken(getToken);
-//         const UserId = decode.data.organization_id;
+//         const UserId = decode.data.user_id;
 
 //         if (!mongoose.Types.ObjectId.isValid(UserId)) {
 //             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -1123,6 +1127,7 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
 
       const decode = await decryptJwtToken(getToken);
       const UserId = decode.data.organization_id;
+      
 
       if (!mongoose.Types.ObjectId.isValid(UserId)) {
           return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -1130,7 +1135,7 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
 
       const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: UserId }, '_id');
       const ownerwarehouseIds = warehouseDetails.map(wh => wh._id);
-
+      
       const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
           ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
           : ownerwarehouseIds;
@@ -1144,7 +1149,7 @@ const getWarehouseManagementList = asyncErrorHandler(async (req, res) => {
 
       const searchRegex = search ? new RegExp(search, 'i') : null;
 
-      
+      console.log('finalwarehouseIds',finalwarehouseIds)
       const query = {
           warehousedetails_id: { $in: finalwarehouseIds },
           ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),

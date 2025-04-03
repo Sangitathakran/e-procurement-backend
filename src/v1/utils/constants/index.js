@@ -57,8 +57,11 @@ const _collectionName = {
     Truck : "Truck",
     ExternalBatch : "ExternalBatch",
     ExternalOrder : "ExternalOrder",
-    ClientToken : "ClientToken",
-    TrackOrder: "TrackOrder",
+    Scheme: "Scheme",
+    commodityStandard:"commodityStandard",
+    SchemeAssign: "SchemeAssign",
+    ClientToken:"ClientToken",
+    
     Scheme: "Scheme",
     SLA: "SLA",
     commodityStandard: "commodityStandard",
