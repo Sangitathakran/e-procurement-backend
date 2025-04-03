@@ -48,6 +48,7 @@ module.exports.createProcurementCenter = async (req, res) => {
       registration_image,
       pan_number,
       pan_image,
+      owner_name,
       bank_name,
       branch_name,
       account_holder_name,
@@ -77,6 +78,7 @@ module.exports.createProcurementCenter = async (req, res) => {
         registration_image,
         pan_number,
         pan_image,
+        owner_name
       },
       address: {
         line1,
@@ -132,6 +134,7 @@ module.exports.updateProcurementCenter = asyncErrorHandler(async (req, res) => {
           registration_image,
           pan_number,
           pan_image,
+          owner_name,
           line1,
           line2,
           state,
@@ -171,11 +174,13 @@ module.exports.updateProcurementCenter = asyncErrorHandler(async (req, res) => {
           ...(center_email && { center_email }),
           ...(addressType && { addressType }),
           ...(location_url && { location_url }),
-          ...(registration_image || pan_number || pan_image ? {
+          ...(registration_image || pan_number || pan_image || owner_name ? {
               company_details: {
                   ...(registration_image && { registration_image }),
                   ...(pan_number && { pan_number }),
-                  ...(pan_image && { pan_image })
+                  ...(pan_image && { pan_image }),
+                  ...(owner_name && { owner_name })
+
               }
           } : {}),
           ...(line1 || line2 || state || district || city || postalCode || lat || long ? {
