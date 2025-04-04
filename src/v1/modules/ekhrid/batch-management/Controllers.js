@@ -12,6 +12,7 @@ const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const mongoose = require('mongoose');
 const moment = require('moment');
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 
 
 module.exports.getFarmerOrders = async (req, res) => {
@@ -106,21 +107,24 @@ module.exports.getWarehouseTesting = async (req, res) => {
                 $group: {
                     _id: "$warehouseData.warehouseName",
                     warehouseId: { $first: "$warehouseData.warehouseId" },
-                    driverName: { $first: "$warehouseData.driverName" },
-                    transporterName: { $first: "$warehouseData.transporterName" },
-                    truckNo: { $first: "$warehouseData.truckNo" },
-                    jformID: { $first: "$warehouseData.jformID" },
                 }
             }
         ];
 
         const warehouseDetails = await eKharidHaryanaProcurementModel.aggregate(pipeline);
+       const warehouseNotExist=[]
+        for(const warehouse of warehouseDetails){
+            const existWarehouse = await wareHouseDetails.findOne({ 'basicDetails.warehouseName': warehouse._id });
+            if(!existWarehouse) {
+                warehouseNotExist.push(warehouse)
+            }
+        }
 
         if (!warehouseDetails || warehouseDetails.length === 0) {
             return res.status(404).json({ status: 404, message: "No warehouse details found" });
         }
 
-        return res.status(200).json({ status: 200, data: {warehouseDetails,count:warehouseDetails?.length ||0} });
+        return res.status(200).json({ status: 200, data: {warehouseNotExist,count:warehouseNotExist?.length ||0} });
     } catch (error) {
         console.error("Error in getWarehouseTesting:", error);
         return res.status(500).json({ status: 500, message: "Internal Server Error", error: error.message });
