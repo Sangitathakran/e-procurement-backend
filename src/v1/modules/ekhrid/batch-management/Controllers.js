@@ -75,9 +75,14 @@ module.exports.getFarmerOrders = async (req, res) => {
                             truckNo:"$procurementDetails.warehouseData.truckNo",
                             warehouseId:"$procurementDetails.warehouseData.warehouseId", 
                             warehouseName:"$procurementDetails.warehouseData.warehouseName",   
-                            // driverName: { $ifNull: ["$procurementDetails.warehouseData.driverName", "N/A"] },
-                            // transporterName: { $ifNull: ["$procurementDetails.warehouseData.transporterName", "N/A"] },
-                            // truckNo: { $ifNull: ["$procurementDetails.warehouseData.truckNo", "N/A"] }
+                            driverName: { $ifNull: ["$procurementDetails.warehouseData.driverName", "N/A"] },
+                            transporterName: { $ifNull: ["$procurementDetails.warehouseData.transporterName", "N/A"] },
+                            truckNo: { $ifNull: ["$procurementDetails.warehouseData.truckNo", "N/A"] },
+                           // Neeraj code start Payment
+                           transactionAmount:"$procurementDetails.paymentDetails.transactionAmount",
+                           transactionDate:"$procurementDetails.paymentDetails.transactionDate",
+                           transactionId:"$procurementDetails.paymentDetails.transactionId",
+                           transactionStatus:"$procurementDetails.paymentDetails.transactionStatus",
                         }
                     },
                     count: { $sum: 1 } // Count number of farmerData                    
@@ -214,7 +219,11 @@ module.exports.createBatch = async (req, res) => {
                         "final_quality_check.whr_receipt": farmer.gatePassId,
                         'dispatched.dispatched_at':moment(farmer.liftedDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
                         'intransit.no_of_bags':farmer.noOfBags,
-
+                       //Neeraj Code start
+                        'intransit.driver.name':farmer.driverName,
+                        'intransit.transport.service_name':farmer.transporterName,
+                        'intransit.transport.vehicleNo':farmer.truckNo
+                         // Neeraj code End
                     }
                 }
             };
