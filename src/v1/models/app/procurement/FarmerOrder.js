@@ -7,10 +7,10 @@ const mongoose = require('mongoose');
 
 
 const farmerOrderSchema = new mongoose.Schema({
-    associateOffers_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, required: true },
+    associateOffers_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, required: false },
     farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
     metaData: { type: Object, required: true },
-    offeredQty: { type: Number, required: true },
+    offeredQty: { type: Number, required: false },
     order_no: { type: String, required: false, trim: true },
     receving_date: { type: Date },
     qtyProcured: { type: Number },
