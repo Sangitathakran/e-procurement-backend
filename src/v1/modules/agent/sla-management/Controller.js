@@ -163,6 +163,8 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
 
     await masterUser.save();
 
+    console.log("dsff", emailPayload)
+
     await emailService.sendAgencyCredentialsEmail(emailPayload);
 
 
