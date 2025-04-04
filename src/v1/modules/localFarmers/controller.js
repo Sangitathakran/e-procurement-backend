@@ -12,6 +12,7 @@ const {
   generateFarmerId,
 } = require("@src/v1/utils/helpers");
 const axios = require("axios");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 
 module.exports.saveExternalFarmerData = async (req, res) => {
   const { dates, isExport = 0 } = req?.body;
@@ -19,7 +20,7 @@ module.exports.saveExternalFarmerData = async (req, res) => {
     localFarmersLogger.warn("dates field is required");
     return res.json({ success: false, message: "dates field is required " });
   }
-  let farmersData = isExport ? Farmersdata.slice(0) : [];
+  let farmersData = isExport ? Farmersdata : [];
   // return res.json( { data: farmersData.length} );
   const api_endpoint = isExport
     ? []
@@ -112,6 +113,15 @@ module.exports.saveExternalFarmerData = async (req, res) => {
         },
         date: data?.date,
       };
+      const metaData = {
+        name: data?.farmername,
+        father_name: data?.farhername,
+        address_line: `${data.TEH_NAME}, ${data.VIL_NAME}`,
+        mobile_no: data.mobile,
+        offeredQty: 0,
+        associateOffers_id: null
+       // farmer_code: existingFarmer.farmer_code
+    };
 
       if (existingFarmer) {
         localFarmersLogger.info(
@@ -136,6 +146,9 @@ module.exports.saveExternalFarmerData = async (req, res) => {
         if (landDetails.length === 0) {
           // need to update farmer info, create land and crops data for the farmer
           delete newFarmerObj.external_farmer_id;
+
+           // save farmer order metadata
+           await createFarmerMetadata(existingFarmer._id, metaData);
 
           const savedFarmer = await farmer.findOneAndUpdate(
             { external_farmer_id: data.farmerid }, // Find by external_farmer_id
@@ -172,6 +185,8 @@ module.exports.saveExternalFarmerData = async (req, res) => {
             CommodityVariety: data?.CommodityVariety,
           });
           await newCrop.save();
+
+         
           localFarmersLogger.info(`farmer details updated, land and crop created for external_farmer_id: ${data.farmerid}`);
           continue;
         }
@@ -250,6 +265,9 @@ module.exports.saveExternalFarmerData = async (req, res) => {
         });
         await newCrop.save();
 
+        // save farmer order metadata
+        await createFarmerMetadata(savedFarmer._id, metaData);
+
         localFarmersLogger.info(
           `New farmer created: ${JSON.stringify(
             { ...newFarObj, land_id: newLand._id, newCrop_id: newCrop._id },
@@ -282,3 +300,18 @@ function getDistrictName(dis_name) {
   )?.mappedTo;
   return district_name || dis_name;
 }
+
+async function createFarmerMetadata(farmer_id, metaData) {
+  try {
+    const newOrder = await FarmerOrders.create({
+      farmer_id,
+      metaData,
+    });
+
+    return newOrder;
+  } catch (err) {
+    localFarmersLogger.error(`Error creating farmer metadata: ${err.message}`);
+    throw err;
+  }
+}
+
