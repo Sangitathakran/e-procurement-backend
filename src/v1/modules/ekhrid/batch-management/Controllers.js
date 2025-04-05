@@ -6,7 +6,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
-const { _procuredStatus, _associateOfferStatus, _paymentApproval, _batchStatus } = require("@src/v1/utils/constants");
+const { _procuredStatus, _associateOfferStatus, _paymentApproval, _batchStatus,_paymentstatus } = require("@src/v1/utils/constants");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const mongoose = require('mongoose');
@@ -27,13 +27,14 @@ module.exports.getFarmerOrders = async (req, res) => {
             associateOffers_id: { $in: associateOfferIds },
             status: "Received",
             $or: [
-                { batchCreatedAt: { $eq: null } }, // batchCreatedAt is null
-                { batchCreatedAt: { $exists: false } } // batchCreatedAt does not exist
+                // { batchCreatedAt: { $eq: null } }, // batchCreatedAt is null
+                // { batchCreatedAt: { $exists: true } } // batchCreatedAt does not exist
             ]
         };
 
         const farmerOrders = await FarmerOrders.aggregate([
             { $match: query },
+            {$limit: 100},
             {
                 $lookup: {
                     from: "farmers",
@@ -69,12 +70,15 @@ module.exports.getFarmerOrders = async (req, res) => {
                             qty: "$offeredQty",
                             gatePassId: "$gatePassID",
                             liftedDate:"$procurementDetails.procurementDetails.liftedDate",
+                            gatePassDate:"$procurementDetails.procurementDetails.gatePassDate",
                             noOfBags:"$procurementDetails.procurementDetails.totalBags",
+                            jformApprovalDate:"$procurementDetails.procurementDetails.jformApprovalDate",
                             driverName:"$procurementDetails.warehouseData.driverName",
                             transporterName:"$procurementDetails.warehouseData.transporterName",
                             truckNo:"$procurementDetails.warehouseData.truckNo",
                             warehouseId:"$procurementDetails.warehouseData.warehouseId", 
                             warehouseName:"$procurementDetails.warehouseData.warehouseName",   
+                            inwardDate:"$procurementDetails.warehouseData.inwardDate",   
                             driverName: { $ifNull: ["$procurementDetails.warehouseData.driverName", "N/A"] },
                             transporterName: { $ifNull: ["$procurementDetails.warehouseData.transporterName", "N/A"] },
                             truckNo: { $ifNull: ["$procurementDetails.warehouseData.truckNo", "N/A"] },
@@ -83,6 +87,8 @@ module.exports.getFarmerOrders = async (req, res) => {
                            transactionDate:"$procurementDetails.paymentDetails.transactionDate",
                            transactionId:"$procurementDetails.paymentDetails.transactionId",
                            transactionStatus:"$procurementDetails.paymentDetails.transactionStatus",
+                           // Neeraj code end Payment
+
                         }
                     },
                     count: { $sum: 1 } // Count number of farmerData                    
@@ -90,7 +96,7 @@ module.exports.getFarmerOrders = async (req, res) => {
             }
         ]);
 
-        return res.status(200).json({ status: 200, data: farmerOrders });
+        return res.status(200).json({ status: 200, data: farmerOrders, message: "Farmer orders fetched successfully" });
 
     } catch (error) {
         console.error("Error fetching farmer orders:", error);
@@ -217,23 +223,45 @@ module.exports.createBatch = async (req, res) => {
                         ho_approval_at: new Date(),
                         status: _batchStatus.intransit,
                         "final_quality_check.whr_receipt": farmer.gatePassId,
-                        'dispatched.dispatched_at':moment(farmer.liftedDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
                         'intransit.no_of_bags':farmer.noOfBags,
                        //Neeraj Code start
                         'intransit.driver.name':farmer.driverName,
                         'intransit.transport.service_name':farmer.transporterName,
-                        'intransit.transport.vehicleNo':farmer.truckNo
+                        'intransit.transport.vehicleNo':farmer.truckNo,
+                        'createdAt': moment(farmer.gatePassDate, "DD-MM-YYYY hh:mm:ss A").toISOString(), 
+                        'dispatched.dispatched_at':moment(farmer.liftedDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+                        'intransit.intransit_at':moment(farmer.liftedDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+                        'delivered.delivered_at':moment(farmer.inwardDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+                        'dispatched.qc_report.received.0.img': "N/A",
+                        'dispatched.qc_report.received.1.on': moment(farmer.jformApprovalDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),  
+                        'payment_at':moment(farmer.transactionDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+                        'payement_approval_at':moment(farmer.transactionDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
                          // Neeraj code End
                     }
                 }
+
+
             };
         });
-      
+      {{
+  
+  }
+    
+  }
         const bulkFarmersOrder = farmerData.map((farmer, index) => {
             return {
                 updateOne: {
                     filter: { _id: new mongoose.Types.ObjectId(farmer.farmerOrder_id) },
-                    update: { $set: { batchCreatedAt: new Date() } }
+                    update: { $set: { batchCreatedAt: new Date(),
+                        //Neeraj code start
+                               payment_status:farmer?.transactionStatus==="Success"? _paymentstatus.completed: _paymentstatus.pending,
+                               payment_date:moment(farmer?.transactionDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+                               ekhridPaymentDetails: {
+                                transactionId: farmer?.transactionId,
+                                transactionAmount: farmer?.transactionAmount,
+                               }
+                        // Neeraj code end
+                     } }
                 }
             };
         });
