@@ -654,30 +654,30 @@ module.exports.associateFarmerList = async (req, res) => {
                     as: 'procurementCenter'
                 }
             },
-            {
-                $lookup: {
-                    from: "users",
-                    let: { organization_name: "$procurementDetails.commisionAgentName" },
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: { $eq: ["$basic_details.associate_details.organization_name", "$$organization_name"] }
-                            }
-                        },
-                        {
-                            $project: { _id: 1 } // Only fetch necessary fields
-                        }
-                    ],
-                    as: "userDetails"
-                }
-            },
+            // {
+            //     $lookup: {
+            //         from: "users",
+            //         let: { organization_name: "$procurementDetails.commisionAgentName" },
+            //         pipeline: [
+            //             {
+            //                 $match: {
+            //                     $expr: { $eq: ["$basic_details.associate_details.organization_name", "$$organization_name"] }
+            //                 }
+            //             },
+            //             {
+            //                 $project: { _id: 1 } // Only fetch necessary fields
+            //             }
+            //         ],
+            //         as: "userDetails"
+            //     }
+            // },
             {
                 $unwind: "$procurementCenter"
             },
             {
                 $group: {
-                    _id: "$procurementDetails.commisionAgentName",
-                    seller_id: { $first: "$userDetails._id" },
+                    _id: associateName,
+                    // seller_id: { $first: "$userDetails._id" },
                     farmer_data: {
                         $push: {
                             _id: { $arrayElemAt: ["$farmerDetails._id", 0] }, // Ensure single farmer details
@@ -702,11 +702,10 @@ module.exports.associateFarmerList = async (req, res) => {
                     }, // Count only valid farmers
                     qtyOffered: { $sum: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } } // Convert Qtl to MT
                 }
-            }
-            ,
-            {
-                $limit: 1 // Apply limit here
-            }
+            },
+            // {
+            //     $limit: 1 // Apply limit here
+            // }
         ]);
 
         return res.send(

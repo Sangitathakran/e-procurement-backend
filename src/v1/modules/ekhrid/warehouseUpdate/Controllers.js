@@ -2,24 +2,57 @@ const { _handleCatchErrors,  } = require("@src/v1/utils/helpers");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
-
 module.exports.getGatePassIDByWarehouse = async (req, res) => {
     try {
-        const { warehouseName } = req.body;
-        const gatePassData = await eKharidHaryanaProcurementModel
-            .find({ 'warehouseData.warehouseName': warehouseName })
-            .select("procurementDetails.gatePassID")
-            .lean();
+        const { associateName } = req.body;
 
-        const gatePassIDs = gatePassData.flatMap(item => 
-            item.procurementDetails?.gatePassID ? [{'gatePassID':item.procurementDetails.gatePassID}] : []
-        );
+        const pipeline = [
+            { $match: { "procurementDetails.commisionAgentName": associateName } },
+            { 
+                $group: {
+                    _id: "$warehouseData.warehouseName",
+                    gatePassIDs: { $push: {gatePassID:"$procurementDetails.gatePassID"} }, // Collecting all gatePassIDs
+                    warehouseName: { $first: "$warehouseData.warehouseName" } // Preserving warehouseName for lookup
+                }
+            },
+            {
+                $lookup: {
+                    from: "warehousedetails",
+                    localField: "warehouseName",
+                    foreignField: "basicDetails.warehouseName",
+                    as: "warehouseDetails"
+                }
+            },
+            { 
+                $unwind: { 
+                    path: "$warehouseDetails", 
+                    preserveNullAndEmptyArrays: true // Avoids errors when no match is found
+                } 
+            },
+            {
+                $project: {
+                    _id: 0,
+                    gatePassIDs: 1,
+                    warehouseName: 1,
+                    warehouse_id: "$warehouseDetails._id" // Correcting reference to warehouseDetails._id
+                }
+            }
+        ];
+        
+        const gatePassData = await eKharidHaryanaProcurementModel.aggregate(pipeline);
 
-        return res.status(200).json({ status: 200, data: {gatePassIDs,count:gatePassIDs?.length}, message: "Gate Pass ID fetched successfully" });
+        return res.status(200).json({ 
+            status: 200, 
+            data: { gatePassData, count: gatePassData.length }, 
+            message: "Gate Pass ID fetched successfully" 
+        });
     } catch (error) {
         return _handleCatchErrors(error, res);
     }
 };
+
+
+
 
 module.exports.updateWarehouseDetailsBulk = async (req, res) => {
     try {
