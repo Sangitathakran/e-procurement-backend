@@ -80,8 +80,8 @@ module.exports.getFarmerOrders = async (req, res) => {
                             warehouseName:"$procurementDetails.warehouseData.warehouseName",   
                             driverName: { $ifNull: ["$procurementDetails.warehouseData.driverName", "N/A"] },
                             transporterName: { $ifNull: ["$procurementDetails.warehouseData.transporterName", "N/A"] },
-                            truckNo: { $ifNull: ["$procurementDetails.warehouseData.truckNo", "N/A"] }
-                            inwardDate:"$procurementDetails.warehouseData.inwardDate",   
+                            truckNo: { $ifNull: ["$procurementDetails.warehouseData.truckNo", "N/A"] },
+                            inwardDate: { $ifNull: ["$procurementDetails.warehouseData.inwardDate", "N/A"] },   
                             driverName: { $ifNull: ["$procurementDetails.warehouseData.driverName", "N/A"] },
                             transporterName: { $ifNull: ["$procurementDetails.warehouseData.transporterName", "N/A"] },
                             truckNo: { $ifNull: ["$procurementDetails.warehouseData.truckNo", "N/A"] },
