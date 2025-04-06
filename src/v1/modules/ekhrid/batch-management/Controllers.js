@@ -75,9 +75,9 @@ module.exports.getFarmerOrders = async (req, res) => {
                             truckNo:"$procurementDetails.warehouseData.truckNo",
                             warehouseId:"$procurementDetails.warehouseData.warehouseId", 
                             warehouseName:"$procurementDetails.warehouseData.warehouseName",   
-                            // driverName: { $ifNull: ["$procurementDetails.warehouseData.driverName", "N/A"] },
-                            // transporterName: { $ifNull: ["$procurementDetails.warehouseData.transporterName", "N/A"] },
-                            // truckNo: { $ifNull: ["$procurementDetails.warehouseData.truckNo", "N/A"] }
+                            driverName: { $ifNull: ["$procurementDetails.warehouseData.driverName", "N/A"] },
+                            transporterName: { $ifNull: ["$procurementDetails.warehouseData.transporterName", "N/A"] },
+                            truckNo: { $ifNull: ["$procurementDetails.warehouseData.truckNo", "N/A"] }
                         }
                     },
                     count: { $sum: 1 } // Count number of farmerData                    
