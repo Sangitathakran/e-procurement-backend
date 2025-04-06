@@ -8,16 +8,22 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment")
 
 module.exports.getBatches = async (req, res) => {
     try {
-        const { req_id, seller_id } = req.body;
+        const { req_id, seller_id, limit=300 } = req.body;
 
-        let query = {};
-        query.ekhrid_payment = null
+        let query = { ekhrid_payment: null };
         if (req_id) query.req_id = req_id;
         if (seller_id) query.seller_id = seller_id;
 
-        const record={count:0, data:[]}
-         record.data = (await Batch.find(query).select("_id").lean()).map(({ _id }) => _id);
-         record.count = record.data.length;
+        let record = { count: 0, data: [] };
+
+        record.data = (await Batch.find(query)
+            .select("_id")
+            .limit(limit ? parseInt(limit) : 10) // Default limit to 10 if not provided
+            .lean()
+        ).map(({ _id }) => _id);
+
+        record.count = record.data.length;
+
         return res.status(200).json({ status: 200, data: record, message: "Batches fetched successfully" });
 
     } catch (error) {
@@ -27,7 +33,8 @@ module.exports.getBatches = async (req, res) => {
 };
 
 
-const mongoose = require("mongoose");
+
+
 
 
 module.exports.batchMarkDelivered = async (req, res) => {
@@ -78,6 +85,14 @@ module.exports.batchMarkDelivered = async (req, res) => {
                     sla_approve_status: _paymentApproval.approved,
                     sla_approve_by: request?.sla_id,
                     sla_approve_at: new Date(),
+                    // Neeraj code start
+                    payment_status: farmerData.payment_status,
+                    payment_method: _paymentmethod.bank_transfer,
+                    transaction_id: farmerData.ekhridPaymentDetails.transactionId,
+                    amount: farmerData.ekhridPaymentDetails.transactionAmount,
+                    // Neeraj code end
+
+
                 };
                 
                 paymentUpdates.push(
