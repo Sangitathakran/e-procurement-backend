@@ -5,9 +5,16 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { mongoose } = require("mongoose");
+const { TypesModel } = require("@src/v1/models/master/Types");
+const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator");
+const bcryptjs = require("bcryptjs");
+const { MasterUser } = require("@src/v1/models/master/MasterUser");
+const { _frontendLoginRoutes } = require("@src/v1/utils/constants");
+const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const { ObjectId } = require("mongoose").Types;
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
@@ -90,8 +97,85 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
       );
     }
 
-    // Create SLA document
+    const existUser = await SLAManagement.findOne({
+      'basic_details.email': data.basic_details.email,
+    });
+    if (existUser) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          errors: [{ message: _response_message.allReadyExist('Email') }],
+        })
+      );
+    }
+
+    // checking the existing user in Master User collection
+    const isUserAlreadyExist = await MasterUser.findOne({
+      $or: [
+        { mobile: { $exists: true, $eq: data.basic_details.mobile.trim() } },
+        { email: { $exists: true, $eq: data.basic_details.email.trim() } },
+      ],
+    });
+
+    if (isUserAlreadyExist) {
+      return sendResponse({
+        res,
+        status: 400,
+        message:
+          'user already existed with this mobile number or email in Master',
+      });
+    }
+
+    const type = await TypesModel.findOne({ _id: '67110114f1cae6b6aadc2425' });
+
     const sla = await SLAManagement.create(data);
+
+    if (!sla?._id) {
+      await SLAManagement.deleteOne({ _id: sla._id });
+      throw new Error('Agency not created ');
+    }
+    // create master user document
+    const password = generateRandomPassword();
+
+    const hashedPassword = await bcryptjs.hash(password, 10);
+    let login_url;
+
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local') {
+      login_url = `${_frontendLoginRoutes.slaDev}`;
+    } else {
+      login_url = `${_frontendLoginRoutes.slaProd}`;
+    }
+
+    const emailPayload = {
+      email: data.basic_details.email,
+      user_name: data.basic_details.name,
+      name: data.basic_details.name,
+      password: password,
+
+      login_url: login_url,
+    };
+
+    const masterUser = new MasterUser({
+      firstName: data.basic_details.name,
+      isAdmin: true,
+      email: data.basic_details.email.trim(),
+      mobile: data.basic_details.mobile.trim(),
+      password: hashedPassword,
+      user_type: type.user_type,
+      createdBy: req.user._id,
+      userRole: [new mongoose.Types.ObjectId('6719c40ed5366fae365ae084')], //[type.adminUserRoleId],
+      portalId: sla._id,
+      ipAddress: getIpAddress(req),
+    });
+
+    await masterUser.save();
+
+    console.log("dsff", emailPayload)
+
+    await emailService.sendAgencyCredentialsEmail(emailPayload);
+
+
+
 
     return res.status(200).send(
       new serviceResponse({
@@ -104,6 +188,12 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
+
+
+
+
+
 // module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 //   const {
 //     page = 1,
@@ -351,13 +441,13 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
   let matchQuery = search
     ? {
-        $or: [
-          { "basic_details.name": { $regex: search, $options: "i" } },
-          { "basic_details.email": { $regex: search, $options: "i" } },
-          { "basic_details.mobile": { $regex: search, $options: "i" } },
-        ],
-        deletedAt: null,
-      }
+      $or: [
+        { "basic_details.name": { $regex: search, $options: "i" } },
+        { "basic_details.email": { $regex: search, $options: "i" } },
+        { "basic_details.mobile": { $regex: search, $options: "i" } },
+      ],
+      deletedAt: null,
+    }
     : { deletedAt: null };
 
   if (state) matchQuery["address.state"] = { $regex: state, $options: "i" };
