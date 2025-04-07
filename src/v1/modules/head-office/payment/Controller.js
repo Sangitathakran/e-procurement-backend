@@ -3683,45 +3683,45 @@ module.exports.proceedToPayBatchList = async (req, res) => {
 
       {
         $addFields: {
-          qtyPurchased: {
-            $reduce: {
-              input: {
-                $map: {
-                  input: '$invoice',
-                  as: 'inv',
-                  in: '$$inv.qtyProcured'
-                }
-              },
-              initialValue: 0,
-              in: { $add: ['$$value', '$$this'] }
-            }
-          },
-          amountProposed: {
-            $reduce: {
-              input: {
-                $map: {
-                  input: '$invoice',
-                  as: 'inv',
-                  in: '$$inv.bills.total'
-                }
-              },
-              initialValue: 0,
-              in: { $add: ['$$value', '$$this'] }
-            }
-          },
-          amountPayable: {
-            $reduce: {
-              input: {
-                $map: {
-                  input: '$invoice',
-                  as: 'inv',
-                  in: '$$inv.bills.total'
-                }
-              },
-              initialValue: 0,
-              in: { $add: ['$$value', '$$this'] }
-            }
-          },
+          // qtyPurchased: {
+          //   $reduce: {
+          //     input: {
+          //       $map: {
+          //         input: '$invoice',
+          //         as: 'inv',
+          //         in: '$$inv.qtyProcured'
+          //       }
+          //     },
+          //     initialValue: 0,
+          //     in: { $add: ['$$value', '$$this'] }
+          //   }
+          // },
+          // amountProposed: {
+          //   $reduce: {
+          //     input: {
+          //       $map: {
+          //         input: '$invoice',
+          //         as: 'inv',
+          //         in: '$$inv.bills.total'
+          //       }
+          //     },
+          //     initialValue: 0,
+          //     in: { $add: ['$$value', '$$this'] }
+          //   }
+          // },
+          // amountPayable: {
+          //   $reduce: {
+          //     input: {
+          //       $map: {
+          //         input: '$invoice',
+          //         as: 'inv',
+          //         in: '$$inv.bills.total'
+          //       }
+          //     },
+          //     initialValue: 0,
+          //     in: { $add: ['$$value', '$$this'] }
+          //   }
+          // },
           tags: {
             $cond: {
               if: { $in: ["$payment.payment_status", ["Failed", "Rejected"]] },
@@ -3746,14 +3746,14 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           "batchId": 1,
           // "invoice.initiated_at": 1,
           // "invoice.bills.total": 1,
-          amountPayable: 1,
-          qtyPurchased: 1,
-          amountProposed: 1,
+          amountPayable: "$totalPrice",
+          qtyPurchased: "$qty",
+          amountProposed: "$goodsPrice",
           associateName: "$users.basic_details.associate_details.associate_name",
           // whrNo: "12345",
           // whrReciept: "whrReciept.jpg",
-          whrNo: "$warehousedetails.final_quality_check.whr_receipt",
-          whrReciept: "$warehousedetails.final_quality_check.product_images",
+          whrNo: "$final_quality_check.whr_receipt",
+          whrReciept: "$final_quality_check.product_images",
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
