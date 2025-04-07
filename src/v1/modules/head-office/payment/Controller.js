@@ -3537,6 +3537,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           amountPaid: {
             $sum: "$batches.goodsPrice"
           },
+          approval_date: { $arrayElemAt:["$batches.payement_approval_at",0] },
           approval_status: "Approved",
           payment_status: payment_status || _paymentstatus.pending,
           schemeName: {
@@ -3564,6 +3565,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           'branchDetails.branchId': 1,
           'sla.basic_details.name': 1,
           'scheme.schemeName': "$schemeName",
+          'approval_date': 1,
         }
       },
       { $skip: (page - 1) * limit },
