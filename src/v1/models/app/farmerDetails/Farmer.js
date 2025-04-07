@@ -93,6 +93,7 @@ const farmerSchema = new mongoose.Schema({
         doc: { type: String, trim: true },
         aadhar_no: { type: String, required: false, trim: true },
     },
+    farmer_tracent_code: { type: String, trim: true, },
     status: { type: String, enum: Object.values(_status), default: _status.active },
     // steps: [{
     //     label: { type: String },
@@ -100,7 +101,9 @@ const farmerSchema = new mongoose.Schema({
     //     status: { type: String, enum: ['active', 'pending', 'completed'], default: "pending" }
     // }],
 
+    external_farmer_id : {type:Number},
     all_steps_completed_status: { type: Boolean, default: false },
+    ekhrid: { type: Boolean, default: false },
     ..._commonKeys
 }, { timestamps: true });
 

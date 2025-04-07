@@ -89,7 +89,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     {
       $project: {
         _id: 1,
-        // schemeId: 1,
+        scheme_id: 1,
         schemeName: 1,
         createdAt: 1,
         schemeId: '$schemeDetails.schemeId',
