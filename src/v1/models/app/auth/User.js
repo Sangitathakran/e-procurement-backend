@@ -108,6 +108,7 @@ const userSchema = new mongoose.Schema({
     is_sms_send: { type: Boolean, default: false },
     term_condition: { type: String, default: false },
     active: { type: Boolean, default: true },
+    ekhridUser: { type: Boolean, default: false },
     ..._commonKeys
 }, { timestamps: true });
 userSchema.pre('save', async function (next) {

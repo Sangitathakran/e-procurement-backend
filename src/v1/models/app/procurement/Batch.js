@@ -6,12 +6,12 @@ const batchsSchema = new mongoose.Schema({
     req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true },
     associateOffer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, required: true },
     warehousedetails_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.WarehouseDetails },
-    batchId: { type: String, trim: true,unique:true},
+    batchId: { type: String, trim: true, unique: true },
     farmerOrderIds: [{ farmerOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.FarmerOrder, required: true }, qty: { type: Number, default: 0 }, amt: { type: Number, default: 0 } }],
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
     qty: { type: Number, default: 0 },
-    available_qty : { type : Number , default : 0 } , 
-    allotedQty : { type : Number , default : 0 } ,
+    available_qty: { type: Number, default: 0 },
+    allotedQty: { type: Number, default: 0 },
     goodsPrice: { type: Number, trim: true },
     totalPrice: { type: Number, trim: true },
     dispatched: {
@@ -83,11 +83,11 @@ const batchsSchema = new mongoose.Schema({
         delivered_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch },
     },
     final_quality_check: {
-        product_images: [{type: String, trim: true, }],
-        qc_images: {type: String, trim: true, },
+        product_images: [{ type: String, trim: true, }],
+        qc_images: { type: String, trim: true, },
         whr_receipt: { type: String, trim: true },
         whr_receipt_image: { type: String, trim: true },
-        status: { type: String, trim: true, default:"Pending" },
+        status: { type: String, trim: true, default: "Pending" },
         rejected_reason: { type: String, trim: true },
     },
     receiving_details: {
@@ -95,13 +95,13 @@ const batchsSchema = new mongoose.Schema({
         no_of_bags: { type: String, trim: true },
         bag_weight_per_kg: { type: String, trim: true },
         truck_photo: { type: String, trim: true },
-        vehicle_details : {
+        vehicle_details: {
             loaded_vehicle_weight: { type: Number, trim: true },
             tare_weight: { type: Number, trim: true },
             net_weight: { type: Number, trim: true },
         },
-        document_pictures : {
-            product_images: [{type: String, trim: true, }],
+        document_pictures: {
+            product_images: [{ type: String, trim: true, }],
             weigh_bridge_slip: { type: String, trim: true },
             receiving_copy: { type: String, trim: true },
             proof_of_delivery: { type: String, trim: true },
@@ -125,6 +125,9 @@ const batchsSchema = new mongoose.Schema({
     wareHouse_approve_status: { type: String, enum: Object.values(_wareHouseApproval), default: _wareHouseApproval.pending },
     wareHouse_approve_at: { type: Date, default: null },
     wareHouse_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
+    ekhridBatch: { type: Boolean, default: false },
+    gatePassId: { type: Number, default: null },
+    ekhrid_payment: { type: Date , default: null},
 
 }, { timestamps: true });
 
