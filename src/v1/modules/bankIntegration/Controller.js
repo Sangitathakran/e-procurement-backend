@@ -15,6 +15,7 @@ const {
   _paymentmethod,
   _poAdvancePaymentStatus,
   _poBatchPaymentStatus,
+  _penaltypaymentStatus,
 } = require("@src/v1/utils/constants/index.js");
 const {
   PurchaseOrderModel,
@@ -104,6 +105,13 @@ module.exports.paymentStatus = async (req, res) => {
         record.payment.status = _poBatchPaymentStatus.paid;
         record.payment.amount = amountToBePaid;
         record.payment.date = Date.now();
+        await record.save();
+      } else if (paymentSection && paymentSection === "penalty") {
+        const record = await BatchOrderProcess.findOne({ _id: order_id }); 
+        const amountToBePaid = handleDecimal(amount);
+        record.penaltyDetails.penaltypaymentStatus = _penaltypaymentStatus.paid;
+        record.penaltyDetails.penaltyAmount = amountToBePaid;
+        // record.payment.date = Date.now();
         await record.save();
       } else {
         const record = await PurchaseOrderModel.findOne({
