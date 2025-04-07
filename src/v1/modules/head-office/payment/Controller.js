@@ -1265,8 +1265,19 @@ module.exports.payment = async (req, res) => {
       },
       { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
       {
+        $lookup: {
+          from: "commodities",
+          localField: "schemeDetails.commodity_id",
+          foreignField: "_id",
+          as: "commodityDetails"
+        }
+      },
+      {
+        $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true }
+      },
+      {
         $addFields: {
-          ho_approval_at: { $arrayElemAt: ["$batches.ho_approval_at", 0] }, 
+          ho_approval_at: { $arrayElemAt: ["$batches.ho_approval_at", 0] },
           approval_status: {
             $cond: {
               if: {
@@ -1422,7 +1433,7 @@ module.exports.payment = async (req, res) => {
             $first: {
               $concat: [
                 "$schemeDetails.schemeName", " ",
-                { $ifNull: ["$schemeDetails.commodityDetails.name", " "] }, " ",
+                { $ifNull: ["$commodityDetails.name", " "] }, " ",
                 { $ifNull: ["$schemeDetails.season", " "] }, " ",
                 { $ifNull: ["$schemeDetails.period", " "] },
               ],
@@ -1434,7 +1445,7 @@ module.exports.payment = async (req, res) => {
         $project: {
           _id: 1,
           reqNo: 1,
-          commodity:1,
+          commodity: 1,
           branch_id: 1,
           branchName: 1,
           approval_status: 1,
@@ -3393,7 +3404,20 @@ module.exports.proceedToPayPayment = async (req, res) => {
     limit = parseInt(limit) || 10;
     page = parseInt(page) || 1;
 
-    const paymentIds = (await Payment.find()).map(i => i.req_id);
+    const { portalId, user_id } = req;
+
+    // Ensure necessary indexes are created (run once in your database setup)
+    await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
+    await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
+    await Batch.createIndexes({ req_id: 1 });
+    await Payment.createIndexes({ batch_id: 1 });
+    await Branches.createIndexes({ _id: 1 });
+
+    // const paymentIds = (await Payment.find()).map(i => i.req_id);
+    const paymentIds = await Payment.distinct("req_id", {
+      ho_id: { $in: [portalId, user_id] },
+      bo_approve_status: _paymentApproval.approved,
+    });
 
     let query = search ? {
       _id: { $in: paymentIds },
@@ -3478,10 +3502,22 @@ module.exports.proceedToPayPayment = async (req, res) => {
         $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true }
       },
       {
+        $lookup: {
+          from: "commodities",
+          localField: "scheme.commodity_id",
+          foreignField: "_id",
+          as: "commodityDetails"
+        }
+      },
+      {
+        $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true }
+      },
+      {
         $match: {
           batches: { $ne: [] },
           "batches.bo_approve_status": _paymentApproval.approved,
-          "batches.ho_approve_status": _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending },
+          // "batches.ho_approve_status": _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending },
+          "batches.ho_approve_status": _paymentApproval.approved ? _paymentApproval.approved : { $ne: _paymentApproval.pending },
           "batches.payment.payment_status": paymentStatusCondition || _paymentstatus.pending
         }
       },
@@ -3497,7 +3533,16 @@ module.exports.proceedToPayPayment = async (req, res) => {
             $sum: "$batches.goodsPrice"
           },
           approval_status: "Approved",
-          payment_status: payment_status || _paymentstatus.pending,
+          payment_status: payment_status || _paymentstatus.pending,         
+          schemeName: {
+            $concat: [
+              "$scheme.schemeName", " ",
+              { $ifNull: ["$commodityDetails.name", " "] }, " ",
+              { $ifNull: ["$scheme.season", " "] }, " ",
+              { $ifNull: ["$scheme.period", " "] },
+            ],
+        },
+
         }
       },
       {
@@ -3513,7 +3558,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           'branchDetails.branchName': 1,
           'branchDetails.branchId': 1,
           'sla.basic_details.name': 1,
-          'scheme.schemeName': 1
+          'scheme.schemeName': "$schemeName",
         }
       },
       { $skip: (page - 1) * limit },
@@ -3522,7 +3567,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
     let response = { count: 0 };
     response.rows = await RequestModel.aggregate(aggregationPipeline);
-
+console.log(aggregationPipeline);
     const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
     response.count = countResult?.[0]?.count ?? 0;
 
