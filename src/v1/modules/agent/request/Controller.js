@@ -141,6 +141,8 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
 module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
     const { page, limit, skip, paginate = 1, sortBy, search = '',cna, scheme, commodity, branchName, sla, isExport = 0 } = req.query
+    const { portalId, user_id } = req;
+
     let query = search ? {
         $or: [
             { "reqNo": { $regex: search, $options: 'i' } },
@@ -148,6 +150,9 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
             { "product.grade": { $regex: search, $options: 'i' } },
         ]
     } : {};
+
+    query["sla_id"] = { $in: [portalId, user_id] };
+
     if (scheme) {
         query["product.schemeId"] = await Scheme.findOne({ schemeName: { $regex: scheme, $options: "i" } }).select("_id");
     }
