@@ -3,11 +3,20 @@ const mongoose = require('mongoose');
 const connection = mongoose.connection
 const { connection_string } = require('.');
 
+// const options = {
+//     maxPoolSize: 10,  // Adjust the pool size according to your needs
+//     serverSelectionTimeoutMS: 5000,  // Keep trying to send operations for 5 seconds
+//     socketTimeoutMS: 45000,  // Close sockets after 45 seconds of inactivity
+// };
 const options = {
-    maxPoolSize: 10,  // Adjust the pool size according to your needs
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    maxPoolSize: 50,  // Adjust the pool size according to your needs
     serverSelectionTimeoutMS: 5000,  // Keep trying to send operations for 5 seconds
     socketTimeoutMS: 45000,  // Close sockets after 45 seconds of inactivity
+    connectTimeoutMS: 1800000, // 30 minute
 };
+
 main().catch(err => console.log(err));
 
 async function main() {
