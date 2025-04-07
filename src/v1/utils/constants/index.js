@@ -450,6 +450,7 @@ const _frontendLoginRoutes = {
     // agent: "/agent/sign-in",
     // ho: "/head-office/sign-in",
     // bo: "/branch-office/sign-in"
+    sla:"https://testing.sla.khetisauda.com/sla/sign-in",
     agent: "https://ep.navbazar.com/agent/sign-in",
     ho: "https://ep.navbazar.com/head-office/sign-in",
     bo: "https://ep.navbazar.com/branch-office/sign-in",
