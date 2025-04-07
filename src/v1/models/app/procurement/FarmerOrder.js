@@ -35,6 +35,7 @@ const farmerOrderSchema = new mongoose.Schema({
     batchCreatedAt:{ type: Date },
     gatePassID: { type: Number },
     ekhrid:{ type: Boolean, default: false },
+    ekhridPaymentDetails:{type: Object,  default: null},
     ..._commonKeys
 }, { timestamps: true });
 

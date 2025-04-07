@@ -1,5 +1,5 @@
 const express = require("express");
-const {  createBatch, getFarmerOrders } = require("./Controllers");
+const {  createBatch, getFarmerOrders, getWarehouseTesting } = require("./Controllers");
 
 const batchManagementRoutes = express.Router();
 
@@ -7,5 +7,6 @@ const batchManagementRoutes = express.Router();
 batchManagementRoutes.post("/create-batch", createBatch);
 
 batchManagementRoutes.get("/getFarmerOrders", getFarmerOrders);
+batchManagementRoutes.get("/getWarehouseTesting", getWarehouseTesting);
 
 module.exports = { batchManagementRoutes }; 

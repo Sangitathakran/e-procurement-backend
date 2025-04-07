@@ -218,14 +218,71 @@ module.exports.updateOrInsertUsers = async (req, res) => {
     }
 };
 
+module.exports.updateOrInsertUsersTesting = async (req, res) => {
+    try {
+        // Fetch unique commission agent names and farmer IDs from procurement records
+        const procurements = await eKharidHaryanaProcurementModel.aggregate([
+            {
+                $group: {
+                    _id: "$procurementDetails.commisionAgentName",
+                    farmerId: { $first: "$procurementDetails.farmerID" } // Fetch first farmerId per commission agent
+                }
+            },
+            {
+                $match: {
+                    _id: { $ne: null }, farmerId: { $ne: null },
+                    //  "procurementDetails.offerCreatedAt": null 
+                }
+            }
+        ]);
+
+        if (!procurements.length) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: "No valid commission agent names or farmer IDs found."
+            }));
+        }
+
+        const userBulkOps = [];
+
+        for (const procurement of procurements) {
+            const commisionAgentName = procurement._id;
+            const existingUser = await User.findOne({ "basic_details.associate_details.organization_name": commisionAgentName });
+            if (!existingUser) {
+                userBulkOps.push({
+                    associate_details: commisionAgentName
+                });
+
+            }
+
+        }
+
+        return res.send(new serviceResponse({
+            status: 200,
+            data: { userBulkOps, count: userBulkOps.length, },
+            message: _response_message.found("Associates uploaded successfully"),
+        }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
 module.exports.addFarmers = async (req, res) => {
     try {
         // Fetch unique farmer IDs and jForm IDs from procurement records
         const procurements = await eKharidHaryanaProcurementModel.aggregate([
             {
                 $match: {
+                    // "procurementDetails.commisionAgentName":"HAFED",
+                    // "procurementDetails.commisionAgentName":"SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD",
+                    // "procurementDetails.commisionAgentName":"FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY",
                     "procurementDetails.farmerID": { $ne: null }, // Ensure farmerID is not null
-                    "procurementDetails.offerCreatedAt": null
+                    // "procurementDetails.offerCreatedAt": null
+                    $or: [
+                        { "procurementDetails.offerCreatedAt": { $eq: null } }, // offerCreatedAt is null
+                        { "procurementDetails.offerCreatedAt": { $exists: false } } // offerCreatedAt does not exist
+                    ]
                 }
             },
             {
@@ -306,8 +363,15 @@ module.exports.addProcurementCenter = async (req, res) => {
         const procurements = await eKharidHaryanaProcurementModel.aggregate([
             {
                 $match: {
+                    // "procurementDetails.commisionAgentName":"SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD",
+                    // "procurementDetails.commisionAgentName":"FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY",
+                    // "procurementDetails.commisionAgentName":"HAFED",
                     "procurementDetails.mandiName": { $ne: null },
-                    "procurementDetails.centerCreatedAt": null
+                    // "procurementDetails.centerCreatedAt": null
+                    $or: [
+                        { "procurementDetails.centerCreatedAt": { $eq: null } }, // batchCreatedAt is null
+                        { "procurementDetails.centerCreatedAt": { $exists: false } } // batchCreatedAt does not exist
+                    ]
                 }
             },
             {
@@ -447,10 +511,111 @@ module.exports.addProcurementCenter = async (req, res) => {
     }
 };
 
+module.exports.getProcurementCenter = async (req, res) => {
+    try {
 
+        let matchQuery = {
+            center_type: "associate",
+            ekhrid: true
+        };
+
+        // Aggregation pipeline to join farmers and procurement centers and get counts
+        const records = await ProcurementCenter.aggregate([
+            { $match: matchQuery },
+            {
+                $project: {
+                    _id: 1,
+                    center_name: 1,
+                    center_code: 1,
+                    ekhrid: 1
+                }
+            }
+        ]);
+        const totalRecords = await ProcurementCenter.countDocuments(matchQuery);
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: {
+                rows: records,
+                count: totalRecords,
+            },
+            message: _response_message.found("procurement centers")
+        }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+module.exports.getProcurementCenterTesting = async (req, res) => {
+    try {
+        // Fetch unique farmer IDs and jForm IDs from procurement records
+        const procurements = await eKharidHaryanaProcurementModel.aggregate([
+            {
+                $match: {
+                    "procurementDetails.mandiName": { $ne: null },
+                    // "procurementDetails.centerCreatedAt": null
+                }
+            },
+            {
+                $group: {
+                    _id: "$procurementDetails.mandiName",
+                    commisionAgentName: { $first: "$procurementDetails.commisionAgentName" }
+                }
+            },
+            {
+                $match: { _id: { $ne: null }, commisionAgentName: { $ne: null } }
+            },
+
+            {
+                $project: {
+                    _id: 0,
+                    mandiName: "$_id",
+                    commisionAgentName: 1
+                }
+            }
+        ]);
+
+
+        if (!procurements.length) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: "No valid mandi names or commission agent names found."
+            }));
+        }
+
+        const newCenters = [];
+
+        // Get the last center code and generate the next one
+        for (const procurement of procurements) {
+            const mandiName = procurement.mandiName;
+            const associateDetailsId = procurement.associateDetailsId;
+
+            // Check if the center exists
+            const existingCenter = await ProcurementCenter.findOne({ center_name: mandiName });
+            if (!existingCenter) {
+                // Insert a new center record if not found
+                newCenters.push({
+                    center_name: mandiName,
+                });
+            }
+        }
+        return res.send(new serviceResponse({
+            status: 200,
+            data: { newCenters, count: newCenters.length, },
+            message: _response_message.found("Procurement center uploaded successfully"),
+        }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+/*
 module.exports.associateFarmerList = async (req, res) => {
     const { associateName } = req.body;
     try {
+       
+        await eKharidHaryanaProcurementModel.createIndexes({ "procurementDetails.commisionAgentName": 1 });
 
         let query = {
             'procurementDetails.commisionAgentName': associateName,
@@ -459,7 +624,7 @@ module.exports.associateFarmerList = async (req, res) => {
                 { "procurementDetails.offerCreatedAt": { $exists: false } } // "procurementDetails.offerCreatedAt" does not exist
             ]
         };
-
+        console.log("query", query);
         const groupedData = await eKharidHaryanaProcurementModel.aggregate([
             {
                 $match: query // Match records based on the query
@@ -489,30 +654,30 @@ module.exports.associateFarmerList = async (req, res) => {
                     as: 'procurementCenter'
                 }
             },
-            {
-                $lookup: {
-                    from: "users",
-                    let: { organization_name: "$procurementDetails.commisionAgentName" },
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: { $eq: ["$basic_details.associate_details.organization_name", "$$organization_name"] }
-                            }
-                        },
-                        {
-                            $project: { _id: 1 } // Only fetch necessary fields
-                        }
-                    ],
-                    as: "userDetails"
-                }
-            },
+            // {
+            //     $lookup: {
+            //         from: "users",
+            //         let: { organization_name: "$procurementDetails.commisionAgentName" },
+            //         pipeline: [
+            //             {
+            //                 $match: {
+            //                     $expr: { $eq: ["$basic_details.associate_details.organization_name", "$$organization_name"] }
+            //                 }
+            //             },
+            //             {
+            //                 $project: { _id: 1 } // Only fetch necessary fields
+            //             }
+            //         ],
+            //         as: "userDetails"
+            //     }
+            // },
             {
                 $unwind: "$procurementCenter"
             },
             {
                 $group: {
-                    _id: "$procurementDetails.commisionAgentName",
-                    seller_id: { $first: "$userDetails._id" },
+                    _id: associateName,
+                    // seller_id: { $first: "$userDetails._id" },
                     farmer_data: {
                         $push: {
                             _id: { $arrayElemAt: ["$farmerDetails._id", 0] }, // Ensure single farmer details
@@ -537,11 +702,10 @@ module.exports.associateFarmerList = async (req, res) => {
                     }, // Count only valid farmers
                     qtyOffered: { $sum: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } } // Convert Qtl to MT
                 }
-            }
-            ,
-            {
-                $limit: 1 // Apply limit here
-            }
+            },
+            // {
+            //     $limit: 1 // Apply limit here
+            // }
         ]);
 
         return res.send(
@@ -555,6 +719,120 @@ module.exports.associateFarmerList = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+*/
+
+module.exports.associateFarmerList = async (req, res) => {
+    const { associateName } = req.body;
+    try {
+
+        await eKharidHaryanaProcurementModel.createIndexes({ "procurementDetails.commisionAgentName": 1 });
+
+        let query = {
+            'procurementDetails.commisionAgentName': associateName,
+            "warehouseData.jformID": { $exists: true },
+            "paymentDetails.jFormId": { $exists: true },
+            "procurementDetails.jformID": { $exists: true },
+            $or: [
+                { "procurementDetails.offerCreatedAt": null },
+                { "procurementDetails.offerCreatedAt": { $exists: false } }
+            ]
+        };
+
+        console.log("query", query);
+
+        const groupedData = await eKharidHaryanaProcurementModel.aggregate([
+            { $match: query }, // Apply match early
+
+            { $limit: 50 }, // Limit number of records to prevent overload
+
+            {
+                $lookup: {
+                    from: "farmers",
+                    let: { farmerId: { $toString: "$procurementDetails.farmerID" } },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: [{ $toString: "$external_farmer_id" }, "$$farmerId"] }
+                            }
+                        },
+                        {
+                            $project: { _id: 1 } // Select only necessary fields
+                        }
+                    ],
+                    as: "farmerDetails"
+                }
+            },
+            {
+                $lookup: {
+                    from: 'procurementcenters',
+                    localField: 'procurementDetails.mandiName',
+                    foreignField: 'center_name',
+                    as: 'procurementCenter'
+                }
+            },
+            { $unwind: "$procurementCenter" },
+            
+            {
+                $lookup: {
+                    from: "users",
+                    let: { organization_name: "$procurementDetails.commisionAgentName" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ["$basic_details.associate_details.organization_name", "$$organization_name"] }
+                            }
+                        },
+                        {
+                            $project: { _id: 1 } // Select only necessary fields
+                        }
+                    ],
+                    as: "userDetails"
+                }
+            },            
+
+            {
+                $group: {
+                    _id: "$procurementDetails.commisionAgentName",
+                    seller_id: { $first: "$userDetails._id" },
+                    farmer_data: {
+                        $push: {
+                            _id: { $arrayElemAt: ["$farmerDetails._id", 0] },
+                            qty: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] },
+                            gatePassID: "$procurementDetails.gatePassID",
+                            jformID: "$procurementDetails.jformID",
+                            jformDate: "$procurementDetails.jformDate",
+                            procurementId: "$procurementCenter._id",
+                        }
+                    },
+                    total_farmers: {
+                        $sum: {
+                            $cond: [{ $gt: [{ $arrayElemAt: ["$farmerDetails._id", 0] }, null] }, 1, 0]
+                        }
+                    },
+                    total_ekhrid_farmers: {
+                        $sum: {
+                            $cond: [{ $gt: ["$procurementDetails.farmerID", null] }, 1, 0]
+                        }
+                    },
+                    qtyOffered: { $sum: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } }
+                }
+            },
+
+            { $limit: 1 } // Keep final limit for efficiency
+        ]);
+
+        return res.send(
+            new serviceResponse({
+                status: 200,
+                data: groupedData,
+                message: _response_message.found("Associate farmer"),
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
 
 module.exports.createOfferOrder = async (req, res) => {
     try {
