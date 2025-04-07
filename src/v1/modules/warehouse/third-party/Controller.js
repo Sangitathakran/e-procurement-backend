@@ -134,7 +134,7 @@ module.exports.listExternalBatchList = async (req, res) => {
             records.rows = await ExternalBatch.find(query)
                 .populate({
                     path: "warehousedetails_id",
-                    select: "basicDetails.warehouseName",
+                    select: "basicDetails.warehouseName basicDetails.warehouseCapacity",
                 })
                 .sort(sortBy)
                 .skip(parseInt(skip))
@@ -148,7 +148,7 @@ module.exports.listExternalBatchList = async (req, res) => {
             records.rows = await ExternalBatch.find(query)
                 .populate({
                     path: "warehousedetails_id",
-                    select: "basicDetails.warehouseName",
+                    select: "basicDetails.warehouseName basicDetails.warehouseCapacity",
                 })
                 .sort(sortBy);
         }
@@ -684,14 +684,21 @@ module.exports.updateAgribidDetails = async (req, res) => {
                     continue;
                 }
             }
-
+            if (procuredQtyInQTL > capacityInQTL) {
+                errors.push({ message: "Procured quantity cannot be greater than capacity", item: update });
+                continue;
+            }
+            const wareHouseExists = await wareHouseDetails.findOne({'basicDetails.warehouseName' : warehouseName });
+           
+            const getWarehouseCapacity = wareHouseExists.basicDetails.warehouseCapacity;
+            
             const capacityInMT = capacityInQTL ? capacityInQTL * 0.1 : 0;
             const procuredQtyInMT = procuredQtyInQTL ? procuredQtyInQTL * 0.1 : 0;
             const dispatchQtyInMT = dispatchQtyInQTL ? dispatchQtyInQTL * 0.1 : 0;
             const remainingQtyInMT = remainingQtyInQTL ? remainingQtyInQTL * 0.1 : 0;
 
             const batchExists = await ExternalBatch.findById(external_batch_id);
-
+            // console.log('batchExists',batchExists);return false;
             if (!batchExists) {
                 errors.push({ message: "External Batch not found", item: update });
                 continue;
