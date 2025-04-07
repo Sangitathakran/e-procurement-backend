@@ -3481,10 +3481,11 @@ module.exports.proceedToPayPayment = async (req, res) => {
         $match: {
           batches: { $ne: [] },
           "batches.bo_approve_status": _paymentApproval.approved,
-          "batches.ho_approve_status": _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending },
+          "batches.ho_approve_status": _paymentApproval.approved,
+         // "batches.ho_approve_status": _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending },
           "batches.payment.payment_status": paymentStatusCondition || _paymentstatus.pending
         }
-      },
+      },     
       {
         $addFields: {
           qtyPurchased: {
@@ -3513,7 +3514,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           'branchDetails.branchName': 1,
           'branchDetails.branchId': 1,
           'sla.basic_details.name': 1,
-          'scheme.schemeName': 1
+          'scheme.schemeName': 1,
         }
       },
       { $skip: (page - 1) * limit },
@@ -3522,7 +3523,6 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
     let response = { count: 0 };
     response.rows = await RequestModel.aggregate(aggregationPipeline);
-
     const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
     response.count = countResult?.[0]?.count ?? 0;
 
