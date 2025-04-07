@@ -138,13 +138,20 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
     const password = generateRandomPassword();
 
     const hashedPassword = await bcryptjs.hash(password, 10);
+    let login_url;
 
-    const login_url = `${_frontendLoginRoutes.sla}`;
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local') {
+      login_url = `${_frontendLoginRoutes.slaDev}`;
+    } else {
+      login_url = `${_frontendLoginRoutes.slaProd}`;
+    }
+
     const emailPayload = {
       email: data.basic_details.email,
       user_name: data.basic_details.name,
       name: data.basic_details.name,
       password: password,
+
       login_url: login_url,
     };
 

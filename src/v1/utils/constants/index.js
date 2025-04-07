@@ -59,9 +59,9 @@ const _collectionName = {
     SLA: "SLA",
     commodityStandard: "commodityStandard",
     SchemeAssign: "SchemeAssign",
-    CCAvenueResponse:"CCAvenueResponse",
+    CCAvenueResponse: "CCAvenueResponse",
     PaymentLogsHistory: "PaymentLogsHistory",
-    eKharidHaryana : "ekharidprocurements"
+    eKharidHaryana: "ekharidprocurements"
 }
 
 const _userType_Feature_Collection = {
@@ -450,7 +450,8 @@ const _frontendLoginRoutes = {
     // agent: "/agent/sign-in",
     // ho: "/head-office/sign-in",
     // bo: "/branch-office/sign-in"
-    sla:"https://testing.sla.khetisauda.com/sla/sign-in",
+    slaDev: "https://testing.sla.khetisauda.com/sla/sign-in",
+    slaProd: "https://ep.navbazar.com/sla/sign-in",
     agent: "https://ep.navbazar.com/agent/sign-in",
     ho: "https://ep.navbazar.com/head-office/sign-in",
     bo: "https://ep.navbazar.com/branch-office/sign-in",
@@ -532,7 +533,7 @@ const _season = {
     Kharif: 'Kharif',
     Rabi: "Rabi",
     Zaid: 'Zaid',
-    Other:'Other'
+    Other: 'Other'
 }
 const _period = {
     currentYear: '2025',
@@ -557,22 +558,22 @@ const _schemeName = {
 }
 
 const _ccAvenuePaymentStatus = {
-    SUCCESS : "Success",
-    DECLINED : "Unsuccessful",
-    ABORTED_SYSTEM : "Aborted/ Transaction aborted by system",
-    ABORTED_BANK : "Aborted/ Transaction aborted at the bank end",
-    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
-    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
-    INITIATED : "Initiated",
-    AUTO_CANCELLED : "Auto-Cancelled",
-    AUTO_REVERSED : "Auto-Reversed",
-    AWAITED : "Awaited",
-    INVALID : "Invalid",
-    CANCELLED : "Cancelled",
-    SHIPPED : "Shipped",
-    TIMEOUT : "Timeout",
-    UNKNOWN : "Unknown",
-    FAILURE : "Failure"
+    SUCCESS: "Success",
+    DECLINED: "Unsuccessful",
+    ABORTED_SYSTEM: "Aborted/ Transaction aborted by system",
+    ABORTED_BANK: "Aborted/ Transaction aborted at the bank end",
+    ABORTED_CLIENT: "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    ABORTED_CLIENT: "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    INITIATED: "Initiated",
+    AUTO_CANCELLED: "Auto-Cancelled",
+    AUTO_REVERSED: "Auto-Reversed",
+    AWAITED: "Awaited",
+    INVALID: "Invalid",
+    CANCELLED: "Cancelled",
+    SHIPPED: "Shipped",
+    TIMEOUT: "Timeout",
+    UNKNOWN: "Unknown",
+    FAILURE: "Failure"
 }
 
 module.exports = {
