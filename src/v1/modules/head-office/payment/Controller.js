@@ -3533,7 +3533,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
             $sum: "$batches.goodsPrice"
           },
           approval_status: "Approved",
-          payment_status: payment_status || _paymentstatus.pending,         
+          payment_status: payment_status || _paymentstatus.pending,
           schemeName: {
             $concat: [
               "$scheme.schemeName", " ",
@@ -3541,7 +3541,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
               { $ifNull: ["$scheme.season", " "] }, " ",
               { $ifNull: ["$scheme.period", " "] },
             ],
-        },
+          },
 
         }
       },
@@ -3567,7 +3567,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
     let response = { count: 0 };
     response.rows = await RequestModel.aggregate(aggregationPipeline);
-console.log(aggregationPipeline);
+    console.log(aggregationPipeline);
     const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
     response.count = countResult?.[0]?.count ?? 0;
 
@@ -3673,6 +3673,15 @@ module.exports.proceedToPayBatchList = async (req, res) => {
         }
       },
       {
+        $lookup: {
+          from: 'warehousedetails',
+          localField: 'warehousedetails_id',
+          foreignField: '_id',
+          as: 'warehousedetails',
+        }
+      },
+
+      {
         $addFields: {
           qtyPurchased: {
             $reduce: {
@@ -3741,8 +3750,10 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           qtyPurchased: 1,
           amountProposed: 1,
           associateName: "$users.basic_details.associate_details.associate_name",
-          whrNo: "12345",
-          whrReciept: "whrReciept.jpg",
+          // whrNo: "12345",
+          // whrReciept: "whrReciept.jpg",
+          whrNo: "$warehousedetails.final_quality_check.whr_receipt",
+          whrReciept: "$warehousedetails.final_quality_check.product_images",
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
