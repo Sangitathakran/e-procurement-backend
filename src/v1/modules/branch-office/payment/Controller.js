@@ -386,7 +386,7 @@ module.exports.batchList = async (req, res) => {
         records.rows = paginate == 1 ? await Batch.find(query)
             .sort(sortBy)
             .skip(skip)
-            .select('_id batchId req_id delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status').populate(
+            .select('_id batchId req_id delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status final_quality_check').populate(
                 {
                     path: 'req_id', select: 'createdAt'
                 }
