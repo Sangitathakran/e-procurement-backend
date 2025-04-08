@@ -50,7 +50,8 @@ var ivBase64 = Buffer.from([
   0x0d, 0x0e, 0x0f,
 ]).toString("base64");
 
-const REDIRECT_URL = "https://api-testing-distiller.khetisauda.com/";
+const REDIRECT_URL =
+  "https://api-testing-distiller.khetisauda.com/v1/bank/payment-status ";
 
 module.exports.sendRequest = async (req, res) => {
   try {
