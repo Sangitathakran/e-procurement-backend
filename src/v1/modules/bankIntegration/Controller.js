@@ -98,6 +98,8 @@ module.exports.paymentStatus = async (req, res) => {
       cancel_url = "https://testing.distiller.khetisauda.com/distiller/myorders",
     } = responseParams;
 
+    var foundRec = [];
+
     if (paymentStatus === "Success") {
       if (paymentSection && paymentSection === "myorders") {
         const record = await BatchOrderProcess.findOne({ _id: order_id });
@@ -107,11 +109,15 @@ module.exports.paymentStatus = async (req, res) => {
         record.payment.date = Date.now();
         await record.save();
       } else if (paymentSection && paymentSection === "penalty") {
-        const record = await BatchOrderProcess.findOne({ _id: order_id }); 
+        const record = await BatchOrderProcess.findOne({ _id: order_id });
+        // console.log("====================================");
+        // console.log(record);
+        // console.log("====================================");
         const amountToBePaid = handleDecimal(amount);
         record.penaltyDetails.penaltypaymentStatus = _penaltypaymentStatus.paid;
         record.penaltyDetails.penaltyAmount = amountToBePaid;
         // record.payment.date = Date.now();
+        foundRec.push(record); // temp code
         await record.save();
       } else {
         const record = await PurchaseOrderModel.findOne({
@@ -130,12 +136,15 @@ module.exports.paymentStatus = async (req, res) => {
       }
     }
 
+    const extended = { ...responseParams, ["records"]: foundRec };
+
     await CCAvenueResponse.create({
       order_status: paymentStatus,
-      details: responseParams,
+      details: extended,
       order_id: orderNo,
       payment_method: payment_mode || _paymentmethod.bank_transfer,
-      payment_section: paymentSection || "purchase_order",
+      // payment_section: paymentSection || "purchase_order",
+      payment_section: "hard coded",
     });
 
     // Determine the frontend redirect URL
@@ -225,5 +234,22 @@ module.exports.paymentStatus = async (req, res) => {
   } catch (error) {
     console.error("Internal Error:", error);
     res.status(500).json({ error: "Internal Server Error", errorLog: error });
+  }
+};
+
+module.exports.decryptEncryption = async (req, res) => {
+  const { encResp } = req.body;
+  try {
+    if (!encResp)
+      return res.status(400).json({ error: "Missing encrypted response" });
+    // Decrypt the response
+    const decrypted = ccav.decrypt(encResp, keyBase64, ivBase64);
+    console.log("decryptedResponse==>", decrypted);
+    // Convert the response
+    const responseParams = Object.fromEntries(new URLSearchParams(decrypted));
+
+    res.status(200).json({ decrytedData: responseParams });
+  } catch (error) {
+    res.status(500).json({ error: error });
   }
 };
