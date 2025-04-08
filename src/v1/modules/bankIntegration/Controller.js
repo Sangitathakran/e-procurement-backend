@@ -28,7 +28,7 @@ const {
   MERCHANT_ID,
   ACCESS_CODE,
   WORKING_KEY,
-  REDIRECT_URL,
+  // REDIRECT_URL,
   PG_ENV,
   CANCEL_URL,
 } = process.env;
@@ -49,6 +49,8 @@ var ivBase64 = Buffer.from([
   0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c,
   0x0d, 0x0e, 0x0f,
 ]).toString("base64");
+
+const REDIRECT_URL = "https://api-testing-distiller.khetisauda.com/";
 
 module.exports.sendRequest = async (req, res) => {
   try {
@@ -136,15 +138,15 @@ module.exports.paymentStatus = async (req, res) => {
       }
     }
 
-    const extended = { ...responseParams, ["records"]: foundRec };
+    const extendedDetails = { ...responseParams, ["records"]: foundRec };
 
     await CCAvenueResponse.create({
       order_status: paymentStatus,
-      details: extended,
+      details: extendedDetails,
       order_id: orderNo,
       payment_method: payment_mode || _paymentmethod.bank_transfer,
-      // payment_section: paymentSection || "purchase_order",
-      payment_section: "hard coded",
+      payment_section: paymentSection || "purchase_order",
+      // payment_section: "hard coded",
     });
 
     // Determine the frontend redirect URL
