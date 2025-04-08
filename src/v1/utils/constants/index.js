@@ -61,7 +61,7 @@ const _collectionName = {
     SchemeAssign: "SchemeAssign",
     CCAvenueResponse:"CCAvenueResponse",
     PaymentLogsHistory: "PaymentLogsHistory",
-
+    eKharidHaryana : "ekharidprocurements"
 }
 
 const _userType_Feature_Collection = {
@@ -283,7 +283,8 @@ const _soilType = {
     Clayey: "clayey",
     Red_soil: "red_soil",
     Alkaline: "alkaline",
-    Other: "other"
+    Other: "other",
+    Brown_soil: "brown soil",
 }
 const _landType = {
     OwnLand: "own land",
