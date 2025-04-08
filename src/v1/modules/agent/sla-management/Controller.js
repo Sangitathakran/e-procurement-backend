@@ -794,6 +794,47 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
     // Use Mongoose's insertMany to insert multiple documents
     const records = await SchemeAssign.insertMany(recordsToInsert);
 
+    if (sla_id) {
+      const schemeIds = schemeData.map(item => item._id);
+    
+      // Fetch existing SLA document
+      const sla = await SLAManagement.findById(sla_id);
+    
+      if (!sla) {
+        return res.status(404).send(
+          new serviceResponse({
+            status: 404,
+            message: "SLA not found.",
+          })
+        );
+      }
+    
+      // Extract current saved values
+      const existingSchemes = sla.schemes?.scheme?.map(id => id.toString()) || [];
+      const incomingSchemes = schemeIds.map(id => id.toString());
+    
+      const existingCna = sla.schemes?.cna?.toString();
+      const existingBranch = sla.schemes?.branch?.toString();
+    
+      // Check if any differences
+      const hasSchemeChange = incomingSchemes.length !== existingSchemes.length ||
+        !incomingSchemes.every(id => existingSchemes.includes(id));
+      const hasCnaChange = cna_id.toString() !== existingCna;
+      const hasBranchChange = bo_id.toString() !== existingBranch;
+    
+      if (hasSchemeChange || hasCnaChange || hasBranchChange) {
+        await SLAManagement.updateOne(
+          { _id: sla_id },
+          {
+            $set: {
+              "schemes.scheme": schemeIds,
+              "schemes.cna": cna_id,
+              "schemes.branch": bo_id,
+            },
+          }
+        );
+      }
+    }
     return res.status(200).send(
       new serviceResponse({
         status: 200,
