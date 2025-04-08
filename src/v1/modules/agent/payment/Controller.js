@@ -37,10 +37,10 @@ module.exports.payment = async (req, res) => {
 
         // const paymentIds = (await Payment.find()).map(i => i.req_id)
 
-        console.log("userId", user_id);
+        //console.log("userId", user_id);
 
 
-        console.log("payment", paymentIds.length);
+       // console.log("payment", paymentIds.length);
 
         // const paymentIds = (await Payment.find()).map(i => i.req_id)
 
@@ -107,6 +107,31 @@ module.exports.payment = async (req, res) => {
                     "batches.agent_approve_status": approve_status == _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending }
                 }
             },
+
+
+            {
+                $match: {
+                  $expr: {
+                    $allElementsTrue: {
+                      $map: {
+                        input: "$batches",
+                        as: "batch",
+                        in: {
+                          $allElementsTrue: {
+                            $map: {
+                              input: "$$batch.payment",
+                              as: "pay",
+                              in: { $eq: ["$$pay.payment_status", "Approved"] }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },              
+
+              
             {
                 $addFields: {
                     approval_status: {
