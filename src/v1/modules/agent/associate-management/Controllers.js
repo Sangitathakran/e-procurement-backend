@@ -33,8 +33,8 @@ module.exports.getAssociates = async (req, res) => {
         const records = await User.aggregate([
             { $match: matchQuery },
             { $sort: sortBy }, // Sort by the provided field
-            // { $skip: skip }, 
-            // { $limit: parseInt(limit) }, 
+            { $skip: skip }, 
+            { $limit: parseInt(limit) }, 
 
             // Lookup to count associated farmers
             {
