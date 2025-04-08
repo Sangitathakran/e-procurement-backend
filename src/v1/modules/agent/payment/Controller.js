@@ -423,14 +423,8 @@ module.exports.batchList = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0, batch_status = "Pending" } = req.query
-        const { portalId, user_id } = req;
 
-        const paymentIds = await Payment.distinct("req_id", {
-            associateOffers_id: associateOffer_id,
-            sla_id: { $in: [portalId, user_id] },
-        });
-
-        // const paymentIds = (await Payment.find({ associateOffers_id: associateOffer_id })).map(i => i.batch_id)
+        const paymentIds = (await Payment.find({ associateOffers_id: associateOffer_id })).map(i => i.batch_id)
 
         let query = {
             _id: { $in: paymentIds },
@@ -488,45 +482,9 @@ module.exports.batchList = async (req, res) => {
             },
             {
                 $addFields: {
-                    qtyPurchased: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.qtyProcured'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
-                    amountProposed: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.bills.total'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
-                    amountPayable: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.bills.total'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
+                    amountPayable: "$totalPrice",
+                    qtyPurchased: "$qty",
+                    amountProposed: "$goodsPrice",
                     tags: {
                         $cond: {
                             if: { $in: ["$payment.payment_status", ["Failed", "Rejected"]] },
@@ -553,12 +511,14 @@ module.exports.batchList = async (req, res) => {
                     qtyPurchased: 1,
                     amountProposed: 1,
                     associateName: "$users.basic_details.associate_details.associate_name",
-                    whrNo: "$final_quality_check.whr_receipt",
-                    whrReciept: "$final_quality_check.whr_receipt_image",
+                    whrNo: "12345",
+                    whrReciept: "whrReciept.jpg",
                     deliveryDate: "$delivered.delivered_at",
                     procuredOn: "$requestDetails.createdAt",
                     tags: 1,
-                    approval_status: 1
+                    approval_status: 1,
+                    whrNo: "$final_quality_check.whr_receipt",
+                    whrReciept: "$final_quality_check.whr_receipt_image",
                 }
             },
 
