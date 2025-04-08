@@ -101,8 +101,6 @@ module.exports.paymentStatus = async (req, res) => {
       cancel_url = "https://testing.distiller.khetisauda.com/distiller/myorders",
     } = responseParams;
 
-    var foundRec = [];
-
     if (paymentStatus === "Success") {
       if (paymentSection && paymentSection === "myorders") {
         const record = await BatchOrderProcess.findOne({ _id: order_id });
@@ -113,14 +111,10 @@ module.exports.paymentStatus = async (req, res) => {
         await record.save();
       } else if (paymentSection && paymentSection === "penalty") {
         const record = await BatchOrderProcess.findOne({ _id: order_id });
-        // console.log("====================================");
-        // console.log(record);
-        // console.log("====================================");
         const amountToBePaid = handleDecimal(amount);
         record.penaltyDetails.penaltypaymentStatus = _penaltypaymentStatus.paid;
         record.penaltyDetails.penaltyAmount = amountToBePaid;
         // record.payment.date = Date.now();
-        foundRec.push(record); // temp code
         await record.save();
       } else {
         const record = await PurchaseOrderModel.findOne({
@@ -139,15 +133,12 @@ module.exports.paymentStatus = async (req, res) => {
       }
     }
 
-    const extendedDetails = { ...responseParams, ["records"]: foundRec };
-
     await CCAvenueResponse.create({
       order_status: paymentStatus,
-      details: extendedDetails,
+      details: responseParams,
       order_id: orderNo,
       payment_method: payment_mode || _paymentmethod.bank_transfer,
       payment_section: paymentSection || "purchase_order",
-      // payment_section: "hard coded",
     });
 
     // Determine the frontend redirect URL
