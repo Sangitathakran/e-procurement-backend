@@ -306,7 +306,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     {
       $match: {
         ...matchQuery,
-        "schemes.cna": userID,
+       "schemes.cna": { $in: [portalId, user_id] }
       },
     },
     { $count: "total" },
