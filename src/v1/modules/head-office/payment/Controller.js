@@ -3537,6 +3537,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           amountPaid: {
             $sum: "$batches.goodsPrice"
           },
+          approval_date: { $arrayElemAt:["$batches.payement_approval_at",0] },
           approval_status: "Approved",
           payment_status: payment_status || _paymentstatus.pending,
           schemeName: {
@@ -3564,6 +3565,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           'branchDetails.branchId': 1,
           'sla.basic_details.name': 1,
           'scheme.schemeName': "$schemeName",
+          'approval_date': 1,
         }
       },
       { $skip: (page - 1) * limit },
@@ -3763,7 +3765,8 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           tags: 1,
           approval_status: 1,
           payment_date: '$payment_at',
-          payment_status: "$payment.payment_status"
+          payment_status: "$payment.payment_status",
+          bankStatus: "$payment.payment_status",
         }
       },
       // Start of Sangita code
