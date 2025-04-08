@@ -8,7 +8,6 @@ slaRoute.post("/schemeAssign", schemeAssign);
 slaRoute.get("/getAssignedScheme", getAssignedScheme);
 slaRoute.get("/states", getUniqueStates);
 slaRoute.get("/filterOption", getUniqueHOBOScheme);
-
 slaRoute.post("/", createSLA);
 slaRoute.get("/", getSLAList);
 slaRoute.get("/:slaId", getSLAById);

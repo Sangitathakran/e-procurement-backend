@@ -51,6 +51,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
       "company_details.pan_image",
       "authorised.name",
       "authorised.designation",
+      "authorised.phone",
       "authorised.email",
       "authorised.aadhar_number",
       "authorised.aadhar_certificate.front",
@@ -481,7 +482,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const updateData = req.body;
-    const userID = req.user._i;
+    const userID = req.user._id;
 
     if (!slaId) {
       return res.status(400).json(
@@ -529,7 +530,6 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params; // Get SLA ID from URL params
-    const userID = req.user._id;
 
     if (!slaId) {
       return res.status(400).json(
@@ -541,17 +541,8 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
     }
 
     // Find SLA with selected fields
-    const sla = await SLAManagement.findOne(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
-      {
-        _id: 1,
-        slaId: 1,
-        "basic_details.name": 1,
-        associatOrder_id: 1,
-        address: 1,
-        status: 1,
-      }
-    );
+    const sla = await SLAManagement.findById(slaId);
+   
 
     if (!sla) {
       return res.status(404).json(
@@ -562,21 +553,11 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
       );
     }
 
-    // Transform response
-    const response = {
-      _id: sla._id,
-      slaId: sla.slaId,
-      sla_name: sla.basic_details.name,
-      accociate_count: sla.associatOrder_id.length,
-      address: `${sla.address.line1}, ${sla.address.city}, ${sla.address.state}, ${sla.address.country}`,
-      status: sla.status,
-    };
-
     return res.status(200).json(
       new serviceResponse({
         status: 200,
         message: "SLA record retrieved successfully",
-        data: response,
+        data: sla,
       })
     );
   } catch (error) {
@@ -589,6 +570,8 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
     );
   }
 });
+
+
 
 module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
   try {
