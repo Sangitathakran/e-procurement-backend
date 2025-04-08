@@ -225,8 +225,10 @@ module.exports.createBatch = async (req, res) => {
                         ho_approve_status: _paymentApproval.approved,
                         ho_approval_at: new Date(),
                         status: _batchStatus.intransit,
+                        'final_quality_check.status': "Approved",
                         "final_quality_check.whr_receipt": farmer.gatePassId,
                         'intransit.no_of_bags':farmer.noOfBags,
+
                        //Neeraj Code start
                         'intransit.driver.name':farmer.driverName,
                         'intransit.transport.service_name':farmer.transporterName,
