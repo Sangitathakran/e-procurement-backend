@@ -126,13 +126,21 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
   const { portalId, user_id } = req;
 
+  
+const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
+
+
+
+  
+
 
 
   if (bo_id || scheme_id) {
     let matchQuery = {
       sla_id: { $exists: true },
       deletedAt: null,
-      "schemes.cna": { $in: [portalId, user_id] }
+      "schemes.cna": { $in: [portalObjectId, userObjectId] }
     };
     if (bo_id) matchQuery.bo_id = new ObjectId(bo_id);
 
@@ -260,7 +268,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     {
       $match: {
         ...matchQuery,
-       "schemes.cna": { $in: [portalId, user_id] }
+       "schemes.cna": { $in: [portalObjectId, userObjectId] }
       },
     },
     //   { $match: matchQuery },
@@ -307,7 +315,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     {
       $match: {
         ...matchQuery,
-       "schemes.cna": { $in: [portalId, user_id] }
+       "schemes.cna": { $in: [portalObjectId, userObjectId] }
       },
     },
     { $count: "total" },
