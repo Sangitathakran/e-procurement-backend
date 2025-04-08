@@ -123,13 +123,15 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     state,
   } = req.query;
 
-  const userID = req.user._id;
+  const { portalId, user_id } = req;
+
+
 
   if (bo_id || scheme_id) {
     let matchQuery = {
       sla_id: { $exists: true },
       deletedAt: null,
-      "schemes.cna": userID,
+      "schemes.cna": { $in: [portalId, user_id] }
     };
     if (bo_id) matchQuery.bo_id = new ObjectId(bo_id);
 
@@ -242,13 +244,13 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
   let matchQuery = search
     ? {
-        $or: [
-          { "basic_details.name": { $regex: search, $options: "i" } },
-          { "basic_details.email": { $regex: search, $options: "i" } },
-          { "basic_details.mobile": { $regex: search, $options: "i" } },
-        ],
-        deletedAt: null,
-      }
+      $or: [
+        { "basic_details.name": { $regex: search, $options: "i" } },
+        { "basic_details.email": { $regex: search, $options: "i" } },
+        { "basic_details.mobile": { $regex: search, $options: "i" } },
+      ],
+      deletedAt: null,
+    }
     : { deletedAt: null };
 
   if (state) matchQuery["address.state"] = { $regex: state, $options: "i" };
@@ -257,7 +259,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     {
       $match: {
         ...matchQuery,
-        "schemes.cna": userID,
+       "schemes.cna": { $in: [portalId, user_id] }
       },
     },
     //   { $match: matchQuery },
@@ -723,6 +725,48 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 
     // Use Mongoose's insertMany to insert multiple documents
     const records = await SchemeAssign.insertMany(recordsToInsert);
+
+    if (sla_id) {
+      const schemeIds = schemeData.map(item => item._id);
+
+      // Fetch existing SLA document
+      const sla = await SLAManagement.findById(sla_id);
+
+      if (!sla) {
+        return res.status(404).send(
+          new serviceResponse({
+            status: 404,
+            message: "SLA not found.",
+          })
+        );
+      }
+
+      // Extract current saved values
+      const existingSchemes = sla.schemes?.scheme?.map(id => id.toString()) || [];
+      const incomingSchemes = schemeIds.map(id => id.toString());
+
+      const existingCna = sla.schemes?.cna?.toString();
+      const existingBranch = sla.schemes?.branch?.toString();
+
+      // Check if any differences
+      const hasSchemeChange = incomingSchemes.length !== existingSchemes.length ||
+        !incomingSchemes.every(id => existingSchemes.includes(id));
+      const hasCnaChange = cna_id.toString() !== existingCna;
+      const hasBranchChange = bo_id.toString() !== existingBranch;
+
+      if (hasSchemeChange || hasCnaChange || hasBranchChange) {
+        await SLAManagement.updateOne(
+          { _id: sla_id },
+          {
+            $set: {
+              "schemes.scheme": schemeIds,
+              "schemes.cna": cna_id,
+              "schemes.branch": bo_id,
+            },
+          }
+        );
+      }
+    }
 
     return res.status(200).send(
       new serviceResponse({
