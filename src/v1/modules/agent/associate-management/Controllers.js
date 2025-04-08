@@ -33,8 +33,8 @@ module.exports.getAssociates = async (req, res) => {
         const records = await User.aggregate([
             { $match: matchQuery },
             { $sort: sortBy }, // Sort by the provided field
-            // { $skip: skip }, 
-            // { $limit: parseInt(limit) }, 
+            { $skip: skip }, 
+            { $limit: parseInt(limit) }, 
 
             // Lookup to count associated farmers
             {
@@ -476,8 +476,11 @@ module.exports.bulkuplodAssociate = async (req, res) => {
                         is_mobile_verified: true,
                         is_email_verified: false,
                         is_approved: _userStatus.approved,
-                        is_form_submitted: false,
-                        active: true
+                        is_form_submitted: true,
+                        active: true,
+                        is_welcome_email_send: "true",
+                        is_sms_send: "true",
+                        term_condition: "true"
                     });
                     await newAssociate.save();
                 }
@@ -513,6 +516,155 @@ module.exports.bulkuplodAssociate = async (req, res) => {
             });
         }
 
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+
+module.exports.associateNorthEastBulkuplod = async (req, res) => {
+    try {
+        const { isxlsx = 1 } = req.body;
+        const [file] = req.files;
+        if (!file) {
+            return res.status(400).json({
+                message: _response_message.notFound("file"),
+                status: 400
+            });
+        }
+        let Associates = [];
+        let headers = [];
+        if (isxlsx) {
+            const workbook = xlsx.read(file.buffer, { type: 'buffer' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            Associates = xlsx.utils.sheet_to_json(worksheet);
+            // console.log(Associates); return false;
+            headers = Object.keys(Associates[0]);
+        } else {
+            const csvContent = file.buffer.toString('utf8');
+            const lines = csvContent.split('\n');
+            headers = lines[0].trim().split(',');
+            const dataContent = lines.slice(1).join('\n');
+            const parser = csv({ headers });
+            const readableStream = Readable.from(dataContent);
+            readableStream.pipe(parser);
+            parser.on('data', async (data) => {
+                if (Object.values(data).some(val => val !== '')) {
+                    const result = await processFarmerRecord(data);
+                    if (!result.success) {
+                        errorArray = errorArray.concat(result.errors);
+                    }
+                }
+            });
+            parser.on('end', () => {
+                console.log("Stream end");
+            });
+            parser.on('error', (err) => {
+                console.log("Stream error", err);
+            });
+        }
+        let errorArray = [];
+        const procesAssociateRecord = async (rec) => {
+            const associate_type = rec["Associate Type"];
+            const email = rec["Email ID"];
+            const mobile_no = rec["Mobile No."];
+            const associate_name = rec["Associate Name"];
+            const state = rec["State"];
+            const district = rec["District"];
+            const country = rec["Country"];
+            const taluka = rec["City"];
+            const pinCode = rec["Pin Code"];
+            const gst_no = rec["GST No."];
+            const pan_card = rec["Pan number"];
+            const cin_number = rec["Cin Number"];
+            const poc = rec["POC"];
+            const aadhar_number = rec["Aadhar number"];
+            let errors = [];
+            let missingFields = [];
+            if (!mobile_no) {
+                missingFields.push("Mobile No.");
+            }
+            if (missingFields.length > 0) {
+                errors.push({ record: rec, error: `Required fields missing: ${missingFields.join(', ')}` });
+            }
+            if (!/^\d{10}$/.test(mobile_no)) {
+                errors.push({ record: rec, error: "Invalid Mobile Number" });
+            }
+            // if (!/^\d{6,40}$/.test(account_number)) {
+            //     errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 18 digits." });
+            // }
+            if (errors.length > 0) return { success: false, errors };
+            try {
+                let existingRecord = await User.findOne({ 'basic_details.associate_details.phone': mobile_no });
+                if (existingRecord) {
+                    return { success: false, errors: [{ record: rec, error: `Associate with Mobile No. ${mobile_no} already registered.` }] };
+                } else {
+                    const newUser = new User({
+                        client_id: '9876',
+                        basic_details: {
+                            associate_details: {
+                                phone: mobile_no,
+                                associate_type: "Organisation",
+                                email,
+                                organization_name: associate_name,
+                            },
+                            point_of_contact: {
+                                name: poc,
+                            },
+                        },
+                        address: {
+                            registered: {
+                                country: "INDIA",
+                                state,
+                                district,
+                                taluka,
+                                pinCode,
+                            }
+                        },
+                        company_details: {
+                            cin_number,
+                            gst_no,
+                            pan_card,
+                            aadhar_number,
+                        },
+                        user_type: _userType.associate,
+                        is_mobile_verified: true,
+                        is_approved: 'approved',
+                        is_form_submitted: true,
+                        is_welcome_email_send: true,
+                        term_condition: true,
+                        active: true,
+                        is_sms_send: true,
+                    });
+                    await newUser.save();
+                }
+            } catch (error) {
+                console.log(error);
+                errors.push({ record: rec, error: error.message });
+            }
+            return { success: errors.length === 0, errors };
+        };
+        for (const Associate of Associates) {
+            const result = await procesAssociateRecord(Associate);
+            if (!result.success) {
+                errorArray = errorArray.concat(result.errors);
+            }
+        }
+        if (errorArray.length > 0) {
+            const errorData = errorArray.map(err => ({ ...err.record, Error: err.error }));
+            dumpJSONToExcel(req, res, {
+                data: errorData,
+                fileName: `associate-error_records.xlsx`,
+                worksheetName: `associate-record-error_records`
+            });
+        } else {
+            return res.status(200).json({
+                status: 200,
+                data: {},
+                message: "Associate successfully uploaded."
+            });
+        }
     } catch (error) {
         _handleCatchErrors(error, res);
     }
