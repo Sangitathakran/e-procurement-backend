@@ -2328,12 +2328,7 @@ module.exports.proceedToPayBatchList = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, req_id, payment_status, isExport = 0 } = req.query
 
-        const { portalId, user_id } = req;
-
-        const paymentIds = await Payment.distinct("req_id", {
-            sla_id: { $in: [portalId, user_id] },
-        });
-        // const paymentIds = (await Payment.find({ req_id })).map(i => i.batch_id);
+        const paymentIds = (await Payment.find({ req_id })).map(i => i.batch_id);
 
         let query = {
             _id: { $in: paymentIds },
@@ -2412,45 +2407,48 @@ module.exports.proceedToPayBatchList = async (req, res) => {
             },
             {
                 $addFields: {
-                    qtyPurchased: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.qtyProcured'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
-                    amountProposed: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.bills.total'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
-                    amountPayable: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.bills.total'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
+                    // qtyPurchased: {
+                    //     $reduce: {
+                    //         input: {
+                    //             $map: {
+                    //                 input: '$invoice',
+                    //                 as: 'inv',
+                    //                 in: '$$inv.qtyProcured'
+                    //             }
+                    //         },
+                    //         initialValue: 0,
+                    //         in: { $add: ['$$value', '$$this'] }
+                    //     }
+                    // },
+                    // amountProposed: {
+                    //     $reduce: {
+                    //         input: {
+                    //             $map: {
+                    //                 input: '$invoice',
+                    //                 as: 'inv',
+                    //                 in: '$$inv.bills.total'
+                    //             }
+                    //         },
+                    //         initialValue: 0,
+                    //         in: { $add: ['$$value', '$$this'] }
+                    //     }
+                    // },
+                    // amountPayable: {
+                    //     $reduce: {
+                    //         input: {
+                    //             $map: {
+                    //                 input: '$invoice',
+                    //                 as: 'inv',
+                    //                 in: '$$inv.bills.total'
+                    //             }
+                    //         },
+                    //         initialValue: 0,
+                    //         in: { $add: ['$$value', '$$this'] }
+                    //     }
+                    // },
+                    amountPayable: "$totalPrice",
+                    qtyPurchased: "$qty",
+                    amountProposed: "$goodsPrice",
                     tags: {
                         $cond: {
                             if: { $in: ["$payment.payment_status", ["Failed", "Rejected"]] },
