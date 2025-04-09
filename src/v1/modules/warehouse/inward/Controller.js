@@ -1469,3 +1469,51 @@ module.exports.listExternalBatchList = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.whrReceiptImageUpdate = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId } = req.params;
+        const { whr_receipt_image } = req.body;
+
+        if (!batchId) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "Batch ID is required"
+            }));
+        }
+
+        if (!whr_receipt_image) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "whr_receipt is required"
+            }));
+        }
+
+        // Find and update the whr_receipt field in final_quality_check
+        const updatedBatch = await Batch.findOneAndUpdate(
+            { $or: [{ batchId }, { _id: batchId }] },
+            { $set: { "final_quality_check.whr_receipt_image": whr_receipt_image } },
+            { new: true, runValidators: true } // Return updated doc
+        );
+
+        if (!updatedBatch) {
+            return res.status(404).json(new serviceResponse({
+                status: 404,
+                message: "Batch not found"
+            }));
+        }
+
+        return res.status(200).json(new serviceResponse({
+            status: 200,
+            message: "WHR Receipt Image updated successfully",
+            data: updatedBatch
+        }));
+
+    } catch (error) {
+        console.error("Error updating WHR Receipt:", error);
+        return res.status(500).json(new serviceResponse({
+            status: 500,
+            error: "Internal Server Error"
+        }));
+    }
+});
