@@ -276,7 +276,7 @@ module.exports.addFarmers = async (req, res) => {
                 $match: {
                     // "procurementDetails.commisionAgentName":"HAFED",
                     // "procurementDetails.commisionAgentName":"SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD",
-                    // "procurementDetails.commisionAgentName":"FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY",
+                    "procurementDetails.commisionAgentName": "FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY",
                     "procurementDetails.farmerID": { $ne: null }, // Ensure farmerID is not null
                     // "procurementDetails.offerCreatedAt": null
                     $or: [
@@ -364,7 +364,7 @@ module.exports.addProcurementCenter = async (req, res) => {
             {
                 $match: {
                     // "procurementDetails.commisionAgentName":"SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD",
-                    // "procurementDetails.commisionAgentName":"FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY",
+                    "procurementDetails.commisionAgentName": "FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY",
                     // "procurementDetails.commisionAgentName":"HAFED",
                     "procurementDetails.mandiName": { $ne: null },
                     // "procurementDetails.centerCreatedAt": null
@@ -654,23 +654,23 @@ module.exports.associateFarmerList = async (req, res) => {
                     as: 'procurementCenter'
                 }
             },
-            // {
-            //     $lookup: {
-            //         from: "users",
-            //         let: { organization_name: "$procurementDetails.commisionAgentName" },
-            //         pipeline: [
-            //             {
-            //                 $match: {
-            //                     $expr: { $eq: ["$basic_details.associate_details.organization_name", "$$organization_name"] }
-            //                 }
-            //             },
-            //             {
-            //                 $project: { _id: 1 } // Only fetch necessary fields
-            //             }
-            //         ],
-            //         as: "userDetails"
-            //     }
-            // },
+            {
+                $lookup: {
+                    from: "users",
+                    let: { organization_name: "$procurementDetails.commisionAgentName" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ["$basic_details.associate_details.organization_name", "$$organization_name"] }
+                            }
+                        },
+                        {
+                            $project: { _id: 1 } // Only fetch necessary fields
+                        }
+                    ],
+                    as: "userDetails"
+                }
+            },
             {
                 $unwind: "$procurementCenter"
             },
@@ -721,13 +721,24 @@ module.exports.associateFarmerList = async (req, res) => {
 };
 */
 
+
+//////////////////////////////////////////////////////////////////////
+
 module.exports.associateFarmerList = async (req, res) => {
     const { associateName } = req.body;
+
     try {
+        // Ensure critical index exists once (this doesn't need to run every request)
 
-        await eKharidHaryanaProcurementModel.createIndexes({ "procurementDetails.commisionAgentName": 1 });
-
-        let query = {
+        await eKharidHaryanaProcurementModel.createIndexes({
+            "procurementDetails.commisionAgentName": 1,
+            "procurementDetails.farmerID": 1
+        });
+        await farmer.createIndexes({
+            "external_farmer_id": 1
+        });
+        // Match filter
+        const query = {
             'procurementDetails.commisionAgentName': associateName,
             "warehouseData.jformID": { $exists: true },
             "paymentDetails.jFormId": { $exists: true },
@@ -738,12 +749,10 @@ module.exports.associateFarmerList = async (req, res) => {
             ]
         };
 
-        console.log("query", query);
-
+        // Aggregation pipeline
         const groupedData = await eKharidHaryanaProcurementModel.aggregate([
-            { $match: query }, // Apply match early
-
-            { $limit: 50 }, // Limit number of records to prevent overload
+            { $match: query },
+            { $limit: 50 }, // Reduce to a manageable number to improve performance
 
             {
                 $lookup: {
@@ -752,26 +761,33 @@ module.exports.associateFarmerList = async (req, res) => {
                     pipeline: [
                         {
                             $match: {
-                                $expr: { $eq: [{ $toString: "$external_farmer_id" }, "$$farmerId"] }
+                                $expr: {
+                                    $eq: [{ $toString: "$external_farmer_id" }, "$$farmerId"]
+                                }
                             }
                         },
                         {
-                            $project: { _id: 1 } // Select only necessary fields
+                            $project: {
+                                _id: 1,
+                                external_farmer_id: 1
+                            }
                         }
                     ],
                     as: "farmerDetails"
                 }
             },
+
             {
                 $lookup: {
-                    from: 'procurementcenters',
-                    localField: 'procurementDetails.mandiName',
-                    foreignField: 'center_name',
-                    as: 'procurementCenter'
+                    from: "procurementcenters",
+                    localField: "procurementDetails.mandiName",
+                    foreignField: "center_name",
+                    pipeline: [{ $project: { _id: 1 } }],
+                    as: "procurementCenter"
                 }
             },
             { $unwind: "$procurementCenter" },
-            
+
             {
                 $lookup: {
                     from: "users",
@@ -779,34 +795,53 @@ module.exports.associateFarmerList = async (req, res) => {
                     pipeline: [
                         {
                             $match: {
-                                $expr: { $eq: ["$basic_details.associate_details.organization_name", "$$organization_name"] }
+                                $expr: {
+                                    $eq: ["$basic_details.associate_details.organization_name", "$$organization_name"]
+                                }
                             }
                         },
-                        {
-                            $project: { _id: 1 } // Select only necessary fields
-                        }
+                        { $project: { _id: 1 } }
                     ],
                     as: "userDetails"
                 }
-            },            
-
+            },
             {
                 $group: {
                     _id: "$procurementDetails.commisionAgentName",
-                    seller_id: { $first: "$userDetails._id" },
+                    seller_id: { $first: { $arrayElemAt: ["$userDetails._id", 0] } },
                     farmer_data: {
                         $push: {
-                            _id: { $arrayElemAt: ["$farmerDetails._id", 0] },
+                            _id: {
+                                $let: {
+                                    vars: { farmerObj: { $arrayElemAt: ["$farmerDetails", 0] } },
+                                    in: "$$farmerObj._id"
+                                }
+                            },
+                            // farmer_id: "$farmerDetails._id",
                             qty: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] },
                             gatePassID: "$procurementDetails.gatePassID",
                             jformID: "$procurementDetails.jformID",
                             jformDate: "$procurementDetails.jformDate",
-                            procurementId: "$procurementCenter._id",
+                            procurementId: "$procurementCenter._id"
                         }
                     },
                     total_farmers: {
                         $sum: {
-                            $cond: [{ $gt: [{ $arrayElemAt: ["$farmerDetails._id", 0] }, null] }, 1, 0]
+                            $cond: [
+                                {
+                                    $gt: [
+                                        {
+                                            $let: {
+                                                vars: { farmerObj: { $arrayElemAt: ["$farmerDetails", 0] } },
+                                                in: "$$farmerObj._id"
+                                            }
+                                        },
+                                        null
+                                    ]
+                                },
+                                1,
+                                0
+                            ]
                         }
                     },
                     total_ekhrid_farmers: {
@@ -814,12 +849,15 @@ module.exports.associateFarmerList = async (req, res) => {
                             $cond: [{ $gt: ["$procurementDetails.farmerID", null] }, 1, 0]
                         }
                     },
-                    qtyOffered: { $sum: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] } }
+                    qtyOffered: {
+                        $sum: { $divide: ["$procurementDetails.gatePassWeightQtl", 10] }
+                    }
                 }
             },
-
-            { $limit: 1 } // Keep final limit for efficiency
-        ]);
+            { $limit: 1 }
+        ])
+            .option({ allowDiskUse: true }) // Helps if sorting/lookup gets heavy
+            .exec();
 
         return res.send(
             new serviceResponse({

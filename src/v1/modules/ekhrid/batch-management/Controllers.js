@@ -140,10 +140,6 @@ module.exports.getWarehouseTesting = async (req, res) => {
 };
 
 
-
-
-
-
 module.exports.createBatch = async (req, res) => {
     try {
         const { req_id, truck_capacity, farmerData = [], seller_id } = req.body;
