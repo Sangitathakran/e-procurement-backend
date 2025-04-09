@@ -6,6 +6,7 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { _userType, _paymentApproval, _batchStatus, _associateOfferStatus, _paymentstatus } = require('@src/v1/utils/constants');
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
+const {wareHouseDetails} = require("@src/v1/models/app/warehouse/warehouseDetailsSchema")
 const mongoose = require("mongoose");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
@@ -283,11 +284,23 @@ module.exports.associateOrders = async (req, res) => {
 
         const records = { count: 0 };
 
-        console.log("query", query);
+        // console.log("query", query);
 
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+    
+      const reqDetailsObj = records.reqDetails.toObject();
+    
+    if (reqDetailsObj?.address?.deliveryLocation && mongoose.Types.ObjectId.isValid(reqDetailsObj.address.deliveryLocation)) {
+        const warehouse = await wareHouseDetails.findById(reqDetailsObj.address.deliveryLocation)
+            .select({ "basicDetails.warehouseName": 1 });
 
+        if (warehouse && warehouse.basicDetails?.warehouseName) {
+            const warehouse_name = warehouse.basicDetails.warehouseName
+            records.warehouseName = warehouse_name
+        } 
+    }
+    
         records.rows = paginate == 1 ? await AssociateOffers.find(query)
             .populate({
                 path: "seller_id",
