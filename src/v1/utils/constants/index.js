@@ -61,7 +61,7 @@ const _collectionName = {
     SchemeAssign: "SchemeAssign",
     CCAvenueResponse:"CCAvenueResponse",
     PaymentLogsHistory: "PaymentLogsHistory",
-
+    eKharidHaryana : "ekharidprocurements"
 }
 
 const _userType_Feature_Collection = {
@@ -283,7 +283,8 @@ const _soilType = {
     Clayey: "clayey",
     Red_soil: "red_soil",
     Alkaline: "alkaline",
-    Other: "other"
+    Other: "other",
+    Brown_soil: "brown soil",
 }
 const _landType = {
     OwnLand: "own land",
@@ -452,7 +453,8 @@ const _frontendLoginRoutes = {
     agent: "https://ep.navbazar.com/agent/sign-in",
     ho: "https://ep.navbazar.com/head-office/sign-in",
     bo: "https://ep.navbazar.com/branch-office/sign-in",
-    nccf: "https://ep.navbazar.com/nccf/sign-in"
+    nccf: "https://ep.navbazar.com/nccf/sign-in",
+    sla: "https://sla.khetisauda.com/sla/sign-in",
 }
 
 const _userTypeFrontendRouteMapping = {

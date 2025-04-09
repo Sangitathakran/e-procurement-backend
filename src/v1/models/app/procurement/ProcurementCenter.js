@@ -32,6 +32,7 @@ const ProcurementCenterSchema = new mongoose.Schema({
     addressType: { type: String, enum: Object.values(_address_type), default: _address_type.Residential },
     isPrimary: {type: Boolean, default: false },
     active: {type: Boolean,default: true},
+    ekhrid:{ type: Boolean, default: false },
     ..._commonKeys
 }, { timestamps: true });
 
