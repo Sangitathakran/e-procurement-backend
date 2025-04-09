@@ -2384,45 +2384,48 @@ module.exports.proceedToPayBatchList = async (req, res) => {
             },
             {
                 $addFields: {
-                    qtyPurchased: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.qtyProcured'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
-                    amountProposed: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.bills.total'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
-                    amountPayable: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.bills.total'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
+                    // qtyPurchased: {
+                    //     $reduce: {
+                    //         input: {
+                    //             $map: {
+                    //                 input: '$invoice',
+                    //                 as: 'inv',
+                    //                 in: '$$inv.qtyProcured'
+                    //             }
+                    //         },
+                    //         initialValue: 0,
+                    //         in: { $add: ['$$value', '$$this'] }
+                    //     }
+                    // },
+                    // amountProposed: {
+                    //     $reduce: {
+                    //         input: {
+                    //             $map: {
+                    //                 input: '$invoice',
+                    //                 as: 'inv',
+                    //                 in: '$$inv.bills.total'
+                    //             }
+                    //         },
+                    //         initialValue: 0,
+                    //         in: { $add: ['$$value', '$$this'] }
+                    //     }
+                    // },
+                    // amountPayable: {
+                    //     $reduce: {
+                    //         input: {
+                    //             $map: {
+                    //                 input: '$invoice',
+                    //                 as: 'inv',
+                    //                 in: '$$inv.bills.total'
+                    //             }
+                    //         },
+                    //         initialValue: 0,
+                    //         in: { $add: ['$$value', '$$this'] }
+                    //     }
+                    // },
+                    amountPayable: "$totalPrice",
+                    qtyPurchased: "$qty",
+                    amountProposed: "$goodsPrice",
                     tags: {
                         $cond: {
                             if: { $in: ["$payment.payment_status", ["Failed", "Rejected"]] },
@@ -2449,8 +2452,9 @@ module.exports.proceedToPayBatchList = async (req, res) => {
                     qtyPurchased: 1,
                     amountProposed: 1,
                     associateName: "$users.basic_details.associate_details.associate_name",
-                    whrNo: "12345",
-                    whrReciept: "whrReciept.jpg",
+                    organizationName: "$users.basic_details.associate_details.organization_name",
+                    whrNo: "$final_quality_check.whr_receipt",
+                    whrReciept: "$final_quality_check.whr_receipt_image",
                     deliveryDate: "$delivered.delivered_at",
                     procuredOn: "$requestDetails.createdAt",
                     tags: 1,
