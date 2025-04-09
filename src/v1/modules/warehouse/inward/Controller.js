@@ -179,16 +179,14 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                     as: 'req_id'
                 }
             },
-
             { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
             { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
             { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
             { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
             {
                 $match: {
-                   "warehousedetails_id._id": { $in: finalwarehouseIds },
-                   ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
-                 
+                    "warehousedetails_id._id": { $in: finalwarehouseIds },
+                    ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
                     wareHouse_approve_status: 'Received',
                     ...(search && searchRegex && {
                         $or: [
@@ -199,12 +197,17 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                             { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
                         ]
                     }),
-                    ...(status && {
-                        "final_quality_check.status": status  // This checks the status field for exact match
-                    }),
-                    ...(productName && { "req_id.product.name": productName})//{ $regex: new RegExp(productName, 'i') } })  // If productName is provided
+                    ...(status && { "final_quality_check.status": status }),
+                    ...(productName && { "req_id.product.name": productName })
                 }
             },
+            {
+                $group: {
+                    _id: "$batchId",
+                    doc: { $first: "$$ROOT" }
+                }
+            },
+            { $replaceRoot: { newRoot: "$doc" } },
             {
                 $project: {
                     batchId: 1,
@@ -212,18 +215,16 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                     received_on: 1,
                     qc_report: 1,
                     wareHouse_code: 1,
-                    //status: 1,
                     commodity: 1,
-                    "final_quality_check.status":1,
-                    "final_quality_check.product_images":1,
-                    "final_quality_check.qc_images":1,
-                    "final_quality_check.rejected_reason":1,
-                    "final_quality_check.whr_receipt":1,
-                    "final_quality_check.whr_receipt_image":1,
-                    
-                    "req_id.product.name":1,
-                    "req_id._id":1,
-                    "req_id.deliveryDate":1,
+                    "final_quality_check.status": 1,
+                    "final_quality_check.product_images": 1,
+                    "final_quality_check.qc_images": 1,
+                    "final_quality_check.rejected_reason": 1,
+                    "final_quality_check.whr_receipt": 1,
+                    "final_quality_check.whr_receipt_image": 1,
+                    "req_id.product.name": 1,
+                    "req_id._id": 1,
+                    "req_id.deliveryDate": 1,
                     "receiving_details.received_on": 1,
                     "receiving_details.vehicle_details": 1,
                     "receiving_details.document_pictures": 1,
@@ -231,7 +232,6 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                     "receiving_details.no_of_bags": 1,
                     "receiving_details.quantity_received": 1,
                     "receiving_details.truck_photo": 1,
-                    "final_quality_check.whr_receipt": 1,
                     "warehousedetails_id.basicDetails.warehouseName": 1,
                     "warehousedetails_id.wareHouse_code": 1,
                     "warehousedetails_id._id": 1,
