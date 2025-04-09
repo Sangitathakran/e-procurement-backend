@@ -54,8 +54,12 @@ const _collectionName = {
     TrackOrder : "TrackOrder",
     Truck : "Truck",
     ExternalBatch : "ExternalBatch",
-    ExternalOrder : "ExternalOrder"
-
+    ExternalOrder : "ExternalOrder",
+    Scheme: "Scheme",
+    commodityStandard:"commodityStandard",
+    SchemeAssign: "SchemeAssign",
+    ClientToken : "ClientToken",
+    CCAvenueResponse:"CCAvenueResponse",
 }
 
 const _userType_Feature_Collection = {
@@ -75,7 +79,8 @@ const _featureType = {
     headOffice: "HeadOffice",
     agency: "Agency",
     associate: "Associate",
-    distiller: "Distiller"
+    distiller: "Distiller",
+    warehouse: "Warehouse"
 }
 
 const _status = {
@@ -505,6 +510,57 @@ const _penaltypaymentStatus = {
     overdue: 'Overdue',
     waiveOff: 'Waive Off',
 }
+const _commodityType = {
+    grade: 'Grade',
+    quality: "Quality"
+}
+const _gradeType = {
+    gradeA: 'Grade A',
+    gradeB: 'Grade B',
+    gradeC: 'Grade C',
+}
+const _qualityType = {
+    poor: 'Poor',
+    average: "Average",
+    good:'Good'
+}
+
+const _season = {
+    Kharif: 'Kharif',
+    Rabi: "Rabi",
+    Zaid:'Zaid'
+}
+const _period = {
+    currentYear: '2025',
+    previourYear: "2024",
+    range1:'2024-2025',
+    range2:'2025-2026'
+}
+
+const _centralNodalAgency = {
+    nodal1: 'nodal1',
+    nodal2: "nodal2",
+    nodal3:'nodal3'
+}
+
+const _ccAvenuePaymentStatus = {
+    SUCCESS : "Success",
+    DECLINED : "Unsuccessful",
+    ABORTED_SYSTEM : "Aborted/ Transaction aborted by system",
+    ABORTED_BANK : "Aborted/ Transaction aborted at the bank end",
+    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    INITIATED : "Initiated",
+    AUTO_CANCELLED : "Auto-Cancelled",
+    AUTO_REVERSED : "Auto-Reversed",
+    AWAITED : "Awaited",
+    INVALID : "Invalid",
+    CANCELLED : "Cancelled",
+    SHIPPED : "Shipped",
+    TIMEOUT : "Timeout",
+    UNKNOWN : "Unknown",
+    FAILURE : "Failure"
+}
 
 module.exports = {
     _userAction,
@@ -569,5 +625,12 @@ module.exports = {
     _poBatchStatus,
     _penaltypaymentStatus,
     _poBatchPaymentStatus,
-    _trackOrderStatus ,
+    _trackOrderStatus,
+    _commodityType,
+    _gradeType,
+    _qualityType,
+    _season,
+    _period,
+    _centralNodalAgency,
+    _ccAvenuePaymentStatus
 }

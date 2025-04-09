@@ -30,7 +30,7 @@ module.exports.getPenaltyOrder = asyncErrorHandler(async (req, res) => {
     }
 
     if (search) {
-        matchQuery.purchaseId = { $regex: search, $options: "i" };
+        matchQuery["purchasedOrder.poNo"] = { $regex: search, $options: "i" };
     }
 
     let aggregationPipeline = [
