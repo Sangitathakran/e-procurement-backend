@@ -23,6 +23,7 @@ const wareHouseInwardRoutes = express.Router();
 
 wareHouseInwardRoutes.get("/received-batch-list", getReceivedBatchesByWarehouse);
 wareHouseInwardRoutes.put("/whr_receipt_image-update/:batchId", whrReceiptImageUpdate);
+
 wareHouseInwardRoutes.get("/pending-batch-list", getPendingBatchesByWarehouse);
 wareHouseInwardRoutes.put("/batch-approval", verifyWarehouseOwner, batchApproveOrReject);
 wareHouseInwardRoutes.get("/lot-list", verifyWarehouseOwner, lot_list);

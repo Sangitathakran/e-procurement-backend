@@ -12,6 +12,7 @@ const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
+const PaymentLogsHistory = require('@src/v1/models/app/procurement/PaymentLogsHistory');
 
 
 // module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
@@ -781,6 +782,7 @@ module.exports.batchApproveOrReject = async (req, res) => {
     try {
         const { batchId, status, product_images = [], qc_images = [] } = req.body;
         const getToken = req.headers.token || req.cookies.token;
+
         if (!getToken) {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
@@ -815,9 +817,24 @@ module.exports.batchApproveOrReject = async (req, res) => {
         record.wareHouse_approve_status = status === "Approved" ? "Approved" : "Rejected";
         record.wareHouse_approve_at = new Date();
         record.wareHouse_approve_by = UserId;
-
+       
         // Save the updated batch record
         await record.save();
+
+        const data=[{
+            batchId:batchId,
+            status:'Approved',
+            actor:'SLA',
+            action: 'Approved',
+            logTime: new Date()
+        },
+        {
+            batchId:batchId,
+            status:'Pending',
+            actor:'Branch Office',
+            action: 'Approved',
+        }]
+        await PaymentLogsHistory.insertMany(data);
 
         return res.status(200).send(new serviceResponse({
             status: 200,
@@ -937,6 +954,54 @@ module.exports.editBatchDetails = async (req, res) => {
         return res.status(500).json({ status: 500, message: error.message });
     }
 };
+
+module.exports.whrReceiptImageUpdate = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId } = req.params;
+        const { whr_receipt_image } = req.body;
+
+        if (!batchId) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "Batch ID is required"
+            }));
+        }
+
+        if (!whr_receipt_image) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "whr_receipt is required"
+            }));
+        }
+
+        // Find and update the whr_receipt field in final_quality_check
+        const updatedBatch = await Batch.findOneAndUpdate(
+            { $or: [{ batchId }, { _id: batchId }] },
+            { $set: { "final_quality_check.whr_receipt_image": whr_receipt_image } },
+            { new: true, runValidators: true } // Return updated doc
+        );
+
+        if (!updatedBatch) {
+            return res.status(404).json(new serviceResponse({
+                status: 404,
+                message: "Batch not found"
+            }));
+        }
+
+        return res.status(200).json(new serviceResponse({
+            status: 200,
+            message: "WHR Receipt Image updated successfully",
+            data: updatedBatch
+        }));
+
+    } catch (error) {
+        console.error("Error updating WHR Receipt:", error);
+        return res.status(500).json(new serviceResponse({
+            status: 500,
+            error: "Internal Server Error"
+        }));
+    }
+});
 
 module.exports.batchStatusUpdate = async (req, res) => {
     try {
@@ -1107,8 +1172,8 @@ module.exports.batchMarkDelivered = async (req, res) => {
         // }
         
         
-        record.payement_approval_at = new Date();
-        record.payment_approve_by = user_id;
+        // record.payement_approval_at = new Date();
+        // record.payment_approve_by = user_id;
         await record.save();
 
 

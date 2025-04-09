@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _batchStatus, received_qc_status, _paymentApproval, _billstatus, _wareHouseApproval } = require('@src/v1/utils/constants');
+const { _collectionName, _batchStatus,_whr_status, received_qc_status, _paymentApproval, _billstatus, _wareHouseApproval } = require('@src/v1/utils/constants');
 
 const batchsSchema = new mongoose.Schema({
     seller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
@@ -17,6 +17,9 @@ const batchsSchema = new mongoose.Schema({
         gain_bags : { type: Number, default: 0 }, 
         accepted_quantity : { type: Number, default: 0 }, 
         accepted_bags : { type: Number, default: 0 }, 
+        dispatch_quantity : { type: Number, default: 0 }, 
+        dispatch_bags : { type: Number, default: 0 }, 
+        whr_document : { type: String },
     }],
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
     qty: { type: Number, default: 0 },
@@ -135,7 +138,8 @@ const batchsSchema = new mongoose.Schema({
     wareHouse_approve_status: { type: String, enum: Object.values(_wareHouseApproval), default: _wareHouseApproval.pending },
     wareHouse_approve_at: { type: Date, default: null },
     wareHouse_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
-
+    
+    whr_status: { type: String, enum: Object.values(_whr_status), default: _whr_status.pending }, 
 }, { timestamps: true });
 
 const Batch = mongoose.model(_collectionName.Batch, batchsSchema);
