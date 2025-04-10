@@ -3532,7 +3532,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           "batches.ho_approve_status": _paymentApproval.approved ? _paymentApproval.approved : { $ne: _paymentApproval.pending },
           "batches.payment.payment_status": paymentStatusCondition || _paymentstatus.pending
         }
-      },
+      },     
       {
         $addFields: {
           qtyPurchased: {
@@ -3581,7 +3581,6 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
     let response = { count: 0 };
     response.rows = await RequestModel.aggregate(aggregationPipeline);
-    console.log(aggregationPipeline);
     const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
     response.count = countResult?.[0]?.count ?? 0;
 
@@ -3605,7 +3604,6 @@ module.exports.proceedToPayPayment = async (req, res) => {
 };
 
 module.exports.proceedToPayBatchList = async (req, res) => {
-
   try {
     const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, req_id, payment_status, isExport = 0 } = req.query
 
@@ -3764,6 +3762,7 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           qtyPurchased: "$qty",
           amountProposed: "$goodsPrice",
           associateName: "$users.basic_details.associate_details.associate_name",
+          organisationName: "$users.basic_details.associate_details.organization_name",
           // whrNo: "12345",
           // whrReciept: "whrReciept.jpg",
           whrNo: "$final_quality_check.whr_receipt",
