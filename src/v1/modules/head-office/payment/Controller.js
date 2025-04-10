@@ -1729,7 +1729,15 @@ module.exports.batchList = async (req, res) => {
       associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
       bo_approve_status: _paymentApproval.approved,
       ho_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
-      ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+      ...(search ? 
+        {
+          $or: [
+            { batchId: { $regex: search, $options: 'i' } },
+             { whrNo: { $regex: search, $options: 'i' } }
+          ]
+        }
+        :  {})
+      // ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
     };
 
     const records = { count: 0 };
@@ -3757,10 +3765,11 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           qtyPurchased: "$qty",
           amountProposed: "$goodsPrice",
           associateName: "$users.basic_details.associate_details.associate_name",
+          organisationName: "$users.basic_details.associate_details.organization_name",
           // whrNo: "12345",
           // whrReciept: "whrReciept.jpg",
           whrNo: "$final_quality_check.whr_receipt",
-          whrReciept: "$final_quality_check.product_images",
+          whrReciept: "$final_quality_check.whr_receipt_image",
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
