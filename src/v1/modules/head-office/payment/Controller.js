@@ -1729,7 +1729,14 @@ module.exports.batchList = async (req, res) => {
       associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
       bo_approve_status: _paymentApproval.approved,
       ho_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
-      ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+      ...(search ? 
+        {
+          $or: [
+            { batchId: { $regex: search, $options: 'i' } },
+             { whrNo: { $regex: search, $options: 'i' } }
+          ]
+        }
+        :  {}) // Search functionality
     };
 
     const records = { count: 0 };
