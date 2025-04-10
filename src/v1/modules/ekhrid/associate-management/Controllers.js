@@ -274,9 +274,9 @@ module.exports.addFarmers = async (req, res) => {
         const procurements = await eKharidHaryanaProcurementModel.aggregate([
             {
                 $match: {
-                    // "procurementDetails.commisionAgentName":"HAFED",
+                    "procurementDetails.commisionAgentName":"HAFED",
                     // "procurementDetails.commisionAgentName":"SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD",
-                    "procurementDetails.commisionAgentName": "FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY",
+                    // "procurementDetails.commisionAgentName": "FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY",
                     "procurementDetails.farmerID": { $ne: null }, // Ensure farmerID is not null
                     // "procurementDetails.offerCreatedAt": null
                     $or: [
@@ -859,10 +859,34 @@ module.exports.associateFarmerList = async (req, res) => {
             .option({ allowDiskUse: true }) // Helps if sorting/lookup gets heavy
             .exec();
 
+        // ✅ Remove duplicate farmer _id entries and recalculate totals
+        if (groupedData.length > 0) {
+            const group = groupedData[0];
+            const uniqueFarmers = {};
+            const uniqueFarmerData = [];
+
+            let totalQty = 0;
+
+            for (const item of group.farmer_data) {
+                const id = item._id?.toString();
+                if (id && !uniqueFarmers[id]) {
+                    uniqueFarmers[id] = true;
+                    uniqueFarmerData.push(item);
+                    totalQty += item.qty || 0;
+                }
+            }
+
+            group.farmer_data = uniqueFarmerData;
+            group.total_farmers = uniqueFarmerData.length;
+            group.qtyOffered = totalQty;
+        }
+
+
         return res.send(
             new serviceResponse({
                 status: 200,
                 data: groupedData,
+                // data: groupedDataResult,
                 message: _response_message.found("Associate farmer"),
             })
         );
