@@ -3597,7 +3597,6 @@ module.exports.proceedToPayPayment = async (req, res) => {
 };
 
 module.exports.proceedToPayBatchList = async (req, res) => {
-
   try {
     const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, req_id, payment_status, isExport = 0 } = req.query
 
@@ -3756,6 +3755,7 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           qtyPurchased: "$qty",
           amountProposed: "$goodsPrice",
           associateName: "$users.basic_details.associate_details.associate_name",
+          organisationName: "$users.basic_details.associate_details.organization_name",
           // whrNo: "12345",
           // whrReciept: "whrReciept.jpg",
           whrNo: "$final_quality_check.whr_receipt",
