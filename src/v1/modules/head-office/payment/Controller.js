@@ -1849,7 +1849,7 @@ module.exports.batchList = async (req, res) => {
           // whrNo: "12345",
           // whrReciept: "whrReciept.jpg",
           whrNo: "$final_quality_check.whr_receipt",
-          whrReciept: "$final_quality_check.product_images",
+          whrReciept: "$final_quality_check.whr_receipt_image",
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
