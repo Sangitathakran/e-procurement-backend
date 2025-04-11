@@ -14,6 +14,7 @@ const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { smsService } = require("@src/v1/utils/third_party/SMSservices");
 const OTPModel = require("../../../models/app/auth/OTP");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
+const { _collectionName} = require('@src/v1/utils/constants');
 
 const validateMobileNumber = async (mobile) => {
     let pattern = /^[0-9]{10}$/;
@@ -309,12 +310,18 @@ module.exports.associateOrders = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
         }
 
+        //  let sellerIds = {};
+        //    if (search) {
+        //     sellerIds["user_code"] = { $regex: search, $options: "i" };
+        //    sellerIds["basic_details.associate_details.organization_name"] = { $regex: search, $options: "i" };
+        //      }
+
         const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })).map(i => i.associateOffers_id)
         let query = {
             _id: { $in: paymentIds },
             req_id,
             status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] },
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+           // ...(search ? { seller_id: { $in: sellerIds } } : {}) // Search functionality
         };
 
         const records = { count: 0 };
@@ -322,7 +329,14 @@ module.exports.associateOrders = async (req, res) => {
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
         records.rows = paginate == 1 ? await AssociateOffers.find(query)
             .populate({
-                path: 'seller_id', select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
+                path: 'seller_id', 
+                match: search ? {
+                    $or: [
+                        { user_code: { $regex: search, $options: 'i' } },
+                        { 'basic_details.associate_details.organization_name': { $regex: search, $options: 'i' } }
+                    ]
+                } : {},
+                select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
             })
             .sort(sortBy)
             .skip(skip)
@@ -378,7 +392,7 @@ module.exports.batchList = async (req, res) => {
             _id: { $in: paymentIds },
             associateOffer_id,
             bo_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+            ...(search ? { batchId: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
         const records = { count: 0 };
