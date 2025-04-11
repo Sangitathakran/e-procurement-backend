@@ -470,6 +470,7 @@ module.exports.getBoByScheme = asyncErrorHandler(async (req, res) => {
   try {
     const {
       scheme_id,
+      ho_id,
       page = 1,
       limit = 10,
       skip = 0,
@@ -486,7 +487,8 @@ module.exports.getBoByScheme = asyncErrorHandler(async (req, res) => {
 
     let matchQuery = {
       scheme_id: new mongoose.Types.ObjectId(scheme_id),
-      bo_id: { $exists: true, $ne: null }
+      bo_id: { $exists: true, $ne: null },
+      ho_id: new mongoose.Types.ObjectId(ho_id),
     };
 
     let aggregationPipeline = [
@@ -517,6 +519,7 @@ module.exports.getBoByScheme = asyncErrorHandler(async (req, res) => {
           branchLocation: "$branchDetails.state",
           targetAchieved: '$schemeDetails.procurement',
           bo_id: 1,
+          ho_id: 1,
           assignQty: 1,
           schemeId: "$schemeDetails.schemeId",
           // schemeName: "$schemeDetails.schemeName",

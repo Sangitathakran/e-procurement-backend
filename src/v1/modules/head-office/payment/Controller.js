@@ -1536,6 +1536,7 @@ module.exports.payment = async (req, res) => {
   }
 };
 
+
 module.exports.associateOrders = async (req, res) => {
   try {
     const {
@@ -1839,12 +1840,17 @@ module.exports.batchList = async (req, res) => {
       {
         $project: {
           "batchId": 1,
-          amountPayable: 1,
-          qtyPurchased: 1,
-          amountProposed: 1,
+          // amountPayable: 1,
+          // qtyPurchased: 1,
+          // amountProposed: 1,
+          amountPayable: "$totalPrice",
+          qtyPurchased: "$qty",
+          amountProposed: "$goodsPrice",
           associateName: "$users.basic_details.associate_details.associate_name",
-          whrNo: "12345",
-          whrReciept: "whrReciept.jpg",
+          // whrNo: "12345",
+          // whrReciept: "whrReciept.jpg",
+          whrNo: "$final_quality_check.whr_receipt",
+          whrReciept: "$final_quality_check.product_images",
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
@@ -3532,8 +3538,9 @@ module.exports.proceedToPayPayment = async (req, res) => {
           amountPaid: {
             $sum: "$batches.goodsPrice"
           },
+          approval_date: { $arrayElemAt:["$batches.payement_approval_at",0] },
           approval_status: "Approved",
-          payment_status: payment_status || _paymentstatus.pending,         
+          payment_status: payment_status || _paymentstatus.pending,
           schemeName: {
             $concat: [
               "$scheme.schemeName", " ",
@@ -3541,7 +3548,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
               { $ifNull: ["$scheme.season", " "] }, " ",
               { $ifNull: ["$scheme.period", " "] },
             ],
-        },
+          },
 
         }
       },
@@ -3559,6 +3566,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           'branchDetails.branchId': 1,
           'sla.basic_details.name': 1,
           'scheme.schemeName': "$schemeName",
+          'approval_date': 1,
         }
       },
       { $skip: (page - 1) * limit },
@@ -3567,7 +3575,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
     let response = { count: 0 };
     response.rows = await RequestModel.aggregate(aggregationPipeline);
-console.log(aggregationPipeline);
+    console.log(aggregationPipeline);
     const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
     response.count = countResult?.[0]?.count ?? 0;
 
@@ -3673,46 +3681,55 @@ module.exports.proceedToPayBatchList = async (req, res) => {
         }
       },
       {
+        $lookup: {
+          from: 'warehousedetails',
+          localField: 'warehousedetails_id',
+          foreignField: '_id',
+          as: 'warehousedetails',
+        }
+      },
+
+      {
         $addFields: {
-          qtyPurchased: {
-            $reduce: {
-              input: {
-                $map: {
-                  input: '$invoice',
-                  as: 'inv',
-                  in: '$$inv.qtyProcured'
-                }
-              },
-              initialValue: 0,
-              in: { $add: ['$$value', '$$this'] }
-            }
-          },
-          amountProposed: {
-            $reduce: {
-              input: {
-                $map: {
-                  input: '$invoice',
-                  as: 'inv',
-                  in: '$$inv.bills.total'
-                }
-              },
-              initialValue: 0,
-              in: { $add: ['$$value', '$$this'] }
-            }
-          },
-          amountPayable: {
-            $reduce: {
-              input: {
-                $map: {
-                  input: '$invoice',
-                  as: 'inv',
-                  in: '$$inv.bills.total'
-                }
-              },
-              initialValue: 0,
-              in: { $add: ['$$value', '$$this'] }
-            }
-          },
+          // qtyPurchased: {
+          //   $reduce: {
+          //     input: {
+          //       $map: {
+          //         input: '$invoice',
+          //         as: 'inv',
+          //         in: '$$inv.qtyProcured'
+          //       }
+          //     },
+          //     initialValue: 0,
+          //     in: { $add: ['$$value', '$$this'] }
+          //   }
+          // },
+          // amountProposed: {
+          //   $reduce: {
+          //     input: {
+          //       $map: {
+          //         input: '$invoice',
+          //         as: 'inv',
+          //         in: '$$inv.bills.total'
+          //       }
+          //     },
+          //     initialValue: 0,
+          //     in: { $add: ['$$value', '$$this'] }
+          //   }
+          // },
+          // amountPayable: {
+          //   $reduce: {
+          //     input: {
+          //       $map: {
+          //         input: '$invoice',
+          //         as: 'inv',
+          //         in: '$$inv.bills.total'
+          //       }
+          //     },
+          //     initialValue: 0,
+          //     in: { $add: ['$$value', '$$this'] }
+          //   }
+          // },
           tags: {
             $cond: {
               if: { $in: ["$payment.payment_status", ["Failed", "Rejected"]] },
@@ -3737,18 +3754,21 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           "batchId": 1,
           // "invoice.initiated_at": 1,
           // "invoice.bills.total": 1,
-          amountPayable: 1,
-          qtyPurchased: 1,
-          amountProposed: 1,
+          amountPayable: "$totalPrice",
+          qtyPurchased: "$qty",
+          amountProposed: "$goodsPrice",
           associateName: "$users.basic_details.associate_details.associate_name",
-          whrNo: "12345",
-          whrReciept: "whrReciept.jpg",
+          // whrNo: "12345",
+          // whrReciept: "whrReciept.jpg",
+          whrNo: "$final_quality_check.whr_receipt",
+          whrReciept: "$final_quality_check.product_images",
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
           approval_status: 1,
           payment_date: '$payment_at',
-          payment_status: "$payment.payment_status"
+          payment_status: "$payment.payment_status",
+          bankStatus: "$payment.payment_status",
         }
       },
       // Start of Sangita code

@@ -6,6 +6,7 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { _userType, _paymentApproval, _batchStatus, _associateOfferStatus, _paymentstatus } = require('@src/v1/utils/constants');
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
+const {wareHouseDetails} = require("@src/v1/models/app/warehouse/warehouseDetailsSchema")
 const mongoose = require("mongoose");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
@@ -155,7 +156,7 @@ module.exports.payment = async (req, res) => {
                             then: 'Pending',
                             else: 'Completed'
                         }
-                    }
+                    },
                 }
             },
             {
@@ -283,11 +284,23 @@ module.exports.associateOrders = async (req, res) => {
 
         const records = { count: 0 };
 
-        console.log("query", query);
+        // console.log("query", query);
 
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+    
+      const reqDetailsObj = records.reqDetails.toObject();
+    
+    if (reqDetailsObj?.address?.deliveryLocation && mongoose.Types.ObjectId.isValid(reqDetailsObj.address.deliveryLocation)) {
+        const warehouse = await wareHouseDetails.findById(reqDetailsObj.address.deliveryLocation)
+            .select({ "basicDetails.warehouseName": 1 });
 
+        if (warehouse && warehouse.basicDetails?.warehouseName) {
+            const warehouse_name = warehouse.basicDetails.warehouseName
+            records.warehouseName = warehouse_name
+        } 
+    }
+    
         records.rows = paginate == 1 ? await AssociateOffers.find(query)
             .populate({
                 path: "seller_id",
@@ -470,45 +483,6 @@ module.exports.batchList = async (req, res) => {
             },
             {
                 $addFields: {
-                    qtyPurchased: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.qtyProcured'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
-                    amountProposed: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.bills.total'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
-                    amountPayable: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.bills.total'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
                     tags: {
                         $cond: {
                             if: { $in: ["$payment.payment_status", ["Failed", "Rejected"]] },
@@ -531,12 +505,12 @@ module.exports.batchList = async (req, res) => {
             {
                 $project: {
                     "batchId": 1,
-                    amountPayable: 1,
-                    qtyPurchased: 1,
-                    amountProposed: 1,
+                    amountPayable: "$totalPrice",
+                    qtyPurchased: "$qty",
+                    amountProposed: "$goodsPrice",
                     associateName: "$users.basic_details.associate_details.associate_name",
-                    whrNo: "12345",
-                    whrReciept: "whrReciept.jpg",
+                    whrNo: "$final_quality_check.whr_receipt",
+                    whrReciept: "$final_quality_check.whr_receipt_image",
                     deliveryDate: "$delivered.delivered_at",
                     procuredOn: "$requestDetails.createdAt",
                     tags: 1,
@@ -2252,6 +2226,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
                     amountPayable: {
                         $sum: "$batches.totalPrice"
                     },
+                    approval_date: { $arrayElemAt: ["$batches.payement_approval_at", 0] },
                     approval_status: "Approved",
                     payment_status: payment_status || _paymentstatus.pending,
                 }
@@ -2269,6 +2244,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
                     'branchDetails.branchId': 1,
                     'sla.basic_details.name': 1,
                     'scheme.schemeName': 1,
+                    approval_date: 1
                 }
             },
             { $skip: (page - 1) * limit },
@@ -2384,45 +2360,6 @@ module.exports.proceedToPayBatchList = async (req, res) => {
             },
             {
                 $addFields: {
-                    qtyPurchased: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.qtyProcured'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
-                    amountProposed: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.bills.total'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
-                    amountPayable: {
-                        $reduce: {
-                            input: {
-                                $map: {
-                                    input: '$invoice',
-                                    as: 'inv',
-                                    in: '$$inv.bills.total'
-                                }
-                            },
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this'] }
-                        }
-                    },
                     tags: {
                         $cond: {
                             if: { $in: ["$payment.payment_status", ["Failed", "Rejected"]] },
@@ -2445,12 +2382,12 @@ module.exports.proceedToPayBatchList = async (req, res) => {
             {
                 $project: {
                     "batchId": 1,
-                    amountPayable: 1,
-                    qtyPurchased: 1,
-                    amountProposed: 1,
+                    amountPayable: "$totalPrice",
+                    qtyPurchased: "$qty",
+                    amountProposed: "$goodsPrice",
                     associateName: "$users.basic_details.associate_details.associate_name",
-                    whrNo: "12345",
-                    whrReciept: "whrReciept.jpg",
+                    whrNo: "$final_quality_check.whr_receipt",
+                    whrReciept: "$final_quality_check.product_images",
                     deliveryDate: "$delivered.delivered_at",
                     procuredOn: "$requestDetails.createdAt",
                     tags: 1,
@@ -2556,12 +2493,12 @@ module.exports.agentDashboardAssociateList = async (req, res) => {
 
         const paymentIds = (await Payment.find()).map(i => i.req_id);
 
-        const query = {  _id: { $in: paymentIds } };
+        const query = { _id: { $in: paymentIds } };
 
         const records = {};
 
         const pipeline = [
-            { $match: query},
+            { $match: query },
             {
                 $lookup: {
                     from: 'batches',
@@ -2569,16 +2506,16 @@ module.exports.agentDashboardAssociateList = async (req, res) => {
                     foreignField: 'req_id',
                     as: 'batches',
                     pipeline: [
-                      {
-                        $lookup: {
-                          from: 'payments',
-                          localField: '_id',
-                          foreignField: 'batch_id',
-                          as: 'payment',
+                        {
+                            $lookup: {
+                                from: 'payments',
+                                localField: '_id',
+                                foreignField: 'batch_id',
+                                as: 'payment',
+                            }
                         }
-                      }
                     ],
-                  }
+                }
             },
             {
                 $addFields: {
@@ -2588,17 +2525,17 @@ module.exports.agentDashboardAssociateList = async (req, res) => {
                         $dateToString: {
                             format: "%d/%m/%Y",
                             date: "$createdAt",
-                          },
+                        },
                     },
                     payment_requests: {
                         $sum: {
-                          $map: {
-                            input: "$batches",
-                            as: "batch",
-                            in: { $size: "$$batch.payment" }
-                          }
+                            $map: {
+                                input: "$batches",
+                                as: "batch",
+                                in: { $size: "$$batch.payment" }
+                            }
                         }
-                      }
+                    }
                 },
             },
             {
@@ -2611,8 +2548,8 @@ module.exports.agentDashboardAssociateList = async (req, res) => {
             }
         ];
 
-        pipeline.push( { $sort: sortBy }, { $limit: 5});
-          
+        pipeline.push({ $sort: sortBy }, { $limit: 5 });
+
 
         records.rows = await RequestModel.aggregate(pipeline);
 
@@ -2629,7 +2566,7 @@ module.exports.agentDashboardPaymentList = async (req, res) => {
         const { sortBy = { createdAt: -1 } } = req.query;
 
         const paymentIds = (await Payment.find()).map(i => i.req_id);
-        const query = {  req_id: { $in: paymentIds } };
+        const query = { req_id: { $in: paymentIds } };
 
         const records = {};
 
@@ -2642,22 +2579,22 @@ module.exports.agentDashboardPaymentList = async (req, res) => {
                     from: 'requests',
                     localField: 'req_id',
                     foreignField: '_id',
-                    pipeline: [ { $project: { reqNo: 1 }  } ],
+                    pipeline: [{ $project: { reqNo: 1 } }],
                     as: 'requests',
-                  }
+                }
             },
             {
                 $project: {
-                    order_id: { $arrayElemAt: ["$requests.reqNo", 0] }, 
+                    order_id: { $arrayElemAt: ["$requests.reqNo", 0] },
                     quantity_procured: '$qtyProcured',
-                    billing_month : { $dateToString: { format: "%B", date: "$createdAt" } },
+                    billing_month: { $dateToString: { format: "%B", date: "$createdAt" } },
                     payment_status: 1,
                 }
             }
         ];
 
-        pipeline.push( { $sort: sortBy }, { $limit: 5});
-          
+        pipeline.push({ $sort: sortBy }, { $limit: 5 });
+
 
         records.rows = await AgentInvoice.aggregate(pipeline);
 
