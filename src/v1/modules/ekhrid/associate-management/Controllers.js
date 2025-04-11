@@ -743,7 +743,7 @@ module.exports.associateFarmerList = async (req, res) => {
         const groupedData = await eKharidHaryanaProcurementModel.aggregate([
             { $match: query }, // Apply match early
 
-            { $limit: 50 }, // Limit number of records to prevent overload
+            { $limit: 10 }, // Limit number of records to prevent overload
 
             {
                 $lookup: {

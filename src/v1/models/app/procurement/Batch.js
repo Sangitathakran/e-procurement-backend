@@ -128,6 +128,7 @@ const batchsSchema = new mongoose.Schema({
     ekhridBatch: { type: Boolean, default: false },
     gatePassId: { type: Number, default: null },
     ekhrid_payment: { type: Date , default: null},
+    warehouseUpdatedAt: { type: Date, default: null },
 
 }, { timestamps: true });
 
