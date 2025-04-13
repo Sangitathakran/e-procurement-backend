@@ -1432,35 +1432,75 @@ module.exports.listExternalBatchList = async (req, res) => {
     try {
         const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
 
-        let query = {};
+        let matchQuery = {};
         if (search) {
-            query["basicDetails.warehouseName"] = { $regex: search, $options: "i" };
-        }
+        matchQuery["$or"] = [
+        { "batchName": { $regex: search, $options: "i" } },
+        { "associate_name": { $regex: search, $options: "i" } },
+        { "warehousedetails_id.basicDetails.warehouseName": { $regex: search, $options: "i" } },
+          ];
+     }
+        const skipVal = parseInt(skip) || (parseInt(page) - 1) * parseInt(limit);
 
-        const records = { count: 0, rows: [] };
+        const pipeline = [
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    localField: 'warehousedetails_id',
+                    foreignField: '_id',
+                    as: 'warehousedetails_id'
+                }
+            },
+            { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+            { $match: matchQuery },
+            { $sort: { [sortBy]: 1 } },
+        ];
+
+        const countPipeline = [...pipeline, { $count: "total" }];
 
         if (paginate == 1) {
-            records.rows = await ExternalBatch.find(query)
-                .populate({
-                    path: "warehousedetails_id",
-                    select: "basicDetails.warehouseName",
-                })
-                .sort(sortBy)
-                .skip(parseInt(skip))
-                .limit(parseInt(limit));
-
-            records.count = await ExternalBatch.countDocuments(query);
-            records.page = parseInt(page);
-            records.limit = parseInt(limit);
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-        } else {
-            records.rows = await ExternalOrder.find(query)
-                .populate({
-                    path: "warehousedetails_id",
-                    select: "basicDetails.warehouseName",
-                })
-                .sort(sortBy);
+            pipeline.push({ $skip: skipVal }, { $limit: parseInt(limit) });
         }
+
+        const [rows, countResult] = await Promise.all([
+            ExternalBatch.aggregate(pipeline),
+            paginate == 1 ? ExternalBatch.aggregate(countPipeline) : Promise.resolve([])
+        ]);
+
+        const count = countResult?.[0]?.total || rows.length;
+
+        const records = {
+            count,
+            rows,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            pages: limit != 0 ? Math.ceil(count / limit) : 0,
+        };
+        //const records = { count: 0, rows: [] };
+
+
+        // if (paginate == 1) {
+        //     records.rows = await ExternalBatch.find(query)
+        //         .populate({
+        //             path: "warehousedetails_id",
+        //             select: "basicDetails.warehouseName",
+        //         })
+        //         .sort(sortBy)
+        //         .skip(parseInt(skip))
+        //         .limit(parseInt(limit));
+
+        //     records.count = await ExternalBatch.countDocuments(query);
+        //     records.page = parseInt(page);
+        //     records.limit = parseInt(limit);
+        //     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        // } else {
+        //     records.rows = await ExternalOrder.find(query)
+        //         .populate({
+        //             path: "warehousedetails_id",
+        //             select: "basicDetails.warehouseName",
+        //         })
+        //         .sort(sortBy);
+        // }  
 
         return res.status(200).send(
             new serviceResponse({ status: 200, data: records, message: _response_message.found("ExternalBatch") })
