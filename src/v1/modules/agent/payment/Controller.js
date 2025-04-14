@@ -6,7 +6,7 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { _userType, _paymentApproval, _batchStatus, _associateOfferStatus, _paymentstatus } = require('@src/v1/utils/constants');
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const {wareHouseDetails} = require("@src/v1/models/app/warehouse/warehouseDetailsSchema")
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema")
 const mongoose = require("mongoose");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
@@ -288,19 +288,19 @@ module.exports.associateOrders = async (req, res) => {
 
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
-    
-      const reqDetailsObj = records.reqDetails.toObject();
-    
-    if (reqDetailsObj?.address?.deliveryLocation && mongoose.Types.ObjectId.isValid(reqDetailsObj.address.deliveryLocation)) {
-        const warehouse = await wareHouseDetails.findById(reqDetailsObj.address.deliveryLocation)
-            .select({ "basicDetails.warehouseName": 1 });
 
-        if (warehouse && warehouse.basicDetails?.warehouseName) {
-            const warehouse_name = warehouse.basicDetails.warehouseName
-            records.warehouseName = warehouse_name
-        } 
-    }
-    
+        const reqDetailsObj = records.reqDetails.toObject();
+
+        if (reqDetailsObj?.address?.deliveryLocation && mongoose.Types.ObjectId.isValid(reqDetailsObj.address.deliveryLocation)) {
+            const warehouse = await wareHouseDetails.findById(reqDetailsObj.address.deliveryLocation)
+                .select({ "basicDetails.warehouseName": 1 });
+
+            if (warehouse && warehouse.basicDetails?.warehouseName) {
+                const warehouse_name = warehouse.basicDetails.warehouseName
+                records.warehouseName = warehouse_name
+            }
+        }
+
         records.rows = paginate == 1 ? await AssociateOffers.find(query)
             .populate({
                 path: "seller_id",
@@ -353,72 +353,6 @@ module.exports.associateOrders = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
-/*
-module.exports.batchList = async (req, res) => {
-
-    try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0, batch_status = "Pending" } = req.query
-        const { user_type, portalId, user_id } = req
-
-        const paymentIds = (await Payment.find({ associateOffers_id: associateOffer_id })).map(i => i.batch_id)
-        let query = {
-            _id: { $in: paymentIds },
-            associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
-            agent_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
-        };
-
-        const records = { count: 0 };
-
-        records.rows = paginate == 1 ? await Batch.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            // .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status')
-            .select('_id req_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status createdAt')
-
-            .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
-
-        records.count = await Batch.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-        if (isExport == 1) {
-
-            const record = records.rows.map((item) => {
-                return {
-                    "Batch ID": item?.batchId || 'NA',
-                    "Delivey Date": item?.delivered.delivered_at || 'NA',
-                    "Payment Due Date": item?.payment_at || 'NA',
-                    "Quantity Purchased": item?.qty || 'NA',
-                    "Amount Payable": item?.totalPrice || 'NA',
-                    "Approval Status": item?.bo_approve_status ?? 'NA'
-                }
-            })
-
-            if (record.length > 0) {
-
-                dumpJSONToExcel(req, res, {
-                    data: record,
-                    fileName: `Associate-Batch-records.xlsx`,
-                    worksheetName: `Associate-Batch-records`
-                });
-            } else {
-                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
-            }
-        } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
-        }
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-}
-*/
 
 module.exports.batchList = async (req, res) => {
 
@@ -2605,3 +2539,186 @@ module.exports.agentDashboardPaymentList = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+/*************************************************************************/
+
+module.exports.paymentWithoutAgreegation = async (req, res) => {
+    try {
+        let {
+            page = 1,
+            limit = 10,
+            paginate = 1,
+            sortBy = '-createdAt',
+            search = '',
+            isExport = 0,
+            approve_status = "Pending"
+        } = req.query;
+
+        const skip = (page - 1) * limit;
+        const { portalId, user_id } = req;
+
+        // Get all request IDs that have payments
+        const paymentIds = (await Payment.find({}, 'req_id')).map(i => i.req_id);
+
+        // Build search query
+        const searchQuery = search
+            ? {
+                $or: [
+                    { reqNo: { $regex: search, $options: 'i' } },
+                    { 'product.name': { $regex: search, $options: 'i' } }
+                ]
+            }
+            : {};
+
+        // Final query
+        let query = {
+            _id: { $in: paymentIds },
+            ...searchQuery
+        };
+
+        // Fetch requests
+        let requests = await RequestModel.find(query)
+            .sort(sortBy)
+            .skip(paginate == 1 ? skip : 0)
+            .limit(paginate == 1 ? parseInt(limit) : 0)
+            .populate({
+                path: 'branch_id',
+                select: 'branchName branchId'
+            })
+            .populate({
+                path: 'sla_id',
+                select: 'basic_details.name'
+            })
+            .populate({
+                path: 'product.schemeId',
+                select: 'schemeName'
+            })
+            .lean();
+
+        // Add batch and payment data
+        for (let req of requests) {
+            req.batches = await Batch.find({ req_id: req._id })
+                // .populate({
+                //     path: 'payment',
+                //     select: 'payment_status'
+                // })
+                .lean();
+
+            // Determine approval status
+            const hasPendingApproval = req.batches.some(batch =>
+                !batch.agent_approve_at || batch.agent_approve_at === null
+            );
+            req.approval_status = hasPendingApproval ? 'Pending' : 'Approved';
+
+            // Calculate qtyPurchased and amountPayable
+            req.qtyPurchased = req.batches.reduce((sum, batch) => sum + (batch.qty || 0), 0);
+            req.amountPayable = req.batches.reduce((sum, batch) => sum + (batch.totalPrice || 0), 0);
+
+            // Determine payment status
+            const anyPendingPayments = req.batches.some(batch =>
+                batch.payment?.some(pay => pay.payment_status === 'Pending')
+            );
+            req.payment_status = anyPendingPayments ? 'Pending' : 'Completed';
+
+            // Simplify branchDetails
+            req.branchDetails = {
+                branchName: req.branch_id?.branchName ?? 'NA',
+                branchId: req.branch_id?.branchId ?? 'NA'
+            };
+
+            // Simplify SLA and Scheme
+            req.sla = req.sla_id || {};
+            req.scheme = req.product?.schemeId || {};
+        }
+
+        // Filter by approval status
+        requests = requests.filter(req =>
+            approve_status === 'Pending'
+                ? req.approval_status === 'Pending'
+                : req.approval_status !== 'Pending'
+        );
+
+        const totalCount = requests.length;
+
+        // EXPORT MODE
+        if (isExport == 1) {
+            const exportRecords = requests.map(item => ({
+                "Order ID": item?.reqNo || 'NA',
+                "Commodity": item?.product?.name || 'NA',
+                "Quantity Purchased": item?.qtyPurchased || 'NA',
+                "Amount Payable": item?.amountPayable || 'NA',
+                "Approval Status": item?.approval_status ?? 'NA',
+                "Payment Status": item?.payment_status ?? 'NA',
+                "Associate User Code": item?.sellers?.[0]?.user_code || "NA",
+                "Associate Name": item?.sellers?.[0]?.basic_details?.associate_details?.associate_name || "NA",
+                "Farmer ID": item?.farmer?.[0]?.farmer_id || "NA",
+                "Farmer Name": item?.farmer?.[0]?.name || "NA",
+                "Mobile No": item?.farmer?.[0]?.basic_details?.mobile_no || "NA",
+                "Farmer DOB": item?.farmer?.[0]?.basic_details?.dob || "NA",
+                "Father Name": item?.farmer?.[0]?.parents?.father_name || "NA",
+                "Farmer Address": item?.farmer?.[0]?.address
+                    ? `${item.farmer[0].address.village || "NA"}, ${item.farmer[0].address.block || "NA"}, ${item.farmer[0].address.country || "NA"}`
+                    : "NA",
+                "Collection center": item?.ProcurementCenter?.[0]?.center_name ?? "NA",
+                "Procurement Address Line 1": item?.ProcurementCenter?.[0]?.address?.line1 || "NA",
+                "Procurement City": item?.ProcurementCenter?.[0]?.address?.city || "NA",
+                "Procurement District": item?.ProcurementCenter?.[0]?.address?.district || "NA",
+                "Procurement State": item?.ProcurementCenter?.[0]?.address?.state || "NA",
+                "Procurement Country": item?.ProcurementCenter?.[0]?.address?.country || "NA",
+                "Procurement Postal Code": item?.ProcurementCenter?.[0]?.address?.postalCode || "NA",
+            }));
+
+            if (exportRecords.length > 0) {
+                return dumpJSONToExcel(req, res, {
+                    data: exportRecords,
+                    fileName: `Farmer-Payment-records.xlsx`,
+                    worksheetName: `Farmer-Payment-records`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({
+                    status: 400,
+                    data: [],
+                    message: _response_message.notFound("Payment")
+                }));
+            }
+        }
+
+        // REGULAR PAGINATED RESPONSE
+        const response = {
+            rows: requests.map(req => ({
+                _id: req._id,
+                reqNo: req.reqNo,
+                product: req.product,
+                branchDetails: req.branchDetails,
+                sla: {
+                    basic_details: {
+                        name: req.sla?.basic_details?.name ?? 'NA'
+                    }
+                },
+                scheme: {
+                    schemeName: req.scheme?.schemeName ?? 'NA'
+                },
+                approval_status: req.approval_status,
+                qtyPurchased: req.qtyPurchased,
+                amountPayable: req.amountPayable,
+                payment_status: req.payment_status
+            })),
+            count: totalCount
+        };
+
+        if (paginate == 1) {
+            response.page = page;
+            response.limit = limit;
+            response.pages = limit != 0 ? Math.ceil(totalCount / limit) : 0;
+        }
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: response,
+            message: _response_message.found("Payment")
+        }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
