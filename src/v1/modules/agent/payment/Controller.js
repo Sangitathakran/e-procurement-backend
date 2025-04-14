@@ -2263,6 +2263,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
                     amountPayable: {
                         $sum: "$batches.totalPrice"
                     },
+                    approval_date: { $arrayElemAt:["$batches.payement_approval_at",0] },
                     approval_status: "Approved",
                     payment_status: payment_status || _paymentstatus.pending,
                 }
@@ -2276,6 +2277,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
                     amountPayable: 1,
                     approval_status: 1,
                     payment_status: 1,
+                    approval_date: 1,
                     'branchDetails.branchName': 1,
                     'branchDetails.branchId': 1,
                     'sla.basic_details.name': 1,
