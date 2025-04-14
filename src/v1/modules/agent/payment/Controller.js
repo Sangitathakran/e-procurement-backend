@@ -304,7 +304,7 @@ module.exports.associateOrders = async (req, res) => {
             })
             .sort(sortBy);
 
-        // 🔍 SEARCH AFTER POPULATING SELLER
+        //  SEARCH AFTER POPULATING SELLER
         if (search) {
             const searchRegex = new RegExp(search, "i");
 
