@@ -13,7 +13,7 @@ const paymentRoutes = express.Router();
 
 
 
-paymentRoutes.get("/", Auth, payment);
+// paymentRoutes.get("/", Auth, payment);
 paymentRoutes.get("/associate-orders", Auth, associateOrders);
 paymentRoutes.get("/batch-list", Auth, batchList);
 paymentRoutes.get("/lot-list", Auth, lot_list);
@@ -49,6 +49,6 @@ paymentRoutes.get("/qc-report", Auth, qcReport);
 
 
 
-paymentRoutes.get("/paymentWithoutAgreegation", Auth, paymentWithoutAgreegation);
+paymentRoutes.get("/", Auth, paymentWithoutAgreegation);
 
 module.exports = { paymentRoutes }; 

@@ -2721,4 +2721,3 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
-
