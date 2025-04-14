@@ -26,8 +26,13 @@ module.exports.getAssociates = async (req, res) => {
 
         // If there's a search term, add it to the match query
         if (search) {
-            matchQuery['basic_details.associate_details.associate_name'] = { $regex: search, $options: 'i' };
+            matchQuery['$or'] = [
+                { 'basic_details.associate_details.associate_name': { $regex: search, $options: 'i' } },
+                { 'user_code': { $regex: search, $options: 'i' } },
+                { 'basic_details.associate_details.organization_name': { $regex: search, $options: 'i' } }
+            ];
         }
+        
 
         // Aggregation pipeline to join farmers and procurement centers and get counts
         const records = await User.aggregate([
@@ -216,6 +221,8 @@ module.exports.pendingRequests = async (req, res) => {
         let query = search ? {
             $or: [
                 { "basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
+                { "user_code": { $regex: search, $options: 'i' } },
+                { "basic_details.associate_details.organization_name": { $regex: search, $options: 'i' } },
             ]
         } : {};
 
