@@ -269,90 +269,92 @@ module.exports.payment = async (req, res) => {
 };
 
 module.exports.associateOrders = async (req, res) => {
-
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
+        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query;
 
-        const paymentIds = (await Payment.find({ req_id })).map(i => i.associateOffers_id)
+        const paymentIds = (await Payment.find({ req_id })).map(i => i.associateOffers_id);
 
         let query = {
             _id: { $in: paymentIds },
             req_id,
-            status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] },
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+            status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] }
         };
 
         const records = { count: 0 };
 
-        // console.log("query", query);
-
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
-    
-      const reqDetailsObj = records.reqDetails.toObject();
-    
-    if (reqDetailsObj?.address?.deliveryLocation && mongoose.Types.ObjectId.isValid(reqDetailsObj.address.deliveryLocation)) {
-        const warehouse = await wareHouseDetails.findById(reqDetailsObj.address.deliveryLocation)
-            .select({ "basicDetails.warehouseName": 1 });
 
-        if (warehouse && warehouse.basicDetails?.warehouseName) {
-            const warehouse_name = warehouse.basicDetails.warehouseName
-            records.warehouseName = warehouse_name
-        } 
-    }
-    
-        records.rows = paginate == 1 ? await AssociateOffers.find(query)
+        const reqDetailsObj = records.reqDetails.toObject();
+
+        if (reqDetailsObj?.address?.deliveryLocation && mongoose.Types.ObjectId.isValid(reqDetailsObj.address.deliveryLocation)) {
+            const warehouse = await wareHouseDetails.findById(reqDetailsObj.address.deliveryLocation)
+                .select({ "basicDetails.warehouseName": 1 });
+
+            if (warehouse?.basicDetails?.warehouseName) {
+                records.warehouseName = warehouse.basicDetails.warehouseName;
+            }
+        }
+
+        // FETCH ALL MATCHED OFFERS WITH SELLER POPULATION
+        let rawRows = await AssociateOffers.find(query)
             .populate({
                 path: "seller_id",
                 select: "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name"
             })
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await AssociateOffers.find(query)
-                .populate({
-                    path: "seller_id",
-                    select: "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name"
-                })
-                .sort(sortBy);
+            .sort(sortBy);
 
-        records.count = await AssociateOffers.countDocuments(query);
+        // 🔍 SEARCH AFTER POPULATING SELLER
+        if (search) {
+            const searchRegex = new RegExp(search, "i");
 
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+            rawRows = rawRows.filter(item => {
+                const userCode = item?.seller_id?.user_code || "";
+                const orgName = item?.seller_id?.basic_details?.associate_details?.organization_name || "";
+                return searchRegex.test(userCode) || searchRegex.test(orgName);
+            });
         }
 
+        records.count = rawRows.length;
+
+        // PAGINATE RESULTS IF NEEDED
+        records.rows = paginate == 1
+            ? rawRows.slice(Number(skip), Number(skip) + Number(limit))
+            : rawRows;
+
+        if (paginate == 1) {
+            records.page = page;
+            records.limit = limit;
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        }
+
+        // EXPORT TO EXCEL
         if (isExport == 1) {
-
-            const record = records.rows.map((item) => {
-
-                return {
-                    "Associate Id": item?.seller_id.user_code || "NA",
-                    "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || "NA",
-                    "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || "NA",
-                    "Quantity Purchased": item?.offeredQty || "NA",
-                }
-            })
+            const record = records.rows.map(item => ({
+                "Associate Id": item?.seller_id?.user_code || "NA",
+                "Associate Type": item?.seller_id?.basic_details?.associate_details?.associate_type || "NA",
+                "Associate Name": item?.seller_id?.basic_details?.associate_details?.associate_name || "NA",
+                "Quantity Purchased": item?.offeredQty || "NA",
+            }));
 
             if (record.length > 0) {
-
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `Associate Orders-${'Associate Orders'}.xlsx`,
-                    worksheetName: `Associate Orders-record-${'Associate Orders'}`
+                    fileName: `Associate Orders-Associate Orders.xlsx`,
+                    worksheetName: `Associate Orders-record-Associate Orders`
                 });
+                return;
             } else {
-                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }));
             }
         }
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
 
 /*
 module.exports.batchList = async (req, res) => {
@@ -431,7 +433,12 @@ module.exports.batchList = async (req, res) => {
             _id: { $in: paymentIds },
             associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
             agent_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+            ...(search ? {
+                $or: [
+                  { batchId: { $regex: search, $options: 'i' } },
+                  { "final_quality_check.whr_receipt": { $regex: search, $options: 'i' } }
+                ]
+              } : {})
         };
 
         const records = { count: 0 };
