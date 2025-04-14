@@ -18,6 +18,7 @@ const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOff
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
+const { Commodity } = require("@src/v1/models/master/Commodity");
 
 module.exports.payment = async (req, res) => {
     try {
@@ -2664,7 +2665,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
             })
             .populate({
                 path: 'product.schemeId',
-                select: 'schemeName'
+                select: 'schemeName season period commodity_id'
             })
             .lean();
  
@@ -2701,16 +2702,18 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
  
             // Simplify SLA and Scheme
             req.sla = req.sla_id || {};
+            let commodityObj = req.product?.schemeId?.commodity_id ? await Commodity.findById(req.product?.schemeId?.commodity_id, {name: 1}): {};
             req.scheme = req.product?.schemeId || {};
+            req.scheme.commodity_name = commodityObj?.name || ''
         }
- 
+
         // Filter by approval status
         requests = requests.filter(req =>
             approve_status === 'Pending'
                 ? req.approval_status === 'Pending'
                 : req.approval_status !== 'Pending'
         );
- 
+
         const totalCount = requests.length;
  
         // EXPORT MODE
@@ -2755,7 +2758,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 }));
             }
         }
- 
+
         // REGULAR PAGINATED RESPONSE
         const response = {
             rows: requests.map(req => ({
@@ -2769,7 +2772,8 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                     }
                 },
                 scheme: {
-                    schemeName: req.scheme?.schemeName ?? 'NA'
+                    //schemeName: req.scheme?.schemeName ?? 'NA'
+                    schemeName:  `${req.scheme?.schemeName} ${req.scheme?.commodity_name} ${req.scheme?.season} ${req.scheme?.period}`
                 },
                 approval_status: req.approval_status,
                 qtyPurchased: req.qtyPurchased,
