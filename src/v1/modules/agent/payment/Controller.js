@@ -1839,12 +1839,12 @@ module.exports.agentPayments = async (req, res) => {
 
         let query = search ? {
             $or: [
-                { "req_id.reqNo": { $regex: search, $options: 'i' } },
-                { "bo_id.branchId": { $regex: search, $options: 'i' } },
-                { "req_id.product.name": { $regex: search, $options: 'i' } }
+              { reqNo: { $regex: search, $options: 'i' } },
+              { branchId: { $regex: search, $options: 'i' } },
+              { productName: { $regex: search, $options: 'i' } }
             ]
-        } : {};
-
+          } : {};
+          
         const records = { count: 0 };
 
         records.rows = paginate == 1 ? await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
@@ -2164,13 +2164,16 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
         // const paymentIds = (await Payment.find()).map(i => i.req_id);
 
-        let query = search ? {
-            _id: { $in: paymentIds },
-            $or: [
-                { "reqNo": { $regex: search, $options: 'i' } },
-                { "product.name": { $regex: search, $options: 'i' } },
-            ]
-        } : {};
+        let query = {
+            _id: { $in: paymentIds }
+        };
+        
+        if (search) {
+            query.$or = [
+                { reqNo: { $regex: search, $options: 'i' } },
+                { "product.name": { $regex: search, $options: 'i' } }
+            ];
+        }
 
         const validStatuses = [_paymentstatus.pending, _paymentstatus.inProgress, _paymentstatus.failed, _paymentstatus.completed, _paymentstatus.rejected];
 
@@ -2260,6 +2263,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
                     amountPayable: {
                         $sum: "$batches.totalPrice"
                     },
+                    approval_date: { $arrayElemAt:["$batches.payement_approval_at",0] },
                     approval_status: "Approved",
                     payment_status: payment_status || _paymentstatus.pending,
                 }
@@ -2273,6 +2277,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
                     amountPayable: 1,
                     approval_status: 1,
                     payment_status: 1,
+                    approval_date: 1,
                     'branchDetails.branchName': 1,
                     'branchDetails.branchId': 1,
                     'sla.basic_details.name': 1,
