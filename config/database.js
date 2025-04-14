@@ -12,9 +12,13 @@ const options = {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     maxPoolSize: 50,  // Adjust the pool size according to your needs
-    serverSelectionTimeoutMS: 5000,  // Keep trying to send operations for 5 seconds
-    socketTimeoutMS: 45000,  // Close sockets after 45 seconds of inactivity
+    serverSelectionTimeoutMS: 60000,  // Keep trying to send operations for 5 seconds
+    socketTimeoutMS: 60000,  // Close sockets after 45 seconds of inactivity
     connectTimeoutMS: 1800000, // 30 minute
+
+    // connectTimeoutMS: 30000,     // 30 seconds
+    // socketTimeoutMS: 60000,      // 60 seconds
+    // serverSelectionTimeoutMS: 60000 // Server discovery
 };
 
 main().catch(err => console.log(err));

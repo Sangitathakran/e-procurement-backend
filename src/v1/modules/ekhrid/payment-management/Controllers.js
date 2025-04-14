@@ -4,7 +4,8 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const {  _batchStatus, received_qc_status, _paymentmethod,_paymentApproval } = require("@src/v1/utils/constants");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const { Payment } = require("@src/v1/models/app/procurement/Payment")
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
+// const paymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
 
 module.exports.getBatches = async (req, res) => {
     try {
@@ -51,6 +52,7 @@ module.exports.batchMarkDelivered = async (req, res) => {
         }
         
         const paymentUpdates = [];
+        // const paymentLogs = [];
         for (let record of batches) {
             record.dispatched.qc_report["received_qc_status"] = received_qc_status.accepted;
             
@@ -60,7 +62,29 @@ module.exports.batchMarkDelivered = async (req, res) => {
             for (let farmer of record.farmerOrderIds) {
                 const farmerData = farmerOrders.find(f => f._id.equals(farmer.farmerOrder_id));
                 if (!farmerData) continue;
-                
+            //     const data=[{
+            //         batch_id:record._id,
+            //         user_id:request?.sla_id,
+            //         status:'Approved',
+            //         actor:'SLA',
+            //         action: 'Approved',
+            //         logTime: new Date()
+            //     },
+            //    { batch_id:record._id,
+            //     user_id:request?.branch_id,
+            //     status:'Approved',
+            //     actor:'Branch Office',
+            //     action: 'Approved',
+            //     logTime: new Date()
+            //   },
+            //   { batch_id:record._id,
+            //     user_id:request?.head_office_id,
+            //     status:'Approved',
+            //     actor:'Branch Office',
+            //     action: 'Approved',
+            //     logTime: new Date()
+            //   }
+            // ]
                 const paymentData = {
                     req_id: request?._id,
                     sla_id: request?.sla_id,
@@ -91,10 +115,12 @@ module.exports.batchMarkDelivered = async (req, res) => {
                     transaction_id: farmerData.ekhridPaymentDetails.transactionId,
                     amount: farmerData.ekhridPaymentDetails.transactionAmount,
                     // Neeraj code end
-
-
                 };
-                
+
+                // paymentLogs.push(
+                //     paymentLogsHistory.insertMany(data)   
+                // );
+            
                 paymentUpdates.push(
                     Payment.findOneAndUpdate(
                         { batch_id: record._id, farmer_id: farmerData.farmer_id },
