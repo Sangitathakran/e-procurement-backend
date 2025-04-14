@@ -2541,7 +2541,7 @@ module.exports.agentDashboardPaymentList = async (req, res) => {
 };
 
 /*************************************************************************/
-
+ 
 module.exports.paymentWithoutAgreegation = async (req, res) => {
     try {
         let {
@@ -2553,13 +2553,13 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
             isExport = 0,
             approve_status = "Pending"
         } = req.query;
-
+ 
         const skip = (page - 1) * limit;
         const { portalId, user_id } = req;
-
+ 
         // Get all request IDs that have payments
         const paymentIds = (await Payment.find({}, 'req_id')).map(i => i.req_id);
-
+ 
         // Build search query
         const searchQuery = search
             ? {
@@ -2569,13 +2569,13 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 ]
             }
             : {};
-
+ 
         // Final query
         let query = {
             _id: { $in: paymentIds },
             ...searchQuery
         };
-
+ 
         // Fetch requests
         let requests = await RequestModel.find(query)
             .sort(sortBy)
@@ -2594,7 +2594,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 select: 'schemeName'
             })
             .lean();
-
+ 
         // Add batch and payment data
         for (let req of requests) {
             req.batches = await Batch.find({ req_id: req._id })
@@ -2603,43 +2603,43 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 //     select: 'payment_status'
                 // })
                 .lean();
-
+ 
             // Determine approval status
             const hasPendingApproval = req.batches.some(batch =>
                 !batch.agent_approve_at || batch.agent_approve_at === null
             );
             req.approval_status = hasPendingApproval ? 'Pending' : 'Approved';
-
+ 
             // Calculate qtyPurchased and amountPayable
             req.qtyPurchased = req.batches.reduce((sum, batch) => sum + (batch.qty || 0), 0);
             req.amountPayable = req.batches.reduce((sum, batch) => sum + (batch.totalPrice || 0), 0);
-
+ 
             // Determine payment status
             const anyPendingPayments = req.batches.some(batch =>
                 batch.payment?.some(pay => pay.payment_status === 'Pending')
             );
             req.payment_status = anyPendingPayments ? 'Pending' : 'Completed';
-
+ 
             // Simplify branchDetails
             req.branchDetails = {
                 branchName: req.branch_id?.branchName ?? 'NA',
                 branchId: req.branch_id?.branchId ?? 'NA'
             };
-
+ 
             // Simplify SLA and Scheme
             req.sla = req.sla_id || {};
             req.scheme = req.product?.schemeId || {};
         }
-
+ 
         // Filter by approval status
         requests = requests.filter(req =>
             approve_status === 'Pending'
                 ? req.approval_status === 'Pending'
                 : req.approval_status !== 'Pending'
         );
-
+ 
         const totalCount = requests.length;
-
+ 
         // EXPORT MODE
         if (isExport == 1) {
             const exportRecords = requests.map(item => ({
@@ -2667,7 +2667,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 "Procurement Country": item?.ProcurementCenter?.[0]?.address?.country || "NA",
                 "Procurement Postal Code": item?.ProcurementCenter?.[0]?.address?.postalCode || "NA",
             }));
-
+ 
             if (exportRecords.length > 0) {
                 return dumpJSONToExcel(req, res, {
                     data: exportRecords,
@@ -2682,7 +2682,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 }));
             }
         }
-
+ 
         // REGULAR PAGINATED RESPONSE
         const response = {
             rows: requests.map(req => ({
@@ -2705,13 +2705,13 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
             })),
             count: totalCount
         };
-
+ 
         if (paginate == 1) {
             response.page = page;
             response.limit = limit;
             response.pages = limit != 0 ? Math.ceil(totalCount / limit) : 0;
         }
-
+ 
         return res.status(200).send(new serviceResponse({
             status: 200,
             data: response,

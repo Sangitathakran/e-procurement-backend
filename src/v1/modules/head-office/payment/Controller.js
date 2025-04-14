@@ -49,6 +49,10 @@ const path = require("path");
 const { smsService } = require("@src/v1/utils/third_party/SMSservices");
 const OTPModel = require("../../../models/app/auth/OTP");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
+const { Scheme } = require("@src/v1/models/master/Scheme");
+const { Commodity } = require("@src/v1/models/master/Commodity");
+const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
+const ObjectId = require("mongoose").Types.ObjectId;
 
 const validateMobileNumber = async (mobile) => {
   let pattern = /^[0-9]{10}$/;
@@ -1170,371 +1174,555 @@ module.exports.payment = async (req, res) => {
 };
 */
 
+// module.exports.payment = async (req, res) => {
+//   try {
+//     let { page = 1, limit = 50, search = "", isExport = 0, isApproved, paymentStatus, approve_status = "Pending" } = req.query;
+//     page = parseInt(page);
+//     limit = parseInt(limit);
+//     isApproved = isApproved === "true";
+//     const { portalId, user_id } = req;
+
+//     // Ensure necessary indexes are created (run once in your database setup)
+//     await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
+//     await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
+//     await Batch.createIndexes({ req_id: 1 });
+//     await Payment.createIndexes({ batch_id: 1 });
+//     await Branches.createIndexes({ _id: 1 });
+
+//     // Step 1: Get relevant payment IDs
+//     const paymentIds = await Payment.distinct("req_id", {
+//       ho_id: { $in: [portalId, user_id] },
+//       bo_approve_status: _paymentApproval.approved,
+//     });
+
+//     if (paymentIds.length === 0) {
+//       return res.status(200).send(
+//         new serviceResponse({
+//           status: 200,
+//           data: { count: 0, rows: [] },
+//           message: _response_message.found("Payment"),
+//         })
+//       );
+//     }
+
+//     // Step 2: Construct Query
+//     let query = {
+//       _id: { $in: paymentIds },
+//     };
+
+//     // Step 3: Get total count
+//     const totalCount = await RequestModel.countDocuments(query);
+
+//     // Step 4: Aggregation Pipeline
+//     const aggregationPipeline = [
+//       { $match: query },
+//       {
+//         $lookup: {
+//           from: "batches",
+//           localField: "_id",
+//           foreignField: "req_id",
+//           as: "batches",
+//           pipeline: [
+//             { $match: { qty: { $exists: true } } },
+//             {
+//               $lookup: {
+//                 from: "payments",
+//                 localField: "_id",
+//                 foreignField: "batch_id",
+//                 as: "payment",
+//                 pipeline: [{ $project: { payment_status: 1 } }],
+//               },
+//             },
+//             {
+//               $project: {
+//                 qty: 1,
+//                 totalPrice: 1,
+//                 ho_approval_at: 1,
+//                 payment: 1,
+//               },
+//             },
+//           ],
+//         },
+//       },
+//       {
+//         $lookup: {
+//           from: "branches",
+//           localField: "branch_id",
+//           foreignField: "_id",
+//           as: "branch",
+//         },
+//       },
+//       { $unwind: "$branch" },
+//       {
+//         $match: {
+//           batches: { $ne: [] },
+//           "batches.ho_approve_status": approve_status == _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending }
+//         }
+//       },
+//       {
+//         $lookup: {
+//           from: "schemes",
+//           localField: "product.schemeId",
+//           foreignField: "_id",
+//           as: "schemeDetails",
+//         },
+//       },
+//       { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+//       {
+//         $lookup: {
+//           from: "commodities",
+//           localField: "schemeDetails.commodity_id",
+//           foreignField: "_id",
+//           as: "commodityDetails"
+//         }
+//       },
+//       {
+//         $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true }
+//       },
+//       {
+//         $addFields: {
+//           ho_approval_at: { $arrayElemAt: ["$batches.ho_approval_at", 0] },
+//           approval_status: {
+//             $cond: {
+//               if: {
+//                 $anyElementTrue: {
+//                   $map: {
+//                     input: "$batches",
+//                     as: "batch",
+//                     in: {
+//                       $or: [
+//                         { $not: { $ifNull: ["$$batch.ho_approval_at", true] } },
+//                         { $eq: ["$$batch.ho_approval_at", null] },
+//                       ],
+//                     },
+//                   },
+//                 },
+//               },
+//               then: "Pending",
+//               else: "Approved",
+//             },
+//           },
+//           payment_status: {
+//             $cond: {
+//               if: {
+//                 $anyElementTrue: {
+//                   $map: {
+//                     input: "$batches",
+//                     as: "batch",
+//                     in: {
+//                       $anyElementTrue: {
+//                         $map: {
+//                           input: "$$batch.payment",
+//                           as: "pay",
+//                           in: {
+//                             $in: [
+//                               "$$pay.payment_status",
+//                               ["Pending", "In Progress"],
+//                             ],
+//                           },
+//                         },
+//                       },
+//                     },
+//                   },
+//                 },
+//               },
+//               then: "Pending",
+//               else: "Completed",
+//             },
+//           },
+//           overall_payment_status: {
+//             $switch: {
+//               branches: [{
+//                 case: {
+//                   $allElementsTrue: {
+//                     $map: {
+//                       input: "$batches",
+//                       as: "batch",
+//                       in: {
+//                         $allElementsTrue: {
+//                           $map: {
+//                             input: "$$batch.payment",
+//                             as: "pay",
+//                             in: { $eq: ["$$pay.payment_status", "Pending"] },
+//                           },
+//                         },
+//                       },
+//                     },
+//                   },
+//                 },
+//                 then: "Pending",
+//               },
+//               {
+//                 case: {
+//                   $allElementsTrue: {
+//                     $map: {
+//                       input: "$batches",
+//                       as: "batch",
+//                       in: {
+//                         $allElementsTrue: {
+//                           $map: {
+//                             input: "$$batch.payment",
+//                             as: "pay",
+//                             in: { $eq: ["$$pay.payment_status", "Completed"] },
+//                           },
+//                         },
+//                       },
+//                     },
+//                   },
+//                 },
+//                 then: "Completed",
+//               },
+//               {
+//                 case: {
+//                   $allElementsTrue: {
+//                     $map: {
+//                       input: "$batches",
+//                       as: "batch",
+//                       in: {
+//                         $allElementsTrue: {
+//                           $map: {
+//                             input: "$$batch.payment",
+//                             as: "pay",
+//                             in: { $eq: ["$$pay.payment_status", "In Progress"] },
+//                           },
+//                         },
+//                       },
+//                     },
+//                   },
+//                 },
+//                 then: "Partially initiated",
+//               },
+//               {
+//                 case: {
+//                   $anyElementTrue: {
+//                     $map: {
+//                       input: "$batches",
+//                       as: "batch",
+//                       in: {
+//                         $anyElementTrue: {
+//                           $map: {
+//                             input: "$$batch.payment",
+//                             as: "pay",
+//                             in: { $in: ["$$pay.payment_status", ["Failed", "Rejected"]] },
+//                           },
+//                         },
+//                       },
+//                     },
+//                   },
+//                 },
+//                 then: "Failed",
+//               }
+//               ],
+//               default: "Pending", // Default case when no action is taken
+//             },
+//           },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: "$_id",
+//           reqNo: { $first: "$reqNo" },
+//           branch_id: { $first: "$branch_id" },
+//           branchName: { $first: "$branch.branchName" },
+//           approval_status: { $first: "$approval_status" },
+//           qtyPurchased: { $sum: { $sum: "$batches.qty" } },
+//           amountPayable: { $sum: { $sum: "$batches.totalPrice" } },
+//           amountPaid: { $sum: { $sum: "$batches.totalPrice" } },
+//           payment_status: { $first: "$payment_status" },
+//           overall_payment_status: { $first: "$overall_payment_status" },
+//           ho_approval_at: { $first: "$ho_approval_at" },
+//           commodity: { $first: "$product.name" },
+//           schemeName: { $first: "$schemeDetails.schemeName" },
+//           schemeName: {
+//             $first: {
+//               $concat: [
+//                 "$schemeDetails.schemeName", " ",
+//                 { $ifNull: ["$commodityDetails.name", " "] }, " ",
+//                 { $ifNull: ["$schemeDetails.season", " "] }, " ",
+//                 { $ifNull: ["$schemeDetails.period", " "] },
+//               ],
+//             },
+//           },
+//         },
+//       },
+//       {
+//         $project: {
+//           _id: 1,
+//           reqNo: 1,
+//           commodity: 1,
+//           branch_id: 1,
+//           branchName: 1,
+//           approval_status: 1,
+//           qtyPurchased: 1,
+//           amountPayable: 1,
+//           amountPaid: 1,
+//           payment_status: 1,
+//           overall_payment_status: 1,
+//           ho_approval_at: 1,
+//           schemeName: 1,
+//         },
+//       },
+//       // { $sort: { payment_status: -1, createdAt: -1 } },
+//       { $sort: { _id: -1, createdAt: -1 } },
+//       { $skip: (page - 1) * limit },
+//       { $limit: limit },
+//     ];
+
+//     // Filtering
+//     if (search) {
+//       aggregationPipeline.push({
+//         $match: {
+//           $or: [
+//             { reqNo: { $regex: search, $options: "i" } },
+//             { branchName: { $regex: search, $options: "i" } },
+//           ],
+//         },
+//       });
+//     }
+
+//     const records = await RequestModel.aggregate(aggregationPipeline) || [];
+
+//     // Additional filtering on approval_status
+//     const apStatus = isApproved ? "Approved" : "Pending";
+//     var filteredRecords = records.filter((el) => el?.approval_status === apStatus);
+
+//     // Additional filtering on paymentStatus
+//     if (paymentStatus) {
+//       filteredRecords = records.filter((el) => el?.overall_payment_status === paymentStatus);
+//     }
+
+//     // Prepare Response
+//     const response = {
+//       count: totalCount,
+//       rows: records,
+//       page,
+//       limit,
+//       pages: Math.ceil(totalCount / limit),
+//     };
+
+//     // Export Logic
+//     if (isExport == 1) {
+//       const record = response.rows.map((item) => ({
+//         "Order ID": item?.reqNo || "NA",
+//         "Branch Name": item?.branchName || "NA",
+//         "Commodity": item?.Commodity || "NA",
+//         "Quantity Purchased": item?.qtyPurchased || "NA",
+//         "Approval Status": item?.approval_status ?? "NA",
+//         "Payment Status": item?.payment_status ?? "NA",
+//       }));
+
+//       if (record.length > 0) {
+//         return dumpJSONToExcel(req, res, {
+//           data: record,
+//           fileName: `HO-Payment-record.xlsx`,
+//           worksheetName: `HO-Payment-record`,
+//         });
+//       } else {
+//         return res.status(400).send(
+//           new serviceResponse({
+//             status: 400,
+//             data: [],
+//             message: _response_message.notFound("Payment"),
+//           })
+//         );
+//       }
+//     } else {
+//       return res.status(200).send(
+//         new serviceResponse({
+//           status: 200,
+//           data: response,
+//           message: _response_message.found("Payment"),
+//         })
+//       );
+//     }
+//   } catch (error) {
+//     _handleCatchErrors(error, res);
+//   }
+// };
+
+
 module.exports.payment = async (req, res) => {
   try {
-    let { page = 1, limit = 50, search = "", isExport = 0, isApproved, paymentStatus, approve_status = "Pending" } = req.query;
+    let { page = 1, limit = 50, search = "", isExport = 0, approve_status = "Pending", paymentStatus } = req.query;
     page = parseInt(page);
     limit = parseInt(limit);
-    isApproved = isApproved === "true";
     const { portalId, user_id } = req;
 
-    // Ensure necessary indexes are created (run once in your database setup)
-    await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
-    await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
-    await Batch.createIndexes({ req_id: 1 });
-    await Payment.createIndexes({ batch_id: 1 });
-    await Branches.createIndexes({ _id: 1 });
-
-    // Step 1: Get relevant payment IDs
-    const paymentIds = await Payment.distinct("req_id", {
+    // Get relevant req_ids from payments
+    const reqIds = await Payment.distinct("req_id", {
       ho_id: { $in: [portalId, user_id] },
       bo_approve_status: _paymentApproval.approved,
     });
 
-    if (paymentIds.length === 0) {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: { count: 0, rows: [] },
-          message: _response_message.found("Payment"),
-        })
+    if (reqIds.length === 0) {
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: { count: 0, rows: [] },
+        message: _response_message.found("Payment"),
+      }));
+    }
+
+    // Fetch all requests
+    const allRequests = await RequestModel.find({ _id: { $in: reqIds } }).lean();
+
+    // Preload batches and payments
+    const batchMap = {};
+    const paymentMap = {};
+
+    const allBatches = await Batch.find({ req_id: { $in: reqIds }, qty: { $exists: true } }).lean();
+    const batchIds = allBatches.map(batch => batch._id);
+    const allPayments = await Payment.find({ batch_id: { $in: batchIds } }).lean();
+
+    allBatches.forEach(batch => {
+      batchMap[batch.req_id] = batchMap[batch.req_id] || [];
+      batch.payment = [];
+      batchMap[batch.req_id].push(batch);
+    });
+
+    allPayments.forEach(payment => {
+      const batch = allBatches.find(b => b._id.equals(payment.batch_id));
+      if (batch) {
+        batch.payment = batch.payment || [];
+        batch.payment.push(payment);
+      }
+    });
+
+    // Preload branch info
+    const branchIds = allRequests.map(req => req.branch_id);
+    const branchList = await Branches.find({ _id: { $in: branchIds } }).lean();
+    const branchMap = {};
+    branchList.forEach(branch => {
+      branchMap[branch._id] = branch;
+    });
+
+    // Preload scheme and commodity info
+    const schemeIds = allRequests.map(req => req?.product?.schemeId).filter(Boolean);
+    const schemes = await Scheme.find({ _id: { $in: schemeIds } }).lean();
+    const schemeMap = {};
+    schemes.forEach(s => { schemeMap[s._id] = s; });
+
+    const commodityIds = schemes.map(s => s.commodity_id).filter(Boolean);
+    const commodities = await Commodity.find({ _id: { $in: commodityIds } }).lean();
+    const commodityMap = {};
+    commodities.forEach(c => { commodityMap[c._id] = c; });
+
+    // Build final records
+    let records = allRequests.map(req => {
+      const batches = batchMap[req._id] || [];
+
+      const qtyPurchased = batches.reduce((sum, b) => sum + (b.qty || 0), 0);
+      const amountPayable = batches.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+
+      const allPaymentsInBatch = batches.flatMap(b => b.payment || []);
+      const allStatuses = allPaymentsInBatch.map(p => p.payment_status);
+
+      const approval_status = batches.some(b => !b.ho_approval_at) ? "Pending" : "Approved";
+      const payment_status = allStatuses.some(st => ["Pending", "In Progress"].includes(st))
+        ? "Pending"
+        : "Completed";
+
+      let overall_payment_status = "Pending";
+      if (allStatuses.every(st => st === "Pending")) overall_payment_status = "Pending";
+      else if (allStatuses.every(st => st === "Completed")) overall_payment_status = "Completed";
+      else if (allStatuses.every(st => st === "In Progress")) overall_payment_status = "Partially initiated";
+      else if (allStatuses.some(st => ["Failed", "Rejected"].includes(st))) overall_payment_status = "Failed";
+      else overall_payment_status = "Pending";
+
+      const branch = branchMap[req.branch_id];
+      const scheme = schemeMap[req?.product?.schemeId];
+      const commodity = commodityMap[scheme?.commodity_id];
+
+      const schemeName = [
+        scheme?.schemeName || "",
+        commodity?.name || "",
+        scheme?.season || "",
+        scheme?.period || ""
+      ].join(" ").trim();
+
+      return {
+        _id: req._id,
+        reqNo: req.reqNo,
+        branch_id: req.branch_id,
+        branchName: branch?.branchName || "NA",
+        commodity: req?.product?.name || "NA",
+        approval_status,
+        qtyPurchased,
+        amountPayable,
+        amountPaid: amountPayable,
+        payment_status,
+        overall_payment_status,
+        ho_approval_at: batches[0]?.ho_approval_at || null,
+        schemeName
+      };
+    });
+
+    // Filter by approval_status
+    if (approve_status) {
+      records = records.filter(r => r.approval_status === approve_status);
+    }
+
+    // Filter by paymentStatus
+    if (paymentStatus) {
+      records = records.filter(r => r.overall_payment_status === paymentStatus);
+    }
+
+    // Filter by search term
+    if (search) {
+      const searchRegex = new RegExp(search, "i");
+      records = records.filter(r =>
+        searchRegex.test(r.reqNo) || searchRegex.test(r.branchName)
       );
     }
 
-    // Step 2: Construct Query
-    let query = {
-      _id: { $in: paymentIds },
-    };
+    // Count before pagination
+    const totalCount = records.length;
 
-    // Step 3: Get total count
-    const totalCount = await RequestModel.countDocuments(query);
+    // Apply skip + limit
+    const paginated = records.slice((page - 1) * limit, page * limit);
 
-    // Step 4: Aggregation Pipeline
-    const aggregationPipeline = [
-      { $match: query },
-      {
-        $lookup: {
-          from: "batches",
-          localField: "_id",
-          foreignField: "req_id",
-          as: "batches",
-          pipeline: [
-            { $match: { qty: { $exists: true } } },
-            {
-              $lookup: {
-                from: "payments",
-                localField: "_id",
-                foreignField: "batch_id",
-                as: "payment",
-                pipeline: [{ $project: { payment_status: 1 } }],
-              },
-            },
-            {
-              $project: {
-                qty: 1,
-                totalPrice: 1,
-                ho_approval_at: 1,
-                payment: 1,
-              },
-            },
-          ],
-        },
-      },
-      {
-        $lookup: {
-          from: "branches",
-          localField: "branch_id",
-          foreignField: "_id",
-          as: "branch",
-        },
-      },
-      { $unwind: "$branch" },
-      {
-        $match: {
-          batches: { $ne: [] },
-          "batches.ho_approve_status": approve_status == _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending }
-        }
-      },
-      {
-        $lookup: {
-          from: "schemes",
-          localField: "product.schemeId",
-          foreignField: "_id",
-          as: "schemeDetails",
-        },
-      },
-      { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: "commodities",
-          localField: "schemeDetails.commodity_id",
-          foreignField: "_id",
-          as: "commodityDetails"
-        }
-      },
-      {
-        $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true }
-      },
-      {
-        $addFields: {
-          ho_approval_at: { $arrayElemAt: ["$batches.ho_approval_at", 0] },
-          approval_status: {
-            $cond: {
-              if: {
-                $anyElementTrue: {
-                  $map: {
-                    input: "$batches",
-                    as: "batch",
-                    in: {
-                      $or: [
-                        { $not: { $ifNull: ["$$batch.ho_approval_at", true] } },
-                        { $eq: ["$$batch.ho_approval_at", null] },
-                      ],
-                    },
-                  },
-                },
-              },
-              then: "Pending",
-              else: "Approved",
-            },
-          },
-          payment_status: {
-            $cond: {
-              if: {
-                $anyElementTrue: {
-                  $map: {
-                    input: "$batches",
-                    as: "batch",
-                    in: {
-                      $anyElementTrue: {
-                        $map: {
-                          input: "$$batch.payment",
-                          as: "pay",
-                          in: {
-                            $in: [
-                              "$$pay.payment_status",
-                              ["Pending", "In Progress"],
-                            ],
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-              then: "Pending",
-              else: "Completed",
-            },
-          },
-          overall_payment_status: {
-            $switch: {
-              branches: [{
-                case: {
-                  $allElementsTrue: {
-                    $map: {
-                      input: "$batches",
-                      as: "batch",
-                      in: {
-                        $allElementsTrue: {
-                          $map: {
-                            input: "$$batch.payment",
-                            as: "pay",
-                            in: { $eq: ["$$pay.payment_status", "Pending"] },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-                then: "Pending",
-              },
-              {
-                case: {
-                  $allElementsTrue: {
-                    $map: {
-                      input: "$batches",
-                      as: "batch",
-                      in: {
-                        $allElementsTrue: {
-                          $map: {
-                            input: "$$batch.payment",
-                            as: "pay",
-                            in: { $eq: ["$$pay.payment_status", "Completed"] },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-                then: "Completed",
-              },
-              {
-                case: {
-                  $allElementsTrue: {
-                    $map: {
-                      input: "$batches",
-                      as: "batch",
-                      in: {
-                        $allElementsTrue: {
-                          $map: {
-                            input: "$$batch.payment",
-                            as: "pay",
-                            in: { $eq: ["$$pay.payment_status", "In Progress"] },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-                then: "Partially initiated",
-              },
-              {
-                case: {
-                  $anyElementTrue: {
-                    $map: {
-                      input: "$batches",
-                      as: "batch",
-                      in: {
-                        $anyElementTrue: {
-                          $map: {
-                            input: "$$batch.payment",
-                            as: "pay",
-                            in: { $in: ["$$pay.payment_status", ["Failed", "Rejected"]] },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-                then: "Failed",
-              }
-              ],
-              default: "Pending", // Default case when no action is taken
-            },
-          },
-        },
-      },
-      {
-        $group: {
-          _id: "$_id",
-          reqNo: { $first: "$reqNo" },
-          branch_id: { $first: "$branch_id" },
-          branchName: { $first: "$branch.branchName" },
-          approval_status: { $first: "$approval_status" },
-          qtyPurchased: { $sum: { $sum: "$batches.qty" } },
-          amountPayable: { $sum: { $sum: "$batches.totalPrice" } },
-          amountPaid: { $sum: { $sum: "$batches.totalPrice" } },
-          payment_status: { $first: "$payment_status" },
-          overall_payment_status: { $first: "$overall_payment_status" },
-          ho_approval_at: { $first: "$ho_approval_at" },
-          commodity: { $first: "$product.name" },
-          schemeName: { $first: "$schemeDetails.schemeName" },
-          schemeName: {
-            $first: {
-              $concat: [
-                "$schemeDetails.schemeName", " ",
-                { $ifNull: ["$commodityDetails.name", " "] }, " ",
-                { $ifNull: ["$schemeDetails.season", " "] }, " ",
-                { $ifNull: ["$schemeDetails.period", " "] },
-              ],
-            },
-          },
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          reqNo: 1,
-          commodity: 1,
-          branch_id: 1,
-          branchName: 1,
-          approval_status: 1,
-          qtyPurchased: 1,
-          amountPayable: 1,
-          amountPaid: 1,
-          payment_status: 1,
-          overall_payment_status: 1,
-          ho_approval_at: 1,
-          schemeName: 1,
-        },
-      },
-      // { $sort: { payment_status: -1, createdAt: -1 } },
-      { $sort: { _id: -1, createdAt: -1 } },
-      { $skip: (page - 1) * limit },
-      { $limit: limit },
-    ];
-
-    // Filtering
-    if (search) {
-      aggregationPipeline.push({
-        $match: {
-          $or: [
-            { reqNo: { $regex: search, $options: "i" } },
-            { branchName: { $regex: search, $options: "i" } },
-          ],
-        },
-      });
-    }
-
-    const records = await RequestModel.aggregate(aggregationPipeline) || [];
-
-    // Additional filtering on approval_status
-    const apStatus = isApproved ? "Approved" : "Pending";
-    var filteredRecords = records.filter((el) => el?.approval_status === apStatus);
-
-    // Additional filtering on paymentStatus
-    if (paymentStatus) {
-      filteredRecords = records.filter((el) => el?.overall_payment_status === paymentStatus);
-    }
-
-    // Prepare Response
-    const response = {
-      count: totalCount,
-      rows: records,
-      page,
-      limit,
-      pages: Math.ceil(totalCount / limit),
-    };
-
-    // Export Logic
+    // Export if needed
     if (isExport == 1) {
-      const record = response.rows.map((item) => ({
+      const exportData = records.map((item) => ({
         "Order ID": item?.reqNo || "NA",
         "Branch Name": item?.branchName || "NA",
-        "Commodity": item?.Commodity || "NA",
+        "Commodity": item?.commodity || "NA",
         "Quantity Purchased": item?.qtyPurchased || "NA",
         "Approval Status": item?.approval_status ?? "NA",
         "Payment Status": item?.payment_status ?? "NA",
       }));
 
-      if (record.length > 0) {
+      if (exportData.length > 0) {
         return dumpJSONToExcel(req, res, {
-          data: record,
+          data: exportData,
           fileName: `HO-Payment-record.xlsx`,
           worksheetName: `HO-Payment-record`,
         });
       } else {
-        return res.status(400).send(
-          new serviceResponse({
-            status: 400,
-            data: [],
-            message: _response_message.notFound("Payment"),
-          })
-        );
+        return res.status(400).send(new serviceResponse({
+          status: 400,
+          data: [],
+          message: _response_message.notFound("Payment"),
+        }));
       }
-    } else {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: response,
-          message: _response_message.found("Payment"),
-        })
-      );
     }
+
+    // Send paginated response
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: {
+        count: totalCount,
+        rows: paginated,
+        page,
+        limit,
+        pages: Math.ceil(totalCount / limit),
+      },
+      message: _response_message.found("Payment"),
+    }));
   } catch (error) {
     _handleCatchErrors(error, res);
   }
 };
+
 
 
 module.exports.associateOrders = async (req, res) => {
@@ -1730,7 +1918,15 @@ module.exports.batchList = async (req, res) => {
       associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
       bo_approve_status: _paymentApproval.approved,
       ho_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
-      ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+      ...(search ? 
+        {
+          $or: [
+            { batchId: { $regex: search, $options: 'i' } },
+             { whrNo: { $regex: search, $options: 'i' } }
+          ]
+        }
+        :  {})
+      // ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
     };
 
     const records = { count: 0 };
@@ -1850,7 +2046,7 @@ module.exports.batchList = async (req, res) => {
           // whrNo: "12345",
           // whrReciept: "whrReciept.jpg",
           whrNo: "$final_quality_check.whr_receipt",
-          whrReciept: "$final_quality_check.product_images",
+          whrReciept: "$final_quality_check.whr_receipt_image",
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
@@ -3404,6 +3600,200 @@ module.exports.sendOTP = async (req, res) => {
 
 /**************************************************************/
 
+// module.exports.proceedToPayPayment = async (req, res) => {
+//   try {
+//     let { page, limit, search = '', isExport = 0, payment_status } = req.query;
+//     limit = parseInt(limit) || 10;
+//     page = parseInt(page) || 1;
+
+//     const { portalId, user_id } = req;
+
+//     // Ensure necessary indexes are created (run once in your database setup)
+//     await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
+//     await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
+//     await Batch.createIndexes({ req_id: 1 });
+//     await Payment.createIndexes({ batch_id: 1 });
+//     await Branches.createIndexes({ _id: 1 });
+
+//     // const paymentIds = (await Payment.find()).map(i => i.req_id);
+//     const paymentIds = await Payment.distinct("req_id", {
+//       ho_id: { $in: [portalId, user_id] },
+//       bo_approve_status: _paymentApproval.approved,
+//     });
+
+//     let query = search ? {
+//       _id: { $in: paymentIds },
+//       $or: [
+//         { "reqNo": { $regex: search, $options: 'i' } },
+//         { "product.name": { $regex: search, $options: 'i' } },
+//       ]
+//     } : {};
+
+//     const validStatuses = [_paymentstatus.pending, _paymentstatus.inProgress, _paymentstatus.failed, _paymentstatus.completed, _paymentstatus.rejected];
+
+//     if (payment_status && !validStatuses.includes(payment_status)) {
+//       return res.status(400).send(new serviceResponse({
+//         status: 400,
+//         message: `Invalid payment status. Valid statuses are: ${validStatuses.join(', ')}`
+//       }));
+//     }
+
+//     // Modify the query condition
+//     let paymentStatusCondition = payment_status;
+//     if (payment_status === "Failed" || payment_status === "Rejected") {
+//       paymentStatusCondition = "Failed";
+//     }
+
+//     const aggregationPipeline = [
+//       { $match: query },
+//       { $sort: { createdAt: -1 } },
+//       {
+//         $lookup: {
+//           from: 'batches',
+//           localField: '_id',
+//           foreignField: 'req_id',
+//           as: 'batches',
+//           pipeline: [
+//             {
+//               $lookup: {
+//                 from: 'payments',
+//                 localField: '_id',
+//                 foreignField: 'batch_id',
+//                 as: 'payment',
+//               }
+//             }
+//           ],
+//         }
+//       },
+//       {
+//         $lookup: {
+//           from: 'branches',
+//           localField: 'branch_id',
+//           foreignField: '_id',
+//           as: 'branchDetails'
+//         }
+//       },
+//       {
+//         $addFields: {
+//           branchDetails: {
+//             branchName: { $arrayElemAt: ['$branchDetails.branchName', 0] },
+//             branchId: { $arrayElemAt: ['$branchDetails.branchId', 0] },
+//           }
+//         }
+//       },
+//       {
+//         $lookup: {
+//           from: "slas",
+//           localField: "sla_id",
+//           foreignField: "_id",
+//           as: "sla"
+//         }
+//       },
+//       {
+//         $unwind: { path: "$sla", preserveNullAndEmptyArrays: true }
+//       },
+//       {
+//         $lookup: {
+//           from: "schemes",
+//           localField: "product.schemeId",
+//           foreignField: "_id",
+//           as: "scheme"
+//         }
+//       },
+//       {
+//         $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true }
+//       },
+//       {
+//         $lookup: {
+//           from: "commodities",
+//           localField: "scheme.commodity_id",
+//           foreignField: "_id",
+//           as: "commodityDetails"
+//         }
+//       },
+//       {
+//         $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true }
+//       },
+//       {
+//         $match: {
+//           batches: { $ne: [] },
+//           "batches.bo_approve_status": _paymentApproval.approved,
+//           // "batches.ho_approve_status": _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending },
+//           "batches.ho_approve_status": _paymentApproval.approved ? _paymentApproval.approved : { $ne: _paymentApproval.pending },
+//           "batches.payment.payment_status": paymentStatusCondition || _paymentstatus.pending
+//         }
+//       },
+//       {
+//         $addFields: {
+//           qtyPurchased: {
+//             $sum: "$batches.qty"
+//           },
+//           amountPayable: {
+//             $sum: "$batches.totalPrice"
+//           },
+//           amountPaid: {
+//             $sum: "$batches.goodsPrice"
+//           },
+//           approval_date: { $arrayElemAt:["$batches.payement_approval_at",0] },
+//           approval_status: "Approved",
+//           payment_status: payment_status || _paymentstatus.pending,
+//           schemeName: {
+//             $concat: [
+//               "$scheme.schemeName", " ",
+//               { $ifNull: ["$commodityDetails.name", " "] }, " ",
+//               { $ifNull: ["$scheme.season", " "] }, " ",
+//               { $ifNull: ["$scheme.period", " "] },
+//             ],
+//           },
+
+//         }
+//       },
+//       {
+//         $project: {
+//           _id: 1,
+//           reqNo: 1,
+//           product: 1,
+//           qtyPurchased: 1,
+//           amountPayable: 1,
+//           amountPaid: 1,
+//           approval_status: 1,
+//           payment_status: 1,
+//           'branchDetails.branchName': 1,
+//           'branchDetails.branchId': 1,
+//           'sla.basic_details.name': 1,
+//           'scheme.schemeName': "$schemeName",
+//           'approval_date': 1,
+//         }
+//       },
+//       { $skip: (page - 1) * limit },
+//       { $limit: limit }
+//     ];
+
+//     let response = { count: 0 };
+//     response.rows = await RequestModel.aggregate(aggregationPipeline);
+//     console.log(aggregationPipeline);
+//     const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
+//     response.count = countResult?.[0]?.count ?? 0;
+
+//     if (isExport == 1) {
+//       const exportRecords = await RequestModel.aggregate([...aggregationPipeline]);
+//       if (exportRecords.length > 0) {
+//         dumpJSONToExcel(req, res, {
+//           data: exportRecords,
+//           fileName: `Farmer-Payment-records.xlsx`,
+//           worksheetName: `Farmer-Payment-records`
+//         });
+//       } else {
+//         return res.status(400).send(new serviceResponse({ status: 400, data: response, message: "No payments found" }));
+//       }
+//     } else {
+//       return res.status(200).send(new serviceResponse({ status: 200, data: response, message: "Payments found" }));
+//     }
+//   } catch (error) {
+//     _handleCatchErrors(error, res);
+//   }
+// };
+
 module.exports.proceedToPayPayment = async (req, res) => {
   try {
     let { page, limit, search = '', isExport = 0, payment_status } = req.query;
@@ -3412,29 +3802,8 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
     const { portalId, user_id } = req;
 
-    // Ensure necessary indexes are created (run once in your database setup)
-    await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
-    await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
-    await Batch.createIndexes({ req_id: 1 });
-    await Payment.createIndexes({ batch_id: 1 });
-    await Branches.createIndexes({ _id: 1 });
-
-    // const paymentIds = (await Payment.find()).map(i => i.req_id);
-    const paymentIds = await Payment.distinct("req_id", {
-      ho_id: { $in: [portalId, user_id] },
-      bo_approve_status: _paymentApproval.approved,
-    });
-
-    let query = search ? {
-      _id: { $in: paymentIds },
-      $or: [
-        { "reqNo": { $regex: search, $options: 'i' } },
-        { "product.name": { $regex: search, $options: 'i' } },
-      ]
-    } : {};
-
+    // Valid payment statuses
     const validStatuses = [_paymentstatus.pending, _paymentstatus.inProgress, _paymentstatus.failed, _paymentstatus.completed, _paymentstatus.rejected];
-
     if (payment_status && !validStatuses.includes(payment_status)) {
       return res.status(400).send(new serviceResponse({
         status: 400,
@@ -3442,161 +3811,115 @@ module.exports.proceedToPayPayment = async (req, res) => {
       }));
     }
 
-    // Modify the query condition
-    let paymentStatusCondition = payment_status;
-    if (payment_status === "Failed" || payment_status === "Rejected") {
-      paymentStatusCondition = "Failed";
-    }
+    // Fetch req_ids with approved payments
+    const paymentReqIds = await Payment.distinct("req_id", {
+      ho_id: { $in: [portalId, user_id] },
+      bo_approve_status: _paymentApproval.approved,
+    });
 
-    const aggregationPipeline = [
-      { $match: query },
-      { $sort: { createdAt: -1 } },
-      {
-        $lookup: {
-          from: 'batches',
-          localField: '_id',
-          foreignField: 'req_id',
-          as: 'batches',
-          pipeline: [
-            {
-              $lookup: {
-                from: 'payments',
-                localField: '_id',
-                foreignField: 'batch_id',
-                as: 'payment',
-              }
-            }
-          ],
-        }
-      },
-      {
-        $lookup: {
-          from: 'branches',
-          localField: 'branch_id',
-          foreignField: '_id',
-          as: 'branchDetails'
-        }
-      },
-      {
-        $addFields: {
-          branchDetails: {
-            branchName: { $arrayElemAt: ['$branchDetails.branchName', 0] },
-            branchId: { $arrayElemAt: ['$branchDetails.branchId', 0] },
-          }
-        }
-      },
-      {
-        $lookup: {
-          from: "slas",
-          localField: "sla_id",
-          foreignField: "_id",
-          as: "sla"
-        }
-      },
-      {
-        $unwind: { path: "$sla", preserveNullAndEmptyArrays: true }
-      },
-      {
-        $lookup: {
-          from: "schemes",
-          localField: "product.schemeId",
-          foreignField: "_id",
-          as: "scheme"
-        }
-      },
-      {
-        $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true }
-      },
-      {
-        $lookup: {
-          from: "commodities",
-          localField: "scheme.commodity_id",
-          foreignField: "_id",
-          as: "commodityDetails"
-        }
-      },
-      {
-        $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true }
-      },
-      {
-        $match: {
-          batches: { $ne: [] },
-          "batches.bo_approve_status": _paymentApproval.approved,
-          // "batches.ho_approve_status": _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending },
-          "batches.ho_approve_status": _paymentApproval.approved ? _paymentApproval.approved : { $ne: _paymentApproval.pending },
-          "batches.payment.payment_status": paymentStatusCondition || _paymentstatus.pending
-        }
-      },
-      {
-        $addFields: {
-          qtyPurchased: {
-            $sum: "$batches.qty"
-          },
-          amountPayable: {
-            $sum: "$batches.totalPrice"
-          },
-          amountPaid: {
-            $sum: "$batches.goodsPrice"
-          },
-          approval_date: { $arrayElemAt:["$batches.payement_approval_at",0] },
-          approval_status: "Approved",
-          payment_status: payment_status || _paymentstatus.pending,
-          schemeName: {
-            $concat: [
-              "$scheme.schemeName", " ",
-              { $ifNull: ["$commodityDetails.name", " "] }, " ",
-              { $ifNull: ["$scheme.season", " "] }, " ",
-              { $ifNull: ["$scheme.period", " "] },
-            ],
-          },
+    // Get all matching requests
+    const requests = await RequestModel.find({ _id: { $in: paymentReqIds } }).lean();
 
-        }
-      },
-      {
-        $project: {
-          _id: 1,
-          reqNo: 1,
-          product: 1,
-          qtyPurchased: 1,
-          amountPayable: 1,
-          amountPaid: 1,
-          approval_status: 1,
-          payment_status: 1,
-          'branchDetails.branchName': 1,
-          'branchDetails.branchId': 1,
-          'sla.basic_details.name': 1,
-          'scheme.schemeName': "$schemeName",
-          'approval_date': 1,
-        }
-      },
-      { $skip: (page - 1) * limit },
-      { $limit: limit }
-    ];
+    const fullData = await Promise.all(requests.map(async reqItem => {
+      const batches = await Batch.find({ req_id: reqItem._id }).lean();
+      if (!batches.length) return null;
 
-    let response = { count: 0 };
-    response.rows = await RequestModel.aggregate(aggregationPipeline);
-    console.log(aggregationPipeline);
-    const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
-    response.count = countResult?.[0]?.count ?? 0;
+      const batchWithPayments = await Promise.all(batches.map(async batch => {
+        const payments = await Payment.find({ batch_id: batch._id }).lean();
+        return { ...batch, payment: payments };
+      }));
+
+      // Payment filter logic
+      let isValid = true;
+      if (payment_status) {
+        const allPayments = batchWithPayments.flatMap(b => b.payment);
+        const statuses = allPayments.map(p => p.payment_status);
+        if (payment_status === _paymentstatus.failed || payment_status === _paymentstatus.rejected) {
+          isValid = statuses.some(st => st === _paymentstatus.failed || st === _paymentstatus.rejected);
+        } else {
+          isValid = statuses.some(st => st === payment_status);
+        }
+      }
+
+      if (!isValid) return null;
+
+      // Branch Details
+      const branch = await Branches.findById(reqItem.branch_id).lean();
+
+      // SLA, Scheme, Commodity
+      const sla = reqItem.sla_id ? await SLAManagement.findById(reqItem.sla_id).lean() : {};
+      const scheme = reqItem?.product?.schemeId ? await Scheme.findById(reqItem.product.schemeId).lean() : {};
+      const commodity = scheme?.commodity_id ? await Commodity.findById(scheme.commodity_id).lean() : {};
+
+      // Aggregate amounts
+      const qtyPurchased = batchWithPayments.reduce((sum, b) => sum + (b.qty || 0), 0);
+      const amountPayable = batchWithPayments.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+      const amountPaid = batchWithPayments.reduce((sum, b) => sum + (b.goodsPrice || 0), 0);
+
+      // Search filter
+      const searchableFields = [
+        reqItem.reqNo,
+        reqItem?.product?.name,
+        branch?.branchName
+      ].join(" ").toLowerCase();
+
+      if (search && !searchableFields.includes(search.toLowerCase())) return null;
+
+      return {
+        _id: reqItem._id,
+        reqNo: reqItem.reqNo,
+        product: reqItem.product,
+        qtyPurchased,
+        amountPayable,
+        amountPaid,
+        approval_status: "Approved",
+        payment_status: payment_status || _paymentstatus.pending,
+        approval_date: batchWithPayments[0]?.payement_approval_at || null,
+        branchDetails: {
+          branchName: branch?.branchName || 'NA',
+          branchId: branch?.branchId || 'NA'
+        },
+        slaName: sla?.basic_details?.name || '',
+        schemeName: `${scheme?.schemeName || ''} ${commodity?.name || ''} ${scheme?.season || ''} ${scheme?.period || ''}`.trim()
+      };
+    }));
+
+    // Final filter to remove nulls and apply skip/limit
+    const filtered = fullData.filter(Boolean);
+    const paginated = filtered.slice((page - 1) * limit, page * limit);
 
     if (isExport == 1) {
-      const exportRecords = await RequestModel.aggregate([...aggregationPipeline]);
-      if (exportRecords.length > 0) {
-        dumpJSONToExcel(req, res, {
-          data: exportRecords,
+      if (filtered.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: filtered,
           fileName: `Farmer-Payment-records.xlsx`,
-          worksheetName: `Farmer-Payment-records`
+          worksheetName: `Farmer-Payment-records`,
         });
       } else {
-        return res.status(400).send(new serviceResponse({ status: 400, data: response, message: "No payments found" }));
+        return res.status(400).send(new serviceResponse({
+          status: 400,
+          data: [],
+          message: "No payments found"
+        }));
       }
-    } else {
-      return res.status(200).send(new serviceResponse({ status: 200, data: response, message: "Payments found" }));
     }
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: {
+        count: filtered.length,
+        rows: paginated,
+        page,
+        limit,
+        pages: Math.ceil(filtered.length / limit)
+      },
+      message: "Payments found"
+    }));
   } catch (error) {
     _handleCatchErrors(error, res);
   }
 };
+
 
 module.exports.proceedToPayBatchList = async (req, res) => {
 
@@ -3758,10 +4081,11 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           qtyPurchased: "$qty",
           amountProposed: "$goodsPrice",
           associateName: "$users.basic_details.associate_details.associate_name",
+          organisationName: "$users.basic_details.associate_details.organization_name",
           // whrNo: "12345",
           // whrReciept: "whrReciept.jpg",
           whrNo: "$final_quality_check.whr_receipt",
-          whrReciept: "$final_quality_check.product_images",
+          whrReciept: "$final_quality_check.whr_receipt_image",
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
