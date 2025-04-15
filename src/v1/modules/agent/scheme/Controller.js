@@ -664,7 +664,9 @@ module.exports.getslaByBo = asyncErrorHandler(async (req, res) => {
           slaName: '$slaDetails.basic_details.name',
           slaId: '$slaDetails.slaId',
           assignQty: "$assignQty",
-          targetAchieved: '$schemeDetails.procurement'
+          targetAchieved: '$schemeDetails.procurement',
+          bo_id: 1,
+          ho_id: 1
         }
       }
     ];
