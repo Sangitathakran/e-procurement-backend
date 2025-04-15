@@ -23,12 +23,12 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     deletedAt: null,
   };
 
-  if (search) {
-    matchQuery.$or = [
-      { schemeId: { $regex: search, $options: "i" } },
-      { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
-    ];
-  }
+  // if (search) {
+  //   matchQuery.$or = [
+  //     { schemeId: { $regex: search, $options: "i" } },
+  //     { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
+  //   ];
+  // }
 
   if (schemeName) {
     matchQuery.schemeName = { $regex: schemeName.trim().replace(/\s+/g, ".*"), $options: "i" };
