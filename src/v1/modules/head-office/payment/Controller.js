@@ -1536,7 +1536,7 @@ module.exports.payment = async (req, res) => {
   }
 };
 
-module.exports.associateOrders = async (req, res) => {
+module.exports.associateOrders = async (req, res) => {  
   try {
     const {
       page,
