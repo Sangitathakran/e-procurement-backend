@@ -1536,7 +1536,7 @@ module.exports.payment = async (req, res) => {
   }
 };
 
-module.exports.associateOrders = async (req, res) => {
+module.exports.associateOrders = async (req, res) => {  
   try {
     const {
       page,
@@ -1729,7 +1729,15 @@ module.exports.batchList = async (req, res) => {
       associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
       bo_approve_status: _paymentApproval.approved,
       ho_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
-      ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+      ...(search ? 
+        {
+          $or: [
+            { batchId: { $regex: search, $options: 'i' } },
+             { whrNo: { $regex: search, $options: 'i' } }
+          ]
+        }
+        :  {})
+      // ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
     };
 
     const records = { count: 0 };
@@ -1849,7 +1857,7 @@ module.exports.batchList = async (req, res) => {
           // whrNo: "12345",
           // whrReciept: "whrReciept.jpg",
           whrNo: "$final_quality_check.whr_receipt",
-          whrReciept: "$final_quality_check.product_images",
+          whrReciept: "$final_quality_check.whr_receipt_image",
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
@@ -3537,6 +3545,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           amountPaid: {
             $sum: "$batches.goodsPrice"
           },
+          approval_date: { $arrayElemAt:["$batches.payement_approval_at",0] },
           approval_status: "Approved",
           payment_status: payment_status || _paymentstatus.pending,
           schemeName: {
@@ -3564,6 +3573,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           'branchDetails.branchId': 1,
           'sla.basic_details.name': 1,
           'scheme.schemeName': "$schemeName",
+          'approval_date': 1,
         }
       },
       { $skip: (page - 1) * limit },
@@ -3606,7 +3616,7 @@ module.exports.proceedToPayBatchList = async (req, res) => {
       _id: { $in: paymentIds },
       req_id: new mongoose.Types.ObjectId(req_id),
       bo_approve_status: _paymentApproval.approved,
-      ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+      // ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
     };
 
     const validStatuses = [_paymentstatus.pending, _paymentstatus.inProgress, _paymentstatus.failed, _paymentstatus.completed, _paymentstatus.rejected];
@@ -3630,6 +3640,18 @@ module.exports.proceedToPayBatchList = async (req, res) => {
     const pipeline = [
       {
         $match: query,
+      },
+      {
+        $match: {
+          ...(search
+            ? {
+                $or: [
+                  { batchId: { $regex: search, $options: 'i' } },
+                  { "final_quality_check.whr_receipt": { $regex: search, $options: 'i' } }
+                ]
+              }
+            : {})
+        }
       },
       {
         $lookup: {
@@ -3755,16 +3777,18 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           qtyPurchased: "$qty",
           amountProposed: "$goodsPrice",
           associateName: "$users.basic_details.associate_details.associate_name",
+          organisationName: "$users.basic_details.associate_details.organization_name",
           // whrNo: "12345",
           // whrReciept: "whrReciept.jpg",
           whrNo: "$final_quality_check.whr_receipt",
-          whrReciept: "$final_quality_check.product_images",
+          whrReciept: "$final_quality_check.whr_receipt_image",
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
           approval_status: 1,
           payment_date: '$payment_at',
-          payment_status: "$payment.payment_status"
+          payment_status: "$payment.payment_status",
+          bankStatus: "$payment.payment_status",
         }
       },
       // Start of Sangita code

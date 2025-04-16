@@ -51,6 +51,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
       "company_details.pan_image",
       "authorised.name",
       "authorised.designation",
+      "authorised.phone",
       "authorised.email",
       "authorised.aadhar_number",
       "authorised.aadhar_certificate.front",
@@ -123,13 +124,23 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     state,
   } = req.query;
 
-  const userID = req.user._id;
+  const { portalId, user_id } = req;
+
+  
+const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
+
+
+
+  
+
+
 
   if (bo_id || scheme_id) {
     let matchQuery = {
       sla_id: { $exists: true },
       deletedAt: null,
-      "schemes.cna": userID,
+      "schemes.cna": { $in: [portalObjectId, userObjectId] }
     };
     if (bo_id) matchQuery.bo_id = new ObjectId(bo_id);
 
@@ -242,13 +253,13 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
   let matchQuery = search
     ? {
-        $or: [
-          { "basic_details.name": { $regex: search, $options: "i" } },
-          { "basic_details.email": { $regex: search, $options: "i" } },
-          { "basic_details.mobile": { $regex: search, $options: "i" } },
-        ],
-        deletedAt: null,
-      }
+      $or: [
+        { "basic_details.name": { $regex: search, $options: "i" } },
+        { "basic_details.email": { $regex: search, $options: "i" } },
+        { "basic_details.mobile": { $regex: search, $options: "i" } },
+      ],
+      deletedAt: null,
+    }
     : { deletedAt: null };
 
   if (state) matchQuery["address.state"] = { $regex: state, $options: "i" };
@@ -257,7 +268,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     {
       $match: {
         ...matchQuery,
-        "schemes.cna": userID,
+       "schemes.cna": { $in: [portalObjectId, userObjectId] }
       },
     },
     //   { $match: matchQuery },
@@ -304,7 +315,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     {
       $match: {
         ...matchQuery,
-        "schemes.cna": userID,
+       "schemes.cna": { $in: [portalObjectId, userObjectId] }
       },
     },
     { $count: "total" },
@@ -479,7 +490,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const updateData = req.body;
-    const userID = req.user._i;
+    const userID = req.user._id;
 
     if (!slaId) {
       return res.status(400).json(
@@ -527,7 +538,6 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params; // Get SLA ID from URL params
-    const userID = req.user._id;
 
     if (!slaId) {
       return res.status(400).json(
@@ -539,17 +549,8 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
     }
 
     // Find SLA with selected fields
-    const sla = await SLAManagement.findOne(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
-      {
-        _id: 1,
-        slaId: 1,
-        "basic_details.name": 1,
-        associatOrder_id: 1,
-        address: 1,
-        status: 1,
-      }
-    );
+    const sla = await SLAManagement.findById(slaId);
+   
 
     if (!sla) {
       return res.status(404).json(
@@ -560,21 +561,11 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
       );
     }
 
-    // Transform response
-    const response = {
-      _id: sla._id,
-      slaId: sla.slaId,
-      sla_name: sla.basic_details.name,
-      accociate_count: sla.associatOrder_id.length,
-      address: `${sla.address.line1}, ${sla.address.city}, ${sla.address.state}, ${sla.address.country}`,
-      status: sla.status,
-    };
-
     return res.status(200).json(
       new serviceResponse({
         status: 200,
         message: "SLA record retrieved successfully",
-        data: response,
+        data: sla,
       })
     );
   } catch (error) {
@@ -587,6 +578,8 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
     );
   }
 });
+
+
 
 module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
   try {
@@ -723,6 +716,48 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 
     // Use Mongoose's insertMany to insert multiple documents
     const records = await SchemeAssign.insertMany(recordsToInsert);
+
+    if (sla_id) {
+      const schemeIds = schemeData.map(item => item._id);
+
+      // Fetch existing SLA document
+      const sla = await SLAManagement.findById(sla_id);
+
+      if (!sla) {
+        return res.status(404).send(
+          new serviceResponse({
+            status: 404,
+            message: "SLA not found.",
+          })
+        );
+      }
+
+      // Extract current saved values
+      const existingSchemes = sla.schemes?.scheme?.map(id => id.toString()) || [];
+      const incomingSchemes = schemeIds.map(id => id.toString());
+
+      const existingCna = sla.schemes?.cna?.toString();
+      const existingBranch = sla.schemes?.branch?.toString();
+
+      // Check if any differences
+      const hasSchemeChange = incomingSchemes.length !== existingSchemes.length ||
+        !incomingSchemes.every(id => existingSchemes.includes(id));
+      const hasCnaChange = cna_id.toString() !== existingCna;
+      const hasBranchChange = bo_id.toString() !== existingBranch;
+
+      if (hasSchemeChange || hasCnaChange || hasBranchChange) {
+        await SLAManagement.updateOne(
+          { _id: sla_id },
+          {
+            $set: {
+              "schemes.scheme": schemeIds,
+              "schemes.cna": cna_id,
+              "schemes.branch": bo_id,
+            },
+          }
+        );
+      }
+    }
 
     return res.status(200).send(
       new serviceResponse({
