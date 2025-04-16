@@ -333,7 +333,7 @@ module.exports.associateOrders = async (req, res) => {
         })
         .sort(sortBy);
   
-      // 🔍 Search logic
+   
       if (search) {
         const searchRegex = new RegExp(search, 'i');
         allRows = allRows.filter(item => {
@@ -343,10 +343,10 @@ module.exports.associateOrders = async (req, res) => {
         });
       }
   
-      // 📦 Set count after filtering
+     
       records.count = allRows.length;
   
-      // 📄 Paginate only after search
+      
       records.rows = paginate == 1
         ? allRows.slice(skip, skip + parseInt(limit))
         : allRows;
