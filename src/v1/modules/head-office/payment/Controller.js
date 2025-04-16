@@ -1536,7 +1536,7 @@ module.exports.payment = async (req, res) => {
   }
 };
 
-module.exports.associateOrders = async (req, res) => {
+module.exports.associateOrders = async (req, res) => {  
   try {
     const {
       page,
@@ -3616,7 +3616,7 @@ module.exports.proceedToPayBatchList = async (req, res) => {
       _id: { $in: paymentIds },
       req_id: new mongoose.Types.ObjectId(req_id),
       bo_approve_status: _paymentApproval.approved,
-      ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+      // ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
     };
 
     const validStatuses = [_paymentstatus.pending, _paymentstatus.inProgress, _paymentstatus.failed, _paymentstatus.completed, _paymentstatus.rejected];
@@ -3640,6 +3640,18 @@ module.exports.proceedToPayBatchList = async (req, res) => {
     const pipeline = [
       {
         $match: query,
+      },
+      {
+        $match: {
+          ...(search
+            ? {
+                $or: [
+                  { batchId: { $regex: search, $options: 'i' } },
+                  { "final_quality_check.whr_receipt": { $regex: search, $options: 'i' } }
+                ]
+              }
+            : {})
+        }
       },
       {
         $lookup: {

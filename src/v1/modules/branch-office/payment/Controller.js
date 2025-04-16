@@ -299,73 +299,98 @@ module.exports.payment = async (req, res) => {
 }
 
 module.exports.associateOrders = async (req, res) => {
-
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
-
-        const { user_type, portalId, user_id } = req;
-
-        if (user_type != _userType.bo) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-        }
-
-        const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })).map(i => i.associateOffers_id)
-        let query = {
-            _id: { $in: paymentIds },
-            req_id,
-            status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] },
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
-        };
-
-        const records = { count: 0 };
-        records.reqDetails = await RequestModel.findOne({ _id: req_id })
-            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
-        records.rows = paginate == 1 ? await AssociateOffers.find(query)
-            .populate({
-                path: 'seller_id', select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
-            })
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await AssociateOffers.find(query).sort(sortBy);
-
-        records.count = await AssociateOffers.countDocuments(query);
-
-        if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-        }
-
-        if (isExport == 1) {
-
-            const record = records.rows.map((item) => {
-
-                return {
-                    "Associate ID": item?.seller_id.user_code || 'NA',
-                    "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || 'NA',
-                    "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || 'NA',
-                    "Quantity Purchased": item?.procuredQty || 'NA'
-                }
-            })
-
-            if (record.length > 0) {
-
-                dumpJSONToExcel(req, res, {
-                    data: record,
-                    fileName: `Associate-orders.xlsx`,
-                    worksheetName: `Associate-orders`
-                });
-            } else {
-                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
-            }
+      const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query;
+      const { user_type, portalId, user_id } = req;
+  
+      if (user_type != _userType.bo) {
+        return res.status(400).send(new serviceResponse({
+          status: 400,
+          errors: [{ message: _response_message.Unauthorized("user") }]
+        }));
+      }
+  
+      const paymentIds = (
+        await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })
+      ).map(i => i.associateOffers_id);
+  
+      const query = {
+        _id: { $in: paymentIds },
+        req_id,
+        status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] }
+      };
+  
+      const records = { count: 0 };
+  
+      records.reqDetails = await RequestModel.findOne({ _id: req_id }).select({
+        _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1
+      });
+  
+      let allRows = await AssociateOffers.find(query)
+        .populate({
+          path: 'seller_id',
+          select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
+        })
+        .sort(sortBy);
+  
+   
+      if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        allRows = allRows.filter(item => {
+          const userCode = item?.seller_id?.user_code || '';
+          const orgName = item?.seller_id?.basic_details?.associate_details?.organization_name || '';
+          return searchRegex.test(userCode) || searchRegex.test(orgName);
+        });
+      }
+  
+     
+      records.count = allRows.length;
+  
+      
+      records.rows = paginate == 1
+        ? allRows.slice(skip, skip + parseInt(limit))
+        : allRows;
+  
+      if (paginate == 1) {
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+      }
+  
+      if (isExport == 1) {
+        const record = records.rows.map((item) => {
+          return {
+            "Associate ID": item?.seller_id.user_code || 'NA',
+            "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || 'NA',
+            "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || 'NA',
+            "Quantity Purchased": item?.procuredQty || 'NA'
+          };
+        });
+  
+        if (record.length > 0) {
+          dumpJSONToExcel(req, res, {
+            data: record,
+            fileName: `Associate-orders.xlsx`,
+            worksheetName: `Associate-orders`
+          });
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+          return res.status(400).send(new serviceResponse({
+            status: 400,
+            data: records,
+            message: _response_message.notFound("Payment")
+          }));
         }
-
+      } else {
+        return res.status(200).send(new serviceResponse({
+          status: 200,
+          data: records,
+          message: _response_message.found("Payment")
+        }));
+      }
     } catch (error) {
-        _handleCatchErrors(error, res);
+      _handleCatchErrors(error, res);
     }
-}
+  };
 
 module.exports.batchList = async (req, res) => {
 
@@ -378,7 +403,16 @@ module.exports.batchList = async (req, res) => {
             _id: { $in: paymentIds },
             associateOffer_id,
             bo_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+            // ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+
+            ...(search ? 
+                {
+                  $or: [
+                    { batchId: { $regex: search, $options: 'i' } },
+                     { whrNo: { $regex: search, $options: 'i' } }
+                  ]
+                }
+                :  {})
         };
 
         const records = { count: 0 };
