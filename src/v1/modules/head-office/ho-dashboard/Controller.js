@@ -19,12 +19,13 @@ const {
 const { _query } = require("@src/v1/utils/constants/messages");
 const moment = require("moment");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
+const { default: mongoose } = require("mongoose");
 
 
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   try {
-    report = [
+   let report = [
       { monthName: "January", month: 1, total: 0 },
       { monthName: "February", month: 2, total: 0 },
       { monthName: "March", month: 3, total: 0 },
@@ -49,12 +50,18 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
     widgetDetails.farmer.total = associateFCount;
     widgetDetails.associate.total = await User.countDocuments({});
     widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
+    widgetDetails.branch.total = await Branches.countDocuments({});
+
     let lastMonthUser = await User.aggregate([
       { $match: { user_type: "Associate" } },
       { $project: { month: { $month: "$createdAt" } } },
       { $group: { _id: "$month", total: { $sum: 1 } } },
     ]);
     let lastMonthFarmer = await farmer.aggregate([
+      { $project: { month: { $month: "$createdAt" } } },
+      { $group: { _id: "$month", total: { $sum: 1 } } },
+    ]);
+    let lastMonthBranch = await Branches.aggregate([
       { $project: { month: { $month: "$createdAt" } } },
       { $group: { _id: "$month", total: { $sum: 1 } } },
     ]);
@@ -71,6 +78,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
     };
     widgetDetails.associate.lastMonth = getReport(report, lastMonthUser);
     widgetDetails.farmer.lastMonth = getReport(report, lastMonthFarmer);
+    widgetDetails.branch.lastMonth = getReport(report, lastMonthBranch);
 
     return sendResponse({
       res,
@@ -86,7 +94,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
 module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   try {
 
-    const hoId = req.portalId;
+    const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
 
     let widgetDetails = {
       branchOffice: { total: 0 },
