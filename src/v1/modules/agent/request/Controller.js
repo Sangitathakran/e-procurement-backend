@@ -192,7 +192,16 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .populate({ path: "product.schemeId", select: "" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
-console.log("Filtered Data:", JSON.stringify(records.rows, null, 2));
+        records.rows = records.rows.map((doc) => {
+            const obj = doc.toObject(); 
+            const commdityName = obj?.product?.name || '';
+            const schemeName= obj?.product?.schemeId?.schemeName || '';
+            const season= obj?.product?.schemeId?.season || '';
+            const period= obj?.product?.schemeId?.period || '';
+            obj.scheme_name = `${schemeName} ${commdityName} ${season} ${period}`;
+            return obj;
+        });
+
 
 
     records.count = await RequestModel.countDocuments(query);
