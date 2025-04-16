@@ -20,6 +20,7 @@ module.exports.getDashboardStats = async (req, res) => {
         const startOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
         const startOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
         const endOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
+    
 
         const lastMonthAssociates = await User.countDocuments({
             user_type: _userType.associate,
@@ -63,8 +64,8 @@ module.exports.getDashboardStats = async (req, res) => {
             farmerDifferencePercentage = (farmerDifference / lastMonthFarmers) * 100;
         }
 
-        const branchOfficeCount = (await Branches.countDocuments({ status: _status.active })) ?? 0;
-        const associateCount = (await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true })) ?? 0;
+        const branchOfficeCount = (await Branches.countDocuments({status: _status.active})) ?? 0;
+        const associateCount = (await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved })) ?? 0;
         const procurementCenterCount = (await ProcurementCenter.countDocuments({ active: true })) ?? 0;
         const farmerCount = (await farmer.countDocuments({ status: _status.active })) ?? 0;
 
