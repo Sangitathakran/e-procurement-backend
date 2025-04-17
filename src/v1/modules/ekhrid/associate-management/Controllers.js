@@ -1296,7 +1296,7 @@ module.exports.getAllMandiName = async (req, res) => {
             "procurementDetails.commisionAgentName": 1,
             "procurementDetails.farmerID": 1
         });
-      
+
 
         // Query filter
         const query = {
@@ -1368,10 +1368,11 @@ module.exports.totalQty = async (req, res) => {
             "warehouseData.jformID": { $exists: true },
             "paymentDetails.jFormId": { $exists: true },
             "procurementDetails.jformID": { $exists: true },
-            $or: [
-                { "procurementDetails.offerCreatedAt": null },
-                { "procurementDetails.offerCreatedAt": { $exists: true } }
-            ]
+            "procurementDetails.offerCreatedAt": { $exists: true }
+            // $or: [
+            //     { "procurementDetails.offerCreatedAt": null },
+            //     { "procurementDetails.offerCreatedAt": { $exists: true } }
+            // ]
         };
 
         const result = await eKharidHaryanaProcurementModel.aggregate([
@@ -1383,6 +1384,8 @@ module.exports.totalQty = async (req, res) => {
                 }
             },
         ]);
+        
+        console.log(result.length);
 
         const totalQtl = result[0]?.totalGatePassWeightQtl || 0;
         const totalMT = totalQtl / 10;
