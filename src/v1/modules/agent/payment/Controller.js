@@ -2745,7 +2745,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 select: 'schemeName season period commodity_id'
             })
             .lean();
- 
+
         // Add batch and payment data
         for (let req of requests) {
             req.batches = await Batch.find({ req_id: req._id })
