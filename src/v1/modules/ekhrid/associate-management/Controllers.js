@@ -1362,4 +1362,41 @@ module.exports.getAllMandiName = async (req, res) => {
 };
 
 
+module.exports.totalQty = async (req, res) => {
+    try {
+        const matchStage = {
+            "warehouseData.jformID": { $exists: true },
+            "paymentDetails.jFormId": { $exists: true },
+            "procurementDetails.jformID": { $exists: true },
+            $or: [
+                { "procurementDetails.offerCreatedAt": null },
+                { "procurementDetails.offerCreatedAt": { $exists: true } }
+            ]
+        };
 
+        const result = await eKharidHaryanaProcurementModel.aggregate([
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: null,
+                    totalGatePassWeightQtl: { $sum: "$procurementDetails.gatePassWeightQtl" }
+                }
+            },
+        ]);
+
+        const totalQtl = result[0]?.totalGatePassWeightQtl || 0;
+        const totalMT = totalQtl / 10;
+        // const totalAmount = totalMT * 22250;
+        const totalAmount = totalMT * 59500;
+
+        res.json({
+            totalGatePassWeightQtl: totalQtl,
+            totalGatePassWeightMT: totalMT,
+            totalAmount: totalAmount
+        });
+
+    } catch (error) {
+        console.error("Error in totalQty:", error);
+        _handleCatchErrors(error, res);
+    }
+};
