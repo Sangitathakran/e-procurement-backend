@@ -742,6 +742,7 @@ const listWHRForDropdown = async (req, res) => {
     const decode = await decryptJwtToken(getToken);
     const UserId = decode.data.organization_id;
     // console.log('wareHouseId',wareHouseId);
+    console.log('userId-->', UserId)
     const batchIds = [];
 
     if (!mongoose.Types.ObjectId.isValid(UserId)) {
@@ -799,9 +800,9 @@ const listWHRForDropdown = async (req, res) => {
       batchDetails : batchDetails,
       procurementCenters: procurementCenterNames,
       commodityNames : commodityNames,
-      whr_date : whrModelData?.whr_date || 'Null',
-      whr_number: whrModelData.whr_number || Null,
-      whr_document: whrModelData.whr_document || 'Null'
+      whr_date : whrModelData?.whr_date || null,
+      whr_number: whrModelData?.whr_number || null,
+      whr_document: whrModelData?.whr_document || null
     }
     
     return res.status(200).send(new serviceResponse({ status: 200, data: data, message: _response_message.found("data") }));
