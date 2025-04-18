@@ -15,15 +15,15 @@ module.exports.getBatches = async (req, res) => {
         if (req_id) query.req_id = req_id;
         if (seller_id) query.seller_id = seller_id;
 
-        let record = { count: 0, data: [] };
+        let record = { count: 0, batchIds: [] };
 
-        record.data = (await Batch.find(query)
+        record.batchIds = (await Batch.find(query)
             .select("_id")
             .limit(limit ? parseInt(limit) : 10) // Default limit to 10 if not provided
             .lean()
         ).map(({ _id }) => _id);
 
-        record.count = record.data.length;
+        record.count = record.batchIds.length;
 
         return res.status(200).json({ status: 200, data: record, message: "Batches fetched successfully" });
 
@@ -62,29 +62,7 @@ module.exports.batchMarkDelivered = async (req, res) => {
             for (let farmer of record.farmerOrderIds) {
                 const farmerData = farmerOrders.find(f => f._id.equals(farmer.farmerOrder_id));
                 if (!farmerData) continue;
-            //     const data=[{
-            //         batch_id:record._id,
-            //         user_id:request?.sla_id,
-            //         status:'Approved',
-            //         actor:'SLA',
-            //         action: 'Approved',
-            //         logTime: new Date()
-            //     },
-            //    { batch_id:record._id,
-            //     user_id:request?.branch_id,
-            //     status:'Approved',
-            //     actor:'Branch Office',
-            //     action: 'Approved',
-            //     logTime: new Date()
-            //   },
-            //   { batch_id:record._id,
-            //     user_id:request?.head_office_id,
-            //     status:'Approved',
-            //     actor:'Branch Office',
-            //     action: 'Approved',
-            //     logTime: new Date()
-            //   }
-            // ]
+           
                 const paymentData = {
                     req_id: request?._id,
                     sla_id: request?.sla_id,

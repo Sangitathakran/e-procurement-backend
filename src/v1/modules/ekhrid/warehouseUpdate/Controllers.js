@@ -8,7 +8,7 @@ module.exports.warehouseTest = async (req, res) => {
         const { associateName } = req.body;
 
         const pipeline = [
-            { $match: { "procurementDetails.commisionAgentName": associateName } },
+            // { $match: { "procurementDetails.commisionAgentName": associateName } },
             {
                 $group: {
                     _id: "$warehouseData.warehouseName",
