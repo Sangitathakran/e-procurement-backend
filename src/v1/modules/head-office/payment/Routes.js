@@ -6,8 +6,7 @@ const { Auth } = require("@src/v1/middlewares/jwt")
 
 const paymentRoutes = express.Router();
 
-//paymentRoutes.get("/", Auth, payment); 
-paymentRoutes.get("/", Auth, paymentWithoutAgreegation);
+paymentRoutes.get("/", Auth, payment); 
 paymentRoutes.get("/associate-orders", Auth, associateOrders);
 paymentRoutes.get("/batch-list", Auth, batchList);
 paymentRoutes.put("/batch-approval", Auth, batchApprove);
@@ -37,6 +36,10 @@ paymentRoutes.post("/verify-otp-proceed", Auth, verifyOTPProceed);
 
 //ho bill rejection case
 paymentRoutes.put("/bill-reject", Auth, hoBillRejection)
+
+// ****************************** API WITHOUT AGGREGATION   *******************************
+//paymentRoutes.get("/", Auth, paymentWithoutAgreegation);
+
 
 
 module.exports = { paymentRoutes }; 

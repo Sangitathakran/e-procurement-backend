@@ -822,7 +822,7 @@ module.exports.payment = async (req, res) => {
 //   }
 // };
 
-/*
+
 module.exports.payment = async (req, res) => {
   try {
     var { page = 1, limit = 50, search = "", isExport = 0, isApproved, paymentStatus, approve_status = "Pending" } = req.query;
@@ -1165,260 +1165,6 @@ module.exports.payment = async (req, res) => {
         })
       );
     }
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
-};
-*/
-
-module.exports.paymentWithoutAgreegation = async (req, res) => {
-  try {
-    let {
-      page = 1,
-      limit = 10,
-      paginate = 1,
-      sortBy = '-createdAt',
-      search = '',
-      isExport = 0,
-      isApproved,
-      paymentStatus,
-      approve_status = 'Pending',
-    } = req.query;
-    page = parseInt(page);
-    limit = parseInt(limit);
-    isApproved = approve_status !== 'Pending';
-    const skip = (page - 1) * limit;
-    const { portalId, user_id } = req;
-
-    // Get all request IDs that have payments
-    const paymentIds = (
-      await Payment.find(
-        {
-          ho_id: { $in: [portalId, user_id] },
-          bo_approve_status: _paymentApproval.approved,
-        },
-        'req_id'
-      )
-    ).map(i => i.req_id);
-
-    if (paymentIds.length === 0) {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: { count: 0, rows: [] },
-          message: _response_message.found('Payment'),
-        })
-      );
-    }
-
-    // Build search query
-    const searchQuery = search
-      ? {
-          $or: [
-            { reqNo: { $regex: search, $options: 'i' } },
-            { 'product.name': { $regex: search, $options: 'i' } },
-          ],
-        }
-      : {};
-
-    // Final query
-    let query = {
-      _id: { $in: paymentIds },
-      ...searchQuery,
-    };
-
-    // Fetch requests
-    let requestQuery = RequestModel.find(query)
-      .sort(sortBy)
-      .populate({
-        path: 'branch_id',
-        select: 'branchName branchId',
-      })
-      .populate({
-        path: 'product.schemeId',
-        select: 'schemeName',
-      })
-      .lean();
-
-    if (paginate == 1) {
-      requestQuery = requestQuery.skip(skip).limit(limit);
-    }
-
-    let requests = await requestQuery;
-
-    // Add batch and payment data
-    for (let req of requests) {
-      req.batches = await Batch.find({ req_id: req._id })
-        .select('qty totalPrice agent_approve_at ho_approval_at')
-
-        // .populate({
-        //   path: 'payment',
-        //   select: 'payment_status',
-        // })
-        .lean();
-
-      const payments = await Payment.find({
-        batch_id: { $in: req.batches.map(b => b._id) },
-      })
-        .select('batch_id payment_status')
-        .lean();
-
-      const paymentMap = payments.reduce((acc, pay) => {
-        acc[pay.batch_id] = acc[pay.batch_id] || [];
-        acc[pay.batch_id].push(pay);
-        return acc;
-      }, {});
-
-      req.batches = req.batches.map(batch => ({
-        ...batch,
-        payment: paymentMap[batch._id] || [],
-      }));
-
-      req.ho_approval_at = req.batches[0]?.ho_approval_at ?? null;
-
-      // Determine approval status
-      const hasPendingApproval = req.batches.some(
-        batch => !batch.agent_approve_at || batch.agent_approve_at === null
-      );
-      req.approval_status = hasPendingApproval ? 'Approved' :'Pending';
-
-      // Calculate qtyPurchased and amountPayable
-      req.qtyPurchased = req.batches.reduce(
-        (sum, batch) => sum + (batch.qty || 0),
-        0
-      );
-      req.amountPayable = req.batches.reduce(
-        (sum, batch) => sum + (batch.totalPrice || 0),
-        0
-      );
-
-      // Determine payment status
-      const anyPendingPayments = req.batches.some(batch =>
-        batch.payment?.some(pay => pay.payment_status === 'Pending')
-      );
-      req.payment_status = anyPendingPayments ? 'Pending' : 'Completed';
-
-      let allPayments = req.batches.flatMap(batch => batch.payment || []);
-      if (allPayments.length === 0) {
-        req.overall_payment_status = 'Pending';
-      } else if (allPayments.every(pay => pay.payment_status === 'Pending')) {
-        req.overall_payment_status = 'Pending';
-      } else if (allPayments.every(pay => pay.payment_status === 'Completed')) {
-        req.overall_payment_status = 'Completed';
-      } else if (
-        allPayments.every(pay => pay.payment_status === 'In Progress')
-      ) {
-        req.overall_payment_status = 'Partially initiated';
-      } else if (
-        allPayments.some(pay =>
-          ['Failed', 'Rejected'].includes(pay.payment_status)
-        )
-      ) {
-        req.overall_payment_status = 'Failed';
-      } else {
-        req.overall_payment_status = 'Pending';
-      }
-
-      // Simplify branchDetails
-      req.branchDetails = {
-        branchName: req.branch_id?.branchName ?? 'NA',
-        branchId: req.branch_id?.branchId ?? 'NA',
-      };
-
-     
-      req.scheme = req.product?.schemeId || {};
-    }
-
-   // console.log(requests.length, isApproved);
-     // Filter by approval status
-     requests = requests.filter(req =>
-      //approve_status === 'Pending'
-      isApproved
-        ? req.approval_status !== 'Pending'
-        : req.approval_status === 'Pending'
-    );
-
-     // Filter based on overall_payment_status if provided
-     if (paymentStatus) {
-      requests = requests.filter(
-        req => req.overall_payment_status === paymentStatus
-      );
-    }
-    //console.log(requests.length);
-
-
-    const totalCount = requests.length;
-
-    if (isExport == 1) {
-      const exportRecords = requests.map(item => ({
-        'Order ID': item.reqNo || 'NA',
-        Commodity: item?.product?.name || 'NA',
-        'Quantity Purchased': item?.qtyPurchased || 'NA',
-        'Amount Payable': item?.amountPayable || 'NA',
-        'Approval Status': item?.approval_status || 'NA',
-        'Payment Status': item?.payment_status || 'NA',
-        'Overall Payment Status': item?.overall_payment_status || 'NA',
-        'HO Approval At': item?.ho_approval_at || 'NA',
-        Scheme: `${item?.scheme?.schemeName || ''} ${
-          item?.scheme?.commodityDetails?.name || ''
-        } ${item?.scheme?.season || ''} ${item?.scheme?.period || ''}`,
-        'Branch Name': item?.branch_id?.branchName || 'NA',
-        'Branch ID': item?.branch_id?._id || 'NA',
-      }));
-
-      if (exportRecords.length > 0) {
-        return dumpJSONToExcel(req, res, {
-          data: exportRecords,
-          fileName: `Farmer-Payment-records.xlsx`,
-          worksheetName: `Farmer-Payment-records`,
-        });
-      } else {
-        return res.status(400).send(
-          new serviceResponse({
-            status: 400,
-            data: [],
-            message: _response_message.notFound('Payment'),
-          })
-        );
-      }
-    }
-
-    const response = {
-      rows: requests.map(req => ({
-        _id: req._id,
-        reqNo: req.reqNo,
-        product: req.product,
-        branch: {
-          _id: req.branch_id?._id || null,
-          branchName: req.branch_id?.branchName || 'NA',
-        },
-        approval_status: req.approval_status,
-        qtyPurchased: req.qtyPurchased,
-        amountPayable: req.amountPayable,
-        amountPaid: req.amountPaid || 0,
-        payment_status: req.payment_status,
-        overall_payment_status: req.overall_payment_status,
-        ho_approval_at: req.ho_approval_at,
-        schemeName: `${req?.scheme?.schemeName || ''} ${
-          req?.scheme?.commodityDetails?.name || ''
-        } ${req?.scheme?.season || ''} ${req?.scheme?.period || ''}`,
-      })),
-      count: totalCount,
-    };
-
-    if (paginate == 1) {
-      response.page = page;
-      response.limit = limit;
-      response.pages = limit != 0 ? Math.ceil(totalCount / limit) : 0;
-    }
-
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: response,
-        message: _response_message.found('Payment'),
-      })
-    );
   } catch (error) {
     _handleCatchErrors(error, res);
   }
@@ -3749,3 +3495,259 @@ module.exports.paymentLogsHistory = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 }
+
+
+
+// *************************************** API WITHOUT AGGREGATION    *************************
+module.exports.paymentWithoutAgreegation = async (req, res) => {
+  try {
+    let {
+      page = 1,
+      limit = 10,
+      paginate = 1,
+      sortBy = '-createdAt',
+      search = '',
+      isExport = 0,
+      isApproved,
+      paymentStatus,
+      approve_status = 'Pending',
+    } = req.query;
+    page = parseInt(page);
+    limit = parseInt(limit);
+    isApproved = approve_status !== 'Pending';
+    const skip = (page - 1) * limit;
+    const { portalId, user_id } = req;
+
+    // Get all request IDs that have payments
+    const paymentIds = (
+      await Payment.find(
+        {
+          ho_id: { $in: [portalId, user_id] },
+          bo_approve_status: _paymentApproval.approved,
+        },
+        'req_id'
+      )
+    ).map(i => i.req_id);
+
+    if (paymentIds.length === 0) {
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: { count: 0, rows: [] },
+          message: _response_message.found('Payment'),
+        })
+      );
+    }
+
+    // Build search query
+    const searchQuery = search
+      ? {
+          $or: [
+            { reqNo: { $regex: search, $options: 'i' } },
+            { 'product.name': { $regex: search, $options: 'i' } },
+          ],
+        }
+      : {};
+
+    // Final query
+    let query = {
+      _id: { $in: paymentIds },
+      ...searchQuery,
+    };
+
+    // Fetch requests
+    let requestQuery = RequestModel.find(query)
+      .sort(sortBy)
+      .populate({
+        path: 'branch_id',
+        select: 'branchName branchId',
+      })
+      .populate({
+        path: 'product.schemeId',
+        select: 'schemeName',
+      })
+      .lean();
+
+    if (paginate == 1) {
+      requestQuery = requestQuery.skip(skip).limit(limit);
+    }
+
+    let requests = await requestQuery;
+
+    // Add batch and payment data
+    for (let req of requests) {
+      req.batches = await Batch.find({ req_id: req._id })
+        .select('qty totalPrice agent_approve_at ho_approval_at')
+
+        // .populate({
+        //   path: 'payment',
+        //   select: 'payment_status',
+        // })
+        .lean();
+
+      const payments = await Payment.find({
+        batch_id: { $in: req.batches.map(b => b._id) },
+      })
+        .select('batch_id payment_status')
+        .lean();
+
+      const paymentMap = payments.reduce((acc, pay) => {
+        acc[pay.batch_id] = acc[pay.batch_id] || [];
+        acc[pay.batch_id].push(pay);
+        return acc;
+      }, {});
+
+      req.batches = req.batches.map(batch => ({
+        ...batch,
+        payment: paymentMap[batch._id] || [],
+      }));
+
+      req.ho_approval_at = req.batches[0]?.ho_approval_at ?? null;
+
+      // Determine approval status
+      const hasPendingApproval = req.batches.some(
+        batch => !batch.agent_approve_at || batch.agent_approve_at === null
+      );
+      req.approval_status = hasPendingApproval ? 'Approved' :'Pending';
+
+      // Calculate qtyPurchased and amountPayable
+      req.qtyPurchased = req.batches.reduce(
+        (sum, batch) => sum + (batch.qty || 0),
+        0
+      );
+      req.amountPayable = req.batches.reduce(
+        (sum, batch) => sum + (batch.totalPrice || 0),
+        0
+      );
+
+      // Determine payment status
+      const anyPendingPayments = req.batches.some(batch =>
+        batch.payment?.some(pay => pay.payment_status === 'Pending')
+      );
+      req.payment_status = anyPendingPayments ? 'Pending' : 'Completed';
+
+      let allPayments = req.batches.flatMap(batch => batch.payment || []);
+      if (allPayments.length === 0) {
+        req.overall_payment_status = 'Pending';
+      } else if (allPayments.every(pay => pay.payment_status === 'Pending')) {
+        req.overall_payment_status = 'Pending';
+      } else if (allPayments.every(pay => pay.payment_status === 'Completed')) {
+        req.overall_payment_status = 'Completed';
+      } else if (
+        allPayments.every(pay => pay.payment_status === 'In Progress')
+      ) {
+        req.overall_payment_status = 'Partially initiated';
+      } else if (
+        allPayments.some(pay =>
+          ['Failed', 'Rejected'].includes(pay.payment_status)
+        )
+      ) {
+        req.overall_payment_status = 'Failed';
+      } else {
+        req.overall_payment_status = 'Pending';
+      }
+
+      // Simplify branchDetails
+      req.branchDetails = {
+        branchName: req.branch_id?.branchName ?? 'NA',
+        branchId: req.branch_id?.branchId ?? 'NA',
+      };
+
+     
+      req.scheme = req.product?.schemeId || {};
+    }
+
+   // console.log(requests.length, isApproved);
+     // Filter by approval status
+     requests = requests.filter(req =>
+      //approve_status === 'Pending'
+      isApproved
+        ? req.approval_status !== 'Pending'
+        : req.approval_status === 'Pending'
+    );
+
+     // Filter based on overall_payment_status if provided
+     if (paymentStatus) {
+      requests = requests.filter(
+        req => req.overall_payment_status === paymentStatus
+      );
+    }
+    //console.log(requests.length);
+
+
+    const totalCount = requests.length;
+
+    if (isExport == 1) {
+      const exportRecords = requests.map(item => ({
+        'Order ID': item.reqNo || 'NA',
+        Commodity: item?.product?.name || 'NA',
+        'Quantity Purchased': item?.qtyPurchased || 'NA',
+        'Amount Payable': item?.amountPayable || 'NA',
+        'Approval Status': item?.approval_status || 'NA',
+        'Payment Status': item?.payment_status || 'NA',
+        'Overall Payment Status': item?.overall_payment_status || 'NA',
+        'HO Approval At': item?.ho_approval_at || 'NA',
+        Scheme: `${item?.scheme?.schemeName || ''} ${
+          item?.scheme?.commodityDetails?.name || ''
+        } ${item?.scheme?.season || ''} ${item?.scheme?.period || ''}`,
+        'Branch Name': item?.branch_id?.branchName || 'NA',
+        'Branch ID': item?.branch_id?._id || 'NA',
+      }));
+
+      if (exportRecords.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: exportRecords,
+          fileName: `Farmer-Payment-records.xlsx`,
+          worksheetName: `Farmer-Payment-records`,
+        });
+      } else {
+        return res.status(400).send(
+          new serviceResponse({
+            status: 400,
+            data: [],
+            message: _response_message.notFound('Payment'),
+          })
+        );
+      }
+    }
+
+    const response = {
+      rows: requests.map(req => ({
+        _id: req._id,
+        reqNo: req.reqNo,
+        product: req.product,
+        branch: {
+          _id: req.branch_id?._id || null,
+          branchName: req.branch_id?.branchName || 'NA',
+        },
+        approval_status: req.approval_status,
+        qtyPurchased: req.qtyPurchased,
+        amountPayable: req.amountPayable,
+        amountPaid: req.amountPaid || 0,
+        payment_status: req.payment_status,
+        overall_payment_status: req.overall_payment_status,
+        ho_approval_at: req.ho_approval_at,
+        schemeName: `${req?.scheme?.schemeName || ''} ${
+          req?.scheme?.commodityDetails?.name || ''
+        } ${req?.scheme?.season || ''} ${req?.scheme?.period || ''}`,
+      })),
+      count: totalCount,
+    };
+
+    if (paginate == 1) {
+      response.page = page;
+      response.limit = limit;
+      response.pages = limit != 0 ? Math.ceil(totalCount / limit) : 0;
+    }
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: response,
+        message: _response_message.found('Payment'),
+      })
+    );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+}; 
