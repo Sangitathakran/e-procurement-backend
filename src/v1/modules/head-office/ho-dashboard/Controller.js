@@ -20,7 +20,7 @@ const { _query } = require("@src/v1/utils/constants/messages");
 const moment = require("moment");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { default: mongoose } = require("mongoose");
-
+const { _userType, _userStatus, _status, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
 
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
@@ -109,8 +109,8 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     widgetDetails.wareHouse.total = await wareHousev2.countDocuments({});
     widgetDetails.branchOffice.total = await Branches.countDocuments({headOfficeId:hoId});
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
-    widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
-
+    // widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
+    widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
     //let procurementTargetQty = await RequestModel.find({})
     widgetDetails.farmerRegistration.totalRegistration =
       widgetDetails.farmerRegistration.farmertotal +
