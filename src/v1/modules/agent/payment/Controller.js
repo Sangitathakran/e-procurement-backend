@@ -19,7 +19,7 @@ const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
 const { Commodity } = require("@src/v1/models/master/Commodity");
-const {setCache, getCache} = require('../../../utils/cache');
+const {setCache, getCache} = require("@src/v1/utils/cache");
 
 module.exports.payment = async (req, res) => {
     try {
