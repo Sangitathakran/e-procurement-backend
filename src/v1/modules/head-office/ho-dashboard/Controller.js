@@ -25,6 +25,8 @@ const { _userType, _userStatus, _status, _procuredStatus, _collectionName, _asso
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   try {
+    const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
+    
    let report = [
       { monthName: "January", month: 1, total: 0 },
       { monthName: "February", month: 2, total: 0 },
@@ -48,9 +50,9 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
     };
     let associateFCount = (await farmer.countDocuments({})) ?? 0;
     widgetDetails.farmer.total = associateFCount;
-    widgetDetails.associate.total = await User.countDocuments({});
+    widgetDetails.associate.total = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
     widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
-    widgetDetails.branch.total = await Branches.countDocuments({});
+    widgetDetails.branch.total = await Branches.countDocuments({headOfficeId:hoId});
 
     let lastMonthUser = await User.aggregate([
       { $match: { user_type: "Associate" } },
