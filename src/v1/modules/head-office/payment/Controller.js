@@ -1364,14 +1364,14 @@ module.exports.batchList = async (req, res) => {
       associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
       bo_approve_status: _paymentApproval.approved,
       ho_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
-      ...(search ? 
+      ...(search ?
         {
           $or: [
             { batchId: { $regex: search, $options: 'i' } },
-             { whrNo: { $regex: search, $options: 'i' } }
+            { whrNo: { $regex: search, $options: 'i' } }
           ]
         }
-        :  {})
+        : {})
       // ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
     };
 
@@ -3048,34 +3048,53 @@ module.exports.sendOTP = async (req, res) => {
 
 module.exports.proceedToPayPayment = async (req, res) => {
   try {
-    let { page, limit, search = '', isExport = 0, payment_status } = req.query;
+    let {
+      page,
+      limit,
+      search = '',
+      isExport = 0,
+      payment_status,
+      state = "",
+      branch = "",
+      schemeName = "",
+      commodity = ""
+    } = req.query;
+
     limit = parseInt(limit) || 10;
     page = parseInt(page) || 1;
 
     const { portalId, user_id } = req;
 
-    // Ensure necessary indexes are created (run once in your database setup)
+    // Ensure indexes (if not already present, ideally done at setup)
     await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
     await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
     await Batch.createIndexes({ req_id: 1 });
     await Payment.createIndexes({ batch_id: 1 });
     await Branches.createIndexes({ _id: 1 });
 
-    // const paymentIds = (await Payment.find()).map(i => i.req_id);
     const paymentIds = await Payment.distinct("req_id", {
       ho_id: { $in: [portalId, user_id] },
       bo_approve_status: _paymentApproval.approved,
     });
 
-    let query = search ? {
+    let query = {
       _id: { $in: paymentIds },
-      $or: [
-        { "reqNo": { $regex: search, $options: 'i' } },
-        { "product.name": { $regex: search, $options: 'i' } },
-      ]
-    } : {};
+    };
 
-    const validStatuses = [_paymentstatus.pending, _paymentstatus.inProgress, _paymentstatus.failed, _paymentstatus.completed, _paymentstatus.rejected];
+    if (search) {
+      query.$or = [
+        { reqNo: { $regex: search, $options: 'i' } },
+        { "product.name": { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const validStatuses = [
+      _paymentstatus.pending,
+      _paymentstatus.inProgress,
+      _paymentstatus.failed,
+      _paymentstatus.completed,
+      _paymentstatus.rejected
+    ];
 
     if (payment_status && !validStatuses.includes(payment_status)) {
       return res.status(400).send(new serviceResponse({
@@ -3084,7 +3103,6 @@ module.exports.proceedToPayPayment = async (req, res) => {
       }));
     }
 
-    // Modify the query condition
     let paymentStatusCondition = payment_status;
     if (payment_status === "Failed" || payment_status === "Rejected") {
       paymentStatusCondition = "Failed";
@@ -3124,6 +3142,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           branchDetails: {
             branchName: { $arrayElemAt: ['$branchDetails.branchName', 0] },
             branchId: { $arrayElemAt: ['$branchDetails.branchId', 0] },
+            state: { $arrayElemAt: ['$branchDetails.state', 0] },
           }
         }
       },
@@ -3135,9 +3154,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           as: "sla"
         }
       },
-      {
-        $unwind: { path: "$sla", preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: "$sla", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: "schemes",
@@ -3146,9 +3163,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           as: "scheme"
         }
       },
-      {
-        $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: "commodities",
@@ -3157,30 +3172,21 @@ module.exports.proceedToPayPayment = async (req, res) => {
           as: "commodityDetails"
         }
       },
-      {
-        $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true }
-      },
+      { $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true } },
       {
         $match: {
           batches: { $ne: [] },
           "batches.bo_approve_status": _paymentApproval.approved,
-          // "batches.ho_approve_status": _paymentApproval.pending ? _paymentApproval.pending : { $ne: _paymentApproval.pending },
-          "batches.ho_approve_status": _paymentApproval.approved ? _paymentApproval.approved : { $ne: _paymentApproval.pending },
+          "batches.ho_approve_status": _paymentApproval.approved,
           "batches.payment.payment_status": paymentStatusCondition || _paymentstatus.pending
         }
       },
       {
         $addFields: {
-          qtyPurchased: {
-            $sum: "$batches.qty"
-          },
-          amountPayable: {
-            $sum: "$batches.totalPrice"
-          },
-          amountPaid: {
-            $sum: "$batches.goodsPrice"
-          },
-          approval_date: { $arrayElemAt:["$batches.payement_approval_at",0] },
+          qtyPurchased: { $sum: "$batches.qty" },
+          amountPayable: { $sum: "$batches.totalPrice" },
+          amountPaid: { $sum: "$batches.goodsPrice" },
+          approval_date: { $arrayElemAt: ["$batches.payement_approval_at", 0] },
           approval_status: "Approved",
           payment_status: payment_status || _paymentstatus.pending,
           schemeName: {
@@ -3191,9 +3197,25 @@ module.exports.proceedToPayPayment = async (req, res) => {
               { $ifNull: ["$scheme.period", " "] },
             ],
           },
-
         }
       },
+    ];
+
+    // Apply filters on already aggregated data
+    if (state || commodity || schemeName || branch) {
+      aggregationPipeline.push({
+        $match: {
+          $and: [
+            ...(state ? [{ "branchDetails.state": { $regex: state, $options: "i" } }] : []),
+            ...(commodity ? [{ "product.name": { $regex: commodity, $options: "i" } }] : []),
+            ...(schemeName ? [{ "scheme.schemeName": { $regex: schemeName, $options: "i" } }] : []),
+            ...(branch ? [{ "branchDetails.branchName": { $regex: branch, $options: "i" } }] : []),
+          ]
+        }
+      });
+    }
+
+    aggregationPipeline.push(
       {
         $project: {
           _id: 1,
@@ -3213,12 +3235,15 @@ module.exports.proceedToPayPayment = async (req, res) => {
       },
       { $skip: (page - 1) * limit },
       { $limit: limit }
-    ];
+    );
 
     let response = { count: 0 };
     response.rows = await RequestModel.aggregate(aggregationPipeline);
-    console.log(aggregationPipeline);
-    const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
+
+    const countResult = await RequestModel.aggregate([
+      ...aggregationPipeline.slice(0, -2),
+      { $count: "count" }
+    ]);
     response.count = countResult?.[0]?.count ?? 0;
 
     if (isExport == 1) {
@@ -3280,11 +3305,11 @@ module.exports.proceedToPayBatchList = async (req, res) => {
         $match: {
           ...(search
             ? {
-                $or: [
-                  { batchId: { $regex: search, $options: 'i' } },
-                  { "final_quality_check.whr_receipt": { $regex: search, $options: 'i' } }
-                ]
-              }
+              $or: [
+                { batchId: { $regex: search, $options: 'i' } },
+                { "final_quality_check.whr_receipt": { $regex: search, $options: 'i' } }
+              ]
+            }
             : {})
         }
       },
