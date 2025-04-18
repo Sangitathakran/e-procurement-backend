@@ -19,6 +19,7 @@ const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
 const { Commodity } = require("@src/v1/models/master/Commodity");
+const {setCache, getCache} = require('../../../utils/cache');
 
 module.exports.payment = async (req, res) => {
     try {
@@ -2630,6 +2631,21 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
  
         const skip = (page - 1) * limit;
         const { portalId, user_id } = req;
+
+         // Build a unique cache key for this query (excluding isExport)
+         const cacheKey = `payment:${user_id}:${page}:${limit}:${sortBy}:${search}:${approve_status}:${paginate}`;
+         if (parseInt(isExport) !== 1) {
+             const cached = getCache(cacheKey);
+             if (cached) {
+                 console.log("⚡ Serving from cache");
+                 return res.status(200).send(new serviceResponse({
+                     status: 200,
+                     data: cached,
+                     message: _response_message.found("Payment (cached)")
+                 }));
+             }
+         }
+ 
  
         // Get all request IDs that have payments
         const paymentIds = (await Payment.find({}, 'req_id')).map(i => i.req_id);
@@ -2787,6 +2803,12 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
             response.page = page;
             response.limit = limit;
             response.pages = limit != 0 ? Math.ceil(totalCount / limit) : 0;
+        }
+
+        // Store in cache only if not export
+        if (parseInt(isExport) !== 1) {
+            setCache(cacheKey, response); // Optional: set TTL manually
+            console.log("✅ Cached response stored");
         }
  
         return res.status(200).send(new serviceResponse({
