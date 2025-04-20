@@ -23,8 +23,8 @@ module.exports.farmerList = async (req, res) => {
       sortBy = "name",
       search = "",
       isExport = 0,
-      state = null,
-      district = null,
+      state ,
+      district ,
     } = req.query;
     const skip = (page - 1) * limit;
     const searchFields = ["name", "farmer_id", "farmer_code", "mobile_no"];
@@ -41,12 +41,19 @@ module.exports.farmerList = async (req, res) => {
 
     const query = search ? makeSearchQuery(searchFields) : {};
 
-    if (state) {
-      query["address.state_id"] = state;
-    }
+    // if (state) {
+    //   query["address.state_id"] = state;
+    // }
 
-    if (district) {
-      query["address.district_id"] = district;
+    // if (district) {
+    //   query["address.district_id"] = district;
+    // }
+
+    if (state || district ) {
+      query.$and = [
+        ...(state ? [{ "sellers.address.registered.state": { $regex: state, $options: "i" } }] : []),
+        ...(district ? [{ "sellers.address.registered.district": { $regex: district, $options: "i" } }] : []),
+      ];
     }
 
     const records = { count: 0, rows: [] };
