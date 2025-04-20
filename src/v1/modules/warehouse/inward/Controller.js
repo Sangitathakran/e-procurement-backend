@@ -1462,12 +1462,13 @@ module.exports.listExternalBatchList = async (req, res) => {
             pipeline.push({ $skip: skipVal }, { $limit: parseInt(limit) });
         }
 
-        const [rows, countResult] = await Promise.all([
-            ExternalBatch.aggregate(pipeline),
-            paginate == 1 ? ExternalBatch.aggregate(countPipeline) : Promise.resolve([])
-        ]);
+        const rows = await ExternalBatch.aggregate(pipeline);
 
-        const count = countResult?.[0]?.total || rows.length;
+        let count = rows.length;
+        if (paginate == 1) {
+            const countResult = await ExternalBatch.aggregate(countPipeline);
+            count = countResult?.[0]?.total || 0;
+        }
 
         const records = {
             count,

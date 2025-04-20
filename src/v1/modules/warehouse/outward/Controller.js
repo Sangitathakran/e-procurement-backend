@@ -796,12 +796,13 @@ module.exports.listExternalOrderList = async (req, res) => {
             pipeline.push({ $skip: skipVal }, { $limit: parseInt(limit) });
         }
 
-        const [rows, countResult] = await Promise.all([
-            ExternalOrder.aggregate(pipeline),
-            paginate == 1 ? ExternalOrder.aggregate(countPipeline) : Promise.resolve([])
-        ]);
+        const rows = await ExternalOrder.aggregate(pipeline);
 
-        const count = countResult?.[0]?.total || rows.length;
+        let count = rows.length;
+        if (paginate == 1) {
+            const countResult = await ExternalOrder.aggregate(countPipeline);
+            count = countResult?.[0]?.total || 0;
+        }
 
         const records = {
             count,
