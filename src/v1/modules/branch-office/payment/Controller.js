@@ -388,13 +388,13 @@ module.exports.associateOrders = async (req, res) => {
           message: _response_message.found("Payment")
         }));
       }
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
+        // const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
 
-        const { user_type, portalId, user_id } = req;
+        // const { user_type, portalId, user_id } = req;
 
-        if (user_type != _userType.bo) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
-        }
+        // if (user_type != _userType.bo) {
+        //     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+        // }
 
         //  let sellerIds = {};
         //    if (search) {
@@ -402,15 +402,15 @@ module.exports.associateOrders = async (req, res) => {
         //    sellerIds["basic_details.associate_details.organization_name"] = { $regex: search, $options: "i" };
         //      }
 
-        const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })).map(i => i.associateOffers_id)
-        let query = {
-            _id: { $in: paymentIds },
-            req_id,
-            status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] },
-           // ...(search ? { seller_id: { $in: sellerIds } } : {}) // Search functionality
-        };
+        // const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })).map(i => i.associateOffers_id)
+        // let query = {
+        //     _id: { $in: paymentIds },
+        //     req_id,
+        //     status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] },
+        //    // ...(search ? { seller_id: { $in: sellerIds } } : {}) // Search functionality
+        // };
 
-        const records = { count: 0 };
+        // const records = { count: 0 };
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
         records.rows = paginate == 1 ? await AssociateOffers.find(query)
