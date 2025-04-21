@@ -939,7 +939,6 @@ module.exports.getAssignedScheme = async (req, res) => {
     },
   ];
 
-  console.log("aggregationPipeline",aggregationPipeline);
   if (paginate == 1) {
     aggregationPipeline.push(
       { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Secondary sort by _id for stability
