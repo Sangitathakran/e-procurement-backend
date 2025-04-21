@@ -889,6 +889,15 @@ module.exports.getAssignedScheme = async (req, res) => {
     { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
     {
       $lookup: {
+          from: 'commodities',
+          localField: 'schemeDetails.commodity_id',
+          foreignField: '_id',
+          as: 'commodityDetails',
+      },
+    },
+    { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
         from: "headoffices", // Adjust this to your actual collection name for branches
         localField: "ho_id",
         foreignField: "_id",
@@ -898,28 +907,39 @@ module.exports.getAssignedScheme = async (req, res) => {
     {
       $unwind: { path: "$headOfficeDetails", preserveNullAndEmptyArrays: true },
     },
+    
     {
       $project: {
         _id: 1,
         schemeId: "$schemeDetails.schemeId",
         // schemeName: '$schemeDetails.schemeName',
+        // schemeName: {
+        //   $concat: [
+        //     "$schemeDetails.schemeName",
+        //     "",
+        //     { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+        //     "",
+        //     { $ifNull: ["$schemeDetails.season", ""] },
+        //     "",
+        //     { $ifNull: ["$schemeDetails.period", ""] },
+        //   ],
+        // },
         schemeName: {
           $concat: [
-            "$schemeDetails.schemeName",
-            "",
-            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
-            "",
-            { $ifNull: ["$schemeDetails.season", ""] },
-            "",
-            { $ifNull: ["$schemeDetails.period", ""] },
-          ],
-        },
+              { $ifNull: [{ $getField: { field: "schemeName", input: "$schemeDetails" } }, ""] }, " ",
+              { $ifNull: [{ $getField: { field: "name", input: "$commodityDetails" } }, ""] }, " ",
+              { $ifNull: [{ $getField: { field: "season", input: "$schemeDetails" } }, ""] }, " ",
+              { $ifNull: [{ $getField: { field: "period", input: "$schemeDetails" } }, ""] }
+          ]
+      },
         branchName: "$branchDetails.branchName",
         headOfficeName: "$headOfficeDetails.company_details.name",
         createdOn: "$createdAt",
       },
     },
   ];
+
+  console.log("aggregationPipeline",aggregationPipeline);
   if (paginate == 1) {
     aggregationPipeline.push(
       { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Secondary sort by _id for stability
