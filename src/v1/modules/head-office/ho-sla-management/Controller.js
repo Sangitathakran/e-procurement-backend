@@ -490,7 +490,11 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const updateData = req.body;
-    const userID = req.user._id;
+    const { portalId, user_id } = req;
+
+    const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
+    // const userID = req.user._id;
 
     if (!slaId) {
       return res.status(400).json(
@@ -503,7 +507,9 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 
     // Find and update SLA
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+      { $or: [{ slaId }, { _id: slaId }],
+      "schemes.cna": { $in: [portalObjectId, userObjectId] }
+       },
       { $set: updateData },
       { new: true, runValidators: true } // Return updated doc
     );
@@ -584,8 +590,11 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
 module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params; // Get SLA ID from URL params
-    const { status } = req.body; // New status (true/false)
-    const userID = req.user._id;
+    const { status } = req.body;
+    const { portalId, user_id } = req;
+    // const userID = req.user._id;
+    const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
 
     if (!slaId) {
       return res.status(400).json(
@@ -607,7 +616,9 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
 
     // Find and update SLA status
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+      { $or: [{ slaId }, { _id: slaId }],
+       "schemes.cna": { $in: [portalObjectId, userObjectId] }
+       },
       { $set: { status: status } },
       { new: true }
     );
@@ -643,7 +654,10 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const { scheme, cna, branch } = req.body;
-    const userID = req.user._id;
+    const { portalId, user_id } = req;
+    // const userID = req.user._id;
+    const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
 
     // Validate input
     if (!scheme || !cna || !branch) {
@@ -657,7 +671,9 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
     // Find SLA and update with new scheme
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+      { $or: [{ slaId }, { _id: slaId }],
+      "schemes.cna": { $in: [portalObjectId, userObjectId] }
+       },
       { $push: { schemes: { scheme, cna, branch } } },
       { new: true }
     )
