@@ -365,7 +365,7 @@ module.exports.addProcurementCenter = async (req, res) => {
                 $match: {
                     // "procurementDetails.commisionAgentName":"SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD",
                     // "procurementDetails.commisionAgentName": "FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY",
-                    "procurementDetails.commisionAgentName":"HAFED",
+                    "procurementDetails.commisionAgentName": "HAFED",
                     "procurementDetails.mandiName": { $ne: null },
                     // "procurementDetails.centerCreatedAt": null
                     $or: [
@@ -1076,14 +1076,20 @@ module.exports.getAllMandiName = async (req, res) => {
 module.exports.totalQty = async (req, res) => {
     try {
         const matchStage = {
-            "warehouseData.jformID": { $exists: true },
-            "paymentDetails.jFormId": { $exists: true },
-            "procurementDetails.jformID": { $exists: true },
-            "procurementDetails.offerCreatedAt": { $exists: true }
+            // "warehouseData.jformID": { $exists: true },
+            // "paymentDetails.jFormId": { $exists: true },
+            // "procurementDetails.jformID": { $exists: true },
+            // "procurementDetails.offerCreatedAt": { $exists: true },
             // $or: [
             //     { "procurementDetails.offerCreatedAt": null },
             //     { "procurementDetails.offerCreatedAt": { $exists: true } }
             // ]
+
+            "procurementDetails.mandiName": {
+                $nin: [
+                    "Shakkar Mandori", "Barheri Kalan"
+                ]
+            }
         };
 
         const result = await eKharidHaryanaProcurementModel.aggregate([
@@ -1095,7 +1101,7 @@ module.exports.totalQty = async (req, res) => {
                 }
             },
         ]);
-        
+
         console.log(result.length);
 
         const totalQtl = result[0]?.totalGatePassWeightQtl || 0;
