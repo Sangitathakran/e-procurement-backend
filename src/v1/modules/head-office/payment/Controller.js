@@ -3471,11 +3471,13 @@ module.exports.proceedToPayPayment = async (req, res) => {
       state = "",
       branch = "",
       schemeName = "",
-      commodityName = ""
+      commodityName = "",
+      paginate = 1,
     } = req.query;
 
-    limit = parseInt(limit) || 10;
-    page = parseInt(page) || 1;
+    // limit = parseInt(limit) || 10;
+    // page = parseInt(page) || 1;
+
 
     const { portalId, user_id } = req;
 
@@ -3659,6 +3661,13 @@ module.exports.proceedToPayPayment = async (req, res) => {
       { $count: "count" }
     ]);
     response.count = countResult?.[0]?.count ?? 0;
+
+    
+    if (paginate == 1) {
+      response.page = page
+      response.limit = limit
+      response.pages = limit != 0 ? Math.ceil(response.count / limit) : 0
+    }
 
     if (isExport == 1) {
       const exportRecords = await RequestModel.aggregate([...aggregationPipeline]);

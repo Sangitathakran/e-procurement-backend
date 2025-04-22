@@ -17,6 +17,10 @@ const {
 const Branches = require("@src/v1/models/app/branchManagement/Branches");
 const { getFilter } = require("@src/v1/utils/helpers/customFilter");
 const { received_qc_status } = require("@src/v1/utils/constants");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const {wareHouseDetails} = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const {ProcurementCenter} = require("@src/v1/models/app/procurement/ProcurementCenter");
+const {User} = require("@src/v1/models/app/auth/User");
 
 //widget list
 /*
@@ -726,7 +730,18 @@ module.exports.qcDetailsById = asyncErrorHandler(async (req, res) => {
     records.rows =
       (await Batch.findById(id)
         .select(" ")
-        .populate({ path: 'req_id', select: '' })) ?? []
+        .populate({ path: 'req_id', select: '' })
+        .populate({ path: 'warehousedetails_id', select: '' })
+        .populate({ path: 'procurementCenter_id', select: '' })
+         .populate({ path: 'seller_id', select: '' })
+      )
+         ?? []
+
+         const farmerOrderIds = records.rows?.farmerOrderIds?.map(f => f.farmerOrder_id) || [];
+         records.lot_details = await FarmerOrders.find({
+           _id: { $in: farmerOrderIds },
+           status: "Received"
+         }).select(" ");  
 
     return sendResponse({
       res,
