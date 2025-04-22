@@ -957,3 +957,160 @@ module.exports.paymentLogsHistory = async (req, res) => {
     }
 }
 
+
+//////////////////////////////////////////////////////////////
+
+module.exports.paymentWithoutAggregtion = async (req, res) => {
+    try {
+        let {
+            page = 1,
+            limit = 10,
+            paginate = 1,
+            sortBy,
+            search = '',
+            user_type,
+            isExport = 0,
+            approve_status = "Pending",
+            scheme,
+            commodity,
+            branchName,
+            state
+        } = req.query;
+
+        const { portalId, user_id } = req;
+
+        const paymentIds = await Payment.find({ bo_id: { $in: [portalId, user_id] } }).distinct('req_id');
+
+        let query = {
+            _id: { $in: paymentIds }
+        };
+
+        if (search) {
+            query.$or = [
+                { reqNo: { $regex: search, $options: 'i' } },
+                { "product.name": { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        if (commodity) query["product.name"] = { $regex: commodity, $options: 'i' };
+
+        // Pagination
+        const skip = (page - 1) * limit;
+
+        let reqQuery = RequestModel.find(query)
+        .populate({
+            path: 'sla_id',
+            select: 'basic_details.name',
+            model: 'Sla' // ✅ Capitalized model name
+        })
+        .populate({
+            path: 'branch_id',
+            model: 'Branch', // ✅ Capitalized
+            match: {
+                ...(branchName ? { branchName: { $regex: branchName, $options: 'i' } } : {}),
+                ...(state ? { state: { $regex: state, $options: 'i' } } : {})
+            }
+        })
+        .populate({
+            path: 'batches',
+            model: 'Batch', // ✅ Capitalized
+            populate: {
+                path: 'payment',
+                model: 'Payment' // ✅ Capitalized
+            }
+        })
+
+        if (limit != 0 && paginate == 1) {
+            reqQuery.skip(skip).limit(parseInt(limit));
+        }
+
+        let rows = await reqQuery.sort({ createdAt: -1 }).lean();
+
+        // Derived fields
+        rows = rows.filter(req => req.branch_id); // Filter unmatched branches if any match failed
+        rows = rows.map(req => {
+            let batches = req.batches || [];
+            let qtyPurchased = batches.reduce((sum, b) => sum + (b.qty || 0), 0);
+            let amountPayable = batches.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+
+            let payment_status = 'Completed';
+            for (const batch of batches) {
+                if (batch.payment?.some(p => p.payment_status === 'Pending')) {
+                    payment_status = 'Pending';
+                    break;
+                }
+            }
+
+            return {
+                _id: req._id,
+                reqNo: req.reqNo,
+                product: req.product,
+                batches: batches.map(b => ({
+                    _id: b._id,
+                    batchId: b.batchId,
+                    bo_approve_status: b.bo_approve_status
+                })),
+                sla: req.sla_id?.basic_details?.name || 'NA',
+                scheme: req.product?.schemeId || 'NA',
+                branch: {
+                    branchName: req.branch_id?.branchName || '',
+                    state: req.branch_id?.state || ''
+                },
+                qtyPurchased,
+                amountPayable,
+                payment_status,
+                createdAt: req.createdAt
+            };
+        });
+
+        // Scheme Filter
+        if (scheme) {
+            rows = rows.filter(r => typeof r.scheme === 'string' && r.scheme.toLowerCase().includes(scheme.toLowerCase()));
+        }
+
+        // Approve Status Filter
+        rows = rows.filter(r => {
+            if (!r.batches.length) return false;
+            if (approve_status === _paymentApproval.pending) {
+                return r.batches.some(b => b.bo_approve_status === _paymentApproval.pending);
+            } else {
+                return r.batches.every(b => b.bo_approve_status !== _paymentApproval.pending);
+            }
+        });
+
+        const count = rows.length;
+
+        if (paginate == 1 && limit != 0) {
+            rows = rows.slice(0, limit);
+        }
+
+        const response = {
+            count,
+            rows,
+            ...(paginate == 1 && {
+                page,
+                limit,
+                pages: Math.ceil(count / limit)
+            })
+        };
+
+        // Export logic
+        if (isExport == 1) {
+            // Add additional exports fields from farmer, sellers, procurement center, etc. if needed
+            return dumpJSONToExcel(req, res, {
+                data: rows,
+                fileName: `Farmer-Payment-records.xlsx`,
+                worksheetName: `Farmer-Payment-records`
+            });
+        } else {
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: response,
+                message: _response_message.found("Payment")
+            }));
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
