@@ -189,10 +189,19 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .populate({ path: "head_office_id", select: "_id company_details.name" })
         .populate({ path: "sla_id", select: "_id basic_details.name" })
         .populate({ path: "warehouse_id", select: "addressDetails" })
-        .populate({ path: "product.schemeId", select: "schemeName" })
+        .populate({ path: "product.schemeId", select: "" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
-console.log("Filtered Data:", JSON.stringify(records.rows, null, 2));
+        records.rows = records.rows.map((doc) => {
+            const obj = doc.toObject(); 
+            const commdityName = obj?.product?.name || '';
+            const schemeName= obj?.product?.schemeId?.schemeName || '';
+            const season= obj?.product?.schemeId?.season || '';
+            const period= obj?.product?.schemeId?.period || '';
+            obj.scheme_name = `${schemeName} ${commdityName} ${season} ${period}`;
+            return obj;
+        });
+
 
 
     records.count = await RequestModel.countDocuments(query);
