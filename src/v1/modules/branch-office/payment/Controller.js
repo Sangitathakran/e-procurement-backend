@@ -14,6 +14,7 @@ const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { smsService } = require("@src/v1/utils/third_party/SMSservices");
 const OTPModel = require("../../../models/app/auth/OTP");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
+const { _collectionName} = require('@src/v1/utils/constants');
 
 const validateMobileNumber = async (mobile) => {
     let pattern = /^[0-9]{10}$/;
@@ -387,6 +388,80 @@ module.exports.associateOrders = async (req, res) => {
           message: _response_message.found("Payment")
         }));
       }
+        // const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
+
+        // const { user_type, portalId, user_id } = req;
+
+        // if (user_type != _userType.bo) {
+        //     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+        // }
+
+        //  let sellerIds = {};
+        //    if (search) {
+        //     sellerIds["user_code"] = { $regex: search, $options: "i" };
+        //    sellerIds["basic_details.associate_details.organization_name"] = { $regex: search, $options: "i" };
+        //      }
+
+        // const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })).map(i => i.associateOffers_id)
+        // let query = {
+        //     _id: { $in: paymentIds },
+        //     req_id,
+        //     status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] },
+        //    // ...(search ? { seller_id: { $in: sellerIds } } : {}) // Search functionality
+        // };
+
+        // const records = { count: 0 };
+        records.reqDetails = await RequestModel.findOne({ _id: req_id })
+            .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
+        records.rows = paginate == 1 ? await AssociateOffers.find(query)
+            .populate({
+                path: 'seller_id', 
+                match: search ? {
+                    $or: [
+                        { user_code: { $regex: search, $options: 'i' } },
+                        { 'basic_details.associate_details.organization_name': { $regex: search, $options: 'i' } }
+                    ]
+                } : {},
+                select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
+            })
+            .sort(sortBy)
+            .skip(skip)
+            .limit(parseInt(limit)) : await AssociateOffers.find(query).sort(sortBy);
+
+        records.count = await AssociateOffers.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+
+                return {
+                    "Associate ID": item?.seller_id.user_code || 'NA',
+                    "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || 'NA',
+                    "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || 'NA',
+                    "Quantity Purchased": item?.procuredQty || 'NA'
+                }
+            })
+
+            if (record.length > 0) {
+
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Associate-orders.xlsx`,
+                    worksheetName: `Associate-orders`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Payment") }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        }
+
     } catch (error) {
       _handleCatchErrors(error, res);
     }
@@ -403,16 +478,7 @@ module.exports.batchList = async (req, res) => {
             _id: { $in: paymentIds },
             associateOffer_id,
             bo_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
-            // ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
-
-            ...(search ? 
-                {
-                  $or: [
-                    { batchId: { $regex: search, $options: 'i' } },
-                     { whrNo: { $regex: search, $options: 'i' } }
-                  ]
-                }
-                :  {})
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
         const records = { count: 0 };
