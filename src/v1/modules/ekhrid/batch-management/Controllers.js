@@ -73,14 +73,8 @@ module.exports.getFarmerOrders = async (req, res) => {
                             gatePassDate:"$procurementDetails.procurementDetails.gatePassDate",
                             noOfBags:"$procurementDetails.procurementDetails.totalBags",
                             jformApprovalDate:"$procurementDetails.procurementDetails.jformApprovalDate",
-                            driverName:"$procurementDetails.warehouseData.driverName",
-                            transporterName:"$procurementDetails.warehouseData.transporterName",
-                            truckNo:"$procurementDetails.warehouseData.truckNo",
                             warehouseId:"$procurementDetails.warehouseData.warehouseId", 
                             warehouseName:"$procurementDetails.warehouseData.warehouseName",   
-                            driverName: { $ifNull: ["$procurementDetails.warehouseData.driverName", "N/A"] },
-                            transporterName: { $ifNull: ["$procurementDetails.warehouseData.transporterName", "N/A"] },
-                            truckNo: { $ifNull: ["$procurementDetails.warehouseData.truckNo", "N/A"] },
                             inwardDate: { $ifNull: ["$procurementDetails.warehouseData.inwardDate", "N/A"] },   
                             driverName: { $ifNull: ["$procurementDetails.warehouseData.driverName", "N/A"] },
                             transporterName: { $ifNull: ["$procurementDetails.warehouseData.transporterName", "N/A"] },
@@ -144,10 +138,6 @@ module.exports.getWarehouseTesting = async (req, res) => {
         return res.status(500).json({ status: 500, message: "Internal Server Error", error: error.message });
     }
 };
-
-
-
-
 
 
 module.exports.createBatch = async (req, res) => {
@@ -225,8 +215,10 @@ module.exports.createBatch = async (req, res) => {
                         ho_approve_status: _paymentApproval.approved,
                         ho_approval_at: new Date(),
                         status: _batchStatus.intransit,
+                        'final_quality_check.status': "Approved",
                         "final_quality_check.whr_receipt": farmer.gatePassId,
                         'intransit.no_of_bags':farmer.noOfBags,
+
                        //Neeraj Code start
                         'intransit.driver.name':farmer.driverName,
                         'intransit.transport.service_name':farmer.transporterName,
