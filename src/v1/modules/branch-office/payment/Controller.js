@@ -14,6 +14,9 @@ const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { smsService } = require("@src/v1/utils/third_party/SMSservices");
 const OTPModel = require("../../../models/app/auth/OTP");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
+const  SLA = require("@src/v1/models/app/auth/SLAManagement");
+const { Branches }= require("@src/v1/models/app/branchManagement/Branches")
+const { Scheme } = require("@src/v1/models/master/Scheme");
 
 const validateMobileNumber = async (mobile) => {
     let pattern = /^[0-9]{10}$/;
@@ -75,10 +78,10 @@ module.exports.payment = async (req, res) => {
                 }
             },
             {
-                $unwind:{path: "$branch", preserveNullAndEmptyArrays: true}
+                $unwind: { path: "$branch", preserveNullAndEmptyArrays: true }
             },
             {
-                $match: query 
+                $match: query
             },
             {
                 $match: {
@@ -109,7 +112,7 @@ module.exports.payment = async (req, res) => {
                 $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true }
             },
             {
-                $match: query 
+                $match: query
             },
             {
                 $match: {
@@ -470,7 +473,7 @@ module.exports.batchApprove = async (req, res) => {
         })
 
         await PaymentLogsHistory.insertMany(paymentLogs)
-     
+
         return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
 
     } catch (error) {
@@ -963,145 +966,141 @@ module.exports.paymentLogsHistory = async (req, res) => {
 module.exports.paymentWithoutAggregtion = async (req, res) => {
     try {
         let {
-            page = 1,
-            limit = 10,
-            paginate = 1,
-            sortBy,
-            search = '',
-            user_type,
-            isExport = 0,
-            approve_status = "Pending",
-            scheme,
-            commodity,
-            branchName,
-            state
+            page = 1, limit = 10, paginate = 1, sortBy, search = '', user_type,
+            isExport = 0, approve_status = "Pending", scheme, commodity, branchName, state
         } = req.query;
 
+        page = parseInt(page);
+        limit = parseInt(limit);
+
         const { portalId, user_id } = req;
+        const paymentReqIds = await Payment.find({ bo_id: { $in: [portalId, user_id] } }).distinct("req_id");
 
-        const paymentIds = await Payment.find({ bo_id: { $in: [portalId, user_id] } }).distinct('req_id');
-
-        let query = {
-            _id: { $in: paymentIds }
-        };
+        let baseMatch = { _id: { $in: paymentReqIds } };
 
         if (search) {
-            query.$or = [
+            baseMatch.$or = [
                 { reqNo: { $regex: search, $options: 'i' } },
                 { "product.name": { $regex: search, $options: 'i' } }
             ];
         }
+        if (commodity) baseMatch["product.name"] = { $regex: commodity, $options: 'i' };
 
-        if (commodity) query["product.name"] = { $regex: commodity, $options: 'i' };
-
-        // Pagination
-        const skip = (page - 1) * limit;
-
-        let reqQuery = RequestModel.find(query)
-        .populate({
-            path: 'sla_id',
-            select: 'basic_details.name',
-            model: 'Sla' // ✅ Capitalized model name
-        })
-        .populate({
-            path: 'branch_id',
-            model: 'Branch', // ✅ Capitalized
-            match: {
-                ...(branchName ? { branchName: { $regex: branchName, $options: 'i' } } : {}),
-                ...(state ? { state: { $regex: state, $options: 'i' } } : {})
-            }
-        })
-        .populate({
-            path: 'batches',
-            model: 'Batch', // ✅ Capitalized
-            populate: {
-                path: 'payment',
-                model: 'Payment' // ✅ Capitalized
-            }
-        })
-
-        if (limit != 0 && paginate == 1) {
-            reqQuery.skip(skip).limit(parseInt(limit));
-        }
-
-        let rows = await reqQuery.sort({ createdAt: -1 }).lean();
-
-        // Derived fields
-        rows = rows.filter(req => req.branch_id); // Filter unmatched branches if any match failed
-        rows = rows.map(req => {
-            let batches = req.batches || [];
-            let qtyPurchased = batches.reduce((sum, b) => sum + (b.qty || 0), 0);
-            let amountPayable = batches.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
-
-            let payment_status = 'Completed';
-            for (const batch of batches) {
-                if (batch.payment?.some(p => p.payment_status === 'Pending')) {
-                    payment_status = 'Pending';
-                    break;
+        // Get filtered requests (basic info + batches)
+        let requests = await RequestModel.aggregate([
+            { $match: baseMatch },
+            { $sort: { createdAt: -1 } },
+            { $skip: paginate == 1 ? (page - 1) * limit : 0 },
+            ...(paginate == 1 ? [{ $limit: limit }] : []),
+            {
+                $lookup: {
+                    from: "batches",
+                    localField: "_id",
+                    foreignField: "req_id",
+                    as: "batches"
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    reqNo: 1,
+                    product: 1,
+                    sla_id: 1,
+                    branch_id: 1,
+                    createdAt: 1,
+                    batches: {
+                        _id: 1,
+                        qty: 1,
+                        totalPrice: 1,
+                        batchId: 1,
+                        bo_approve_status: 1
+                    }
                 }
             }
+        ]).allowDiskUse(true);
+
+        const enrichedRequests = await Promise.all(requests.map(async (req) => {
+            const batchIds = req.batches.map(b => b._id);
+            const payments = await Payment.find({ batch_id: { $in: batchIds } }, { payment_status: 1 });
+
+            const qtyPurchased = req.batches.reduce((acc, b) => acc + (b.qty || 0), 0);
+            const amountPayable = req.batches.reduce((acc, b) => acc + (b.totalPrice || 0), 0);
+            const payment_status = payments.some(p => p.payment_status === 'Pending') ? 'Pending' : 'Completed';
+
+            // const sla = await SLA.findById(req.sla_id).lean();
+            // const branch = await Branches.findById(req.branch_id).lean();
+            // const schemeData = await Scheme.findById(req.product?.schemeId).lean();
+            const sla = await SLA.find({ _id: req.sla_id}).select({ "basic_details.name": 1}).lean();
+            const branch = await Branches.find({ _id: req.branch_id}).select({branchName:1}).lean();
+            const schemeData = await Scheme.find({ _id: req.product?.schemeId }).select({schemeName:1,season:1,period:1,commodity_id:1}).lean();
+
+            const boStatusMatch = approve_status === 'Pending'
+                ? req.batches.some(b => b.bo_approve_status === 'Pending')
+                : req.batches.some(b => b.bo_approve_status !== 'Pending');
+
+            if (!boStatusMatch) return null;
+
+            if (branchName && !(branch?.branchName?.match(new RegExp(branchName, 'i')))) return null;
+            if (state && !(branch?.state?.match(new RegExp(state, 'i')))) return null;
+            if (scheme && !(schemeData?.name?.match(new RegExp(scheme, 'i')))) return null;
 
             return {
                 _id: req._id,
                 reqNo: req.reqNo,
                 product: req.product,
-                batches: batches.map(b => ({
-                    _id: b._id,
-                    batchId: b.batchId,
-                    bo_approve_status: b.bo_approve_status
-                })),
-                sla: req.sla_id?.basic_details?.name || 'NA',
-                scheme: req.product?.schemeId || 'NA',
-                branch: {
-                    branchName: req.branch_id?.branchName || '',
-                    state: req.branch_id?.state || ''
-                },
+                // batches: req.batches,
+                sla: sla || {},
+                branch: branch || {},
+                scheme: schemeData || {},
                 qtyPurchased,
                 amountPayable,
                 payment_status,
                 createdAt: req.createdAt
             };
-        });
+        }));
 
-        // Scheme Filter
-        if (scheme) {
-            rows = rows.filter(r => typeof r.scheme === 'string' && r.scheme.toLowerCase().includes(scheme.toLowerCase()));
-        }
-
-        // Approve Status Filter
-        rows = rows.filter(r => {
-            if (!r.batches.length) return false;
-            if (approve_status === _paymentApproval.pending) {
-                return r.batches.some(b => b.bo_approve_status === _paymentApproval.pending);
-            } else {
-                return r.batches.every(b => b.bo_approve_status !== _paymentApproval.pending);
-            }
-        });
-
-        const count = rows.length;
-
-        if (paginate == 1 && limit != 0) {
-            rows = rows.slice(0, limit);
-        }
+        const filteredRequests = enrichedRequests.filter(Boolean);
+        const totalCount = await RequestModel.countDocuments(baseMatch);
 
         const response = {
-            count,
-            rows,
-            ...(paginate == 1 && {
-                page,
-                limit,
-                pages: Math.ceil(count / limit)
-            })
+            rows: filteredRequests,
+            count: totalCount
         };
 
-        // Export logic
+        if (paginate == 1) {
+            response.page = page;
+            response.limit = limit;
+            response.pages = limit != 0 ? Math.ceil(totalCount / limit) : 0;
+        }
+
         if (isExport == 1) {
-            // Add additional exports fields from farmer, sellers, procurement center, etc. if needed
-            return dumpJSONToExcel(req, res, {
-                data: rows,
-                fileName: `Farmer-Payment-records.xlsx`,
-                worksheetName: `Farmer-Payment-records`
+            const record = filteredRequests.map((item) => {
+                return {
+                    "Order ID": item.reqNo || 'NA',
+                    "Commodity": item.product?.name || 'NA',
+                    "Quantity Purchased": item.qtyPurchased || 'NA',
+                    "Amount Payable": item.amountPayable || 'NA',
+                    "Approval Status": approve_status,
+                    "Payment Status": item.payment_status || 'NA',
+                    "Branch": item.branch?.branchName || 'NA',
+                    "State": item.branch?.state || 'NA',
+                    "Scheme": item.scheme?.name || 'NA'
+                };
             });
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Farmer-Payment-records.xlsx`,
+                    worksheetName: `Farmer-Payment-records`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({
+                    status: 400,
+                    data: response,
+                    message: _response_message.notFound("Payment")
+                }));
+            }
         } else {
             return res.status(200).send(new serviceResponse({
                 status: 200,

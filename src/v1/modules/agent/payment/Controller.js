@@ -2395,7 +2395,6 @@ module.exports.proceedToPayBatchList = async (req, res) => {
                     qtyPurchased: "$qty",
                     amountProposed: "$goodsPrice",
                     associateName: "$users.basic_details.associate_details.associate_name",
-                    organizationName: "$users.basic_details.associate_details.organization_name",
                     whrNo: "$final_quality_check.whr_receipt",
                     whrReciept: "$final_quality_check.product_images",
                     deliveryDate: "$delivered.delivered_at",
