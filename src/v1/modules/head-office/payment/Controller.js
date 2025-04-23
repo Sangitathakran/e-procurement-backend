@@ -1582,6 +1582,7 @@ module.exports.payment = async (req, res) => {
   }
 };
 
+/*
 module.exports.associateOrders = async (req, res) => {
   try {
     const {
@@ -1761,6 +1762,130 @@ module.exports.associateOrders = async (req, res) => {
     );
   } catch (error) {
     _handleCatchErrors(error, res);
+  }
+};
+*/
+
+module.exports.associateOrders = async (req, res) => {
+  try {
+      const {
+          page = 1,
+          limit = 10,
+          skip = 0,
+          paginate = 1,
+          sortBy = { createdAt: -1 },
+          search = '',
+          req_id,
+          isExport = 0
+      } = req.query;
+
+      const { user_type, portalId, user_id } = req;
+
+      if (user_type != _userType.ho) {
+          return res.status(400).send(new serviceResponse({
+              status: 400,
+              errors: [{ message: _response_message.Unauthorized("user") }]
+          }));
+      }
+
+      // Use distinct to avoid loading full Payment documents
+     
+      const paymentIds = await Payment.distinct('associateOffers_id', {
+          ho_id: { $in: [new mongoose.Types.ObjectId(portalId), new mongoose.Types.ObjectId(user_id)] },
+          req_id: new mongoose.Types.ObjectId(req_id),
+          bo_approve_status: _paymentApproval.approved,
+      });
+
+      let query = {
+          _id: { $in: paymentIds },
+          req_id: new mongoose.Types.ObjectId(req_id),
+          status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] }
+      };
+
+      if (search) {
+          query.order_no = { $regex: search, $options: 'i' };
+      }
+
+      const records = { count: 0 };
+
+      // Fetch request details
+      records.reqDetails = await RequestModel.findOne({ _id: req_id })
+          .select({
+              _id: 1,
+              reqNo: 1,
+              product: 1,
+              deliveryDate: 1,
+              address: 1,
+              quotedPrice: 1,
+              status: 1
+          })
+          .lean();
+
+      if (isExport == 1) {
+          const exportLimit = 10000;
+
+          const exportRows = await AssociateOffers.find(query)
+              .limit(exportLimit)
+              .sort(sortBy)
+              .populate({
+                  path: 'seller_id',
+                  select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
+              })
+              .lean();
+
+          const record = exportRows.map((item) => ({
+              "Associate ID": item?.seller_id?.user_code || 'NA',
+              "Associate Type": item?.seller_id?.basic_details?.associate_details?.associate_type || 'NA',
+              "Associate Name": item?.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
+              "Quantity Purchased": item?.procuredQty || 'NA'
+          }));
+
+          if (record.length > 0) {
+              dumpJSONToExcel(req, res, {
+                  data: record,
+                  fileName: `Associate-orders.xlsx`,
+                  worksheetName: `Associate-orders`
+              });
+              return;
+          } else {
+              return res.status(400).send(new serviceResponse({
+                  status: 400,
+                  data: records,
+                  message: _response_message.notFound("Payment")
+              }));
+          }
+      }
+
+      // Handle pagination
+      const findQuery = AssociateOffers.find(query)
+          .sort(sortBy)
+          .populate({
+              path: 'seller_id',
+              select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
+          })
+          .lean();
+
+      if (paginate == 1) {
+          findQuery.skip(parseInt(skip)).limit(parseInt(limit));
+      }
+
+      records.rows = await findQuery;
+      records.count = await AssociateOffers.countDocuments(query);
+
+      if (paginate == 1) {
+          records.page = parseInt(page);
+          records.limit = parseInt(limit);
+          records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+      }
+
+      return res.status(200).send(new serviceResponse({
+          status: 200,
+          data: records,
+          message: _response_message.found("Payment")
+      }));
+
+  } catch (error) {
+      _handleCatchErrors(error, res);
   }
 };
 
