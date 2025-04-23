@@ -1476,7 +1476,7 @@ module.exports.payment = async (req, res) => {
     if (state || commodityName || schemeName || branch) {
       aggregationPipeline.push({
         $match: {
-          $or: [
+          $and: [
             ...(state ? [{ state: { $regex: state, $options: "i" } }] : []),
             ...(commodityName ? [{ commodity: { $regex: escapeRegex(commodityName), $options: "i" } }] : []),
             ...(schemeName ? [{ schemeName: { $regex: schemeName, $options: "i" } }] : []),
