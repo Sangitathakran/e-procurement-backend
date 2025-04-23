@@ -786,9 +786,9 @@ module.exports.createOfferOrder = async (req, res) => {
         }
 
         const { fulfilledQty, product } = existingProcurementRecord;
-        if (qtyOffered > (product.quantity - fulfilledQty)) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Incorrect quantity of request" }] }));
-        }
+        // if (qtyOffered > (product.quantity - fulfilledQty)) {
+        //     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Incorrect quantity of request" }] }));
+        // }
 
         // Fetch all farmers in a single query
         const farmerIds = farmer_data.map(farmer => new mongoose.Types.ObjectId(farmer._id));
@@ -842,11 +842,12 @@ module.exports.createOfferOrder = async (req, res) => {
         // Update RequestModel fulfilledQty in one go
         const updatedFulfilledQty = handleDecimal(fulfilledQty + sumOfFarmerQty);
         let newStatus = _requestStatus.partially_fulfulled;
-        if (updatedFulfilledQty === handleDecimal(product.quantity)) {
+        // if (updatedFulfilledQty === handleDecimal(product.quantity)) {
             newStatus = _requestStatus.fulfilled;
-        } else if (updatedFulfilledQty > handleDecimal(product.quantity)) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "This request cannot be processed! Quantity exceeds" }] }));
-        }
+        // } 
+        // else if (updatedFulfilledQty > handleDecimal(product.quantity)) {
+        //     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "This request cannot be processed! Quantity exceeds" }] }));
+        // }
 
         await RequestModel.updateOne({ _id: req_id }, { fulfilledQty: updatedFulfilledQty, status: newStatus });
 
