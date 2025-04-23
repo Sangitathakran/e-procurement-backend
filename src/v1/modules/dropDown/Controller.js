@@ -3,6 +3,7 @@ const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 const { User } = require("@src/v1/models/app/auth/User");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Commodity } = require("@src/v1/models/master/Commodity");
 const {
@@ -70,6 +71,27 @@ module.exports.commodity = async (req, res) => {
   }
 };
 
+module.exports.commodityRequest = async (req, res) => {
+  try {
+    const result = await RequestModel.find({ "product.name": { $exists: true } })
+      .select("product.name -_id"); // only fetch product.name
+
+    const nameList = result.map(item => item.product.name);
+
+    return sendResponse({
+      res,
+      message: "Product names fetched successfully.",
+      data: nameList,
+    });
+  } catch (err) {
+    console.error("ERROR:", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: err.message,
+    });
+  }
+};
 module.exports.commodity_standard = async (req, res) => {
   const query = { deletedAt: null, status: "active" };
   try {
