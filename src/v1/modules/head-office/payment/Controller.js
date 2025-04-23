@@ -3113,6 +3113,24 @@ module.exports.proceedToPayPayment = async (req, res) => {
     const aggregationPipeline = [
       { $match: query },
       { $sort: { createdAt: -1 } },
+      // {
+      //   $lookup: {
+      //     from: 'batches',
+      //     localField: '_id',
+      //     foreignField: 'req_id',
+      //     as: 'batches',
+      //     pipeline: [
+      //       {
+      //         $lookup: {
+      //           from: 'payments',
+      //           localField: '_id',
+      //           foreignField: 'batch_id',
+      //           as: 'payment',
+      //         }
+      //       }
+      //     ],
+      //   }
+      // },
       {
         $lookup: {
           from: 'batches',
@@ -3126,11 +3144,33 @@ module.exports.proceedToPayPayment = async (req, res) => {
                 localField: '_id',
                 foreignField: 'batch_id',
                 as: 'payment',
+                pipeline: [
+                  {
+                    $project: {
+                      _id: 1,
+                      batch_id: 1,
+                      payment_status: 1
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              $project: {
+                _id: 1,
+                qty: 1,
+                totalPrice: 1,
+                goodsPrice: 1,
+                payement_approval_at: 1,
+                bo_approve_status: 1,
+                ho_approve_status: 1,
+                payment: 1
               }
             }
-          ],
+          ]
         }
-      },
+      },  
+
       {
         $lookup: {
           from: 'branches',
@@ -3202,7 +3242,6 @@ module.exports.proceedToPayPayment = async (req, res) => {
         }
       },
     ];
-
     // Apply filters on already aggregated data
     if (state || commodity || schemeName || branch) {
       aggregationPipeline.push({
@@ -3240,7 +3279,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
     );
 
     let response = { count: 0 };
-    response.rows = await RequestModel.aggregate(aggregationPipeline);
+    response.rows = await RequestModel.aggregate(aggregationPipeline, {allowDiskUse: true});
 
     const countResult = await RequestModel.aggregate([
       ...aggregationPipeline.slice(0, -2),
