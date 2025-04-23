@@ -113,11 +113,11 @@ module.exports.farmerList = async (req, res) => {
         let address = `${item?.address?.village}, ${item?.address?.block}, ${item?.address?.district}, ${item?.address?.state}, ${item?.address?.country}, ${item?.address?.pin_code}`;
 
         return {
-          "Farmer Name": item?.farmer_name || "NA",
-          "Mobile Number": item?.mobile_no || "NA",
           "Associate ID": item?.associate_id || "NA",
           "Farmer ID": item?.farmer_id || "NA",
+          "Farmer Name": item?.farmer_name || "NA",
           "Father/Spouse Name": item?.father_spouse_name || "NA",
+          "Mobile Number": item?.mobile_no || "NA",
           Address:
             address
               ?.replace(/,\s*(?:,\s*)+/g, ", ")

@@ -149,12 +149,13 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     const record = rows.map((item) => {
       console.log(item);
       return {
-        "Scheme Id": item?.schemeId || "NA",
-        "scheme Name": item?.schemeName || "NA",
-        "Scheme Commodity": item?.Schemecommodity || "NA",
-        season: item?.season || "NA",
-        period: item?.period || "NA",
-        procurement: item?.procurement || "NA",
+        "SCHEME ID": item?.schemeId || "NA",
+        "SCHEME": item?.schemeName || "NA",
+        "ASSIGNED QUANTITY (IN MT)": item?.procurement || "NA",
+         "SCHEME CREATED ON": item?.createdAt || "NA",
+        "STATUS" : item?.status|| "NA",
+        // season: item?.season || "NA",
+        // period: item?.period || "NA",
       };
     });
     if (record.length > 0) {
