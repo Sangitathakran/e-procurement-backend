@@ -96,7 +96,7 @@ module.exports.getAssociates = async (req, res) => {
                     "Status": item?.active || "NA",
                 }
             })
-
+             
             if (record.length > 0) {
                 dumpJSONToExcel(req, res, {
                     data: record,
