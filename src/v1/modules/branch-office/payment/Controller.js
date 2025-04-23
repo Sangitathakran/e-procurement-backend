@@ -1027,12 +1027,12 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
             const amountPayable = req.batches.reduce((acc, b) => acc + (b.totalPrice || 0), 0);
             const payment_status = payments.some(p => p.payment_status === 'Pending') ? 'Pending' : 'Completed';
 
-            // const sla = await SLA.findById(req.sla_id).lean();
-            // const branch = await Branches.findById(req.branch_id).lean();
-            // const schemeData = await Scheme.findById(req.product?.schemeId).lean();
-            const sla = await SLA.find({ _id: req.sla_id}).select({ "basic_details.name": 1}).lean();
-            const branch = await Branches.find({ _id: req.branch_id}).select({branchName:1}).lean();
-            const schemeData = await Scheme.find({ _id: req.product?.schemeId }).select({schemeName:1,season:1,period:1,commodity_id:1}).lean();
+            const sla = await SLA.findById(req.sla_id).select({ "basic_details.name": 1}).lean();
+            const branch = await Branches.findById(req.branch_id).select({branchName:1}).lean();
+            const schemeData = await Scheme.findById(req.product?.schemeId).select({schemeName:1,season:1,period:1,commodity_id:1}).lean();
+            // const sla = await SLA.find({ _id: req.sla_id}).select({ "basic_details.name": 1}).lean();
+            // const branch = await Branches.find({ _id: req.branch_id}).select({branchName:1}).lean();
+            // const schemeData = await Scheme.find({ _id: req.product?.schemeId }).select({schemeName:1,season:1,period:1,commodity_id:1}).lean();
 
             const boStatusMatch = approve_status === 'Pending'
                 ? req.batches.some(b => b.bo_approve_status === 'Pending')
