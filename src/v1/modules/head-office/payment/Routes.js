@@ -8,7 +8,7 @@ const paymentRoutes = express.Router();
 
 paymentRoutes.get("/", Auth, payment); 
 paymentRoutes.get("/associate-orders", Auth, associateOrders);
-// paymentRoutes.get("/batch-list", Auth, batchList);
+paymentRoutes.get("/batch-list", Auth, batchList);
 paymentRoutes.get("/batch-list-without-aggregation", Auth, batchListWithoutAggregation);
 paymentRoutes.put("/batch-approval", Auth, batchApprove);
 paymentRoutes.get("/lot-list", Auth, lot_list);
