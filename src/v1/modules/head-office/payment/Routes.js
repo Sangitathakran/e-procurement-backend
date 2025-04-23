@@ -1,14 +1,15 @@
 const express = require("express");
 const { payment, associateOrders, batchList, batchApprove, qcReport, lot_list, approvedBatchList, payFarmers,
     updatePaymentByOrderId, sendOTP, verifyOTPProceed, verifyOTPApproval, paymentLogsHistory, proceedToPayPayment, proceedToPayBatchList, 
-    paymentWithoutAgreegation} = require("./Controller");
+    paymentWithoutAgreegation, batchListWithoutAggregation} = require("./Controller");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
 const paymentRoutes = express.Router();
 
 paymentRoutes.get("/", Auth, payment); 
 paymentRoutes.get("/associate-orders", Auth, associateOrders);
-paymentRoutes.get("/batch-list", Auth, batchList);
+// paymentRoutes.get("/batch-list", Auth, batchList);
+paymentRoutes.get("/batch-list-without-aggregation", Auth, batchListWithoutAggregation);
 paymentRoutes.put("/batch-approval", Auth, batchApprove);
 paymentRoutes.get("/lot-list", Auth, lot_list);
 paymentRoutes.get("/qc-report", Auth, qcReport);

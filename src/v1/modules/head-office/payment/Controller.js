@@ -49,6 +49,8 @@ const path = require("path");
 const { smsService } = require("@src/v1/utils/third_party/SMSservices");
 const OTPModel = require("../../../models/app/auth/OTP");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
+const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
+
 
 const validateMobileNumber = async (mobile) => {
   let pattern = /^[0-9]{10}$/;
@@ -1768,124 +1770,124 @@ module.exports.associateOrders = async (req, res) => {
 
 module.exports.associateOrders = async (req, res) => {
   try {
-      const {
-          page = 1,
-          limit = 10,
-          skip = 0,
-          paginate = 1,
-          sortBy = { createdAt: -1 },
-          search = '',
-          req_id,
-          isExport = 0
-      } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      skip = 0,
+      paginate = 1,
+      sortBy = { createdAt: -1 },
+      search = '',
+      req_id,
+      isExport = 0
+    } = req.query;
 
-      const { user_type, portalId, user_id } = req;
+    const { user_type, portalId, user_id } = req;
 
-      if (user_type != _userType.ho) {
-          return res.status(400).send(new serviceResponse({
-              status: 400,
-              errors: [{ message: _response_message.Unauthorized("user") }]
-          }));
-      }
+    if (user_type != _userType.ho) {
+      return res.status(400).send(new serviceResponse({
+        status: 400,
+        errors: [{ message: _response_message.Unauthorized("user") }]
+      }));
+    }
 
-      // Use distinct to avoid loading full Payment documents
-     
-      const paymentIds = await Payment.distinct('associateOffers_id', {
-          ho_id: { $in: [new mongoose.Types.ObjectId(portalId), new mongoose.Types.ObjectId(user_id)] },
-          req_id: new mongoose.Types.ObjectId(req_id),
-          bo_approve_status: _paymentApproval.approved,
-      });
+    // Use distinct to avoid loading full Payment documents
 
-      let query = {
-          _id: { $in: paymentIds },
-          req_id: new mongoose.Types.ObjectId(req_id),
-          status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] }
-      };
+    const paymentIds = await Payment.distinct('associateOffers_id', {
+      ho_id: { $in: [new mongoose.Types.ObjectId(portalId), new mongoose.Types.ObjectId(user_id)] },
+      req_id: new mongoose.Types.ObjectId(req_id),
+      bo_approve_status: _paymentApproval.approved,
+    });
 
-      if (search) {
-          query.order_no = { $regex: search, $options: 'i' };
-      }
+    let query = {
+      _id: { $in: paymentIds },
+      req_id: new mongoose.Types.ObjectId(req_id),
+      status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] }
+    };
 
-      const records = { count: 0 };
+    if (search) {
+      query.order_no = { $regex: search, $options: 'i' };
+    }
 
-      // Fetch request details
-      records.reqDetails = await RequestModel.findOne({ _id: req_id })
-          .select({
-              _id: 1,
-              reqNo: 1,
-              product: 1,
-              deliveryDate: 1,
-              address: 1,
-              quotedPrice: 1,
-              status: 1
-          })
-          .lean();
+    const records = { count: 0 };
 
-      if (isExport == 1) {
-          const exportLimit = 10000;
+    // Fetch request details
+    records.reqDetails = await RequestModel.findOne({ _id: req_id })
+      .select({
+        _id: 1,
+        reqNo: 1,
+        product: 1,
+        deliveryDate: 1,
+        address: 1,
+        quotedPrice: 1,
+        status: 1
+      })
+      .lean();
 
-          const exportRows = await AssociateOffers.find(query)
-              .limit(exportLimit)
-              .sort(sortBy)
-              .populate({
-                  path: 'seller_id',
-                  select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
-              })
-              .lean();
+    if (isExport == 1) {
+      const exportLimit = 10000;
 
-          const record = exportRows.map((item) => ({
-              "Associate ID": item?.seller_id?.user_code || 'NA',
-              "Associate Type": item?.seller_id?.basic_details?.associate_details?.associate_type || 'NA',
-              "Associate Name": item?.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
-              "Quantity Purchased": item?.procuredQty || 'NA'
-          }));
+      const exportRows = await AssociateOffers.find(query)
+        .limit(exportLimit)
+        .sort(sortBy)
+        .populate({
+          path: 'seller_id',
+          select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
+        })
+        .lean();
 
-          if (record.length > 0) {
-              dumpJSONToExcel(req, res, {
-                  data: record,
-                  fileName: `Associate-orders.xlsx`,
-                  worksheetName: `Associate-orders`
-              });
-              return;
-          } else {
-              return res.status(400).send(new serviceResponse({
-                  status: 400,
-                  data: records,
-                  message: _response_message.notFound("Payment")
-              }));
-          }
-      }
-
-      // Handle pagination
-      const findQuery = AssociateOffers.find(query)
-          .sort(sortBy)
-          .populate({
-              path: 'seller_id',
-              select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
-          })
-          .lean();
-
-      if (paginate == 1) {
-          findQuery.skip(parseInt(skip)).limit(parseInt(limit));
-      }
-
-      records.rows = await findQuery;
-      records.count = await AssociateOffers.countDocuments(query);
-
-      if (paginate == 1) {
-          records.page = parseInt(page);
-          records.limit = parseInt(limit);
-          records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-      }
-
-      return res.status(200).send(new serviceResponse({
-          status: 200,
-          data: records,
-          message: _response_message.found("Payment")
+      const record = exportRows.map((item) => ({
+        "Associate ID": item?.seller_id?.user_code || 'NA',
+        "Associate Type": item?.seller_id?.basic_details?.associate_details?.associate_type || 'NA',
+        "Associate Name": item?.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
+        "Quantity Purchased": item?.procuredQty || 'NA'
       }));
 
+      if (record.length > 0) {
+        dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Associate-orders.xlsx`,
+          worksheetName: `Associate-orders`
+        });
+        return;
+      } else {
+        return res.status(400).send(new serviceResponse({
+          status: 400,
+          data: records,
+          message: _response_message.notFound("Payment")
+        }));
+      }
+    }
+
+    // Handle pagination
+    const findQuery = AssociateOffers.find(query)
+      .sort(sortBy)
+      .populate({
+        path: 'seller_id',
+        select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
+      })
+      .lean();
+
+    if (paginate == 1) {
+      findQuery.skip(parseInt(skip)).limit(parseInt(limit));
+    }
+
+    records.rows = await findQuery;
+    records.count = await AssociateOffers.countDocuments(query);
+
+    if (paginate == 1) {
+      records.page = parseInt(page);
+      records.limit = parseInt(limit);
+      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+    }
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: records,
+      message: _response_message.found("Payment")
+    }));
+
   } catch (error) {
-      _handleCatchErrors(error, res);
+    _handleCatchErrors(error, res);
   }
 };
 
@@ -2084,6 +2086,151 @@ module.exports.batchList = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
+module.exports.batchListWithoutAggregation = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      skip = 0,
+      paginate = 1,
+      sortBy = 'createdAt',
+      search = '',
+      associateOffer_id,
+      isExport = 0,
+      batch_status = "Pending"
+    } = req.query;
+
+    const paymentIds = (await Payment.find({ associateOffers_id: associateOffer_id }).select('batch_id')).map(p => p.batch_id);
+
+    const query = {
+      _id: { $in: paymentIds },
+      associateOffer_id,
+      bo_approve_status: _paymentApproval.approved,
+      ho_approve_status: batch_status === _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
+    };
+
+    if (search) {
+      query.$or = [
+        { batchId: { $regex: search, $options: 'i' } },
+        { whrNo: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const findQuery = Batch.find(query)
+      .populate({ path: 'seller_id', select: 'basic_details user_code' })
+      .populate({ path: 'req_id', select: 'createdAt' })
+      .lean();
+
+    if (sortBy) {
+      findQuery.sort({ [sortBy]: -1, _id: -1 });
+    }
+
+    if (paginate == 1) {
+      findQuery.skip(parseInt(skip)).limit(parseInt(limit));
+    }
+
+    const [rowsRaw, count] = await Promise.all([
+      findQuery.exec(),
+      Batch.countDocuments(query)
+    ]);
+
+    const rows = await Promise.all(rowsRaw.map(async (row) => {
+      const invoices = await AssociateInvoice.find({ batch_id: new mongoose.Types.ObjectId(row._id) }).lean();
+      const payments = await Payment.find({ batch_id: new mongoose.Types.ObjectId(row._id) }).lean();
+
+      // const amountProposed = invoices.reduce((sum, inv) => {
+      //   const billTotal = inv?.bills?.total || 0;
+      //   return sum + (typeof billTotal === 'number' ? billTotal : 0);
+      // }, 0);
+
+      // const qtyPurchased = invoices.reduce((sum, inv) => {
+      //   const qty = inv?.qtyProcured || 0;
+      //   return sum + (typeof qty === 'number' ? qty : 0);
+      // }, 0);
+
+      // const amountPayable = amountProposed;
+
+      // const invoices = await AssociateInvoice.find({ batch_id: new mongoose.Types.ObjectId(row._id) }).lean();
+
+      console.log('Invoices:', invoices);
+      
+      let amountProposed = 0;
+      let qtyPurchased = 0;
+      
+      for (let inv of invoices) {
+        const qty = Number(inv?.qtyProcured) || 0;
+        const total = Number(inv?.bills?.total) || 0;
+      
+        qtyPurchased += qty;
+        amountProposed += total;
+      }
+      
+      const amountPayable = amountProposed;
+
+      const tags = payments.some(p => ['Failed', 'Rejected'].includes(p.payment_status)) ? 'Re-Initiate' : 'New';
+
+      const approval_status =
+        row.ho_approve_status === _paymentApproval.pending
+          ? "Pending from CNA"
+          : row.bo_approve_status === _paymentApproval.pending
+            ? "Pending from BO"
+            : row.agent_approve_status === _paymentApproval.pending
+              ? "Pending from SLA"
+              : "Approved";
+
+      return {
+        _id: row._id,
+        batchId: row.batchId,
+        tags,
+        approval_status,
+        amountPayable,
+        qtyPurchased,
+        amountProposed,
+        associateName: row.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
+        whrNo: row.final_quality_check?.whr_receipt || 'NA',
+        deliveryDate: row.delivered?.delivered_at || null,
+        procuredOn: row.req_id?.createdAt || null,
+      };
+    }));
+
+    const records = {
+      rows,
+      count,
+      ...(paginate == 1 && {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: limit != 0 ? Math.ceil(count / limit) : 0
+      })
+    };
+
+    if (isExport == 1) {
+      const record = rows.map(item => ({
+        "Associate Id": item?.seller_id?.user_code || "NA",
+        "Associate Type": item?.seller_id?.basic_details?.associate_details?.associate_type || "NA",
+        "Associate Name": item?.associateName || "NA",
+        "Quantity Purchased": item?.qtyPurchased || "NA"
+      }));
+
+      if (record.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Associate Orders-${'Associate Orders'}.xlsx`,
+          worksheetName: `Associate Orders-record-${'Associate Orders'}`
+        });
+      } else {
+        return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }));
+      }
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+
+};
+
+
 
 module.exports.batchApprove = async (req, res) => {
   try {
@@ -3703,7 +3850,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
             }
           ]
         }
-      },  
+      },
 
       {
         $lookup: {
