@@ -224,9 +224,10 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
                 $addFields: {
                     schemeName: {
                         $concat: [
-                            { $ifNull: ["$schemeDetails.schemeName", ""] }, "",
-                            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
-                            { $ifNull: ["$schemeDetails.procurement", ""] }, "",
+                            { $ifNull: ["$schemeDetails.schemeName", ""] }, " ",
+                           // { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
+                            { $ifNull: ["$product.name", "N/A"] }, " ",
+                            { $ifNull: ["$schemeDetails.procurement", ""] }, " ",
                             { $ifNull: ["$schemeDetails.season", ""] }, "",
                             { $ifNull: ["$schemeDetails.period", ""] }
                         ]
@@ -271,6 +272,7 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
             count: totalCount,
             rows: paginatedResults,
         };
+        
 
         if (paginate == 1) {
             records.page = page;
@@ -294,6 +296,7 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
                     "Head Office Name": item?.headOfficesName || "NA",
                 };
             });
+
 
             if (record.length > 0) {
                 dumpJSONToExcel(req, res, {
