@@ -1077,20 +1077,22 @@ module.exports.getAllMandiName = async (req, res) => {
 module.exports.totalQty = async (req, res) => {
     try {
         const matchStage = {
-            // "warehouseData.jformID": { $exists: true },
-            // "paymentDetails.jFormId": { $exists: true },
-            // "procurementDetails.jformID": { $exists: true },
-            // "procurementDetails.offerCreatedAt": { $exists: true },
+            "warehouseData.jformID": { $exists: true },
+            "paymentDetails.jFormId": { $exists: true },
+            "procurementDetails.jformID": { $exists: true },
+            "procurementDetails.offerCreatedAt": { $exists: true },
+            // 'procurementDetails.commisionAgentName':  'FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY'
+
             // $or: [
             //     { "procurementDetails.offerCreatedAt": null },
             //     { "procurementDetails.offerCreatedAt": { $exists: true } }
             // ]
 
-            "procurementDetails.mandiName": {
-                $nin: [
-                    "Shakkar Mandori", "Barheri Kalan"
-                ]
-            }
+            // "procurementDetails.mandiName": {
+            //     $nin: [
+            //         "Shakkar Mandori", "Barheri Kalan"
+            //     ]
+            // }
         };
 
         const result = await eKharidHaryanaProcurementModel.aggregate([
