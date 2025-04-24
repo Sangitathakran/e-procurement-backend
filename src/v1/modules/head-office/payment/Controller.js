@@ -49,6 +49,7 @@ const path = require("path");
 const { smsService } = require("@src/v1/utils/third_party/SMSservices");
 const OTPModel = require("../../../models/app/auth/OTP");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
+const { getCache, setCache } = require("@src/v1/utils/cache");
 
 const validateMobileNumber = async (mobile) => {
   let pattern = /^[0-9]{10}$/;
@@ -3480,6 +3481,28 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
     const { portalId, user_id } = req;
 
+
+// const cacheKey = `payment:${portalId}:${user_id}:${page}:${limit}:${search}:${payment_status}:${state}:${branch}:${schemeName}:${commodityName}:${paginate}:${isExport}`;
+
+const cacheKey = generateCacheKey('payment', {portalId,
+  user_id,
+  page,
+  limit,
+  search,
+  payment_status,
+  state,
+  branch,
+  schemeName,
+  commodityName,
+  paginate,
+  isExport});
+  
+const cachedData = getCache(cacheKey);
+if (cachedData && isExport != 1) {
+  return res.status(200).send(new serviceResponse({ status: 200, data: cachedData, message: "Payments found (cached)" }));
+}
+
+
     // Ensure indexes (if not already present, ideally done at setup)
     await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
     await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
@@ -3700,6 +3723,10 @@ module.exports.proceedToPayPayment = async (req, res) => {
       { $count: "count" }
     ]);
     response.count = countResult?.[0]?.count ?? 0;
+    if (isExport != 1) {
+      setCache(cacheKey, response, 300); // 5 mins
+    }
+    
 
     if (isExport == 1) {
       const exportRecords = await RequestModel.aggregate([...aggregationPipeline]);
@@ -3975,3 +4002,24 @@ module.exports.paymentLogsHistory = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 }
+
+
+
+
+
+
+
+
+function generateCacheKey(prefix, params = {}) {
+  const keyParts = [prefix];
+
+  // Sort keys to ensure consistency regardless of param order
+  const sortedKeys = Object.keys(params).sort();
+
+  sortedKeys.forEach(key => {
+    keyParts.push(`${key}:${params[key] ?? ''}`);
+  });
+
+  return keyParts.join('|');
+}
+
