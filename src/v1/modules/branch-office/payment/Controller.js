@@ -39,22 +39,61 @@ module.exports.payment = async (req, res) => {
         const aggregationPipeline = [
             { $match: { _id: { $in: paymentIds }, ...query } },
             { $sort: { createdAt: -1 } },
+            // {
+            //     $lookup: {
+            //         from: 'batches',
+            //         localField: '_id',
+            //         foreignField: 'req_id',
+            //         as: 'batches',
+            //         pipeline: [{
+            //             $lookup: {
+            //                 from: 'payments',
+            //                 localField: '_id',
+            //                 foreignField: 'batch_id',
+            //                 as: 'payment',
+            //             }
+            //         },
+            //     ],
+            //     }
+            // },
             {
                 $lookup: {
-                    from: 'batches',
-                    localField: '_id',
-                    foreignField: 'req_id',
-                    as: 'batches',
-                    pipeline: [{
-                        $lookup: {
-                            from: 'payments',
-                            localField: '_id',
-                            foreignField: 'batch_id',
-                            as: 'payment',
-                        }
-                    }],
+                  from: 'batches',
+                  localField: '_id',
+                  foreignField: 'req_id',
+                  as: 'batches',
+                  pipeline: [
+                    {
+                      $lookup: {
+                        from: 'payments',
+                        localField: '_id',
+                        foreignField: 'batch_id',
+                        as: 'payment',
+                        pipeline: [
+                          {
+                            $project: {
+                              _id: 1,
+                              batch_id: 1,
+                              payment_status: 1 // Only required field for logic
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      $project: {
+                        _id: 1,
+                        req_id: 1,
+                        bo_approve_status: 1,
+                        batchId: 1,
+                        totalPrice: 1,
+                        qty: 1,
+                        payment: 1 // already projected above
+                      }
+                    }
+                  ]
                 }
-            },
+              },              
             {
                 $lookup: {
                     from: "slas",
