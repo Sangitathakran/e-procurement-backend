@@ -418,8 +418,11 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
       { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
       { $match: query }, // Now filtering happens after lookups
       { $sort: sortBy },
-      { $skip: parsedSkip },
-      { $limit: parsedLimit },
+      // { $skip: parsedSkip },
+      // { $limit: parsedLimit },
+      ...(isExport == 0 || isExport == "0"
+        ? [{ $skip: parsedSkip }, { $limit: parsedLimit }]
+        : []),
       {
         $project: {
           reqNo: 1,
@@ -506,12 +509,15 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     // Handle export request
     if (isExport == 1) {
       const record = records.map((item) => ({
-        "Order ID": item?.reqNo || "NA",
-        "Branch Office": item?.branchName || "NA",
+        "ORDER ID": item?.reqNo || "NA",
+        "BRANCH OFFFICE NAME": item?.branchName || "NA",
+        "SLA": item?.slaName || "NA",
+        "SCHEME": item?.schemeName || "NA",
         "Commodity": item?.product?.name || "NA",
+        "QUANTITY PURCHASED": item?.fulfilledQty || "NA",
         "MSP": item?.quotedPrice || "NA",
-        "EST Delivery": item?.fulfilledQty || "NA",
-        "Completion": item?.deliveryDate || "NA",
+        "EST Delivery": item?.deliveryDate || "NA",
+        "Completion": item?.quoteExpiry || "NA",
         "Created Date": item?.createdAt || "NA",
       }));
 
