@@ -1474,7 +1474,7 @@ module.exports.payment = async (req, res) => {
     }
 
     console.log("comodity", commodityName);
-    
+
 
     if (state || commodityName || schemeName || branch) {
       aggregationPipeline.push({
@@ -2158,18 +2158,18 @@ module.exports.batchListWithoutAggregation = async (req, res) => {
       // const invoices = await AssociateInvoice.find({ batch_id: new mongoose.Types.ObjectId(row._id) }).lean();
 
       console.log('Invoices:', invoices);
-      
+
       let amountProposed = 0;
       let qtyPurchased = 0;
-      
+
       for (let inv of invoices) {
         const qty = Number(inv?.qtyProcured) || 0;
         const total = Number(inv?.bills?.total) || 0;
-      
+
         qtyPurchased += qty;
         amountProposed += total;
       }
-      
+
       const amountPayable = amountProposed;
 
       const tags = payments.some(p => ['Failed', 'Rejected'].includes(p.payment_status)) ? 'Re-Initiate' : 'New';
@@ -3754,25 +3754,27 @@ module.exports.proceedToPayPayment = async (req, res) => {
     const { portalId, user_id } = req;
 
 
-// const cacheKey = `payment:${portalId}:${user_id}:${page}:${limit}:${search}:${payment_status}:${state}:${branch}:${schemeName}:${commodityName}:${paginate}:${isExport}`;
+    // const cacheKey = `payment:${portalId}:${user_id}:${page}:${limit}:${search}:${payment_status}:${state}:${branch}:${schemeName}:${commodityName}:${paginate}:${isExport}`;
 
-const cacheKey = generateCacheKey('payment', {portalId,
-  user_id,
-  page,
-  limit,
-  search,
-  payment_status,
-  state,
-  branch,
-  schemeName,
-  commodityName,
-  paginate,
-  isExport});
-  
-const cachedData = getCache(cacheKey);
-if (cachedData && isExport != 1) {
-  return res.status(200).send(new serviceResponse({ status: 200, data: cachedData, message: "Payments found (cached)" }));
-}
+    const cacheKey = generateCacheKey('payment', {
+      portalId,
+      user_id,
+      page,
+      limit,
+      search,
+      payment_status,
+      state,
+      branch,
+      schemeName,
+      commodityName,
+      paginate,
+      isExport
+    });
+
+    const cachedData = getCache(cacheKey);
+    if (cachedData && isExport != 1) {
+      return res.status(200).send(new serviceResponse({ status: 200, data: cachedData, message: "Payments found (cached)" }));
+    }
 
 
     // Ensure indexes (if not already present, ideally done at setup)
@@ -3998,7 +4000,7 @@ if (cachedData && isExport != 1) {
     if (isExport != 1) {
       setCache(cacheKey, response, 300); // 5 mins
     }
-    
+
 
     if (isExport == 1) {
       const exportRecords = await RequestModel.aggregate([...aggregationPipeline]);
@@ -4257,6 +4259,177 @@ module.exports.proceedToPayBatchList = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 }
+
+
+module.exports.proceedToPaybatchListWithoutAggregation = async (req, res) => {
+  try {
+
+    const {
+      page = 1, limit = 10, skip = 0, paginate = 1,
+      sortBy = 'createdAt', search = '', req_id,
+      payment_status, isExport = 0
+    } = req.query;
+
+    const validStatuses = [_paymentstatus.pending, _paymentstatus.inProgress, _paymentstatus.failed, _paymentstatus.completed, _paymentstatus.rejected];
+    if (payment_status && !validStatuses.includes(payment_status)) {
+      return res.status(400).send(new serviceResponse({
+        status: 400,
+        message: `Invalid payment status. Valid statuses are: ${validStatuses.join(', ')}`
+      }));
+    }
+
+    // Ensure indexes (if not already present, ideally done at setup)
+    await Payment.createIndexes({ req_id: 1, bo_approve_status: 1 });
+    await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
+    await Batch.createIndexes({ req_id: 1 });
+    await Payment.createIndexes({ batch_id: 1 });
+    await Branches.createIndexes({ _id: 1 });
+
+    // Step 1: Get relevant payments and map them
+    const payments = await Payment.find({ req_id }).lean();
+    const paymentMap = {};
+    const batchIds = [];
+
+    for (const p of payments) {
+      if (p.batch_id) {
+        const id = p.batch_id.toString();
+        paymentMap[id] = p;
+        batchIds.push(p.batch_id);
+      }
+    }
+
+    // Step 2: Build base query for batches
+    const query = {
+      _id: { $in: batchIds },
+      req_id,
+      bo_approve_status: _paymentApproval.approved
+    };
+
+    if (search) {
+      query.$or = [
+        { batchId: new RegExp(search, 'i') },
+        { "final_quality_check.whr_receipt": new RegExp(search, 'i') }
+      ];
+    }
+
+    // Step 3: Get batches with populate
+    let batchQuery = Batch.find(query)
+      .populate({
+        path: 'seller_id',
+        select: 'basic_details.user_code basic_details.associate_details',
+      })
+      .populate({
+        path: 'req_id',
+        model: 'Request',
+        select: 'createdAt reqNo product deliveryDate address quotedPrice status',
+      })
+      .populate('warehousedetails_id')
+      .lean();
+
+    if (paginate == 1) {
+      batchQuery = batchQuery.skip(parseInt(skip)).limit(parseInt(limit));
+    }
+
+    const batches = await batchQuery;
+
+    // Step 4: Get invoices and map them
+    const invoiceDocs = await AssociateInvoice.find({ batch_id: { $in: batchIds } }).lean();
+    const invoiceMap = {};
+    for (const invoice of invoiceDocs) {
+      const id = invoice.batch_id.toString();
+      if (!invoiceMap[id]) invoiceMap[id] = [];
+      invoiceMap[id].push(invoice);
+    }
+
+    // Step 5: Compose final records
+    const rows = batches
+      .filter(batch => {
+        const payment = paymentMap[batch._id.toString()];
+        const status = payment?.payment_status || _paymentstatus.pending;
+
+        // Normalize condition (like in original aggregation)
+        if (!payment_status) return true;
+        if (["Failed", "Rejected"].includes(payment_status)) return status === "Failed" || status === "Rejected";
+        return status === payment_status;
+      })
+      .map(batch => {
+        const payment = paymentMap[batch._id.toString()];
+        const invoiceList = invoiceMap[batch._id.toString()] || [];
+
+        const tags = ["Failed", "Rejected"].includes(payment?.payment_status) ? "Re-Initiate" : "New";
+
+        const approval_status = (batch?.ho_approve_status || '').toString() === "Pending"
+          ? "Pending from CNA"
+          : (batch?.bo_approval_status || '').toString() === "Pending"
+            ? "Pending from BO"
+            : (batch?.agent_approval_status || '').toString() === "Pending"
+              ? "Pending from SLA"
+              : "Approved";
+
+        return {
+          batchId: batch.batchId,
+          amountPayable: batch.totalPrice,
+          qtyPurchased: batch.qty,
+          amountProposed: batch.goodsPrice,
+          associateName: batch.seller_id?.basic_details?.associate_details?.associate_name,
+          organisationName: batch.seller_id?.basic_details?.associate_details?.organization_name,
+          whrNo: batch.final_quality_check?.whr_receipt,
+          whrReciept: batch.final_quality_check?.whr_receipt_image,
+          deliveryDate: batch.delivered?.delivered_at,
+          procuredOn: batch.req_id?.createdAt,
+          tags,
+          approval_status,
+          payment_date: payment?.payment_at,
+          payment_status: payment?.payment_status,
+          bankStatus: payment?.payment_status
+        };
+      });
+
+    // Step 6: Count total (without pagination)
+    const totalCount = await Batch.countDocuments(query);
+
+    // Step 7: Get request details
+    const reqDetails = await RequestModel.findById(req_id).select('reqNo product deliveryDate address quotedPrice status');
+
+    // Step 8: Export if needed
+    if (isExport == 1) {
+      const exportData = rows.map(item => ({
+        "Associate Id": item?.seller_id?.user_code || "NA",
+        "Associate Type": item?.seller_id?.basic_details?.associate_details?.associate_type || "NA",
+        "Associate Name": item?.associateName || "NA",
+        "Quantity Purchased": item?.qtyPurchased || "NA",
+      }));
+
+      if (exportData.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: exportData,
+          fileName: `Associate Orders.xlsx`,
+          worksheetName: `Associate Orders`
+        });
+      } else {
+        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("Associate Orders") }));
+      }
+    }
+
+    // Step 9: Send response
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: {
+        rows,
+        count: totalCount,
+        page: paginate == 1 ? parseInt(page) : undefined,
+        limit: paginate == 1 ? parseInt(limit) : undefined,
+        pages: paginate == 1 ? Math.ceil(totalCount / limit) : undefined,
+        reqDetails
+      },
+      message: _response_message.found("Payment")
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+
 
 module.exports.paymentLogsHistory = async (req, res) => {
   try {
