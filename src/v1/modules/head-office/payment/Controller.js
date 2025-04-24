@@ -4448,7 +4448,136 @@ module.exports.paymentLogsHistory = async (req, res) => {
   }
 }
 
+module.exports.batchListWOAggregation = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      skip = 0,
+      paginate = 1,
+      sortBy = "createdAt",
+      search = '',
+      associateOffer_id,
+      isExport = 0,
+      batch_status = "Pending"
+    } = req.query;
 
+    const paymentIds = (await Payment.find({ associateOffers_id: associateOffer_id }, {batch_id:1})).map(p => p.batch_id);
+
+    let query = {
+      _id: { $in: paymentIds },
+      associateOffer_id,
+      bo_approve_status: _paymentApproval.approved,
+      ho_approve_status: batch_status === _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
+    };
+
+    if (search) {
+      query.$or = [
+        { batchId: new RegExp(search, 'i') },
+        { whrNo: new RegExp(search, 'i') }
+      ];
+    }
+
+    let batches = await Batch.find(query)
+    .select(`
+      _id
+      ho_approve_status
+      bo_approval_status
+      agent_approval_status
+      batchId
+      totalPrice
+      qty
+      goodsPrice
+      final_quality_check.whr_receipt
+      final_quality_check.whr_receipt_image
+      delivered.delivered_at
+      seller_id
+      req_id
+    `)
+      .populate({ path: 'seller_id', select: 'basic_details.user_code basic_details.associate_details' })
+      .populate({ path: 'req_id', select: 'createdAt' })
+     // .populate({ path: '_id', model: 'AssociateInvoice', match: {}, options: {}, as: 'invoice' })
+     // .populate({ path: '_id', model: 'Payment', match: {}, options: {}, as: 'payment' });
+
+    const records = { count: 0, rows: [] };
+    // Post-processing
+    batches = batches.map(batch => {
+      const invoiceArr = batch.invoice || [];
+      const paymentArr = batch.payment || [];
+
+      const qtyPurchased = invoiceArr.reduce((sum, i) => sum + (i.qtyProcured || 0), 0);
+      const amount = invoiceArr.reduce((sum, i) => sum + (i?.bills?.total || 0), 0);
+
+      const paymentStatuses = paymentArr.map(p => p.payment_status);
+      const tags = paymentStatuses.includes("Failed") || paymentStatuses.includes("Rejected") ? "Re-Initiate" : "New";
+
+      let approval_status = "Approved";
+      if (batch.ho_approve_status === "Pending") {
+        approval_status = "Pending from CNA";
+      } else if (batch.bo_approval_status === "Pending") {
+        approval_status = "Pending from BO";
+      } else if (batch.agent_approval_status === "Pending") {
+        approval_status = "Pending from SLA";
+      }
+      return {
+        _id: batch._id,
+        batchId: batch.batchId,
+        amountPayable: batch.totalPrice,
+        qtyPurchased: batch.qty,
+        amountProposed: batch.goodsPrice,
+        associateName: batch.seller_id?.basic_details?.associate_details?.associate_name,
+        whrNo: batch.final_quality_check?.whr_receipt,
+        whrReciept: batch.final_quality_check?.whr_receipt_image,
+        deliveryDate: batch.delivered?.delivered_at,
+        procuredOn: batch.req_id?.createdAt,
+        tags,
+        approval_status,
+        //seller_id: batch.seller_id
+      };
+    });
+
+    // Sorting
+    batches.sort((a, b) => new Date(b[sortBy]) - new Date(a[sortBy]));
+
+    records.count = batches.length;
+
+    // Pagination
+    if (paginate == 1) {
+      const paginated = batches.slice(skip, skip + parseInt(limit));
+      records.rows = paginated;
+      records.page = parseInt(page);
+      records.limit = parseInt(limit);
+      records.pages = Math.ceil(records.count / limit);
+    } else {
+      records.rows = batches;
+    }
+
+    if (isExport == 1) {
+      const exportData = batches.map(item => ({
+        "Associate Id": item?.seller_id?.user_code || "NA",
+        "Associate Type": item?.seller_id?.basic_details?.associate_details?.associate_type || "NA",
+        "Associate Name": item?.seller_id?.basic_details?.associate_details?.associate_name || "NA",
+        "Quantity Purchased": item?.offeredQty || "NA",
+      }));
+
+      if (exportData.length) {
+        dumpJSONToExcel(req, res, {
+          data: exportData,
+          fileName: `Associate Orders.xlsx`,
+          worksheetName: `Associate Orders`
+        });
+        return;
+      } else {
+        return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }));
+      }
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
 
 
 
