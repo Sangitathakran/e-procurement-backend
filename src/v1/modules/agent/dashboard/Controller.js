@@ -91,7 +91,7 @@ module.exports.getDashboardStats = async (req, res) => {
         const branchOfficeCount = hoWithBranches?.[0]?.totalBranchCount ?? 0;
         // const branchOfficeCount = (await Branches.countDocuments({status: _status.active})) ?? 0;
         const associateCount = (await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved })) ?? 0;
-        const procurementCenterCount = (await ProcurementCenter.countDocuments({ active: true })) ?? 0;
+        const procurementCenterCount = (await ProcurementCenter.countDocuments({ deletedAt: null })) ?? 0;
         const farmerCount = (await farmer.countDocuments({ status: _status.active })) ?? 0;
         const associateStats = {
             totalAssociates: associateCount,
