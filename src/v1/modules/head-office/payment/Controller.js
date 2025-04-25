@@ -1519,10 +1519,15 @@ module.exports.payment = async (req, res) => {
 
       { $sort: { payment_status: -1, createdAt: -1 } },
       { $sort: { _id: -1, createdAt: -1 } },
-      { $skip: (page - 1) * limit },
-      { $limit: limit },
 
     );
+
+    if (isExport != 1) {
+      aggregationPipeline.push(
+        { $skip: (page - 1) * limit },
+        { $limit: limit }
+      );
+    }
 
 
 
@@ -1553,12 +1558,12 @@ module.exports.payment = async (req, res) => {
       const record = response.rows.map((item) => ({
         "Order ID": item?.reqNo || "NA",
         "Branch Name": item?.branchName || "NA",
-        "Commodity": item?.Commodity || "NA",
+        "SCHEME": item?.schemeName || "NA",
+        "Commodity": item?.commodity || "NA",
         "Quantity Purchased": item?.qtyPurchased || "NA",
-        "Approval Status": item?.approval_status ?? "NA",
-        "Payment Status": item?.payment_status ?? "NA",
+        "AMOUNT PAYABLE": item?.amountPayable || "NA",
+        // "Payment Status": item?.payment_status ?? "NA",
       }));
-
       if (record.length > 0) {
         return dumpJSONToExcel(req, res, {
           data: record,
@@ -2800,12 +2805,13 @@ module.exports.orderList = async (req, res) => {
     if (isExport == 1) {
       const record = records.rows.map((item) => {
         return {
-          "Order ID": item?.requestDetails?.reqNo || "NA",
-          Commodity: item?.requestDetails?.product?.name || "NA",
-          "Quantity Purchased": item?.qtyProcured || "NA",
-          "Billing Date": item?.createdAt || "NA",
-          State: item?.sellerDetails?.state || "NA",
-          "Approval Status": item?.ho_approve_status || "NA",
+          "Order ID": item?.orderId || "NA",
+          "BRANCH ID": item?.branchId || "NA",
+          Commodity: item?.commodity || "NA",
+          "Quantity Purchased": item?.quantityPurchased || "NA",
+          "Billing Date": item?.billingDate || "NA",
+          "BILLING STATUS": item?.sellerDetails?.state || "NA",
+          // "Approval Status": item?.ho_approve_status || "NA",
         };
       });
 
@@ -4004,9 +4010,20 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
     if (isExport == 1) {
       const exportRecords = await RequestModel.aggregate([...aggregationPipeline]);
-      if (exportRecords.length > 0) {
+      const record = exportRecords.map((item) => ({
+        "Order ID": item?.reqNo || "NA",
+        "BRANCH ID": item?.branchDetails[0]?.branchId || "NA",
+        "SCHEME": item?.scheme?.schemeName || "NA",
+        "SLA": item?.slaName || "NA",
+        "COMMODITY": item?.product?.name || "NA",
+        "QUANTITY PURCHASED": item?.product?.quantity || "NA",
+        "TOTAL AMOUNT": item?.amountPaid || "NA",
+        "AMOUNT PAID": item?.amountPayable || "NA",
+        "APPROVAL DATE": item?.approval_date || "NA",
+      }));
+      if (record.length > 0) {
         dumpJSONToExcel(req, res, {
-          data: exportRecords,
+          data: record,
           fileName: `Farmer-Payment-records.xlsx`,
           worksheetName: `Farmer-Payment-records`
         });

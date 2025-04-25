@@ -560,7 +560,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
 module.exports.requirementById = asyncErrorHandler(async (req, res) => {
   try {
     const { requirementId } = req.params;
-    const { page, limit, skip = 0, paginate, sortBy } = req.query;
+    const { page, limit, skip = 0, paginate, sortBy,isExport = 0, } = req.query;
     const records = { count: 0 };
 
     records.rows = await Batch.find({ req_id: requirementId })
@@ -600,12 +600,48 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
       records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
     }
 
-    return sendResponse({
-      res,
-      status: 200,
-      data: records,
-      message: _response_message.found("requirement"),
-    })
+       // Handle export request
+       if (isExport == 1) {
+        const record = records.rows.map((item) => ({
+          "BATCH ID": item?.batchId || "NA",
+          "ASSOCIATE NAME": item?.associateName || "NA",
+          "PROCUREMENT CENTER": item?.procurementCenterName || "NA",
+          "QUANTITY PURCHASED": item?.quantity || "NA",
+          "DELIVERED ON": item?.deliveredOn || "NA",
+          "BATCH STATUS": item?.status || "NA",
+          "QC STATUS": item?.qc_status || "NA",
+        }));
+  
+        if (record.length > 0) {
+          dumpJSONToExcel(req, res, {
+            data: record,
+            fileName: `Batch-List-Record.xlsx`,
+            worksheetName: `Batch-List-Record`,
+          });
+        } else {
+          return sendResponse({
+            res,
+            status: 400,
+            data: [],
+            message: _response_message.notFound("Requirement"),
+          });
+        }
+      } else {
+        // Send paginated data
+        return sendResponse({
+          res,
+          status: 200,
+          data: records,
+          message: _response_message.found("requirement"),
+        });
+      }
+
+    // return sendResponse({
+    //   res,
+    //   status: 200,
+    //   data: records,
+    //   message: _response_message.found("requirement"),
+    // })
   } catch (error) {
     console.log("error", error);
     _handleCatchErrors(error, res);
