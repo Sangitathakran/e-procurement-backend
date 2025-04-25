@@ -240,6 +240,16 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
                 }
             },
 
+            {
+                $group: {
+                    _id: "$_id",
+                    doc: { $first: "$$ROOT" }
+                }
+            },
+            {
+                $replaceRoot: { newRoot: "$doc" }
+            },
+
              // Apply dynamic filters if they exist
              ...(schemeName ? [{ $match: { schemeName: { $regex: schemeName, $options: 'i' } } }] : []),
              ...(commodity ? [{ $match: { commodity: { $regex: commodity, $options: 'i' } } }] : []),
