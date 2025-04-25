@@ -136,23 +136,29 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   }
 });
 
-
+// start of prachi code
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   const { limit = 10, page = 1 } = req.query;
 
   const skip = (page - 1) * limit;
-  let pendingPaymentDetails = await Payment.find({payment_status:'Pending'})
-  .populate({ path: "req_id", select: "reqNo" })
-  .select('req_id qtyProcured amount payment_status')
+  let pendingPaymentDetails = await Payment.find({payment_status:'Pending'}).select('req_id qtyProcured amount payment_status')
+  .populate({ path: "req_id", select:"reqNo"})  
   .skip(skip)
-  .limit(limit);
-
+  .limit(limit)
+  .lean();
+  pendingPaymentDetails = pendingPaymentDetails.map((payment) => {
+    return {
+      ...payment,
+      reqNo: payment.req_id && payment.req_id.reqNo ? payment.req_id.reqNo : 'NA',
+    };
+  });
+  
   // Get total count for pagination metadata
   const totalCount = await Payment.countDocuments({ payment_status: "Pending" });
 
-  
-
- 
+ //console.log(pendingPaymentDetails)
+ //console.log(JSON.stringify(pendingPaymentDetails, null, 2));
+ //console.log(pendingPaymentDetails.map(p => p.req_id));
   return sendResponse({
     res,
     status: 200,
@@ -164,9 +170,11 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
       totalPages: Math.ceil(totalCount / limit),
       limit: limit,
       page: page
-    },
+     },
   });
 });
+// end of prachi code
+
 
 module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 
@@ -493,6 +501,8 @@ module.exports.optionRequestId = asyncErrorHandler(async (req, res) => {
     data: records,
   });
 });
+
+
 //branchOfficeProcurements
 module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
   let { stateNames } = req.query;
@@ -789,6 +799,9 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
     data: {branchOfficeProc: data, totalProcuredQty},
   });
 });
+
+
+
 //farmerBenifitted
 module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
   const { startDate, endDate } = req.query;
