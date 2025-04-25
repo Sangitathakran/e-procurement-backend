@@ -14,6 +14,7 @@ const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { smsService } = require("@src/v1/utils/third_party/SMSservices");
 const OTPModel = require("../../../models/app/auth/OTP");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
+const { _collectionName} = require('@src/v1/utils/constants');
 const  SLA = require("@src/v1/models/app/auth/SLAManagement");
 const { Branches }= require("@src/v1/models/app/branchManagement/Branches")
 const { Scheme } = require("@src/v1/models/master/Scheme");
@@ -303,30 +304,129 @@ module.exports.payment = async (req, res) => {
 
 /*
 module.exports.associateOrders = async (req, res) => {
-
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
-
-        const { user_type, portalId, user_id } = req;
-
-        if (user_type != _userType.bo) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+      const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query;
+      const { user_type, portalId, user_id } = req;
+  
+      if (user_type != _userType.bo) {
+        return res.status(400).send(new serviceResponse({
+          status: 400,
+          errors: [{ message: _response_message.Unauthorized("user") }]
+        }));
+      }
+  
+      const paymentIds = (
+        await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })
+      ).map(i => i.associateOffers_id);
+  
+      const query = {
+        _id: { $in: paymentIds },
+        req_id,
+        status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] }
+      };
+  
+      const records = { count: 0 };
+  
+      records.reqDetails = await RequestModel.findOne({ _id: req_id }).select({
+        _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1
+      });
+  
+      let allRows = await AssociateOffers.find(query)
+        .populate({
+          path: 'seller_id',
+          select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
+        })
+        .sort(sortBy);
+  
+   
+      if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        allRows = allRows.filter(item => {
+          const userCode = item?.seller_id?.user_code || '';
+          const orgName = item?.seller_id?.basic_details?.associate_details?.organization_name || '';
+          return searchRegex.test(userCode) || searchRegex.test(orgName);
+        });
+      }
+  
+     
+      records.count = allRows.length;
+  
+      
+      records.rows = paginate == 1
+        ? allRows.slice(skip, skip + parseInt(limit))
+        : allRows;
+  
+      if (paginate == 1) {
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+      }
+  
+      if (isExport == 1) {
+        const record = records.rows.map((item) => {
+          return {
+            "Associate ID": item?.seller_id.user_code || 'NA',
+            "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || 'NA',
+            "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || 'NA',
+            "Quantity Purchased": item?.procuredQty || 'NA'
+          };
+        });
+  
+        if (record.length > 0) {
+          dumpJSONToExcel(req, res, {
+            data: record,
+            fileName: `Associate-orders.xlsx`,
+            worksheetName: `Associate-orders`
+          });
+        } else {
+          return res.status(400).send(new serviceResponse({
+            status: 400,
+            data: records,
+            message: _response_message.notFound("Payment")
+          }));
         }
+      } else {
+        return res.status(200).send(new serviceResponse({
+          status: 200,
+          data: records,
+          message: _response_message.found("Payment")
+        }));
+      }
+        // const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
 
-        const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })).map(i => i.associateOffers_id)
-        let query = {
-            _id: { $in: paymentIds },
-            req_id,
-            status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] },
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
-        };
+        // const { user_type, portalId, user_id } = req;
 
-        const records = { count: 0 };
+        // if (user_type != _userType.bo) {
+        //     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized("user") }] }))
+        // }
+
+        //  let sellerIds = {};
+        //    if (search) {
+        //     sellerIds["user_code"] = { $regex: search, $options: "i" };
+        //    sellerIds["basic_details.associate_details.organization_name"] = { $regex: search, $options: "i" };
+        //      }
+
+        // const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] }, req_id })).map(i => i.associateOffers_id)
+        // let query = {
+        //     _id: { $in: paymentIds },
+        //     req_id,
+        //     status: { $in: [_associateOfferStatus.partially_ordered, _associateOfferStatus.ordered] },
+        //    // ...(search ? { seller_id: { $in: sellerIds } } : {}) // Search functionality
+        // };
+
+        // const records = { count: 0 };
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
         records.rows = paginate == 1 ? await AssociateOffers.find(query)
             .populate({
-                path: 'seller_id', select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
+                path: 'seller_id', 
+                match: search ? {
+                    $or: [
+                        { user_code: { $regex: search, $options: 'i' } },
+                        { 'basic_details.associate_details.organization_name': { $regex: search, $options: 'i' } }
+                    ]
+                } : {},
+                select: '_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name'
             })
             .sort(sortBy)
             .skip(skip)
@@ -367,7 +467,7 @@ module.exports.associateOrders = async (req, res) => {
         }
 
     } catch (error) {
-        _handleCatchErrors(error, res);
+      _handleCatchErrors(error, res);
     }
 }
 */
@@ -1087,6 +1187,7 @@ module.exports.paymentLogsHistory = async (req, res) => {
 
 //////////////////////////////////////////////////////////////
 
+/*
 module.exports.paymentWithoutAggregtion = async (req, res) => {
     try {
         let {
@@ -1208,6 +1309,183 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
                     "Scheme": item.scheme?.name || 'NA'
                 };
             });
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Farmer-Payment-records.xlsx`,
+                    worksheetName: `Farmer-Payment-records`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({
+                    status: 400,
+                    data: response,
+                    message: _response_message.notFound("Payment")
+                }));
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: response,
+                message: _response_message.found("Payment")
+            }));
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+*/
+
+
+module.exports.paymentWithoutAggregtion = async (req, res) => {
+    try {
+        let {
+            page = 1, limit = 10, paginate = 1, sortBy, search = '', user_type,
+            isExport = 0, approve_status = "Pending", scheme, commodity, branchName, state
+        } = req.query;
+
+        page = parseInt(page);
+        limit = parseInt(limit);
+
+        const { portalId, user_id } = req;
+
+        // Ensure necessary indexes are created (run once in your database setup)
+        await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
+        await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
+        await Batch.createIndexes({ req_id: 1 });
+        await Payment.createIndexes({ batch_id: 1 });
+        await Branches.createIndexes({ _id: 1 });
+
+        // Step 1: Get req_ids user has access to
+        const paymentReqIds = await Payment.find({ bo_id: { $in: [portalId, user_id] } }).distinct("req_id");
+        let baseMatch = { _id: { $in: paymentReqIds } };
+
+        // Step 2: Apply search and filters
+        if (search) {
+            baseMatch.$or = [
+                { reqNo: { $regex: search, $options: 'i' } },
+                { "product.name": { $regex: search, $options: 'i' } }
+            ];
+        }
+        if (commodity) baseMatch["product.name"] = { $regex: commodity, $options: 'i' };
+
+        // Step 3: Get filtered requests with basic info
+        let requests = await RequestModel.find(baseMatch)
+            .sort({ createdAt: -1 })
+            .skip(paginate == 1 ? (page - 1) * limit : 0)
+            .limit(paginate == 1 ? limit : 0)
+            .lean();
+
+        const requestIds = requests.map(r => r._id);
+
+        // Step 4: Fetch all batches in bulk
+        const batches = await Batch.find({ req_id: { $in: requestIds } }, {
+            _id: 1, req_id: 1, qty: 1, totalPrice: 1, batchId: 1, bo_approve_status: 1
+        }).lean();
+
+        const batchesByReq = {};
+        const batchIds = [];
+
+        for (const batch of batches) {
+            batchIds.push(batch._id);
+            if (!batchesByReq[batch.req_id]) {
+                batchesByReq[batch.req_id] = [];
+            }
+            batchesByReq[batch.req_id].push(batch);
+        }
+
+        // Step 5: Fetch related data in bulk
+        const slaIds = [...new Set(requests.map(r => r.sla_id).filter(Boolean))];
+        const branchIds = [...new Set(requests.map(r => r.branch_id).filter(Boolean))];
+        const schemeIds = [...new Set(requests.map(r => r.product?.schemeId).filter(Boolean))];
+
+        const [slaList, branchList, schemeList, payments] = await Promise.all([
+            SLA.find({ _id: { $in: slaIds } }).select({ "basic_details.name": 1 }).lean(),
+            Branches.find({ _id: { $in: branchIds } }).select({ branchName: 1, state: 1 }).lean(),
+            Scheme.find({ _id: { $in: schemeIds } }).select({ schemeName: 1, name: 1, season: 1, period: 1, commodity_id: 1 }).lean(),
+            Payment.find({ batch_id: { $in: batchIds } }).select({ batch_id: 1, payment_status: 1 }).lean()
+        ]);
+
+        // Step 6: Create lookup maps
+        const slaMap = Object.fromEntries(slaList.map(s => [s._id.toString(), s]));
+        const branchMap = Object.fromEntries(branchList.map(b => [b._id.toString(), b]));
+        const schemeMap = Object.fromEntries(schemeList.map(s => [s._id.toString(), s]));
+
+        const paymentsByBatchId = {};
+        for (const p of payments) {
+            if (!paymentsByBatchId[p.batch_id]) paymentsByBatchId[p.batch_id] = [];
+            paymentsByBatchId[p.batch_id].push(p);
+        }
+
+        // Step 7: Process and filter requests
+        const enrichedRequests = requests.map(req => {
+            const reqBatches = batchesByReq[req._id] || [];
+
+            const qtyPurchased = reqBatches.reduce((sum, b) => sum + (b.qty || 0), 0);
+            const amountPayable = reqBatches.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+
+            const relatedPayments = reqBatches.flatMap(b => paymentsByBatchId[b._id] || []);
+            const payment_status = relatedPayments.some(p => p.payment_status === 'Pending') ? 'Pending' : 'Completed';
+
+            const sla = slaMap[req.sla_id?.toString()] || {};
+            const branch = branchMap[req.branch_id?.toString()] || {};
+            const schemeData = schemeMap[req.product?.schemeId?.toString()] || {};
+
+            const boStatusMatch = approve_status === 'Pending'
+                ? reqBatches.some(b => b.bo_approve_status === 'Pending')
+                : reqBatches.some(b => b.bo_approve_status !== 'Pending');
+
+            if (!boStatusMatch) return null;
+            if (branchName && !(branch.branchName?.match(new RegExp(branchName, 'i')))) return null;
+            if (state && !(branch.state?.match(new RegExp(state, 'i')))) return null;
+            if (scheme && !(schemeData.name?.match(new RegExp(scheme, 'i')))) return null;
+
+            return {
+                _id: req._id,
+                reqNo: req.reqNo,
+                product: req.product,
+                sla,
+                branch,
+                scheme: schemeData,
+                qtyPurchased,
+                amountPayable,
+                payment_status,
+                createdAt: req.createdAt
+            };
+        }).filter(Boolean);
+
+        const totalCount = await RequestModel.countDocuments(baseMatch);
+
+        const response = {
+            rows: enrichedRequests,
+            count: totalCount
+        };
+
+        if (paginate == 1) {
+            response.page = page;
+            response.limit = limit;
+            response.pages = limit != 0 ? Math.ceil(totalCount / limit) : 0;
+        }
+
+        if (isExport == 1) {
+            let exportData = enrichedRequests;
+            const exportLimit = parseInt(req.query.exportLimit || 0);
+            if (exportLimit > 0) {
+                exportData = exportData.slice(0, exportLimit);
+            }
+
+            const record = exportData.map((item) => ({
+                "Order ID": item.reqNo || 'NA',
+                "Commodity": item.product?.name || 'NA',
+                "Quantity Purchased": item.qtyPurchased || 'NA',
+                "Amount Payable": item.amountPayable || 'NA',
+                "Approval Status": approve_status,
+                "Payment Status": item.payment_status || 'NA',
+                "Branch": item.branch?.branchName || 'NA',
+                "State": item.branch?.state || 'NA',
+                "Scheme": item.scheme?.name || 'NA'
+            }));
 
             if (record.length > 0) {
                 dumpJSONToExcel(req, res, {
