@@ -9,7 +9,7 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 
 module.exports.getBatches = async (req, res) => {
     try {
-        const { req_id, seller_id, limit=300 } = req.body;
+        const { req_id, seller_id, limit=500 } = req.body;
 
         let query = { ekhrid_payment: null };
         if (req_id) query.req_id = req_id;

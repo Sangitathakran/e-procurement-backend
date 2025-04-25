@@ -6,15 +6,21 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 module.exports.warehouseTest = async (req, res) => {
     try {
         const { associateName } = req.body;
-
+        const query = {
+            "procurementDetails.jformID": { $exists: true },
+            "warehouseData.jformID": { $exists: true },
+            "paymentDetails.jFormId": { $exists: true },
+        }
         const pipeline = [
             // { $match: { "procurementDetails.commisionAgentName": associateName } },
+            { $match: query},
             {
                 $group: {
                     _id: "$warehouseData.warehouseName",
                     // gatePassIDs: { $push: {gatePassID:"$procurementDetails.gatePassID"} }, // Collecting all gatePassIDs
                     warehouseName: { $first: "$warehouseData.warehouseName" }, // Preserving warehouseName for lookup
-                    warehouseId: { $first: "$warehouseData.warehouseId" } // Preserving warehouseId for lookup
+                    warehouseId: { $first: "$warehouseData.warehouseId" }, // Preserving warehouseId for lookup
+                    associateName: { $first: "$procurementDetails.commisionAgentName" } // Preserving associateName for lookup
                 }
             },
             {
@@ -45,6 +51,7 @@ module.exports.warehouseTest = async (req, res) => {
                     warehouseName: 1,
                     _id: "$warehouseDetails._id", // Correcting reference to warehouseDetails._id
                     warehouse_code: "$warehouseDetails.wareHouse_code",
+                    associateName: 1,
                     eKharidWarehouse_code: "$warehouseId", // Adding eKharidWarehouseId to the projection
                 }
             }
@@ -173,7 +180,7 @@ module.exports.getBatchesIds = async (req, res) => {
         };
 
         // Fetch batch IDs
-        const batchIds = await Batch.find(query).limit(300)
+        const batchIds = await Batch.find(query).limit(500)
             .select("batchId -_id")
             .lean();
 
@@ -194,7 +201,7 @@ module.exports.getBatchesIds = async (req, res) => {
 
         // Fetch all matching warehouse details in one go
         const warehouseDetailsList = await wareHouseDetails
-            .find({ "basicDetails.warehouseName": { $in: warehouseNames } })
+            .find({ "basicDetails.warehouseName": { $in: warehouseNames },active:true })
             .select("basicDetails.warehouseName _id")
             .lean();
 
@@ -207,6 +214,7 @@ module.exports.getBatchesIds = async (req, res) => {
         ekharidWarehouse.forEach(warehouse => {
             const warehouseName = warehouse?.warehouseData?.warehouseName;
             warehouse.warehouseData.warehouseId = warehouseNameToIdMap.get(warehouseName) || null;
+            delete warehouse?.warehouseData?.warehouseName
         });
 
         const record = {

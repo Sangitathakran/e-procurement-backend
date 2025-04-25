@@ -922,206 +922,32 @@ module.exports.createOfferOrder = async (req, res) => {
     }
 };
 
-
-module.exports.getMandiName = async (req, res) => {
-    try {
-        // Create indexes (optional: can be moved to schema level or startup script)
-        await eKharidHaryanaProcurementModel.createIndexes({
-            "procurementDetails.commisionAgentName": 1,
-            "procurementDetails.farmerID": 1
-        });
-        await farmer.createIndexes({
-            "external_farmer_id": 1
-        });
-
-        // Filter query
-        const query = {
-            'procurementDetails.commisionAgentName': "HAFED",
-            "warehouseData.jformID": { $exists: true },
-            "paymentDetails.jFormId": { $exists: true },
-            "procurementDetails.jformID": { $exists: true },
-            $or: [
-                { "procurementDetails.offerCreatedAt": null },
-                { "procurementDetails.offerCreatedAt": { $exists: false } }
-            ]
-        };
-
-        // Fetch procurement data
-        const procurements = await eKharidHaryanaProcurementModel
-            .find(query)
-            .select("procurementDetails")
-            .lean();
-
-        // If no results
+module.exports.getEkhridJFormId = async (req, res) => {
+    try{
+     const query = {
+        "procurementDetails.jformID": { $exists: true },
+        "warehouseData.jformID": { $exists: false },
+        "paymentDetails.jFormId": { $exists: false },
+    }
+        const procurements = await eKharidHaryanaProcurementModel.find(query).lean();
         if (!procurements.length) {
-            return res.send(
-                new serviceResponse({
-                    status: 200,
-                    data: {
-                        mandiNames: [],
-                        totalCount: 0,
-                    },
-                    message: _response_message.found("Associate Mandi"),
-                })
-            );
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: "No valid jform IDs found."
+            }));
         }
 
-        // Extract unique mandi names
-        const mandiNames = new Set();
-        const agentNames = new Set(); // Optional
+        const jFormIds = procurements.map(procurement => procurement.procurementDetails.jformID);
 
-        for (const p of procurements) {
-            if (p?.procurementDetails?.mandiName) {
-                mandiNames.add(p.procurementDetails.mandiName);
-            }
-            if (p?.procurementDetails?.commisionAgentName) {
-                agentNames.add(p.procurementDetails.commisionAgentName);
-            }
-        }
+        return res.send(new serviceResponse({
+            status: 200,
+            data: { jFormIds, count: jFormIds.length },
+            message: _response_message.found("JForm IDs fetched successfully"),
+        }));
 
-        // Debug log
-        console.log("mandiNames:", mandiNames);
-        console.log("Total mandiNames:", mandiNames.size);
-
-        // Send response with mandiNames and count
-        return res.send(
-            new serviceResponse({
-                status: 200,
-                data: {
-                    mandiNames: Array.from(mandiNames),
-                    totalCount: mandiNames.size,
-                },
-                message: _response_message.found("Associate Mandi"),
-            })
-        );
-
-    } catch (error) {
+    }
+    catch (error) {
+        console.error("❌ Error in createOfferOrder:", error);
         _handleCatchErrors(error, res);
     }
-};
-
-
-module.exports.getAllMandiName = async (req, res) => {
-    try {
-        // Optional: Index creation
-        await eKharidHaryanaProcurementModel.createIndexes({
-            "procurementDetails.commisionAgentName": 1,
-            "procurementDetails.farmerID": 1
-        });
-
-
-        // Query filter
-        const query = {
-            // "warehouseData.jformID": { $exists: true },
-            // "paymentDetails.jFormId": { $exists: true },
-            "procurementDetails.jformID": { $exists: true },
-            // $or: [
-            //     { "procurementDetails.offerCreatedAt": null },
-            //     { "procurementDetails.offerCreatedAt": { $exists: false } }
-            // ]
-        };
-
-        // Fetch only necessary fields
-        const procurements = await eKharidHaryanaProcurementModel
-            .find(query)
-            .select("procurementDetails.commisionAgentName procurementDetails.mandiName")
-            .lean();
-
-        if (!procurements.length) {
-            return res.send(
-                new serviceResponse({
-                    status: 200,
-                    data: {},
-                    message: _response_message.notFound("Associate Mandi"),
-                })
-            );
-        }
-
-        // Group mandi names under each commission agent
-        const result = {};
-
-        for (const p of procurements) {
-            const agentName = p?.procurementDetails?.commisionAgentName;
-            const mandiName = p?.procurementDetails?.mandiName;
-
-            if (!agentName || !mandiName) continue;
-
-            if (!result[agentName]) {
-                result[agentName] = new Set();
-            }
-
-            result[agentName].add(mandiName);
-        }
-
-        // Convert Sets to arrays
-        const responseData = {};
-        for (const [agent, mandis] of Object.entries(result)) {
-            responseData[agent] = Array.from(mandis);
-        }
-
-        // Send response
-        return res.send(
-            new serviceResponse({
-                status: 200,
-                data: responseData,
-                message: _response_message.found("Associate Mandi"),
-            })
-        );
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-};
-
-
-module.exports.totalQty = async (req, res) => {
-    try {
-        const matchStage = {
-            "warehouseData.jformID": { $exists: true },
-            "paymentDetails.jFormId": { $exists: true },
-            "procurementDetails.jformID": { $exists: true },
-            "procurementDetails.offerCreatedAt": { $exists: true },
-            // 'procurementDetails.commisionAgentName':  'FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY'
-            // 'procurementDetails.commisionAgentName':  'SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD'
-            'procurementDetails.commisionAgentName':  'HAFED'
-
-            // $or: [
-            //     { "procurementDetails.offerCreatedAt": null },
-            //     { "procurementDetails.offerCreatedAt": { $exists: true } }
-            // ]
-
-            // "procurementDetails.mandiName": {
-            //     $nin: [
-            //         "Shakkar Mandori", "Barheri Kalan"
-            //     ]
-            // }
-        };
-
-        const result = await eKharidHaryanaProcurementModel.aggregate([
-            { $match: matchStage },
-            {
-                $group: {
-                    _id: null,
-                    totalGatePassWeightQtl: { $sum: "$procurementDetails.gatePassWeightQtl" }
-                }
-            },
-        ]);
-
-        console.log(result.length);
-
-        const totalQtl = result[0]?.totalGatePassWeightQtl || 0;
-        const totalMT = totalQtl / 10;
-        // const totalAmount = totalMT * 22250;
-        const totalAmount = totalMT * 59500;
-
-        res.json({
-            totalGatePassWeightQtl: totalQtl,
-            totalGatePassWeightMT: totalMT,
-            totalAmount: totalAmount
-        });
-
-    } catch (error) {
-        console.error("Error in totalQty:", error);
-        _handleCatchErrors(error, res);
-    }
-};
+}
