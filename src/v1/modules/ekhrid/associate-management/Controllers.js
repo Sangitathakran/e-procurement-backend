@@ -1208,3 +1208,33 @@ module.exports.createOfferOrder = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.getEkhridJFormId = async (req, res) => {
+    try{
+     const query = {
+        "procurementDetails.jformID": { $exists: true },
+        "warehouseData.jformID": { $exists: false },
+        "paymentDetails.jFormId": { $exists: false },
+    }
+        const procurements = await eKharidHaryanaProcurementModel.find(query).lean();
+        if (!procurements.length) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: "No valid jform IDs found."
+            }));
+        }
+
+        const jFormIds = procurements.map(procurement => procurement.procurementDetails.jformID);
+
+        return res.send(new serviceResponse({
+            status: 200,
+            data: { jFormIds, count: jFormIds.length },
+            message: _response_message.found("JForm IDs fetched successfully"),
+        }));
+
+    }
+    catch (error) {
+        console.error("❌ Error in createOfferOrder:", error);
+        _handleCatchErrors(error, res);
+    }
+}
