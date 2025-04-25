@@ -52,7 +52,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
     let associateFCount = (await farmer.countDocuments({})) ?? 0;
     widgetDetails.farmer.total = associateFCount;
     widgetDetails.associate.total = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved});
-    widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
+    widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({deletedAt: null });
     widgetDetails.branch.total = await Branches.countDocuments({headOfficeId:hoId});
 
     let lastMonthUser = await User.aggregate([
