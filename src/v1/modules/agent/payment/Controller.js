@@ -3046,7 +3046,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
         // Step 3: Fetch Requests
         let requestLimit = paginate == 1 ? parseInt(limit) : 0;
         if (parseInt(isExport) === 1) {
-            requestLimit = 5000; // ✅ Limit for export
+            requestLimit = 500; // ✅ Limit for export
         }
 
         let requests = await RequestModel.find(query)
