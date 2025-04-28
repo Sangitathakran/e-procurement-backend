@@ -2,14 +2,14 @@ const mongoose = require('mongoose');
 const { _collectionName, _paymentmethod, _paymentstatus, _userType, _paymentApproval } = require('@src/v1/utils/constants');
 
 const PaymentSchema = new mongoose.Schema({
-    req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true },
-    farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
+    req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true, index: true  },
+    farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true, index: true  },
     farmer_order_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
     ho_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice, required: true },
     bo_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
     associate_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
     sla_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.SLA },
-    associateOffers_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers },
+    associateOffers_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, index: true  },
     batch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch, required: true },
     qtyProcured: { type: String, required: true },
     amount: { type: Number, required: true },

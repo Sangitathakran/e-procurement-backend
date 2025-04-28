@@ -5,9 +5,9 @@ const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const farmerSchema = new mongoose.Schema({
     associate_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: _collectionName.Users, default: null },
     mobile_no: { type: String, required: false },
-    name: { type: String, default: null },
+    name: { type: String, default: null, index: true },
     is_verify_otp: { type: Boolean, default: false },
-    farmer_id: { type: String, default: null },
+    farmer_id: { type: String, default: null, index: true },
     is_welcome_msg_send: { type: Boolean, default: false },
 
     farmer_type: {
@@ -101,7 +101,7 @@ const farmerSchema = new mongoose.Schema({
     //     status: { type: String, enum: ['active', 'pending', 'completed'], default: "pending" }
     // }],
 
-    external_farmer_id : {type:Number},
+    external_farmer_id : {type:Number, index: true},
     all_steps_completed_status: { type: Boolean, default: false },
     ekhrid: { type: Boolean, default: false },
     ..._commonKeys

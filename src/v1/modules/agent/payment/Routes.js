@@ -84,6 +84,12 @@ paymentRoutes.get(
   Auth,
   paymentWithoutAgreegation
 );
+// paymentRoutes.get(
+//   "/paymentWithoutAgreegation",
+//   Auth,
+//   paymentWithoutAgreegation
+// );
+
 paymentRoutes.get('/agent-dashboard-associate-list', agentDashboardAssociateListWOAggregation);
 paymentRoutes.get("/agent-dashboard-payment-list", agentDashboardPaymentListWOAggregation);
 
