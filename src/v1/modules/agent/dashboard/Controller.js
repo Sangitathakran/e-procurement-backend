@@ -11,6 +11,7 @@ const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType, _userStatus, _status, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
+const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 
 
 module.exports.getDashboardStats = async (req, res) => {
@@ -303,3 +304,131 @@ module.exports.getPendingOffersCountByRequestId = async (req, res) => {
     }
 
 }
+
+// ****************************** CONTROLLERS  WITHOUT AGGREGATION      *****************************
+
+module.exports.getDashboardStatsWOAggregation = async (req, res) => {
+    try {
+      const currentDate = new Date();
+      const startOfCurrentMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        1
+      );
+      const startOfLastMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() - 1,
+        1
+      );
+      const endOfLastMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        0
+      );
+  
+      const lastMonthQuery = {
+          user_type: _userType.associate,
+          is_form_submitted: true,
+          is_approved: _userStatus.approved,
+          createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth },
+        },
+        currentMonthQuery = {
+          user_type: _userType.associate,
+          is_form_submitted: true,
+          is_approved: _userStatus.approved,
+          createdAt: { $gte: startOfCurrentMonth },
+        };
+  
+      const [lastMonthAssociates, currentMonthAssociates] = await Promise.all([
+        User.countDocuments(lastMonthQuery),
+        User.countDocuments(currentMonthQuery),
+      ]);
+      const difference = currentMonthAssociates - lastMonthAssociates;
+      const status = difference >= 0 ? 'increased' : 'decreased';
+  
+      let differencePercentage = 0;
+      if (lastMonthAssociates > 0) {
+        differencePercentage = (difference / lastMonthAssociates) * 100;
+      }
+  
+      const [lastMonthFarmers, currentMonthFarmers] = await Promise.all([
+        farmer.countDocuments({
+          status: _status.active,
+          createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth },
+        }),
+        farmer.countDocuments({
+          status: _status.active,
+          createdAt: { $gte: startOfCurrentMonth },
+        }),
+      ]);
+  
+      // Difference and percentage for farmers
+      const farmerDifference = currentMonthFarmers - lastMonthFarmers;
+      const farmerStatus = farmerDifference >= 0 ? 'increased' : 'decreased';
+  
+      let farmerDifferencePercentage = 0;
+      if (lastMonthFarmers > 0) {
+        farmerDifferencePercentage = (farmerDifference / lastMonthFarmers) * 100;
+      }
+  
+      // 1. Fetch head offices (only _id) that are not deleted
+      const headOffices = await HeadOffice.find({ deletedAt: null })
+        .select('_id')
+        .lean();
+  
+      // 2. Get list of HeadOffice IDs
+      const headOfficeIds = headOffices.map(ho => ho._id);
+  
+      const branchCountData = await Branches.countDocuments({
+        headOfficeId: { $in: headOfficeIds },
+      });
+  
+      const branchOfficeCount = branchCountData ?? 0;
+  
+      const [associateCount, procurementCenterCount, farmerCount] =
+        await Promise.all([
+          User.countDocuments({
+            user_type: _userType.associate,
+            is_approved: _userStatus.approved,
+          }),
+          ProcurementCenter.countDocuments({ deletedAt: null }),
+          farmer.countDocuments({ status: _status.active }),
+        ]);
+  
+      const associateStats = {
+        totalAssociates: associateCount,
+        currentMonthAssociates,
+        lastMonthAssociates,
+        difference,
+        differencePercentage: differencePercentage.toFixed(2) + '%',
+        status: status,
+      };
+  
+      const farmerStats = {
+        totalFarmers: farmerCount,
+        currentMonthFarmers,
+        lastMonthFarmers,
+        difference: farmerDifference,
+        differencePercentage: farmerDifferencePercentage.toFixed(2) + '%',
+        status: farmerStatus,
+      };
+  
+      const records = {
+        branchOfficeCount,
+        associateStats,
+        procurementCenterCount,
+        farmerStats,
+      };
+  
+      return res.send(
+        new serviceResponse({
+          status: 200,
+          data: records,
+          message: _response_message.found('Dashboard Stats'),
+        })
+      );
+    } catch (error) {
+      _handleCatchErrors(error, res);
+    }
+  };
+  
