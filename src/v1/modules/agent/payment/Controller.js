@@ -3026,7 +3026,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
         const { portalId, user_id } = req;
 
         // Step 1: Get all request IDs that have payments
-        const paymentIds = (await Payment.find({}, 'req_id')).map(i => i.req_id);
+        // const paymentIds = (await Payment.find({}, 'req_id')).map(i => i.req_id);     
 
         // Step 2: Build search query
         const searchQuery = search
@@ -3038,10 +3038,20 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
             }
             : {};
 
-        let query = {
-            _id: { $in: paymentIds },
-            ...searchQuery
-        };
+            let query = {}
+        
+        if (approve_status = "Approved"){
+             query = {
+                _id: "67e1524fad7ee1581f97ac64"
+            };
+        }
+        else{
+            const paymentIds = (await Payment.find({}, 'req_id')).map(i => i.req_id);
+             query = {
+                    _id: { $in: paymentIds },
+                    ...searchQuery
+                };
+        }
 
         // Step 3: Fetch Requests
         let requestLimit = paginate == 1 ? parseInt(limit) : 0;
