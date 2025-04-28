@@ -20,7 +20,8 @@ requestRoutes.get("/", Auth, getProcurement);
 requestRoutes.get("/warehouse", Auth, getWareHouse);
 requestRoutes.get("/:id", Auth, getProcurementById);
 requestRoutes.patch("/", Auth, updateRequirement);
-requestRoutes.delete("/:id", Auth, deleteRequirement);
+requestRoutes.delete("/:reqNo", Auth, deleteRequirement);
+
 
 
 

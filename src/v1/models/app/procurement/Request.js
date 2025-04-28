@@ -15,6 +15,7 @@ const RequestSchema = new mongoose.Schema({
     expectedProcurementDate: { type: Date, required: true, },
     fulfilledQty: { type: Number, default: 0 },
     totalQuantity: { type: Number, default: 0 },
+    isDeleted: { type: Boolean, default: false},
     product: {
         name: { type: String, required: true },
         commodityImage: { type: String, required: true },
