@@ -249,7 +249,6 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
             {
                 $replaceRoot: { newRoot: "$doc" }
             },
-            { $sort: { [sortBy || "createdAt"]: -1 } },
 
              // Apply dynamic filters if they exist
              ...(schemeName ? [{ $match: { schemeName: { $regex: schemeName, $options: 'i' } } }] : []),
@@ -259,7 +258,7 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
              ...(cna ? [{ $match: { cna: { $regex: cna, $options: 'i' } } }] : []),
             // ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
             // Sorting (Always Descending)
-             
+            { $sort: { [sortBy || "createdAt"]: -1 } }  
 
         ];
        
