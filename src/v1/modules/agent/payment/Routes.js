@@ -26,7 +26,9 @@ const {
   qcReport,
   agentDashboardPaymentList,
   agentDashboardAssociateList,
-  paymentWithoutAgreegation
+  paymentWithoutAgreegation,
+  agentDashboardAssociateListWOAggregation,
+  agentDashboardPaymentListWOAggregation
 } = require("./Controller");
 
 const { verifyAgent } = require("../utils/verifyAgent");
@@ -64,11 +66,11 @@ paymentRoutes.get("/associate-req/genrate-bill", Auth, AssociateTabGenrateBill);
 paymentRoutes.get("/proceed-to-pay-bill-view", Auth, getBillProceedToPay);
 paymentRoutes.patch("/edit-bill", Auth, editBill);
 paymentRoutes.get("/agency-bill", Auth, agencyBill);
-paymentRoutes.get(
-  "/agent-dashboard-associate-list",
-  agentDashboardAssociateList
-);
-paymentRoutes.get("/agent-dashboard-payment-list", agentDashboardPaymentList);
+// paymentRoutes.get(
+//   "/agent-dashboard-associate-list",
+//   agentDashboardAssociateList
+// );
+// paymentRoutes.get("/agent-dashboard-payment-list", agentDashboardPaymentList);
 
 // reject case
 paymentRoutes.put("/associate-req/batch-reject", Auth, associateBillReject);
@@ -82,5 +84,7 @@ paymentRoutes.get(
   Auth,
   paymentWithoutAgreegation
 );
+paymentRoutes.get('/agent-dashboard-associate-list', agentDashboardAssociateListWOAggregation);
+paymentRoutes.get("/agent-dashboard-payment-list", agentDashboardPaymentListWOAggregation);
 
 module.exports = { paymentRoutes };
