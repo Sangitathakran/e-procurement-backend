@@ -2455,6 +2455,23 @@ module.exports.agentDashboardAssociateList = async (req, res) => {
                                 localField: '_id',
                                 foreignField: 'batch_id',
                                 as: 'payment',
+                                pipeline: [
+                                    {
+                                        $project: {
+                                            _id: 1,             // keep _id if needed
+                                            amount: 1,          // example: only fetching 'amount' field
+                                            status: 1,          // example: fetching 'status' field
+                                            createdAt: 1        // example: fetching 'createdAt' field
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            $project: {
+                                _id: 1,                     // keep batch _id
+                                batchNo: 1,                  // example: only needed fields
+                                payment: 1                   // keep nested payment array
                             }
                         }
                     ],
@@ -2479,7 +2496,7 @@ module.exports.agentDashboardAssociateList = async (req, res) => {
                             }
                         }
                     }
-                },
+                }
             },
             {
                 $project: {
@@ -2490,6 +2507,7 @@ module.exports.agentDashboardAssociateList = async (req, res) => {
                 }
             }
         ];
+        
 
         pipeline.push({ $sort: sortBy }, { $limit: 5 });
 
@@ -2898,6 +2916,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
         const totalCount = requests.length;
 
         // Step 8: Export Mode
+     /*
         if (isExport == 1) {
             const exportRecords = requests.map(item => ({
                 "Order ID": item?.reqNo || 'NA',
@@ -2939,6 +2958,53 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 }));
             }
         }
+*/
+// EXPORT MODE
+if (isExport == 1) {
+    const EXPORT_LIMIT = 5000; // ✅ Export only first 5000 records (customize if needed)
+
+    const limitedRequests = requests.slice(0, EXPORT_LIMIT);
+
+    const exportRecords = limitedRequests.map(item => ({
+        "Order ID": item?.reqNo || 'NA',
+        "Commodity": item?.product?.name || 'NA',
+        "Quantity Purchased": item?.qtyPurchased || 'NA',
+        "Amount Payable": item?.amountPayable || 'NA',
+        "Approval Status": item?.approval_status ?? 'NA',
+        "Payment Status": item?.payment_status ?? 'NA',
+        "Associate User Code": item?.sellers?.[0]?.user_code || "NA",
+        "Associate Name": item?.sellers?.[0]?.basic_details?.associate_details?.associate_name || "NA",
+        "Farmer ID": item?.farmer?.[0]?.farmer_id || "NA",
+        "Farmer Name": item?.farmer?.[0]?.name || "NA",
+        "Mobile No": item?.farmer?.[0]?.basic_details?.mobile_no || "NA",
+        "Farmer DOB": item?.farmer?.[0]?.basic_details?.dob || "NA",
+        "Father Name": item?.farmer?.[0]?.parents?.father_name || "NA",
+        "Farmer Address": item?.farmer?.[0]?.address
+            ? `${item.farmer[0].address.village || "NA"}, ${item.farmer[0].address.block || "NA"}, ${item.farmer[0].address.country || "NA"}`
+            : "NA",
+        "Collection center": item?.ProcurementCenter?.[0]?.center_name ?? "NA",
+        "Procurement Address Line 1": item?.ProcurementCenter?.[0]?.address?.line1 || "NA",
+        "Procurement City": item?.ProcurementCenter?.[0]?.address?.city || "NA",
+        "Procurement District": item?.ProcurementCenter?.[0]?.address?.district || "NA",
+        "Procurement State": item?.ProcurementCenter?.[0]?.address?.state || "NA",
+        "Procurement Country": item?.ProcurementCenter?.[0]?.address?.country || "NA",
+        "Procurement Postal Code": item?.ProcurementCenter?.[0]?.address?.postalCode || "NA",
+    }));
+
+    if (exportRecords.length > 0) {
+        return dumpJSONToExcel(req, res, {
+            data: exportRecords,
+            fileName: `Farmer-Payment-records.xlsx`,
+            worksheetName: `Farmer-Payment-records`
+        });
+    } else {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            data: [],
+            message: _response_message.notFound("Payment")
+        }));
+    }
+}
 
         // Step 9: Regular Paginated Response
         const response = {
