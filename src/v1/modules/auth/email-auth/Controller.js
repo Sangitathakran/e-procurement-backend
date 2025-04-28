@@ -29,7 +29,6 @@ module.exports.login = async (req, res) => {
             {path: "userRole", select: ""},
             {path: "portalId", select: "organization_name _id email phone"}
           ]) 
-        
         if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('User') }] }));
         }
