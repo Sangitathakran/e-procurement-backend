@@ -24,6 +24,7 @@ const ProcurementDetailsSchema = new mongoose.Schema({
   offerCreatedAt: {  type: Date },
   batchCreatedAt: {  type: Date },
   centerCreatedAt: {  type: Date },
+  warehouseCreatedAt: {  type: Date },
 });
 
 // Payment Details Schema

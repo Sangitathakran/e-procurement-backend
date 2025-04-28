@@ -4,10 +4,10 @@ const { _commonKeys } = require("@src/v1/utils/helpers/collection");
 
 const RequestSchema = new mongoose.Schema({
     head_office_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice },
-    associatOrder_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers }],
-    branch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
+    associatOrder_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, index: true }],
+    branch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true, index: true },
     warehouse_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.WarehouseDetails, required: false },
-    reqNo: { type: String, required: true },
+    reqNo: { type: String, required: true, index: true },
     quoteExpiry: { type: Date, required: true, },
     status: { type: String, enum: Object.values(_requestStatus), default: _requestStatus.open },
     quotedPrice: { type: Number, required: true, },
@@ -17,7 +17,7 @@ const RequestSchema = new mongoose.Schema({
     totalQuantity: { type: Number, default: 0 },
     isDeleted: { type: Boolean, default: false},
     product: {
-        name: { type: String, required: true },
+        name: { type: String, required: true, index: true },
         commodityImage: { type: String, required: true },
         grade: { type: String, required: true },
         quantity: { type: Number, required: true },
