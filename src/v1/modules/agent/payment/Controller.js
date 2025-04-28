@@ -3050,3 +3050,199 @@ if (isExport == 1) {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.agentDashboardAssociateListWOAggregation = async (req, res) => {
+    try {
+      let { sortBy = { createdAt: -1 }, limit = 5, skip = 0 } = req.query;
+      limit = parseInt(limit);
+      skip = parseInt(skip);
+ 
+      // 1. Fetch payment req_ids
+      const paymentReqIds = await Payment.distinct('req_id');
+ 
+      if (!paymentReqIds.length) {
+        return res
+          .status(200)
+          .send(
+            new serviceResponse({
+              status: 200,
+              data: { rows: [] },
+              message: 'No Payments Found',
+            })
+          );
+      }
+ 
+      const query = { _id: { $in: paymentReqIds } };
+      const records = {};
+ 
+      // 2. Fetch the Requests (NO sort/limit here yet)
+      const requests = await RequestModel.find(query)
+        .select('reqNo product.quantity createdAt') // Only fetch required fields
+        .lean(); // lean for better performance
+ 
+      const requestIds = requests.map(r => r._id);
+ 
+      // 3. Fetch Batches
+      const batches = await Batch.find({ req_id: { $in: requestIds } })
+        .select('batchNo req_id')
+        .lean();
+ 
+      const batchIds = batches.map(b => b._id);
+ 
+      // 4. Fetch Payments
+      const payments = await Payment.find({ batch_id: { $in: batchIds } })
+        .select('amount status createdAt batch_id')
+        .lean();
+ 
+      // 5. Map Payments under Batches
+      const batchIdToPaymentsMap = {};
+      for (const payment of payments) {
+        if (!batchIdToPaymentsMap[payment.batch_id]) {
+          batchIdToPaymentsMap[payment.batch_id] = [];
+        }
+        batchIdToPaymentsMap[payment.batch_id].push(payment);
+      }
+ 
+      // 6. Map Batches under Requests
+      const requestIdToBatchesMap = {};
+      for (const batch of batches) {
+        if (!requestIdToBatchesMap[batch.req_id]) {
+          requestIdToBatchesMap[batch.req_id] = [];
+        }
+        requestIdToBatchesMap[batch.req_id].push({
+          ...batch,
+          payment: batchIdToPaymentsMap[batch._id] || [],
+        });
+      }
+ 
+      // 7. Attach batches into requests
+      let finalRequests = requests.map(req => ({
+        ...req,
+        batches: requestIdToBatchesMap[req._id] || [],
+      }));
+ 
+      // 8. Process the data manually
+      finalRequests = finalRequests.map(request => {
+        const paymentRequests =
+          request.batches?.reduce((sum, batch) => {
+            return sum + (batch.payment?.length || 0);
+          }, 0) || 0;
+ 
+        return {
+          _id: request._id, // Include _id properly
+          order_id: request.reqNo,
+          quantity_procured: request.product?.quantity || 0,
+          payment_due_date: request.createdAt
+            ? formatDate(request.createdAt)
+            : null,
+          payment_requests: paymentRequests,
+        };
+      });
+ 
+      // 9. Sort, Skip, Limit at end (JS side)
+      finalRequests = finalRequests.sort((a, b) => {
+        if (sortBy.createdAt) {
+          const sortOrder = sortBy.createdAt; // -1 or 1
+          return sortOrder * (new Date(b.payment_due_date) - new Date(a.payment_due_date));
+        }
+        return 0; // No sorting fallback
+      });
+ 
+      const paginatedRequests = finalRequests.slice(skip, skip + limit);
+ 
+      records.rows = paginatedRequests;
+ 
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: records,
+          message: _response_message.found('Payment'),
+        })
+      );
+    } catch (error) {
+      _handleCatchErrors(error, res);
+    }
+  };
+ 
+  module.exports.agentDashboardPaymentListWOAggregation = async (req, res) => {
+    try {
+      let { sortBy = { createdAt: -1 }, limit = 5, skip = 0 } = req.query;
+      limit = parseInt(limit);
+      skip = parseInt(skip);
+ 
+      // 1. Fetch payment req_ids (distinct)
+      const paymentIds = (await Payment.find({}, { req_id: 1 })).map(i => i.req_id);
+ 
+      if (!paymentIds.length) {
+        return res.status(200).send(
+          new serviceResponse({
+            status: 200,
+            data: { rows: [] },
+            message: 'No Payments Found',
+          })
+        );
+      }
+ 
+      const query = { req_id: { $in: paymentIds } };
+      const records = {};
+ 
+      // 2. Fetch AgentInvoice documents (requests info needs to be joined with lookup)
+      const agentInvoices = await AgentInvoice.find(query)
+        .select('req_id qtyProcured createdAt payment_status') // Only fetch necessary fields
+        .lean(); // lean() for performance improvement (plain JS objects)
+ 
+      // 3. Fetch associated Requests for these paymentIds
+      const requests = await RequestModel.find({ _id: { $in: paymentIds } })
+        .select('reqNo _id')
+        .lean();
+ 
+      // 4. Create a map for easy access to reqNo
+      const requestMap = requests.reduce((map, req) => {
+        map[req._id.toString()] = req.reqNo;
+        return map;
+      }, {});
+ 
+      // 5. Process agentInvoices manually and map the reqNo
+      const finalRecords = agentInvoices.map(invoice => {
+        const billing_month = invoice.createdAt
+          ? new Date(invoice.createdAt).toLocaleString('default', { month: 'long' })
+          : null;
+ 
+        return {
+          _id: invoice._id, // Include _id for the invoice
+          quantity_procured: invoice.qtyProcured || 0,
+          billing_month,
+          payment_status: invoice.payment_status,
+        };
+      });
+ 
+      // 6. Apply sorting and pagination to final result
+      const sortedRecords = finalRecords.sort((a, b) => {
+        const sortOrder = sortBy.createdAt || 1; // default sort by createdAt
+        return sortOrder * (new Date(b.billing_month) - new Date(a.billing_month));
+      });
+      const paginatedRecords = sortedRecords.slice(skip, skip + limit);
+ 
+      records.rows = paginatedRecords;
+ 
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: records,
+          message: _response_message.found('Invoice'),
+        })
+      );
+    } catch (error) {
+      _handleCatchErrors(error, res);
+    }
+  };  
+ 
+// Helper function to format date as "dd/mm/yyyy"
+function formatDate(date) {
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+}
+ 
