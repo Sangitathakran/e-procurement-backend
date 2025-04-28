@@ -19,7 +19,7 @@ const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
 const { Commodity } = require("@src/v1/models/master/Commodity");
-const {setCache, getCache} = require("@src/v1/utils/cache");
+const { setCache, getCache } = require("@src/v1/utils/cache");
 
 module.exports.payment = async (req, res) => {
     try {
@@ -371,10 +371,10 @@ module.exports.batchList = async (req, res) => {
             agent_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
             ...(search ? {
                 $or: [
-                  { batchId: { $regex: search, $options: 'i' } },
-                  { "final_quality_check.whr_receipt": { $regex: search, $options: 'i' } }
+                    { batchId: { $regex: search, $options: 'i' } },
+                    { "final_quality_check.whr_receipt": { $regex: search, $options: 'i' } }
                 ]
-              } : {})
+            } : {})
         };
 
         const records = { count: 0 };
@@ -2550,7 +2550,7 @@ module.exports.agentDashboardPaymentList = async (req, res) => {
 };
 
 /*************************************************************************/
- 
+/*
 module.exports.paymentWithoutAgreegation = async (req, res) => {
     try {
         let {
@@ -2562,28 +2562,28 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
             isExport = 0,
             approve_status = "Pending"
         } = req.query;
- 
+
         const skip = (page - 1) * limit;
         const { portalId, user_id } = req;
 
-         // Build a unique cache key for this query (excluding isExport)
-         const cacheKey = `payment:${user_id}:${page}:${limit}:${sortBy}:${search}:${approve_status}:${paginate}`;
-         if (parseInt(isExport) !== 1) {
-             const cached = getCache(cacheKey);
-             if (cached) {
-                 console.log("⚡ Serving from cache");
-                 return res.status(200).send(new serviceResponse({
-                     status: 200,
-                     data: cached,
-                     message: _response_message.found("Payment (cached)")
-                 }));
-             }
-         }
- 
- 
+        // Build a unique cache key for this query (excluding isExport)
+        const cacheKey = `payment:${user_id}:${page}:${limit}:${sortBy}:${search}:${approve_status}:${paginate}`;
+        if (parseInt(isExport) !== 1) {
+            const cached = getCache(cacheKey);
+            if (cached) {
+                console.log("⚡ Serving from cache");
+                return res.status(200).send(new serviceResponse({
+                    status: 200,
+                    data: cached,
+                    message: _response_message.found("Payment (cached)")
+                }));
+            }
+        }
+
+
         // Get all request IDs that have payments
         const paymentIds = (await Payment.find({}, 'req_id')).map(i => i.req_id);
- 
+
         // Build search query
         const searchQuery = search
             ? {
@@ -2593,13 +2593,13 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 ]
             }
             : {};
- 
+
         // Final query
         let query = {
             _id: { $in: paymentIds },
             ...searchQuery
         };
- 
+
         // Fetch requests
         let requests = await RequestModel.find(query)
             .sort(sortBy)
@@ -2618,7 +2618,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 select: 'schemeName season period commodity_id'
             })
             .lean();
- 
+
         // Add batch and payment data
         for (let req of requests) {
             req.batches = await Batch.find({ req_id: req._id })
@@ -2627,32 +2627,32 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 //     select: 'payment_status'
                 // })
                 .lean();
- 
+
             // Determine approval status
             const hasPendingApproval = req.batches.some(batch =>
                 !batch.agent_approve_at || batch.agent_approve_at === null
             );
             req.approval_status = hasPendingApproval ? 'Pending' : 'Approved';
- 
+
             // Calculate qtyPurchased and amountPayable
             req.qtyPurchased = req.batches.reduce((sum, batch) => sum + (batch.qty || 0), 0);
             req.amountPayable = req.batches.reduce((sum, batch) => sum + (batch.totalPrice || 0), 0);
- 
+
             // Determine payment status
             const anyPendingPayments = req.batches.some(batch =>
                 batch.payment?.some(pay => pay.payment_status === 'Pending')
             );
             req.payment_status = anyPendingPayments ? 'Pending' : 'Completed';
- 
+
             // Simplify branchDetails
             req.branchDetails = {
                 branchName: req.branch_id?.branchName ?? 'NA',
                 branchId: req.branch_id?.branchId ?? 'NA'
             };
- 
+
             // Simplify SLA and Scheme
             req.sla = req.sla_id || {};
-            let commodityObj = req.product?.schemeId?.commodity_id ? await Commodity.findById(req.product?.schemeId?.commodity_id, {name: 1}): {};
+            let commodityObj = req.product?.schemeId?.commodity_id ? await Commodity.findById(req.product?.schemeId?.commodity_id, { name: 1 }) : {};
             req.scheme = req.product?.schemeId || {};
             req.scheme.commodity_name = commodityObj?.name || ''
         }
@@ -2665,7 +2665,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
         );
 
         const totalCount = requests.length;
- 
+
         // EXPORT MODE
         if (isExport == 1) {
             const exportRecords = requests.map(item => ({
@@ -2693,7 +2693,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 "Procurement Country": item?.ProcurementCenter?.[0]?.address?.country || "NA",
                 "Procurement Postal Code": item?.ProcurementCenter?.[0]?.address?.postalCode || "NA",
             }));
- 
+
             if (exportRecords.length > 0) {
                 return dumpJSONToExcel(req, res, {
                     data: exportRecords,
@@ -2723,7 +2723,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 },
                 scheme: {
                     //schemeName: req.scheme?.schemeName ?? 'NA'
-                    schemeName:  `${req.scheme?.schemeName} ${req.scheme?.commodity_name} ${req.scheme?.season} ${req.scheme?.period}`
+                    schemeName: `${req.scheme?.schemeName} ${req.scheme?.commodity_name} ${req.scheme?.season} ${req.scheme?.period}`
                 },
                 approval_status: req.approval_status,
                 qtyPurchased: req.qtyPurchased,
@@ -2732,7 +2732,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
             })),
             count: totalCount
         };
- 
+
         if (paginate == 1) {
             response.page = page;
             response.limit = limit;
@@ -2744,12 +2744,242 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
             setCache(cacheKey, response); // Optional: set TTL manually
             console.log("✅ Cached response stored");
         }
- 
+
         return res.status(200).send(new serviceResponse({
             status: 200,
             data: response,
             message: _response_message.found("Payment")
         }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+*/
+
+module.exports.paymentWithoutAgreegation = async (req, res) => {
+    try {
+        let {
+            page = 1,
+            limit = 10,
+            paginate = 1,
+            sortBy = '-createdAt',
+            search = '',
+            isExport = 0,
+            approve_status = "Pending"
+        } = req.query;
+
+        const skip = (page - 1) * limit;
+        const { portalId, user_id } = req;
+
+        const cacheKey = `payment:${user_id}:${page}:${limit}:${sortBy}:${search}:${approve_status}:${paginate}`;
+        if (parseInt(isExport) !== 1) {
+            const cached = getCache(cacheKey);
+            if (cached) {
+                console.log("⚡ Serving from cache");
+                return res.status(200).send(new serviceResponse({
+                    status: 200,
+                    data: cached,
+                    message: _response_message.found("Payment (cached)")
+                }));
+            }
+        }
+
+        // Step 1: Get all request IDs that have payments
+        const paymentIds = (await Payment.find({}, 'req_id')).map(i => i.req_id);
+
+        // Step 2: Build search query
+        const searchQuery = search
+            ? {
+                $or: [
+                    { reqNo: { $regex: search, $options: 'i' } },
+                    { 'product.name': { $regex: search, $options: 'i' } }
+                ]
+            }
+            : {};
+
+        let query = {
+            _id: { $in: paymentIds },
+            ...searchQuery
+        };
+
+        // Step 3: Fetch Requests
+        let requests = await RequestModel.find(query)
+            .sort(sortBy)
+            .skip(paginate == 1 ? skip : 0)
+            .limit(paginate == 1 ? parseInt(limit) : 0)
+            .populate({
+                path: 'branch_id',
+                select: 'branchName branchId'
+            })
+            .populate({
+                path: 'sla_id',
+                select: 'basic_details.name'
+            })
+            .populate({
+                path: 'product.schemeId',
+                select: 'schemeName season period commodity_id'
+            })
+            .lean();
+
+        if (!requests.length) {
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: { rows: [], count: 0 },
+                message: _response_message.found("Payment (empty)")
+            }));
+        }
+
+        const requestIds = requests.map(r => r._id);
+
+        // Step 4: Fetch all batches in one go
+        const allBatches = await Batch.find({ req_id: { $in: requestIds } }).lean();
+        const batchMap = {};
+        for (let batch of allBatches) {
+            const id = batch.req_id.toString();
+            if (!batchMap[id]) batchMap[id] = [];
+            batchMap[id].push(batch);
+        }
+
+        // Step 5: Fetch all required commodities
+        const commodityIds = [];
+        for (let req of requests) {
+            const comId = req.product?.schemeId?.commodity_id;
+            if (comId) commodityIds.push(comId.toString());
+        }
+        const uniqueCommodityIds = [...new Set(commodityIds)];
+        const commodities = await Commodity.find({ _id: { $in: uniqueCommodityIds } }, { name: 1 }).lean();
+        const commodityMap = {};
+        for (let com of commodities) {
+            commodityMap[com._id.toString()] = com;
+        }
+
+        // Step 6: Prepare Final Response
+        for (let req of requests) {
+            req.batches = batchMap[req._id.toString()] || [];
+
+            // Approval status
+            const hasPendingApproval = req.batches.some(batch =>
+                !batch.agent_approve_at || batch.agent_approve_at === null
+            );
+            req.approval_status = hasPendingApproval ? 'Pending' : 'Approved';
+
+            // Quantity and Amount
+            req.qtyPurchased = req.batches.reduce((sum, batch) => sum + (batch.qty || 0), 0);
+            req.amountPayable = req.batches.reduce((sum, batch) => sum + (batch.totalPrice || 0), 0);
+
+            // Payment status
+            const anyPendingPayments = req.batches.some(batch =>
+                batch.payment?.some(pay => pay.payment_status === 'Pending')
+            );
+            req.payment_status = anyPendingPayments ? 'Pending' : 'Completed';
+
+            // Simplify branch
+            req.branchDetails = {
+                branchName: req.branch_id?.branchName ?? 'NA',
+                branchId: req.branch_id?.branchId ?? 'NA'
+            };
+
+            // Simplify SLA
+            req.sla = req.sla_id || {};
+
+            // Scheme and commodity
+            req.scheme = req.product?.schemeId || {};
+            const commodityObj = req.product?.schemeId?.commodity_id ? commodityMap[req.product.schemeId.commodity_id.toString()] : {};
+            req.scheme.commodity_name = commodityObj?.name || '';
+        }
+
+        // Step 7: Filter approval status
+        requests = requests.filter(req =>
+            approve_status === 'Pending'
+                ? req.approval_status === 'Pending'
+                : req.approval_status !== 'Pending'
+        );
+
+        const totalCount = requests.length;
+
+        // Step 8: Export Mode
+        if (isExport == 1) {
+            const exportRecords = requests.map(item => ({
+                "Order ID": item?.reqNo || 'NA',
+                "Commodity": item?.product?.name || 'NA',
+                "Quantity Purchased": item?.qtyPurchased || 'NA',
+                "Amount Payable": item?.amountPayable || 'NA',
+                "Approval Status": item?.approval_status ?? 'NA',
+                "Payment Status": item?.payment_status ?? 'NA',
+                "Associate User Code": item?.sellers?.[0]?.user_code || "NA",
+                "Associate Name": item?.sellers?.[0]?.basic_details?.associate_details?.associate_name || "NA",
+                "Farmer ID": item?.farmer?.[0]?.farmer_id || "NA",
+                "Farmer Name": item?.farmer?.[0]?.name || "NA",
+                "Mobile No": item?.farmer?.[0]?.basic_details?.mobile_no || "NA",
+                "Farmer DOB": item?.farmer?.[0]?.basic_details?.dob || "NA",
+                "Father Name": item?.farmer?.[0]?.parents?.father_name || "NA",
+                "Farmer Address": item?.farmer?.[0]?.address
+                    ? `${item.farmer[0].address.village || "NA"}, ${item.farmer[0].address.block || "NA"}, ${item.farmer[0].address.country || "NA"}`
+                    : "NA",
+                "Collection center": item?.ProcurementCenter?.[0]?.center_name ?? "NA",
+                "Procurement Address Line 1": item?.ProcurementCenter?.[0]?.address?.line1 || "NA",
+                "Procurement City": item?.ProcurementCenter?.[0]?.address?.city || "NA",
+                "Procurement District": item?.ProcurementCenter?.[0]?.address?.district || "NA",
+                "Procurement State": item?.ProcurementCenter?.[0]?.address?.state || "NA",
+                "Procurement Country": item?.ProcurementCenter?.[0]?.address?.country || "NA",
+                "Procurement Postal Code": item?.ProcurementCenter?.[0]?.address?.postalCode || "NA",
+            }));
+
+            if (exportRecords.length > 0) {
+                return dumpJSONToExcel(req, res, {
+                    data: exportRecords,
+                    fileName: `Farmer-Payment-records.xlsx`,
+                    worksheetName: `Farmer-Payment-records`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({
+                    status: 400,
+                    data: [],
+                    message: _response_message.notFound("Payment")
+                }));
+            }
+        }
+
+        // Step 9: Regular Paginated Response
+        const response = {
+            rows: requests.map(req => ({
+                _id: req._id,
+                reqNo: req.reqNo,
+                product: req.product,
+                branchDetails: req.branchDetails,
+                sla: {
+                    basic_details: {
+                        name: req.sla?.basic_details?.name ?? 'NA'
+                    }
+                },
+                scheme: {
+                    schemeName: `${req.scheme?.schemeName || ''} ${req.scheme?.commodity_name || ''} ${req.scheme?.season || ''} ${req.scheme?.period || ''}`
+                },
+                approval_status: req.approval_status,
+                qtyPurchased: req.qtyPurchased,
+                amountPayable: req.amountPayable,
+                payment_status: req.payment_status
+            })),
+            count: totalCount
+        };
+
+        if (paginate == 1) {
+            response.page = page;
+            response.limit = limit;
+            response.pages = limit != 0 ? Math.ceil(totalCount / limit) : 0;
+        }
+
+        if (parseInt(isExport) !== 1) {
+            setCache(cacheKey, response);
+            console.log("✅ Cached response stored");
+        }
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: response,
+            message: _response_message.found("Payment")
+        }));
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }

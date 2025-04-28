@@ -82,5 +82,11 @@ paymentRoutes.get(
   Auth,
   paymentWithoutAgreegation
 );
+// paymentRoutes.get(
+//   "/paymentWithoutAgreegation",
+//   Auth,
+//   paymentWithoutAgreegation
+// );
+
 
 module.exports = { paymentRoutes };

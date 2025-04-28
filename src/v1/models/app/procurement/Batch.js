@@ -3,12 +3,12 @@ const { _collectionName, _batchStatus, received_qc_status, _paymentApproval, _bi
 
 const batchsSchema = new mongoose.Schema({
     seller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
-    req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true },
-    associateOffer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, required: true },
+    req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true, index: true },
+    associateOffer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, required: true, index: true },
     warehousedetails_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.WarehouseDetails },
-    batchId: { type: String, trim: true, unique: true },
-    farmerOrderIds: [{ farmerOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.FarmerOrder, required: true }, qty: { type: Number, default: 0 }, amt: { type: Number, default: 0 } }],
-    procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
+    batchId: { type: String, trim: true, unique: true, index: true },
+    farmerOrderIds: [{ farmerOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.FarmerOrder, required: true, index: true }, qty: { type: Number, default: 0 }, amt: { type: Number, default: 0 } }],
+    procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter, index: true },
     qty: { type: Number, default: 0 },
     available_qty: { type: Number, default: 0 },
     allotedQty: { type: Number, default: 0 },
@@ -127,7 +127,7 @@ const batchsSchema = new mongoose.Schema({
     wareHouse_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
     ekhridBatch: { type: Boolean, default: false },
     gatePassId: { type: Number, default: null },
-    ekhrid_payment: { type: Date , default: null},
+    ekhrid_payment: { type: Date, default: null },
     warehouseUpdatedAt: { type: Date, default: null },
 
 }, { timestamps: true });
