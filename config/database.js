@@ -23,8 +23,12 @@ const options = {
 
 main().catch(err => console.log(err));
 
+// async function main() {
+//     await mongoose.connect(`${connection_string}`, options);
+// }
+
 async function main() {
-    await mongoose.connect(`${connection_string}`, options);
+    await mongoose.connect(`${connection_string}`);
 }
 
 connection.on('error', console.error.bind(console, "Error unable to connect database...!"));

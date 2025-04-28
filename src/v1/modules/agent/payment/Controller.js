@@ -3144,6 +3144,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
         const totalCount = requests.length;
 
         // Step 8: Export Mode
+        /*
         if (isExport == 1) {
             const EXPORT_LIMIT = 5000; // ✅ Export only first 5000 records (customize if needed)
 
@@ -3189,7 +3190,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
                 }));
             }
         }
-
+        */
         // Step 9: Regular Paginated Response
         const response = {
             rows: requests.map(req => ({
