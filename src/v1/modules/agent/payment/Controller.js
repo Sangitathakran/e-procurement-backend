@@ -2507,7 +2507,7 @@ module.exports.agentDashboardAssociateList = async (req, res) => {
                 }
             }
         ];
-        
+
 
         pipeline.push({ $sort: sortBy }, { $limit: 5 });
 
@@ -2774,6 +2774,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
 };
 */
 
+/*
 module.exports.paymentWithoutAgreegation = async (req, res) => {
     try {
         let {
@@ -2916,50 +2917,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
         const totalCount = requests.length;
 
         // Step 8: Export Mode
-     /*
-        if (isExport == 1) {
-            const exportRecords = requests.map(item => ({
-                "Order ID": item?.reqNo || 'NA',
-                "Commodity": item?.product?.name || 'NA',
-                "Quantity Purchased": item?.qtyPurchased || 'NA',
-                "Amount Payable": item?.amountPayable || 'NA',
-                "Approval Status": item?.approval_status ?? 'NA',
-                "Payment Status": item?.payment_status ?? 'NA',
-                "Associate User Code": item?.sellers?.[0]?.user_code || "NA",
-                "Associate Name": item?.sellers?.[0]?.basic_details?.associate_details?.associate_name || "NA",
-                "Farmer ID": item?.farmer?.[0]?.farmer_id || "NA",
-                "Farmer Name": item?.farmer?.[0]?.name || "NA",
-                "Mobile No": item?.farmer?.[0]?.basic_details?.mobile_no || "NA",
-                "Farmer DOB": item?.farmer?.[0]?.basic_details?.dob || "NA",
-                "Father Name": item?.farmer?.[0]?.parents?.father_name || "NA",
-                "Farmer Address": item?.farmer?.[0]?.address
-                    ? `${item.farmer[0].address.village || "NA"}, ${item.farmer[0].address.block || "NA"}, ${item.farmer[0].address.country || "NA"}`
-                    : "NA",
-                "Collection center": item?.ProcurementCenter?.[0]?.center_name ?? "NA",
-                "Procurement Address Line 1": item?.ProcurementCenter?.[0]?.address?.line1 || "NA",
-                "Procurement City": item?.ProcurementCenter?.[0]?.address?.city || "NA",
-                "Procurement District": item?.ProcurementCenter?.[0]?.address?.district || "NA",
-                "Procurement State": item?.ProcurementCenter?.[0]?.address?.state || "NA",
-                "Procurement Country": item?.ProcurementCenter?.[0]?.address?.country || "NA",
-                "Procurement Postal Code": item?.ProcurementCenter?.[0]?.address?.postalCode || "NA",
-            }));
-
-            if (exportRecords.length > 0) {
-                return dumpJSONToExcel(req, res, {
-                    data: exportRecords,
-                    fileName: `Farmer-Payment-records.xlsx`,
-                    worksheetName: `Farmer-Payment-records`
-                });
-            } else {
-                return res.status(400).send(new serviceResponse({
-                    status: 400,
-                    data: [],
-                    message: _response_message.notFound("Payment")
-                }));
-            }
-        }
-*/
-// EXPORT MODE
+   
 if (isExport == 1) {
     const EXPORT_LIMIT = 5000; // ✅ Export only first 5000 records (customize if needed)
 
@@ -3050,193 +3008,414 @@ if (isExport == 1) {
         _handleCatchErrors(error, res);
     }
 };
+*/
+
+module.exports.paymentWithoutAgreegation = async (req, res) => {
+    try {
+        let {
+            page = 1,
+            limit = 10,
+            paginate = 1,
+            sortBy = '-createdAt',
+            search = '',
+            isExport = 0,
+            approve_status = "Pending"
+        } = req.query;
+
+        const skip = (page - 1) * limit;
+        const { portalId, user_id } = req;
+
+        // Step 1: Get all request IDs that have payments
+        const paymentIds = (await Payment.find({}, 'req_id')).map(i => i.req_id);
+
+        // Step 2: Build search query
+        const searchQuery = search
+            ? {
+                $or: [
+                    { reqNo: { $regex: search, $options: 'i' } },
+                    { 'product.name': { $regex: search, $options: 'i' } }
+                ]
+            }
+            : {};
+
+        let query = {
+            _id: { $in: paymentIds },
+            ...searchQuery
+        };
+
+        // Step 3: Fetch Requests
+        let requestLimit = paginate == 1 ? parseInt(limit) : 0;
+        if (parseInt(isExport) === 1) {
+            requestLimit = 500; // ✅ Limit for export
+        }
+
+        let requests = await RequestModel.find(query)
+            .sort(sortBy)
+            .skip(paginate == 1 && isExport != 1 ? skip : 0)
+            .limit(requestLimit)
+            .populate({
+                path: 'branch_id',
+                select: 'branchName branchId'
+            })
+            .populate({
+                path: 'sla_id',
+                select: 'basic_details.name'
+            })
+            .populate({
+                path: 'product.schemeId',
+                select: 'schemeName season period commodity_id'
+            })
+            .lean();
+
+        if (!requests.length) {
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: { rows: [], count: 0 },
+                message: _response_message.found("Payment (empty)")
+            }));
+        }
+
+        const requestIds = requests.map(r => r._id);
+
+        // Step 4: Fetch all batches
+        const allBatches = await Batch.find({ req_id: { $in: requestIds } }).lean();
+        const batchMap = {};
+        for (let batch of allBatches) {
+            const id = batch.req_id.toString();
+            if (!batchMap[id]) batchMap[id] = [];
+            batchMap[id].push(batch);
+        }
+
+        // Step 5: Fetch commodities
+        const commodityIds = [];
+        for (let req of requests) {
+            const comId = req.product?.schemeId?.commodity_id;
+            if (comId) commodityIds.push(comId.toString());
+        }
+        const uniqueCommodityIds = [...new Set(commodityIds)];
+        const commodities = await Commodity.find({ _id: { $in: uniqueCommodityIds } }, { name: 1 }).lean();
+        const commodityMap = {};
+        for (let com of commodities) {
+            commodityMap[com._id.toString()] = com;
+        }
+
+        // Step 6: Prepare Response
+        for (let req of requests) {
+            req.batches = batchMap[req._id.toString()] || [];
+
+            // Approval Status
+            const hasPendingApproval = req.batches.some(batch =>
+                !batch.agent_approve_at || batch.agent_approve_at === null
+            );
+            req.approval_status = hasPendingApproval ? 'Pending' : 'Approved';
+
+            // Quantity and Amount
+            req.qtyPurchased = req.batches.reduce((sum, batch) => sum + (batch.qty || 0), 0);
+            req.amountPayable = req.batches.reduce((sum, batch) => sum + (batch.totalPrice || 0), 0);
+
+            // Payment Status
+            const anyPendingPayments = req.batches.some(batch =>
+                batch.payment?.some(pay => pay.payment_status === 'Pending')
+            );
+            req.payment_status = anyPendingPayments ? 'Pending' : 'Completed';
+
+            // Branch Details
+            req.branchDetails = {
+                branchName: req.branch_id?.branchName ?? 'NA',
+                branchId: req.branch_id?.branchId ?? 'NA'
+            };
+
+            // Simplify SLA
+            req.sla = req.sla_id || {};
+
+            // Scheme and commodity
+            req.scheme = req.product?.schemeId || {};
+            const commodityObj = req.product?.schemeId?.commodity_id ? commodityMap[req.product.schemeId.commodity_id.toString()] : {};
+            req.scheme.commodity_name = commodityObj?.name || '';
+        }
+
+        // Step 7: Filter approval status
+        requests = requests.filter(req =>
+            approve_status === 'Pending'
+                ? req.approval_status === 'Pending'
+                : req.approval_status !== 'Pending'
+        );
+
+        const totalCount = requests.length;
+
+        // Step 8: Export Mode
+        if (isExport == 1) {
+            const EXPORT_LIMIT = 5000; // ✅ Export only first 5000 records (customize if needed)
+
+            const limitedRequests = requests.slice(0, EXPORT_LIMIT);
+
+            const exportRecords = limitedRequests.map(item => ({
+                "Order ID": item?.reqNo || 'NA',
+                "Commodity": item?.product?.name || 'NA',
+                "Quantity Purchased": item?.qtyPurchased || 'NA',
+                "Amount Payable": item?.amountPayable || 'NA',
+                "Approval Status": item?.approval_status ?? 'NA',
+                "Payment Status": item?.payment_status ?? 'NA',
+                "Associate User Code": item?.sellers?.[0]?.user_code || "NA",
+                "Associate Name": item?.sellers?.[0]?.basic_details?.associate_details?.associate_name || "NA",
+                "Farmer ID": item?.farmer?.[0]?.farmer_id || "NA",
+                "Farmer Name": item?.farmer?.[0]?.name || "NA",
+                "Mobile No": item?.farmer?.[0]?.basic_details?.mobile_no || "NA",
+                "Farmer DOB": item?.farmer?.[0]?.basic_details?.dob || "NA",
+                "Father Name": item?.farmer?.[0]?.parents?.father_name || "NA",
+                "Farmer Address": item?.farmer?.[0]?.address
+                    ? `${item.farmer[0].address.village || "NA"}, ${item.farmer[0].address.block || "NA"}, ${item.farmer[0].address.country || "NA"}`
+                    : "NA",
+                "Collection center": item?.ProcurementCenter?.[0]?.center_name ?? "NA",
+                "Procurement Address Line 1": item?.ProcurementCenter?.[0]?.address?.line1 || "NA",
+                "Procurement City": item?.ProcurementCenter?.[0]?.address?.city || "NA",
+                "Procurement District": item?.ProcurementCenter?.[0]?.address?.district || "NA",
+                "Procurement State": item?.ProcurementCenter?.[0]?.address?.state || "NA",
+                "Procurement Country": item?.ProcurementCenter?.[0]?.address?.country || "NA",
+                "Procurement Postal Code": item?.ProcurementCenter?.[0]?.address?.postalCode || "NA",
+            }));
+
+            if (exportRecords.length > 0) {
+                return dumpJSONToExcel(req, res, {
+                    data: exportRecords,
+                    fileName: `Farmer-Payment-records.xlsx`,
+                    worksheetName: `Farmer-Payment-records`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({
+                    status: 400,
+                    data: [],
+                    message: _response_message.notFound("Payment")
+                }));
+            }
+        }
+
+        // Step 9: Regular Paginated Response
+        const response = {
+            rows: requests.map(req => ({
+                _id: req._id,
+                reqNo: req.reqNo,
+                product: req.product,
+                branchDetails: req.branchDetails,
+                sla: {
+                    basic_details: {
+                        name: req.sla?.basic_details?.name ?? 'NA'
+                    }
+                },
+                scheme: {
+                    schemeName: `${req.scheme?.schemeName || ''} ${req.scheme?.commodity_name || ''} ${req.scheme?.season || ''} ${req.scheme?.period || ''}`
+                },
+                approval_status: req.approval_status,
+                qtyPurchased: req.qtyPurchased,
+                amountPayable: req.amountPayable,
+                payment_status: req.payment_status
+            })),
+            count: totalCount
+        };
+
+        if (paginate == 1) {
+            response.page = page;
+            response.limit = limit;
+            response.pages = limit != 0 ? Math.ceil(totalCount / limit) : 0;
+        }
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: response,
+            message: _response_message.found("Payment")
+        }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
 
 module.exports.agentDashboardAssociateListWOAggregation = async (req, res) => {
     try {
-      let { sortBy = { createdAt: -1 }, limit = 5, skip = 0 } = req.query;
-      limit = parseInt(limit);
-      skip = parseInt(skip);
- 
-      // 1. Fetch payment req_ids
-      const paymentReqIds = await Payment.distinct('req_id');
- 
-      if (!paymentReqIds.length) {
-        return res
-          .status(200)
-          .send(
-            new serviceResponse({
-              status: 200,
-              data: { rows: [] },
-              message: 'No Payments Found',
-            })
-          );
-      }
- 
-      const query = { _id: { $in: paymentReqIds } };
-      const records = {};
- 
-      // 2. Fetch the Requests (NO sort/limit here yet)
-      const requests = await RequestModel.find(query)
-        .select('reqNo product.quantity createdAt') // Only fetch required fields
-        .lean(); // lean for better performance
- 
-      const requestIds = requests.map(r => r._id);
- 
-      // 3. Fetch Batches
-      const batches = await Batch.find({ req_id: { $in: requestIds } })
-        .select('batchNo req_id')
-        .lean();
- 
-      const batchIds = batches.map(b => b._id);
- 
-      // 4. Fetch Payments
-      const payments = await Payment.find({ batch_id: { $in: batchIds } })
-        .select('amount status createdAt batch_id')
-        .lean();
- 
-      // 5. Map Payments under Batches
-      const batchIdToPaymentsMap = {};
-      for (const payment of payments) {
-        if (!batchIdToPaymentsMap[payment.batch_id]) {
-          batchIdToPaymentsMap[payment.batch_id] = [];
+        let { sortBy = { createdAt: -1 }, limit = 5, skip = 0 } = req.query;
+        limit = parseInt(limit);
+        skip = parseInt(skip);
+
+        // 1. Fetch payment req_ids
+        const paymentReqIds = await Payment.distinct('req_id');
+
+        if (!paymentReqIds.length) {
+            return res
+                .status(200)
+                .send(
+                    new serviceResponse({
+                        status: 200,
+                        data: { rows: [] },
+                        message: 'No Payments Found',
+                    })
+                );
         }
-        batchIdToPaymentsMap[payment.batch_id].push(payment);
-      }
- 
-      // 6. Map Batches under Requests
-      const requestIdToBatchesMap = {};
-      for (const batch of batches) {
-        if (!requestIdToBatchesMap[batch.req_id]) {
-          requestIdToBatchesMap[batch.req_id] = [];
+
+        const query = { _id: { $in: paymentReqIds } };
+        const records = {};
+
+        // 2. Fetch the Requests (NO sort/limit here yet)
+        const requests = await RequestModel.find(query)
+            .select('reqNo product.quantity createdAt') // Only fetch required fields
+            .lean(); // lean for better performance
+
+        const requestIds = requests.map(r => r._id);
+
+        // 3. Fetch Batches
+        const batches = await Batch.find({ req_id: { $in: requestIds } })
+            .select('batchNo req_id')
+            .lean();
+
+        const batchIds = batches.map(b => b._id);
+
+        // 4. Fetch Payments
+        const payments = await Payment.find({ batch_id: { $in: batchIds } })
+            .select('amount status createdAt batch_id')
+            .lean();
+
+        // 5. Map Payments under Batches
+        const batchIdToPaymentsMap = {};
+        for (const payment of payments) {
+            if (!batchIdToPaymentsMap[payment.batch_id]) {
+                batchIdToPaymentsMap[payment.batch_id] = [];
+            }
+            batchIdToPaymentsMap[payment.batch_id].push(payment);
         }
-        requestIdToBatchesMap[batch.req_id].push({
-          ...batch,
-          payment: batchIdToPaymentsMap[batch._id] || [],
+
+        // 6. Map Batches under Requests
+        const requestIdToBatchesMap = {};
+        for (const batch of batches) {
+            if (!requestIdToBatchesMap[batch.req_id]) {
+                requestIdToBatchesMap[batch.req_id] = [];
+            }
+            requestIdToBatchesMap[batch.req_id].push({
+                ...batch,
+                payment: batchIdToPaymentsMap[batch._id] || [],
+            });
+        }
+
+        // 7. Attach batches into requests
+        let finalRequests = requests.map(req => ({
+            ...req,
+            batches: requestIdToBatchesMap[req._id] || [],
+        }));
+
+        // 8. Process the data manually
+        finalRequests = finalRequests.map(request => {
+            const paymentRequests =
+                request.batches?.reduce((sum, batch) => {
+                    return sum + (batch.payment?.length || 0);
+                }, 0) || 0;
+
+            return {
+                _id: request._id, // Include _id properly
+                order_id: request.reqNo,
+                quantity_procured: request.product?.quantity || 0,
+                payment_due_date: request.createdAt
+                    ? formatDate(request.createdAt)
+                    : null,
+                payment_requests: paymentRequests,
+            };
         });
-      }
- 
-      // 7. Attach batches into requests
-      let finalRequests = requests.map(req => ({
-        ...req,
-        batches: requestIdToBatchesMap[req._id] || [],
-      }));
- 
-      // 8. Process the data manually
-      finalRequests = finalRequests.map(request => {
-        const paymentRequests =
-          request.batches?.reduce((sum, batch) => {
-            return sum + (batch.payment?.length || 0);
-          }, 0) || 0;
- 
-        return {
-          _id: request._id, // Include _id properly
-          order_id: request.reqNo,
-          quantity_procured: request.product?.quantity || 0,
-          payment_due_date: request.createdAt
-            ? formatDate(request.createdAt)
-            : null,
-          payment_requests: paymentRequests,
-        };
-      });
- 
-      // 9. Sort, Skip, Limit at end (JS side)
-      finalRequests = finalRequests.sort((a, b) => {
-        if (sortBy.createdAt) {
-          const sortOrder = sortBy.createdAt; // -1 or 1
-          return sortOrder * (new Date(b.payment_due_date) - new Date(a.payment_due_date));
-        }
-        return 0; // No sorting fallback
-      });
- 
-      const paginatedRequests = finalRequests.slice(skip, skip + limit);
- 
-      records.rows = paginatedRequests;
- 
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: records,
-          message: _response_message.found('Payment'),
-        })
-      );
-    } catch (error) {
-      _handleCatchErrors(error, res);
-    }
-  };
- 
-  module.exports.agentDashboardPaymentListWOAggregation = async (req, res) => {
-    try {
-      let { sortBy = { createdAt: -1 }, limit = 5, skip = 0 } = req.query;
-      limit = parseInt(limit);
-      skip = parseInt(skip);
- 
-      // 1. Fetch payment req_ids (distinct)
-      const paymentIds = (await Payment.find({}, { req_id: 1 })).map(i => i.req_id);
- 
-      if (!paymentIds.length) {
+
+        // 9. Sort, Skip, Limit at end (JS side)
+        finalRequests = finalRequests.sort((a, b) => {
+            if (sortBy.createdAt) {
+                const sortOrder = sortBy.createdAt; // -1 or 1
+                return sortOrder * (new Date(b.payment_due_date) - new Date(a.payment_due_date));
+            }
+            return 0; // No sorting fallback
+        });
+
+        const paginatedRequests = finalRequests.slice(skip, skip + limit);
+
+        records.rows = paginatedRequests;
+
         return res.status(200).send(
-          new serviceResponse({
-            status: 200,
-            data: { rows: [] },
-            message: 'No Payments Found',
-          })
+            new serviceResponse({
+                status: 200,
+                data: records,
+                message: _response_message.found('Payment'),
+            })
         );
-      }
- 
-      const query = { req_id: { $in: paymentIds } };
-      const records = {};
- 
-      // 2. Fetch AgentInvoice documents (requests info needs to be joined with lookup)
-      const agentInvoices = await AgentInvoice.find(query)
-        .select('req_id qtyProcured createdAt payment_status') // Only fetch necessary fields
-        .lean(); // lean() for performance improvement (plain JS objects)
- 
-      // 3. Fetch associated Requests for these paymentIds
-      const requests = await RequestModel.find({ _id: { $in: paymentIds } })
-        .select('reqNo _id')
-        .lean();
- 
-      // 4. Create a map for easy access to reqNo
-      const requestMap = requests.reduce((map, req) => {
-        map[req._id.toString()] = req.reqNo;
-        return map;
-      }, {});
- 
-      // 5. Process agentInvoices manually and map the reqNo
-      const finalRecords = agentInvoices.map(invoice => {
-        const billing_month = invoice.createdAt
-          ? new Date(invoice.createdAt).toLocaleString('default', { month: 'long' })
-          : null;
- 
-        return {
-          _id: invoice._id, // Include _id for the invoice
-          quantity_procured: invoice.qtyProcured || 0,
-          billing_month,
-          payment_status: invoice.payment_status,
-        };
-      });
- 
-      // 6. Apply sorting and pagination to final result
-      const sortedRecords = finalRecords.sort((a, b) => {
-        const sortOrder = sortBy.createdAt || 1; // default sort by createdAt
-        return sortOrder * (new Date(b.billing_month) - new Date(a.billing_month));
-      });
-      const paginatedRecords = sortedRecords.slice(skip, skip + limit);
- 
-      records.rows = paginatedRecords;
- 
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: records,
-          message: _response_message.found('Invoice'),
-        })
-      );
     } catch (error) {
-      _handleCatchErrors(error, res);
+        _handleCatchErrors(error, res);
     }
-  };  
- 
+};
+
+module.exports.agentDashboardPaymentListWOAggregation = async (req, res) => {
+    try {
+        let { sortBy = { createdAt: -1 }, limit = 5, skip = 0 } = req.query;
+        limit = parseInt(limit);
+        skip = parseInt(skip);
+
+        // 1. Fetch payment req_ids (distinct)
+        const paymentIds = (await Payment.find({}, { req_id: 1 })).map(i => i.req_id);
+
+        if (!paymentIds.length) {
+            return res.status(200).send(
+                new serviceResponse({
+                    status: 200,
+                    data: { rows: [] },
+                    message: 'No Payments Found',
+                })
+            );
+        }
+
+        const query = { req_id: { $in: paymentIds } };
+        const records = {};
+
+        // 2. Fetch AgentInvoice documents (requests info needs to be joined with lookup)
+        const agentInvoices = await AgentInvoice.find(query)
+            .select('req_id qtyProcured createdAt payment_status') // Only fetch necessary fields
+            .lean(); // lean() for performance improvement (plain JS objects)
+
+        // 3. Fetch associated Requests for these paymentIds
+        const requests = await RequestModel.find({ _id: { $in: paymentIds } })
+            .select('reqNo _id')
+            .lean();
+
+        // 4. Create a map for easy access to reqNo
+        const requestMap = requests.reduce((map, req) => {
+            map[req._id.toString()] = req.reqNo;
+            return map;
+        }, {});
+
+        // 5. Process agentInvoices manually and map the reqNo
+        const finalRecords = agentInvoices.map(invoice => {
+            const billing_month = invoice.createdAt
+                ? new Date(invoice.createdAt).toLocaleString('default', { month: 'long' })
+                : null;
+
+            return {
+                _id: invoice._id, // Include _id for the invoice
+                quantity_procured: invoice.qtyProcured || 0,
+                billing_month,
+                payment_status: invoice.payment_status,
+            };
+        });
+
+        // 6. Apply sorting and pagination to final result
+        const sortedRecords = finalRecords.sort((a, b) => {
+            const sortOrder = sortBy.createdAt || 1; // default sort by createdAt
+            return sortOrder * (new Date(b.billing_month) - new Date(a.billing_month));
+        });
+        const paginatedRecords = sortedRecords.slice(skip, skip + limit);
+
+        records.rows = paginatedRecords;
+
+        return res.status(200).send(
+            new serviceResponse({
+                status: 200,
+                data: records,
+                message: _response_message.found('Invoice'),
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
 // Helper function to format date as "dd/mm/yyyy"
 function formatDate(date) {
     const d = new Date(date);
@@ -3245,4 +3424,3 @@ function formatDate(date) {
     const year = d.getFullYear();
     return `${day}/${month}/${year}`;
 }
- 
