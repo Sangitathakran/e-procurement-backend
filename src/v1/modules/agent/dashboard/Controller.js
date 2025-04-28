@@ -11,7 +11,6 @@ const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType, _userStatus, _status, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
-const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 
 
 module.exports.getDashboardStats = async (req, res) => {
