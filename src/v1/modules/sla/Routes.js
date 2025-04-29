@@ -15,22 +15,22 @@ const { commodityRoutes } = require("./commodity/Routes");
 const { slaRoute } = require("./sla-management/Routes");
 const { standardRoutes } = require("./standard/Routes");
 
-const agentRoutes = express.Router();
+const slaRoutes = express.Router();
 
-agentRoutes.use('/request', requestRoutes);
-agentRoutes.use('/scheme', schemeRoutes);
-agentRoutes.use("/associate", associateMngmntRoutes);
-agentRoutes.use("/ho", hoMngmntRoutes);
-agentRoutes.use("/bo", boManagementRoutes);
-agentRoutes.use("/warehouse", warehouseRoutes);
-agentRoutes.use("/procurement", procurementCenterRoutes);
-agentRoutes.use("/track-orders", trackDeliveryRoutes);
-agentRoutes.use('/payment', paymentRoutes);
-agentRoutes.use("/dashboard", dashboardRoutes);
-agentRoutes.use("/proc-track", procTrackingRoutes);
-agentRoutes.use("/agency", agencyMngmntRoutes);
-agentRoutes.use("/commodity", commodityRoutes);
-agentRoutes.use("/sla", slaRoute);
-agentRoutes.use("/standard", standardRoutes);
+slaRoutes.use('/request', requestRoutes);
+slaRoutes.use('/scheme', schemeRoutes);
+slaRoutes.use("/associate", associateMngmntRoutes);
+slaRoutes.use("/ho", hoMngmntRoutes);
+slaRoutes.use("/bo", boManagementRoutes);
+slaRoutes.use("/warehouse", warehouseRoutes);
+slaRoutes.use("/procurement", procurementCenterRoutes);
+slaRoutes.use("/track-orders", trackDeliveryRoutes);
+slaRoutes.use('/payment', paymentRoutes);
+slaRoutes.use("/dashboard", dashboardRoutes);
+slaRoutes.use("/proc-track", procTrackingRoutes);
+slaRoutes.use("/agency", agencyMngmntRoutes);
+slaRoutes.use("/commodity", commodityRoutes);
+slaRoutes.use("/sla", slaRoute);
+slaRoutes.use("/standard", standardRoutes);
 
-module.exports = { agentRoutes } 
+module.exports = { slaRoutes } 
