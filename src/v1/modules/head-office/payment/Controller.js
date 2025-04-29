@@ -1212,7 +1212,7 @@ module.exports.payment = async (req, res) => {
 
 
     // Step 3: Get total count
-    const totalCount = await RequestModel.countDocuments(query);
+    // const totalCount = await RequestModel.countDocuments(query);
 
     // Step 4: Aggregation Pipeline
     const aggregationPipeline = [
@@ -1522,6 +1522,12 @@ module.exports.payment = async (req, res) => {
 
     );
 
+    const countPipeline = [...aggregationPipeline]; // clone
+    countPipeline.push({ $count: "total" });
+
+    const countResult = await RequestModel.aggregate(countPipeline);
+    const totalCount = countResult[0]?.total || 0;
+
     if (isExport != 1) {
       aggregationPipeline.push(
         { $skip: (page - 1) * limit },
@@ -1529,11 +1535,8 @@ module.exports.payment = async (req, res) => {
       );
     }
 
-
-
-
-
     const records = await RequestModel.aggregate(aggregationPipeline) || [];
+
 
     // Additional filtering on approval_status
     const apStatus = isApproved ? "Approved" : "Pending";
