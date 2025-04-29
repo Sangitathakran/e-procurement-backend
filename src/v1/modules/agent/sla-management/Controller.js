@@ -17,7 +17,7 @@ const { _frontendLoginRoutes } = require("@src/v1/utils/constants");
 const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const { ObjectId } = require("mongoose").Types;
 const bcrypt = require('bcryptjs');
-const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
+// const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
   try {
@@ -196,68 +196,7 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
 
 
 
-// module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
-//   const {
-//     page = 1,
-//     limit = 10,
-//     skip = 0,
-//     paginate = 1,
-//     sortBy,
-//     search = "",
-//     isExport = 0,
-//   } = req.query;
-
-    
-      // Create SLA document
-      const sla = await SLAManagement.create(data);
-  
-      if (!sla?._id) {
-        await SLAManagement.deleteOne({ _id: sla._id });
-        throw new Error('Agency not created ');
-      }
-      // create master user document
-      const password = generateRandomPassword();
-  
-      const hashedPassword = await bcrypt.hash(password, 10);
-  
-      const login_url = `${_frontendLoginRoutes.sla}`;
-      const emailPayload = {
-        email: data.basic_details.email,
-        user_name: data.basic_details.name,
-        name: data.basic_details.name,
-        password: password,
-        login_url: login_url,
-      };
-  
-      const masterUser = new MasterUser({
-        firstName: data.basic_details.name,
-        isAdmin: true,
-        email: data.basic_details.email.trim(),
-        mobile: data.basic_details.mobile.trim(),
-        password: hashedPassword,
-        user_type: type.user_type,
-        createdBy: req.user._id,
-        userRole: [new mongoose.Types.ObjectId('6719c40ed5366fae365ae084')], //[type.adminUserRoleId],
-        portalId: sla._id,
-        ipAddress: getIpAddress(req),
-      });
-  
-      await masterUser.save();
-  
-      await emailService.sendAgencyCredentialsEmail(emailPayload);
-  
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: sla,
-          message: _response_message.created('SLA'),
-        })
-      );
-    } catch (error) {
-      _handleCatchErrors(error, res);
-    }
-  });
-  
+ 
 
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
   const {
