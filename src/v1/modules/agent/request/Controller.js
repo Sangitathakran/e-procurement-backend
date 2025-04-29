@@ -55,6 +55,7 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
         expectedProcurementDate,
         quotedPrice: handleDecimal(quotedPrice),
         deliveryDate: delivery_date,
+        isDeleted: false,
         product: {
             name,
             commodityImage,
@@ -138,9 +139,111 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("procurement") }));
 });
 
-module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
+// module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, paginate = 1, sortBy, search = '',cna, scheme, commodity, branchName, sla, isExport = 0 } = req.query
+//     const { page, limit, skip, paginate = 1, sortBy, search = '',cna, scheme, commodity, branchName, sla, isExport = 0 } = req.query
+//     let query = search ? {
+//         $or: [
+//             { "reqNo": { $regex: search, $options: 'i' } },
+//             { "product.name": { $regex: search, $options: 'i' } },
+//             { "product.grade": { $regex: search, $options: 'i' } },
+            
+//         ]
+//     } : {};
+//     if (scheme) {
+//         query["product.schemeId"] = await Scheme.findOne({ schemeName: { $regex: scheme, $options: "i" } }).select("_id");
+//     }
+    
+//     // Filter by commodity name
+//     if (commodity) {
+//         query["product.name"] = { $regex: commodity, $options: "i" };
+//     }
+    
+//     // Filter by CNA (Head Office ID)
+//     if (cna) {
+//         query["head_office_id"] = cna; // Assuming `cna` is the ID of the head office
+//     }
+//     query["isDeleted"] = { $ne: true };
+    
+//     // Filter by Branch Office Name
+//     if (branchName) {
+//         const branches = await Branches.find({
+//             branchName: { $regex: branchName, $options: "i" }
+//         }).select("_id");
+//         if (branches.length > 0) {
+//             const branchIds = branches.map(branch => branch._id);
+//             query["branch_id"] = { $in: branchIds };
+//         } else {
+//             query["branch_id"] = null; 
+//         }
+//     }
+    
+//     // Filter by SLA (Service Level Agreement) - Assuming SLA is stored in `status` field
+//     if (sla) {
+//         query["status"] = sla;
+//     }
+
+//     const records = { count: 0 };
+
+//     records.rows = paginate == 1 ? await RequestModel.find(query)
+//         .sort(sortBy)
+//         .skip(skip)
+//         .populate({ path: "branch_id", select: "_id branchName branchId" })
+//         .populate({ path: "head_office_id", select: "_id company_details.name" })
+//         .populate({ path: "sla_id", select: "_id basic_details.name" })
+//         .populate({ path: "warehouse_id", select: "addressDetails" })
+//         .populate({ path: "product.schemeId", select: "schemeName" })
+//         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
+
+// console.log("Filtered Data:", JSON.stringify(records.rows, null, 2));
+
+
+//     records.count = await RequestModel.countDocuments(query);
+//     if (paginate == 1) {
+//         records.page = page
+//         records.limit = limit
+//         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+//     }
+
+//     // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
+
+//     if (isExport == 1) {
+
+//         const allRecords = await RequestModel.find(query)
+//             .sort(sortBy)
+//             .populate({ path: "branch_id", select: "_id branchName branchId" });
+//         const record = allRecords.map((item) => {
+
+//             return {
+//                 "Order Id": item?.reqNo || "NA",
+//                 "BO Name": item?.branch_id?.branchName || "NA",
+//                 "Commodity": item?.product?.name || "NA",
+//                 "Grade": item?.product?.grade || "NA",
+//                 "Quantity": item?.product?.quantity || "NA",
+//                 "MSP": item?.quotedPrice || "NA",
+//                 "Delivery Location": item?.address?.deliveryLocation || "NA"
+//             }
+//         })
+
+//         if (record.length > 0) {
+//             dumpJSONToExcel(req, res, {
+//                 data: record,
+//                 fileName: `Requirement-record.xlsx`,
+//                 worksheetName: `Requirement-record`
+//             });
+//         } else {
+//             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("procurement") }))
+//         }
+//     } else {
+//         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
+//     }
+
+// })
+
+// Prachi code
+module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
+    const { page, limit, skip, paginate = 1, sortBy, search = '', cna, scheme, commodity, branchName, sla, isExport = 0 } = req.query;
+
     let query = search ? {
         $or: [
             { "reqNo": { $regex: search, $options: 'i' } },
@@ -148,34 +251,39 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
             { "product.grade": { $regex: search, $options: 'i' } },
         ]
     } : {};
+
+
     if (scheme) {
-        query["product.schemeId"] = await Scheme.findOne({ schemeName: { $regex: scheme, $options: "i" } }).select("_id");
+        const schemeDoc = await Scheme.findOne({ schemeName: { $regex: scheme, $options: "i" } }).select("_id");
+        if (schemeDoc) {
+            query["product.schemeId"] = schemeDoc._id;
+        }
     }
-    
-    // Filter by commodity name
+
     if (commodity) {
         query["product.name"] = { $regex: commodity, $options: "i" };
     }
-    
-    // Filter by CNA (Head Office ID)
+
     if (cna) {
-        query["head_office_id"] = cna; // Assuming `cna` is the ID of the head office
+        query["head_office_id"] = cna;
     }
-    
-    // Filter by Branch Office Name
+
+    // Filter out soft-deleted records
+    query["isDeleted"] = { $ne: true };
+
     if (branchName) {
         const branches = await Branches.find({
             branchName: { $regex: branchName, $options: "i" }
         }).select("_id");
+
         if (branches.length > 0) {
             const branchIds = branches.map(branch => branch._id);
             query["branch_id"] = { $in: branchIds };
         } else {
-            query["branch_id"] = null; 
+            query["branch_id"] = null;
         }
     }
-    
-    // Filter by SLA (Service Level Agreement) - Assuming SLA is stored in `status` field
+
     if (sla) {
         query["status"] = sla;
     }
@@ -189,38 +297,43 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .populate({ path: "head_office_id", select: "_id company_details.name" })
         .populate({ path: "sla_id", select: "_id basic_details.name" })
         .populate({ path: "warehouse_id", select: "addressDetails" })
-        .populate({ path: "product.schemeId", select: "schemeName" })
+        .populate({ path: "product.schemeId", select: "" })
         .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
-console.log("Filtered Data:", JSON.stringify(records.rows, null, 2));
+        records.rows = records.rows.map((doc) => {
+            const obj = doc.toObject(); 
+            const commdityName = obj?.product?.name || '';
+            const schemeName= obj?.product?.schemeId?.schemeName || '';
+            const season= obj?.product?.schemeId?.season || '';
+            const period= obj?.product?.schemeId?.period || '';
+            obj.scheme_name = `${schemeName} ${commdityName} ${season} ${period}`;
+            return obj;
+        });
+
 
 
     records.count = await RequestModel.countDocuments(query);
+
     if (paginate == 1) {
-        records.page = page
-        records.limit = limit
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
-    // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
-
     if (isExport == 1) {
-
         const allRecords = await RequestModel.find(query)
             .sort(sortBy)
             .populate({ path: "branch_id", select: "_id branchName branchId" });
-        const record = allRecords.map((item) => {
 
-            return {
-                "Order Id": item?.reqNo || "NA",
-                "BO Name": item?.branch_id?.branchName || "NA",
-                "Commodity": item?.product?.name || "NA",
-                "Grade": item?.product?.grade || "NA",
-                "Quantity": item?.product?.quantity || "NA",
-                "MSP": item?.quotedPrice || "NA",
-                "Delivery Location": item?.address?.deliveryLocation || "NA"
-            }
-        })
+        const record = allRecords.map(item => ({
+            "Order Id": item?.reqNo || "NA",
+            "BO Name": item?.branch_id?.branchName || "NA",
+            "Commodity": item?.product?.name || "NA",
+            "Grade": item?.product?.grade || "NA",
+            "Quantity": item?.product?.quantity || "NA",
+            "MSP": item?.quotedPrice || "NA",
+            "Delivery Location": item?.address?.deliveryLocation || "NA"
+        }));
 
         if (record.length > 0) {
             dumpJSONToExcel(req, res, {
@@ -229,13 +342,14 @@ console.log("Filtered Data:", JSON.stringify(records.rows, null, 2));
                 worksheetName: `Requirement-record`
             });
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("procurement") }))
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("procurement") }));
         }
     } else {
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }))
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement") }));
     }
+});
 
-})
+
 
 // module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 //     try {
@@ -689,23 +803,75 @@ module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("request") }));
 });
 
+// module.exports.deleteRequirement = asyncErrorHandler(async (req, res) => {
+//     const { id } = req.params;
+//     // Validate ObjectId
+//     if (!mongoose.Types.ObjectId.isValid(id)) {
+//         return res.status(400).json({ message: "Invalid item ID" });
+//     }
+
+//     const record = await RequestModel.findOne({ _id: id });
+
+//     if (!record) {
+//         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Requirement") }] }))
+//     }
+
+//     await record.deleteOne();
+
+//     return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.deleted("Requirement") }));
+// });
+
+// start of prachi code
 module.exports.deleteRequirement = asyncErrorHandler(async (req, res) => {
-    const { id } = req.params;
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "Invalid item ID" });
+    const { reqNo } = req.params;
+    const { confirm } = req.query;
+    // console.log("reqNo", reqNo);
+    // console.log("confirm", confirm)
+
+    if (!reqNo) {
+        return res.status(400).json({ message: "Requirement number (reqNo) is required in the URL." });
     }
 
-    const record = await RequestModel.findOne({ _id: id });
+    // Check for the record, regardless of isDeleted status
+    const record = await RequestModel.findOne({ reqNo });
 
     if (!record) {
-        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Requirement") }] }))
+        return res.status(404).send(new serviceResponse({ 
+            status: 404, 
+            errors: [{ message: _response_message.notFound("Requirement") }] 
+        }));
     }
 
-    await record.deleteOne();
+    // If already soft-deleted
+    if (record.isDeleted) {
+        return res.status(200).send(new serviceResponse({ 
+            status: 200, 
+            message: `Requirement ${reqNo} is already deleted.`,
+            data: { alreadyDeleted: true }
+        }));
+    }
 
-    return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.deleted("Requirement") }));
+    // Step 1: Ask for confirmation
+    if (confirm !== 'true') {
+        return res.status(200).send(new serviceResponse({ 
+            status: 200, 
+            message: `Are you sure you want to delete requirement ${reqNo}? Add '?confirm=true' to confirm.`,
+            data: { requiresConfirmation: true }
+        }));
+    }
+
+    // Step 2: Soft delete
+    record.isDeleted = true;
+    await record.save();
+
+    return res.status(200).send(new serviceResponse({ 
+        status: 200, 
+        message: _response_message.deleted("Requirement") 
+    }));
 });
+
+// end of Prachi code
+
 
 module.exports.getWareHouse = asyncErrorHandler(async (req, res) => {
     const { page, limit, skip, sortBy, paginate } = req.query

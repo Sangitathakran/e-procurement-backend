@@ -23,6 +23,7 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
     let query = search ? {
         $or: [
             { "reqNo": { $regex: search, $options: 'i' } },
+            { "product.name": { $regex: search, $options: 'i' } },
         ]
     } : {};
 
@@ -64,10 +65,20 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
         .populate({ path: "head_office_id", select: "company_details.name" })
         .populate({ path: "sla_id", select: "_id basic_details.name" })
         .populate({ path: "branch_id", select: "branchName" })
-        .populate({ path: "product.schemeId", select: "schemeName" })
+        .populate({ path: "product.schemeId", select: "" })
         .sort(sortBy)
         .skip(skip)
         .limit(parseInt(limit))
+
+     records.rows = records.rows.map((doc) => {
+            const obj = doc.toObject(); 
+            const commdityName = obj?.product?.name || '';
+            const schemeName= obj?.product?.schemeId?.schemeName || '';
+            const season= obj?.product?.schemeId?.season || '';
+            const period= obj?.product?.schemeId?.period || '';
+            obj.scheme_name = `${schemeName} ${commdityName} ${season} ${period}`;
+            return obj;
+        });
 
     records.count = await RequestModel.countDocuments(query);
 
