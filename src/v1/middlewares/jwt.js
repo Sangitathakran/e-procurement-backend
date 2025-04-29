@@ -30,7 +30,12 @@ const Auth = function (req, res, next) {
       else {
         if (decoded) {
           const route = req.baseUrl.split("/")[2]
+          console.log("route", route);
+          
           const user_type = decoded.user_type
+          console.log("decode", user_type);
+
+
           const routeCheck = checkUser(route, user_type)
           if (!routeCheck) {
             return sendResponse({ res, status: 403, message: "error while routecheck decode", errors: _auth_module.unAuth });
@@ -57,6 +62,9 @@ const Auth = function (req, res, next) {
 };
 
 const checkUser = (route, user_type) => {
+  if(route === "newsla") {
+    return true;
+  }
   if (_userType[route] == user_type) {
     return true;
   } else {
