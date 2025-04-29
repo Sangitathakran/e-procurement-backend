@@ -16,6 +16,8 @@ const { MasterUser } = require("@src/v1/models/master/MasterUser");
 const { _frontendLoginRoutes } = require("@src/v1/utils/constants");
 const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const { ObjectId } = require("mongoose").Types;
+const bcrypt = require('bcryptjs');
+const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
   try {
@@ -205,112 +207,57 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
 //     isExport = 0,
 //   } = req.query;
 
-//   // Initialize matchQuery
-//   let matchQuery = search
-//     ? {
-//         $or: [
-//           { "basic_details.name": { $regex: search, $options: "i" } },
-//           { "basic_details.email": { $regex: search, $options: "i" } },
-//           { "basic_details.mobile": { $regex: search, $options: "i" } },
-//         ],
-//         deletedAt: null,
-//       }
-//     : { deletedAt: null };
-
-//   let aggregationPipeline = [
-//     { $match: matchQuery },
-//     {
-//       $project: {
-//         _id: 1,
-//         slaId: 1,
-//         email: "$basic_details.email",
-//         sla_name: "$basic_details.name",
-//         associate_count: { $size: "$associatOrder_id" }, // Count of associated orders
-//         address: {
-//           $concat: [
-//             "$address.line1",
-//             ", ",
-//             { $ifNull: ["$address.line2", ""] },
-//             ", ",
-//             "$address.city",
-//             ", ",
-//             "$address.district",
-//             ", ",
-//             "$address.state",
-//             ", ",
-//             "$address.pinCode",
-//             ", ",
-//             { $ifNull: ["$address.country", ""] },
-//             ", ",
-//           ],
-//         },
-//         status: 1,
-//         poc: "$point_of_contact.name",
-//         branch: "$schemes.branch",
-//       },
-//     },
-//   ];
-//   if (paginate == 1) {
-//     aggregationPipeline.push(
-//       { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Secondary sort by _id for stability
-//       { $skip: parseInt(skip) },
-//       { $limit: parseInt(limit) }
-//     );
-//   } else {
-//     aggregationPipeline.push({
-//       $sort: { [sortBy || "createdAt"]: -1, _id: -1 },
-//     });
-//   }
-//   const rows = await SLAManagement.aggregate(aggregationPipeline);
-//   const countPipeline = [{ $match: matchQuery }, { $count: "total" }];
-//   const countResult = await SLAManagement.aggregate(countPipeline);
-//   const count = countResult[0]?.total || 0;
-//   const records = { rows, count };
-//   if (paginate == 1) {
-//     records.page = parseInt(page);
-//     records.limit = parseInt(limit);
-//     records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
-//   }
-//   if (isExport == 1) {
-//     const record = rows.map((item) => {
-//       return {
-//         "Scheme Id": item?.schemeId || "NA",
-//         "scheme Name": item?.schemeName || "NA",
-//         "Scheme Commodity": item?.Schemecommodity || "NA",
-//         season: item?.season || "NA",
-//         period: item?.period || "NA",
-//         procurement: item?.procurement || "NA",
-//       };
-//     });
-//     if (record.length > 0) {
-//       dumpJSONToExcel(req, res, {
-//         data: record,
-//         fileName: `Scheme-record.xlsx`,
-//         worksheetName: `Scheme-record`,
-//       });
-//     } else {
-//       return res
-//         .status(200)
-//         .send(
-//           new serviceResponse({
-//             status: 200,
-//             data: records,
-//             message: _response_message.notFound("Scheme"),
-//           })
-//         );
-//     }
-//   } else {
-//     return res
-//       .status(200)
-//       .send(
-//         new serviceResponse({
-//           status: 200,
-//           data: records,
-//           message: _response_message.found("Scheme"),
-//         })
-//       );
-//   }
-// });
+    
+      // Create SLA document
+      const sla = await SLAManagement.create(data);
+  
+      if (!sla?._id) {
+        await SLAManagement.deleteOne({ _id: sla._id });
+        throw new Error('Agency not created ');
+      }
+      // create master user document
+      const password = generateRandomPassword();
+  
+      const hashedPassword = await bcrypt.hash(password, 10);
+  
+      const login_url = `${_frontendLoginRoutes.sla}`;
+      const emailPayload = {
+        email: data.basic_details.email,
+        user_name: data.basic_details.name,
+        name: data.basic_details.name,
+        password: password,
+        login_url: login_url,
+      };
+  
+      const masterUser = new MasterUser({
+        firstName: data.basic_details.name,
+        isAdmin: true,
+        email: data.basic_details.email.trim(),
+        mobile: data.basic_details.mobile.trim(),
+        password: hashedPassword,
+        user_type: type.user_type,
+        createdBy: req.user._id,
+        userRole: [new mongoose.Types.ObjectId('6719c40ed5366fae365ae084')], //[type.adminUserRoleId],
+        portalId: sla._id,
+        ipAddress: getIpAddress(req),
+      });
+  
+      await masterUser.save();
+  
+      await emailService.sendAgencyCredentialsEmail(emailPayload);
+  
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: sla,
+          message: _response_message.created('SLA'),
+        })
+      );
+    } catch (error) {
+      _handleCatchErrors(error, res);
+    }
+  });
+  
 
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
   const {

@@ -27,8 +27,9 @@ module.exports.getAssociates = async (req, res) => {
         // If there's a search term, add it to the match query
         if (search) {
             matchQuery['$or'] = [
-                { 'basic_details.associate_details.organization_name': { $regex: search, $options: 'i' } },
-                { 'user_code': { $regex: search, $options: 'i' } }
+                { 'basic_details.associate_details.associate_name': { $regex: search, $options: 'i' } },
+                { 'user_code': { $regex: search, $options: 'i' } },
+                { 'basic_details.associate_details.organization_name': { $regex: search, $options: 'i' } }
             ];
         }
         
@@ -97,7 +98,7 @@ module.exports.getAssociates = async (req, res) => {
                     "Status": item?.active || "NA",
                 }
             })
-             
+
             if (record.length > 0) {
                 dumpJSONToExcel(req, res, {
                     data: record,
@@ -219,9 +220,9 @@ module.exports.pendingRequests = async (req, res) => {
 
         let query = search ? {
             $or: [
-                { "basic_details.associate_details.organization_name": { $regex: search, $options: 'i' } },
+                { "basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
                 { "user_code": { $regex: search, $options: 'i' } },
-                { "basic_details.associate_details.associate_type": { $regex: search, $options: 'i' } },
+                { "basic_details.associate_details.organization_name": { $regex: search, $options: 'i' } },
             ]
         } : {};
 

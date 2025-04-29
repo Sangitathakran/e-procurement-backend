@@ -1,22 +1,26 @@
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
-const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { Scheme } = require("@src/v1/models/master/Scheme");
+const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { mongoose } = require("mongoose");
+const { MasterUser } = require("@src/v1/models/master/MasterUser");
+const { emailService } = require("@src/v1/utils/third_party/EmailServices");
+const { TypesModel } = require("@src/v1/models/master/Types");
+const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator");
+const { _frontendLoginRoutes } = require("@src/v1/utils/constants");
 const { ObjectId } = require("mongoose").Types;
+const bcrypt = require('bcryptjs');
+const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
   try {
-    const data = {
-      ...req.body,
-      schemes: {
-        cna: req.user._id,
-      },
-    };
+    const data = req.body;
+
     // Required fields validation
 
     const requiredFields = [
@@ -50,8 +54,8 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
       "company_details.pan_card",
       "company_details.pan_image",
       "authorised.name",
-      "authorised.designation",
       "authorised.phone",
+      "authorised.designation",
       "authorised.email",
       "authorised.aadhar_number",
       "authorised.aadhar_certificate.front",
@@ -65,7 +69,6 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
       // "schemes.scheme",
       // "schemes.cna",
       // "schemes.branch"
-      "schemes.cna",
     ];
 
     const missingFields = requiredFields.filter((field) => {
@@ -94,20 +97,96 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
       );
     }
 
-    // Create SLA document
-    const sla = await SLAManagement.create(data);
+      const existUser = await SLAManagement.findOne({
+        'basic_details.email': data.basic_details.email,
+      });
+      if (existUser) {
+        return res.send(
+          new serviceResponse({
+            status: 400,
+            errors: [{ message: _response_message.allReadyExist('Email') }],
+          })
+        );
+      }
+ 
+      // checking the existing user in Master User collection
+      const isUserAlreadyExist = await MasterUser.findOne({
+        $or: [
+          { mobile: { $exists: true, $eq: data.basic_details.mobile.trim() } },
+          { email: { $exists: true, $eq: data.basic_details.email.trim() } },
+        ],
+      });
 
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: sla,
-        message: _response_message.created("SLA"),
-      })
-    );
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
-});
+      if (isUserAlreadyExist) {
+        return sendResponse({
+          res,
+          status: 400,
+          message:
+            'user already existed with this mobile number or email in Master',
+        });
+      }
+      
+      const type = await TypesModel.findOne({ _id: '67110114f1cae6b6aadc2425' });
+    //    if(!type){
+    //     return sendResponse({
+    //         res,
+    //         status: 400,
+    //         message:
+    //           'could not find type for _id: 67110114f1cae6b6aadc2425',
+    //       });
+    //    }
+
+    
+      // Create SLA document
+      const sla = await SLAManagement.create(data);
+  
+      if (!sla?._id) {
+        await SLAManagement.deleteOne({ _id: sla._id });
+        throw new Error('Agency not created ');
+      }
+      // create master user document
+      const password = generateRandomPassword();
+  
+      const hashedPassword = await bcrypt.hash(password, 10);
+  
+      const login_url = `${_frontendLoginRoutes.sla}`;
+      const emailPayload = {
+        email: data.basic_details.email,
+        user_name: data.basic_details.name,
+        name: data.basic_details.name,
+        password: password,
+        login_url: login_url,
+      };
+  
+      const masterUser = new MasterUser({
+        firstName: data.basic_details.name,
+        isAdmin: true,
+        email: data.basic_details.email.trim(),
+        mobile: data.basic_details.mobile.trim(),
+        password: hashedPassword,
+        user_type: type.user_type,
+        createdBy: req.user._id,
+        userRole: [new mongoose.Types.ObjectId('6719c40ed5366fae365ae084')], //[type.adminUserRoleId],
+        portalId: sla._id,
+        ipAddress: getIpAddress(req),
+      });
+  
+      await masterUser.save();
+  
+      await emailService.sendAgencyCredentialsEmail(emailPayload);
+  
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: sla,
+          message: _response_message.created('SLA'),
+        })
+      );
+    } catch (error) {
+      _handleCatchErrors(error, res);
+    }
+  });
+  
 
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
   const {
@@ -124,26 +203,11 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     state,
   } = req.query;
 
-  const { portalId, user_id } = req;
+  if (bo_id || ho_id || scheme_id) {
+    let matchQuery = { sla_id: { $exists: true }, deletedAt: null };
 
-  
-const portalObjectId = new mongoose.Types.ObjectId(portalId);
-const userObjectId = new mongoose.Types.ObjectId(user_id);
-
-
-
-  
-
-
-
-  if (bo_id || scheme_id) {
-    let matchQuery = {
-      sla_id: { $exists: true },
-      deletedAt: null,
-      "schemes.cna": { $in: [portalObjectId, userObjectId] }
-    };
     if (bo_id) matchQuery.bo_id = new ObjectId(bo_id);
-
+    if (ho_id) matchQuery.ho_id = new ObjectId(ho_id);
     if (scheme_id) matchQuery.scheme_id = new ObjectId(scheme_id);
     let aggregationPipeline = [
       { $match: matchQuery }, // Match `bo_id`, `ho_id`, `scheme_id`
@@ -170,7 +234,7 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
       $group: {
         _id: "$sla_id",
         bo_id: { $first: "$bo_id" },
-
+        ho_id: { $first: "$ho_id" },
         scheme_id: { $first: "$scheme_id" },
         assignQty: { $first: "$assignQty" },
         status: { $first: "$status" },
@@ -253,25 +317,19 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
 
   let matchQuery = search
     ? {
-      $or: [
-        { "basic_details.name": { $regex: search, $options: "i" } },
-        { "basic_details.email": { $regex: search, $options: "i" } },
-        { "basic_details.mobile": { $regex: search, $options: "i" } },
-      ],
-      deletedAt: null,
-    }
+        $or: [
+          { "basic_details.name": { $regex: search, $options: "i" } },
+          { "basic_details.email": { $regex: search, $options: "i" } },
+          { "basic_details.mobile": { $regex: search, $options: "i" } },
+        ],
+        deletedAt: null,
+      }
     : { deletedAt: null };
 
   if (state) matchQuery["address.state"] = { $regex: state, $options: "i" };
 
   let aggregationPipeline = [
-    {
-      $match: {
-        ...matchQuery,
-       "schemes.cna": { $in: [portalObjectId, userObjectId] }
-      },
-    },
-    //   { $match: matchQuery },
+    { $match: matchQuery },
     {
       $project: {
         _id: 1,
@@ -312,12 +370,7 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
 
   const rows = await SLAManagement.aggregate(aggregationPipeline);
   const countResult = await SLAManagement.aggregate([
-    {
-      $match: {
-        ...matchQuery,
-       "schemes.cna": { $in: [portalObjectId, userObjectId] }
-      },
-    },
+    { $match: matchQuery },
     { $count: "total" },
   ]);
   const count = countResult[0]?.total || 0;
@@ -337,113 +390,9 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
   );
 });
 
-// module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
-
-//     try {
-//         const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.query;
-//         const userID = req.user._id
-
-//         // Convert page & limit to numbers
-//         const pageNumber = parseInt(page, 10);
-//         const pageSize = parseInt(limit, 10);
-
-//         // Define search filter (if search is provided)
-//         const searchFilter = search ? {
-//             $or: [
-//                 // { "basic_details.name": { $regex: search, $options: "i" } },
-//                 // { "basic_details.email": { $regex: search, $options: "i" } },
-//                 // { "basic_details.mobile": { $regex: search, $options: "i" } }
-
-//                 { "basic_details.name": { $regex: search, $options: "i" } },
-//                 { slaId: { $regex: search, $options: "i" } },
-//             ]
-//         }
-//             : {};
-
-//         // Sorting logic (default is createdAt descending)
-//         const sortOptions = {};
-//         if (sortBy) {
-//             sortOptions[sortBy] = -1; // Sort by given field in descending order
-//         }
-// console.log("searcchh",searchFilter);
-
-//         let pipeline = [
-//             {
-//                 $match: {
-//                     ...searchFilter,
-//                     "schemes.cna": userID
-//                 }
-//             },
-//             {
-//                 $project: {
-//                     _id: 1,
-//                     slaId: 1,
-//                     sla_name: "$basic_details.name",
-//                     associate_count: { $size: "$associatOrder_id" }, // Count of associated orders
-//                     address: {
-//                         $concat: [
-//                             "$address.line1", ", ",
-//                             { $ifNull: ["$address.line2", ""] }, ", ",
-//                             "$address.city", ", ",
-//                             "$address.district", ", ",
-//                             "$address.state", ", ",
-//                             "$address.pinCode", ", ",
-//                             { $ifNull: ["$address.country", ""] }, ", ",
-//                         ]
-//                     },
-//                     status: 1,
-//                     poc: "$point_of_contact.name",
-//                     branch: "$schemes.branch"
-//                 }
-//             },
-//             { $sort: sortOptions }
-//         ]
-//         // Fetch SLA records with projection
-//         let slaRecordsQuery = SLAManagement.aggregate(pipeline);
-
-//         // If exporting, return all data
-//         if (isExport === 1) {
-//             const slaRecords = await slaRecordsQuery;
-//             return res.status(200).json({
-//                 status: 200,
-//                 data: slaRecords,
-//                 message: "SLA records exported successfully"
-//             });
-//         }
-
-//         // Pagination
-//         const slaRecords = await slaRecordsQuery
-//             .skip((pageNumber - 1) * pageSize)
-//             .limit(pageSize);
-
-//         // Count total records for pagination
-//         const totalRecords = await SLAManagement.countDocuments({
-//             ...searchFilter,
-//             "schemes.cna": userID
-//         });
-
-//         return res.status(200).json({
-//             status: 200,
-//             data: slaRecords,
-//             totalRecords,
-//             currentPage: pageNumber,
-//             totalPages: Math.ceil(totalRecords / pageSize),
-//             message: "SLA records fetched successfully"
-//         });
-
-//     } catch (error) {
-//         console.error("Error fetching SLA records:", error);
-//         return res.status(500).json({
-//             status: 500,
-//             error: "Internal Server Error"
-//         });
-//     }
-// });
-
 module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params; // Get SLA ID from URL params
-    const userID = req.user._id;
 
     if (!slaId) {
       return res.status(400).json(
@@ -457,7 +406,6 @@ module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
     // Find and delete SLA by slaId or _id
     const deletedSLA = await SLAManagement.findOneAndDelete({
       $or: [{ slaId }, { _id: slaId }],
-      "schemes.cna": userID,
     });
 
     if (!deletedSLA) {
@@ -490,7 +438,6 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const updateData = req.body;
-    const userID = req.user._id;
 
     if (!slaId) {
       return res.status(400).json(
@@ -503,7 +450,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 
     // Find and update SLA
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+      { $or: [{ slaId }, { _id: slaId }] },
       { $set: updateData },
       { new: true, runValidators: true } // Return updated doc
     );
@@ -550,7 +497,17 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
 
     // Find SLA with selected fields
     const sla = await SLAManagement.findById(slaId);
-   
+    // const sla = await SLAManagement.findOne(
+    //   { $or: [{ slaId }, { _id: slaId }] },
+    //   {
+    //     _id: 1,
+    //     slaId: 1,
+    //     "basic_details.name": 1,
+    //     associatOrder_id: 1,
+    //     address: 1,
+    //     status: 1,
+    //   }
+    // );
 
     if (!sla) {
       return res.status(404).json(
@@ -579,13 +536,10 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
   }
 });
 
-
-
 module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params; // Get SLA ID from URL params
     const { status } = req.body; // New status (true/false)
-    const userID = req.user._id;
 
     if (!slaId) {
       return res.status(400).json(
@@ -607,7 +561,7 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
 
     // Find and update SLA status
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+      { $or: [{ slaId }, { _id: slaId }] },
       { $set: { status: status } },
       { new: true }
     );
@@ -643,7 +597,6 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const { scheme, cna, branch } = req.body;
-    const userID = req.user._id;
 
     // Validate input
     if (!scheme || !cna || !branch) {
@@ -657,7 +610,7 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
     // Find SLA and update with new scheme
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+      { $or: [{ slaId }, { _id: slaId }] },
       { $push: { schemes: { scheme, cna, branch } } },
       { new: true }
     )
@@ -716,48 +669,6 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 
     // Use Mongoose's insertMany to insert multiple documents
     const records = await SchemeAssign.insertMany(recordsToInsert);
-
-    if (sla_id) {
-      const schemeIds = schemeData.map(item => item._id);
-
-      // Fetch existing SLA document
-      const sla = await SLAManagement.findById(sla_id);
-
-      if (!sla) {
-        return res.status(404).send(
-          new serviceResponse({
-            status: 404,
-            message: "SLA not found.",
-          })
-        );
-      }
-
-      // Extract current saved values
-      const existingSchemes = sla.schemes?.scheme?.map(id => id.toString()) || [];
-      const incomingSchemes = schemeIds.map(id => id.toString());
-
-      const existingCna = sla.schemes?.cna?.toString();
-      const existingBranch = sla.schemes?.branch?.toString();
-
-      // Check if any differences
-      const hasSchemeChange = incomingSchemes.length !== existingSchemes.length ||
-        !incomingSchemes.every(id => existingSchemes.includes(id));
-      const hasCnaChange = cna_id.toString() !== existingCna;
-      const hasBranchChange = bo_id.toString() !== existingBranch;
-
-      if (hasSchemeChange || hasCnaChange || hasBranchChange) {
-        await SLAManagement.updateOne(
-          { _id: sla_id },
-          {
-            $set: {
-              "schemes.scheme": schemeIds,
-              "schemes.cna": cna_id,
-              "schemes.branch": bo_id,
-            },
-          }
-        );
-      }
-    }
 
     return res.status(200).send(
       new serviceResponse({
@@ -899,7 +810,6 @@ module.exports.getAssignedScheme = async (req, res) => {
     );
   }
 };
-
 module.exports.getUniqueStates = async (req, res) => {
   try {
     const states = await SLAManagement.aggregate([
@@ -937,7 +847,14 @@ module.exports.getUniqueHOBOScheme = async (req, res) => {
           as: "boDetails",
         },
       },
-
+      {
+        $lookup: {
+          from: "headoffices", // Reference HeadOffice collection
+          localField: "ho_id",
+          foreignField: "_id",
+          as: "hoDetails",
+        },
+      },
       {
         $lookup: {
           from: "schemes", // Reference Scheme collection
@@ -949,7 +866,12 @@ module.exports.getUniqueHOBOScheme = async (req, res) => {
       {
         $group: {
           _id: null,
-
+          ho: {
+            $addToSet: {
+              id: "$ho_id",
+              name: { $arrayElemAt: ["$hoDetails.point_of_contact.name", 0] },
+            },
+          },
           bo: {
             $addToSet: {
               name: { $arrayElemAt: ["$boDetails.branchName", 0] },
