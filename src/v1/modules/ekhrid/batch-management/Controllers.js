@@ -13,7 +13,34 @@ const mongoose = require('mongoose');
 const moment = require('moment');
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+module.exports.getMissingBatch=async (req, res) => {
+    try {
+        const { req_id, seller_id } = req.body;
+        const associateOfferIds = (await AssociateOffers.find({ req_id: new mongoose.Types.ObjectId(req_id), seller_id: new mongoose.Types.ObjectId(seller_id) })).map(i => i._id);
+        const query = {
+            associateOffers_id: { $in: associateOfferIds },
+            status: "Received",
+            $or: [
+                // { batchCreatedAt: { $eq: null } }, // batchCreatedAt is null
+                { batchCreatedAt: { $exists: true } } // batchCreatedAt does not exist
+            ]
+        };
+        const farmerOrders = await FarmerOrders.find(query).select('gatePassID').lean();
+        const gatePassIds = farmerOrders.map(order => order.gatePassID);
 
+        const completeBatches = await Batch.find({ batchId: { $in: gatePassIds },ekhridBatch:true }).select('batchId').lean();
+        const missingBatchIds = gatePassIds.filter(gatePassId => !completeBatches.some(batch => batch.batchId == gatePassId));
+        console.log("Missing Batch IDs:", missingBatchIds.length);
+        console.log("Farmer Orders:", farmerOrders.length);
+        console.log("complete Batches:", completeBatches.length);
+        console.log("Gate Pass IDs:", gatePassIds.length);
+
+        return res.status(200).json({ status: 200, data: {missingBatchIds,count:missingBatchIds.length}, message: "Missing batches fetched successfully" });
+    } catch (error) {
+        console.error("Error fetching missing batches:", error);
+        return res.status(500).json({ status: 500, message: "Internal Server Error" });
+    }
+}
 
 module.exports.getFarmerOrders = async (req, res) => {
     try {
@@ -27,7 +54,7 @@ module.exports.getFarmerOrders = async (req, res) => {
             associateOffers_id: { $in: associateOfferIds },
             status: "Received",
             $or: [
-                // { batchCreatedAt: { $eq: null } }, // batchCreatedAt is null
+                { batchCreatedAt: { $eq: null } }, // batchCreatedAt is null
                 { batchCreatedAt: { $exists: false } } // batchCreatedAt does not exist
             ]
         };
@@ -167,6 +194,7 @@ module.exports.createBatch = async (req, res) => {
         const farmerOrderIds = farmerData.map(farmer => new mongoose.Types.ObjectId(farmer.farmerOrder_id));
 
         // Fetch all farmer orders in one query
+     
         const farmerOrders = await FarmerOrders.find({ _id: { $in: farmerOrderIds } }).lean();
         if (farmerOrders.length !== farmerOrderIds.length) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "One or more farmer orders not found" }] }));
