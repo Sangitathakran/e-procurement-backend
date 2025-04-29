@@ -156,7 +156,7 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
     };
   });
 
-  const totalCount = await Payment.countDocuments({ payment_status: "Pending" });
+  const totalCount = await Payment.countDocuments({ ho_id: { $in: [user_id, portalId] }, payment_status: 'Pending' });
 
   return sendResponse({
     res,
