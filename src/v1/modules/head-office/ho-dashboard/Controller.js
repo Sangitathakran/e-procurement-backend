@@ -174,15 +174,17 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
 // end of prachi code
 
 
+//Start of prachi code for pending-approval-farmer
 module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 
   const { limit = 10, page = 1 } = req.query;
   const skip = (page - 1) * limit;
-
-  // Get total count for pagination metadata
-  const totalCount = await Payment.countDocuments({ ho_approve_status: "Pending" });
+  const { user_id, portalId } = req;
   
-  let pendingApprovalDetails = await Payment.find({ ho_approve_status: "Pending" })
+  // Get total count for pagination metadata
+  const totalCount = await Payment.countDocuments({ ho_id: { $in: [user_id, portalId] }, ho_approve_status: "Pending" });
+  
+  let pendingApprovalDetails = await Payment.find({ ho_id: { $in: [user_id, portalId] }, ho_approve_status: "Pending" })
     .populate({ path: "req_id", select: "reqNo deliveryDate" })
     .select("req_id qtyProcured amountPaid ho_approve_status")
     .skip(skip)
@@ -212,6 +214,8 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
     },
   });
 });
+
+//end of prachi code
 
 
 //farmer payments
