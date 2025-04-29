@@ -42,8 +42,11 @@ module.exports.login = async (req, res) => {
         const portalTypeMapping = Object.fromEntries(
           Object.entries(_userTypeFrontendRouteMapping).map(([key, value]) => [value, key])
         );
+        console.log("portal", portalTypeMapping);
 
         const userType = _userTypeFrontendRouteMapping[portal_type];
+        console.log("user", userType);
+        
         if (userType !== user.user_type) {
           return res.status(400).send(new serviceResponse({ status: 400, message :  _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
         }

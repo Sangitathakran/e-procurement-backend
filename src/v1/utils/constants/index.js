@@ -81,7 +81,8 @@ const _featureType = {
     headOffice: "HeadOffice",
     agency: "Agency",
     associate: "Associate",
-    distiller: "Distiller"
+    distiller: "Distiller",
+    SLA:"SLA"
 }
 
 const _status = {
@@ -188,7 +189,8 @@ const _userType = {
     agent: "6",
     warehouse: "7",
     distiller: "8",
-    nccf: "9"
+    nccf: "9",
+    admin: "10",   
 }
 
 const _userStatus = {
@@ -461,7 +463,9 @@ const _userTypeFrontendRouteMapping = {
     "agent": "6",
     "head-office": "2",
     "branch-office": "3",
-    "NccfAdmin": "9"
+    "NccfAdmin": "9",
+    "admin": "10",
+
 }
 
 const _poRequestStatus = {
