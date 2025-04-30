@@ -27,8 +27,9 @@ module.exports.getAssociates = async (req, res) => {
         // If there's a search term, add it to the match query
         if (search) {
             matchQuery['$or'] = [
-                { 'basic_details.associate_details.organization_name': { $regex: search, $options: 'i' } },
-                { 'user_code': { $regex: search, $options: 'i' } }
+                { 'basic_details.associate_details.associate_name': { $regex: search, $options: 'i' } },
+                { 'user_code': { $regex: search, $options: 'i' } },
+                { 'basic_details.associate_details.organization_name': { $regex: search, $options: 'i' } }
             ];
         }
         
@@ -37,12 +38,8 @@ module.exports.getAssociates = async (req, res) => {
         const records = await User.aggregate([
             { $match: matchQuery },
             { $sort: sortBy }, // Sort by the provided field
-           // { $skip: skip }, 
-           // { $limit: parseInt(limit) }, 
-           ...(isExport != 1 ? [
-            { $skip: skip },
-            { $limit: parseInt(limit) }
-             ] : []),
+            { $skip: skip }, 
+            { $limit: parseInt(limit) }, 
 
             // Lookup to count associated farmers
             {
@@ -75,8 +72,7 @@ module.exports.getAssociates = async (req, res) => {
             {
                 $project: {
                     farmers: 0,
-                    procurementCenters: 0, // Exclude the procurement centers array
-
+                    procurementCenters: 0 // Exclude the procurement centers array
                 }
             }
         ]);
@@ -85,24 +81,24 @@ module.exports.getAssociates = async (req, res) => {
         // Pagination information
         const totalPages = Math.ceil(totalRecords / limit);
 
+
         if (isExport == 1) {
             const record = records.map((item) => {
-                // const { name, email, mobile } = item?.basic_details.point_of_contact;
+                const { name, email, mobile } = item?.basic_details.point_of_contact;
 
-                // const { line1, line2, district, state, country } = item.address.registered
+                const { line1, line2, district, state, country } = item.address.registered
 
                 return {
                     "Associate Id": item?.user_code || "NA",
-                    "Organization Name": item?.basic_details?.associate_details?.associate_name || "NA",
-                    "Associate Name": item?.basic_details?.associate_details?.organization_name || item?.basic_details?.associate_details?.associate_name,
+                    "Associate Name": item?.basic_details.associate_details.associate_name || "NA",
                     "Associated Farmer": item?.farmersCount || "NA",
                     "Procurement Center": item?.procurementCentersCount || "NA",
-                    // "Point Of Contact": `${name} , ${email} , ${mobile}` || "NA",
-                    // "Address": `${line1} , ${line2} , ${district} , ${state} , ${country}` || "NA",
+                    "Point Of Contact": `${name} , ${email} , ${mobile}` || "NA",
+                    "Address": `${line1} , ${line2} , ${district} , ${state} , ${country}` || "NA",
                     "Status": item?.active || "NA",
                 }
             })
-             
+
             if (record.length > 0) {
                 dumpJSONToExcel(req, res, {
                     data: record,
@@ -224,9 +220,9 @@ module.exports.pendingRequests = async (req, res) => {
 
         let query = search ? {
             $or: [
-                { "basic_details.associate_details.organization_name": { $regex: search, $options: 'i' } },
+                { "basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
                 { "user_code": { $regex: search, $options: 'i' } },
-                { "basic_details.associate_details.associate_type": { $regex: search, $options: 'i' } },
+                { "basic_details.associate_details.organization_name": { $regex: search, $options: 'i' } },
             ]
         } : {};
 
