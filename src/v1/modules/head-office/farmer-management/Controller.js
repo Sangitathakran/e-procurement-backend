@@ -23,70 +23,106 @@ module.exports.farmerList = async (req, res) => {
       sortBy = "name",
       search = "",
       isExport = 0,
-      state ,
-      district ,
+      state,
+      district,
     } = req.query;
+
     const skip = (page - 1) * limit;
     const searchFields = ["name", "farmer_id", "farmer_code", "mobile_no"];
+
+    // Disallow special characters
     if (/[.*+?^${}()|[\]\\]/.test(search)) {
-      return sendResponse({ res, status: 400, errorCode: 400, errors: [{ message: "Do not use any special character" }], message: "Do not use any special character" })
+      return sendResponse({
+        res,
+        status: 400,
+        errorCode: 400,
+        errors: [{ message: "Do not use any special character" }],
+        message: "Do not use any special character"
+      });
     }
-    const makeSearchQuery = (searchFields) => {
-      let query = {};
-      query["$or"] = searchFields.map((item) => ({
+
+    // Create search query
+    const makeSearchQuery = (fields) => ({
+      $or: fields.map((item) => ({
         [item]: { $regex: search, $options: "i" },
-      }));
-      return query;
-    };
+      })),
+    });
 
     const query = search ? makeSearchQuery(searchFields) : {};
 
-    // if (state) {
-    //   query["address.state_id"] = state;
-    // }
+    //  Build State & District Maps
+    const stateDistrictData = await StateDistrictCity.find({}, { states: 1 }).lean();
 
-    // if (district) {
-    //   query["address.district_id"] = district;
-    // }
+    const stateMap = {};
+    const districtMap = {};
+    const reverseStateMap = {};
+    const reverseDistrictMap = {};
 
-    if (state || district ) {
-      query.$and = [
-        ...(state ? [{ "sellers.address.registered.state": { $regex: state, $options: "i" } }] : []),
-        ...(district ? [{ "sellers.address.registered.district": { $regex: district, $options: "i" } }] : []),
-      ];
+    stateDistrictData.forEach(({ states }) => {
+      states.forEach(({ _id, state_title, districts }) => {
+        const stateIdStr = _id.toString();
+        stateMap[stateIdStr] = state_title;
+        reverseStateMap[state_title.toLowerCase()] = stateIdStr;
+
+        districts.forEach(({ _id, district_title }) => {
+          const districtIdStr = _id.toString();
+          districtMap[districtIdStr] = district_title;
+          reverseDistrictMap[district_title.toLowerCase()] = districtIdStr;
+        });
+      });
+    });
+
+    //  Add filtering by state and district name
+    if (state || district) {
+      const andConditions = [];
+
+      if (state) {
+        const stateId = reverseStateMap[state.toLowerCase()];
+        if (stateId) {
+          andConditions.push({ "address.state_id": stateId });
+        } else {
+          // no match found, return empty
+          return sendResponse({
+            res,
+            status: 200,
+            data: { count: 0, rows: [], page, limit, pages: 0 },
+            message: "No matching state found",
+          });
+        }
+      }
+
+      if (district) {
+        const districtId = reverseDistrictMap[district.toLowerCase()];
+        if (districtId) {
+          andConditions.push({ "address.district_id": districtId });
+        } else {
+          return sendResponse({
+            res,
+            status: 200,
+            data: { count: 0, rows: [], page, limit, pages: 0 },
+            message: "No matching district found",
+          });
+        }
+      }
+
+      if (andConditions.length > 0) {
+        query.$and = [...(query.$and || []), ...andConditions];
+      }
     }
 
     const records = { count: 0, rows: [] };
 
-    // Get all farmers in one query
+    //  EXPORT to Excel
     if (isExport == 1) {
-      const stateDistrictData = await StateDistrictCity.find(
-        {},
-        { states: 1 }
-      ).lean();
-  
-      // **Step 2: Create lookup maps**
-      const stateMap = {};
-      const districtMap = {};
-  
-      stateDistrictData.forEach(({ states }) => {
-        states.forEach(({ _id, state_title, districts }) => {
-          stateMap[_id.toString()] = state_title;
-          districts.forEach(({ _id, district_title }) => {
-            districtMap[_id.toString()] = district_title;
-          });
-        });
-      });
       records.rows = await farmer
-        .find()
-        .select(
-          "farmer_code farmer_id name parents mobile_no address basic_details associate_id"
-        )
+        .find(query)
+        .select("farmer_code farmer_id name parents mobile_no address basic_details associate_id")
         .populate({ path: "associate_id", select: "user_code" })
         .sort(sortBy)
         .lean();
+
       const data = records.rows.map((item) => {
-        let address = {
+        const address = {
           country: item.address?.country || "",
           state: stateMap[item.address?.state_id] || "",
           district: districtMap[item.address?.district_id] || "",
@@ -94,7 +130,7 @@ module.exports.farmerList = async (req, res) => {
           village: item.address?.village || "",
           pin_code: item.address?.pin_code || "",
         };
-        let basicDetails = item?.basic_details || {};
+        const basicDetails = item?.basic_details || {};
 
         return {
           _id: item?._id,
@@ -108,9 +144,14 @@ module.exports.farmerList = async (req, res) => {
             item?.parents?.father_name || item?.parents?.mother_name || null,
         };
       });
+
       records.rows = data;
-      const record = records.rows.map((item, index) => {
-        let address = `${item?.address?.village}, ${item?.address?.block}, ${item?.address?.district}, ${item?.address?.state}, ${item?.address?.country}, ${item?.address?.pin_code}`;
+
+      const exportData = records.rows.map((item) => {
+        const addressString = `${item?.address?.village}, ${item?.address?.block}, ${item?.address?.district}, ${item?.address?.state}, ${item?.address?.country}, ${item?.address?.pin_code}`
+          ?.replace(/,\s*(?:,\s*)+/g, ", ")
+          ?.replace(/^,\s*/, "")
+          ?.replace(/\s*,\s*$/, "");
 
         return {
           "Associate ID": item?.associate_id || "NA",
@@ -118,25 +159,21 @@ module.exports.farmerList = async (req, res) => {
           "Farmer Name": item?.farmer_name || "NA",
           "Father/Spouse Name": item?.father_spouse_name || "NA",
           "Mobile Number": item?.mobile_no || "NA",
-          Address:
-            address
-              ?.replace(/,\s*(?:,\s*)+/g, ", ")
-              .replace(/^,\s*/, "")
-              .replace(/\s*,\s*$/, "") || "NA",
+          Address: addressString || "NA",
         };
       });
 
       return dumpJSONToExcel(req, res, {
-        data: record,
+        data: exportData,
         fileName: `Farmer-List.xlsx`,
         worksheetName: `Farmer-List`,
       });
     }
+
+    //  PAGINATED FETCH
     records.rows = await farmer
       .find(query)
-      .select(
-        "farmer_code farmer_id name parents mobile_no address basic_details associate_id"
-      )
+      .select("farmer_code farmer_id name parents mobile_no address basic_details associate_id")
       .populate({ path: "associate_id", select: "user_code" })
       .limit(parseInt(limit))
       .skip(parseInt(skip))
@@ -144,8 +181,8 @@ module.exports.farmerList = async (req, res) => {
       .lean();
 
     const data = await Promise.all(records.rows.map(async (item) => {
-      let address = await getAddress(item);
-      let basicDetails = item?.basic_details || {};
+      const address = await getAddress(item);
+      const basicDetails = item?.basic_details || {};
 
       return {
         _id: item?._id,
@@ -159,17 +196,20 @@ module.exports.farmerList = async (req, res) => {
           item?.parents?.father_name || item?.parents?.mother_name || null,
       };
     }));
+
     records.rows = data;
     records.count = await farmer.countDocuments(query);
     records.page = page;
     records.limit = limit;
     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
     return sendResponse({
       res,
       status: 200,
       data: records,
       message: _response_message.found("farmers"),
     });
+
   } catch (error) {
     console.log("error", error);
     _handleCatchErrors(error, res);
