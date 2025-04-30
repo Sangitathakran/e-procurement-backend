@@ -30,9 +30,9 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   //   ];
   // }
 
-  if (schemeName) {
-    matchQuery.schemeName = { $regex: schemeName.trim().replace(/\s+/g, ".*"), $options: "i" };
-  }
+  // if (schemeName) {
+  //   matchQuery.schemeName = { $regex: schemeName.trim().replace(/\s+/g, ".*"), $options: "i" };
+  // }
   if (status) {
     matchQuery.status = status.toLowerCase();
   }
@@ -58,6 +58,18 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
     { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+
+     // 💥 Unique filtering based on scheme_id
+     {
+      $group: {
+        _id: "$scheme_id",
+        doc: { $first: "$$ROOT" }
+      }
+    },
+    {
+      $replaceRoot: { newRoot: "$doc" }
+    },
+
     {
       $addFields: {
         schemeName: {
@@ -75,16 +87,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
 
-    // 💥 Unique filtering based on scheme_id
-    {
-      $group: {
-        _id: "$scheme_id",
-        doc: { $first: "$$ROOT" }
-      }
-    },
-    {
-      $replaceRoot: { newRoot: "$doc" }
-    },
+   
   ];
 
   if (search.trim()) {
@@ -110,6 +113,17 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     }
   );
+
+  if (schemeName) {
+    aggregationPipeline.push({
+      $match: {
+        schemeName: {
+          $regex: schemeName.trim().replace(/\s+/g, ".*"),
+          $options: "i"
+        }
+      }
+    });
+  }
 
   if (paginate == 1 && isExport != 1 ) {
     aggregationPipeline.push(
