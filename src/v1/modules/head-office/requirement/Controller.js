@@ -563,6 +563,11 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
     const { page, limit, skip = 0, paginate, sortBy,isExport = 0, } = req.query;
     const records = { count: 0 };
 
+    const query = { req_id: requirementId };
+
+    // Get total count FIRST
+    records.count = await Batch.countDocuments(query);
+
     records.rows = await Batch.find({ req_id: requirementId })
       .select('batchId qty delivered status')
       .populate({
@@ -576,7 +581,7 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
         path: 'procurementCenter_id',
         select: 'center_name location_url'
       })
-      .skip(skip)
+      .skip((parseInt(page) - 1) * parseInt(limit))
       .limit(parseInt(limit))
       .sort(sortBy) ?? [];
 
@@ -592,12 +597,12 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
       status: item.status
     }));
 
-    records.count = records.rows.length;
+    // records.count = records.rows.length;
 
     if (paginate == 1) {
       records.page = page;
       records.limit = limit;
-      records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
+      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
        // Handle export request
