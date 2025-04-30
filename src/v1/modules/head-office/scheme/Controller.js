@@ -13,9 +13,9 @@ const { mongoose } = require("mongoose");
 module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, isExport = 0 } = req.query;
   const { user_id, portalId } = req;
-  
+
   const Ids = (await SchemeAssign.find({ ho_id: new mongoose.Types.ObjectId(portalId) })).map(i => i.scheme_id);
-  
+
   // Initialize matchQuery
   let matchQuery = {
     // _id: { $in: Ids },
@@ -23,12 +23,12 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     deletedAt: null,
   };
 
-  if (search) {
-    matchQuery.$or = [
-      { schemeId: { $regex: search, $options: "i" } },
-      { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
-    ];
-  }
+  // if (search) {
+  //   matchQuery.$or = [
+  //     { schemeId: { $regex: search, $options: "i" } },
+  //     { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
+  //   ];
+  // }
 
   if (schemeName) {
     matchQuery.schemeName = { $regex: schemeName.trim().replace(/\s+/g, ".*"), $options: "i" };
@@ -36,7 +36,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   if (status) {
     matchQuery.status = status.toLowerCase();
   }
- 
+
 
   let aggregationPipeline = [
     { $match: matchQuery },
@@ -58,15 +58,13 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
     { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
-   
-    // Add schemeName field before filtering
     {
-      $addFields: {       
+      $addFields: {
         schemeName: {
           $concat: [
             "$schemeDetails.schemeName",
             " ",
-            { $ifNull: ["$commodityDetails.name", ""] }, // Fixed here
+            { $ifNull: ["$commodityDetails.name", ""] },
             " ",
             { $ifNull: ["$schemeDetails.season", ""] },
             " ",
@@ -75,6 +73,17 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
         },
         schemeId: '$schemeDetails.schemeId'
       },
+    },
+
+    // 💥 Unique filtering based on scheme_id
+    {
+      $group: {
+        _id: "$scheme_id",
+        doc: { $first: "$$ROOT" }
+      }
+    },
+    {
+      $replaceRoot: { newRoot: "$doc" }
     },
   ];
 
@@ -93,11 +102,11 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
         schemeName: 1,
         createdAt: 1,
         schemeId: '$schemeDetails.schemeId',
-        Schemecommodity:'$schemeDetails.Schemecommodity',
-        season:'$schemeDetails.season',
-        period:'$schemeDetails.period',
-        procurement:'$assignQty',
-        status:'$schemeDetails.status',
+        Schemecommodity: '$schemeDetails.Schemecommodity',
+        season: '$schemeDetails.season',
+        period: '$schemeDetails.period',
+        procurement: '$assignQty',
+        status: '$schemeDetails.status',
       },
     }
   );
@@ -115,11 +124,20 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   }
 
   // const rows = await Scheme.aggregate(aggregationPipeline);
-  const rows = await SchemeAssign.aggregate(aggregationPipeline);  
-  const countPipeline = [{ $match: matchQuery }, { $count: "total" }];
-  // const countResult = await Scheme.aggregate(countPipeline);  
+  const rows = await SchemeAssign.aggregate(aggregationPipeline);
+  const countPipeline = [
+    { $match: matchQuery },
+    {
+      $group: {
+        _id: "$scheme_id"
+      }
+    },
+    {
+      $count: "total"
+    }
+  ];
   const countResult = await SchemeAssign.aggregate(countPipeline);
-  
+
   const count = countResult[0]?.total || 0;
   const records = { rows, count };
   if (paginate == 1) {
