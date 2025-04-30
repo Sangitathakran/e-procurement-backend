@@ -4617,3 +4617,154 @@ function generateCacheKey(prefix, params = {}) {
   return keyParts.join('|');
 }
 
+module.exports.getTotalSuccessfulPaidAmount = async (req, res) => {
+  try {
+    let {
+      search = '',
+      payment_status,
+      state = "",
+      branch = "",
+      schemeName = "",
+      commodityName = "",
+    } = req.query;
+
+    const { portalId, user_id } = req;
+
+    const paymentIds = await Payment.distinct("req_id", {
+      ho_id: { $in: [portalId, user_id] },
+      bo_approve_status: _paymentApproval.approved,
+    });
+
+    let query = {
+      _id: { $in: paymentIds },
+    };
+
+    if (search) {
+      query.$or = [
+        { reqNo: { $regex: search, $options: 'i' } },
+        { "product.name": { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    let paymentStatusCondition = payment_status;
+    if (payment_status === "Failed" || payment_status === "Rejected") {
+      paymentStatusCondition = "Failed";
+    }
+
+    const aggregationPipeline = [
+      { $match: query },
+      {
+        $lookup: {
+          from: 'batches',
+          localField: '_id',
+          foreignField: 'req_id',
+          as: 'batches',
+          pipeline: [
+            {
+              $lookup: {
+                from: 'payments',
+                localField: '_id',
+                foreignField: 'batch_id',
+                as: 'payment',
+                pipeline: [
+                  {
+                    $project: {
+                      payment_status: 1,
+                      batch_id: 1
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              $project: {
+                goodsPrice: 1,
+                bo_approve_status: 1,
+                ho_approve_status: 1,
+                payment: 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        $match: {
+          batches: { $ne: [] },
+          "batches.bo_approve_status": _paymentApproval.approved,
+          "batches.ho_approve_status": _paymentApproval.approved,
+          "batches.payment.payment_status": paymentStatusCondition || _paymentstatus.pending
+        }
+      },
+      {
+        $addFields: {
+          amountPaid: { $sum: "$batches.goodsPrice" }
+        }
+      },
+      {
+        $lookup: {
+          from: 'branches',
+          localField: 'branch_id',
+          foreignField: '_id',
+          as: 'branchDetails'
+        }
+      },
+      {
+        $addFields: {
+          state: { $arrayElemAt: ['$branchDetails.state', 0] },
+          branchName: { $arrayElemAt: ['$branchDetails.branchName', 0] }
+        }
+      },
+      {
+        $lookup: {
+          from: "schemes",
+          localField: "product.schemeId",
+          foreignField: "_id",
+          as: "scheme"
+        }
+      },
+      { $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "commodities",
+          localField: "scheme.commodity_id",
+          foreignField: "_id",
+          as: "commodityDetails"
+        }
+      },
+      { $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true } },
+    ];
+
+    // Add optional filters
+    if (state || commodityName || schemeName || branch) {
+      aggregationPipeline.push({
+        $match: {
+          $and: [
+            ...(state ? [{ "state": { $regex: state, $options: "i" } }] : []),
+            ...(commodityName ? [{ "product.name": { $regex: escapeRegex(commodityName), $options: "i" } }] : []),
+            ...(schemeName ? [{ "scheme.schemeName": { $regex: schemeName, $options: "i" } }] : []),
+            ...(branch ? [{ "branchName": { $regex: branch, $options: "i" } }] : []),
+          ]
+        }
+      });
+    }
+
+    aggregationPipeline.push({
+      $group: {
+        _id: null,
+        totalAmountPaid: { $sum: "$amountPaid" }
+      }
+    });
+
+    const result = await RequestModel.aggregate(aggregationPipeline);
+    const total = result?.[0]?.totalAmountPaid || 0;
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: { totalAmountPaid: total },
+      message: "Total amount paid calculated successfully"
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
