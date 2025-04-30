@@ -89,7 +89,7 @@ module.exports.getAssociates = async (req, res) => {
 
                 return {
                     "Associate Id": item?.user_code || "NA",
-                    "Associate Name": item?.basic_details.associate_details.associate_name || "NA",
+                    "Associate Name": item?.basic_details?.associate_details?.organization_name || item?.basic_details?.associate_details?.associate_name,
                     "Associated Farmer": item?.farmersCount || "NA",
                     "Procurement Center": item?.procurementCentersCount || "NA",
                     "Point Of Contact": `${name} , ${email} , ${mobile}` || "NA",
