@@ -179,16 +179,14 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                     as: 'req_id'
                 }
             },
-
             { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
             { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
             { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
             { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
             {
                 $match: {
-                   "warehousedetails_id._id": { $in: finalwarehouseIds },
-                   ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
-                 
+                    "warehousedetails_id._id": { $in: finalwarehouseIds },
+                    ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
                     wareHouse_approve_status: 'Received',
                     ...(search && searchRegex && {
                         $or: [
@@ -199,12 +197,17 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                             { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
                         ]
                     }),
-                    ...(status && {
-                        "final_quality_check.status": status  // This checks the status field for exact match
-                    }),
-                    ...(productName && { "req_id.product.name": productName})//{ $regex: new RegExp(productName, 'i') } })  // If productName is provided
+                    ...(status && { "final_quality_check.status": status }),
+                    ...(productName && { "req_id.product.name": productName })
                 }
             },
+            {
+                $group: {
+                    _id: "$batchId",
+                    doc: { $first: "$$ROOT" }
+                }
+            },
+            { $replaceRoot: { newRoot: "$doc" } },
             {
                 $project: {
                     batchId: 1,
@@ -212,18 +215,16 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                     received_on: 1,
                     qc_report: 1,
                     wareHouse_code: 1,
-                    //status: 1,
                     commodity: 1,
-                    "final_quality_check.status":1,
-                    "final_quality_check.product_images":1,
-                    "final_quality_check.qc_images":1,
-                    "final_quality_check.rejected_reason":1,
-                    "final_quality_check.whr_receipt":1,
-                    "final_quality_check.whr_receipt_image":1,
-                    
-                    "req_id.product.name":1,
-                    "req_id._id":1,
-                    "req_id.deliveryDate":1,
+                    "final_quality_check.status": 1,
+                    "final_quality_check.product_images": 1,
+                    "final_quality_check.qc_images": 1,
+                    "final_quality_check.rejected_reason": 1,
+                    "final_quality_check.whr_receipt": 1,
+                    "final_quality_check.whr_receipt_image": 1,
+                    "req_id.product.name": 1,
+                    "req_id._id": 1,
+                    "req_id.deliveryDate": 1,
                     "receiving_details.received_on": 1,
                     "receiving_details.vehicle_details": 1,
                     "receiving_details.document_pictures": 1,
@@ -231,7 +232,6 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                     "receiving_details.no_of_bags": 1,
                     "receiving_details.quantity_received": 1,
                     "receiving_details.truck_photo": 1,
-                    "final_quality_check.whr_receipt": 1,
                     "warehousedetails_id.basicDetails.warehouseName": 1,
                     "warehousedetails_id.wareHouse_code": 1,
                     "warehousedetails_id._id": 1,
@@ -1432,35 +1432,76 @@ module.exports.listExternalBatchList = async (req, res) => {
     try {
         const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
 
-        let query = {};
+        let matchQuery = {};
         if (search) {
-            query["basicDetails.warehouseName"] = { $regex: search, $options: "i" };
-        }
+        matchQuery["$or"] = [
+        { "batchName": { $regex: search, $options: "i" } },
+        { "associate_name": { $regex: search, $options: "i" } },
+        { "warehousedetails_id.basicDetails.warehouseName": { $regex: search, $options: "i" } },
+          ];
+     }
+        const skipVal = parseInt(skip) || (parseInt(page) - 1) * parseInt(limit);
 
-        const records = { count: 0, rows: [] };
+        const pipeline = [
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    localField: 'warehousedetails_id',
+                    foreignField: '_id',
+                    as: 'warehousedetails_id'
+                }
+            },
+            { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+            { $match: matchQuery },
+            { $sort: { [sortBy]: 1 } },
+        ];
+
+        const countPipeline = [...pipeline, { $count: "total" }];
 
         if (paginate == 1) {
-            records.rows = await ExternalBatch.find(query)
-                .populate({
-                    path: "warehousedetails_id",
-                    select: "basicDetails.warehouseName",
-                })
-                .sort(sortBy)
-                .skip(parseInt(skip))
-                .limit(parseInt(limit));
-
-            records.count = await ExternalBatch.countDocuments(query);
-            records.page = parseInt(page);
-            records.limit = parseInt(limit);
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-        } else {
-            records.rows = await ExternalOrder.find(query)
-                .populate({
-                    path: "warehousedetails_id",
-                    select: "basicDetails.warehouseName",
-                })
-                .sort(sortBy);
+            pipeline.push({ $skip: skipVal }, { $limit: parseInt(limit) });
         }
+
+        const rows = await ExternalBatch.aggregate(pipeline);
+
+        let count = rows.length;
+        if (paginate == 1) {
+            const countResult = await ExternalBatch.aggregate(countPipeline);
+            count = countResult?.[0]?.total || 0;
+        }
+
+        const records = {
+            count,
+            rows,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            pages: limit != 0 ? Math.ceil(count / limit) : 0,
+        };
+        //const records = { count: 0, rows: [] };
+
+
+        // if (paginate == 1) {
+        //     records.rows = await ExternalBatch.find(query)
+        //         .populate({
+        //             path: "warehousedetails_id",
+        //             select: "basicDetails.warehouseName",
+        //         })
+        //         .sort(sortBy)
+        //         .skip(parseInt(skip))
+        //         .limit(parseInt(limit));
+
+        //     records.count = await ExternalBatch.countDocuments(query);
+        //     records.page = parseInt(page);
+        //     records.limit = parseInt(limit);
+        //     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        // } else {
+        //     records.rows = await ExternalOrder.find(query)
+        //         .populate({
+        //             path: "warehousedetails_id",
+        //             select: "basicDetails.warehouseName",
+        //         })
+        //         .sort(sortBy);
+        // }  
 
         return res.status(200).send(
             new serviceResponse({ status: 200, data: records, message: _response_message.found("ExternalBatch") })
