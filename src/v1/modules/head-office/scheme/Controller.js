@@ -111,7 +111,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     }
   );
 
-  if (paginate == 1) {
+  if (paginate == 1 && isExport != 1 ) {
     aggregationPipeline.push(
       { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Secondary sort by _id for stability
       { $skip: parseInt(skip) },
@@ -140,7 +140,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
 
   const count = countResult[0]?.total || 0;
   const records = { rows, count };
-  if (paginate == 1) {
+  if (paginate == 1 && isExport != 1) {
     records.page = parseInt(page);
     records.limit = parseInt(limit);
     records.pages = limit != 0 ? Math.ceil(count / limit) : 0;

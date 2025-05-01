@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { _collectionName, _paymentmethod, _paymentstatus, _userType, _paymentApproval } = require('@src/v1/utils/constants');
 
 const PaymentSchema = new mongoose.Schema({
-    req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true },
+    req_id: { type: mongoose.Schema.Types.ObjectId, ref:_collectionName.Request, required: true },
     farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
     farmer_order_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
     ho_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice, required: true },
@@ -19,7 +19,8 @@ const PaymentSchema = new mongoose.Schema({
     bo_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
     bo_approve_at: { type: Date, default: null },
     ho_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
-    ho_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
+    // ho_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
+    ho_approve_by: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice, default: null },
     ho_approve_at: { type: Date, default: null },
     payment_status: { type: String, enum: Object.values(_paymentstatus), default: _paymentstatus.pending },
     payment_id: { type: String, default: null },
