@@ -1212,7 +1212,7 @@ module.exports.payment = async (req, res) => {
 
 
     // Step 3: Get total count
-    const totalCount = await RequestModel.countDocuments(query);
+    // const totalCount = await RequestModel.countDocuments(query);
 
     // Step 4: Aggregation Pipeline
     const aggregationPipeline = [
@@ -1519,16 +1519,24 @@ module.exports.payment = async (req, res) => {
 
       { $sort: { payment_status: -1, createdAt: -1 } },
       { $sort: { _id: -1, createdAt: -1 } },
-      { $skip: (page - 1) * limit },
-      { $limit: limit },
 
     );
 
+    const countPipeline = [...aggregationPipeline]; // clone
+    countPipeline.push({ $count: "total" });
 
+    const countResult = await RequestModel.aggregate(countPipeline);
+    const totalCount = countResult[0]?.total || 0;
 
-
+    if (isExport != 1) {
+      aggregationPipeline.push(
+        { $skip: (page - 1) * limit },
+        { $limit: limit }
+      );
+    }
 
     const records = await RequestModel.aggregate(aggregationPipeline) || [];
+
 
     // Additional filtering on approval_status
     const apStatus = isApproved ? "Approved" : "Pending";
@@ -1553,12 +1561,12 @@ module.exports.payment = async (req, res) => {
       const record = response.rows.map((item) => ({
         "Order ID": item?.reqNo || "NA",
         "Branch Name": item?.branchName || "NA",
-        "Commodity": item?.Commodity || "NA",
+        "SCHEME": item?.schemeName || "NA",
+        "Commodity": item?.commodity || "NA",
         "Quantity Purchased": item?.qtyPurchased || "NA",
-        "Approval Status": item?.approval_status ?? "NA",
-        "Payment Status": item?.payment_status ?? "NA",
+        "AMOUNT PAYABLE": item?.amountPayable || "NA",
+        // "Payment Status": item?.payment_status ?? "NA",
       }));
-
       if (record.length > 0) {
         return dumpJSONToExcel(req, res, {
           data: record,
@@ -2800,12 +2808,13 @@ module.exports.orderList = async (req, res) => {
     if (isExport == 1) {
       const record = records.rows.map((item) => {
         return {
-          "Order ID": item?.requestDetails?.reqNo || "NA",
-          Commodity: item?.requestDetails?.product?.name || "NA",
-          "Quantity Purchased": item?.qtyProcured || "NA",
-          "Billing Date": item?.createdAt || "NA",
-          State: item?.sellerDetails?.state || "NA",
-          "Approval Status": item?.ho_approve_status || "NA",
+          "Order ID": item?.orderId || "NA",
+          "BRANCH ID": item?.branchId || "NA",
+          Commodity: item?.commodity || "NA",
+          "Quantity Purchased": item?.quantityPurchased || "NA",
+          "Billing Date": item?.billingDate || "NA",
+          "BILLING STATUS": item?.sellerDetails?.state || "NA",
+          // "Approval Status": item?.ho_approve_status || "NA",
         };
       });
 
@@ -4004,9 +4013,20 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
     if (isExport == 1) {
       const exportRecords = await RequestModel.aggregate([...aggregationPipeline]);
-      if (exportRecords.length > 0) {
+      const record = exportRecords.map((item) => ({
+        "Order ID": item?.reqNo || "NA",
+        "BRANCH ID": item?.branchDetails[0]?.branchId || "NA",
+        "SCHEME": item?.scheme?.schemeName || "NA",
+        "SLA": item?.slaName || "NA",
+        "COMMODITY": item?.product?.name || "NA",
+        "QUANTITY PURCHASED": item?.product?.quantity || "NA",
+        "TOTAL AMOUNT": item?.amountPaid || "NA",
+        "AMOUNT PAID": item?.amountPayable || "NA",
+        "APPROVAL DATE": item?.approval_date || "NA",
+      }));
+      if (record.length > 0) {
         dumpJSONToExcel(req, res, {
-          data: exportRecords,
+          data: record,
           fileName: `Farmer-Payment-records.xlsx`,
           worksheetName: `Farmer-Payment-records`
         });
@@ -4597,3 +4617,154 @@ function generateCacheKey(prefix, params = {}) {
   return keyParts.join('|');
 }
 
+module.exports.getTotalSuccessfulPaidAmount = async (req, res) => {
+  try {
+    let {
+      search = '',
+      payment_status,
+      state = "",
+      branch = "",
+      schemeName = "",
+      commodityName = "",
+    } = req.query;
+
+    const { portalId, user_id } = req;
+
+    const paymentIds = await Payment.distinct("req_id", {
+      ho_id: { $in: [portalId, user_id] },
+      bo_approve_status: _paymentApproval.approved,
+    });
+
+    let query = {
+      _id: { $in: paymentIds },
+    };
+
+    if (search) {
+      query.$or = [
+        { reqNo: { $regex: search, $options: 'i' } },
+        { "product.name": { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    let paymentStatusCondition = payment_status;
+    if (payment_status === "Failed" || payment_status === "Rejected") {
+      paymentStatusCondition = "Failed";
+    }
+
+    const aggregationPipeline = [
+      { $match: query },
+      {
+        $lookup: {
+          from: 'batches',
+          localField: '_id',
+          foreignField: 'req_id',
+          as: 'batches',
+          pipeline: [
+            {
+              $lookup: {
+                from: 'payments',
+                localField: '_id',
+                foreignField: 'batch_id',
+                as: 'payment',
+                pipeline: [
+                  {
+                    $project: {
+                      payment_status: 1,
+                      batch_id: 1
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              $project: {
+                goodsPrice: 1,
+                bo_approve_status: 1,
+                ho_approve_status: 1,
+                payment: 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        $match: {
+          batches: { $ne: [] },
+          "batches.bo_approve_status": _paymentApproval.approved,
+          "batches.ho_approve_status": _paymentApproval.approved,
+          "batches.payment.payment_status": paymentStatusCondition || _paymentstatus.pending
+        }
+      },
+      {
+        $addFields: {
+          amountPaid: { $sum: "$batches.goodsPrice" }
+        }
+      },
+      {
+        $lookup: {
+          from: 'branches',
+          localField: 'branch_id',
+          foreignField: '_id',
+          as: 'branchDetails'
+        }
+      },
+      {
+        $addFields: {
+          state: { $arrayElemAt: ['$branchDetails.state', 0] },
+          branchName: { $arrayElemAt: ['$branchDetails.branchName', 0] }
+        }
+      },
+      {
+        $lookup: {
+          from: "schemes",
+          localField: "product.schemeId",
+          foreignField: "_id",
+          as: "scheme"
+        }
+      },
+      { $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "commodities",
+          localField: "scheme.commodity_id",
+          foreignField: "_id",
+          as: "commodityDetails"
+        }
+      },
+      { $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true } },
+    ];
+
+    // Add optional filters
+    if (state || commodityName || schemeName || branch) {
+      aggregationPipeline.push({
+        $match: {
+          $and: [
+            ...(state ? [{ "state": { $regex: state, $options: "i" } }] : []),
+            ...(commodityName ? [{ "product.name": { $regex: escapeRegex(commodityName), $options: "i" } }] : []),
+            ...(schemeName ? [{ "scheme.schemeName": { $regex: schemeName, $options: "i" } }] : []),
+            ...(branch ? [{ "branchName": { $regex: branch, $options: "i" } }] : []),
+          ]
+        }
+      });
+    }
+
+    aggregationPipeline.push({
+      $group: {
+        _id: null,
+        totalAmountPaid: { $sum: "$amountPaid" }
+      }
+    });
+
+    const result = await RequestModel.aggregate(aggregationPipeline);
+    const total = result?.[0]?.totalAmountPaid || 0;
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: { totalAmountPaid: total },
+      message: "Total amount paid calculated successfully"
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};

@@ -263,8 +263,8 @@ module.exports.exportBranches = async (req, res) => {
     };
 
 
-    const branches = await Branches.find(query, 'branchId branchName emailAddress pointOfContact address district cityVillageTown state pincode status createdAt');
-
+    const branches = await Branches.find(query, 'branchId branchName emailAddress pointOfContact address district cityVillageTown state pincode status createdAt')
+    .sort({ createdAt: -1 });
     // Format the data to be exported
     const branchData = branches.map((branch) => ({
       branchId: branch.branchId,

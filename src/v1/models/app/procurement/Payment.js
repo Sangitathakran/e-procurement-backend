@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { _collectionName, _paymentmethod, _paymentstatus, _userType, _paymentApproval } = require('@src/v1/utils/constants');
 
 const PaymentSchema = new mongoose.Schema({
-    req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true },
+    req_id: { type: mongoose.Schema.Types.ObjectId, ref:_collectionName.Request, required: true },
     farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
     farmer_order_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
     ho_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice, required: true },
