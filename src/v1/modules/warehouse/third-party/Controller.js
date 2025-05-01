@@ -443,6 +443,31 @@ module.exports.saveAgribidDetails = async (req, res) => {
         const warehouses = req.body;
         const { _id } = req.client;
 
+        const uniqueCapacities = [...new Set(warehouses.map(w => w.capacityInQTL))];
+
+        if (uniqueCapacities.length > 1) {
+            return res.status(400).send(new serviceResponse({ 
+                status: 400, 
+                message: "All batches must have the same capacityInQTL value." 
+            }));
+        }
+
+        const totalProcuredQtyInQTL = warehouses.reduce((sum, w) => sum + (w.procuredQtyInQTL || 0), 0);
+        const totalCapacityInQTL = uniqueCapacities[0];
+
+        if (totalProcuredQtyInQTL > totalCapacityInQTL) {
+            const exceedingWarehouses = warehouses
+                .filter(w => (w.procuredQtyInQTL || 0) > 0)
+                .map(w => w.name)
+                .join(', ');
+
+            return res.status(400).send(new serviceResponse({ 
+                status: 400, 
+                message: `Total procuredQty across all batches exceeds warehouse capacity. Warehouses: ${exceedingWarehouses}` 
+            }));
+        }
+
+
         const savedWarehouses = [];
 
         for (const warehouseData of warehouses) {
@@ -464,6 +489,8 @@ module.exports.saveAgribidDetails = async (req, res) => {
                 procurementPartner, 
                 season,
             } = warehouseData;
+
+            
 
             const existingWarehouse = await wareHouseDetails.findOne({ warehouseName });
             if (existingWarehouse) {
@@ -654,6 +681,30 @@ module.exports.updateAgribidDetails = async (req, res) => {
         const { _id } = req.client;
         const results = [];
         const errors = [];
+
+        const uniqueCapacities = [...new Set(updates.map(w => w.capacityInQTL))];
+
+        if (uniqueCapacities.length > 1) {
+            return res.status(400).send(new serviceResponse({ 
+                status: 400, 
+                message: "All batches must have the same capacityInQTL value." 
+            }));
+        }
+
+        const totalProcuredQtyInQTL = updates.reduce((sum, w) => sum + (w.procuredQtyInQTL || 0), 0);
+        const totalCapacityInQTL = uniqueCapacities[0];
+
+        if (totalProcuredQtyInQTL > totalCapacityInQTL) {
+            const exceedingWarehouses = updates
+                .filter(w => (w.procuredQtyInQTL || 0) > 0)
+                .map(w => w.name)
+                .join(', ');
+
+            return res.status(400).send(new serviceResponse({ 
+                status: 400, 
+                message: `Total procuredQty across all batches exceeds warehouse capacity. Warehouses: ${exceedingWarehouses}` 
+            }));
+        }
 
         for (const update of updates) {
             const {
