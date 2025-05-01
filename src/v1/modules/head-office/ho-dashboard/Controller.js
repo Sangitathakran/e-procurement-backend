@@ -112,6 +112,9 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     // Get counts safely
     widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
     widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    //start of prachi code
+    widgetDetails.farmerRegistration.totaldistiller = await Distiller.countDocuments({active:true})
+    widgetDetails.branchOffice.total = await Branches.countDocuments({headOfficeId:hoId});
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
     // widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
     widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
@@ -120,6 +123,11 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       widgetDetails.farmerRegistration.farmertotal +
       widgetDetails.farmerRegistration.associateFarmerTotal;
 
+    widgetDetails.farmerBenifitted.total = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
+    widgetDetails.paymentInitiated.total = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.inProgress });
+    
+      widgetDetails.farmerRegistration.associateFarmerTotal+widgetDetails.farmerRegistration.totaldistiller;
+    //end of prachi code
     return sendResponse({
       res,
       status: 200,
