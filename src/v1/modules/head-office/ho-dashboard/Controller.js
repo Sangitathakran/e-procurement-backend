@@ -1106,8 +1106,8 @@ module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   const skip = (page - 1) * limit;
 
-  const paymentDetails = await Payment.find()
-    .select("initiated_at req_id ho_approve_by")
+  const paymentDetails = await Payment.find({ho_id: req.portalId})
+    .select("initiated_at req_id ho_approve_by ho_approve_at")
     .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
     .populate({
       path: "req_id",
