@@ -195,6 +195,110 @@ module.exports.getCitiesByState = async (req, res) => {
   }
 };
 
+module.exports.getCitiesByDistrict = async (req, res) => {
+  try {
+    const { state_code, district_title } = req.query;
+
+    if (!state_code || !district_title) {
+      return sendResponse({
+        res,
+        status: 400,
+        message: "Both state_code and district_title are required",
+      });
+    }
+
+    const city_list = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      {
+        $match: {
+          "states.state_code": state_code,
+          "states.status": "active",
+        },
+      },
+      { $unwind: "$states.districts" },
+      {
+        $match: {
+          "states.districts.district_title": district_title,
+          "states.districts.status": "active",
+        },
+      },
+      { $unwind: "$states.districts.cities" },
+      {
+        $match: {
+          "states.districts.cities.status": "active",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          city_title: "$states.districts.cities.city_title",
+        },
+      },
+    ]);
+
+    return sendResponse({
+      res,
+      message: "",
+      data: city_list,
+    });
+  } catch (err) {
+    console.error("ERROR: ", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: err.message,
+    });
+  }
+};
+
+module.exports.getDistrictsByState = async (req, res) => {
+  try {
+    const { state_code } = req.query;
+
+    if (!state_code) {
+      return sendResponse({
+        res,
+        status: 400,
+        message: "State code is required",
+      });
+    }
+
+    const district_list = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      {
+        $match: {
+          "states.state_code": state_code,
+          "states.status": "active",
+        },
+      },
+      { $unwind: "$states.districts" },
+      {
+        $match: {
+          "states.districts.status": "active",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          district_title: "$states.districts.district_title",
+        },
+      },
+    ]);
+
+    return sendResponse({
+      res,
+      message: "",
+      data: district_list,
+    });
+  } catch (err) {
+    console.error("ERROR: ", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: err.message,
+    });
+  }
+};
 
 
 module.exports.getRoles = async (req, res) => {
