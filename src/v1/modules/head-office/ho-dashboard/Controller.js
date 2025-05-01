@@ -140,10 +140,11 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 });
 
 // start of prachi code
+/*
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
   console.log("hoId", hoId);
-  
+
   const { limit = 10, page = 1 } = req.query;
   const { user_id, portalId } = req;
   const skip = (page - 1) * limit;
@@ -177,7 +178,49 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
     },
   });
 });
+*/
 // end of prachi code
+
+module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
+  const hoId = new mongoose.Types.ObjectId(req.portalId);
+ 
+  const { limit = 10, page = 1 } = req.query;
+  const { user_id, portalId } = req;
+  const skip = (page - 1) * limit;
+
+  let pendingPaymentDetails = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: 'Pending' })
+    .select('req_id qtyProcured amount payment_status')
+    .populate({ path: "req_id", select: "reqNo" })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  // Filter out payments where reqNo is missing
+  pendingPaymentDetails = pendingPaymentDetails.filter(payment => payment.req_id && payment.req_id.reqNo);
+
+  // Map to flatten reqNo
+  pendingPaymentDetails = pendingPaymentDetails.map(payment => ({
+    ...payment,
+    reqNo: payment.req_id.reqNo,
+  }));
+
+  // Note: Count still includes all "Pending" payments regardless of reqNo presence.
+  // If you want the count to reflect only visible rows, recompute it based on the filtered array.
+  const filteredTotalCount = pendingPaymentDetails.length;
+
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Farmer Payments"),
+    data: {
+      rows: pendingPaymentDetails,
+      totalCount: filteredTotalCount,
+      totalPages: Math.ceil(filteredTotalCount / limit),
+      limit: limit,
+      page: page,
+    },
+  });
+});
 
 
 //Start of prachi code for pending-approval-farmer
