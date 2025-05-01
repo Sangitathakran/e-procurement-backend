@@ -756,39 +756,91 @@ module.exports.listExternalOrderList = async (req, res) => {
     try {
         const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
 
-        let query = {};
+         let matchQuery = {};
         if (search) {
-            query["batchName"] = { $regex: search, $options: "i" };
+            matchQuery["$or"] = [
+                { "external_batch_id.batchName": { $regex: search, $options: "i" } },
+                { "warehousedetails_id.basicDetails.warehouseName": { $regex: search, $options: "i" } },
+                { "external_order_code": { $regex: search, $options: "i" } },
+                { "basic_details.buyer_name": { $regex: search, $options: "i" } },
+                { "commodity": { $regex: search, $options: "i" } },
+            ];
         }
+        const skipVal = parseInt(skip) || (parseInt(page) - 1) * parseInt(limit);
+        const pipeline = [
+            {
+                $lookup: {
+                    from: "externalbatches", 
+                    localField: "external_batch_id",
+                    foreignField: "_id",
+                    as: "external_batch_id"
+                }
+            },
+            { $unwind: { path: "$external_batch_id", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "warehousedetails",
+                    localField: "warehousedetails_id",
+                    foreignField: "_id",
+                    as: "warehousedetails_id"
+                }
+            },
+            { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+            { $match: matchQuery },
+            { $sort: { [sortBy]: 1 } }
+        ];
 
-        const records = { count: 0, rows: [] };
+        const countPipeline = [...pipeline, { $count: "total" }];
 
         if (paginate == 1) {
-            records.rows = await ExternalOrder.find(query)
-                .populate({
-                    path: "external_batch_id",
-                    select: "batchName",
-                })
-                .populate({
-                    path: "warehousedetails_id",
-                    select: "basicDetails.warehouseName",
-                })
-                .sort(sortBy)
-                .skip(parseInt(skip))
-                .limit(parseInt(limit));
-
-            records.count = await ExternalOrder.countDocuments(query);
-            records.page = parseInt(page);
-            records.limit = parseInt(limit);
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-        } else {
-            records.rows = await ExternalOrder.find(query)
-                .populate({
-                    path: "external_batch_id",
-                    select: "batchName",
-                })
-                .sort(sortBy);
+            pipeline.push({ $skip: skipVal }, { $limit: parseInt(limit) });
         }
+
+        const rows = await ExternalOrder.aggregate(pipeline);
+
+        let count = rows.length;
+        if (paginate == 1) {
+            const countResult = await ExternalOrder.aggregate(countPipeline);
+            count = countResult?.[0]?.total || 0;
+        }
+
+        const records = {
+            count,
+            rows,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            pages: limit != 0 ? Math.ceil(count / limit) : 0,
+        };
+
+        // const records = { count: 0, rows: [] };
+
+        // if (paginate == 1) {
+        //     records.rows = await ExternalOrder.find(query)
+        //         .populate({
+        //             path: "external_batch_id",
+        //             select: "batchName",
+        //         })
+        //         .populate({
+        //             path: "warehousedetails_id",
+        //             select: "basicDetails.warehouseName",
+        //         })
+        //         .sort(sortBy)
+        //         .skip(parseInt(skip))
+        //         .limit(parseInt(limit));
+
+        //     records.count = await ExternalOrder.countDocuments(query);
+        //     records.page = parseInt(page);
+        //     records.limit = parseInt(limit);
+        //     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        // } else {
+        //     records.rows = await ExternalOrder.find(query)
+        //         .populate({
+        //             path: "external_batch_id",
+        //             select: "batchName",
+        //         })
+        //         .sort(sortBy);
+        // }
+
 
         return res.status(200).send(
             new serviceResponse({ status: 200, data: records, message: _response_message.found("ExternalOrder") })
