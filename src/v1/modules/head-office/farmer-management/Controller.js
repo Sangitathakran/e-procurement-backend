@@ -685,4 +685,58 @@ const singlefarmerDetails = async (res, farmerId, farmerType = 1) => {
 
 
 
+// **************************  CONTROLLERS WITHOUT AGGREGATION    ***************************
+
+module.exports.getStatewiseFarmersCountWOAggregation = async (req, res) => {
+  try {
+    // Step 1: Get valid states from StateDistrictCity
+    const stateDistrictData = await StateDistrictCity.find({}, { states: 1 }).lean();
+
+    const allStates = stateDistrictData.flatMap(doc => doc.states);
+    const stateMap = {};
+    const stateIds = [];
+
+    for (const state of allStates) {
+      if (state?._id) {
+        const sid = state._id.toString();
+        stateMap[sid] = state.state_title;
+        stateIds.push(state._id);
+      }
+    }
+
+    // Step 2: Group in MongoDB — only count per state_id
+    const farmerCounts = await farmer.aggregate([
+      {
+        $match: {
+          "address.state_id": { $in: stateIds },
+        },
+      },
+      {
+        $group: {
+          _id: "$address.state_id",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Step 3: Build final state-wise count array
+    const stateWiseCount = farmerCounts.map(item => ({
+      state: stateMap[item._id.toString()] || "Unknown",
+      count: item.count,
+    }));
+
+    const totalFarmers = stateWiseCount.reduce((sum, entry) => sum + entry.count, 0);
+
+    return sendResponse({
+      res,
+      status: 200,
+      data: { stateWiseCount, totalCount: totalFarmers },
+      message: _response_message.found("All farmers count fetched successfully"),
+    });
+  } catch (error) {
+    console.log("error", error);
+    _handleCatchErrors(error, res);
+  }
+};
+
 
