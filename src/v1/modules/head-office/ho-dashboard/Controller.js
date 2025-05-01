@@ -20,15 +20,15 @@ const { _query } = require("@src/v1/utils/constants/messages");
 const moment = require("moment");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { default: mongoose } = require("mongoose");
-const { _userType, _userStatus, _status, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
+const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   try {
     const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
-    
-   let report = [
+
+    let report = [
       { monthName: "January", month: 1, total: 0 },
       { monthName: "February", month: 2, total: 0 },
       { monthName: "March", month: 3, total: 0 },
@@ -51,9 +51,9 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
     };
     let associateFCount = (await farmer.countDocuments({})) ?? 0;
     widgetDetails.farmer.total = associateFCount;
-    widgetDetails.associate.total = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved});
-    widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({deletedAt: null });
-    widgetDetails.branch.total = await Branches.countDocuments({headOfficeId:hoId});
+    widgetDetails.associate.total = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved });
+    widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({ deletedAt: null });
+    widgetDetails.branch.total = await Branches.countDocuments({ headOfficeId: hoId });
 
     let lastMonthUser = await User.aggregate([
       { $match: { user_type: "Associate" } },
@@ -98,19 +98,19 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   try {
 
     const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
-
+    const { user_id, portalId } = req;
     let widgetDetails = {
       branchOffice: { total: 0 },
       farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0 },
       wareHouse: { total: 0 },
       //procurementTarget: { total: 0 }
+      farmerBenifitted: { total: 0 },
+      paymentInitiated: { total: 0 },
     };
-
-
 
     // Get counts safely
     widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
-    widgetDetails.branchOffice.total = await Branches.countDocuments({headOfficeId:hoId});
+    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
     // widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
     widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
@@ -119,6 +119,9 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       widgetDetails.farmerRegistration.farmertotal +
       widgetDetails.farmerRegistration.associateFarmerTotal;
 
+    widgetDetails.farmerBenifitted.total = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
+    widgetDetails.paymentInitiated.total = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.inProgress });
+    
     return sendResponse({
       res,
       status: 200,
@@ -137,18 +140,22 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 });
 
 // start of prachi code
-module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => { 
+/*
+module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
+  const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
+  console.log("hoId", hoId);
+
   const { limit = 10, page = 1 } = req.query;
   const { user_id, portalId } = req;
   const skip = (page - 1) * limit;
-  
+
   let pendingPaymentDetails = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: 'Pending' })
     .select('req_id qtyProcured amount payment_status')
     .populate({ path: "req_id", select: "reqNo" })
     .skip(skip)
     .limit(limit)
     .lean();
-  
+
   pendingPaymentDetails = pendingPaymentDetails.map((payment) => {
     return {
       ...payment,
@@ -171,7 +178,49 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
     },
   });
 });
+*/
 // end of prachi code
+
+module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
+  const hoId = new mongoose.Types.ObjectId(req.portalId);
+ 
+  const { limit = 10, page = 1 } = req.query;
+  const { user_id, portalId } = req;
+  const skip = (page - 1) * limit;
+
+  let pendingPaymentDetails = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: 'Pending' })
+    .select('req_id qtyProcured amount payment_status')
+    .populate({ path: "req_id", select: "reqNo" })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  // Filter out payments where reqNo is missing
+  pendingPaymentDetails = pendingPaymentDetails.filter(payment => payment.req_id && payment.req_id.reqNo);
+
+  // Map to flatten reqNo
+  pendingPaymentDetails = pendingPaymentDetails.map(payment => ({
+    ...payment,
+    reqNo: payment.req_id.reqNo,
+  }));
+
+  // Note: Count still includes all "Pending" payments regardless of reqNo presence.
+  // If you want the count to reflect only visible rows, recompute it based on the filtered array.
+  const filteredTotalCount = pendingPaymentDetails.length;
+
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Farmer Payments"),
+    data: {
+      rows: pendingPaymentDetails,
+      totalCount: filteredTotalCount,
+      totalPages: Math.ceil(filteredTotalCount / limit),
+      limit: limit,
+      page: page,
+    },
+  });
+});
 
 
 //Start of prachi code for pending-approval-farmer
@@ -180,10 +229,10 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
   const { limit = 10, page = 1 } = req.query;
   const skip = (page - 1) * limit;
   const { user_id, portalId } = req;
-  
+
   // Get total count for pagination metadata
   const totalCount = await Payment.countDocuments({ ho_id: { $in: [user_id, portalId] }, ho_approve_status: "Pending" });
-  
+
   let pendingApprovalDetails = await Payment.find({ ho_id: { $in: [user_id, portalId] }, ho_approve_status: "Pending" })
     .populate({ path: "req_id", select: "reqNo deliveryDate" })
     .select("req_id qtyProcured amountPaid ho_approve_status")
@@ -193,7 +242,7 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
   // Modify the response to add paymentDueDate (deliveryDate + 72 hours)
   const modifiedDetails = pendingApprovalDetails.map((doc) => {
     const deliveryDate = doc.req_id?.deliveryDate ? new Date(doc.req_id.deliveryDate) : null;
-    
+
     return {
       ...doc.toObject(),
       paymentDueDate: deliveryDate ? moment(deliveryDate).add(72, "hours").toISOString() : null,
@@ -317,26 +366,26 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
   const groupStage =
     option === "week"
       ? {
-          // Group by day of the week
-          $group: {
-            _id: {
-              day: { $dayOfWeek: "$createdAt" }, // 1 (Sunday) to 7 (Saturday)
-              payment_collect_by: "$payment_collect_by",
-            },
-            totalAmount: { $sum: "$amount" },
+        // Group by day of the week
+        $group: {
+          _id: {
+            day: { $dayOfWeek: "$createdAt" }, // 1 (Sunday) to 7 (Saturday)
+            payment_collect_by: "$payment_collect_by",
           },
-        }
+          totalAmount: { $sum: "$amount" },
+        },
+      }
       : {
-          // Group by year and month
-          $group: {
-            _id: {
-              year: { $year: "$createdAt" },
-              month: { $month: "$createdAt" },
-              payment_collect_by: "$payment_collect_by",
-            },
-            totalAmount: { $sum: "$amount" },
+        // Group by year and month
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+            payment_collect_by: "$payment_collect_by",
           },
-        };
+          totalAmount: { $sum: "$amount" },
+        },
+      };
 
   const results = await Payment.aggregate([
     groupStage,
@@ -346,14 +395,14 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
         _id: 0,
         ...(option === "week"
           ? {
-              day: "$_id.day",
-              payment_collect_by: "$_id.payment_collect_by",
-            }
+            day: "$_id.day",
+            payment_collect_by: "$_id.payment_collect_by",
+          }
           : {
-              year: "$_id.year",
-              month: "$_id.month",
-              payment_collect_by: "$_id.payment_collect_by",
-            }),
+            year: "$_id.year",
+            month: "$_id.month",
+            payment_collect_by: "$_id.payment_collect_by",
+          }),
         totalAmount: "$totalAmount",
       },
     },
@@ -514,219 +563,219 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
     {
       state: "Andhra Pradesh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
 
     {
       state: "Arunachal Pradesh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Assam",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Bihar",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Chhattisgarh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Goa",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Gujarat",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Haryana",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Himachal Pradesh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Jharkhand",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       name: "Karnataka",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Kerala",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Madhya Pradesh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Maharashtra",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Manipur",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Meghalaya",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Mizoram",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Nagaland",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Odisha",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Punjab",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       name: "Rajasthan",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Sikkim",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Tamil Nadu",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Telangana",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Tripura",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Uttar Pradesh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Uttarakhand",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "West Bengal",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Andaman and Nicobar Islands",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Chandigarh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Dadra and Nagar Haveli and Daman and Diu",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Lakshadweep",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Delhi",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Puducherry",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Ladakh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Jammu and Kashmir",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
   ];
   let pipeline = [
@@ -776,7 +825,7 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
       },
     },
   ];
-  
+
   if (stateNames.length > 0) {
     pipeline.push({ $match: { state: { $in: stateNames } } });
   } else {
@@ -784,21 +833,21 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
   let branchOfficeProc = await Batch.aggregate(pipeline);
   let totalProcuredQty = branchOfficeProc.reduce((accumulator, item) => accumulator + (Number(item.qty) || 0), 0);
   totalProcuredQty = Math.round(totalProcuredQty);
-  data=data.map(item=>{
-    let stateDetails=branchOfficeProc.find(item2=>item2.state==item.state);
-   
-        if(stateDetails){
-          return {...stateDetails}
-        }else{
-          return {...item}
-        }
+  data = data.map(item => {
+    let stateDetails = branchOfficeProc.find(item2 => item2.state == item.state);
+
+    if (stateDetails) {
+      return { ...stateDetails }
+    } else {
+      return { ...item }
+    }
   })
 
   return sendResponse({
     res,
     status: 200,
     message: _query.get("BranchOfficeProcurement"),
-    data: {branchOfficeProc: data, totalProcuredQty},
+    data: { branchOfficeProc: data, totalProcuredQty },
   });
 });
 
