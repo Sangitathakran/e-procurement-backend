@@ -395,6 +395,72 @@ module.exports.associateOrders = async (req, res) => {
     }
 };
 
+/*
+module.exports.batchList = async (req, res) => {
+
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, isExport = 0, batch_status = "Pending" } = req.query
+        const { user_type, portalId, user_id } = req
+
+        const paymentIds = (await Payment.find({ associateOffers_id: associateOffer_id })).map(i => i.batch_id)
+        let query = {
+            _id: { $in: paymentIds },
+            associateOffer_id: new mongoose.Types.ObjectId(associateOffer_id),
+            agent_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
+            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+        };
+
+        const records = { count: 0 };
+
+        records.rows = paginate == 1 ? await Batch.find(query)
+            .sort(sortBy)
+            .skip(skip)
+            // .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status')
+            .select('_id req_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by status createdAt')
+
+            .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
+
+        records.count = await Batch.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page
+            records.limit = limit
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+        }
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+                return {
+                    "Batch ID": item?.batchId || 'NA',
+                    "Delivey Date": item?.delivered.delivered_at || 'NA',
+                    "Payment Due Date": item?.payment_at || 'NA',
+                    "Quantity Purchased": item?.qty || 'NA',
+                    "Amount Payable": item?.totalPrice || 'NA',
+                    "Approval Status": item?.bo_approve_status ?? 'NA'
+                }
+            })
+
+            if (record.length > 0) {
+
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Associate-Batch-records.xlsx`,
+                    worksheetName: `Associate-Batch-records`
+                });
+            } else {
+                return res.status(200).send(new serviceResponse({ status: 200, errors: [{ message: _response_message.notFound("Payment") }] }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
+        }
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+*/
+
 module.exports.batchList = async (req, res) => {
 
     try {
