@@ -105,6 +105,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       wareHouse: { total: 0 },
       //procurementTarget: { total: 0 }
       farmerBenifitted: { total: 0 },
+      paymentInitiated: { total: 0 },
     };
 
     // Get counts safely
@@ -119,7 +120,8 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       widgetDetails.farmerRegistration.associateFarmerTotal;
 
     widgetDetails.farmerBenifitted.total = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
- 
+    widgetDetails.paymentInitiated.total = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.inProgress });
+    
     return sendResponse({
       res,
       status: 200,
@@ -139,6 +141,9 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 
 // start of prachi code
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
+  const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
+  console.log("hoId", hoId);
+  
   const { limit = 10, page = 1 } = req.query;
   const { user_id, portalId } = req;
   const skip = (page - 1) * limit;
