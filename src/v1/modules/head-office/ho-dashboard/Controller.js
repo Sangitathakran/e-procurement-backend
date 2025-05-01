@@ -1108,7 +1108,11 @@ module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
 
   const paymentDetails = await Payment.find()
     .select("initiated_at req_id ho_approve_by")
-    .populate({ path: "ho_approve_by", select: "" })
+    .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
+    .populate({
+      path: "req_id",
+      select: "reqNo"
+    })
     .populate({ path: "req_id", select: "reqNo" })
     .sort({ createdAt: -1 })
     .skip(skip)
@@ -1129,6 +1133,7 @@ module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
     },
   });
 });
+
 const calculateProcureQuantity = async (paymentDetails, status) => {
   return paymentDetails
     .filter((item) => item.payment_status == status)
