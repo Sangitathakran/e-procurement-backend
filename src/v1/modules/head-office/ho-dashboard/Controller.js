@@ -310,6 +310,38 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
   });
 });
 
+module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+  const skip = (page - 1) * limit;
+
+  const paymentDetails = await Payment.find({ho_id: req.portalId})
+    .select("initiated_at req_id ho_approve_by ho_approve_at")
+    .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
+    .populate({
+      path: "req_id",
+      select: "reqNo"
+    })
+    .populate({ path: "req_id", select: "reqNo" })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+
+  const totalCount = await Payment.countDocuments();
+
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("PaymentActivity"),
+    data: {
+      paymentDetails,
+      totalCount,
+      pages: Math.ceil(totalCount / limit),
+      limit: limit,
+      page: page,
+    },
+  });
+});
+
 //farmer payments
 module.exports.farmerPayments = asyncErrorHandler(async (req, res) => {
   const { option } = req.query;
@@ -1101,38 +1133,7 @@ module.exports.paymentStatusByDate = asyncErrorHandler(async (req, res) => {
     data: data,
   });
 });
-//payment status by batch
-module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
-  const skip = (page - 1) * limit;
 
-  const paymentDetails = await Payment.find({ho_id: req.portalId})
-    .select("initiated_at req_id ho_approve_by ho_approve_at")
-    .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
-    .populate({
-      path: "req_id",
-      select: "reqNo"
-    })
-    .populate({ path: "req_id", select: "reqNo" })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit);
-
-  const totalCount = await Payment.countDocuments();
-
-  return sendResponse({
-    res,
-    status: 200,
-    message: _query.get("PaymentActivity"),
-    data: {
-      paymentDetails,
-      totalCount,
-      pages: Math.ceil(totalCount / limit),
-      limit: limit,
-      page: page,
-    },
-  });
-});
 
 const calculateProcureQuantity = async (paymentDetails, status) => {
   return paymentDetails
