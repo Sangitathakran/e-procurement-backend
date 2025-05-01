@@ -23,7 +23,6 @@ const { default: mongoose } = require("mongoose");
 const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
-
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   try {
@@ -102,7 +101,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     const { user_id, portalId } = req;
     let widgetDetails = {
       branchOffice: { total: 0 },
-      farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0 , totaldistiller: 0},
+      farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0, distillerTotal: 0 },
       wareHouse: { total: 0 },
       //procurementTarget: { total: 0 }
       farmerBenifitted: { total: 0 },
@@ -113,7 +112,8 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
     widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     //start of prachi code
-    widgetDetails.farmerRegistration.totaldistiller = await Distiller.countDocuments({active:true})
+
+    widgetDetails.farmerRegistration.distillerTotal = await Distiller.countDocuments({ is_approved: _userStatus.approved });
     widgetDetails.branchOffice.total = await Branches.countDocuments({headOfficeId:hoId});
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
     // widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
@@ -121,13 +121,12 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     //let procurementTargetQty = await RequestModel.find({})
     widgetDetails.farmerRegistration.totalRegistration =
       widgetDetails.farmerRegistration.farmertotal +
-      widgetDetails.farmerRegistration.associateFarmerTotal;
+      widgetDetails.farmerRegistration.associateFarmerTotal+widgetDetails.farmerRegistration.distillerTotal;
 
+    
     widgetDetails.farmerBenifitted.total = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
     widgetDetails.paymentInitiated.total = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.inProgress });
-    
-      widgetDetails.farmerRegistration.associateFarmerTotal+widgetDetails.farmerRegistration.totaldistiller;
-    //end of prachi code
+
     return sendResponse({
       res,
       status: 200,
@@ -233,7 +232,7 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   const hoId = new mongoose.Types.ObjectId(req.portalId);
- 
+
   const { limit = 10, page = 1 } = req.query;
   const { user_id, portalId } = req;
   const skip = (page - 1) * limit;
@@ -320,7 +319,7 @@ module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   const skip = (page - 1) * limit;
 
-  const paymentDetails = await Payment.find({ho_id: req.portalId})
+  const paymentDetails = await Payment.find({ ho_id: req.portalId })
     .select("initiated_at req_id ho_approve_by ho_approve_at")
     .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
     .populate({
@@ -332,7 +331,7 @@ module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
     .skip(skip)
     .limit(limit);
 
-  const totalCount = await Payment.countDocuments();
+  const totalCount = await Payment.countDocuments({ ho_id: req.portalId });
 
   return sendResponse({
     res,
@@ -346,6 +345,32 @@ module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
       page: page,
     },
   });
+});
+
+module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
+  try {
+    const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
+    const { user_id, portalId } = req;
+
+    totalRequest = await RequestModel.find({ head_office_id: { $in: [user_id, portalId] } });
+
+
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: _query.get("satewise Procurement List"),
+      data: widgetDetails,
+    });
+  } catch (error) {
+    console.error("Error in widgetList:", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
 });
 
 //farmer payments
@@ -414,6 +439,7 @@ module.exports.farmerPayments = asyncErrorHandler(async (req, res) => {
     data: paymentDetails,
   });
 });
+
 //revenue expense chart
 module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
   let { option } = req.query;
@@ -549,6 +575,7 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
     data: paymentDetails,
   });
 });
+
 //locationWareHouseChart
 module.exports.locationWareHouseChart = asyncErrorHandler(async (req, res) => {
   const { skip, limit } = req.query;
@@ -600,6 +627,7 @@ module.exports.locationWareHouseChart = asyncErrorHandler(async (req, res) => {
     data: record,
   });
 });
+
 //paymentQuantityPurchase
 module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
   const { limit, skip, page } = req.query;
@@ -620,6 +648,7 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
     data: records,
   });
 });
+
 module.exports.optionRequestId = asyncErrorHandler(async (req, res) => {
   let records = { count: 0 };
   records.row = await RequestModel.find({
@@ -633,7 +662,6 @@ module.exports.optionRequestId = asyncErrorHandler(async (req, res) => {
     data: records,
   });
 });
-
 
 //branchOfficeProcurements
 module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
@@ -932,8 +960,6 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
   });
 });
 
-
-
 //farmerBenifitted
 module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
   const { startDate, endDate } = req.query;
@@ -991,6 +1017,7 @@ module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
     data: farmerBenifittedDetails,
   });
 });
+
 //procurementStatus
 module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
   let statusDetails = [
@@ -1100,6 +1127,7 @@ module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
     data: statusDetails,
   });
 });
+
 //payment status by batch
 module.exports.paymentStatusByDate = asyncErrorHandler(async (req, res) => {
   const { date } = req.query;
@@ -1140,17 +1168,18 @@ module.exports.paymentStatusByDate = asyncErrorHandler(async (req, res) => {
   });
 });
 
-
 const calculateProcureQuantity = async (paymentDetails, status) => {
   return paymentDetails
     .filter((item) => item.payment_status == status)
     .reduce((acc, item) => acc + item.qtyProcured, 0);
 };
+
 const calculateAmount = async (paymentDetails, status) => {
   return paymentDetails
     .filter((item) => item.payment_status == status)
     .reduce((acc, item) => acc + item.amount, 0);
 };
+
 //procurementOnTime
 module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
   let data = [
