@@ -327,7 +327,7 @@ module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
     .skip(skip)
     .limit(limit);
 
-  const totalCount = await Payment.countDocuments();
+  const totalCount = await Payment.countDocuments({ ho_id: req.portalId });
 
   return sendResponse({
     res,
