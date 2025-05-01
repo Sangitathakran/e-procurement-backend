@@ -51,6 +51,9 @@ const OTPModel = require("../../../models/app/auth/OTP");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
 const { getCache, setCache } = require("@src/v1/utils/cache");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
+const { Scheme } = require("@src/v1/models/master/Scheme");
+const { Commodity } = require("@src/v1/models/master/Commodity");
+const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 
 
 const validateMobileNumber = async (mobile) => {
@@ -4764,6 +4767,282 @@ module.exports.getTotalSuccessfulPaidAmount = async (req, res) => {
       message: "Total amount paid calculated successfully"
     }));
 
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+
+
+// ***************************  CONTROLLERS WITHOUT AGGREGATION   ***********************
+
+module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
+  try {
+    let {
+      page,
+      limit,
+      search = '',
+      isExport = 0,
+      payment_status,
+      state = '',
+      branch = '',
+      schemeName = '',
+      commodityName = '',
+      paginate = 1,
+    } = req.query;
+
+    limit = parseInt(limit) || 10;
+    page = parseInt(page) || 1;
+
+    const { portalId, user_id } = req;
+
+    const cacheKey = generateCacheKey('payment', {
+      portalId,
+      user_id,
+      page,
+      limit,
+      search,
+      payment_status,
+      state,
+      branch,
+      schemeName,
+      commodityName,
+      paginate,
+      isExport
+    });
+
+    const cachedData = getCache(cacheKey);
+    if (cachedData && isExport != 1) {
+      return res.status(200).send(new serviceResponse({ status: 200, data: cachedData, message: "Payments found (cached)" }));
+    }
+
+    const paymentIds = await Payment.distinct('req_id', {
+      ho_id: { $in: [portalId, user_id] },
+      bo_approve_status: _paymentApproval.approved,
+    });
+
+    let query = {
+      _id: { $in: paymentIds },
+    };
+
+    if (search) {
+      query.$or = [
+        { reqNo: { $regex: search, $options: 'i' } },
+        { 'product.name': { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const validStatuses = [
+      _paymentstatus.pending,
+      _paymentstatus.inProgress,
+      _paymentstatus.failed,
+      _paymentstatus.completed,
+      _paymentstatus.rejected,
+    ];
+
+    if (payment_status && !validStatuses.includes(payment_status)) {
+      return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          message: `Invalid payment status. Valid statuses are: ${validStatuses.join(
+            ', '
+          )}`,
+        })
+      );
+    }
+
+    let paymentStatusCondition = payment_status;
+    if (payment_status === 'Failed' || payment_status === 'Rejected') {
+      paymentStatusCondition = 'Failed';
+    }
+
+    const requests = await RequestModel.find(query)
+      .select('_id reqNo product branch_id sla_id createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const requestIds = requests.map(r => r._id);
+
+    // Fetch related documents
+    const [batches, payments, branches, slas, schemes, commodities] =
+      await Promise.all([
+        Batch.find({ req_id: { $in: requestIds } })
+          .select(
+            '_id req_id qty totalPrice goodsPrice payement_approval_at bo_approve_status ho_approve_status'
+          )
+          .lean(),
+        Payment.find({}).select('batch_id payment_status').lean(),
+        Branches.find({}).select('_id branchName branchId state').lean(),
+        SLAManagement.find({}).select('_id basic_details.name').lean(),
+        Scheme.find({})
+          .select('_id schemeName season period commodity_id')
+          .lean(),
+        Commodity.find({}).select('_id name').lean(),
+      ]);
+
+    // console.log(
+    //   '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
+    //   requests.length,
+    //   batches.length,
+    //   payments.length,
+    //   branches.length,
+    //   slas.length,
+    //   schemes.length,
+    //   commodities.length
+    // );
+    // Pre-index everything by _id or related keys
+const batchMap = new Map();
+for (const batch of batches) {
+  const reqIdStr = String(batch.req_id);
+  if (!batchMap.has(reqIdStr)) batchMap.set(reqIdStr, []);
+  batchMap.get(reqIdStr).push(batch);
+}
+
+const paymentMap = new Map();
+for (const p of payments) {
+  const batchIdStr = String(p.batch_id);
+  if (!paymentMap.has(batchIdStr)) paymentMap.set(batchIdStr, []);
+  paymentMap.get(batchIdStr).push(p);
+}
+
+const branchMap = new Map(branches.map(b => [String(b._id), b]));
+const slaMap = new Map(slas.map(s => [String(s._id), s]));
+const schemeMap = new Map(schemes.map(s => [String(s._id), s]));
+const commodityMap = new Map(commodities.map(c => [String(c._id), c]));
+
+const enrichedRequests = [];
+
+for (const req of requests) {
+  const reqIdStr = String(req._id);
+  const reqBatches = batchMap.get(reqIdStr) || [];
+  if (reqBatches.length === 0) continue;
+
+  const enrichedBatches = reqBatches.map(batch => {
+    const batchPayments = paymentMap.get(String(batch._id)) || [];
+    return { ...batch, payment: batchPayments };
+  });
+
+  // Check approval status and payment_status
+  const allApproved = enrichedBatches.every(b =>
+    b.bo_approve_status === _paymentApproval.approved &&
+    b.ho_approve_status === _paymentApproval.approved &&
+    b.payment.some(p =>
+      p.payment_status === (paymentStatusCondition || _paymentstatus.pending)
+    )
+  );
+  if (!allApproved) continue;
+
+  const branch = branchMap.get(String(req.branch_id));
+  const sla = slaMap.get(String(req.sla_id));
+  const scheme = schemeMap.get(String(req.product?.schemeId));
+  const commodity = commodityMap.get(String(scheme?.commodity_id));
+
+  const schemeName = `${scheme?.schemeName || ''} ${commodity?.name || ''} ${scheme?.season || ''} ${scheme?.period || ''}`.trim();
+
+  enrichedRequests.push({
+    _id: req._id,
+    reqNo: req.reqNo,
+    product: req.product,
+    qtyPurchased: enrichedBatches.reduce((sum, b) => sum + (b.qty || 0), 0),
+    amountPayable: enrichedBatches.reduce((sum, b) => sum + (b.totalPrice || 0), 0),
+    amountPaid: enrichedBatches.reduce((sum, b) => sum + (b.goodsPrice || 0), 0),
+    approval_date: enrichedBatches[0]?.payement_approval_at || null,
+    approval_status: 'Approved',
+    payment_status: payment_status || _paymentstatus.pending,
+    branchDetails: {
+      branchName: branch?.branchName || '',
+      branchId: branch?.branchId || '',
+      state: branch?.state || '',
+    },
+    sla: {
+      basic_details: {
+        name: sla?.basic_details?.name || '',
+      },
+    },
+    scheme: {
+      schemeName,
+    },
+  });
+}
+
+
+    // Apply filters on enriched data (like $match after $addFields)
+    const filtered = enrichedRequests.filter(req => {
+      if (state && !new RegExp(state, 'i').test(req.branchDetails.state))
+        return false;
+      if (
+        commodityName &&
+        !new RegExp(commodityName, 'i').test(req.product?.name || '')
+      )
+        return false;
+      if (
+        schemeName &&
+        !new RegExp(schemeName, 'i').test(req.scheme.schemeName || '')
+      )
+        return false;
+      if (
+        branch &&
+        !new RegExp(branch, 'i').test(req.branchDetails.branchName || '')
+      )
+        return false;
+      return true;
+    });
+
+    // Pagination
+    const total = filtered.length;
+    const paginated = filtered.slice((page - 1) * limit, page * limit);
+
+    const response = {
+      count: total,
+      rows: paginated,
+    };
+
+    if (isExport != 1) {
+      setCache(cacheKey, response, 300); // 5 mins
+    }
+
+    if (isExport == 1) {
+      const exportRecords = await RequestModel.aggregate([
+        ...aggregationPipeline,
+      ]);
+      const record = exportRecords.map(item => ({
+        'Order ID': item?.reqNo || 'NA',
+        'BRANCH ID': item?.branchDetails[0]?.branchId || 'NA',
+        SCHEME: item?.scheme?.schemeName || 'NA',
+        SLA: item?.slaName || 'NA',
+        COMMODITY: item?.product?.name || 'NA',
+        'QUANTITY PURCHASED': item?.product?.quantity || 'NA',
+        'TOTAL AMOUNT': item?.amountPaid || 'NA',
+        'AMOUNT PAID': item?.amountPayable || 'NA',
+        'APPROVAL DATE': item?.approval_date || 'NA',
+      }));
+      if (record.length > 0) {
+        dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Farmer-Payment-records.xlsx`,
+          worksheetName: `Farmer-Payment-records`,
+        });
+      } else {
+        return res
+          .status(400)
+          .send(
+            new serviceResponse({
+              status: 400,
+              data: response,
+              message: 'No payments found',
+            })
+          );
+      }
+    } else {
+      return res
+        .status(200)
+        .send(
+          new serviceResponse({
+            status: 200,
+            data: response,
+            message: 'Payments found',
+          })
+        );
+    }
   } catch (error) {
     _handleCatchErrors(error, res);
   }
