@@ -119,7 +119,6 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       widgetDetails.farmerRegistration.associateFarmerTotal;
 
     widgetDetails.farmerBenifitted.total = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
-    // widgetDetails.farmerBenifitted.total = await Payment.countDocuments({ ho_id: { $in: [user_id, portalId] }, payment_status: _paymentstatus.completed });
  
     return sendResponse({
       res,
