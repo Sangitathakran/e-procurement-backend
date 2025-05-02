@@ -106,8 +106,10 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0, distillerTotal: 0 },
       wareHouse: { total: 0 },
       //procurementTarget: { total: 0 }
-      farmerBenifitted: { total: 0 },
-      paymentInitiated: { total: 0 },
+      farmerBenifitted: 0,
+      paymentInitiated: 0,
+      totalProcurement: 0,
+      todaysQtyProcured: 0,
     };
 
     // Get counts safely
@@ -118,16 +120,36 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     widgetDetails.farmerRegistration.distillerTotal = await Distiller.countDocuments({ is_approved: _userStatus.approved });
     widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
-    // widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
     widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
-    //let procurementTargetQty = await RequestModel.find({})
-    widgetDetails.farmerRegistration.totalRegistration =
-      widgetDetails.farmerRegistration.farmertotal +
-      widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal;
 
+    widgetDetails.farmerRegistration.totalRegistration = (widgetDetails.farmerRegistration.farmertotal + widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal);
 
-    widgetDetails.farmerBenifitted.total = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
-    widgetDetails.paymentInitiated.total = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.inProgress });
+    widgetDetails.farmerBenifitted = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
+    widgetDetails.paymentInitiated = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.inProgress });
+
+    const payments = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: _paymentstatus.completed, })
+      .select("qtyProcured createdAt")
+      .lean();
+
+    let grandTotalQtyProcured = 0;
+    let todaysQtyProcured = 0;
+
+    // Get start of today
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    for (const payment of payments) {
+      const qty = Number(payment.qtyProcured) || 0;
+      grandTotalQtyProcured += qty;
+
+      const createdAt = new Date(payment.createdAt);
+      if (createdAt >= startOfToday) {
+        todaysQtyProcured += qty;
+      }
+    }
+
+    widgetDetails.totalProcurement = grandTotalQtyProcured;
+    widgetDetails.todaysQtyProcured = todaysQtyProcured;
 
     return sendResponse({
       res,
@@ -371,7 +393,7 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
     for (const state of stateContainer.states) {
       stateMap[state._id.toString()] = state.state_title;
     }
-   
+
     // Step 3: Fetch payments and populate farmer (only getting state_id in address)
     const payments = await Payment.find({
       ho_id: { $in: [user_id, portalId] },
@@ -389,9 +411,9 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
 
     for (const payment of payments) {
       const stateId = payment?.farmer_id?.address?.state_id?.toString();
-      
+
       if (!stateId || !stateMap[stateId]) continue; // skip if invalid
-      
+
       const qty = Number(payment.qtyProcured) || 0; // 👈 convert to number safely
 
       if (!statewiseTotals[stateId]) {
