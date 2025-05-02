@@ -121,15 +121,10 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
     widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
-
     widgetDetails.farmerRegistration.totalRegistration = (widgetDetails.farmerRegistration.farmertotal + widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal);
-
     widgetDetails.farmerBenifitted = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
-    widgetDetails.paymentInitiated = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.inProgress });
-
-    const payments = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: _paymentstatus.completed, })
-      .select("qtyProcured createdAt")
-      .lean();
+   
+    const payments = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: _paymentstatus.completed, }).select("qtyProcured createdAt").lean();
 
     let grandTotalQtyProcured = 0;
     let todaysQtyProcured = 0;
@@ -142,13 +137,13 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       const qty = Number(payment.qtyProcured) || 0;
       grandTotalQtyProcured += qty;
       
-
       const createdAt = new Date(payment.createdAt);
       if (createdAt >= startOfToday) {
         todaysQtyProcured += qty;
       }
     }
 
+    widgetDetails.paymentInitiated += (grandTotalQtyProcured*59500); 
     widgetDetails.totalProcurement = Math.round(grandTotalQtyProcured * 100) / 100;
     widgetDetails.todaysQtyProcured = todaysQtyProcured;
 
