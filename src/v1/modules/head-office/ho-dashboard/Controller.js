@@ -23,6 +23,8 @@ const { default: mongoose } = require("mongoose");
 const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
+
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   try {
@@ -114,16 +116,16 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     //start of prachi code
 
     widgetDetails.farmerRegistration.distillerTotal = await Distiller.countDocuments({ is_approved: _userStatus.approved });
-    widgetDetails.branchOffice.total = await Branches.countDocuments({headOfficeId:hoId});
+    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
     // widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
     widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
     //let procurementTargetQty = await RequestModel.find({})
     widgetDetails.farmerRegistration.totalRegistration =
       widgetDetails.farmerRegistration.farmertotal +
-      widgetDetails.farmerRegistration.associateFarmerTotal+widgetDetails.farmerRegistration.distillerTotal;
+      widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal;
 
-    
+
     widgetDetails.farmerBenifitted.total = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
     widgetDetails.paymentInitiated.total = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.inProgress });
 
@@ -347,23 +349,86 @@ module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
   });
 });
 
+
 module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
   try {
-    const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
+    const hoId = new mongoose.Types.ObjectId(req.portalId);
     const { user_id, portalId } = req;
 
-    totalRequest = await RequestModel.find({ head_office_id: { $in: [user_id, portalId] } });
+    // Step 1: Fetch all states from the only StateDistrictCity document
+    const stateContainer = await StateDistrictCity.findOne().lean();
 
+    if (!stateContainer || !Array.isArray(stateContainer.states)) {
+      return sendResponse({
+        res,
+        status: 500,
+        message: "State data not configured properly",
+      });
+    }
 
+    // Step 2: Create a state lookup map by _id
+    const stateMap = {};
+    for (const state of stateContainer.states) {
+      stateMap[state._id.toString()] = state.state_title;
+    }
+   
+    // Step 3: Fetch payments and populate farmer (only getting state_id in address)
+    const payments = await Payment.find({
+      ho_id: { $in: [user_id, portalId] },
+      payment_status: _paymentstatus.completed,
+    })
+      .select("qtyProcured farmer_id")
+      .populate({
+        path: "farmer_id",
+        select: "address.state_id",
+      })
+      .lean();
+
+    // Step 4: Group by state_id and sum qtyProcured
+    const statewiseTotals = {};
+
+    for (const payment of payments) {
+      const stateId = payment?.farmer_id?.address?.state_id?.toString();
+      
+      if (!stateId || !stateMap[stateId]) continue; // skip if invalid
+      
+      const qty = Number(payment.qtyProcured) || 0; // 👈 convert to number safely
+
+      if (!statewiseTotals[stateId]) {
+        statewiseTotals[stateId] = {
+          state_id: stateId,
+          state_name: stateMap[stateId],
+          totalQtyProcured: 0,
+        };
+      }
+
+      // statewiseTotals[stateId].totalQtyProcured += payment.qtyProcured || 0;
+      statewiseTotals[stateId].totalQtyProcured += qty;
+    }
+
+    // const result = Object.values(statewiseTotals);
+
+    // Step 5: Convert to array and calculate grand total
+    const result = Object.values(statewiseTotals);
+
+    const grandTotalQtyProcured = result.reduce(
+      (sum, item) => sum + item.totalQtyProcured,
+      0
+    );
 
     return sendResponse({
       res,
       status: 200,
       message: _query.get("satewise Procurement List"),
-      data: widgetDetails,
+      // data: result,
+      data: {
+        states: result,
+        // grandTotalQtyProcured: Math.round(grandTotalQtyProcured * 100) / 100,
+        grandTotalQtyProcured: grandTotalQtyProcured,
+      },
     });
   } catch (error) {
-    console.error("Error in widgetList:", error);
+    console.error("Error in satewiseProcurement:", error);
     return sendResponse({
       res,
       status: 500,
@@ -372,6 +437,8 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
     });
   }
 });
+
+
 
 //farmer payments
 module.exports.farmerPayments = asyncErrorHandler(async (req, res) => {
