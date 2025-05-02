@@ -1678,7 +1678,7 @@ module.exports.payment = async (req, res) => {
     }
 
     // Count before pagination
-    const totalCount = records.length;
+    // const totalCount = records.length;
 
 
 
@@ -2006,7 +2006,7 @@ module.exports.payment = async (req, res) => {
       );
     }
 
-    const records = await RequestModel.aggregate(aggregationPipeline) || [];
+     records = await RequestModel.aggregate(aggregationPipeline) || [];
 
 
     // Additional filtering on approval_status
@@ -2038,7 +2038,7 @@ module.exports.payment = async (req, res) => {
         "AMOUNT PAYABLE": item?.amountPayable || "NA",
         // "Payment Status": item?.payment_status ?? "NA",
       }));
-      if (record.length > 0) {
+      if (records.length > 0) {
         return dumpJSONToExcel(req, res, {
           data: exportData,
           fileName: `HO-Payment-record.xlsx`,
