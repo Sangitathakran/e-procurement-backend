@@ -124,18 +124,20 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     widgetDetails.farmerRegistration.totalRegistration = (widgetDetails.farmerRegistration.farmertotal + widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal);
     widgetDetails.farmerBenifitted = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
    
-    const payments = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: _paymentstatus.completed, }).select("qtyProcured createdAt").lean();
+    const payments = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: _paymentstatus.completed, }).select("qtyProcured createdAt amount").lean();
 
     let grandTotalQtyProcured = 0;
     let todaysQtyProcured = 0;
-
+    let grandTotalamount = 0;
     // Get start of today
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
     for (const payment of payments) {
       const qty = Number(payment.qtyProcured) || 0;
+      const amount = Number(payment.amount) || 0;
       grandTotalQtyProcured += qty;
+      grandTotalamount +=amount;
       
       const createdAt = new Date(payment.createdAt);
       if (createdAt >= startOfToday) {
@@ -143,7 +145,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       }
     }
 
-    widgetDetails.paymentInitiated += (grandTotalQtyProcured*59500); 
+    widgetDetails.paymentInitiated += grandTotalamount; 
     widgetDetails.totalProcurement = Math.round(grandTotalQtyProcured * 100) / 100;
     widgetDetails.todaysQtyProcured = todaysQtyProcured;
 
