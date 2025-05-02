@@ -4301,6 +4301,27 @@ module.exports.proceedToPaybatchListWithoutAggregation = async (req, res) => {
       }));
     }
 
+    const cacheKey = generateCacheKey('paymentBatchList', {
+      page,
+      limit,
+      skip,
+      paginate,
+      search,
+      req_id,
+      payment_status,
+      isExport
+    });
+  
+    const cachedData = getCache(cacheKey);
+if (cachedData && isExport != 1) {
+  return res.status(200).send(new serviceResponse({
+    status: 200,
+    data: cachedData,
+    message: _response_message.found("Payment (from cache)")
+  }));
+}
+
+
     // Ensure indexes (if not already present, ideally done at setup)
     await Payment.createIndexes({ req_id: 1, bo_approve_status: 1 });
     await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
@@ -4434,17 +4455,25 @@ module.exports.proceedToPaybatchListWithoutAggregation = async (req, res) => {
       }
     }
 
+
+    const responseData = {
+      rows,
+      count: totalCount,
+      page: paginate == 1 ? parseInt(page) : undefined,
+      limit: paginate == 1 ? parseInt(limit) : undefined,
+      pages: paginate == 1 ? Math.ceil(totalCount / limit) : undefined,
+      reqDetails: reqDetails?.toObject?.() || reqDetails 
+    }
+
+    if (isExport != 1) {
+      setCache(cacheKey, responseData, 300); // 5 mins
+    }
+    
+
     // Step 9: Send response
     return res.status(200).send(new serviceResponse({
       status: 200,
-      data: {
-        rows,
-        count: totalCount,
-        page: paginate == 1 ? parseInt(page) : undefined,
-        limit: paginate == 1 ? parseInt(limit) : undefined,
-        pages: paginate == 1 ? Math.ceil(totalCount / limit) : undefined,
-        reqDetails
-      },
+      data: responseData,
       message: _response_message.found("Payment")
     }));
 
