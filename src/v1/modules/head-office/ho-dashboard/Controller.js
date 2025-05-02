@@ -141,6 +141,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     for (const payment of payments) {
       const qty = Number(payment.qtyProcured) || 0;
       grandTotalQtyProcured += qty;
+      
 
       const createdAt = new Date(payment.createdAt);
       if (createdAt >= startOfToday) {
@@ -148,7 +149,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       }
     }
 
-    widgetDetails.totalProcurement = grandTotalQtyProcured;
+    widgetDetails.totalProcurement = Math.round(grandTotalQtyProcured * 100) / 100;
     widgetDetails.todaysQtyProcured = todaysQtyProcured;
 
     return sendResponse({
