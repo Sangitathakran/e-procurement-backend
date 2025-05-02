@@ -565,8 +565,8 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
 
     const query = { req_id: requirementId };
 
-    // Get total count FIRST
-    records.count = await Batch.countDocuments(query);
+    // // Get total count FIRST
+     records.count = await Batch.countDocuments(query);
 
     records.rows = await Batch.find({ req_id: requirementId })
       .select('batchId qty delivered status')
