@@ -15,8 +15,6 @@ dropDownRoutes.get('/state', getStates);
 dropDownRoutes.get('/districtsByState', getDistrictsByState);
 dropDownRoutes.get('/roles', getRoles);
 dropDownRoutes.get('/cities', getCitiesByState);
-dropDownRoutes.get('/districtsByState', getDistrictsByState);
-// dropDownRoutes.get('/citiesByDistrict', getCitiesByDistrict);
 dropDownRoutes.get('/associates', getAssociates);
 dropDownRoutes.get('/warehouses', getWarehouses);
 
