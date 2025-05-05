@@ -2403,10 +2403,9 @@ module.exports.lot_list = async (req, res) => {
     const record = await Batch.findOne({ _id: batch_id })
       .populate({
         path: "farmerOrderIds.farmerOrder_id",
-        select: "metaData.name order_no payment_status",
+        select: "metaData.name order_no payment_status createdAt",
       })
-      .select("_id farmerOrderIds");
-
+      .select("_id farmerOrderIds createdAt");
     if (!record) {
       return res.status(400).send(
         new serviceResponse({
@@ -5024,6 +5023,9 @@ for (const req of requests) {
     const response = {
       count: total,
       rows: paginated,
+      page: page,
+      limit: limit,
+      pages: Math.ceil(total/limit)
     };
 
     if (isExport != 1) {
