@@ -53,12 +53,22 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     records.rows = paginate == 1 ? await RequestModel.find(query).select(selectValues)
         .populate({ path: "branch_id", select: "_id branchName branchId" })
         .populate({ path: "head_office_id", select: "_id company_details.name" })
-        .populate({ path: "product.schemeId", select: "_id schemeId schemeName season status" })
+        .populate({ path: "product.schemeId", select: "_id schemeId schemeName season status period" })
         .populate({ path: "product.commodity_id", select: "_id name" })
         .populate({ path: "sla_id", select: "_id basic_details.name" })
         .sort(sortBy)
         .skip(skip)
         .limit(parseInt(limit)) : await RequestModel.find(query).select(selectValues).sort(sortBy);
+
+        records.rows = records.rows.map((doc) => {
+            const obj = doc.toObject();
+            const commdityName = obj?.product?.name || '';
+            const schemeName= obj?.product?.schemeId?.schemeName || '';
+            const season= obj?.product?.schemeId?.season || '';
+            const period= obj?.product?.schemeId?.period || '';
+            obj.scheme_name = `${schemeName} ${commdityName} ${season} ${period}`;
+            return obj;
+        });
 
     records.count = records.rows.length;
 

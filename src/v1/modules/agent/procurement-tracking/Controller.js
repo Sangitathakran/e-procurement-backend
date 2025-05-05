@@ -22,7 +22,7 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
 
     let query = search ? {
         $or: [
-            { "pointOfContact.name": { $regex: search, $options: 'i' } },
+            { "reqNo": { $regex: search, $options: 'i' } },
         ]
     } : {};
 
