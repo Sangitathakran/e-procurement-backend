@@ -12,6 +12,7 @@ const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType, _userStatus, _status, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
+const { commodity } = require("../../dropDown/Controller");
 
 
 module.exports.getDashboardStats = async (req, res) => {
@@ -174,51 +175,51 @@ module.exports.getProcurementsStats = async (req, res) => {
     }
 }
 
-module.exports.getProcurementStatusList = async (req, res) => {
-
-    try {
-        const { page, limit = 6, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-        
-        let query = {
-            ...(search ? { reqNo: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+//start of prachi code 
+module.exports.getProcurementStatusList = async (req, res)=>{
+    
+    try{
+        const {page, limit=6, skip, paginate=1, sortBy, search='', isExport=0}= req.query;
+        let query={
+            ...(search ? {reqNo: {$regex:search, $options:"i"}, deletedAt:null}:{deletedAt:null})
         };
-        const records = { count: 0 };
-        const selectedFields = 'reqNo product.name product.quantity totalQuantity fulfilledQty';
-        const fetchedRecords = paginate == 1
+
+        const records = { count: 0 }
+        const selectedFields = 'reqNo product.name product.quantity fulfilledQty';
+
+        const fetchedRecords =  paginate==1
             ? await RequestModel.find(query)
                 .select(selectedFields)
                 .sort(sortBy)
                 .skip(skip)
                 .limit(parseInt(limit))
 
-            : await RequestModel.find(query).sort(sortBy);
+            : await RequestModel.find(query).sort(sortBy)
 
         records.rows = fetchedRecords.map(record => ({
             orderId: record?.reqNo,
             commodity: record?.product.name,
             quantityRequired: record?.product.quantity,
-            totalQuantity: record?.product.quantity,
             fulfilledQty: record?.fulfilledQty
         }));
-
         records.count = await RequestModel.countDocuments(query);
-
+        
         if (paginate == 1) {
             records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-
         if (!records) {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Procurement") }));
         }
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Procurement") }));
 
-    } catch (error) {
+    }catch(error){
         _handleCatchErrors(error, res);
     }
-
 }
+//end of prachi code 
+
 
 module.exports.getPendingOffersCountByRequestId = async (req, res) => {
 
