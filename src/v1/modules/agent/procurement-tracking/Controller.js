@@ -197,6 +197,7 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
 })
 
+/*
 module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
 
     const { page, limit, skip, paginate = 1, sortBy, search = '', id } = req.query
@@ -216,7 +217,7 @@ module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
     }
 
     const records = { count: 0 };
-
+    records.count = await FarmerOrders.countDocuments(query);
     records.rows = paginate == 1 ? await FarmerOrders.find(query)
         .populate("procurementCenter_id")
         .populate({
@@ -229,7 +230,8 @@ module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
             path: "farmer_id",
             select: "farmer_id"
         }).sort(sortBy);
-    records.count = await FarmerOrders.countDocuments(query);
+
+   
 
     if (paginate == 1) {
         records.page = page;
@@ -239,6 +241,75 @@ module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("farmer orders") }))
 })
+*/
+
+module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
+    let { page = 1, limit = 10, paginate = 1, sortBy = 'createdAt', search = '', id } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    paginate = parseInt(paginate);
+
+    // Debugging: Check if page, limit are parsed correctly
+    console.log(`Page: ${page}, Limit: ${limit}, Paginate: ${paginate}`);
+
+    let query = search ? {
+        $or: [
+            { "metaData.name": { $regex: search, $options: 'i' } }
+        ]
+    } : {};
+
+    query.associateOffers_id = id;
+
+    // Fetching the total count of records first
+    const totalRecords = await FarmerOrders.countDocuments(query);
+    if (totalRecords === 0) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errros: [{ message: _response_message.notFound("farmer orders") }]
+        }));
+    }
+
+    const records = { count: totalRecords };
+
+    // Set default sort to descending order (by 'createdAt' or another field)
+    let sort = {};
+    if (sortBy) {
+        sort[sortBy] = -1;  // default to descending order
+    }
+
+    let findQuery = FarmerOrders.find(query)
+        .populate("procurementCenter_id")
+        .populate({
+            path: "farmer_id",
+            select: "farmer_id"
+        })
+        .sort(sort);  // Apply the sorting
+
+    if (paginate === 1) {
+        // Calculate skip for pagination
+        const skip = (page - 1) * limit;
+        console.log(`Skip: ${skip}`); // Debugging: Check skip calculation
+        findQuery = findQuery.skip(skip).limit(limit);
+    }
+
+    // Fetch the rows after applying pagination and sorting
+    records.rows = await findQuery;
+
+    // If paginate is 1, calculate the page numbers
+    if (paginate === 1) {
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit !== 0 ? Math.ceil(records.count / limit) : 0;
+    }
+
+    return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("farmer orders")
+    }));
+});
+
 
 module.exports.getFarmersOrdersData = asyncErrorHandler(async (req, res) => {
 
