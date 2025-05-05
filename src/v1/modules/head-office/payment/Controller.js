@@ -4412,6 +4412,7 @@ if (cachedData && isExport != 1) {
 
         return {
           batchId: batch.batchId,
+          batch_id: batch._id,
           amountPayable: batch.totalPrice,
           qtyPurchased: batch.qty,
           amountProposed: batch.goodsPrice,
