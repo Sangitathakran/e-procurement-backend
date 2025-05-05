@@ -185,7 +185,7 @@ module.exports.getProcurementStatusList = async (req, res)=>{
         };
 
         const records = { count: 0 }
-        const selectedFields = 'reqNo product.name product.quantity fulfilledQty';
+        const selectedFields = 'reqNo product.name product.quantity totalQuantity fulfilledQty';
 
         const fetchedRecords =  paginate==1
             ? await RequestModel.find(query)
@@ -200,6 +200,7 @@ module.exports.getProcurementStatusList = async (req, res)=>{
             orderId: record?.reqNo,
             commodity: record?.product.name,
             quantityRequired: record?.product.quantity,
+            totalQuantity:record?.product.quantity,
             fulfilledQty: record?.fulfilledQty
         }));
         records.count = await RequestModel.countDocuments(query);
