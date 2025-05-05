@@ -3138,6 +3138,19 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
         const skip = (page - 1) * limit;
         const { portalId, user_id } = req;
 
+        //  Step A: Create a cache key
+        const cacheKey = `payment:${user_id}:${JSON.stringify(req.query)}`;
+
+        // Step B: Try fetching from cache
+        const cachedData = getCache(cacheKey);
+        if ( isExport !=1 && cachedData) {
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: cachedData,
+                message: _response_message.found("Payment (from cache)")
+            }));
+        }
+
         // Step 1: Get all request IDs that have payments
         // const paymentIds = (await Payment.find({}, 'req_id')).map(i => i.req_id);     
 
@@ -3199,9 +3212,8 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
         }
 
         const requestIds = requests.map(r => r._id);
-
         // Step 4: Fetch all batches
-        const allBatches = await Batch.find({ req_id: { $in: requestIds } }).lean();
+        const allBatches = await Batch.find({ req_id: { $in: requestIds } }, { agent_approve_at:1, qty:1,  totalPrice:1, req_id:1 }).lean();
         const batchMap = {};
         for (let batch of allBatches) {
             const id = batch.req_id.toString();
@@ -3221,11 +3233,9 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
         for (let com of commodities) {
             commodityMap[com._id.toString()] = com;
         }
-
         // Step 6: Prepare Response
         for (let req of requests) {
             req.batches = batchMap[req._id.toString()] || [];
-
             // Approval Status
             const hasPendingApproval = req.batches.some(batch =>
                 !batch.agent_approve_at || batch.agent_approve_at === null
@@ -3342,6 +3352,12 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
             response.limit = limit;
             response.pages = limit != 0 ? Math.ceil(totalCount / limit) : 0;
         }
+
+        // save response in cache
+        if(isExport != 1){
+            setCache(cacheKey, response);
+        }
+
 
         return res.status(200).send(new serviceResponse({
             status: 200,
