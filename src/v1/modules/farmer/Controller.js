@@ -25,6 +25,7 @@ const fs = require('fs');
 const axios = require('axios');
 const moment = require('moment');
 const mongoose = require('mongoose');
+const { setCache, getCache } = require("@src/v1/utils/cache");
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -2257,69 +2258,66 @@ module.exports.makeAssociateFarmer = async (req, res) => {
 
 module.exports.getAllFarmers = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy = '_id', search = '', paginate = 1 } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = '_id',
+      search = '',
+      paginate = 1
+    } = req.query;
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const parsedLimit = parseInt(limit);
+    const sortCriteria = { [sortBy]: 1, _id: 1 };
 
-    let associatedQuery = { associate_id: { $ne: null } };
-    let localQuery = { associate_id: null };
+    //  Generate cache key
+    const cacheKey = generateCacheKey('getAllFarmers', { page, limit, sortBy, search, paginate });
 
-    if (search) {
-      const searchCondition = { name: { $regex: search, $options: 'i' } };
-      associatedQuery = { ...associatedQuery, ...searchCondition };
-      localQuery = { ...localQuery, ...searchCondition };
+    //  Check cache
+    const cached = getCache(cacheKey);
+    if (cached) {
+      return res.status(200).send({
+        status: 200,
+        data: cached,
+        message: "Farmers data retrieved successfully. (from cache)",
+      });
     }
 
-    const records = {
-      associatedFarmers: [],
-      localFarmers: [],
-      associatedFarmersCount: 0,
-      localFarmersCount: 0,
-    };
-    const sortCriteria = {
-      [sortBy]: 1,
-      _id: 1,
-    };
-    if (paginate) {
-      records.associatedFarmers = await farmer
-        .find(associatedQuery)
-        .populate('associate_id', '_id user_code')
-        .sort(sortCriteria)
-        .skip(skip)
-        .limit(parsedLimit)
+    const searchFilter = search ? { name: { $regex: search, $options: 'i' } } : {};
+    const associatedQuery = { associate_id: { $ne: null }, ...searchFilter };
+    const localQuery = { associate_id: null, ...searchFilter };
 
+    const [
+      associatedFarmers,
+      localFarmers,
+      associatedCount,
+      localCount
+    ] = await Promise.all([
+      paginate
+        ? farmer.find(associatedQuery).populate('associate_id', '_id user_code').sort(sortCriteria).skip(skip).limit(parsedLimit).lean()
+        : farmer.find(associatedQuery).populate('associate_id', '_id user_code').sort(sortCriteria).lean(),
 
-      records.localFarmers = await farmer
-        .find(localQuery)
-        .populate('associate_id', '_id user_code')
-        .sort(sortCriteria)
-        .skip(skip)
-        .limit(parsedLimit);
-    } else {
-      records.associatedFarmers = await farmer
-        .find(associatedQuery)
-        .populate('associate_id', '_id user_code')
-        .sort(sortCriteria);
+      paginate
+        ? farmer.find(localQuery).populate('associate_id', '_id user_code').sort(sortCriteria).skip(skip).limit(parsedLimit).lean()
+        : farmer.find(localQuery).populate('associate_id', '_id user_code').sort(sortCriteria).lean(),
 
-      records.localFarmers = await farmer
-        .find(localQuery)
-        .populate('associate_id', '_id user_code')
-        .sort(sortCriteria);
-    }
-    records.count = await farmer.countDocuments(associatedQuery);
-    records.localFarmersCount = await farmer.countDocuments(localQuery);
+      farmer.countDocuments(associatedQuery),
+      farmer.countDocuments(localQuery)
+    ]);
 
-
-    // Prepare response data
     const responseData = {
-      associatedFarmersCount: records.count,
-      localFarmersCount: records.localFarmersCount,
-      associatedFarmers: records.associatedFarmers,
-      localFarmers: records.localFarmers,
+      associatedFarmersCount: associatedCount,
+      localFarmersCount: localCount,
+      associatedFarmers,
+      localFarmers,
       page: parseInt(page),
       limit: parsedLimit,
-      totalPages: limit != 0 ? Math.ceil(records.associatedFarmersCount / limit) : 0,
+      totalPages: limit != 0 ? Math.ceil(associatedCount / limit) : 0,
     };
+
+    //  Set cache (safe because data is plain objects)
+    setCache(cacheKey, responseData, 300); // 5 mins TTL
+
     return res.status(200).send({
       status: 200,
       data: responseData,
@@ -2334,6 +2332,7 @@ module.exports.getAllFarmers = async (req, res) => {
     });
   }
 };
+
 
 
 module.exports.uploadFarmerDocument = async (req, res) => {
@@ -2860,4 +2859,15 @@ module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
   } catch (error) {
     _handleCatchErrors(error, res);
   }
+};
+
+
+
+
+
+
+
+
+function generateCacheKey  (prefix, params)  {
+  return `${prefix}:${Object.entries(params).sort().map(([k, v]) => `${k}=${v}`).join('&')}`;
 };
