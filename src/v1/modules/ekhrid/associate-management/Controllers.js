@@ -691,7 +691,8 @@ module.exports.associateFarmerList = async (req, res) => {
             const procurementCenterId = centerMap.get(procurement.mandiName) || null;
             const userId = userMap.get(agentName) || null;
 
-            const qty = (procurement.gatePassWeightQtl || 0) / 10;
+            // const qty = (procurement.gatePassWeightQtl || 0) / 10;
+            const qty = (procurement.JformFinalWeightQtl || 0) / 10;
 
             if (!groupMap[agentName]) {
                 groupMap[agentName] = {
@@ -1220,27 +1221,60 @@ module.exports.getBatchIds = async (req, res) => {
 
 module.exports.updateBatchIds = async (req, res) => {
     try {
-        const ekharidRecords = await eKharidHaryanaProcurementModel.find({
-            'procurementDetails.jformID': { $ne: null },
-            'warehouseData.exitGatePassId': { $ne: null },
-        });
+
+        const ekhridQuery = {
+            // 'procurementDetails.commisionAgentName': associateName,
+            "warehouseData.jformID": { $exists: true },
+            'warehouseData.exitGatePassId': { $exists: true },
+            "paymentDetails.jFormId": { $exists: true },
+            "procurementDetails.jformID": { $exists: true },
+            "procurementDetails.offerCreatedAt": { $exists: true },
+            $or: [
+                { "procurementDetails.batchIdUpdatedAt": null },
+                { "procurementDetails.batchIdUpdatedAt": { $exists: false } }
+            ]
+        };
+
+        const ekharidRecords = await eKharidHaryanaProcurementModel.find(ekhridQuery).limit(1);
+        console.log(ekharidRecords);
+
+        // return false;
 
         let updatedCount = 0;
         let notFoundList = [];
 
         for (const record of ekharidRecords) {
-            const { jformID, exitGatePassId } = record.procurementDetails;
+            // const jformID = record.procurementDetails?.jformID;
+            const gatePassID = record.procurementDetails?.gatePassID;
+            const exitGatePassId = record.warehouseData?.exitGatePassId;
+            console.log("exitGatePassId", exitGatePassId);
+            console.log("gatePassID", gatePassID);
+
+            if (!gatePassID || !exitGatePassId) {
+                notFoundList.push(gatePassID || 'Unknown');
+                continue;
+            }
 
             const updated = await Batch.findOneAndUpdate(
-                { jformId: jformID },
-                { $set: { batchId: exitGatePassId.toString(), batchIdUpdated:true } }
+                { batchId: gatePassID.toString() },  // match old ID
+                {
+                    $set: {
+                        batchId: exitGatePassId.toString(),
+                        batchIdUpdated: true
+                    }
+                }
             );
 
             if (updated) {
+                // Update procurementDetails.batchIdUpdatedAt
+                record.procurementDetails.batchIdUpdatedAt = new Date();
+                await record.save();
+
                 updatedCount++;
             } else {
-                notFoundList.push(jformID);
+                notFoundList.push(gatePassID);
             }
+
         }
 
         return res.status(200).json({

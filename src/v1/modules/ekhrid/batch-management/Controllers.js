@@ -95,7 +95,8 @@ module.exports.getFarmerOrders = async (req, res) => {
                         $push: {
                             farmerOrder_id: "$_id",
                             qty: "$offeredQty",
-                            gatePassId: "$gatePassID",
+                            gatePassId: "$gatePassID", // this will not be used as batchID
+                            exitGatePassId: "$procurementDetails.warehouseData.exitGatePassId", // fetch id by sangita this will be used as batchID
                             liftedDate: "$procurementDetails.procurementDetails.liftedDate",
                             gatePassDate: "$procurementDetails.procurementDetails.gatePassDate",
                             noOfBags: "$procurementDetails.procurementDetails.totalBags",
@@ -213,13 +214,15 @@ module.exports.createBatch = async (req, res) => {
             const qty_value = handleDecimal(farmer.qty);
             const total_price = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
             
+           // if exitGatePassId already than data should be updated instead of inserting new record, data will be pushed exiesting farmerOrderIds[]
             return {
                 insertOne: {
                     document: {
                         seller_id,
                         req_id,
                         associateOffer_id: record._id,
-                        batchId: farmer.gatePassId,
+                        // batchId: farmer.gatePassId,
+                        batchId: farmer.exitGatePassId,
                         gatePassId: farmer.gatePassId,
                         warehousedetails_id: warehouseDetails,
                         farmerOrderIds: [{

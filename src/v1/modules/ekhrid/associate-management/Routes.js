@@ -23,6 +23,6 @@ associateMngmntRoutes.get("/getEkhridJFormId", getEkhridJFormId);
 
 associateMngmntRoutes.get("/allPaymentOrders", allPaymentOrders );
 associateMngmntRoutes.get("/getBatchIds", getBatchIds );
-associateMngmntRoutes.get("updateBatchIds", updateBatchIds );
+associateMngmntRoutes.get("/updateBatchIds", updateBatchIds );
 
 module.exports = { associateMngmntRoutes }; 
