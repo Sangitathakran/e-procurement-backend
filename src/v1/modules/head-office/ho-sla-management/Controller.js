@@ -950,36 +950,169 @@ module.exports.getUniqueStates = async (req, res) => {
   }
 };
 
+// module.exports.getUniqueHOBOScheme = async (req, res) => {
+//   try {
+//     const data = await SchemeAssign.aggregate([
+//       {
+//         $match: {
+//           sla_id: { $exists: true, $ne: null }, // Ensure sla_id exists
+//           deletedAt: null, // Ensure deletedAt is null
+//         },
+//       },
+//       {
+//         $lookup: {
+//           from: "branches", // Reference Branch collection
+//           localField: "bo_id",
+//           foreignField: "_id",
+//           as: "boDetails",
+//         },
+//       },
+
+//       {
+//         $lookup: {
+//           from: "schemes", // Reference Scheme collection
+//           localField: "scheme_id",
+//           foreignField: "_id",
+//           as: "schemeDetails",
+//         },
+//       },
+//       // Unwind schemeDetails first
+
+// // Now lookup commodityDetails using the unwound schemeDetails.commodity_id
+// {
+//   $lookup: {
+//     from: 'commodities',
+//     localField: 'schemeDetails.commodity_id',
+//     foreignField: '_id',
+//     as: 'commodityDetails',
+//   },
+// },
+// {
+//   $unwind: {
+//     path: '$commodityDetails',
+//     preserveNullAndEmptyArrays: true,
+//   },
+// },
+
+//       {
+//         $group: {
+//           _id: null,
+
+//           bo: {
+//             $addToSet: {
+//               name: { $arrayElemAt: ["$boDetails.branchName", 0] },
+//               id: "$bo_id",
+//             },
+//           },
+//           scheme: {
+//             $addToSet: {
+//               id: "$scheme_id",
+//               name: {
+//                 $concat: [
+//                   {
+//                     $ifNull: [
+//                       { $arrayElemAt: ["$schemeDetails.schemeName", 0] },
+//                       "",
+//                     ],
+//                   },
+//                   "  ",
+//                   {
+//                     $ifNull: [
+//                       { $arrayElemAt: ["$commodityDetails.name", 0] },
+//                       "",
+//                     ],
+//                   },
+//                   "  ",
+//                   {
+//                     $ifNull: [
+//                       { $arrayElemAt: ["$schemeDetails.season", 0] },
+//                       "",
+//                     ],
+//                   },
+//                   "  ",
+//                   {
+//                     $ifNull: [
+//                       { $arrayElemAt: ["$schemeDetails.period", 0] },
+//                       "",
+//                     ],
+//                   },
+//                 ],
+//               },
+//             },
+//           },
+
+
+//           //  name: {
+//           //  $arrayElemAt: ["$schemeDetails.schemeName", 0] } }
+//           //  },
+//         },
+//       },
+//       {
+//         $project: { _id: 0, ho: 1, bo: 1, scheme: 1 },
+//       },
+//     ]);
+
+//     return res.status(200).json({
+//       status: 200,
+//       data: data.length > 0 ? data[0] : { ho: [], bo: [], scheme: [] },
+//     });
+//   } catch (error) {
+//     console.error("Aggregation Error:", error);
+//     return res
+//       .status(500)
+//       .json({ status: 500, message: "Internal Server Error" });
+//   }
+// };
+
+
 module.exports.getUniqueHOBOScheme = async (req, res) => {
   try {
     const data = await SchemeAssign.aggregate([
       {
         $match: {
-          sla_id: { $exists: true, $ne: null }, // Ensure sla_id exists
-          deletedAt: null, // Ensure deletedAt is null
+          sla_id: { $exists: true, $ne: null },
+          deletedAt: null,
         },
       },
       {
         $lookup: {
-          from: "branches", // Reference Branch collection
+          from: "branches",
           localField: "bo_id",
           foreignField: "_id",
           as: "boDetails",
         },
       },
-
       {
         $lookup: {
-          from: "schemes", // Reference Scheme collection
+          from: "schemes",
           localField: "scheme_id",
           foreignField: "_id",
           as: "schemeDetails",
         },
       },
       {
+        $unwind: {
+          path: "$schemeDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "commodities",
+          localField: "schemeDetails.commodity_id",
+          foreignField: "_id",
+          as: "commodityDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$commodityDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
         $group: {
           _id: null,
-
           bo: {
             $addToSet: {
               name: { $arrayElemAt: ["$boDetails.branchName", 0] },
@@ -991,39 +1124,26 @@ module.exports.getUniqueHOBOScheme = async (req, res) => {
               id: "$scheme_id",
               name: {
                 $concat: [
-                  {
-                    $ifNull: [
-                      { $arrayElemAt: ["$schemeDetails.schemeName", 0] },
-                      "",
-                    ],
-                  },
+                  { $ifNull: ["$schemeDetails.schemeName", ""] },
                   "  ",
-
-                  {
-                    $ifNull: [
-                      { $arrayElemAt: ["$schemeDetails.season", 0] },
-                      "",
-                    ],
-                  },
+                  { $ifNull: ["$commodityDetails.name", ""] },
                   "  ",
-                  {
-                    $ifNull: [
-                      { $arrayElemAt: ["$schemeDetails.period", 0] },
-                      "",
-                    ],
-                  },
+                  { $ifNull: ["$schemeDetails.season", ""] },
+                  "  ",
+                  { $ifNull: ["$schemeDetails.period", ""] },
                 ],
               },
             },
           },
-
-          //  name: {
-          //  $arrayElemAt: ["$schemeDetails.schemeName", 0] } }
-          //  },
         },
       },
       {
-        $project: { _id: 0, ho: 1, bo: 1, scheme: 1 },
+        $project: {
+          _id: 0,
+          ho: [],
+          bo: 1,
+          scheme: 1,
+        },
       },
     ]);
 
@@ -1032,7 +1152,7 @@ module.exports.getUniqueHOBOScheme = async (req, res) => {
       data: data.length > 0 ? data[0] : { ho: [], bo: [], scheme: [] },
     });
   } catch (error) {
-    console.error(error);
+    console.error("Aggregation Error:", error);
     return res
       .status(500)
       .json({ status: 500, message: "Internal Server Error" });
