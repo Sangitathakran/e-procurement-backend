@@ -115,13 +115,14 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
   const portalObjectId = new mongoose.Types.ObjectId(portalId);
   const userObjectId = new mongoose.Types.ObjectId(user_id);
+console.log('portlaId', portalId);
 
 
   if (scheme_id) {
     let matchQuery = {
       sla_id: { $exists: true },
       deletedAt: null,
-       "schemes.cna": { $in: [portalObjectId, userObjectId] }
+       "schemes.branch": { $in: [portalObjectId, userObjectId] }
     };
     //   if (bo_id) matchQuery.bo_id = new ObjectId(bo_id);
 
@@ -247,7 +248,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     {
       $match: {
         ...matchQuery,
-        "schemes.cna": { $in: [portalObjectId, userObjectId] }
+        "schemes.branch": { $in: [portalObjectId, userObjectId] }
       },
     },
     //   { $match: matchQuery },
@@ -294,7 +295,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     {
       $match: {
         ...matchQuery,
-        "schemes.cna": { $in: [portalObjectId, userObjectId] }
+        "schemes.branch": { $in: [portalObjectId, userObjectId] }
       },
     },
     { $count: "total" },
@@ -356,7 +357,12 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const updateData = req.body;
-    const userID = req.user._i
+   
+    const { portalId, user_id } = req;
+
+    const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
+    // const userID = req.user._i
 
     if (!slaId) {
       return res.status(400).json(new serviceResponse({
@@ -367,7 +373,7 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 
     // Find and update SLA
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID },
+      { $or: [{ slaId }, { _id: slaId }],   "schemes.branch": { $in: [portalObjectId, userObjectId] }},
       { $set: updateData },
       { new: true, runValidators: true } // Return updated doc
     );
@@ -397,65 +403,113 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params; // Get SLA ID from URL params
-    const userID = req.user._id
 
     if (!slaId) {
-      return res.status(400).json(new serviceResponse({
-        status: 400,
-        message: "SLA ID is required"
-      }));
+      return res.status(400).json(
+        new serviceResponse({
+          status: 400,
+          message: "SLA ID is required",
+        })
+      );
     }
 
     // Find SLA with selected fields
-    const sla = await SLAManagement.findOne(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID },
-      {
-        _id: 1,
-        slaId: 1,
-        "basic_details.name": 1,
-        associatOrder_id: 1,
-        address: 1,
-        status: 1
-      }
-    );
+    const sla = await SLAManagement.findById(slaId);
+   
 
     if (!sla) {
-      return res.status(404).json(new serviceResponse({
-        status: 404,
-        message: "SLA record not found"
-      }));
+      return res.status(404).json(
+        new serviceResponse({
+          status: 404,
+          message: "SLA record not found",
+        })
+      );
     }
 
-    // Transform response
-    const response = {
-      _id: sla._id,
-      slaId: sla.slaId,
-      sla_name: sla.basic_details.name,
-      accociate_count: sla.associatOrder_id.length,
-      address: `${sla.address.line1}, ${sla.address.city}, ${sla.address.state}, ${sla.address.country}`,
-      status: sla.status
-    };
-
-    return res.status(200).json(new serviceResponse({
-      status: 200,
-      message: "SLA record retrieved successfully",
-      data: response
-    }));
-
+    return res.status(200).json(
+      new serviceResponse({
+        status: 200,
+        message: "SLA record retrieved successfully",
+        data: sla,
+      })
+    );
   } catch (error) {
     console.error("Error fetching SLA:", error);
-    return res.status(500).json(new serviceResponse({
-      status: 500,
-      error: "Internal Server Error"
-    }));
+    return res.status(500).json(
+      new serviceResponse({
+        status: 500,
+        error: "Internal Server Error",
+      })
+    );
   }
 });
+
+// module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
+//   try {
+//     const { slaId } = req.params; // Get SLA ID from URL params
+//     // const userID = req.user._id
+
+//     if (!slaId) {
+//       return res.status(400).json(new serviceResponse({
+//         status: 400,
+//         message: "SLA ID is required"
+//       }));
+//     }
+
+//     // Find SLA with selected fields
+//     const sla = await SLAManagement.findOne(
+//       { $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID },
+//       {
+//         _id: 1,
+//         slaId: 1,
+//         "basic_details.name": 1,
+//         associatOrder_id: 1,
+//         address: 1,
+//         status: 1
+//       }
+//     );
+
+//     if (!sla) {
+//       return res.status(404).json(new serviceResponse({
+//         status: 404,
+//         message: "SLA record not found"
+//       }));
+//     }
+
+//     // Transform response
+//     const response = {
+//       _id: sla._id,
+//       slaId: sla.slaId,
+//       sla_name: sla.basic_details.name,
+//       accociate_count: sla.associatOrder_id.length,
+//       address: `${sla.address.line1}, ${sla.address.city}, ${sla.address.state}, ${sla.address.country}`,
+//       status: sla.status
+//     };
+
+//     return res.status(200).json(new serviceResponse({
+//       status: 200,
+//       message: "SLA record retrieved successfully",
+//       data: response
+//     }));
+
+//   } catch (error) {
+//     console.error("Error fetching SLA:", error);
+//     return res.status(500).json(new serviceResponse({
+//       status: 500,
+//       error: "Internal Server Error"
+//     }));
+//   }
+// });
 
 module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params; // Get SLA ID from URL params
     const { status } = req.body; // New status (true/false)
-    const userID = req.user._id
+    const { portalId, user_id } = req;
+    // const userID = req.user._id;
+    const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
+
 
     if (!slaId) {
       return res.status(400).json(new serviceResponse({
@@ -473,8 +527,8 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
 
     // Find and update SLA status
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID },
-      { $set: { status: status } },
+      { $or: [{ slaId }, { _id: slaId }],  "schemes.branch": { $in: [portalObjectId, userObjectId]}},
+      { $set: { status: status ? "active" : "inactive" } },
       { new: true }
     );
 
