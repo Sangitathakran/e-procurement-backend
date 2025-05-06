@@ -28,7 +28,8 @@ const {
   agentDashboardAssociateList,
   paymentWithoutAgreegation,
   agentDashboardAssociateListWOAggregation,
-  agentDashboardPaymentListWOAggregation
+  agentDashboardPaymentListWOAggregation,
+  proceedToPayPaymentNew
 } = require("./Controller");
 
 const { verifyAgent } = require("../utils/verifyAgent");
@@ -50,8 +51,8 @@ paymentRoutes.get(
 );
 paymentRoutes.get("/associate-req/batch-list", Auth, AssociateTabBatchList);
 
-// paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPaymentRequests);
-paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPayment);
+ //paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPaymentRequests);
+paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPaymentNew);
 paymentRoutes.get(
   "/proceed-to-pay-associate-orders",
   Auth,
