@@ -831,17 +831,15 @@ module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
 // start of prachi code
 module.exports.deleteRequirement = asyncErrorHandler(async (req, res) => {
     const { reqNo } = req.params;
+    
     const { confirm } = req.query;
-    // console.log("reqNo", reqNo);
-    // console.log("confirm", confirm)
 
     if (!reqNo) {
         return res.status(400).json({ message: "Requirement number (reqNo) is required in the URL." });
     }
 
     // Check for the record, regardless of isDeleted status
-    const record = await RequestModel.findOne({ reqNo });
-
+    const record = await RequestModel.findById( reqNo );
     if (!record) {
         return res.status(404).send(new serviceResponse({ 
             status: 404, 
