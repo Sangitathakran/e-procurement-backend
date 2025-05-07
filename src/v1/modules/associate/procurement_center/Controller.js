@@ -145,14 +145,14 @@ module.exports.getHoProcurementCenter = async (req, res) => {
             query["address.city"] = { $regex: city, $options: "i" };
         }
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await ProcurementCenter.find(query)
+        records.rows = (paginate == 1 && isExport != 1)  ? await ProcurementCenter.find(query)
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await ProcurementCenter.find(query).sort(sortBy);
 
         records.count = await ProcurementCenter.countDocuments(query);
 
-        if (paginate == 1) {
+        if (paginate == 1 && isExport != 1) {
             records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
@@ -162,22 +162,42 @@ module.exports.getHoProcurementCenter = async (req, res) => {
 
         if (isExport == 1) {
 
+            // const record = records.rows.map((item) => {
+            //     return {
+            //         "Address Line 1": item?.address?.line1 || 'NA',
+            //         "Address Line 2": item?.address?.line2 || 'NA',
+            //         "Country": item?.address?.country || 'NA',
+            //         "State": item?.address?.country || 'NA',
+            //         "District": item?.address?.district || 'NA',
+            //         "City": item?.address?.city || 'NA',
+            //         "PIN Code": item?.address?.postalCode || 'NA',
+            //         "Name": item?.point_of_contact?.name || 'NA',
+            //         "Email": item?.point_of_contact?.email || 'NA',
+            //         "Mobile": item?.point_of_contact?.mobile || 'NA',
+            //         "Designation": item?.point_of_contact?.designation || 'NA',
+            //         "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
+            //     }
+            // })
+
             const record = records.rows.map((item) => {
                 return {
-                    "Address Line 1": item?.address?.line1 || 'NA',
-                    "Address Line 2": item?.address?.line2 || 'NA',
-                    "Country": item?.address?.country || 'NA',
-                    "State": item?.address?.country || 'NA',
-                    "District": item?.address?.district || 'NA',
-                    "City": item?.address?.city || 'NA',
-                    "PIN Code": item?.address?.postalCode || 'NA',
-                    "Name": item?.point_of_contact?.name || 'NA',
-                    "Email": item?.point_of_contact?.email || 'NA',
-                    "Mobile": item?.point_of_contact?.mobile || 'NA',
-                    "Designation": item?.point_of_contact?.designation || 'NA',
-                    "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
-                }
-            })
+                  "CENTER ID": item?.center_code || "NA",
+                  "CENTER TYPE": item?.center_code || "NA",
+                  "CENTER NAME": item?.center_code || "NA",
+                  CONTACT: item?.point_of_contact?.mobile || "NA",
+                  EMAIL: item?.point_of_contact?.email || "NA",
+                  State: item?.address?.country || "NA",
+                  City: item?.address?.city || "NA",
+                  "POINT OF CONTACT": item?.point_of_contact?.name || "NA",
+                  // "Address Line 1": item?.address?.line1 || "NA",
+                  // "Address Line 2": item?.address?.line2 || "NA",
+                  // Country: item?.address?.country || "NA",
+                  // District: item?.address?.district || "NA",
+                  // "PIN Code": item?.address?.postalCode || "NA",
+                  // Designation: item?.point_of_contact?.designation || "NA",
+                  // "Aadhar Number": item?.point_of_contact?.aadhar_number || "NA",
+                };
+              });
                       
             if (record.length > 0) {
                 dumpJSONToExcel(req, res, {

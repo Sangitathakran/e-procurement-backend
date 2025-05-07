@@ -116,11 +116,10 @@ module.exports.farmerList = async (req, res) => {
     if (isExport == 1) {
       records.rows = await farmer
         .find(query)
-        .select("farmer_code farmer_id name parents mobile_no address basic_details associate_id")
+        .select("farmer_code farmer_id name parents mobile_no address basic_details associate_id bank_details land_details crop_details")
         .populate({ path: "associate_id", select: "user_code" })
         .sort(sortBy)
         .lean();
-
       const data = records.rows.map((item) => {
         const address = {
           country: item.address?.country || "",
@@ -158,8 +157,20 @@ module.exports.farmerList = async (req, res) => {
           "Farmer ID": item?.farmer_id || "NA",
           "Farmer Name": item?.farmer_name || "NA",
           "Father/Spouse Name": item?.father_spouse_name || "NA",
+          "Mother Name": item?.parents?.mother_name || "NA",
           "Mobile Number": item?.mobile_no || "NA",
+          "Email": item?.basic_details?.email || "NA",
+          "Category": item?.basic_details?.category || "NA",
+          "Age": item?.basic_details?.age || "NA",
+          "Farmer Type": item?.basic_details?.farmer_type || "NA",
+          "Gender": item?.basic_details?.gender || "NA",
           Address: addressString || "NA",
+          "Land Details" : item?.land_details || "NA",
+          "Crop Details" : item?. crop_details || "NA",
+          "Bank Name" : item?.bank_details?.bank_name || "NA",
+          "Account Holder Name" : item?.bank_details?.account_holder_name || "NA",
+          "IFSC Code" : item?.bank_details?.ifsc_code || "NA",
+          "Account Number" : item?.bank_details?.account_no || "NA"
         };
       });
 

@@ -1853,7 +1853,7 @@ module.exports.associateOrders = async (req, res) => {
       const record = exportRows.map((item) => ({
         "Associate ID": item?.seller_id?.user_code || 'NA',
         "Associate Type": item?.seller_id?.basic_details?.associate_details?.associate_type || 'NA',
-        "Associate Name": item?.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
+        "Organization Name": item?.seller_id?.basic_details?.associate_details?.associate_name || 'NA',
         "Quantity Purchased": item?.procuredQty || 'NA'
       }));
 
@@ -4437,11 +4437,17 @@ if (cachedData && isExport != 1) {
 
     // Step 8: Export if needed
     if (isExport == 1) {
+
       const exportData = rows.map(item => ({
-        "Associate Id": item?.seller_id?.user_code || "NA",
-        "Associate Type": item?.seller_id?.basic_details?.associate_details?.associate_type || "NA",
-        "Associate Name": item?.associateName || "NA",
-        "Quantity Purchased": item?.qtyPurchased || "NA",
+        "BATCH ID": item?.batchId || "NA",
+        "ASSOCIATE NAME": item?.associateName || "NA",
+        "DELIVERY DATE": item?.deliveryDate || "NA",
+        "QUANTITY PURCHASED": item?.qtyPurchased || "NA",
+        "AMOUNT PAYABLE": item?.amountPayable || "NA",
+        "WHR Number": item?.whrNumber || "NA",
+        "TAGS": item?.tags || "NA",
+        "PAYMENT STATUS": item?.payment_status || "NA",
+        "APPROVAL STATUS": item?.approval_status || "NA",
       }));
 
       if (exportData.length > 0) {
@@ -4594,24 +4600,29 @@ module.exports.batchListWOAggregation = async (req, res) => {
     records.count = batches.length;
 
     // Pagination
-    if (paginate == 1) {
+    if (paginate == 1 && isExport != 1) {
       const paginated = batches.slice(skip, skip + parseInt(limit));
       records.rows = paginated;
       records.page = parseInt(page);
       records.limit = parseInt(limit);
       records.pages = Math.ceil(records.count / limit);
-    } else {
+     } 
+    else {
       records.rows = batches;
     }
-
     if (isExport == 1) {
       const exportData = batches.map(item => ({
-        "Associate Id": item?.seller_id?.user_code || "NA",
-        "Associate Type": item?.seller_id?.basic_details?.associate_details?.associate_type || "NA",
-        "Associate Name": item?.seller_id?.basic_details?.associate_details?.associate_name || "NA",
-        "Quantity Purchased": item?.offeredQty || "NA",
+        "BATCH ID": item?.batchId || "NA",
+        "PROCURED ON": item?.procuredOn || "NA",
+        "DELIEVERY DATE": item?.deliveryDate || "NA",
+        "QUANTITY PURCHASED": item?.qtyPurchased || "NA",
+        "AMOUNT PAYABLE": item?.amountPayable || "NA",
+        "WHR NO": item?.whr_no || "NA",
+        "TAGS": item?.tags || "NA",
+        "APPROVAL STATUS": item?.approval_status || "NA",
+       
       }));
-
+      
       if (exportData.length) {
         dumpJSONToExcel(req, res, {
           data: exportData,
@@ -5031,14 +5042,14 @@ for (const req of requests) {
     if (isExport != 1) {
       setCache(cacheKey, response, 300); // 5 mins
     }
-
+    console.log("response",response.rows);
     if (isExport == 1) {
-      const exportRecords = await RequestModel.aggregate([
-        ...aggregationPipeline,
-      ]);
-      const record = exportRecords.map(item => ({
+      // const exportRecords = await RequestModel.aggregate([
+      //   ...enrichedRequests,
+      // ]);
+      const record = response.rows.map(item => ({
         'Order ID': item?.reqNo || 'NA',
-        'BRANCH ID': item?.branchDetails[0]?.branchId || 'NA',
+        'BRANCH ID': item?.branchDetails?.branchId || 'NA',
         SCHEME: item?.scheme?.schemeName || 'NA',
         SLA: item?.slaName || 'NA',
         COMMODITY: item?.product?.name || 'NA',
