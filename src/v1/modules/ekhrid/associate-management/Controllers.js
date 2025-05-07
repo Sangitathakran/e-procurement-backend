@@ -691,7 +691,8 @@ module.exports.associateFarmerList = async (req, res) => {
             const procurementCenterId = centerMap.get(procurement.mandiName) || null;
             const userId = userMap.get(agentName) || null;
 
-            const qty = (procurement.gatePassWeightQtl || 0) / 10;
+            // const qty = (procurement.gatePassWeightQtl || 0) / 10;
+            const qty = (procurement.JformFinalWeightQtl || 0) / 10;
 
             if (!groupMap[agentName]) {
                 groupMap[agentName] = {
@@ -1106,7 +1107,7 @@ module.exports.totalQty = async (req, res) => {
         ]);
         const totalQtl = result[0]?.totalGatePassWeightQtl || 0;
         const totalMT = totalQtl / 10;
-        // const totalAmount = totalMT * 22250;
+      
         const totalAmount = totalMT * 59500;
         res.json({
             totalGatePassWeightQtl: totalQtl,
@@ -1151,10 +1152,10 @@ module.exports.allPaymentOrders = async (req, res) => {
                     id: f?.farmerOrder_id?.order_no || 'NA',
                     name: f?.farmerOrder_id?.metaData?.name || 'NA'
                 })) || [];
-                          
+
                 const farmerIds = farmerOrders.map(f => f.id).join(", ");
                 const farmerNames = farmerOrders.map(f => f.name).join(", ");
-               
+
                 return {
                     "Order Id": item?.req_id?.reqNo || "NA",
                     "Batch Id": item?.batchId || "NA",
@@ -1187,5 +1188,105 @@ module.exports.allPaymentOrders = async (req, res) => {
     } catch (error) {
         console.error("Error in totalQty:", error);
         _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.getBatchIds = async (req, res) => {
+    try {
+
+        const query = {
+            "ekhridBatch": { $exists: true },
+            batchIdUpdated: null,
+            bo_approve_status: _paymentApproval.approved,
+            ho_approve_status: _paymentApproval.approved,
+        };
+
+        const records = { count: 0 };
+        records.count = await Batch.countDocuments(query);
+        records.rows = await Batch.find(query).select({ batchId: 1, _id: 0 }).limit(300).lean();
+
+        return res.send(
+            new serviceResponse({
+                status: 200,
+                data: records,
+                message: _response_message.found("BatchID"),
+            })
+        );
+
+    } catch (error) {
+        console.error("Error in totalQty:", error);
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.updateBatchIds = async (req, res) => {
+    try {
+
+        const ekhridQuery = {
+            // 'procurementDetails.commisionAgentName': associateName,
+            "warehouseData.jformID": { $exists: true },
+            'warehouseData.exitGatePassId': { $exists: true },
+            "paymentDetails.jFormId": { $exists: true },
+            "procurementDetails.jformID": { $exists: true },
+            "procurementDetails.offerCreatedAt": { $exists: true },
+            $or: [
+                { "procurementDetails.batchIdUpdatedAt": null },
+                { "procurementDetails.batchIdUpdatedAt": { $exists: false } }
+            ]
+        };
+
+        const ekharidRecords = await eKharidHaryanaProcurementModel.find(ekhridQuery).limit(1);
+        console.log(ekharidRecords);
+
+        // return false;
+
+        let updatedCount = 0;
+        let notFoundList = [];
+
+        for (const record of ekharidRecords) {
+            // const jformID = record.procurementDetails?.jformID;
+            const gatePassID = record.procurementDetails?.gatePassID;
+            const exitGatePassId = record.warehouseData?.exitGatePassId;
+            console.log("exitGatePassId", exitGatePassId);
+            console.log("gatePassID", gatePassID);
+
+            if (!gatePassID || !exitGatePassId) {
+                notFoundList.push(gatePassID || 'Unknown');
+                continue;
+            }
+
+            const updated = await Batch.findOneAndUpdate(
+                { batchId: gatePassID.toString() },  // match old ID
+                {
+                    $set: {
+                        batchId: exitGatePassId.toString(),
+                        batchIdUpdated: true
+                    }
+                }
+            );
+
+            if (updated) {
+                // Update procurementDetails.batchIdUpdatedAt
+                record.procurementDetails.batchIdUpdatedAt = new Date();
+                await record.save();
+
+                updatedCount++;
+            } else {
+                notFoundList.push(gatePassID);
+            }
+
+        }
+
+        return res.status(200).json({
+            message: `${updatedCount} batch records updated.`,
+            notMatchedJformIds: notFoundList,
+        });
+
+    } catch (error) {
+        console.error('Error in updateBatchIdsFromEKharid:', error);
+        return res.status(500).json({
+            message: 'Internal Server Error',
+            error: error.message,
+        });
     }
 };
