@@ -43,7 +43,7 @@ module.exports.payment = async (req, res) => {
         //console.log("userId", user_id);
 
 
-       // console.log("payment", paymentIds.length);
+        // console.log("payment", paymentIds.length);
 
         // const paymentIds = (await Payment.find()).map(i => i.req_id)
 
@@ -114,27 +114,27 @@ module.exports.payment = async (req, res) => {
 
             {
                 $match: {
-                  $expr: {
-                    $allElementsTrue: {
-                      $map: {
-                        input: "$batches",
-                        as: "batch",
-                        in: {
-                          $allElementsTrue: {
+                    $expr: {
+                        $allElementsTrue: {
                             $map: {
-                              input: "$$batch.payment",
-                              as: "pay",
-                              in: { $eq: ["$$pay.payment_status", "Approved"] }
+                                input: "$batches",
+                                as: "batch",
+                                in: {
+                                    $allElementsTrue: {
+                                        $map: {
+                                            input: "$$batch.payment",
+                                            as: "pay",
+                                            in: { $eq: ["$$pay.payment_status", "Approved"] }
+                                        }
+                                    }
+                                }
                             }
-                          }
                         }
-                      }
                     }
-                  }
                 }
-              },              
+            },
 
-              
+
             {
                 $addFields: {
                     approval_status: {
@@ -1858,12 +1858,12 @@ module.exports.agentPayments = async (req, res) => {
 
         let query = search ? {
             $or: [
-              { reqNo: { $regex: search, $options: 'i' } },
-              { branchId: { $regex: search, $options: 'i' } },
-              { productName: { $regex: search, $options: 'i' } }
+                { reqNo: { $regex: search, $options: 'i' } },
+                { branchId: { $regex: search, $options: 'i' } },
+                { productName: { $regex: search, $options: 'i' } }
             ]
-          } : {};
-          
+        } : {};
+
         const records = { count: 0 };
 
         records.rows = paginate == 1 ? await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
@@ -2186,7 +2186,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
         let query = {
             _id: { $in: paymentIds }
         };
-        
+
         if (search) {
             query.$or = [
                 { reqNo: { $regex: search, $options: 'i' } },
@@ -3151,19 +3151,19 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
             }
             : {};
 
-            let query = {}
-        
-        if (approve_status = "Approved"){
-             query = {
+        let query = {}
+
+        if (approve_status = "Approved") {
+            query = {
                 _id: "67e1524fad7ee1581f97ac64"
             };
         }
-        else{
+        else {
             const paymentIds = (await Payment.find({}, 'req_id')).map(i => i.req_id);
-             query = {
-                    _id: { $in: paymentIds },
-                    ...searchQuery
-                };
+            query = {
+                _id: { $in: paymentIds },
+                ...searchQuery
+            };
         }
 
         // Step 3: Fetch Requests
@@ -3467,6 +3467,7 @@ module.exports.agentDashboardAssociateListWOAggregation = async (req, res) => {
     }
 };
 
+/*
 module.exports.agentDashboardPaymentListWOAggregation = async (req, res) => {
     try {
         let { sortBy = { createdAt: -1 }, limit = 5, skip = 0 } = req.query;
@@ -3494,8 +3495,7 @@ module.exports.agentDashboardPaymentListWOAggregation = async (req, res) => {
             .select('req_id qtyProcured createdAt payment_status') // Only fetch necessary fields
             .populate({path: 'req_id', select: 'reqNo _id'}) // Populate req_id with reqNo and _id
             .lean(); // lean() for performance improvement (plain JS objects)
-
-            console.log(agentInvoices);
+      
         // 3. Fetch associated Requests for these paymentIds
         const requests = await RequestModel.find({ _id: { $in: paymentIds } })
             .select('reqNo _id')
@@ -3544,6 +3544,83 @@ module.exports.agentDashboardPaymentListWOAggregation = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+*/
+
+module.exports.agentDashboardPaymentListWOAggregation = async (req, res) => {
+    try {
+        let { sortBy = { createdAt: -1 }, limit = 5, skip = 0 } = req.query;
+        limit = parseInt(limit);
+        skip = parseInt(skip);
+
+        // 1. Get all req_ids from payments
+        const paymentIds = await Payment.distinct('req_id');
+        if (!paymentIds.length) {
+            return res.status(200).send(
+                new serviceResponse({
+                    status: 200,
+                    data: { rows: [] },
+                    message: 'No Payments Found',
+                })
+            );
+        }
+
+        // 2. Get AgentInvoices and populate req_id with reqNo
+        const agentInvoices = await AgentInvoice.find({ req_id: { $in: paymentIds } })
+            .select('req_id qtyProcured createdAt payment_status')
+            .populate({
+                path: 'req_id',
+                select: 'reqNo',
+                model: 'Request'
+            })
+            .lean();
+
+        // 3. Filter out invoices where req_id failed to populate
+        const validInvoices = agentInvoices.filter(invoice => invoice.req_id && invoice.req_id.reqNo);
+
+        // 4. Transform invoice data
+        const finalRecords = validInvoices.map(invoice => {
+            const billing_month = invoice.createdAt
+                ? new Date(invoice.createdAt).toLocaleString('default', { month: 'long' })
+                : null;
+
+            return {
+                _id: invoice._id,
+                order_id: invoice.req_id.reqNo,
+                quantity_procured: invoice.qtyProcured || 0,
+                billing_month,
+                payment_status: invoice.payment_status,
+            };
+        });
+
+        // 5. Sort and paginate
+        const sortOrder = sortBy.createdAt || -1;
+        const sortedRecords = finalRecords.sort((a, b) => {
+            return sortOrder * (
+                new Date(billing_monthToDate(b.billing_month)) -
+                new Date(billing_monthToDate(a.billing_month))
+            );
+        });
+
+        const paginatedRecords = sortedRecords.slice(skip, skip + limit);
+
+        return res.status(200).send(
+            new serviceResponse({
+                status: 200,
+                data: { rows: paginatedRecords },
+                message: _response_message.found('Invoice'),
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+// Helper: Convert month string to a sortable date
+// function billing_monthToDate(monthName) {
+//     if (!monthName) return new Date(0);
+//     return new Date(`01 ${monthName} 2020`);
+// }
+
 
 // Helper function to format date as "dd/mm/yyyy"
 function formatDate(date) {
