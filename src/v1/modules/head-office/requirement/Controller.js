@@ -410,7 +410,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
       {
         $lookup: {
           from: 'commodities',
-          localField: 'commodity_id',
+          localField: 'schemeDetails.commodity_id',
           foreignField: '_id',
           as: 'commodityDetails',
         },
@@ -438,10 +438,11 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
           slaName: "$slaDetails.basic_details.name",
           schemeSeason:"$schemeDetails.season",
           schemeYear:"$schemeDetails.period",
+          commodityName: "$commodityDetails.name",
           schemeName: {
             $concat: [
-              "$schemeDetails.schemeName", "",
-              { $ifNull: ["$commodityDetails.name", ""] }, "",
+              "$schemeDetails.schemeName", " ",
+              { $ifNull: ["$commodityDetails.name", ""] }, " ",
               { $ifNull: ["$schemeDetails.season", ""] }, " ",
               { $ifNull: ["$schemeDetails.period", ""] },
             ],
@@ -449,7 +450,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
         },
       },
     ];
-
+     console.log("aggregateQuery",aggregateQuery);
     const records = await RequestModel.aggregate(aggregateQuery);
     console.log("Records fetched:", records.length);
 
@@ -565,8 +566,8 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
 
     const query = { req_id: requirementId };
 
-    // Get total count FIRST
-    records.count = await Batch.countDocuments(query);
+    // // Get total count FIRST
+     records.count = await Batch.countDocuments(query);
 
     records.rows = await Batch.find({ req_id: requirementId })
       .select('batchId qty delivered status')
