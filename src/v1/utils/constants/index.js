@@ -59,6 +59,7 @@ const _collectionName = {
     commodityStandard:"commodityStandard",
     SchemeAssign: "SchemeAssign",
     ClientToken : "ClientToken",
+    centerProjection: "centerProjection",
 
 }
 
