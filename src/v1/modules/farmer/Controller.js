@@ -2126,7 +2126,9 @@ module.exports.individualfarmerList = async (req, res) => {
 };
 
 const getAddress = async (item) => {
+
   return {
+
     address_line: item?.address?.address_line || (`${item?.address?.address_line_1} ${item?.address?.address_line_2}`),
     village: item?.address?.village || " ",
     block: item?.address?.block || " ",
@@ -2168,7 +2170,7 @@ const getDistrict = async (districtId) => {
 
 
   ])
-  return district[0].district
+  return district[0]?.district
 
 }
 
@@ -2204,6 +2206,7 @@ const getState = async (stateId) => {
   ])
   return state[0].state
 }
+
 
 module.exports.makeAssociateFarmer = async (req, res) => {
   try {
@@ -2263,7 +2266,7 @@ module.exports.getAllFarmers = async (req, res) => {
 
     let associatedQuery = { associate_id: { $ne: null } };
     let localQuery = { associate_id: null };
-
+   
     if (search) {
       const searchCondition = { name: { $regex: search, $options: 'i' } };
       associatedQuery = { ...associatedQuery, ...searchCondition };
@@ -2309,17 +2312,34 @@ module.exports.getAllFarmers = async (req, res) => {
     records.count = await farmer.countDocuments(associatedQuery);
     records.localFarmersCount = await farmer.countDocuments(localQuery);
 
+   // const getData = await getAddress(records.localFarmers[1]);
+  // for fetching address detail for farmer
+    const newAssociateFarmer = await Promise.all(
+      records.associatedFarmers.map(async(farmer)=>{
+        const newAddress = await getAddress(farmer)
+        return {farmer, updatedFarmerAddress:{...farmer.address, ...newAddress}}
+      })
+    )
+
+  //for fetching address details for localfarmer
+  const newLocalFarmer = await Promise.all(
+    records.localFarmers.map(async(farmer)=>{
+      const newAddress = await getAddress(farmer)
+      return {farmer, updatedLocalAddress:{...farmer.address, ...newAddress}}
+    })
+  )
 
     // Prepare response data
     const responseData = {
       associatedFarmersCount: records.count,
       localFarmersCount: records.localFarmersCount,
-      associatedFarmers: records.associatedFarmers,
-      localFarmers: records.localFarmers,
+      associatedFarmers: newAssociateFarmer,
+      localFarmers: newLocalFarmer,
       page: parseInt(page),
       limit: parsedLimit,
       totalPages: limit != 0 ? Math.ceil(records.associatedFarmersCount / limit) : 0,
     };
+
     return res.status(200).send({
       status: 200,
       data: responseData,
