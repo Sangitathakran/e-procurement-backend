@@ -7,7 +7,7 @@ const {
   getMonthlyPaidAmount,
   getPublicStates,
   getPublicDistrictByState,
-  getCompanyNames, bulkuplodCenterProjection,
+  getCompanyNames,
 } = require("./Controller");
 const express = require("express");
 const { Auth } = require("@src/v1/middlewares/jwt");
@@ -23,6 +23,5 @@ nccfDashboardRoutes.get("/companyNames", Auth, getCompanyNames);
 nccfDashboardRoutes.get("/payment-disteller", Auth, getMonthlyPaidAmount);
 nccfDashboardRoutes.get("/global-states", getPublicStates);
 nccfDashboardRoutes.get("/global-district/:id", getPublicDistrictByState);
-nccfDashboardRoutes.post("/bulkuplod-projection", bulkuplodCenterProjection);
 
 module.exports = { nccfDashboardRoutes };
