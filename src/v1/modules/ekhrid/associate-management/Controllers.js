@@ -616,7 +616,8 @@ module.exports.getProcurementCenterTesting = async (req, res) => {
 };
 
 module.exports.associateFarmerList = async (req, res) => {
-    let jfomIds = jformIds.slice(0, 300);
+    let jfomIds = jformIds.slice(0, 30000);
+    
     const { associateName } = req.body;
 
     try {
@@ -635,15 +636,14 @@ module.exports.associateFarmerList = async (req, res) => {
             "warehouseData.jformID": { $exists: true },
             "paymentDetails.jFormId": { $exists: true },
             "procurementDetails.jformID": { $exists: true },
-            // "warehouseData.exitGatePassId": 85,
+            "procurementDetails.jformID": { $in : jfomIds },
             $or: [
                 { "procurementDetails.offerCreatedAt": null },
                 { "procurementDetails.offerCreatedAt": { $exists: false } }
             ]
         };
-        jfomIds.forEach( (id) => { query['procurementDetails.jformID'] = parseInt(id)} );
-        return res.json( { query});
-
+        // jfomIds.forEach( (id) => { query['procurementDetails.jformID'] = parseInt(id)} );
+        // return res.json( { query});
 
         const procurements = await eKharidHaryanaProcurementModel.find(query).limit(300).lean();
         // const procurements = await eKharidHaryanaProcurementModel.find(query).lean();
@@ -719,8 +719,8 @@ module.exports.associateFarmerList = async (req, res) => {
             group.farmer_data.push({
                 _id: farmerObj?._id || null,
                 qty,
-                gatePassID: procurement.gatePassID,
-                exitGatePassId: warehouseData.exitGatePassId,
+                // gatePassID: procurement.gatePassID,
+                // exitGatePassId: warehouseData.exitGatePassId,
                 jformID: procurement.jformID,
                 jformDate: procurement.jformDate,
                 procurementId: procurementCenterId
@@ -774,6 +774,7 @@ module.exports.associateFarmerList = async (req, res) => {
     }
 };
 
+/*
 module.exports.createOfferOrder = async (req, res) => {
     try {
         const { req_id, seller_id, farmer_data = [], qtyOffered } = req.body;
@@ -935,6 +936,139 @@ module.exports.createOfferOrder = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+*/
+
+module.exports.createOfferOrder = async (req, res) => {
+    try {
+        const { req_id, seller_id, farmer_data = [], qtyOffered } = req.body;
+
+        const existingProcurementRecord = await RequestModel.findOne(
+            { _id: new mongoose.Types.ObjectId(req_id) },
+            { fulfilledQty: 1, product: 1 }
+        ).lean();
+
+        if (!existingProcurementRecord) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }));
+        }
+
+        const existingRecord = await AssociateOffers.findOne(
+            { seller_id: new mongoose.Types.ObjectId(seller_id), req_id: new mongoose.Types.ObjectId(req_id) },
+            { offeredQty: 1 }
+        ).lean();
+
+        const sumOfFarmerQty = farmer_data.reduce((acc, curr) => acc + curr.qty, 0);
+        if (handleDecimal(sumOfFarmerQty) !== handleDecimal(qtyOffered)) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Please check details! Quantity mismatched" }] }));
+        }
+
+        const { fulfilledQty, product } = existingProcurementRecord;
+
+        // Fetch all farmers in a single query
+        const farmerIds = farmer_data.map(f => new mongoose.Types.ObjectId(f._id));
+        const farmers = await farmer.find({ _id: { $in: farmerIds } }).lean();
+        const farmerMap = new Map(farmers.map(f => [f._id.toString(), f]));
+
+        // Fetch eKharid records using jformIDs
+        const jformIDs = farmer_data.map(f => f.jformID).filter(Boolean);
+        const eKharidRecords = await eKharidHaryanaProcurementModel.find({
+            "procurementDetails.jformID": { $in: jformIDs }
+        }).lean();
+
+        const eKharidMapByJformID = new Map(
+            eKharidRecords.map(r => [r.procurementDetails.jformID, r])
+        );
+
+        let associateOfferRecord = existingRecord;
+
+        if (existingRecord) {
+            const updatedQty = (existingRecord.offeredQty || 0) + qtyOffered;
+            await AssociateOffers.updateOne(
+                { _id: existingRecord._id },
+                {
+                    offeredQty: updatedQty,
+                    procuredQty: updatedQty
+                }
+            );
+        } else {
+            associateOfferRecord = await AssociateOffers.create({
+                seller_id,
+                req_id,
+                offeredQty: qtyOffered,
+                procuredQty: qtyOffered,
+                createdBy: seller_id,
+                status: _associateOfferStatus.accepted
+            });
+        }
+
+        const updatedFulfilledQty = fulfilledQty + sumOfFarmerQty;
+        let newStatus = _requestStatus.fulfilled;
+
+        await RequestModel.updateOne({ _id: req_id }, { fulfilledQty: updatedFulfilledQty, status: newStatus });
+
+        const farmerOrdersToInsert = [];
+        const farmerOffersToInsert = [];
+        const eKharidUpdates = [];
+
+        for (let harvester of farmer_data) {
+            const existingFarmer = farmerMap.get(harvester._id.toString());
+            if (!existingFarmer) continue;
+
+            const eKharidRecord = eKharidMapByJformID.get(harvester.jformID);
+            if (!eKharidRecord) continue;
+
+            const procurementDetails = eKharidRecord.procurementDetails;
+            const warehouseData = eKharidRecord.warehouseData;
+
+            const metaData = {
+                name: existingFarmer.name,
+                father_name: existingFarmer.father_name,
+                address_line: existingFarmer.address_line,
+                mobile_no: existingFarmer.mobile_no,
+                farmer_code: existingFarmer.farmer_code
+            };
+
+            farmerOrdersToInsert.push({
+                associateOffers_id: associateOfferRecord._id,
+                farmer_id: harvester._id,
+                metaData,
+                offeredQty: handleDecimal(harvester.qty),
+                order_no: harvester.jformID,
+                status: _procuredStatus.received,
+                gatePassID: procurementDetails.gatePassID || null,
+                exitGatePassId: warehouseData.exitGatePassId || null,
+                createdAt: harvester.createdAt,
+                procurementCenter_id: harvester.procurementId,
+                ekhrid: true
+            });
+
+            farmerOffersToInsert.push({
+                associateOffers_id: associateOfferRecord._id,
+                farmer_id: harvester._id,
+                metaData,
+                offeredQty: handleDecimal(harvester.qty),
+                createdBy: seller_id,
+                ekhrid: true
+            });
+
+            eKharidUpdates.push({
+                updateOne: {
+                    filter: { "procurementDetails.jformID": harvester.jformID },
+                    update: { $set: { "procurementDetails.offerCreatedAt": new Date() } }
+                }
+            });
+        }
+
+        if (farmerOrdersToInsert.length) await FarmerOrders.insertMany(farmerOrdersToInsert);
+        if (farmerOffersToInsert.length) await FarmerOffers.insertMany(farmerOffersToInsert);
+        if (eKharidUpdates.length) await eKharidHaryanaProcurementModel.bulkWrite(eKharidUpdates);
+
+        res.status(200).send(new serviceResponse({ status: 200, message: "Offer created successfully" }));
+    } catch (error) {
+        console.error("❌ Error in createOfferOrder:", error);
+        _handleCatchErrors(error, res);
+    }
+};
+
 
 module.exports.getEkhridJFormId = async (req, res) => {
     try {
