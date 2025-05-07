@@ -639,7 +639,7 @@ module.exports.associateFarmerList = async (req, res) => {
             ]
         };
 
-        const procurements = await eKharidHaryanaProcurementModel.find(query).limit(300).lean();
+        const procurements = await eKharidHaryanaProcurementModel.find(query).limit(1).lean();
         // const procurements = await eKharidHaryanaProcurementModel.find(query).lean();
         // console.log(procurements.length);
         if (!procurements.length) return [];
