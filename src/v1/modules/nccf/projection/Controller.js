@@ -18,7 +18,9 @@ const {
         limit = 10,
         sortBy = 'createdAt',
         sortOrder = 'desc',
-        search = ''
+        search = '',
+        state = '',
+        district = ''
       } = req.query;
   
       const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -31,6 +33,13 @@ const {
           { district: { $regex: search, $options: 'i' } },
           { center_location: { $regex: search, $options: 'i' } },
         ];
+      }
+      if (state) {
+        query.state = { $regex: state, $options: 'i' };
+      }
+  
+      if (district) {
+        query.district = { $regex: district, $options: 'i' };
       }
   
       const [total, data] = await Promise.all([
