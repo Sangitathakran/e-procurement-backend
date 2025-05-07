@@ -3492,8 +3492,10 @@ module.exports.agentDashboardPaymentListWOAggregation = async (req, res) => {
         // 2. Fetch AgentInvoice documents (requests info needs to be joined with lookup)
         const agentInvoices = await AgentInvoice.find(query)
             .select('req_id qtyProcured createdAt payment_status') // Only fetch necessary fields
+            .populate({path: 'req_id', select: 'reqNo _id'}) // Populate req_id with reqNo and _id
             .lean(); // lean() for performance improvement (plain JS objects)
 
+            console.log(agentInvoices);
         // 3. Fetch associated Requests for these paymentIds
         const requests = await RequestModel.find({ _id: { $in: paymentIds } })
             .select('reqNo _id')
@@ -3507,12 +3509,15 @@ module.exports.agentDashboardPaymentListWOAggregation = async (req, res) => {
 
         // 5. Process agentInvoices manually and map the reqNo
         const finalRecords = agentInvoices.map(invoice => {
+            console.log(invoice);
             const billing_month = invoice.createdAt
                 ? new Date(invoice.createdAt).toLocaleString('default', { month: 'long' })
                 : null;
 
             return {
                 _id: invoice._id, // Include _id for the invoice
+                // order_id: invoice.reqNo,
+                order_id: invoice.req_id?.reqNo || null,
                 quantity_procured: invoice.qtyProcured || 0,
                 billing_month,
                 payment_status: invoice.payment_status,
