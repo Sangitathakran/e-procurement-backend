@@ -49,13 +49,14 @@ const {
           .skip(skip)
           .limit(parseInt(limit))
       ]);
-  
+      const pages = limit != 0 ? Math.ceil(total / limit) : 0;
       return res.status(200).json({
         status: 200,
         data,
         total,
         page: parseInt(page),
         limit: parseInt(limit),
+        pages,
         message: "Center Projections fetched successfully"
       });
   
