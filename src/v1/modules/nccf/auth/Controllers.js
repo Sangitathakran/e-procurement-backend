@@ -51,7 +51,7 @@ module.exports.createNccf = async (req, res) => {
     try {
         const { nccf_name, email, phone } = req.body
 
-        // const pwd = "Harshal12345";
+        // const pwd = "Ministry123@";
         // const hashedpwd = await bcrypt.hash(pwd, 10);
         // console.log(hashedpwd);
         // return false;
@@ -72,7 +72,7 @@ module.exports.createNccf = async (req, res) => {
 
         // const password = generateRandomPassword();
         // const password = "Ministry@1234";
-        const password = "Gyanendra12345";
+        const password = "Ministry123@";
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const nccfData = new NccfAdmin({
@@ -94,7 +94,11 @@ module.exports.createNccf = async (req, res) => {
         // await emailService.sendNccfCredentialsEmail(emailPayload);
 
         // const type = await TypesModel.findOne({ _id: "677b7de4f392eaf580a68688" }) // testing
-        const type = await TypesModel.findOne({ _id: "677b7f12f392eaf580a6868c" }) // live
+        // const type = await TypesModel.findOne({ _id: "677b7f12f392eaf580a6868c" }) // live
+        const type = await TypesModel.findOne({ _id: "677b7de4f392eaf580a68688" }) // nccf-admin
+         type.adminUserRoleId = "67a1fb7cc6f4b27e68a200fe" // nccf-admin
+        // 67115a35cbbd6e268e80d00f
+        
 
         if (savedNccf._id) {
             const masterUser = new MasterUser({
