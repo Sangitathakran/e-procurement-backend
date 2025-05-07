@@ -168,7 +168,7 @@ module.exports.getWarehouseTesting = async (req, res) => {
     }
 };
 
-/*
+
 module.exports.createBatch = async (req, res) => {
     try {
         const { req_id, truck_capacity, farmerData = [], seller_id } = req.body;
@@ -304,8 +304,9 @@ module.exports.createBatch = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
-*/
 
+
+/*
 
 module.exports.createBatch = async (req, res) => {
     try {
@@ -482,3 +483,5 @@ module.exports.createBatch = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+*/
