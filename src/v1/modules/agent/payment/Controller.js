@@ -3810,9 +3810,22 @@ module.exports.proceedToPayPaymentNew = async (req, res) => {
   
       const slicedRows = paginatedResults.slice((page - 1) * limit, page * limit);
       if (isExport == 1) {
-        if (paginatedResults.length > 0) {
+
+        const record = paginatedResults.map((item) => ({
+            "Order id": item?.reqNo || "NA",
+            "Branch Name": item?.branchDetails[0]?.branchName || "NA",
+            "SLA Name": item?.sla?.basic_details?.name || "NA",
+            "Scheme": item?.scheme?.schemeName || "NA",
+            "Branch Id": item?.branchDetails[0]?.branchId || "NA",
+            Commodity: item?.product?.name || "NA",
+            "Quantity procured": item?.qtyPurchased || "NA",
+            "Total Amount": item?.amountPayable || "NA",
+            "Approval date": item?.approval_date ?? "NA",
+            // "Payment Status": item?.payment_status ?? "NA",
+          }));
+        if (record.length > 0) {
           dumpJSONToExcel(req, res, {
-            data: paginatedResults,
+            data: record,
             fileName: `Farmer-Payment-records.xlsx`,
             worksheetName: `Farmer-Payment-records`
           });
