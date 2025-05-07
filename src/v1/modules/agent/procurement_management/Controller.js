@@ -59,6 +59,49 @@ module.exports.createProcurementCenter = async (req, res) => {
 
 }
 
+module.exports.editProcurementCenter = async (req, res) => {
+    try {
+        const { user_id, user_type } = req;
+        const { id } = req.params; 
+        const {
+            center_name, line1, line2, state, district, city,
+            name, email, mobile, designation, aadhar_number,
+            aadhar_image, postalCode, lat, long, addressType, location_url
+        } = req.body;
+
+        let center_type;
+        if (user_type == '4') {
+            center_type = _center_type.associate;
+        } else if (user_type == '6') {
+            center_type = _center_type.head_office;
+        } else {
+            center_type = _center_type.agent;
+        }
+
+        const updated = await ProcurementCenter.findOneAndUpdate(
+            { id }, // or { _id: req.body._id }
+            {
+                center_name,
+                center_type,
+                address: { line1, line2, country: 'India', state, district, city, postalCode, lat, long },
+                point_of_contact: { name, email, mobile, designation, aadhar_number, aadhar_image },
+                addressType,
+                location_url
+            },
+            { new: true } // return updated document
+        );
+
+        if (!updated) {
+            return res.status(404).send(new serviceResponse({ status: 404, message: "Procurement center not found" }));
+        }
+
+        return res.send(new serviceResponse({ status: 200, data: updated, message: _response_message.updated("Collection Center") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
 module.exports.getProcurementCenter = async (req, res) => {
 
     try {

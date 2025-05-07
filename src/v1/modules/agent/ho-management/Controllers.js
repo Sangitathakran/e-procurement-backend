@@ -115,12 +115,14 @@ module.exports.getHo = async (req, res) => {
 module.exports.saveHeadOffice = async (req, res) => {
     try {
         const { company_details, point_of_contact, address, authorised } = req.body;
+       
         const password = generateRandomPassword();
 
         // this is to get the type object of head office
         const type = await TypesModel.findOne({ _id: "671100dbf1cae6b6aadc2423" })
 
         const hashedPassword = await bcrypt.hash(password, 10);
+              
         const headOffice = new HeadOffice({
             password: hashedPassword,
             email_verified: false,
@@ -583,7 +585,6 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getBo = asyncErrorHandler(async (req, res) => {
-
     try {
         const { ho_id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
@@ -603,7 +604,9 @@ module.exports.getBo = asyncErrorHandler(async (req, res) => {
                     emailAddress: 1,
                     pointOfContact: '$pointOfContact.name',
                     address: 1,
+                    district:1,
                     state: 1,
+                    pincode:1,
                     status: 1,
                     createdAt: 1,
                     updatedAt: 1

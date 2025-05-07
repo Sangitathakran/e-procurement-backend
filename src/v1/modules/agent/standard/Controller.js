@@ -61,7 +61,7 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
       }
     }
   ];
-  if (paginate == 1) {
+  if (paginate == 1 && isExport != 1) {
     aggregationPipeline.push(
       { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
       { $skip: parseInt(skip) },
@@ -78,7 +78,7 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
   const countResult = await commodityStandard.aggregate(countPipeline);
   const count = countResult[0]?.total || 0;
   const records = { rows, count };
-  if (paginate == 1) {
+  if (paginate == 1 && isExport != 1) {
     records.page = parseInt(page);
     records.limit = parseInt(limit);
     records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
@@ -86,9 +86,9 @@ module.exports.getStandard = asyncErrorHandler(async (req, res) => {
   if (isExport == 1) {
     const record = rows.map((item) => {
       return {
-        "name": item?.name || "NA",
-        // "subName": item?.subName || "NA",
-        "subName": Array.isArray(item?.subName) ? item.subName.join(", ") : (item?.subName || "NA"),
+        "Standard Name": item?.name || "NA",
+        "SUB-STANDARD": Array.isArray(item?.subName) ? item.subName.join(", ") : (item?.subName || "NA"),
+        "Status": item?.status || "NA",
       };
     });
     if (record.length > 0) {

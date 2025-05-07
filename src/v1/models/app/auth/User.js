@@ -43,8 +43,8 @@ const userSchema = new mongoose.Schema({
             line1: { type: String, trim: true },
             line2: { type: String, trim: true },
             country: { type: String, trim: true },
-            state: { type: String, trim: true },
-            district: { type: String, trim: true },
+            state: { type: String, trim: true, index: true },
+            district: { type: String, trim: true, index: true  },
             taluka: { type: String, trim: true },
             pinCode: { type: String, trim: true },
             village: { type: String, trim: true },
@@ -108,6 +108,7 @@ const userSchema = new mongoose.Schema({
     is_sms_send: { type: Boolean, default: false },
     term_condition: { type: String, default: false },
     active: { type: Boolean, default: true },
+    ekhridUser: { type: Boolean, default: false },
     ..._commonKeys
 }, { timestamps: true });
 userSchema.pre('save', async function (next) {

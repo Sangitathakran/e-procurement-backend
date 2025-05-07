@@ -25,6 +25,7 @@ const fs = require('fs');
 const axios = require('axios');
 const moment = require('moment');
 const mongoose = require('mongoose');
+const { setCache, getCache } = require("@src/v1/utils/cache");
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -637,10 +638,8 @@ module.exports.getBoFarmer = async (req, res) => {
 
     const { portalId, user_id } = req
     const { page = 1, limit = 10, search = '', sortBy } = req.query;
-
     // const user = await Branches.findById(user_id);
     const user = await Branches.findOne({ _id: portalId });
-
     if (!user) {
       return res.status(404).send({ message: "User not found." });
     }
@@ -653,11 +652,16 @@ module.exports.getBoFarmer = async (req, res) => {
     if (!state_id) {
       return res.status(400).send({ message: "State ID not found for the user's state." });
     }
-
     let query = { 'address.state_id': state_id };
-    if (search) {
-      query.name = { $regex: search, $options: 'i' };
+    if (search.trim()) {
+      //query.name = { $regex: search, $options: 'i' };
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { mobile_no: { $regex: search, $options: "i" } },
+        { farmer_id: { $regex: search, $options: "i" } },
+    ]
     }
+
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const parsedLimit = parseInt(limit);
@@ -1570,15 +1574,15 @@ module.exports.bulkUploadFarmers = async (req, res) => {
     let errorArray = [];
     const processFarmerRecord = async (rec) => {
       const toLowerCaseIfExists = (value) => value ? value.toLowerCase().trim() : value;
-    //   const parseDateOfBirth = (dob) => {
-    //     if (!isNaN(dob)) {
-    //         const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-    //         const parsedDate = new Date(excelEpoch.getTime() + (dob) * 86400000); 
-    //         return moment.utc(parsedDate).format('DD-MM-YYYY'); 
-    //     }
-    
-    //     return moment(dob, 'DD-MM-YYYY', true).isValid() ? dob : null;
-    // };
+      //   const parseDateOfBirth = (dob) => {
+      //     if (!isNaN(dob)) {
+      //         const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+      //         const parsedDate = new Date(excelEpoch.getTime() + (dob) * 86400000); 
+      //         return moment.utc(parsedDate).format('DD-MM-YYYY'); 
+      //     }
+
+      //     return moment(dob, 'DD-MM-YYYY', true).isValid() ? dob : null;
+      // };
       const parseBooleanYesNo = (value) => {
         if (value === true || value?.toLowerCase() === 'yes') return true;
         if (value === false || value?.toLowerCase() === 'no') return false;
@@ -1855,26 +1859,26 @@ module.exports.exportFarmers = async (req, res) => {
 
       {
         $lookup: {
-          from: 'statedistrictcities', 
+          from: 'statedistrictcities',
           let: { stateId: { $toObjectId: '$address.state_id' } },
           pipeline: [
             { $unwind: '$states' },
             { $match: { $expr: { $eq: ['$states._id', '$$stateId'] } } },
-            { $project: { state_title: '$states.state_title', _id: 0 } } 
+            { $project: { state_title: '$states.state_title', _id: 0 } }
           ],
           as: 'state'
         }
       },
       { $unwind: { path: '$state', preserveNullAndEmptyArrays: true } },
-    
+
       {
         $lookup: {
           from: 'statedistrictcities',
-          let: { districtId: { $toObjectId: '$address.district_id' } }, 
+          let: { districtId: { $toObjectId: '$address.district_id' } },
           pipeline: [
             { $unwind: '$states' },
-            { $unwind: '$states.districts' }, 
-            { $match: { $expr: { $eq: ['$states.districts._id', '$$districtId'] } } }, 
+            { $unwind: '$states.districts' },
+            { $match: { $expr: { $eq: ['$states.districts._id', '$$districtId'] } } },
             { $project: { district_title: '$states.districts.district_title', _id: 0 } }
           ],
           as: 'district'
@@ -2123,7 +2127,9 @@ module.exports.individualfarmerList = async (req, res) => {
 };
 
 const getAddress = async (item) => {
+
   return {
+
     address_line: item?.address?.address_line || (`${item?.address?.address_line_1} ${item?.address?.address_line_2}`),
     village: item?.address?.village || " ",
     block: item?.address?.block || " ",
@@ -2165,7 +2171,7 @@ const getDistrict = async (districtId) => {
 
 
   ])
-  return district[0].district
+  return district[0]?.district
 
 }
 
@@ -2201,6 +2207,7 @@ const getState = async (stateId) => {
   ])
   return state[0].state
 }
+
 
 module.exports.makeAssociateFarmer = async (req, res) => {
   try {
@@ -2257,16 +2264,16 @@ module.exports.getAllFarmers = async (req, res) => {
     const { page = 1, limit = 10, sortBy = '_id', search = '', paginate = 1 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const parsedLimit = parseInt(limit);
-
+ 
     let associatedQuery = { associate_id: { $ne: null } };
     let localQuery = { associate_id: null };
-
+   
     if (search) {
       const searchCondition = { name: { $regex: search, $options: 'i' } };
       associatedQuery = { ...associatedQuery, ...searchCondition };
       localQuery = { ...localQuery, ...searchCondition };
     }
-
+ 
     const records = {
       associatedFarmers: [],
       localFarmers: [],
@@ -2284,8 +2291,8 @@ module.exports.getAllFarmers = async (req, res) => {
         .sort(sortCriteria)
         .skip(skip)
         .limit(parsedLimit)
-
-
+ 
+ 
       records.localFarmers = await farmer
         .find(localQuery)
         .populate('associate_id', '_id user_code')
@@ -2297,7 +2304,7 @@ module.exports.getAllFarmers = async (req, res) => {
         .find(associatedQuery)
         .populate('associate_id', '_id user_code')
         .sort(sortCriteria);
-
+ 
       records.localFarmers = await farmer
         .find(localQuery)
         .populate('associate_id', '_id user_code')
@@ -2305,24 +2312,41 @@ module.exports.getAllFarmers = async (req, res) => {
     }
     records.count = await farmer.countDocuments(associatedQuery);
     records.localFarmersCount = await farmer.countDocuments(localQuery);
-
-
+ 
+   // const getData = await getAddress(records.localFarmers[1]);
+  // for fetching address detail for farmer
+    const newAssociateFarmer = await Promise.all(
+      records.associatedFarmers.map(async(farmer)=>{
+        const newAddress = await getAddress(farmer)
+        return {farmer, updatedFarmerAddress:{...farmer.address, ...newAddress}}
+      })
+    )
+ 
+  //for fetching address details for localfarmer
+  const newLocalFarmer = await Promise.all(
+    records.localFarmers.map(async(farmer)=>{
+      const newAddress = await getAddress(farmer)
+      return {farmer, updatedLocalAddress:{...farmer.address, ...newAddress}}
+    })
+  )
+ 
     // Prepare response data
     const responseData = {
       associatedFarmersCount: records.count,
       localFarmersCount: records.localFarmersCount,
-      associatedFarmers: records.associatedFarmers,
-      localFarmers: records.localFarmers,
+      associatedFarmers: newAssociateFarmer,
+      localFarmers: newLocalFarmer,
       page: parseInt(page),
       limit: parsedLimit,
       totalPages: limit != 0 ? Math.ceil(records.associatedFarmersCount / limit) : 0,
     };
+ 
     return res.status(200).send({
       status: 200,
       data: responseData,
       message: "Farmers data retrieved successfully.",
     });
-
+ 
   } catch (error) {
     console.error(error);
     return res.status(500).send({
@@ -2331,6 +2355,7 @@ module.exports.getAllFarmers = async (req, res) => {
     });
   }
 };
+
 
 
 module.exports.uploadFarmerDocument = async (req, res) => {
@@ -2615,11 +2640,11 @@ module.exports.addDistrictCity = async (req, res) => {
     return res.status(400).json({ message: "state_title, district_title, and city_title are required." });
   }
   try {
-  const state = await StateDistrictCity.findOne({ "states.state_title": state_title });
+    const state = await StateDistrictCity.findOne({ "states.state_title": state_title });
     if (!state) {
       return res.status(404).json({ message: "State not found." });
     }
-  const stateIndex = state.states.findIndex((s) => s.state_title === state_title);
+    const stateIndex = state.states.findIndex((s) => s.state_title === state_title);
     const districtCount = state.states[stateIndex].districts.length;
     const serialNumber = (districtCount + 1).toString().padStart(2, "0");
     const result = await StateDistrictCity.updateOne(
@@ -2632,7 +2657,7 @@ module.exports.addDistrictCity = async (req, res) => {
             cities: [
               {
                 city_title,
-                status: "active", 
+                status: "active",
                 createdAt: new Date(),
                 updatedAt: new Date(),
               },
@@ -2654,4 +2679,218 @@ module.exports.addDistrictCity = async (req, res) => {
     console.error("Error adding district and city:", error);
     return res.status(500).json({ message: "Internal server error.", error: error.message });
   }
+};
+module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
+  try {
+    const { user_id } = req;
+    const { isxlsx = 1 } = req.body;
+    const [file] = req.files;
+
+    if (!file) {
+      return res.status(400).json({
+        message: _response_message.notFound("file"),
+        status: 400
+      });
+    }
+
+    let farmers = [];
+    let headers = [];
+
+    if (isxlsx) {
+      const workbook = xlsx.read(file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      farmers = xlsx.utils.sheet_to_json(worksheet);
+      headers = Object.keys(farmers[0]);
+    } else {
+      const csvContent = file.buffer.toString('utf8');
+      const lines = csvContent.split('\n');
+      headers = lines[0].trim().split(',');
+      const dataContent = lines.slice(1).join('\n');
+
+      const parser = csv({ headers });
+      const readableStream = Readable.from(dataContent);
+
+      readableStream.pipe(parser);
+      parser.on('data', async (data) => {
+        if (Object.values(data).some(val => val !== '')) {
+          const result = await processFarmerRecord(data);
+          if (!result.success) {
+            errorArray = errorArray.concat(result.errors);
+          }
+        }
+      });
+
+      parser.on('end', () => {
+        console.log("Stream end");
+      });
+      parser.on('error', (err) => {
+        console.log("Stream error", err);
+      });
+    }
+
+    let errorArray = [];
+    const processFarmerRecord = async (rec) => {
+      const toLowerCaseIfExists = (value) => value ? value.toLowerCase().trim() : null;
+      const parseBooleanYesNo = (value) => {
+        if (value === true || value?.toLowerCase() === 'yes') return true;
+        if (value === false || value?.toLowerCase() === 'no') return false;
+        return null;
+      };
+
+      function getValueOrNull(value) {
+        return value ? typeof value === 'string' ?
+          value.trim() : value
+          : null;
+      }
+
+      const name = getValueOrNull(rec["Farmer Name"]);
+      const father_name = getValueOrNull(rec["Farmer Father Name"]);
+      const mother_name = getValueOrNull(rec["MOTHER NAME"]);
+      const date_of_birth = getValueOrNull(rec["DATE OF BIRTH(DD-MM-YYYY)*"]);
+      const farmer_category = getValueOrNull(rec["FARMER CATEGORY"]);
+      const gender = toLowerCaseIfExists(rec["Gender"]);
+      const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS"]) || 'N/A';
+      const religion = toLowerCaseIfExists(rec["RELIGION"]) || 'N/A';
+      const category = toLowerCaseIfExists(rec["CATEGORY"]) || 'N/A';
+      const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL"]);
+      const edu_details = getValueOrNull(rec["EDU DETAILS"]);
+      const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"]);
+      const aadhar_no = getValueOrNull(rec["AADHAR NUMBER*"]);
+      const address_line = getValueOrNull(rec["ADDRESS LINE*"]);
+      const country = getValueOrNull(rec["COUNTRY NAME"]) || 'India';
+      const state_name = getValueOrNull(rec["STATE NAME*"]);
+      const district_name = getValueOrNull(rec["DISTRICT NAME*"]);
+      const tahshil = getValueOrNull(rec["TAHSHIL*"]);
+      const block = getValueOrNull(rec["BLOCK NAME*"]);
+      const village = getValueOrNull(rec["Village"]);
+      const pinCode = getValueOrNull(rec["PINCODE*"]);
+      const lat = getValueOrNull(rec["LATITUDE"]);
+      const long = getValueOrNull(rec["LONGITUDE"]);
+      const mobile_no = getValueOrNull(rec["MOBILE NO*"]);
+      const email = getValueOrNull(rec["EMAIL ID"]);
+      const bank_name = getValueOrNull(rec["Bank Name"]);
+      const account_no = getValueOrNull(rec["Account No"]);
+      const branch_name = getValueOrNull(rec["Branch"]);
+      const ifsc_code = getValueOrNull(rec["IFSC Code"]);
+      const account_holder_name = getValueOrNull(rec["Farmer Name"]);
+      const farmer_tracent_code = getValueOrNull(rec["Farmer Tracenet Code *"]);
+      // console.log("aadhar_no", aadhar_no)
+      // console.log("mobile_no", mobile_no)
+      const requiredFields = [
+        { field: "AADHAR NUMBER*", label: "AADHAR NUMBER" },
+        { field: "MOBILE NO*", label: "MOBILE NUMBER" },
+      ];
+      let stateName = state_name.replace(/_/g, ' ');
+      if (
+        stateName === 'Dadra and Nagar Haveli' ||
+        stateName === 'Andaman and Nicobar' ||
+        stateName === 'Daman and Diu' ||
+        stateName === 'Jammu and Kashmir'
+      ) {
+        stateName = stateName.replace('and', '&');
+      }
+      let errors = [];
+      let missingFields = [];
+
+      requiredFields.forEach(({ field, label }) => {
+        if (!rec[field]) missingFields.push(label);
+      });
+
+      if (missingFields.length > 0) {
+        errors.push({ record: rec, error: `Required fields missing: ${missingFields.join(', ')}` });
+      }
+      if (!/^\d{12}$/.test(aadhar_no)) {
+        errors.push({ record: rec, error: "Invalid Aadhar Number" });
+      }
+      // if (!/^\d{6,20}$/.test(account_no)) {
+      //   errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 20 digits." });
+      // }
+      if (!/^\d{10}$/.test(mobile_no)) {
+        errors.push({ record: rec, error: "Invalid Mobile Number" });
+      }
+
+      if (!Object.values(_gender).includes(gender)) {
+        errors.push({ record: rec, error: `Invalid Gender: ${gender}. Valid options: ${Object.values(_gender).join(', ')}` });
+      }
+      if (!Object.values(_maritalStatus).includes(marital_status)) {
+        errors.push({ record: rec, error: `Invalid Marital Status: ${marital_status}. Valid options: ${Object.values(_maritalStatus).join(', ')}` });
+      }
+      if (!Object.values(_religion).includes(religion)) {
+        errors.push({ record: rec, error: `Invalid Religion: ${religion}. Valid options: ${Object.values(_religion).join(', ')}` });
+      }
+      if (!Object.values(_individual_category).includes(category)) {
+        errors.push({ record: rec, error: `Invalid Category: ${category}. Valid options: ${Object.values(_individual_category).join(', ')}` });
+      }
+      if (!Object.values(_proofType).includes(type)) {
+        errors.push({ record: rec, error: `Invalid Proof type: ${type}. Valid options: ${Object.values(_proofType).join(', ')}` });
+      }
+      if (errors.length > 0) return { success: false, errors };
+      // const calulateage = calculateAge(date_of_birth);
+      try {
+        const state_id = await getStateId(stateName);
+        const district_id = await getDistrictId(district_name);
+        // const processedDateOfBirth = parseDateOfBirth(date_of_birth);
+
+        let associateId = user_id;
+        if (!user_id) {
+          const associate = await User.findOne({ 'basic_details.associate_details.organization_name': fpo_name });
+          associateId = associate ? associate._id : null;
+        }
+        let farmerRecord = await farmer.findOne({ 'proof.aadhar_no': aadhar_no });
+        if (farmerRecord) {
+          return { success: false, errors: [{ record: rec, error: `Farmer  with Aadhar No. ${aadhar_no} already registered.` }] };
+
+          // });
+        } else {
+          farmerRecord = await insertNewFarmerRecord({
+            associate_id: associateId, farmer_tracent_code, name, father_name, mother_name, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name,
+          });
+        }
+
+      } catch (error) {
+        console.log(error)
+        errors.push({ record: rec, error: error.message });
+      }
+
+      return { success: errors.length === 0, errors };
+    };
+
+    for (const farmer of farmers) {
+      const result = await processFarmerRecord(farmer);
+      if (!result.success) {
+        errorArray = errorArray.concat(result.errors);
+      }
+    }
+
+    if (errorArray.length > 0) {
+      const errorData = errorArray.map(err => ({ ...err.record, Error: err.error }));
+      // console.log("error data->",errorData)
+      dumpJSONToExcel(req, res, {
+        data: errorData,
+        fileName: `Farmer-error_records.xlsx`,
+        worksheetName: `Farmer-record-error_records`
+      });
+    } else {
+      return res.status(200).json({
+        status: 200,
+        data: {},
+        message: "Farmers successfully uploaded."
+      });
+    }
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+
+
+
+
+
+
+
+
+function generateCacheKey(prefix, params) {
+  return `${prefix}:${Object.entries(params).sort().map(([k, v]) => `${k}=${v}`).join('&')}`;
 };

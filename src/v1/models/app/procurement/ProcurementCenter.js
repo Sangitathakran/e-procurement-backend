@@ -7,7 +7,7 @@ const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 const ProcurementCenterSchema = new mongoose.Schema({
     center_name: {type: String, required: true,trim: true},
     center_code: { type: String, unique: true },
-    user_id : { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
+    user_id : { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, index: true },
     center_type : { type: String, enum: Object.values(_center_type), default: _center_type.associate },
     address : {
         line1: { type: String,required: true,trim: true },
@@ -32,6 +32,7 @@ const ProcurementCenterSchema = new mongoose.Schema({
     addressType: { type: String, enum: Object.values(_address_type), default: _address_type.Residential },
     isPrimary: {type: Boolean, default: false },
     active: {type: Boolean,default: true},
+    ekhrid:{ type: Boolean, default: false },
     ..._commonKeys
 }, { timestamps: true });
 

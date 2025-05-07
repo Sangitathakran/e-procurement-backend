@@ -11,6 +11,7 @@ const moment = require("moment");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { User } = require("@src/v1/models/app/auth/User");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 
 
 module.exports.batch = async (req, res) => {
@@ -118,15 +119,18 @@ module.exports.batch = async (req, res) => {
 
         const findwarehouseUser = await RequestModel.findOne({ _id: req_id });
 
+        const qty_value = handleDecimal(sumOfQtyDecimal);
+
         const batchCreated = await Batch.create({
             seller_id: user_id,
             req_id,
             associateOffer_id: record._id,
             batchId,
-            warehousedetails_id : findwarehouseUser.warehouse_id,
+            warehousedetails_id: findwarehouseUser.warehouse_id,
             farmerOrderIds: farmerData,
             procurementCenter_id,
-            qty: handleDecimal(sumOfQtyDecimal),  // Apply handleDecimal here
+            qty: qty_value,  // Apply handleDecimal here
+            available_qty: qty_value,
             goodsPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice), // Apply handleDecimal here
             totalPrice: handleDecimal(sumOfQtyDecimal * procurementRecord?.quotedPrice) // Apply handleDecimal here
         });
@@ -142,7 +146,7 @@ module.exports.batch = async (req, res) => {
             }
 
             const currentRemaining = latestFarmerOrder.qtyRemaining ?? latestFarmerOrder.qtyProcured;
-            
+
             // Validate remaining quantity
             if (currentRemaining < farmer.qty) {
                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Added quantity exceeds the remaining quantity." }] }));
@@ -182,30 +186,32 @@ module.exports.batch = async (req, res) => {
 async function generateBatchId() {
     // Fetch the most recent batch by sorting in descending order
     const latestBatch = await Batch.findOne({})
-      .sort({ _id: -1 }) // Sort by `_id` in descending order (latest first)
-      .select("batchId"); // Only fetch the `batchId` field to minimize data transfer
-  
+        .sort({ _id: -1 }) // Sort by `_id` in descending order (latest first)
+        .select("batchId"); // Only fetch the `batchId` field to minimize data transfer
+
     let nextSequence = 1;
-  
+
     if (latestBatch && latestBatch.batchId) {
-      // Extract the sequence number from the latest batch ID
-      const match = latestBatch.batchId.match(/BH-(\d+)$/);
-      if (match) {
-        nextSequence = parseInt(match[1], 10) + 1; // Increment the sequence
-      }
+        // Extract the sequence number from the latest batch ID
+        const match = latestBatch.batchId.match(/BH-(\d+)$/);
+        if (match) {
+            nextSequence = parseInt(match[1], 10) + 1; // Increment the sequence
+        }
     }
-  
+
     // Generate the new batch ID
     const batchId = `BH-${nextSequence.toString().padStart(4, "0")}`; // Zero-padded to 4 digits
     return batchId;
-  }
-
+}
 
 module.exports.editTrackDelivery = async (req, res) => {
 
     try {
 
-        const { form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching, loading_unloading, transportation, driage, storageExp, qc_report = [], lab_report = [], name, contact, license, aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number, intransit_weight_slip, no_of_bags, weight } = req.body;
+        const { form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching,
+            loading_unloading, transportation, driage, storageExp, qc_report = [], lab_report = [], name, contact, license,
+            aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number,
+            intransit_weight_slip, no_of_bags, weight, warehousedetails_id } = req.body;
         const { user_id } = req
 
         const record = await Batch.findOne({ _id: id });
@@ -289,6 +295,7 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.intransit.intransit_by = user_id;
 
                     record.status = _batchStatus.intransit;
+                    record.warehousedetails_id = warehousedetails_id;
 
                     const associateInvoice = await AssociateInvoice.findOne({ batch_id: record?._id });
                     if (reqRec && !associateInvoice) {
@@ -347,20 +354,39 @@ module.exports.viewTrackDelivery = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
         const user_id = req.user_id
+
         let query = {
-            req_id, seller_id: user_id,
+            req_id,
+            seller_id: user_id,
             ...(search ? { name: { $regex: search, $options: "i" } } : {})
         };
 
         const records = { count: 0 };
+        /*  records.rows = paginate == 1 ? await Batch.find(query).populate([
+              { path: 'req_id', select: 'product address'},
+              { path: 'associateOffer_id', select: 'offeredQty procuredQty' },
+              { path: "procurementCenter_id", select: "center_name" },
+          ])
+          */
         records.rows = paginate == 1 ? await Batch.find(query).populate([
-            { path: 'req_id', select: 'product address' },
+            {
+                path: 'req_id', select: 'product address branch_id head_office_id sla_id',
+                populate: [
+                    { path: 'product.schemeId', select: 'schemeName season period' },
+                    { path: "sla_id", select: "basic_details.name" },
+                    { path: 'branch_id', select: '_id branchName branchId' },
+                    { path: "head_office_id", select: "_id company_details.name" }
+                ]
+
+            },
             { path: 'associateOffer_id', select: 'offeredQty procuredQty' },
-            { path: "procurementCenter_id", select: "center_name" },
+            { path: "procurementCenter_id", select: "center_name" }
         ])
             .sort(sortBy)
             .skip(skip)
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
+
+        // Modify each record to concatenate schemeName, season, and period
 
         records.count = await Batch.countDocuments(query);
 
@@ -424,7 +450,6 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
     }
 }
 
-
 module.exports.updateMarkReady = async (req, res) => {
     try {
         const { id, material_img = [], weight_slip = [], qc_report = [], lab_report = [] } = req.body;
@@ -457,3 +482,20 @@ module.exports.updateMarkReady = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+//warehouse list
+module.exports.warehouseList = async (req, res) => {
+    try {
+        const warehouseList = await (await wareHouseDetails.find({}).select('basicDetails.warehouseName _id')).map(item => ({ label: item.basicDetails.warehouseName, value: item._id }))
+        if (warehouseList.length > 0) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: warehouseList, message: _response_message.found("warehouse list") }))
+        } else {
+            return res.status(200).send(new serviceResponse({
+                status: 404,
+                errors: [{ message: "no warehouse found" }]
+            }));
+        }
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
