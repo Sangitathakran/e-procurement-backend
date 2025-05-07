@@ -12,8 +12,10 @@ const { warehouseRoutes } = require("./warehouse/Route");
 const { paymentRoutes } = require("./payment/Routes");
 const { schemeRoutes } = require("./scheme/Routes");
 const { slaRoute } = require("./ho-sla-management/Routes");
+const { associateMngmntRoutes } = require("./associate-management/Routes");
 
 headOfficeRoutes.use("/auth", hoAuthRoutes)
+headOfficeRoutes.use("/associate", associateMngmntRoutes);
 headOfficeRoutes.use("/branch", Auth, hoBranchRoutes)
 headOfficeRoutes.use("/dashboard", Auth, hoDashboardRoutes)
 headOfficeRoutes.use("/requirement", Auth, requireMentRoutes)
