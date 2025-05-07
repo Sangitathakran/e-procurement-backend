@@ -2261,35 +2261,19 @@ module.exports.makeAssociateFarmer = async (req, res) => {
 
 module.exports.getAllFarmers = async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      sortBy = '_id',
-      search = '',
-      paginate = 1
-    } = req.query;
-
+    const { page = 1, limit = 10, sortBy = '_id', search = '', paginate = 1 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const parsedLimit = parseInt(limit);
-    const sortCriteria = { [sortBy]: 1, _id: 1 };
-
-    //  Generate cache key
-    const cacheKey = generateCacheKey('getAllFarmers', { page, limit, sortBy, search, paginate });
-
-    //  Check cache
-    const cached = getCache(cacheKey);
-    if (cached) {
-      return res.status(200).send({
-        status: 200,
-        data: cached,
-        message: "Farmers data retrieved successfully. (from cache)",
-      });
+ 
+    let associatedQuery = { associate_id: { $ne: null } };
+    let localQuery = { associate_id: null };
+   
+    if (search) {
+      const searchCondition = { name: { $regex: search, $options: 'i' } };
+      associatedQuery = { ...associatedQuery, ...searchCondition };
+      localQuery = { ...localQuery, ...searchCondition };
     }
-
-    const searchFilter = search ? { name: { $regex: search, $options: 'i' } } : {};
-    const associatedQuery = { associate_id: { $ne: null }, ...searchFilter };
-    const localQuery = { associate_id: null, ...searchFilter };
-
+ 
     const records = {
       associatedFarmers: [],
       localFarmers: [],
@@ -2307,8 +2291,8 @@ module.exports.getAllFarmers = async (req, res) => {
         .sort(sortCriteria)
         .skip(skip)
         .limit(parsedLimit)
-
-
+ 
+ 
       records.localFarmers = await farmer
         .find(localQuery)
         .populate('associate_id', '_id user_code')
@@ -2320,7 +2304,7 @@ module.exports.getAllFarmers = async (req, res) => {
         .find(associatedQuery)
         .populate('associate_id', '_id user_code')
         .sort(sortCriteria);
-
+ 
       records.localFarmers = await farmer
         .find(localQuery)
         .populate('associate_id', '_id user_code')
@@ -2328,24 +2312,41 @@ module.exports.getAllFarmers = async (req, res) => {
     }
     records.count = await farmer.countDocuments(associatedQuery);
     records.localFarmersCount = await farmer.countDocuments(localQuery);
-
-
+ 
+   // const getData = await getAddress(records.localFarmers[1]);
+  // for fetching address detail for farmer
+    const newAssociateFarmer = await Promise.all(
+      records.associatedFarmers.map(async(farmer)=>{
+        const newAddress = await getAddress(farmer)
+        return {farmer, updatedFarmerAddress:{...farmer.address, ...newAddress}}
+      })
+    )
+ 
+  //for fetching address details for localfarmer
+  const newLocalFarmer = await Promise.all(
+    records.localFarmers.map(async(farmer)=>{
+      const newAddress = await getAddress(farmer)
+      return {farmer, updatedLocalAddress:{...farmer.address, ...newAddress}}
+    })
+  )
+ 
     // Prepare response data
     const responseData = {
       associatedFarmersCount: records.count,
       localFarmersCount: records.localFarmersCount,
-      associatedFarmers: records.associatedFarmers,
-      localFarmers: records.localFarmers,
+      associatedFarmers: newAssociateFarmer,
+      localFarmers: newLocalFarmer,
       page: parseInt(page),
       limit: parsedLimit,
-      totalPages: limit != 0 ? Math.ceil(associatedCount / limit) : 0,
+      totalPages: limit != 0 ? Math.ceil(records.associatedFarmersCount / limit) : 0,
     };
+ 
     return res.status(200).send({
       status: 200,
       data: responseData,
       message: "Farmers data retrieved successfully.",
     });
-
+ 
   } catch (error) {
     console.error(error);
     return res.status(500).send({
