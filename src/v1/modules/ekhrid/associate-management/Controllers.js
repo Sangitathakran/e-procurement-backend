@@ -16,6 +16,7 @@ const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const Joi = require('joi');
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
+const jformIds = require('../jform_ids');
 
 
 
@@ -615,6 +616,7 @@ module.exports.getProcurementCenterTesting = async (req, res) => {
 };
 
 module.exports.associateFarmerList = async (req, res) => {
+    let jfomIds = jformIds.slice(0, 300);
     const { associateName } = req.body;
 
     try {
@@ -639,6 +641,9 @@ module.exports.associateFarmerList = async (req, res) => {
                 { "procurementDetails.offerCreatedAt": { $exists: false } }
             ]
         };
+        jfomIds.forEach( (id) => { query['procurementDetails.jformID'] = parseInt(id)} );
+        return res.json( { query});
+
 
         const procurements = await eKharidHaryanaProcurementModel.find(query).limit(300).lean();
         // const procurements = await eKharidHaryanaProcurementModel.find(query).lean();
