@@ -329,6 +329,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
   let matchQuery = search
     ? {
       $or: [
+        { "slaId": { $regex: search, $options: "i" } }, 
         { "basic_details.name": { $regex: search, $options: "i" } },
         { "basic_details.email": { $regex: search, $options: "i" } },
         { "basic_details.mobile": { $regex: search, $options: "i" } },
