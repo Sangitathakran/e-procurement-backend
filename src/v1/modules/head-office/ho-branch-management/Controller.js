@@ -263,31 +263,31 @@ module.exports.exportBranches = async (req, res) => {
     };
 
 
-    const branches = await Branches.find(query, 'branchId branchName emailAddress pointOfContact address district cityVillageTown state pincode status createdAt');
-
+    const branches = await Branches.find(query, 'branchId branchName emailAddress pointOfContact address district cityVillageTown state pincode status createdAt')
+    .sort({ createdAt: -1 });
     // Format the data to be exported
     const branchData = branches.map((branch) => ({
-      id: branch._id.toString(),
       branchId: branch.branchId,
-      name: branch.branchName,
-      email: branch.emailAddress,
-      address: branch.address,
-      district: branch.district,
-      cityVillageTown: branch.cityVillageTown,
+      branchName: branch.branchName,
       state: branch.state,
-      pincode: branch.pincode,
+      email: branch.emailAddress,
       pointOfContactName: branch.pointOfContact.name,
-      pointOfContactPhone: branch.pointOfContact.phone,
-      pointOfContactEmail: branch.pointOfContact.email,
-      status: branch.status || _status.inactive,
-      createdAt: new Date(branch.createdAt).toLocaleString('en-GB', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      })
+      address: branch.address,
+      //  id: branch._id.toString(),
+      // district: branch.district,
+      // cityVillageTown: branch.cityVillageTown,
+      // pincode: branch.pincode,
+      // pointOfContactPhone: branch.pointOfContact.phone,
+      // pointOfContactEmail: branch.pointOfContact.email,
+      // status: branch.status || _status.inactive,
+      // createdAt: new Date(branch.createdAt).toLocaleString('en-GB', {
+      //   year: 'numeric',
+      //   month: '2-digit',
+      //   day: '2-digit',
+      //   hour: '2-digit',
+      //   minute: '2-digit',
+      //   second: '2-digit'
+      // })
     }));
 
     const workbook = xlsx.utils.book_new();

@@ -8,6 +8,7 @@ const {
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { mongoose } = require("mongoose");
 const { ObjectId } = require("mongoose").Types;
+const {dumpJSONToExcel} = require("@src/v1/utils/helpers");
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
   try {
@@ -130,12 +131,6 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 const portalObjectId = new mongoose.Types.ObjectId(portalId);
 const userObjectId = new mongoose.Types.ObjectId(user_id);
 
-
-
-  
-
-
-
   if (bo_id || scheme_id) {
     let matchQuery = {
       sla_id: { $exists: true },
@@ -227,21 +222,20 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
       records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
     }
 
-    if (isExport == 1) {
-      return dumpJSONToExcel(req, res, {
-        data: rows.map((item) => ({
-          "Scheme Id": item?.schemeId || "NA",
-          "Scheme Name": item?.schemeName || "NA",
-          "Scheme Commodity": item?.Schemecommodity || "NA",
-          season: item?.season || "NA",
-          period: item?.period || "NA",
-          procurement: item?.procurement || "NA",
-        })),
-        fileName: "Scheme-Assignments.xlsx",
-        worksheetName: "Scheme Assignments",
-      });
-    }
-
+    // if (isExport == 1) {
+    //   return dumpJSONToExcel(req, res, {
+    //     data: rows.map((item) => ({
+    //       "Scheme Id": item?.schemeId || "NA",
+    //       "Scheme Name": item?.schemeName || "NA",
+    //       "Scheme Commodity": item?.Schemecommodity || "NA",
+    //       season: item?.season || "NA",
+    //       period: item?.period || "NA",
+    //       procurement: item?.procurement || "NA",
+    //     })),
+    //     fileName: "Scheme-Assignments.xlsx",
+    //     worksheetName: "Scheme Assignments",
+    //   });
+    // }
     return res.status(200).send(
       new serviceResponse({
         status: 200,
@@ -303,7 +297,7 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
     },
   ];
 
-  if (paginate == 1)
+  if (paginate == 1 && isExport != 1)
     aggregationPipeline.push(
       { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
       { $skip: parseInt(skip) },
@@ -311,6 +305,26 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
     );
 
   const rows = await SLAManagement.aggregate(aggregationPipeline);
+
+  if (isExport == 1) {
+
+    return dumpJSONToExcel(req, res, {
+      data: rows.map((item) => ({
+        "SLA ID": item?.slaId || "NA",
+        "SLA Name": item?.sla_name || "NA",
+        "POINT OF CONTACT": item?.poc || "NA",
+        "ASSOCIATE COUNT": item?.associate_count || "NA",
+        "Address": item?.address || "NA",
+        "Status": item?.status || "NA",
+        // season: item?.season || "NA",
+        // period: item?.period || "NA",
+        // procurement: item?.procurement || "NA",
+      })),
+      fileName: `HO-SLA-record.xlsx`,
+        worksheetName: `HO-SLA-record`,
+    });
+  }
+
   const countResult = await SLAManagement.aggregate([
     {
       $match: {
@@ -490,7 +504,11 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const updateData = req.body;
-    const userID = req.user._id;
+    const { portalId, user_id } = req;
+
+    const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
+    // const userID = req.user._id;
 
     if (!slaId) {
       return res.status(400).json(
@@ -503,7 +521,9 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 
     // Find and update SLA
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+      { $or: [{ slaId }, { _id: slaId }],
+      "schemes.cna": { $in: [portalObjectId, userObjectId] }
+       },
       { $set: updateData },
       { new: true, runValidators: true } // Return updated doc
     );
@@ -584,8 +604,11 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
 module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params; // Get SLA ID from URL params
-    const { status } = req.body; // New status (true/false)
-    const userID = req.user._id;
+    const { status } = req.body;
+    const { portalId, user_id } = req;
+    // const userID = req.user._id;
+    const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
 
     if (!slaId) {
       return res.status(400).json(
@@ -607,7 +630,9 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
 
     // Find and update SLA status
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+      { $or: [{ slaId }, { _id: slaId }],
+       "schemes.cna": { $in: [portalObjectId, userObjectId] }
+       },
       { $set: { status: status } },
       { new: true }
     );
@@ -643,7 +668,10 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const { scheme, cna, branch } = req.body;
-    const userID = req.user._id;
+    const { portalId, user_id } = req;
+    // const userID = req.user._id;
+    const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
 
     // Validate input
     if (!scheme || !cna || !branch) {
@@ -657,7 +685,9 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
     // Find SLA and update with new scheme
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+      { $or: [{ slaId }, { _id: slaId }],
+      "schemes.cna": { $in: [portalObjectId, userObjectId] }
+       },
       { $push: { schemes: { scheme, cna, branch } } },
       { new: true }
     )

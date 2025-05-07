@@ -23,8 +23,8 @@ const { Scheme } = require("@src/v1/models/master/Scheme");
 module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
     const { quotedPrice, deliveryDate, name, warehouse_id, commodityImage, grade, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate, commodity_id, schemeId, standard, substandard, sla_id } = req.body;
-
-    if (user_type && user_type != _userType.agent) {
+    console.log("user_type", user_type);
+    if (user_type && user_type != _userType.admin) {
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
     }
 
@@ -289,8 +289,8 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
     }
 
     const records = { count: 0 };
-
-    records.rows = paginate == 1 ? await RequestModel.find(query)
+    
+    let findQuery = RequestModel.find(query)
         .sort(sortBy)
         .skip(skip)
         .populate({ path: "branch_id", select: "_id branchName branchId" })
@@ -298,8 +298,13 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
         .populate({ path: "sla_id", select: "_id basic_details.name" })
         .populate({ path: "warehouse_id", select: "addressDetails" })
         .populate({ path: "product.schemeId", select: "" })
-        .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
 
+        if (paginate == 1 && isExport != 1) {
+            findQuery = findQuery.skip(skip).limit(parseInt(limit));
+        }
+
+        records.rows = await findQuery;
+        
         records.rows = records.rows.map((doc) => {
             const obj = doc.toObject(); 
             const commdityName = obj?.product?.name || '';
@@ -314,25 +319,28 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
     records.count = await RequestModel.countDocuments(query);
 
-    if (paginate == 1) {
+    if (paginate == 1 && isExport != 1){
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
     if (isExport == 1) {
-        const allRecords = await RequestModel.find(query)
-            .sort(sortBy)
-            .populate({ path: "branch_id", select: "_id branchName branchId" });
-
-        const record = allRecords.map(item => ({
-            "Order Id": item?.reqNo || "NA",
-            "BO Name": item?.branch_id?.branchName || "NA",
+        // const allRecords = await RequestModel.find(query)
+        //     .sort(sortBy)
+        //     .populate({ path: "branch_id", select: "_id branchName branchId" });
+       
+        const record = records.rows.map(item => ({
+            "Order ID": item?.reqNo || "NA",
             "Commodity": item?.product?.name || "NA",
-            "Grade": item?.product?.grade || "NA",
+            "Scheme": item?.scheme_name || "NA",
+            "CNA Name": item?.head_office_id?.company_details?.name || "NA",
+            "BO Name": item?.branch_id?.branchName || "NA",
+            "SLA Name": item?.sla_id?.basic_details?.name || "NA",
+            "Sub Standard": item?.product?.substandard || "NA",
             "Quantity": item?.product?.quantity || "NA",
             "MSP": item?.quotedPrice || "NA",
-            "Delivery Location": item?.address?.deliveryLocation || "NA"
+            "Expected Dates": item?.expectedProcurementDate || "NA"
         }));
 
         if (record.length > 0) {
@@ -565,7 +573,7 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
     records.reqDetails = await RequestModel.findOne({ _id: req_id }).select({ _id: 0, reqNo: 1, product: 1, quotedPrice: 1, deliveryDate: 1, expectedProcurementDate: 1, fulfilledQty: 1, totalQuantity: 1 });
     // end of sangita code   
 
-    if (paginate == 1) {
+    if (paginate == 1 && isExport != 1) {
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
@@ -584,7 +592,6 @@ module.exports.getAssociateOffer = asyncErrorHandler(async (req, res) => {
                 "Approval Status": item?.status || "NA",
             }
         })
-
 
         if (record.length > 0) {
             dumpJSONToExcel(req, res, {
@@ -824,17 +831,15 @@ module.exports.updateRequirement = asyncErrorHandler(async (req, res) => {
 // start of prachi code
 module.exports.deleteRequirement = asyncErrorHandler(async (req, res) => {
     const { reqNo } = req.params;
+    
     const { confirm } = req.query;
-    // console.log("reqNo", reqNo);
-    // console.log("confirm", confirm)
 
     if (!reqNo) {
         return res.status(400).json({ message: "Requirement number (reqNo) is required in the URL." });
     }
 
     // Check for the record, regardless of isDeleted status
-    const record = await RequestModel.findOne({ reqNo });
-
+    const record = await RequestModel.findById( reqNo );
     if (!record) {
         return res.status(404).send(new serviceResponse({ 
             status: 404, 
