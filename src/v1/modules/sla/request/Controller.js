@@ -24,9 +24,14 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
     const { quotedPrice, deliveryDate, name, warehouse_id, commodityImage, grade, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate, commodity_id, schemeId, standard, substandard, sla_id } = req.body;
 
+
+    
+
     if (user_type && user_type != _userType.agent) {
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
     }
+
+    
 
     let randomVal;
     let isUnique = false;
