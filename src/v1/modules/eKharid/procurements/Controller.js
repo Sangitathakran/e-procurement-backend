@@ -113,6 +113,7 @@ module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
     );
   }
 });
+
 module.exports.createPaymentSlip = asyncErrorHandler(async (req, res) => {
   try {
     const {
@@ -199,6 +200,27 @@ module.exports.createPaymentSlip = asyncErrorHandler(async (req, res) => {
         })
       );
     }
+  } catch (error) {
+    return res.status(400).send(
+      new serviceResponse({
+        status: 400,
+        errors: [error],
+        message: "Something went wrong",
+      })
+    );
+  }
+});
+
+module.exports.listProcurementOrder = asyncErrorHandler(async (req, res) => {
+  try {
+    const data = await eKharidHaryanaProcurementModel.find({}).limit(1);
+    // console.log("Data", data);
+    res.status(200).json({
+      success: true,
+      count: data.length,
+      data,
+    });
+
   } catch (error) {
     return res.status(400).send(
       new serviceResponse({

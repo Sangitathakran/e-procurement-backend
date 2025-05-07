@@ -1,5 +1,6 @@
 const { _collectionName } = require("@src/v1/utils/constants");
 const mongoose = require("mongoose");
+const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 // Procurement Details Schema
 const ProcurementDetailsSchema = new mongoose.Schema({
@@ -38,7 +39,9 @@ const EKhairidSchema = new mongoose.Schema({
   session: { type: String },
   procurementDetails: { type: ProcurementDetailsSchema },
   paymentDetails: { type: PaymentDetailsSchema },
-});
+   ..._commonKeys
+  }, { timestamps: true });
+// });
 
 const eKharidHaryanaProcurementModel = mongoose.model(
   _collectionName.eKharidHaryana,
