@@ -633,13 +633,14 @@ module.exports.associateFarmerList = async (req, res) => {
             "warehouseData.jformID": { $exists: true },
             "paymentDetails.jFormId": { $exists: true },
             "procurementDetails.jformID": { $exists: true },
+            // "warehouseData.exitGatePassId": 85,
             $or: [
                 { "procurementDetails.offerCreatedAt": null },
                 { "procurementDetails.offerCreatedAt": { $exists: false } }
             ]
         };
 
-        const procurements = await eKharidHaryanaProcurementModel.find(query).limit(1).lean();
+        const procurements = await eKharidHaryanaProcurementModel.find(query).limit(300).lean();
         // const procurements = await eKharidHaryanaProcurementModel.find(query).lean();
         // console.log(procurements.length);
         if (!procurements.length) return [];
@@ -685,6 +686,9 @@ module.exports.associateFarmerList = async (req, res) => {
             const procurement = doc.procurementDetails;
             if (!procurement) continue;
 
+            const warehouseData = doc.warehouseData;
+            if (!warehouseData) continue;
+
             const agentName = procurement.commisionAgentName || 'UNKNOWN';
             const farmerIdStr = procurement.farmerID?.toString();
             const farmerObj = farmerMap.get(farmerIdStr) || null;
@@ -711,11 +715,12 @@ module.exports.associateFarmerList = async (req, res) => {
                 _id: farmerObj?._id || null,
                 qty,
                 gatePassID: procurement.gatePassID,
+                exitGatePassId: warehouseData.exitGatePassId,
                 jformID: procurement.jformID,
                 jformDate: procurement.jformDate,
                 procurementId: procurementCenterId
             });
-
+            
             if (farmerObj?._id) group.total_farmers += 1;
             if (procurement.farmerID) group.total_ekhrid_farmers += 1;
             group.qtyOffered += qty;
@@ -723,7 +728,7 @@ module.exports.associateFarmerList = async (req, res) => {
 
 
         let groupedData = Object.values(groupMap).slice(0, 1);
-        console.log(groupedData.length);
+
         if (groupedData.length > 0) {
             const group = groupedData[0];
             const uniqueFarmers = {};
@@ -888,6 +893,7 @@ module.exports.createOfferOrder = async (req, res) => {
                 order_no: harvester.jformID,
                 status: _procuredStatus.received,
                 gatePassID: harvester.gatePassID,
+                exitGatePassId: harvester.exitGatePassId,
                 createdAt: harvester.createdAt,
                 procurementCenter_id: harvester.procurementId,
                 ekhrid: true
