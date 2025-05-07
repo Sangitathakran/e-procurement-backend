@@ -633,7 +633,7 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
       { $or: [{ slaId }, { _id: slaId }],
        "schemes.cna": { $in: [portalObjectId, userObjectId] }
        },
-      { $set: { status: status } },
+       { $set: { status: status ? "active" : "inactive" } },
       { new: true }
     );
 
