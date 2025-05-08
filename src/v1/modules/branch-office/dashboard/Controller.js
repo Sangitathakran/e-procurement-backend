@@ -290,7 +290,6 @@ module.exports.farmerPayments = async (req, res) => {
         let query = {
             ...(search ? { reqNo: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
-
         const records = { count: 0 };
         const selectedFields = 'reqNo product.name product.quantity deliveryDate fulfilledQty';
         const fetchedRecords = paginate == 1
@@ -312,21 +311,21 @@ module.exports.farmerPayments = async (req, res) => {
 
             if (batchIds && batchIds.length > 0) {
                 farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
-                let query = { farmer_id: { $in: farmerOrderIdsOnly } };
+                let query = { _id: { $in: farmerOrderIdsOnly } };
                 requestCount = await FarmerOrders.countDocuments(query);
-                // console.log(query);
+               // console.log(query);
             }
             return {
                 'orderId': record?.reqNo,
                 'quantityRequired': record?.product.quantity,
                 'deliveryDate': record?.deliveryDate,
-                'requestCount': requestCount?.requestCount
+                'requestCount': requestCount
             }
             // return { ...record.toObject(), branchDetails }
         }));
 
         records.count = await RequestModel.countDocuments(query);
-
+      //  console.log(records)
         if (paginate == 1) {
             records.page = page
             records.limit = limit
@@ -349,7 +348,7 @@ module.exports.agentPayments = async (req, res) => {
     try {
 
         const { page, limit = 5, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-
+       
         let query = search ? {
             $or: [
                 { "req_id.reqNo": { $regex: search, $options: 'i' } },
@@ -359,26 +358,31 @@ module.exports.agentPayments = async (req, res) => {
         } : {};
 
         const records = { count: 0 };
-
-        fetchedRecords = paginate == 1 ? await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
-            .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product deliveryDate quotedPrice reqNo" }])
+       
+        const fetchedRecords = paginate == 1 ? await AgentInvoice.find(query)
+            .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
+            .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product.name deliveryDate quotedPrice reqNo" }])
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
-                .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "reqNo product.name" }])
+            .limit(parseInt(limit)) 
+            
+            : await AgentInvoice.find(query)
+            .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
+                .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product.name deliveryDate quotedPrice reqNo" }])
                 .sort(sortBy)
 
         records.rows = fetchedRecords.map(record => ({
-            orderId: record?.req_id.reqNo,
+            orderId: record?.req_id?.reqNo || null,
             qtyProcured: record?.qtyProcured,
-            billingDate: record.req_id.deliveryDate,
+            billingDate: record?.req_id?.deliveryDate || null,
             paymentStatus: record?.payment_status
-        }));
+        })).filter(row => row.orderId !== null);
 
         records.count = await AgentInvoice.countDocuments(query);
+       // console.log(records)
 
         if (paginate == 1) {
-            records.page = page
+            records.page = parseInt(page)
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
