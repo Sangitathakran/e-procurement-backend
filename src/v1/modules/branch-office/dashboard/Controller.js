@@ -311,9 +311,9 @@ module.exports.farmerPayments = async (req, res) => {
 
             if (batchIds && batchIds.length > 0) {
                 farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
-                let query = { farmer_id: { $in: farmerOrderIdsOnly } };
+                let query = { _id: { $in: farmerOrderIdsOnly } };
                 requestCount = await FarmerOrders.countDocuments(query);
-                //console.log(query);
+               // console.log(query);
             }
             return {
                 'orderId': record?.reqNo,
