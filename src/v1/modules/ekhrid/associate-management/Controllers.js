@@ -616,8 +616,8 @@ module.exports.getProcurementCenterTesting = async (req, res) => {
 };
 
 module.exports.associateFarmerList = async (req, res) => {
-    let jfomIds = jformIds.slice(0, 30000);
-    
+    let jfomIds = jformIds.slice(0,  106921);
+
     const { associateName } = req.body;
 
     try {
@@ -636,7 +636,7 @@ module.exports.associateFarmerList = async (req, res) => {
             "warehouseData.jformID": { $exists: true },
             "paymentDetails.jFormId": { $exists: true },
             "procurementDetails.jformID": { $exists: true },
-            "procurementDetails.jformID": { $in : jfomIds },
+            "procurementDetails.jformID": { $in: jfomIds },
             $or: [
                 { "procurementDetails.offerCreatedAt": null },
                 { "procurementDetails.offerCreatedAt": { $exists: false } }
@@ -725,7 +725,7 @@ module.exports.associateFarmerList = async (req, res) => {
                 jformDate: procurement.jformDate,
                 procurementId: procurementCenterId
             });
-            
+
             if (farmerObj?._id) group.total_farmers += 1;
             if (procurement.farmerID) group.total_ekhrid_farmers += 1;
             group.qtyOffered += qty;
@@ -1433,5 +1433,91 @@ module.exports.updateBatchIds = async (req, res) => {
             message: 'Internal Server Error',
             error: error.message,
         });
+    }
+};
+
+module.exports.totalQtyFarmerOrder = async (req, res) => {
+    try {
+        const matchStage = {
+            associateOffers_id: new mongoose.Types.ObjectId("681b7269938a6624664d888f"),
+            "batchCreatedAt": { $exists: true }
+        };
+
+        const result = await FarmerOrders.aggregate([
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: null,
+                    offeredQty: { $sum: "$offeredQty" }
+                }
+            },
+        ]);
+        const totalQtl = result[0]?.offeredQty || 0;
+
+        res.json({
+            offeredQty: totalQtl,
+
+        });
+    } catch (error) {
+        console.error("Error in totalQty:", error);
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.ekhridFarmerOrderMapping = async (req, res) => {
+    try {
+        // Step 1: Fetch gatePassIDs from eKharidHaryana
+        const gatePassIDsEKharidHaryanaDocs = await eKharidHaryanaProcurementModel.find({
+            "warehouseData.jformID": { $exists: true },
+            "paymentDetails.jFormId": { $exists: true },
+            "procurementDetails.jformID": { $exists: true },
+            "procurementDetails.offerCreatedAt": { $ne: null },
+            "procurementDetails.commisionAgentName": "FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY"
+        });
+
+        const ekharidGatePassIDs = gatePassIDsEKharidHaryanaDocs
+            .map(doc => doc?.procurementDetails?.gatePassID)
+            .filter(id => typeof id === 'number');
+
+        console.log("Fetched eKharid gatePassIDs count:", ekharidGatePassIDs.length);
+
+        // Step 2: Fetch all gatePassIDs used in FarmerOrders
+        const farmerOrderGatePassIDs = await FarmerOrders.distinct("gatePassID", {
+            gatePassID: { $ne: null },
+            associateOffers_id: new mongoose.Types.ObjectId("681b7269938a6624664d888f"),
+        });
+
+        // Step 3: Find eKharid gatePassIDs NOT present in FarmerOrders
+        const unmatchedGatePassIDs = ekharidGatePassIDs.filter(id => !farmerOrderGatePassIDs.includes(id));
+
+        console.log("GatePassIDs to nullify offerCreatedAt for:", unmatchedGatePassIDs.length);
+
+        if (unmatchedGatePassIDs.length === 0) {
+            return res.json({
+                message: "No unmatched gatePassIDs found. No update needed.",
+                updatedCount: 0
+            });
+        }
+
+        // Step 4: Update eKharidHaryanaProcurementModel documents
+        const updateResult = await eKharidHaryanaProcurementModel.updateMany(
+            {
+                "procurementDetails.gatePassID": { $in: unmatchedGatePassIDs },
+                "procurementDetails.commisionAgentName": "FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY"
+            },
+            {
+                $set: { "procurementDetails.offerCreatedAt": null }
+            }
+        );
+
+        res.json({
+            message: "Cleanup complete",
+            unmatchedGatePassIDs: unmatchedGatePassIDs.length,
+            updatedCount: updateResult.modifiedCount
+        });
+
+    } catch (error) {
+        console.error("Error in ekhridFarmerOrderMapping:", error);
+        res.status(500).json({ error: "Internal Server Error" });
     }
 };

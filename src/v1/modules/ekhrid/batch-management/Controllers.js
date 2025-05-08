@@ -455,6 +455,7 @@ module.exports.createBatch = async (req, res) => {
                         batchCreatedAt: new Date(),
                         payment_status: farmer?.transactionStatus === "Success" ? _paymentstatus.completed : _paymentstatus.pending,
                         payment_date: moment(farmer?.transactionDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+                        ekhridBatch: true,
                         ekhridPaymentDetails: {
                             transactionId: farmer?.transactionId,
                             transactionAmount: farmer?.transactionAmount,
