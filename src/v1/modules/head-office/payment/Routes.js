@@ -22,7 +22,7 @@ paymentRoutes.get("/approved-batch-list", Auth, approvedBatchList);
 paymentRoutes.post("/pay-farmers", Auth, payFarmers)
 paymentRoutes.put("/update-payment-status", Auth, updatePaymentByOrderId)
 
-//paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPayment);
+paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPayment);
 paymentRoutes.get("/get-paidAmount", Auth, getTotalSuccessfulPaidAmount);
 
 // paymentRoutes.get("/proceed-to-pay-batch-list", Auth, proceedToPayBatchList);
