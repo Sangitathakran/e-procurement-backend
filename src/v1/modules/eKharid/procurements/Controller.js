@@ -11,6 +11,7 @@ const {
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { default: axios } = require("axios");
 const express = require("express");
+const { procurementOrderlogger } = require("@config/logger");
 
 // Helper function to handle missing fields with default values
 const extractField = (
@@ -26,8 +27,18 @@ const extractField = (
 };
 
 const KRSH_BWN_FMR_API = process.env.KRSH_BWN_FMR_API;
+let apiCallCount = 0; // basic in-memory counter (resets on server restart)
+
 
 module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
+  apiCallCount++; // increment counter
+  const ip = req.ip || req.connection.remoteAddress;
+  const timestamp = new Date().toISOString();
+
+  procurementOrderlogger.info(
+    `API: createProcurementOrder called | Count: ${apiCallCount} | Time: ${timestamp} | IP: ${ip}`
+  );
+
   try {
     const { session = "NA", procurementDetails = {} } = req.body;
     const { jformID = "" } = procurementDetails;
