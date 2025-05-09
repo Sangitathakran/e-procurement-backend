@@ -1521,3 +1521,35 @@ module.exports.ekhridFarmerOrderMapping = async (req, res) => {
         res.status(500).json({ error: "Internal Server Error" });
     }
 };
+
+module.exports.getNewJformIds = async (req, res) => {
+    const fs = require('fs');
+  
+    try {
+      // Assuming jformIds is defined globally or retrieved from req
+      const allJformIds = jformIds.map(id => parseInt(id));
+  
+      // Step 1: Query only existing jformIDs in one go
+      const existingDocs = await eKharidHaryanaProcurementModel.find(
+        { "procurementDetails.jformID": { $in: allJformIds } },
+        { "procurementDetails.jformID": 1 }
+      ).lean();
+  
+      // Step 2: Extract found IDs
+      const existingIdsSet = new Set(
+        existingDocs.map(doc => doc.procurementDetails.jformID)
+      );
+  
+      // Step 3: Filter IDs that are not in the existing set
+      const newJformIds = allJformIds.filter(id => !existingIdsSet.has(id));
+  
+      // Step 4: Write result to file
+      fs.writeFileSync('./newJFormIds.txt', JSON.stringify(newJformIds, null, 2));
+  
+      return res.json({ message: "OK", newCount: newJformIds.length });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: err.message });
+    }
+  };
+  

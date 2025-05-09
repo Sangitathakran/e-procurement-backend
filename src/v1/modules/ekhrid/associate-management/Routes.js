@@ -1,7 +1,8 @@
 const express = require("express");
 const { getAssociates, updateOrInsertUsers, addFarmers, addProcureallPaymentOrdersmentCenter,updateOrInsertUsersTesting, associateFarmerList, 
     createOfferOrder, addProcurementCenter, getProcurementCenter, getProcurementCenterTesting,getEkhridJFormId, getMandiName, getAllMandiName, totalQty,
-    allPaymentOrders, getBatchIds, updateBatchIds, totalQtyFarmerOrder, ekhridFarmerOrderMapping } = require("./Controllers");
+    allPaymentOrders, getBatchIds, updateBatchIds, totalQtyFarmerOrder, ekhridFarmerOrderMapping, 
+    getNewJformIds} = require("./Controllers");
 
 const associateMngmntRoutes = express.Router();
 
@@ -27,5 +28,6 @@ associateMngmntRoutes.get("/updateBatchIds", updateBatchIds );
 
 associateMngmntRoutes.get("/totalQtyFarmerOrder", totalQtyFarmerOrder );
 associateMngmntRoutes.get("/ekhridFarmerOrderMapping", ekhridFarmerOrderMapping );
+associateMngmntRoutes.get('/test', getNewJformIds );
 
 module.exports = { associateMngmntRoutes }; 
