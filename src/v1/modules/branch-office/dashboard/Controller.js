@@ -15,93 +15,179 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { commodity } = require("../../dropDown/Controller");
 
 
+
+
+//start of prachi code
 module.exports.getDashboardStats = async (req, res) => {
-
     try {
-
         const currentDate = new Date();
         const startOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
         const startOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
         const endOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
 
-        const lastMonthBo = await User.countDocuments({
-            user_type: _userType.bo,
-            is_form_submitted: true,
-            is_approved: _userStatus.approved,
-            createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
-        });
+        const [
+            lastMonthBo,
+            currentMonthAssociates,
+            lastMonthFarmers,
+            currentMonthFarmers,
+            branchOfficeCount,
+            associateCount,
+            procurementCenterCount,
+            farmerCount
+        ] = await Promise.all([
+            User.countDocuments({
+                user_type: _userType.bo,
+                is_form_submitted: true,
+                is_approved: _userStatus.approved,
+                createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
+            }),
+            User.countDocuments({
+                user_type: _userType.associate,
+                is_form_submitted: true,
+                is_approved: _userStatus.approved,
+                createdAt: { $gte: startOfCurrentMonth }
+            }),
+            farmer.countDocuments({
+                status: _status.active,
+                createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
+            }),
+            farmer.countDocuments({
+                status: _status.active,
+                createdAt: { $gte: startOfCurrentMonth }
+            }),
+            Branches.countDocuments({ status: _status.active }),
+            User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved }),
+            ProcurementCenter.countDocuments({ deletedAt: null }),
+            farmer.countDocuments({ status: _status.active })
+        ]);
 
-        const currentMonthAssociates = await User.countDocuments({
-            user_type: _userType.associate,
-            is_form_submitted: true,
-            is_approved: _userStatus.approved,
-            createdAt: { $gte: startOfCurrentMonth }
-        });
-
-        const difference = currentMonthAssociates - lastMonthBo;
-        const status = difference >= 0 ? 'increased' : 'decreased';
-
-        let differencePercentage = 0;
-        if (lastMonthBo > 0) {
-            differencePercentage = (difference / lastMonthBo) * 100;
-        }
-
-        // Farmers stats for last month and current month
-        const lastMonthFarmers = await farmer.countDocuments({
-            status: _status.active,
-            createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
-        });
-
-        const currentMonthFarmers = await farmer.countDocuments({
-            status: _status.active,
-            createdAt: { $gte: startOfCurrentMonth }
-        });
-
-        // Difference and percentage for farmers
+        const associateDifference = currentMonthAssociates - lastMonthBo;
+        const associateStatus = associateDifference >= 0 ? 'increased' : 'decreased';
+        const associateDifferencePercentage = lastMonthBo > 0
+            ? ((associateDifference / lastMonthBo) * 100).toFixed(2) + '%'
+            : '0%';
         const farmerDifference = currentMonthFarmers - lastMonthFarmers;
         const farmerStatus = farmerDifference >= 0 ? 'increased' : 'decreased';
-
-        let farmerDifferencePercentage = 0;
-        if (lastMonthFarmers > 0) {
-            farmerDifferencePercentage = (farmerDifference / lastMonthFarmers) * 100;
-        }
-
-        const branchOfficeCount = (await Branches.countDocuments({ status: _status.active })) ?? 0;
-        const associateCount = (await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved})) ?? 0;
-        const procurementCenterCount = (await ProcurementCenter.countDocuments({deletedAt: null})) ?? 0;
-        const farmerCount = (await farmer.countDocuments({ status: _status.active })) ?? 0;
-
-        const associateStats = {
-            totalAssociates: associateCount,
-            currentMonthAssociates,
-            lastMonthBo,
-            difference,
-            differencePercentage: differencePercentage.toFixed(2) + '%',
-            status: status,
-        };
-
-        const farmerStats = {
-            totalFarmers: farmerCount,
-            currentMonthFarmers,
-            lastMonthFarmers,
-            difference: farmerDifference,
-            differencePercentage: farmerDifferencePercentage.toFixed(2) + '%',
-            status: farmerStatus,
-        };
+        const farmerDifferencePercentage = lastMonthFarmers > 0
+            ? ((farmerDifference / lastMonthFarmers) * 100).toFixed(2) + '%'
+            : '0%';
 
         const records = {
             branchOfficeCount,
-            associateStats,
-            procurementCenterCount,
-            farmerStats
+            associateStats: {
+                totalAssociates: associateCount,
+                currentMonthAssociates,
+                lastMonthBo,
+                difference: associateDifference,
+                differencePercentage: associateDifferencePercentage,
+                status: associateStatus
+            },
+	    procurementCenterCount,
+            farmerStats: {
+                totalFarmers: farmerCount,
+                currentMonthFarmers,
+                lastMonthFarmers,
+                difference: farmerDifference,
+                differencePercentage: farmerDifferencePercentage,
+                status: farmerStatus
+            }
         };
 
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Dashboard Stats") }));
-
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
+// module.exports.getDashboardStats = async (req, res) => {
+
+//     try {
+
+//         const currentDate = new Date();
+//         const startOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+//         const startOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+//         const endOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
+
+//         const lastMonthBo = await User.countDocuments({
+//             user_type: _userType.bo,
+//             is_form_submitted: true,
+//             is_approved: _userStatus.approved,
+//             createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
+//         });
+
+//         const currentMonthAssociates = await User.countDocuments({
+//             user_type: _userType.associate,
+//             is_form_submitted: true,
+//             is_approved: _userStatus.approved,
+//             createdAt: { $gte: startOfCurrentMonth }
+//         });
+
+//         const difference = currentMonthAssociates - lastMonthBo;
+//         const status = difference >= 0 ? 'increased' : 'decreased';
+
+//         let differencePercentage = 0;
+//         if (lastMonthBo > 0) {
+//             differencePercentage = (difference / lastMonthBo) * 100;
+//         }
+
+//         // Farmers stats for last month and current month
+//         const lastMonthFarmers = await farmer.countDocuments({
+//             status: _status.active,
+//             createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
+//         });
+
+//         const currentMonthFarmers = await farmer.countDocuments({
+//             status: _status.active,
+//             createdAt: { $gte: startOfCurrentMonth }
+//         });
+
+//         // Difference and percentage for farmers
+//         const farmerDifference = currentMonthFarmers - lastMonthFarmers;
+//         const farmerStatus = farmerDifference >= 0 ? 'increased' : 'decreased';
+
+//         let farmerDifferencePercentage = 0;
+//         if (lastMonthFarmers > 0) {
+//             farmerDifferencePercentage = (farmerDifference / lastMonthFarmers) * 100;
+//         }
+
+//         const branchOfficeCount = (await Branches.countDocuments({ status: _status.active })) ?? 0;
+//         const associateCount = (await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved})) ?? 0;
+//         const procurementCenterCount = (await ProcurementCenter.countDocuments({deletedAt: null})) ?? 0;
+//         const farmerCount = (await farmer.countDocuments({ status: _status.active })) ?? 0;
+
+//         const associateStats = {
+//             totalAssociates: associateCount,
+//             currentMonthAssociates,
+//             lastMonthBo,
+//             difference,
+//             differencePercentage: differencePercentage.toFixed(2) + '%',
+//             status: status,
+//         };
+
+//         const farmerStats = {
+//             totalFarmers: farmerCount,
+//             currentMonthFarmers,
+//             lastMonthFarmers,
+//             difference: farmerDifference,
+//             differencePercentage: farmerDifferencePercentage.toFixed(2) + '%',
+//             status: farmerStatus,
+//         };
+
+//         const records = {
+//             branchOfficeCount,
+//             associateStats,
+//             procurementCenterCount,
+//             farmerStats
+//         };
+
+//         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Dashboard Stats") }));
+
+//     } catch (error) {
+//         _handleCatchErrors(error, res);
+//     }
+// }
+
+
+
 
 module.exports.getProcurementsStats = async (req, res) => {
 
