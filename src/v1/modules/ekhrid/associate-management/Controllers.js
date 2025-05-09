@@ -616,7 +616,7 @@ module.exports.getProcurementCenterTesting = async (req, res) => {
 };
 
 module.exports.associateFarmerList = async (req, res) => {
-    let jfomIds = jformIds.slice(0,  106921);
+    let jfomIds = jformIds.slice(0, 106921);
 
     const { associateName } = req.body;
 
@@ -1524,32 +1524,40 @@ module.exports.ekhridFarmerOrderMapping = async (req, res) => {
 
 module.exports.getNewJformIds = async (req, res) => {
     const fs = require('fs');
-  
+
     try {
-      // Assuming jformIds is defined globally or retrieved from req
-      const allJformIds = jformIds.map(id => parseInt(id));
-  
-      // Step 1: Query only existing jformIDs in one go
-      const existingDocs = await eKharidHaryanaProcurementModel.find(
-        { "procurementDetails.jformID": { $in: allJformIds } },
-        { "procurementDetails.jformID": 1 }
-      ).lean();
-  
-      // Step 2: Extract found IDs
-      const existingIdsSet = new Set(
-        existingDocs.map(doc => doc.procurementDetails.jformID)
-      );
-  
-      // Step 3: Filter IDs that are not in the existing set
-      const newJformIds = allJformIds.filter(id => !existingIdsSet.has(id));
-  
-      // Step 4: Write result to file
-      fs.writeFileSync('./newJFormIds.txt', JSON.stringify(newJformIds, null, 2));
-  
-      return res.json({ message: "OK", newCount: newJformIds.length });
+        // Assuming jformIds is defined globally or retrieved from req
+        const allJformIds = jformIds.map(id => parseInt(id));
+
+        // Step 1: Query only existing jformIDs in one go
+        const existingDocs = await eKharidHaryanaProcurementModel.find(
+            {
+                "procurementDetails.jformID": { $in: allJformIds },
+                // "warehouseData.jformID": { $exists: true },
+                // "paymentDetails.jFormId": { $exists: false }
+            },
+            { "procurementDetails.jformID": 1 }
+        ).lean();
+
+        // Step 2: Extract found IDs
+        const existingIdsSet = new Set(
+            existingDocs.map(doc => doc.procurementDetails.jformID)
+        );
+        
+        //  Filter IDs that are existing in the set
+        // const newJformIds = allJformIds.filter(id => existingIdsSet.has(id));
+        // //  Write result to file
+        // fs.writeFileSync('./paymentDetailsMissing.txt', JSON.stringify(newJformIds, null, 2));
+
+        //  Filter IDs that are not in the existing set
+        const newJformIds = allJformIds.filter(id => !existingIdsSet.has(id));
+
+        //  Write result to file
+        fs.writeFileSync('./newJFormIds.txt', JSON.stringify(newJformIds, null, 2));
+
+        return res.json({ message: "OK", newCount: newJformIds.length });
     } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: err.message });
+        console.error(err);
+        return res.status(500).json({ error: err.message });
     }
-  };
-  
+};
