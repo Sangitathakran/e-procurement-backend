@@ -5755,7 +5755,7 @@ for (const crop of crop_detail) {
     if (isExport != 1) {
       setCache(cacheKey, response, 300); // 5 mins
     }
-     console.log("response", response.rows);
+
     if (isExport == 1) {
       const record = response.rows.map((item) => ({
         "Order ID": item?.reqNo || "NA",
@@ -5765,25 +5765,25 @@ for (const crop of crop_detail) {
         " SLA ": item?.slaName || "NA",
         "Procurement center": item?.procurement_address?.line1 || "NA",
         "Farmer Name":
-          item?.batch_payments?.farmer_details?.basic_details?.name || "NA",
+          item?.farmer_details?.basic_details?.name || "NA",
         "Father Name":
-          item?.batch_payments?.farmer_details?.parents?.father_name || "NA",
-        Address:
-          item?.batch_payments?.farmer_details?.address?.address_line_1 || "NA",
+          item?.farmer_details?.parents?.father_name || "NA",
+        "Address ":
+          item?.farmer_details?.address?.address_line_1 || "NA",
         "Crop Name": item?.crop_names || "NA",
         "Quantity in MT": item?.product?.quantity || "NA",
         "Rate (MSP)": item?.quotedPrice || "NA",
         "TOTAL AMOUNT": item?.amountPaid || "NA",
         "Bank Name":
-          item?.batch_payments?.farmer_details?.bank_details?.bank_name || "NA",
+          item?.farmer_details?.bank_details?.bank_name || "NA",
         "Branch name ":
-          item?.batch_payments?.farmer_details?.bank_details?.branch_name ||
+          item?.farmer_details?.bank_details?.branch_name ||
           "NA",
         "Account No.":
-          item?.batch_payments?.farmer_details?.bank_details?.account_no ||
+          item?.farmer_details?.bank_details?.account_no ||
           "NA",
         IFSC:
-          item?.batch_payments?.farmer_details?.bank_details?.ifsc_code || "NA",
+          item?.farmer_details?.bank_details?.ifsc_code || "NA",
         "Reference ID / UTR No.": item?.batch_payments?.transaction_id || "NA",
         "Payment Status": item?.batch_payments?.payment_status || "NA",
       }));
@@ -5802,15 +5802,16 @@ for (const crop of crop_detail) {
           })
         );
       }
-    } else {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: response,
-          message: "Payments found",
-        })
-      );
-    }
+    } 
+    // else {
+    //   return res.status(200).send(
+    //     new serviceResponse({
+    //       status: 200,
+    //       data: response,
+    //       message: "Payments found",
+    //     })
+    //   );
+    // }
   } catch (error) {
     _handleCatchErrors(error, res);
   }
