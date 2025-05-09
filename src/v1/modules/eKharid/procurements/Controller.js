@@ -11,6 +11,7 @@ const {
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { default: axios } = require("axios");
 const express = require("express");
+const { procurementOrderlogger } = require("@config/logger");
 
 // Helper function to handle missing fields with default values
 const extractField = (
@@ -34,101 +35,101 @@ module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
   const ip = req.ip || req.connection.remoteAddress;
   const timestamp = new Date().toISOString();
 
-  logger.info(
+  procurementOrderlogger.info(
     `API: createProcurementOrder called | Count: ${apiCallCount} | Time: ${timestamp} | IP: ${ip}`
   );
-return res.json( {message: "OK"} );
-  // try {
-  //   const { session = "NA", procurementDetails = {} } = req.body;
-  //   const { jformID = "" } = procurementDetails;
-  //   if (!jformID)
-  //     return res.status(400).send(
-  //       new serviceResponse({
-  //         status: 400,
-  //         message: _middleware.require("JForm ID"),
-  //       })
-  //     );
-  //   const isExist = await eKharidHaryanaProcurementModel.findOne({
-  //     "procurementDetails.jformID": jformID,
-  //   });
-  //   if (isExist)
-  //     return res.status(400).send(
-  //       new serviceResponse({
-  //         status: 400,
-  //         message: _response_message.allReadyExist("JForm ID"),
-  //       })
-  //     );
 
-  //   const procurement = {
-  //     agencyName: extractField(procurementDetails.agencyName),
-  //     commodityName: extractField(procurementDetails.commodityName),
-  //     mandiName: extractField(procurementDetails.mandiName),
-  //     gatePassWeightQtl: extractField(
-  //       procurementDetails.gatePassWeightQtl,
-  //       "number"
-  //     ),
-  //     farmerID: extractField(procurementDetails.farmerID),
-  //     gatePassID: extractField(procurementDetails.gatePassID, "number"),
-  //     gatePassDate: extractField(procurementDetails.gatePassDate),
-  //     auctionID: extractField(procurementDetails.auctionID, "number"),
-  //     auctionDate: extractField(procurementDetails.auctionDate),
-  //     commisionAgentName: extractField(procurementDetails.commisionAgentName),
-  //     jformID: extractField(procurementDetails.jformID, "number"),
-  //     jformDate: extractField(procurementDetails.jformDate),
-  //     JformFinalWeightQtl: extractField(
-  //       procurementDetails.JformFinalWeightQtl,
-  //       "number"
-  //     ),
-  //     totalBags: extractField(procurementDetails.totalBags, "number"),
-  //     liftedDate: extractField(procurementDetails.liftedDate),
-  //     destinationWarehouseName: extractField(
-  //       procurementDetails.destinationWarehouseName
-  //     ),
-  //     receivedAtDestinationDate: extractField(
-  //       procurementDetails.receivedAtDestinationDate
-  //     ),
-  //     jformApprovalDate: extractField(procurementDetails.jformApprovalDate),
-  //     mspRateMT: extractField(procurementDetails.mspRateMT, "number"),
-  //   };
+  try {
+    const { session = "NA", procurementDetails = {} } = req.body;
+    const { jformID = "" } = procurementDetails;
+    if (!jformID)
+      return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          message: _middleware.require("JForm ID"),
+        })
+      );
+    const isExist = await eKharidHaryanaProcurementModel.findOne({
+      "procurementDetails.jformID": jformID,
+    });
+    if (isExist)
+      return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          message: _response_message.allReadyExist("JForm ID"),
+        })
+      );
 
-  //   const structuredData = {
-  //     session: extractField(session),
-  //     procurementDetails: procurement,
-  //     paymentDetails: {},
-  //     warehouseData: {},
-  //   };
+    const procurement = {
+      agencyName: extractField(procurementDetails.agencyName),
+      commodityName: extractField(procurementDetails.commodityName),
+      mandiName: extractField(procurementDetails.mandiName),
+      gatePassWeightQtl: extractField(
+        procurementDetails.gatePassWeightQtl,
+        "number"
+      ),
+      farmerID: extractField(procurementDetails.farmerID),
+      gatePassID: extractField(procurementDetails.gatePassID, "number"),
+      gatePassDate: extractField(procurementDetails.gatePassDate),
+      auctionID: extractField(procurementDetails.auctionID, "number"),
+      auctionDate: extractField(procurementDetails.auctionDate),
+      commisionAgentName: extractField(procurementDetails.commisionAgentName),
+      jformID: extractField(procurementDetails.jformID, "number"),
+      jformDate: extractField(procurementDetails.jformDate),
+      JformFinalWeightQtl: extractField(
+        procurementDetails.JformFinalWeightQtl,
+        "number"
+      ),
+      totalBags: extractField(procurementDetails.totalBags, "number"),
+      liftedDate: extractField(procurementDetails.liftedDate),
+      destinationWarehouseName: extractField(
+        procurementDetails.destinationWarehouseName
+      ),
+      receivedAtDestinationDate: extractField(
+        procurementDetails.receivedAtDestinationDate
+      ),
+      jformApprovalDate: extractField(procurementDetails.jformApprovalDate),
+      mspRateMT: extractField(procurementDetails.mspRateMT, "number"),
+    };
 
-  //   try {
-  //     const record = await eKharidHaryanaProcurementModel.create(
-  //       structuredData
-  //     );
-  //     return res.status(200).send(
-  //       new serviceResponse({
-  //         status: 200,
-  //         data: record || [],
-  //         message: _response_message.created(),
-  //       })
-  //     );
-  //   } catch (err) {
-  //     console.log(err);
+    const structuredData = {
+      session: extractField(session),
+      procurementDetails: procurement,
+      paymentDetails: {},
+      warehouseData: {},
+    };
 
-  //     return res.status(400).send(
-  //       new serviceResponse({
-  //         status: 400,
-  //         errors: [err.errmsg],
-  //         message: "Unable to save data",
-  //       })
-  //     );
-  //   }
-  // } catch (error) {
-  //   return res.status(400).send(
-  //     new serviceResponse({
-  //       status: 400,
-  //       errors: [error],
-  //       message: "Something went wrong",
-  //     })
-  //   );
-  // }
+    try {
+      const record = await eKharidHaryanaProcurementModel.create(
+        structuredData
+      );
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: record || [],
+          message: _response_message.created(),
+        })
+      );
+    } catch (err) {
+      console.log(err);
+
+      return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          errors: [err.errmsg],
+          message: "Unable to save data",
+        })
+      );
+    }
+  } catch (error) {
+    return res.status(400).send(
+      new serviceResponse({
+        status: 400,
+        errors: [error],
+        message: "Something went wrong",
+      })
+    );
+  }
 });
 
 module.exports.createPaymentSlip = asyncErrorHandler(async (req, res) => {
