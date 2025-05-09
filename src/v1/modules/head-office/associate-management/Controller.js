@@ -1,9 +1,11 @@
 
 const { User } = require("@src/v1/models/app/auth/User");
+
 const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
+
 
 
 module.exports.getAssociates = async (req, res) => {
