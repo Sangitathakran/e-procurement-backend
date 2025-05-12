@@ -4,8 +4,8 @@ const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 module.exports.HoAllScheme = async (req, res) => {
   try {
     const { user_id, portalId } = req;
-
     const portalObjectId = new mongoose.Types.ObjectId(portalId);
+
     const data = await SchemeAssign.aggregate([
       {
         $match: {
@@ -42,30 +42,40 @@ module.exports.HoAllScheme = async (req, res) => {
         },
       },
       {
-        $project: {
-          originalSchemeName: "$schemeName",
+        $group: {
+          _id: "$scheme_id",
           schemeName: {
-            $concat: [
-              { $ifNull: ["$schemeDetails.schemeName", ""] },
-              " ",
-              { $ifNull: ["$commodityDetails.name", ""] },
-              " ",
-              { $ifNull: ["$schemeDetails.season", ""] },
-              " ",
-              { $ifNull: ["$schemeDetails.period", ""] },
-            ],
+            $first: {
+              $concat: [
+                { $ifNull: ["$schemeDetails.schemeName", ""] },
+                " ",
+                { $ifNull: ["$commodityDetails.name", ""] },
+                " ",
+                { $ifNull: ["$schemeDetails.season", ""] },
+                " ",
+                { $ifNull: ["$schemeDetails.period", ""] },
+              ],
+            },
           },
-          procurement: 1,
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          id: "$_id",
+          schemeName: 1,
         },
       },
     ]);
 
     return res.status(200).json({
       status: 200,
-      data: data,
+      data,
     });
   } catch (err) {
     console.log("ERROR: ", err);
     return sendResponse({ status: 500, message: err.message });
   }
 };
+
+
