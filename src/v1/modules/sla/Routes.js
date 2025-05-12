@@ -14,6 +14,7 @@ const { schemeRoutes } = require("./scheme/Routes");
 const { commodityRoutes } = require("./commodity/Routes");
 const { slaRoute } = require("./sla-management/Routes");
 const { standardRoutes } = require("./standard/Routes");
+const {dropDownRoute} = require("./dropdown/Routes")
 
 const slaRoutes = express.Router();
 
@@ -32,5 +33,6 @@ slaRoutes.use("/agency", agencyMngmntRoutes);
 slaRoutes.use("/commodity", commodityRoutes);
 slaRoutes.use("/sla", slaRoute);
 slaRoutes.use("/standard", standardRoutes);
+slaRoutes.use("/dropdown", dropDownRoute);
 
 module.exports = { slaRoutes } 
