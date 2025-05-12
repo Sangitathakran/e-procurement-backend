@@ -1232,21 +1232,25 @@ module.exports.getAllMandiName = async (req, res) => {
 
 module.exports.totalQty = async (req, res) => {
     try {
+        const allJformIds = jformIds.map(id => parseInt(id));
+
         const matchStage = {
             "warehouseData.jformID": { $exists: true },
             "paymentDetails.jFormId": { $exists: true },
             "procurementDetails.jformID": { $exists: true },
-            $or: [
-                { "procurementDetails.offerCreatedAt": null },
-                { "procurementDetails.offerCreatedAt": { $exists: true } }
-            ]
+            // "procurementDetails.jformID": { $in: allJformIds },
+            "procurementDetails.offerCreatedAt": { $ne: null }
+            // $or: [
+            //     { "procurementDetails.offerCreatedAt": null },
+            //     { "procurementDetails.offerCreatedAt": { $exists: true } }
+            // ]
         };
         const result = await eKharidHaryanaProcurementModel.aggregate([
             { $match: matchStage },
             {
                 $group: {
                     _id: null,
-                    totalGatePassWeightQtl: { $sum: "$procurementDetails.gatePassWeightQtl" }
+                    totalGatePassWeightQtl: { $sum: "$procurementDetails.JformFinalWeightQtl" }
                 }
             },
         ]);
