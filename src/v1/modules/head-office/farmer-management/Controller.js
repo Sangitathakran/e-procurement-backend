@@ -17,7 +17,17 @@ const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 
 module.exports.farmerList = async (req, res) => {
   try {
-    const {
+    // const {
+    //   page = 1,
+    //   limit = 10,
+    //   sortBy = "name",
+    //   search = "",
+    //   isExport = 0,
+    //   state,
+    //   district,
+    // } = req.query;
+
+    let {
       page = 1,
       limit = 10,
       sortBy = "name",
@@ -26,6 +36,9 @@ module.exports.farmerList = async (req, res) => {
       state,
       district,
     } = req.query;
+
+    state = Array.isArray(state) ? state : state ? [state] : [];
+
 
     const skip = (page - 1) * limit;
     const searchFields = ["name", "farmer_id", "farmer_code", "mobile_no"];
@@ -73,24 +86,66 @@ module.exports.farmerList = async (req, res) => {
     });
 
     //  Add filtering by state and district name
-    if (state || district) {
-      const andConditions = [];
+    // if (state || district) {
+    //   const andConditions = [];
 
-      if (state) {
-        const stateId = reverseStateMap[state.toLowerCase()];
-        if (stateId) {
-          andConditions.push({ "address.state_id": stateId });
+    //   if (state) {
+    //     const stateId = reverseStateMap[state.toLowerCase()];
+    //     if (stateId) {
+    //       andConditions.push({ "address.state_id": stateId });
+    //     } else {
+    //       // no match found, return empty
+    //       return sendResponse({
+    //         res,
+    //         status: 200,
+    //         data: { count: 0, rows: [], page, limit, pages: 0 },
+    //         message: "No matching state found",
+    //       });
+    //     }
+    //   }
+
+    //   if (district) {
+    //     const districtId = reverseDistrictMap[district.toLowerCase()];
+    //     if (districtId) {
+    //       andConditions.push({ "address.district_id": districtId });
+    //     } else {
+    //       return sendResponse({
+    //         res,
+    //         status: 200,
+    //         data: { count: 0, rows: [], page, limit, pages: 0 },
+    //         message: "No matching district found",
+    //       });
+    //     }
+    //   }
+
+    //   if (andConditions.length > 0) {
+    //     query.$and = [...(query.$and || []), ...andConditions];
+    //   }
+    // }
+
+
+    if (state.length > 0 || district) {
+      const andConditions = [];
+    
+      // Handle multiple states
+      if (state.length > 0) {
+        const stateIds = state
+          .map((s) => reverseStateMap[s.toLowerCase()])
+          .filter(Boolean);
+    
+        if (stateIds.length > 0) {
+          andConditions.push({ "address.state_id": { $in: stateIds } });
         } else {
-          // no match found, return empty
           return sendResponse({
             res,
             status: 200,
             data: { count: 0, rows: [], page, limit, pages: 0 },
-            message: "No matching state found",
+            message: "No matching states found",
           });
         }
       }
-
+    
+      // Handle single district
       if (district) {
         const districtId = reverseDistrictMap[district.toLowerCase()];
         if (districtId) {
@@ -104,7 +159,7 @@ module.exports.farmerList = async (req, res) => {
           });
         }
       }
-
+    
       if (andConditions.length > 0) {
         query.$and = [...(query.$and || []), ...andConditions];
       }

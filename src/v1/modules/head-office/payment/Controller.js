@@ -1863,6 +1863,7 @@ module.exports.associateOrders = async (req, res) => {
       req_id: new mongoose.Types.ObjectId(req_id),
       bo_approve_status: _paymentApproval.approved,
     });
+ 
 
     let query = {
       _id: { $in: paymentIds },
