@@ -2376,8 +2376,7 @@ module.exports.proceedToPayBatchList = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, req_id, payment_status, isExport = 0 } = req.query
 
-        const paymentIds = (await Payment.find({ req_id })).map(i => i.batch_id);
-
+        const paymentIds = (await Payment.find({ req_id }, {batch_id: 1})).map(i => i.batch_id);
         let query = {
             _id: { $in: paymentIds },
             req_id: new mongoose.Types.ObjectId(req_id),
@@ -2424,6 +2423,9 @@ module.exports.proceedToPayBatchList = async (req, res) => {
                     localField: 'req_id',
                     foreignField: '_id',
                     as: 'requestDetails',
+                    pipeline: [
+                        { "$project": { "createdAt": 1 }}
+                    ]
                 }
             },
             {
@@ -2497,7 +2499,7 @@ module.exports.proceedToPayBatchList = async (req, res) => {
             }
             // End of Sangita code
         ]
-
+        
         records.rows = await Batch.aggregate(pipeline);
 
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
