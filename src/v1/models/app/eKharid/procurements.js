@@ -23,6 +23,14 @@ const ProcurementDetailsSchema = new mongoose.Schema({
   receivedAtDestinationDate: { type: String },
   jformApprovalDate: { type: String },
   mspRateMT: { type: Number },
+
+  iFormId: { type: Number, unique: true }, // Unique IForm ID
+  incidentalExpenses: { type: Number },
+  laborCharges: { type: Number },
+  laborChargesPayableDate: { type: Date },
+  commissionCharges: { type: Number },
+  commissionChargesPayableDate: { type: Date },
+
 });
 
 // Payment Details Schema
