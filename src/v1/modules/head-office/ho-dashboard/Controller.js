@@ -24,6 +24,7 @@ const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
+const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
@@ -457,6 +458,185 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
     });
   }
 });
+module.exports.stateWiseCommodityDetail = asyncErrorHandler(async (req, res) => {
+  try {
+    // STEP 1: Prepare stateId → stateName mapping
+    const stateDoc = await StateDistrictCity.findOne().lean();
+    const stateMap = {};
+
+    if (!stateDoc || !Array.isArray(stateDoc.states)) {
+      return sendResponse({
+        res,
+        status: 500,
+        message: "StateDistrictCity not configured properly",
+      });
+    }
+
+    for (const state of stateDoc.states) {
+      stateMap[state._id.toString()] = state.state_title;
+    }
+
+    // STEP 2: Aggregation
+    const result = await Crop.aggregate([
+      // JOIN FARMER
+      {
+        $lookup: {
+          from: "farmers",
+          localField: "farmer_id",
+          foreignField: "_id",
+          as: "farmer",
+        },
+      },
+      { $unwind: "$farmer" },
+    
+      // JOIN ASSOCIATE
+      {
+        $lookup: {
+          from: "users",
+          localField: "farmer.associate_id",
+          foreignField: "_id",
+          as: "associate",
+        },
+      },
+      { $unwind: { path: "$associate", preserveNullAndEmptyArrays: true } },
+    
+      // ADD associate_type
+      {
+        $addFields: {
+          associate_type: {
+            $ifNull: [
+              "$associate.basic_details.associate_details.associate_type",
+              "$associate.associate_type"
+            ]
+          },
+        },
+      },
+    
+      // JOIN PAYMENT_COLLECTION BY FARMER ID (FILTER COMPLETED)
+      {
+        $lookup: {
+          from: "payments",
+          let: { farmerId: "$farmer._id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$farmer_id", "$$farmerId"] },
+                    { $eq: ["$payment_status", "completed"] }
+                  ]
+                }
+              }
+            },
+            {
+              $project: {
+                farmer_id: 1,
+                qtyProcured: 1,
+              }
+            }
+          ],
+          as: "completedPayments"
+        },
+      },
+    
+      // GROUP BY STATE + CROP
+      {
+        $group: {
+          _id: {
+            state_id: "$farmer.address.state_id",
+            crop_name: "$crop_name",
+          },
+          uniqueFarmerIds: { $addToSet: "$farmer._id" },
+          fpoOrPacsAssociates: {
+            $addToSet: {
+              $cond: [
+                { $in: ["$associate_type", ["PACS", "FPO"]] },
+                "$associate._id",
+                "$$REMOVE"
+              ]
+            }
+          },
+          benefitedFarmerIds: {
+            $addToSet: {
+              $cond: [
+                { $gt: [{ $size: "$completedPayments" }, 0] },
+                "$farmer._id",
+                "$$REMOVE"
+              ]
+            }
+          },
+          totalQtyProcured: {
+            $sum: {
+              $reduce: {
+                input: "$completedPayments",
+                initialValue: 0,
+                in: { $add: ["$$value", { $ifNull: ["$$this.qtyProcured", 0] }] }
+              }
+            }
+          }
+        },
+      },
+    
+      // FINAL PROJECT
+      {
+        $project: {
+          state_id: "$_id.state_id",
+          crop_name: "$_id.crop_name",
+          totalFarmers: { $size: "$uniqueFarmerIds" },
+          totalAssociates: { $size: "$fpoOrPacsAssociates" },
+          totalBenefitedFarmers: { $size: "$benefitedFarmerIds" },
+          totalQuantityPurchased: "$totalQtyProcured"
+        },
+      }
+    ]);
+   
+
+    // console.log("result", result)
+
+    // STEP 3: Format result state → crops[]
+    const stateWiseData = {};
+
+    for (const item of result) {
+      const stateId = item.state_id?.toString();
+      if (!stateId || !item.crop_name) continue;
+
+      if (!stateWiseData[stateId]) {
+        stateWiseData[stateId] = {
+          state_id: stateId,
+          state_name: stateMap[stateId] || "Unknown",
+          crops: [],
+        };
+      }
+
+      stateWiseData[stateId].crops.push({
+        crop_name: item.crop_name,
+        totalFarmers: item.totalFarmers,
+        totalAssociates: item.totalAssociates,
+        totalBenefitedFarmers: item.totalBenefitedFarmers,
+        totalQuantityPurchased: item.totalQuantityPurchased,
+      });
+    }
+
+    const finalResult = Object.values(stateWiseData);
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: "State-wise commodity farmer + associate count fetched successfully",
+      data: finalResult,
+    });
+  } catch (error) {
+    console.error("Error in stateCommodityFarmerCount:", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+});
+
+
 
 
 
