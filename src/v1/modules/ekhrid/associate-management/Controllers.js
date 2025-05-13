@@ -1547,7 +1547,7 @@ module.exports.getNewJformIds = async (req, res) => {
         const existingIdsSet = new Set(
             existingDocs.map(doc => doc.procurementDetails.jformID)
         );
-        
+
         //  Filter IDs that are existing in the set
         // const newJformIds = allJformIds.filter(id => existingIdsSet.has(id));
         // //  Write result to file
@@ -1563,5 +1563,44 @@ module.exports.getNewJformIds = async (req, res) => {
     } catch (err) {
         console.error(err);
         return res.status(500).json({ error: err.message });
+    }
+};
+
+module.exports.totalQtyRania = async (req, res) => {
+    try {
+        const matchStage = {
+            "warehouseData.jformID": { $exists: true },
+            "paymentDetails.jFormId": { $exists: true },
+            "procurementDetails.jformID": { $exists: true },
+            "procurementDetails.offerCreatedAt": { $ne: null },
+            "procurementDetails.mandiName": "Rania"
+        };
+
+         const result = await eKharidHaryanaProcurementModel.aggregate([
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: "$warehouseData.exitGatePassId",
+                    totalQtyQtl: { $sum: "$procurementDetails.JformFinalWeightQtl" }
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    totalQtyQtl: 1,
+                    totalQtyMT: { $multiply: ["$totalQtyQtl", 0.1] }
+                }
+            },
+            {
+                $sort: { totalQtyMT: -1 } // Optional sorting
+            }
+        ]);
+
+        res.json({
+            groupedQty: result
+        });
+    } catch (error) {
+        console.error("Error in totalQty:", error);
+        _handleCatchErrors(error, res);
     }
 };
