@@ -2376,7 +2376,15 @@ module.exports.proceedToPayBatchList = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', associateOffer_id, req_id, payment_status, isExport = 0 } = req.query
 
-        const paymentIds = (await Payment.find({ req_id })).map(i => i.batch_id);
+        // Construct a unique cache key based on relevant query parameters
+        const cacheKey = `batchList:${req_id}:${page}:${limit}:${skip}:${search}:${payment_status}:${sortBy}:${isExport}`;
+
+    // Check if the data exists in cache
+    const cachedData = getCache(cacheKey);
+    if (cachedData && isExport != 1) {
+      return res.status(200).send(new serviceResponse({ status: 200, data: cachedData, message: _response_message.found("Payment (from cache)") }));
+    }
+        const paymentIds = (await Payment.find({ req_id }, {batch_id:1})).map(i => i.batch_id);
 
         let query = {
             _id: { $in: paymentIds },
@@ -2424,6 +2432,9 @@ module.exports.proceedToPayBatchList = async (req, res) => {
                     localField: 'req_id',
                     foreignField: '_id',
                     as: 'requestDetails',
+                    pipeline: [
+                        { "$project": { "createdAt": 1 }}
+                    ]
                 }
             },
             {
@@ -2477,6 +2488,7 @@ module.exports.proceedToPayBatchList = async (req, res) => {
             {
                 $project: {
                     "batchId": 1,
+                    seller_id: 1,
                     amountPayable: "$totalPrice",
                     qtyPurchased: "$qty",
                     amountProposed: "$goodsPrice",
@@ -2497,7 +2509,7 @@ module.exports.proceedToPayBatchList = async (req, res) => {
             }
             // End of Sangita code
         ]
-
+        
         records.rows = await Batch.aggregate(pipeline);
 
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
@@ -2535,6 +2547,11 @@ module.exports.proceedToPayBatchList = async (req, res) => {
             }
         }
 
+          // Save to cache (only if not export)
+    if (isExport != 1) {
+          const plainRecords = JSON.parse(JSON.stringify(records));
+      setCache(cacheKey, plainRecords);
+    }
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
 
     } catch (error) {
@@ -3670,10 +3687,10 @@ module.exports.agentDashboardPaymentListWOAggregation = async (req, res) => {
 };
 
 // Helper: Convert month string to a sortable date
-// function billing_monthToDate(monthName) {
-//     if (!monthName) return new Date(0);
-//     return new Date(`01 ${monthName} 2020`);
-// }
+function billing_monthToDate(monthName) {
+    if (!monthName) return new Date(0);
+    return new Date(`01 ${monthName} 2020`);
+}
 
 
 module.exports.proceedToPayPaymentNew = async (req, res) => {
