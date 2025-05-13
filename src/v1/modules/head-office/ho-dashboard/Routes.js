@@ -19,8 +19,10 @@ const {
   farmerPendingApproval,
   satewiseProcurement,
   getcommodity,
-  getAssignedSchemes
+  getAssignedSchemes,
+  stateWiseCommodityDetail
 } = require("./Controller");
+
 
 hoDashboardRoutes.get("/widget-list", widgetList);
 hoDashboardRoutes.get("/ho-widget-list", dashboardWidgetList);
@@ -44,5 +46,7 @@ hoDashboardRoutes.get("/farmer-pending-approval", farmerPendingApproval);
 hoDashboardRoutes.get("/statewise-procurement", satewiseProcurement);
 hoDashboardRoutes.get("/commodity", Auth, getcommodity);
 hoDashboardRoutes.get("/getscheme", Auth, getAssignedSchemes);
+hoDashboardRoutes.get("/statewise-commodity", stateWiseCommodityDetail);
+
 
 module.exports = { hoDashboardRoutes };
