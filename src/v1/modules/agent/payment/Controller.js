@@ -3672,10 +3672,10 @@ module.exports.agentDashboardPaymentListWOAggregation = async (req, res) => {
 };
 
 // Helper: Convert month string to a sortable date
-// function billing_monthToDate(monthName) {
-//     if (!monthName) return new Date(0);
-//     return new Date(`01 ${monthName} 2020`);
-// }
+function billing_monthToDate(monthName) {
+    if (!monthName) return new Date(0);
+    return new Date(`01 ${monthName} 2020`);
+}
 
 
 module.exports.proceedToPayPaymentNew = async (req, res) => {
