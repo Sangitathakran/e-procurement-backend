@@ -91,12 +91,12 @@ module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
       jformApprovalDate: extractField(procurementDetails.jformApprovalDate),
       mspRateMT: extractField(procurementDetails.mspRateMT, "number"),
 
-      iFormId: extractField(procurementDetails.iFormId, "number"), // Unique IForm ID
-      incidentalExpenses: extractField(procurementDetails.incidentalExpenses, "number"),
-      laborCharges: extractField(procurementDetails.laborCharges, "number"),
-      laborChargesPayableDate: extractField(procurementDetails.laborChargesPayableDate),
-      commissionCharges: extractField(procurementDetails.commissionCharges, "number"),
-      commissionChargesPayableDate: extractField(procurementDetails.commissionChargesPayableDate),
+      iFormId: procurementDetails.iFormId, // Unique IForm ID
+      incidentalExpenses: procurementDetails.incidentalExpenses,
+      laborCharges: procurementDetails.laborCharges,
+      laborChargesPayableDate: procurementDetails.laborChargesPayableDate,
+      commissionCharges: procurementDetails.commissionCharges,
+      commissionChargesPayableDate: procurementDetails.commissionChargesPayableDate,
     };
 
     const structuredData = {
