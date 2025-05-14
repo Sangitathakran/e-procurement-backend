@@ -2517,21 +2517,31 @@ module.exports.proceedToPayBatchList = async (req, res) => {
 
         records.count = await Batch.countDocuments(query);
 
-        if (paginate == 1) {
+        if (paginate == 1 && isExport == 0 ) {
             records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
+
         if (isExport == 1) {
 
-            const record = records.rows.map((item) => {
+            const record = records?.rows.map((item) => {
 
                 return {
-                    "Associate Id": item?.seller_id.user_code || "NA",
-                    "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || "NA",
-                    "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || "NA",
-                    "Quantity Purchased": item?.offeredQty || "NA",
+                    "BATCH ID": item?.rows?.batchId || "NA",
+                    "Associate Name": item?.rows?.associateName || "NA",
+                    "PROCURED ON": item?.rows?.procuredOn || "NA",
+                    "DELIVERY DATE": item?.rows?.deliveryDate || "NA",
+                    "QUANTITY PURCHASED	": item?.rows?.qtyPurchased || "NA",
+                    "AMOUNT PAYABLE": item?.rows?.amountPayable || "NA",
+                    "WHR NO": item?.rows?.wh_no || "NA",
+                    "TAGS": item?.rows?.tags || "NA",
+                    "APPROVAL PAYABLE": item?.rows?.amountProposed || "NA",
+                    "PAYMENT STATUS	": item?.rows?.approval_status || "NA",
+                    // "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || "NA",
+                    // "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || "NA",
+                    // "Quantity Purchased": item?.offeredQty || "NA",
                 }
             })
 
@@ -3861,7 +3871,9 @@ module.exports.proceedToPayPaymentNew = async (req, res) => {
                 {
                   $project: {
                     _id: 1,
-                    schemeName: 1
+                    schemeName: 1,
+                    season :1 ,
+                    period : 1,
                   }
                 }
               ],
@@ -3869,6 +3881,20 @@ module.exports.proceedToPayPaymentNew = async (req, res) => {
             }
           },
           { $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true } },
+            {
+           $lookup: {
+            from: "commodities",
+           localField: "product.commodity_id",
+           foreignField: "_id",
+           as: "commodityDetails",
+            },
+           },
+          {
+           $unwind: {
+             path: "$commodityDetails",
+             preserveNullAndEmptyArrays: true,
+           },
+           },
           {
             $match: {
               "batches.agent_approve_status": _paymentApproval.approved,
@@ -3881,7 +3907,18 @@ module.exports.proceedToPayPaymentNew = async (req, res) => {
               amountPayable: { $sum: "$batches.totalPrice" },
               approval_date: { $arrayElemAt: ["$batches.payement_approval_at", 0] },
               approval_status: "Approved",
-              payment_status: payment_status || _paymentstatus.pending
+              payment_status: payment_status || _paymentstatus.pending,
+               schemeName: {
+              $concat: [
+                { $ifNull: ["$scheme.schemeName", ""] },
+                " ",
+                { $ifNull: ["$commodityDetails.name", ""] },
+                " ",
+                { $ifNull: ["$scheme.season", ""] },
+                " ",
+                { $ifNull: ["$scheme.period", ""] },
+              ],
+             },
             }
           },
           {
@@ -3897,7 +3934,8 @@ module.exports.proceedToPayPaymentNew = async (req, res) => {
               'branchDetails.branchName': 1,
               'branchDetails.branchId': 1,
               'sla.basic_details.name': 1,
-              'scheme.schemeName': 1
+              schemeName :1,
+            //   'scheme.schemeName': 1
             }
           }
         ];
