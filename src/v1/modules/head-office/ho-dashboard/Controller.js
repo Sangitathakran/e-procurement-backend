@@ -24,6 +24,8 @@ const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
+const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
+const { Scheme } = require("@src/v1/models/master/Scheme");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 
 //widget listss
@@ -1494,5 +1496,54 @@ module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
     status: 200,
     message: _query.get("ProcurementOnTime"),
     data: data,
+  });
+});
+module.exports.getcommodity = asyncErrorHandler(async (req, res) => {
+  const hoId =  new mongoose.Types.ObjectId(req.user.portalId);
+  console.log("hoid", hoId)
+  const { name } = req.query;
+
+  if (!name) {
+    return res.status(400).json({
+      success: false,
+      message: "Commodity name is required in query parameter"
+    });
+  }
+
+  const filteredRequests = await RequestModel.find({
+    head_office_id: hoId,
+    "product.name": { $regex: new RegExp(name, "i") } 
+  })
+    .select("product.name product.grade product.quantity product.commodityImage status expectedProcurementDate deliveryDate")
+    .lean();
+
+  res.status(200).json({
+    success: true,
+    data: filteredRequests
+  });
+});
+
+module.exports.getAssignedSchemes = asyncErrorHandler(async (req, res) => {
+  const hoId = new mongoose.Types.ObjectId(req.user.portalId);
+  console.log("hoId",hoId)
+  const { schemeName } = req.query;
+
+  const assignedSchemes = await SchemeAssign.find({ ho_id: hoId })
+    .populate({
+      path: 'scheme_id',
+      model: _collectionName.Scheme,
+      // match: schemeName
+      //   ? {
+      //       schemeName: new RegExp("^" + schemeName.trim(), "i"),
+      //     }
+        // : {},
+    })
+    .lean();
+
+  const filtered = assignedSchemes.filter(item => item.scheme_id !== null);
+
+  res.status(200).json({
+    success: true,
+    data: filtered,
   });
 });
