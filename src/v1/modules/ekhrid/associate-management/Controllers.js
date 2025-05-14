@@ -16,9 +16,9 @@ const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const Joi = require('joi');
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const jformIds = require('../jform_ids');
-
-
+// const jformIds = require('../jform_ids');
+// const jformIds = require('../remaining_jformIds');
+const jformIds = require('../allJformIds');
 
 module.exports.getAssociates = async (req, res) => {
     try {
@@ -279,8 +279,8 @@ module.exports.addFarmers = async (req, res) => {
         const procurements = await eKharidHaryanaProcurementModel.aggregate([
             {
                 $match: {
-                    "procurementDetails.commisionAgentName": "HAFED",
-                    // "procurementDetails.commisionAgentName":"SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD",
+                    // "procurementDetails.commisionAgentName": "HAFED",
+                    "procurementDetails.commisionAgentName":"SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD",
                     // "procurementDetails.commisionAgentName": "FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY",
                     "procurementDetails.farmerID": { $ne: null }, // Ensure farmerID is not null
                     // "procurementDetails.offerCreatedAt": null
@@ -616,20 +616,11 @@ module.exports.getProcurementCenterTesting = async (req, res) => {
 };
 
 module.exports.associateFarmerList = async (req, res) => {
-    let jfomIds = jformIds.slice(0, 106921);
+    let jfomIds = jformIds.slice(0, 110191);
 
     const { associateName } = req.body;
 
     try {
-        // Ensure critical index exists once (this doesn't need to run every request)
-
-        // await eKharidHaryanaProcurementModel.createIndexes({
-        //     "procurementDetails.commisionAgentName": 1,
-        //     "procurementDetails.farmerID": 1
-        // });
-        // await farmer.createIndexes({
-        //     "external_farmer_id": 1
-        // });
         // Match filter
         const query = {
             'procurementDetails.commisionAgentName': associateName,
@@ -1443,8 +1434,8 @@ module.exports.updateBatchIds = async (req, res) => {
 module.exports.totalQtyFarmerOrder = async (req, res) => {
     try {
         const matchStage = {
-            associateOffers_id: new mongoose.Types.ObjectId("681b7269938a6624664d888f"),
-            "batchCreatedAt": { $exists: true }
+            associateOffers_id: new mongoose.Types.ObjectId("681c8458dba86b2c72db1709"),
+            // "batchCreatedAt": { $exists: true }
         };
 
         const result = await FarmerOrders.aggregate([
@@ -1476,7 +1467,8 @@ module.exports.ekhridFarmerOrderMapping = async (req, res) => {
             "paymentDetails.jFormId": { $exists: true },
             "procurementDetails.jformID": { $exists: true },
             "procurementDetails.offerCreatedAt": { $ne: null },
-            "procurementDetails.commisionAgentName": "FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY"
+            // "procurementDetails.commisionAgentName": "SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD"
+            "procurementDetails.commisionAgentName": "HAFED"
         });
 
         const ekharidGatePassIDs = gatePassIDsEKharidHaryanaDocs
@@ -1488,9 +1480,10 @@ module.exports.ekhridFarmerOrderMapping = async (req, res) => {
         // Step 2: Fetch all gatePassIDs used in FarmerOrders
         const farmerOrderGatePassIDs = await FarmerOrders.distinct("gatePassID", {
             gatePassID: { $ne: null },
-            associateOffers_id: new mongoose.Types.ObjectId("681b7269938a6624664d888f"),
+            // associateOffers_id: new mongoose.Types.ObjectId("681c8458dba86b2c72db1709"),
+            associateOffers_id: new mongoose.Types.ObjectId("681c91dc2e8cd7e6c0d71a8e"),
         });
-
+        console.log("Fetched FarmerOrders gatePassIDs count:", farmerOrderGatePassIDs.length);
         // Step 3: Find eKharid gatePassIDs NOT present in FarmerOrders
         const unmatchedGatePassIDs = ekharidGatePassIDs.filter(id => !farmerOrderGatePassIDs.includes(id));
 
@@ -1507,7 +1500,8 @@ module.exports.ekhridFarmerOrderMapping = async (req, res) => {
         const updateResult = await eKharidHaryanaProcurementModel.updateMany(
             {
                 "procurementDetails.gatePassID": { $in: unmatchedGatePassIDs },
-                "procurementDetails.commisionAgentName": "FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY"
+                // "procurementDetails.commisionAgentName": "SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD"
+                "procurementDetails.commisionAgentName": "HAFED"
             },
             {
                 $set: { "procurementDetails.offerCreatedAt": null }
@@ -1538,24 +1532,25 @@ module.exports.getNewJformIds = async (req, res) => {
             {
                 "procurementDetails.jformID": { $in: allJformIds },
                 // "warehouseData.jformID": { $exists: true },
-                // "paymentDetails.jFormId": { $exists: false }
+                "paymentDetails.jFormId": { $exists: false }
             },
             { "procurementDetails.jformID": 1 }
         ).lean();
 
+        console.log("Existing jformIDs count:", existingDocs.length);
         // Step 2: Extract found IDs
         const existingIdsSet = new Set(
             existingDocs.map(doc => doc.procurementDetails.jformID)
         );
 
         //  Filter IDs that are existing in the set
-        // const newJformIds = allJformIds.filter(id => existingIdsSet.has(id));
+        const newJformIds = allJformIds.filter(id => existingIdsSet.has(id));
         // //  Write result to file
-        // fs.writeFileSync('./paymentDetailsMissing.txt', JSON.stringify(newJformIds, null, 2));
+        fs.writeFileSync('./paymentDetailsMissing.txt', JSON.stringify(newJformIds, null, 2));
 
         //  Filter IDs that are not in the existing set
-        const newJformIds = allJformIds.filter(id => !existingIdsSet.has(id));
-
+        // const newJformIds = allJformIds.filter(id => !existingIdsSet.has(id));
+        // console.log("newJformIds count:", newJformIds.length);
         //  Write result to file
         fs.writeFileSync('./newJFormIds.txt', JSON.stringify(newJformIds, null, 2));
 
@@ -1576,7 +1571,7 @@ module.exports.totalQtyRania = async (req, res) => {
             "procurementDetails.mandiName": "Rania"
         };
 
-         const result = await eKharidHaryanaProcurementModel.aggregate([
+        const result = await eKharidHaryanaProcurementModel.aggregate([
             { $match: matchStage },
             {
                 $group: {
@@ -1602,5 +1597,105 @@ module.exports.totalQtyRania = async (req, res) => {
     } catch (error) {
         console.error("Error in totalQty:", error);
         _handleCatchErrors(error, res);
+    }
+};
+
+
+// Helper to get start and end of today in ISO
+function getTodayRange() {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+}
+
+module.exports.getTodaysfarmerOrder = async (req, res) => {
+    try {
+        const { start, end } = getTodayRange();
+        const filter = {
+            createdAt: { $gte: start, $lte: end },
+            associateOffers_id: new mongoose.Types.ObjectId("681c8458dba86b2c72db1709"),
+            ekhrid: true,
+            batchCreatedAt: { $exists: false }
+        };
+
+        const [orders, totalCount, totalOfferedQtyAgg] = await Promise.all([
+            FarmerOrders.find(filter).select('_id').sort({ createdAt: -1 }),
+            FarmerOrders.countDocuments(filter),
+            FarmerOrders.aggregate([
+                { $match: filter },
+                {
+                    $group: {
+                        _id: null,
+                        totalOfferedQty: { $sum: '$offeredQty' }
+                    }
+                }
+            ])
+        ]);
+
+        const ids = orders.map(order => order._id);
+        const totalOfferedQty = totalOfferedQtyAgg[0]?.totalOfferedQty || 0;
+
+        // Delete the fetched records
+        await FarmerOrders.deleteMany({ _id: { $in: ids } });
+
+        res.status(200).json({
+            success: true,
+            message: 'Fetched and deleted today\'s orders.',
+            totalDeleted: totalCount,
+            totalOfferedQty,
+            // ids: orders.map(order => order._id)
+            deletedIds: ids
+        });
+    } catch (error) {
+        console.error('Error in fetching/deleting today\'s farmer orders:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while processing today\'s orders'
+        });
+    }
+};
+
+// 
+module.exports.checkJformIdsExist = async (req, res) => {
+    const fs = require('fs');
+
+    try {
+        // Assuming jformIds is defined globally or retrieved from req
+        const allJformIds = checkJformIdsExist.map(id => parseInt(id));
+
+        // Step 1: Query only existing jformIDs in one go
+        const existingDocs = await eKharidHaryanaProcurementModel.find(
+            {
+                "procurementDetails.jformID": { $in: allJformIds },
+                // "warehouseData.jformID": { $exists: true },
+                // "paymentDetails.jFormId": { $exists: false }
+            },
+            { "procurementDetails.jformID": 1 }
+        ).lean();
+
+        console.log("Existing jformIDs count:", existingDocs.length);
+        console.log("allJformIds count:", allJformIds.length);
+        // Step 2: Extract found IDs
+        const existingIdsSet = new Set(
+            existingDocs.map(doc => doc.procurementDetails.jformID)
+        );
+
+        //  Filter IDs that are existing in the set
+        // const newJformIds = allJformIds.filter(id => existingIdsSet.has(id));
+        // //  Write result to file
+        // fs.writeFileSync('./paymentDetailsMissing.txt', JSON.stringify(newJformIds, null, 2));
+
+        //  Filter IDs that are not in the existing set
+        const newJformIds = allJformIds.filter(id => !existingIdsSet.has(id));
+        console.log("newJformIds count:", newJformIds.length);
+        //  Write result to file
+        fs.writeFileSync('./checkJformIdsExist.txt', JSON.stringify(newJformIds, null, 2));
+
+        return res.json({ message: "OK", newCount: newJformIds.length });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: err.message });
     }
 };
