@@ -363,3 +363,57 @@ module.exports.listProcurementOrder = asyncErrorHandler(async (req, res) => {
     );
   }
 });
+
+module.exports.updateIformData = async (req, res) => {
+  try {
+    const {
+      jformID,
+      iFormId,
+      incidentalExpenses,
+      laborCharges,
+      commissionCharges,
+    } = req.body;
+
+    if (!jformID) {
+      return res
+        .status(400)
+        .json({ success: false, message: "jformID is required" });
+    }
+
+    const existingRecord = await eKharidHaryanaProcurementModel.findOne({
+      "procurementDetails.jformID": jformID,
+    });
+
+    if (!existingRecord) {
+      return res.status(404).json({
+        success: false,
+        message: "Record not found for given jformID",
+      });
+    }
+
+    const iFormIdUpdate = {
+      "procurementDetails.iFormId": iFormId,
+      "procurementDetails.incidentalExpenses": incidentalExpenses,
+      "procurementDetails.laborCharges": laborCharges,
+      "procurementDetails.commissionCharges": commissionCharges,
+    };
+
+    // Perform update
+    const updatedRecord = await eKharidHaryanaProcurementModel.updateOne(
+      { "procurementDetails.jformID": jformID },
+      { $set: iFormIdUpdate }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "iForm data updated successfully",
+      data: updatedRecord,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: err.message,
+    });
+  }
+};
