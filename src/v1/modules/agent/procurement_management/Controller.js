@@ -126,7 +126,7 @@ module.exports.getProcurementCenter = async (req, res) => {
         if (city) query["address.city"] = city;
 
         const records = { count: 0 };
-        records.rows = paginate == 1
+        records.rows = (paginate == 1 && isExport != 1)
             ? await ProcurementCenter.find(query)
                 .populate({
                     path: 'user_id',
@@ -146,14 +146,13 @@ module.exports.getProcurementCenter = async (req, res) => {
                 .sort(sortBy);
         records.count = await ProcurementCenter.countDocuments(query);
 
-        if (paginate == 1 && isExport != 0 ) {
+        if (paginate == 1  && isExport != 1) {
             records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-        //  console.log("Records -> ",records.rows)
 
-        if (isExport == 1) {
+        if (isExport == 1 && centerType === 'self') {
 
             const record = records.rows.map((item) => {
                 return {
@@ -168,16 +167,39 @@ module.exports.getProcurementCenter = async (req, res) => {
             if (record.length > 0) {
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `collection-center.csv`,
-                    worksheetName: `collection-center`
+                    fileName: `My-Procurement-Centre.xlsx`,
+                    worksheetName: `My-Procurement-Centre-record`
                 });
             } else {
                 return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
             }
-        } else {
+        } else if( isExport == 1 && centerType === 'associate' )
+        {
+             const record = records.rows.map((item) => {
+                return {
+                    "Centre ID": item?.center_code || 'NA',
+                    "CENTRE NAME": item?.center_name || 'NA',
+                    "Associate ID": item?.user_id?.user_code || 'NA',
+                    "Organization Name": item?.user_id?.basic_details?.associate_details?.organization_name || 'NA',
+                     "STATE": item?.address?.state || 'NA',
+                      "City": item?.address?.city || 'NA',
+                       "POINT OF CONTACT": item?.point_of_contact?.name || 'NA',
+                        "STATUS": item?.active || 'NA',
+                }
+            })
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Associate-Procurement-Centre.xlsx`,
+                    worksheetName: `Associate-Procurement-Centre-record`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
+            }
+        }
+        else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
         }
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);

@@ -1449,7 +1449,7 @@ module.exports.proceedToPayAssociateTabBatchList = async (req, res) => {
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
-        console.log('query', query);
+        // console.log('query', query);
 
         const records = { count: 0 };
 
@@ -2347,7 +2347,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
         let response = { count: 0 };
         response.rows = await RequestModel.aggregate(aggregationPipeline);
-        console.log('>>>>>>>>>>>>>>>>>>>', response.rows.length);
+        // console.log('>>>>>>>>>>>>>>>>>>>', response.rows.length);
 
         const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
         response.count = countResult?.[0]?.count ?? 0;
@@ -2523,25 +2523,28 @@ module.exports.proceedToPayBatchList = async (req, res) => {
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-
+       
+          if (isExport != 1) {
+          const plainRecords = JSON.parse(JSON.stringify(records));
+          setCache(cacheKey, plainRecords);
+        }
+        
+        
         if (isExport == 1) {
-
+  
             const record = records?.rows.map((item) => {
 
                 return {
-                    "BATCH ID": item?.rows?.batchId || "NA",
-                    "Associate Name": item?.rows?.associateName || "NA",
-                    "PROCURED ON": item?.rows?.procuredOn || "NA",
-                    "DELIVERY DATE": item?.rows?.deliveryDate || "NA",
-                    "QUANTITY PURCHASED	": item?.rows?.qtyPurchased || "NA",
-                    "AMOUNT PAYABLE": item?.rows?.amountPayable || "NA",
-                    "WHR NO": item?.rows?.wh_no || "NA",
-                    "TAGS": item?.rows?.tags || "NA",
-                    "APPROVAL PAYABLE": item?.rows?.amountProposed || "NA",
-                    "PAYMENT STATUS	": item?.rows?.approval_status || "NA",
-                    // "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || "NA",
-                    // "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || "NA",
-                    // "Quantity Purchased": item?.offeredQty || "NA",
+                    "BATCH ID": item?.batchId || "NA",
+                    "Associate Name": item?.associateName || "NA",
+                    "PROCURED ON": item?.procuredOn || "NA",
+                    "DELIVERY DATE": item?.deliveryDate || "NA",
+                    "QUANTITY PURCHASED	": item?.qtyPurchased || "NA",
+                    "AMOUNT PAYABLE": item?.amountPayable || "NA",
+                    "WHR NO": item?.wh_no || "NA",
+                    "TAGS": item?.tags || "NA",
+                    "APPROVAL PAYABLE": item?.amountProposed || "NA",
+                    "PAYMENT STATUS	": item?.approval_status || "NA",
                 }
             })
 
@@ -2556,13 +2559,15 @@ module.exports.proceedToPayBatchList = async (req, res) => {
                 return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
             }
         }
+        else {
+              return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        }
 
           // Save to cache (only if not export)
-    if (isExport != 1) {
-          const plainRecords = JSON.parse(JSON.stringify(records));
-      setCache(cacheKey, plainRecords);
-    }
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        
+    
+        // 
+       
 
     } catch (error) {
         _handleCatchErrors(error, res);
