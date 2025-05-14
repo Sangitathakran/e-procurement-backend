@@ -311,7 +311,14 @@ module.exports.associateOrders = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query;
 
-        const paymentIds = (await Payment.find({ req_id })).map(i => i.associateOffers_id);
+         const cacheKey = `associateOrders:${req_id}:${page}:${limit}:${skip}:${paginate}:${search}:${sortBy}:${isExport}`;
+        const cachedData = getCache(cacheKey);
+
+        if (cachedData && isExport != 1) {
+            return res.status(200).send(new serviceResponse({ status: 200, data: cachedData, message: _response_message.found("Payment (cached)") }));
+        }
+
+        const paymentIds = (await Payment.find({ req_id }, {associateOffers_id: 1})).map(i => i.associateOffers_id);
 
         let query = {
             _id: { $in: paymentIds },
@@ -324,7 +331,9 @@ module.exports.associateOrders = async (req, res) => {
         records.reqDetails = await RequestModel.findOne({ _id: req_id })
             .select({ _id: 1, reqNo: 1, product: 1, deliveryDate: 1, address: 1, quotedPrice: 1, status: 1 });
 
-        const reqDetailsObj = records.reqDetails.toObject();
+      //  const reqDetailsObj = records.reqDetails.toObject();
+      const reqDetailsObj = records.reqDetails?.toObject?.() || {};
+
 
         if (reqDetailsObj?.address?.deliveryLocation && mongoose.Types.ObjectId.isValid(reqDetailsObj.address.deliveryLocation)) {
             const warehouse = await wareHouseDetails.findById(reqDetailsObj.address.deliveryLocation)
@@ -387,7 +396,11 @@ module.exports.associateOrders = async (req, res) => {
                 return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }));
             }
         }
+        
+        records.reqDetails = records.reqDetails?.toObject?.();
+        records.rows = records.rows?.map(row => row.toObject?.() || row);
 
+        setCache(cacheKey, records);
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
 
     } catch (error) {
