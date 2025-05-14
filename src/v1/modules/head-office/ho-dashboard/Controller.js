@@ -258,13 +258,69 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   const hoId = new mongoose.Types.ObjectId(req.portalId);
 
-  const { limit = 10, page = 1 } = req.query;
+  const { limit = 10, page = 1, commodityName, schemeName } = req.query;
   const { user_id, portalId } = req;
   const skip = (page - 1) * limit;
+  let requestFilterIds = []; 
+  let portalHoId = portalId;
+  const paymentFilter = {
+    payment_status: 'Pending'
+  };
+  if (schemeName) {
+    const scheme = await Scheme.findOne({ schemeName: { $regex: new RegExp(schemeName, "i") } }).select("_id").lean();
+    if (!scheme) {
+      return sendResponse({
+        res,
+        status: 200,
+        message: "Scheme not found",
+        data: { rows: [], totalCount: 0, totalPages: 0, limit, page },
+      });
+    }
 
-  let pendingPaymentDetails = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: 'Pending' })
+    const schemeAssigns = await SchemeAssign.find({ scheme_id: scheme._id }).select("ho_id").lean();
+    const schemeHoIds = schemeAssigns.map(assign => assign.ho_id.toString());
+    if (!schemeHoIds.includes(portalId.toString())) {
+      return sendResponse({
+        res,
+        status: 200,
+        message: "This portal is not assigned to the given scheme",
+        data: { rows: [], totalCount: 0, totalPages: 0, limit, page },
+      });
+    }
+
+    const requestQuery = {
+      head_office_id: { $in: schemeHoIds },
+      "product.schemeId": scheme._id
+    };
+
+    if (commodityName) {
+      requestQuery["product.name"] = { $regex: new RegExp(commodityName, "i") };
+    }
+
+    const requests = await RequestModel.find(requestQuery).select("_id").lean();
+    requestFilterIds = requests.map(r => r._id);
+    console.log("requests",requests)
+  }
+
+  
+
+  if (requestFilterIds.length > 0) {
+    paymentFilter.req_id = { $in: requestFilterIds };
+  }
+  paymentFilter.ho_id = portalHoId;
+
+  let pendingPaymentDetails = await Payment.find(paymentFilter)
     .select('req_id qtyProcured amount payment_status')
-    .populate({ path: "req_id", select: "reqNo" })
+    // .populate({ path: "req_id", select: "reqNo" })
+    .populate({
+      path: "req_id",
+      select: "reqNo product.name",
+      ...(commodityName && {
+        match: {
+          "product.name": { $regex: new RegExp(commodityName, "i") } 
+        }
+      })
+    })
     .skip(skip)
     .limit(limit)
     .lean();
@@ -276,6 +332,7 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   pendingPaymentDetails = pendingPaymentDetails.map(payment => ({
     ...payment,
     reqNo: payment.req_id.reqNo,
+    commodityName: payment.req_id?.product?.name || null
   }));
 
   // Note: Count still includes all "Pending" payments regardless of reqNo presence.
@@ -295,18 +352,73 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
     },
   });
 });
-
 module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
-  const { limit = 10, page = 1 } = req.query;
+  const { limit = 10, page = 1, commodityName, schemeName } = req.query;
   const skip = (page - 1) * limit;
   const { user_id, portalId } = req;
 
+  let requestFilterIds = [];
+  let portalHoId = portalId; // default HO ID
+
+  const paymentFilter = {
+    payment_status: 'Pending'
+  };
+
+  // ✅ STEP 1: Filter by scheme if provided
+  if (schemeName) {
+    const scheme = await Scheme.findOne({ schemeName: { $regex: new RegExp(schemeName, "i") } })
+      .select("_id")
+      .lean();
+
+    if (!scheme) {
+      return sendResponse({
+        res,
+        status: 200,
+        message: "Scheme not found",
+        data: { rows: [], totalCount: 0, totalPages: 0, limit, page },
+      });
+    }
+
+    const schemeAssigns = await SchemeAssign.find({ scheme_id: scheme._id }).select("ho_id").lean();
+    const schemeHoIds = schemeAssigns.map(assign => assign.ho_id.toString());
+
+    if (!schemeHoIds.includes(portalId.toString())) {
+      return sendResponse({
+        res,
+        status: 200,
+        message: "This portal is not assigned to the given scheme",
+        data: { rows: [], totalCount: 0, totalPages: 0, limit, page },
+      });
+    }
+
+    portalHoId = portalId.toString();
+    const requestQuery = {
+      head_office_id: portalHoId,
+      "product.schemeId": scheme._id
+    };
+
+    if (commodityName) {
+      requestQuery["product.name"] = { $regex: new RegExp(commodityName, "i") };
+    }
+
+    const requests = await RequestModel.find(requestQuery).select("_id").lean();
+    requestFilterIds = requests.map(r => r._id);
+  }
+  paymentFilter.ho_id = portalHoId;
+
+  if (requestFilterIds.length > 0) {
+    paymentFilter.req_id = { $in: requestFilterIds };
+  }
+
   // Fetch all relevant records for this page
-  let pendingApprovalDetails = await Payment.find({
-    ho_id: { $in: [user_id, portalId] },
-    ho_approve_status: "Pending"
-  })
-    .populate({ path: "req_id", select: "reqNo deliveryDate" })
+  let pendingApprovalDetails = await Payment.find(paymentFilter)
+    .populate({ path: "req_id", select: "reqNo deliveryDate product.name",
+      ...(commodityName && {
+        match: {
+          "product.name": { $regex: new RegExp(commodityName, "i") }
+        }
+      })
+    })
     .select("req_id qtyProcured amountPaid ho_approve_status")
     .skip(skip)
     .limit(limit);
