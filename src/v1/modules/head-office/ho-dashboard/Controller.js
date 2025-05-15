@@ -104,6 +104,15 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 
     const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
     const { user_id, portalId } = req;
+    const {
+      schemeName,
+      commodityName,
+      dateRange
+    } = req.query;
+    const paymentFilter = {
+      ho_id: { $in: [user_id, portalId] },
+      payment_status: _paymentstatus.completed,
+    };
     let widgetDetails = {
       branchOffice: { total: 0 },
       farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0, distillerTotal: 0 },
@@ -127,7 +136,25 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     widgetDetails.farmerRegistration.totalRegistration = (widgetDetails.farmerRegistration.farmertotal + widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal);
     widgetDetails.farmerBenifitted = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
    
-    const payments = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: _paymentstatus.completed, }).select("qtyProcured createdAt amount").lean();
+    let scheme = null;
+    if (schemeName) {
+      scheme = await Scheme.findOne({ schemeName: { $regex: new RegExp(schemeName, "i") } }).select("_id").lean();
+    }
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange);
+      paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
+    }
+    
+    const payments = await Payment.find(paymentFilter)
+    .select("qtyProcured createdAt amount")
+    .populate({
+      path: "req_id",
+      select: "product.name product.schemeId",
+      match: {
+        ...(commodityName && { "product.name": { $regex: new RegExp(commodityName, "i") } }),
+        ...(scheme && { "product.schemeId": scheme._id }),
+      }
+    }).lean();
 
     let grandTotalQtyProcured = 0;
     let todaysQtyProcured = 0;
