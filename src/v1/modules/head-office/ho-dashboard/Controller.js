@@ -540,6 +540,7 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
   try {
     const hoId = new mongoose.Types.ObjectId(req.portalId);
     const { user_id, portalId } = req;
+    const { commodityName, schemeName, dateRange } = req.query;
 
     // Step 1: Fetch all states from the only StateDistrictCity document
     const stateContainer = await StateDistrictCity.findOne().lean();
@@ -557,16 +558,53 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
     for (const state of stateContainer.states) {
       stateMap[state._id.toString()] = state.state_title;
     }
+    let scheme = null;
+    if (schemeName) {
+      scheme = await Scheme.findOne({ schemeName: { $regex: new RegExp(schemeName, "i") } })
+        .select("_id")
+        .lean();
 
-    // Step 3: Fetch payments and populate farmer (only getting state_id in address)
-    const payments = await Payment.find({
+      if (!scheme) {
+        return sendResponse({
+          res,
+          status: 200,
+          message: "Scheme not found",
+          data: { states: [], grandTotalQtyProcured: 0 },
+        });
+      }
+    }
+
+    const paymentFilter = {
       ho_id: { $in: [user_id, portalId] },
       payment_status: _paymentstatus.completed,
-    })
+    };
+
+    // Step 5: Add date range filter
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange); // You must have this helper function defined
+      paymentFilter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+    // Step 3: Fetch payments and populate farmer (only getting state_id in address)
+    const payments = await Payment.find(paymentFilter)
       .select("qtyProcured farmer_id")
       .populate({
         path: "farmer_id",
         select: "address.state_id",
+      })
+      .populate({
+        path: "req_id",
+        select: "product.name product.schemeId",
+        match: {
+          ...(commodityName && {
+            "product.name": { $regex: new RegExp(commodityName, "i") },
+          }),
+          ...(scheme && {
+            "product.schemeId": scheme._id,
+          }),
+        },
       })
       .lean();
 
