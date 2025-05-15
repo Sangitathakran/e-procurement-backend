@@ -371,7 +371,9 @@ module.exports.updateIformData = async (req, res) => {
       iFormId,
       incidentalExpenses,
       laborCharges,
+      laborChargesPayableDate,
       commissionCharges,
+      commissionChargesPayableDate
     } = req.body;
 
     if (!jformID) {
@@ -395,7 +397,9 @@ module.exports.updateIformData = async (req, res) => {
       "procurementDetails.iFormId": iFormId,
       "procurementDetails.incidentalExpenses": incidentalExpenses,
       "procurementDetails.laborCharges": laborCharges,
+      "procurementDetails.laborChargesPayableDate": laborChargesPayableDate,
       "procurementDetails.commissionCharges": commissionCharges,
+      "procurementDetails.commissionChargesPayableDate": commissionChargesPayableDate
     };
 
     // Perform update
