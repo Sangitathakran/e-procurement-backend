@@ -82,8 +82,9 @@ module.exports.createAgency = async (req, res) => {
         }
         await emailService.sendAgencyCredentialsEmail(emailPayload);
 
-        // const type = await TypesModel.findOne({ _id: "67110114f1cae6b6aadc2425" }) // SLA
-        const type = await TypesModel.findOne({ _id: "680f6390c55aae436a063e32" }) // Admin
+        // const type = await TypesModel.findOne({ _id: "67110114f1cae6b6aadc2425" }) // SLA Live
+        // const type = await TypesModel.findOne({ _id: "680f6390c55aae436a063e32" }) // Admin live
+        const type = await TypesModel.findOne({ _id: "680f6390c55aae436a063e32" }) // Admin testing
 
         if (savedAgency._id) {
             const masterUser = new MasterUser({
@@ -93,7 +94,8 @@ module.exports.createAgency = async (req, res) => {
                 mobile: phone.trim(),
                 password: hashedPassword,
                 user_type: type.user_type,
-                createdBy: req.user._id,
+                // createdBy: req.user._id,
+                createdBy: "675fd3ae93199f01ec1e56e0",
                 userRole: [type.adminUserRoleId],
                 portalId: savedAgency._id,
                 ipAddress: getIpAddress(req)
