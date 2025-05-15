@@ -16,6 +16,7 @@ const { MasterUser } = require("@src/v1/models/master/MasterUser");
 const { _frontendLoginRoutes } = require("@src/v1/utils/constants");
 const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const { ObjectId } = require("mongoose").Types;
+const {dumpJSONToExcel} = require("@src/v1/utils/helpers")
 const bcrypt = require('bcryptjs');
 // const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
@@ -295,26 +296,26 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     const count = countResult[0]?.total || 0;
 
     const records = { rows, count };
-    if (paginate == 1) {
+    if (paginate == 1 && isExport != 1) {
       records.page = parseInt(page);
       records.limit = parseInt(limit);
       records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
     }
 
-    if (isExport == 1) {
-      return dumpJSONToExcel(req, res, {
-        data: rows.map((item) => ({
-          "Scheme Id": item?.schemeId || "NA",
-          "Scheme Name": item?.schemeName || "NA",
-          "Scheme Commodity": item?.Schemecommodity || "NA",
-          season: item?.season || "NA",
-          period: item?.period || "NA",
-          procurement: item?.procurement || "NA",
-        })),
-        fileName: "Scheme-Assignments.xlsx",
-        worksheetName: "Scheme Assignments",
-      });
-    }
+    // if (isExport == 1) {
+    //   return dumpJSONToExcel(req, res, {
+    //     data: rows.map((item) => ({
+    //       "Scheme Id": item?.schemeId || "NA",
+    //       "Scheme Name": item?.schemeName || "NA",
+    //       "Scheme Commodity": item?.Schemecommodity || "NA",
+    //       season: item?.season || "NA",
+    //       period: item?.period || "NA",
+    //       procurement: item?.procurement || "NA",
+    //     })),
+    //     fileName: "Scheme-Assignments.xlsx",
+    //     worksheetName: "Scheme Assignments",
+    //   });
+    // }
 
     return res.status(200).send(
       new serviceResponse({
@@ -328,6 +329,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
   let matchQuery = search
     ? {
       $or: [
+        { "slaId": { $regex: search, $options: "i" } }, 
         { "basic_details.name": { $regex: search, $options: "i" } },
         { "basic_details.email": { $regex: search, $options: "i" } },
         { "basic_details.mobile": { $regex: search, $options: "i" } },
@@ -370,20 +372,34 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
       },
     },
   ];
-
-  if (paginate == 1)
+  aggregationPipeline.push({ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } });
+  if (paginate == 1 && isExport != 1 )
     aggregationPipeline.push(
-      { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
+      //{ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
       { $skip: parseInt(skip) },
       { $limit: parseInt(limit) }
     );
 
   const rows = await SLAManagement.aggregate(aggregationPipeline);
+
   const countResult = await SLAManagement.aggregate([
     { $match: matchQuery },
     { $count: "total" },
   ]);
   const count = countResult[0]?.total || 0;
+  if (isExport == 1) {
+    return dumpJSONToExcel(req, res, {
+      data: rows.map((item) => ({
+        "SLA Id": item?.slaId || "NA",
+        "SLA Name": item?.sla_name || "NA",
+        "Associate": item?.associate_count || 0,
+        "Address": item?.address || "NA",
+      })),
+      fileName: "SLA-List.xlsx",
+      worksheetName: "SLA List",
+    });
+  }
+
 
   return res.status(200).send(
     new serviceResponse({

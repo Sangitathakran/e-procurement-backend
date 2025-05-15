@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 const { User } = require("@src/v1/models/app/auth/User");
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
-const { _userType, _userStatus, _requestStatus, _webSocketEvents, _procuredStatus, _associateOfferStatus, _collectionName } = require("@src/v1/utils/constants");
+const { _userType, _userStatus, _requestStatus, _paymentApproval, _procuredStatus, _associateOfferStatus, _paymentstatus } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
-const { _handleCatchErrors, dumpJSONToExcel, _generateOrderNumber, _addDays, handleDecimal } = require("@src/v1/utils/helpers");
+const { _handleCatchErrors, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers");
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const xlsx = require('xlsx');
@@ -14,6 +14,10 @@ const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const Joi = require('joi');
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
+
+
 
 module.exports.getAssociates = async (req, res) => {
     try {
@@ -610,7 +614,6 @@ module.exports.getProcurementCenterTesting = async (req, res) => {
     }
 };
 
-
 module.exports.associateFarmerList = async (req, res) => {
     const { associateName } = req.body;
 
@@ -688,7 +691,8 @@ module.exports.associateFarmerList = async (req, res) => {
             const procurementCenterId = centerMap.get(procurement.mandiName) || null;
             const userId = userMap.get(agentName) || null;
 
-            const qty = (procurement.gatePassWeightQtl || 0) / 10;
+            // const qty = (procurement.gatePassWeightQtl || 0) / 10;
+            const qty = (procurement.JformFinalWeightQtl || 0) / 10;
 
             if (!groupMap[agentName]) {
                 groupMap[agentName] = {
@@ -759,7 +763,6 @@ module.exports.associateFarmerList = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
-
 
 module.exports.createOfferOrder = async (req, res) => {
     try {
@@ -923,12 +926,12 @@ module.exports.createOfferOrder = async (req, res) => {
 };
 
 module.exports.getEkhridJFormId = async (req, res) => {
-    try{
-     const query = {
-        "procurementDetails.jformID": { $exists: true },
-        "warehouseData.jformID": { $exists: false },
-        "paymentDetails.jFormId": { $exists: false },
-    }
+    try {
+        const query = {
+            "procurementDetails.jformID": { $exists: true },
+            "warehouseData.jformID": { $exists: false },
+            "paymentDetails.jFormId": { $exists: false },
+        }
         const procurements = await eKharidHaryanaProcurementModel.find(query).lean();
         if (!procurements.length) {
             return res.status(400).send(new serviceResponse({
@@ -951,3 +954,339 @@ module.exports.getEkhridJFormId = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+module.exports.getMandiName = async (req, res) => {
+    try {
+        // Create indexes (optional: can be moved to schema level or startup script)
+        await eKharidHaryanaProcurementModel.createIndexes({
+            "procurementDetails.commisionAgentName": 1,
+            "procurementDetails.farmerID": 1
+        });
+        await farmer.createIndexes({
+            "external_farmer_id": 1
+        });
+        // Filter query
+        const query = {
+            'procurementDetails.commisionAgentName': "HAFED",
+            "warehouseData.jformID": { $exists: true },
+            "paymentDetails.jFormId": { $exists: true },
+            "procurementDetails.jformID": { $exists: true },
+            $or: [
+                { "procurementDetails.offerCreatedAt": null },
+                { "procurementDetails.offerCreatedAt": { $exists: false } }
+            ]
+        };
+        // Fetch procurement data
+        const procurements = await eKharidHaryanaProcurementModel
+            .find(query)
+            .select("procurementDetails")
+            .lean();
+        // If no results
+        if (!procurements.length) {
+            return res.send(
+                new serviceResponse({
+                    status: 200,
+                    data: {
+                        mandiNames: [],
+                        totalCount: 0,
+                    },
+                    message: _response_message.found("Associate Mandi"),
+                })
+            );
+        }
+        // Extract unique mandi names
+        const mandiNames = new Set();
+        const agentNames = new Set(); // Optional
+        for (const p of procurements) {
+            if (p?.procurementDetails?.mandiName) {
+                mandiNames.add(p.procurementDetails.mandiName);
+            }
+            if (p?.procurementDetails?.commisionAgentName) {
+                agentNames.add(p.procurementDetails.commisionAgentName);
+            }
+        }
+        // Debug log
+        console.log("mandiNames:", mandiNames);
+        console.log("Total mandiNames:", mandiNames.size);
+        // Send response with mandiNames and count
+        return res.send(
+            new serviceResponse({
+                status: 200,
+                data: {
+                    mandiNames: Array.from(mandiNames),
+                    totalCount: mandiNames.size,
+                },
+                message: _response_message.found("Associate Mandi"),
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.getAllMandiName = async (req, res) => {
+    try {
+        // Optional: Index creation
+        await eKharidHaryanaProcurementModel.createIndexes({
+            "procurementDetails.commisionAgentName": 1,
+            "procurementDetails.farmerID": 1
+        });
+
+        // Query filter
+        const query = {
+            // "warehouseData.jformID": { $exists: true },
+            // "paymentDetails.jFormId": { $exists: true },
+            "procurementDetails.jformID": { $exists: true },
+            // $or: [
+            //     { "procurementDetails.offerCreatedAt": null },
+            //     { "procurementDetails.offerCreatedAt": { $exists: false } }
+            // ]
+        };
+        // Fetch only necessary fields
+        const procurements = await eKharidHaryanaProcurementModel
+            .find(query)
+            .select("procurementDetails.commisionAgentName procurementDetails.mandiName")
+            .lean();
+        if (!procurements.length) {
+            return res.send(
+                new serviceResponse({
+                    status: 200,
+                    data: {},
+                    message: _response_message.notFound("Associate Mandi"),
+                })
+            );
+        }
+        // Group mandi names under each commission agent
+        const result = {};
+        for (const p of procurements) {
+            const agentName = p?.procurementDetails?.commisionAgentName;
+            const mandiName = p?.procurementDetails?.mandiName;
+            if (!agentName || !mandiName) continue;
+            if (!result[agentName]) {
+                result[agentName] = new Set();
+            }
+            result[agentName].add(mandiName);
+        }
+        // Convert Sets to arrays
+        const responseData = {};
+        for (const [agent, mandis] of Object.entries(result)) {
+            responseData[agent] = Array.from(mandis);
+        }
+        // Send response
+        return res.send(
+            new serviceResponse({
+                status: 200,
+                data: responseData,
+                message: _response_message.found("Associate Mandi"),
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.totalQty = async (req, res) => {
+    try {
+        const matchStage = {
+            "warehouseData.jformID": { $exists: true },
+            "paymentDetails.jFormId": { $exists: true },
+            "procurementDetails.jformID": { $exists: true },
+            $or: [
+                { "procurementDetails.offerCreatedAt": null },
+                { "procurementDetails.offerCreatedAt": { $exists: true } }
+            ]
+        };
+        const result = await eKharidHaryanaProcurementModel.aggregate([
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: null,
+                    totalGatePassWeightQtl: { $sum: "$procurementDetails.gatePassWeightQtl" }
+                }
+            },
+        ]);
+        const totalQtl = result[0]?.totalGatePassWeightQtl || 0;
+        const totalMT = totalQtl / 10;
+      
+        const totalAmount = totalMT * 59500;
+        res.json({
+            totalGatePassWeightQtl: totalQtl,
+            totalGatePassWeightMT: totalMT,
+            totalAmount: totalAmount
+        });
+    } catch (error) {
+        console.error("Error in totalQty:", error);
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.allPaymentOrders = async (req, res) => {
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
+
+        const query = {
+            "ekhridBatch": { $exists: true },
+            bo_approve_status: _paymentApproval.approved,
+            ho_approve_status: _paymentApproval.approved,
+        };
+
+        const records = { count: 0 };
+
+        records.rows = await Batch.find(query)
+            .select("batchId procurementCenter_id seller_id req_id farmerOrderIds warehousedetails_id qty totalPrice gatePassId")
+            .populate({ path: "procurementCenter_id", select: "center_name" })
+            .populate({ path: "seller_id", select: "basic_details.associate_details.organization_name" })
+            .populate({ path: "req_id", select: "reqNo" })
+            .populate({ path: "farmerOrderIds.farmerOrder_id", select: "farmer_id metaData order_no" })
+            .populate({ path: "warehousedetails_id", select: "warehouseDetailsId basicDetails.warehouseName" })
+            // .limit(10)
+            .lean();
+
+        records.count = await Batch.countDocuments(query);
+
+        if (isExport == 1) {
+
+            const record = records.rows.map((item) => {
+
+                const farmerOrders = item?.farmerOrderIds?.map(f => ({
+                    id: f?.farmerOrder_id?.order_no || 'NA',
+                    name: f?.farmerOrder_id?.metaData?.name || 'NA'
+                })) || [];
+
+                const farmerIds = farmerOrders.map(f => f.id).join(", ");
+                const farmerNames = farmerOrders.map(f => f.name).join(", ");
+
+                return {
+                    "Order Id": item?.req_id?.reqNo || "NA",
+                    "Batch Id": item?.batchId || "NA",
+                    "Quantity": item?.qty || "NA",
+                    "totalPrice": item?.totalPrice || "NA",
+                    "Quantity": item?.qty || "NA",
+                    "gatePassId": item?.gatePassId || "NA",
+                    "Mandi Name": item?.procurementCenter_id?.center_name || "NA",
+                    "Associate Name": item?.seller_id?.basic_details?.associate_details?.organization_name || "NA",
+                    "Farmer Id": farmerIds || "NA",
+                    "Farmer Name": farmerNames || "NA",
+                    "Warehouse ID": item?.warehousedetails_id?.warehouseDetailsId || "NA",
+                    "Warehouse Name": item?.warehousedetails_id?.basicDetails?.warehouseName || "NA"
+                }
+            })
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Ekhrid Orders.xlsx`,
+                    worksheetName: `Ekhrid Orders`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Ekhrid Orders") }))
+            }
+        } else {
+            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Ekhrid Orders") }))
+        }
+
+    } catch (error) {
+        console.error("Error in totalQty:", error);
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.getBatchIds = async (req, res) => {
+    try {
+
+        const query = {
+            "ekhridBatch": { $exists: true },
+            batchIdUpdated: null,
+            bo_approve_status: _paymentApproval.approved,
+            ho_approve_status: _paymentApproval.approved,
+        };
+
+        const records = { count: 0 };
+        records.count = await Batch.countDocuments(query);
+        records.rows = await Batch.find(query).select({ batchId: 1, _id: 0 }).limit(300).lean();
+
+        return res.send(
+            new serviceResponse({
+                status: 200,
+                data: records,
+                message: _response_message.found("BatchID"),
+            })
+        );
+
+    } catch (error) {
+        console.error("Error in totalQty:", error);
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.updateBatchIds = async (req, res) => {
+    try {
+
+        const ekhridQuery = {
+            // 'procurementDetails.commisionAgentName': associateName,
+            "warehouseData.jformID": { $exists: true },
+            'warehouseData.exitGatePassId': { $exists: true },
+            "paymentDetails.jFormId": { $exists: true },
+            "procurementDetails.jformID": { $exists: true },
+            "procurementDetails.offerCreatedAt": { $exists: true },
+            $or: [
+                { "procurementDetails.batchIdUpdatedAt": null },
+                { "procurementDetails.batchIdUpdatedAt": { $exists: false } }
+            ]
+        };
+
+        const ekharidRecords = await eKharidHaryanaProcurementModel.find(ekhridQuery).limit(1);
+        console.log(ekharidRecords);
+
+        // return false;
+
+        let updatedCount = 0;
+        let notFoundList = [];
+
+        for (const record of ekharidRecords) {
+            // const jformID = record.procurementDetails?.jformID;
+            const gatePassID = record.procurementDetails?.gatePassID;
+            const exitGatePassId = record.warehouseData?.exitGatePassId;
+            console.log("exitGatePassId", exitGatePassId);
+            console.log("gatePassID", gatePassID);
+
+            if (!gatePassID || !exitGatePassId) {
+                notFoundList.push(gatePassID || 'Unknown');
+                continue;
+            }
+
+            const updated = await Batch.findOneAndUpdate(
+                { batchId: gatePassID.toString() },  // match old ID
+                {
+                    $set: {
+                        batchId: exitGatePassId.toString(),
+                        batchIdUpdated: true
+                    }
+                }
+            );
+
+            if (updated) {
+                // Update procurementDetails.batchIdUpdatedAt
+                record.procurementDetails.batchIdUpdatedAt = new Date();
+                await record.save();
+
+                updatedCount++;
+            } else {
+                notFoundList.push(gatePassID);
+            }
+
+        }
+
+        return res.status(200).json({
+            message: `${updatedCount} batch records updated.`,
+            notMatchedJformIds: notFoundList,
+        });
+
+    } catch (error) {
+        console.error('Error in updateBatchIdsFromEKharid:', error);
+        return res.status(500).json({
+            message: 'Internal Server Error',
+            error: error.message,
+        });
+    }
+};
