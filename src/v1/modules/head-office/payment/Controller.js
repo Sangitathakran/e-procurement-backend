@@ -5718,36 +5718,42 @@ for (const crop of crop_detail) {
         quotedPrice: rateMap.get(String(req._id)) || null,
       });
     }
+     
 
     // Apply filters on enriched data (like $match after $addFields)
-    const filtered = enrichedRequests.filter((req) => {
-      if (state && !new RegExp(state, "i").test(req.branchDetails.state))
-        return false;
-      if (
-        commodityName &&
-        !new RegExp(commodityName, "i").test(req.product?.name || "")
-      )
-        return false;
-      if (
-        schemeName &&
-        !new RegExp(schemeName, "i").test(req.scheme.schemeName || "")
-      )
-        return false;
-      if (
-        branch &&
-        !new RegExp(branch, "i").test(req.branchDetails.branchName || "")
-      )
-        return false;
-      return true;
-    });
+    // const filtered = enrichedRequests.filter((req) => {
+    //   if (state && !new RegExp(state, "i").test(req.branchDetails.state))
+    //     return false;
+    //   if (
+    //     commodityName &&
+    //     !new RegExp(commodityName, "i").test(req.product?.name || "")
+    //   )
+    //     return false;
+    //   if (
+    //     schemeName &&
+    //     !new RegExp(schemeName, "i").test(req.scheme.schemeName || "")
+    //   )
+    //     return false;
+    //   if (
+    //     branch &&
+    //     !new RegExp(branch, "i").test(req.branchDetails.branchName || "")
+    //   )
+    //     return false;
+    //   return true;
+    // });
 
     // Pagination
-    const total = filtered.length;
-    const paginated = filtered.slice((page - 1) * limit, page * limit);
+    const total = enrichedRequests.length;
+    //const paginated = filtered.slice((page - 1) * limit, page * limit);
+    // let paginated = filtered;
+    // if (isExport != 1 && paginate == 1) {
+    //  paginated = filtered.slice((page - 1) * limit, page * limit);
+    //  }
+
 
     const response = {
       count: total,
-      rows: paginated,
+      rows: enrichedRequests,
       page: page,
       limit: limit,
       pages: Math.ceil(total / limit),
@@ -5786,7 +5792,7 @@ for (const crop of crop_detail) {
         IFSC:
           item?.farmer_details?.bank_details?.ifsc_code || "NA",
         "Reference ID / UTR No.": item?.batch_payments?.transaction_id || "NA",
-        "Payment Status": item?.batch_payments?.payment_status || "NA",
+        "Payment Status": item?.payment_status || "NA",
       }));
       if (record.length > 0) {
         dumpJSONToExcel(req, res, {
@@ -5804,15 +5810,15 @@ for (const crop of crop_detail) {
         );
       }
     } 
-    // else {
-    //   return res.status(200).send(
-    //     new serviceResponse({
-    //       status: 200,
-    //       data: response,
-    //       message: "Payments found",
-    //     })
-    //   );
-    // }
+    else {
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: response,
+          message: "Payments found",
+        })
+      );
+    }
   } catch (error) {
     _handleCatchErrors(error, res);
   }
