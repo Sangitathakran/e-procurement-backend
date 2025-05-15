@@ -61,7 +61,8 @@ const _collectionName = {
     SchemeAssign: "SchemeAssign",
     CCAvenueResponse: "CCAvenueResponse",
     PaymentLogsHistory: "PaymentLogsHistory",
-    eKharidHaryana: "ekharidprocurements"
+    eKharidHaryana: "ekharidprocurements",
+    agristackLog:"agristackLog",
 }
 
 const _userType_Feature_Collection = {
