@@ -5169,7 +5169,7 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
 
     limit = parseInt(limit) || 10;
     page = parseInt(page) || 1;
-
+  
     const { portalId, user_id } = req;
 
     const cacheKey = generateCacheKey("payment", {
@@ -5265,7 +5265,6 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
           .lean(),
         Commodity.find({}).select("_id name").lean(),
       ]);
-
     // console.log(
     //   '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
     //   requests.length,
@@ -5302,7 +5301,6 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
       const reqIdStr = String(req._id);
       const reqBatches = batchMap.get(reqIdStr) || [];
       if (reqBatches.length === 0) continue;
-
       const enrichedBatches = reqBatches.map((batch) => {
         const batchPayments = paymentMap.get(String(batch._id)) || [];
         return { ...batch, payment: batchPayments };
@@ -5361,7 +5359,6 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
         },
       });
     }
-
     // Apply filters on enriched data (like $match after $addFields)
     const filtered = enrichedRequests.filter((req) => {
       if (state && !new RegExp(state, "i").test(req.branchDetails.state))
@@ -5441,6 +5438,9 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
+
+
 
 module.exports.exportFarmerPayments = async (req, res) => {
   try {
@@ -5532,11 +5532,11 @@ module.exports.exportFarmerPayments = async (req, res) => {
       .select("_id reqNo product branch_id sla_id createdAt")
       .sort({ createdAt: -1 })
       .lean();
-
+     console.log("requests",requests.length)
     const requestIds = requests.map((r) => r._id);
 
     // Fetch related documents
-    const [batches, payments, branches, slas, schemes, commodities, Farmer] =
+    const [batches, payments, branches, slas, schemes, commodities,] =
       await Promise.all([
         Batch.find({ req_id: { $in: requestIds } })
           .select(
@@ -5555,7 +5555,7 @@ module.exports.exportFarmerPayments = async (req, res) => {
           .lean(),
         Commodity.find({}).select("_id name").lean(),
       ]);
-
+     
     const farmerIds = [
       ...new Set(payments.map((p) => String(p.farmer_id)).filter(Boolean)),
     ];
@@ -5628,7 +5628,6 @@ for (const crop of crop_detail) {
       const reqIdStr = String(req._id);
       const reqBatches = batchMap.get(reqIdStr) || [];
       if (reqBatches.length === 0) continue;
-
       const enrichedBatches = reqBatches.map((batch) => {
         const batchPayments = (paymentMap.get(String(batch._id)) || []).map(
           (payment) => {
@@ -5643,7 +5642,7 @@ for (const crop of crop_detail) {
             };
           }
         );
-
+        console.log("batchPayments",batchPayments);
         const procurementAddr =
           procurementAddressMap.get(String(batch.procurementCenter_id)) || {};
 
@@ -5653,19 +5652,19 @@ for (const crop of crop_detail) {
           procurement_address: procurementAddr,
         };
       });
-
+      
       // Check approval status and payment_status
-      const allApproved = enrichedBatches.every(
-        (b) =>
-          b.bo_approve_status === _paymentApproval.approved &&
-          b.ho_approve_status === _paymentApproval.approved &&
-          b.payment.some(
-            (p) =>
-              p.payment_status ===
-              (paymentStatusCondition || _paymentstatus.pending)
-          )
-      );
-      if (!allApproved) continue;
+      //   const allApproved = enrichedBatches.every(
+      //   (b) =>
+      //     b.bo_approve_status === _paymentApproval.approved &&
+      //     b.ho_approve_status === _paymentApproval.approved &&
+      //     b.payment.some(
+      //       (p) =>
+      //         p.payment_status ===
+      //         (paymentStatusCondition || _paymentstatus.pending)
+      //     )
+      // );
+      // if (!allApproved) continue;
 
       const branch = branchMap.get(String(req.branch_id));
       const sla = slaMap.get(String(req.sla_id));
@@ -5718,7 +5717,6 @@ for (const crop of crop_detail) {
         quotedPrice: rateMap.get(String(req._id)) || null,
       });
     }
-     
 
     // Apply filters on enriched data (like $match after $addFields)
     // const filtered = enrichedRequests.filter((req) => {
@@ -5744,10 +5742,17 @@ for (const crop of crop_detail) {
 
     // Pagination
     const total = enrichedRequests.length;
-    //const paginated = filtered.slice((page - 1) * limit, page * limit);
+    // const paginated = filtered.slice((page - 1) * limit, page * limit);
     // let paginated = filtered;
     // if (isExport != 1 && paginate == 1) {
     //  paginated = filtered.slice((page - 1) * limit, page * limit);
+    //  }
+
+    // let paginated = [];
+    //  if (isExport != 1 && paginate == 1) {
+    //   paginated = filtered.slice((page - 1) * limit, page * limit);
+    // } else {
+    //   paginated = filtered;
     //  }
 
 
@@ -5762,12 +5767,11 @@ for (const crop of crop_detail) {
     if (isExport != 1) {
       setCache(cacheKey, response, 300); // 5 mins
     }
-
     if (isExport == 1) {
       const record = response.rows.map((item) => ({
         "Order ID": item?.reqNo || "NA",
         "BRANCH ID": item?.branchDetails?.branchId || "NA",
-        "Farmer ID": item?.batch_payments?.farmer_details?.farmer_id || "NA",
+        "Farmer ID": item?.farmer_details?.farmer_id || "NA",
         "Branch name": item?.branchDetails?.branchName || "NA",
         " SLA ": item?.slaName || "NA",
         "Procurement center": item?.procurement_address?.line1 || "NA",
@@ -5800,7 +5804,8 @@ for (const crop of crop_detail) {
           fileName: `Farmer-Payment-records.xlsx`,
           worksheetName: `Farmer-Payment-records`,
         });
-      } else {
+      }
+       else {
         return res.status(400).send(
           new serviceResponse({
             status: 400,
