@@ -17,8 +17,9 @@ const Joi = require('joi');
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 // const jformIds = require('../jform_ids');
-// const jformIds = require('../remaining_jformIds');
-const jformIds = require('../allJformIds');
+const jformIds = require('../remaining_jformIds');
+const checkJformIdsExist = require('../allJformIds');
+
 
 module.exports.getAssociates = async (req, res) => {
     try {
@@ -280,7 +281,7 @@ module.exports.addFarmers = async (req, res) => {
             {
                 $match: {
                     // "procurementDetails.commisionAgentName": "HAFED",
-                    "procurementDetails.commisionAgentName":"SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD",
+                    "procurementDetails.commisionAgentName": "SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD",
                     // "procurementDetails.commisionAgentName": "FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY",
                     "procurementDetails.farmerID": { $ne: null }, // Ensure farmerID is not null
                     // "procurementDetails.offerCreatedAt": null
@@ -1699,3 +1700,258 @@ module.exports.checkJformIdsExist = async (req, res) => {
         return res.status(500).json({ error: err.message });
     }
 };
+
+
+module.exports.ekhridProcrementExport = async (req, res) => {
+    const fs = require('fs');
+    // const { page = 1, limit = 10, sortBy, isExport = 0 } = req.query;
+
+    const { start = 60001, end = 90000, sortBy = "procurementDetails.jformDate", sortOrder = "desc", isExport = 0 } = req.query;
+
+    const startIndex = parseInt(start);
+    const endIndex = parseInt(end);
+    const limit = endIndex - startIndex;
+
+    const sortOptions = {};
+    sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+    try {
+        // Assuming jformIds is defined globally or retrieved from req
+        const allJformIds = checkJformIdsExist.map(id => parseInt(id));
+
+
+        // Step 1: Query only existing jformIDs in one go
+        const records = await eKharidHaryanaProcurementModel.find(
+            {
+                "procurementDetails.jformID": { $in: allJformIds },
+            }
+        )
+            .sort({ createdAt: -1, _id: -1 })
+            .skip(startIndex)
+            .limit(limit)
+            .lean();
+
+
+        console.log("Existing jformIDs count:", records.length);
+        console.log("allJformIds count:", allJformIds.length);
+
+        if (isExport == 1) {
+            const record = records.map((item) => {
+
+                return {
+                    "session": item?.session || "NA",
+                    "Agency Name": item?.procurementDetails.agencyName || "NA",
+                    "commodityName": item?.procurementDetails.commodityName || "NA",
+                    "mandiName": item?.procurementDetails.mandiName || "NA",
+                    "gatePassWeightQtl": item?.procurementDetails.gatePassWeightQtl || "NA",
+                    "farmerID": item?.procurementDetails.farmerID || "NA",
+                    "gatePassID": item?.procurementDetails.gatePassID || "NA",
+                    "gatePassDate": item?.procurementDetails.gatePassDate || "NA",
+                    "auctionID": item?.procurementDetails.auctionID || "NA",
+                    "auctionDate": item?.procurementDetails.auctionDate || "NA",
+                    "commisionAgentName": item?.procurementDetails.commisionAgentName || "NA",
+                    "jformID": item?.procurementDetails.jformID || "NA",
+                    "jformDate": item?.procurementDetails.jformDate || "NA",
+                    "JformFinalWeightQtl": item?.procurementDetails.JformFinalWeightQtl || "NA",
+                    "totalBags": item?.procurementDetails.totalBags || "NA",
+                    "liftedDate": item?.procurementDetails.liftedDate || "NA",
+                    "destinationWarehouseName": item?.procurementDetails.destinationWarehouseName || "NA",
+                    "receivedAtDestinationDate": item?.procurementDetails.receivedAtDestinationDate || "NA",
+                    "jformApprovalDate": item?.procurementDetails.jformApprovalDate || "NA",
+                    "mspRateMT": item?.procurementDetails.mspRateMT || "NA",
+                    "paymentDetails.jFormId": item?.paymentDetails.jFormId || "NA",
+                    "paymentDetails.reason": item?.paymentDetails.reason || "NA",
+                    "paymentDetails.transactionAmount": item?.paymentDetails.transactionAmount || "NA",
+                    "paymentDetails.transactionDate": item?.paymentDetails.transactionDate || "NA",
+                    "paymentDetails.transactionId": item?.paymentDetails.transactionId || "NA",
+                    "paymentDetails.transactionStatus": item?.paymentDetails.transactionStatus || "NA",
+                    "warehouseData.destinationAddress": item?.warehouseData.destinationAddress || "NA",
+                    "warehouseData.driverName": item?.warehouseData.driverName || "NA",
+                    "warehouseData.exitGatePassId": item?.warehouseData.exitGatePassId || "NA",
+                    "warehouseData.inwardDate": item?.warehouseData.inwardDate || "NA",
+                    "warehouseData.jformID": item?.warehouseData.jformID || "NA",
+                    "warehouseData.transporterName": item?.warehouseData.transporterName || "NA",
+                    "warehouseData.truckNo": item?.warehouseData.truckNo || "NA",
+                    "warehouseData.warehouseId": item?.warehouseData.warehouseId || "NA",
+                    "warehouseData.warehouseName": item?.warehouseData.warehouseName || "NA",
+                }
+            })
+
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `EkhridProcurement.xlsx`,
+                    worksheetName: `EkhridProcurement`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate") }))
+            }
+        }
+        else {
+
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: {
+                    rows: records
+                },
+                message: _response_message.found("associates")
+            }));
+        }
+
+        // return res.json({ message: "OK", data: records });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: err.message });
+    }
+};
+
+
+/*
+const fs = require('fs');
+const path = require('path');
+const ExcelJS = require('exceljs');
+
+module.exports.ekhridProcrementExport = async (req, res) => {
+    const { page = 1, limit = 10, sortBy, isExport = 0 } = req.query;
+
+    try {
+        const allJformIds = checkJformIdsExist.map(id => parseInt(id));
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const parsedLimit = parseInt(limit);
+
+        const query = {
+            "procurementDetails.jformID": { $in: allJformIds },
+        };
+
+        const projection = isExport == 1 ? {} : { __v: 0 };
+        let recordsQuery = eKharidHaryanaProcurementModel.find(query, projection).lean();
+
+        if (isExport != 1) {
+            recordsQuery = recordsQuery.skip(skip).limit(parsedLimit);
+        }
+
+        const records = await recordsQuery;
+
+        console.log("Records found:", records.length);
+
+        if (isExport == 1) {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('EkhridProcurement');
+
+            // Define headers
+            const columns = [
+                { header: "session", key: "session" },
+                { header: "Agency Name", key: "agencyName" },
+                { header: "commodityName", key: "commodityName" },
+                { header: "mandiName", key: "mandiName" },
+                { header: "gatePassWeightQtl", key: "gatePassWeightQtl" },
+                { header: "farmerID", key: "farmerID" },
+                { header: "gatePassID", key: "gatePassID" },
+                { header: "gatePassDate", key: "gatePassDate" },
+                { header: "auctionID", key: "auctionID" },
+                { header: "auctionDate", key: "auctionDate" },
+                { header: "commisionAgentName", key: "commisionAgentName" },
+                { header: "jformID", key: "jformID" },
+                { header: "jformDate", key: "jformDate" },
+                { header: "JformFinalWeightQtl", key: "JformFinalWeightQtl" },
+                { header: "totalBags", key: "totalBags" },
+                { header: "liftedDate", key: "liftedDate" },
+                { header: "destinationWarehouseName", key: "destinationWarehouseName" },
+                { header: "receivedAtDestinationDate", key: "receivedAtDestinationDate" },
+                { header: "jformApprovalDate", key: "jformApprovalDate" },
+                { header: "mspRateMT", key: "mspRateMT" },
+                { header: "payment_jFormId", key: "payment_jFormId" },
+                { header: "payment_reason", key: "payment_reason" },
+                { header: "payment_transactionAmount", key: "payment_transactionAmount" },
+                { header: "payment_transactionDate", key: "payment_transactionDate" },
+                { header: "payment_transactionId", key: "payment_transactionId" },
+                { header: "payment_transactionStatus", key: "payment_transactionStatus" },
+                { header: "warehouse_destinationAddress", key: "warehouse_destinationAddress" },
+                { header: "warehouse_driverName", key: "warehouse_driverName" },
+                { header: "warehouse_exitGatePassId", key: "warehouse_exitGatePassId" },
+                { header: "warehouse_inwardDate", key: "warehouse_inwardDate" },
+                { header: "warehouse_jformID", key: "warehouse_jformID" },
+                { header: "warehouse_transporterName", key: "warehouse_transporterName" },
+                { header: "warehouse_truckNo", key: "warehouse_truckNo" },
+                { header: "warehouse_warehouseId", key: "warehouse_warehouseId" },
+                { header: "warehouse_warehouseName", key: "warehouse_warehouseName" }
+            ];
+
+            worksheet.columns = columns;
+
+            // Add rows
+            records.forEach(item => {
+                worksheet.addRow({
+                    session: item?.session || 'NA',
+                    agencyName: item?.procurementDetails?.agencyName || 'NA',
+                    commodityName: item?.procurementDetails?.commodityName || 'NA',
+                    mandiName: item?.procurementDetails?.mandiName || 'NA',
+                    gatePassWeightQtl: item?.procurementDetails?.gatePassWeightQtl || 'NA',
+                    farmerID: item?.procurementDetails?.farmerID || 'NA',
+                    gatePassID: item?.procurementDetails?.gatePassID || 'NA',
+                    gatePassDate: item?.procurementDetails?.gatePassDate || 'NA',
+                    auctionID: item?.procurementDetails?.auctionID || 'NA',
+                    auctionDate: item?.procurementDetails?.auctionDate || 'NA',
+                    commisionAgentName: item?.procurementDetails?.commisionAgentName || 'NA',
+                    jformID: item?.procurementDetails?.jformID || 'NA',
+                    jformDate: item?.procurementDetails?.jformDate || 'NA',
+                    JformFinalWeightQtl: item?.procurementDetails?.JformFinalWeightQtl || 'NA',
+                    totalBags: item?.procurementDetails?.totalBags || 'NA',
+                    liftedDate: item?.procurementDetails?.liftedDate || 'NA',
+                    destinationWarehouseName: item?.procurementDetails?.destinationWarehouseName || 'NA',
+                    receivedAtDestinationDate: item?.procurementDetails?.receivedAtDestinationDate || 'NA',
+                    jformApprovalDate: item?.procurementDetails?.jformApprovalDate || 'NA',
+                    mspRateMT: item?.procurementDetails?.mspRateMT || 'NA',
+                    payment_jFormId: item?.paymentDetails?.jFormId || 'NA',
+                    payment_reason: item?.paymentDetails?.reason || 'NA',
+                    payment_transactionAmount: item?.paymentDetails?.transactionAmount || 'NA',
+                    payment_transactionDate: item?.paymentDetails?.transactionDate || 'NA',
+                    payment_transactionId: item?.paymentDetails?.transactionId || 'NA',
+                    payment_transactionStatus: item?.paymentDetails?.transactionStatus || 'NA',
+                    warehouse_destinationAddress: item?.warehouseData?.destinationAddress || 'NA',
+                    warehouse_driverName: item?.warehouseData?.driverName || 'NA',
+                    warehouse_exitGatePassId: item?.warehouseData?.exitGatePassId || 'NA',
+                    warehouse_inwardDate: item?.warehouseData?.inwardDate || 'NA',
+                    warehouse_jformID: item?.warehouseData?.jformID || 'NA',
+                    warehouse_transporterName: item?.warehouseData?.transporterName || 'NA',
+                    warehouse_truckNo: item?.warehouseData?.truckNo || 'NA',
+                    warehouse_warehouseId: item?.warehouseData?.warehouseId || 'NA',
+                    warehouse_warehouseName: item?.warehouseData?.warehouseName || 'NA',
+                });
+            });
+
+            // Save to disk and send file
+            const filePath = path.join(__dirname, `EkhridProcurement_${Date.now()}.xlsx`);
+            await workbook.xlsx.writeFile(filePath);
+
+            return res.download(filePath, err => {
+                if (err) {
+                    console.error("Download error:", err);
+                    return res.status(500).json({ error: "Failed to download file." });
+                }
+                // Optionally delete file after sending
+                fs.unlink(filePath, err => {
+                    if (err) console.error("File cleanup error:", err);
+                });
+            });
+        }
+
+        // Normal paginated response
+        return res.status(200).send(
+            new serviceResponse({
+                status: 200,
+                data: {
+                    rows: records,
+                    page: parseInt(page),
+                    limit: parsedLimit,
+                },
+                message: _response_message.found("associates"),
+            })
+        );
+
+    } catch (err) {
+        console.error("Server error:", err);
+        return res.status(500).json({ error: err.message });
+    }
+};
+*/

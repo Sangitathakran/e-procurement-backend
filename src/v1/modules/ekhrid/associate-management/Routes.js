@@ -2,7 +2,7 @@ const express = require("express");
 const { getAssociates, updateOrInsertUsers, addFarmers, addProcureallPaymentOrdersmentCenter, updateOrInsertUsersTesting, associateFarmerList,
     createOfferOrder, addProcurementCenter, getProcurementCenter, getProcurementCenterTesting, getEkhridJFormId, getMandiName, getAllMandiName, totalQty,
     allPaymentOrders, getBatchIds, updateBatchIds, totalQtyFarmerOrder, ekhridFarmerOrderMapping,
-    getNewJformIds, totalQtyRania, getTodaysfarmerOrder, checkJformIdsExist } = require("./Controllers");
+    getNewJformIds, totalQtyRania, getTodaysfarmerOrder, checkJformIdsExist, ekhridProcrementExport } = require("./Controllers");
 
 const associateMngmntRoutes = express.Router();
 
@@ -33,5 +33,6 @@ associateMngmntRoutes.get('/totalQtyRania', totalQtyRania);
 associateMngmntRoutes.get('/getTodaysfarmerOrder', getTodaysfarmerOrder);
 associateMngmntRoutes.get('/checkJformIdsExist', checkJformIdsExist);
 
+associateMngmntRoutes.get('/ekhridProcrementExport', ekhridProcrementExport);
 
 module.exports = { associateMngmntRoutes }; 
