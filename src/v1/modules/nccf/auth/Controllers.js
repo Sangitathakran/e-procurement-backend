@@ -17,7 +17,7 @@ const { TypesModel } = require("@src/v1/models/master/Types");
 const { getPermission } = require("../../user-management/permission");
 
 const getIpAddress = require('@src/v1/utils/helpers/getIPAddress');
-const { _frontendLoginRoutes,_userTypeFrontendRouteMapping } = require('@src/v1/utils/constants');
+const { _frontendLoginRoutes, _userTypeFrontendRouteMapping } = require('@src/v1/utils/constants');
 
 
 module.exports.getNccf = async (req, res) => {
@@ -51,11 +51,11 @@ module.exports.createNccf = async (req, res) => {
     try {
         const { nccf_name, email, phone } = req.body
 
-        // const pwd = "Ministry123@";
+        // const pwd = "lakshit@123";
         // const hashedpwd = await bcrypt.hash(pwd, 10);
         // console.log(hashedpwd);
         // return false;
-        
+
         const existUser = await NccfAdmin.findOne({ email: email });
 
         if (existUser) {
@@ -72,7 +72,8 @@ module.exports.createNccf = async (req, res) => {
 
         // const password = generateRandomPassword();
         // const password = "Ministry@1234";
-        const password = "Ministry123@";
+        // const password = "Ministry123@";
+        const password = "karan@123";
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const nccfData = new NccfAdmin({
@@ -96,9 +97,9 @@ module.exports.createNccf = async (req, res) => {
         // const type = await TypesModel.findOne({ _id: "677b7de4f392eaf580a68688" }) // testing
         // const type = await TypesModel.findOne({ _id: "677b7f12f392eaf580a6868c" }) // live
         const type = await TypesModel.findOne({ _id: "677b7de4f392eaf580a68688" }) // nccf-admin
-         type.adminUserRoleId = "67a1fb7cc6f4b27e68a200fe" // nccf-admin
+        type.adminUserRoleId = "67a1fb7cc6f4b27e68a200fe" // nccf-admin
         // 67115a35cbbd6e268e80d00f
-        
+
 
         if (savedNccf._id) {
             const masterUser = new MasterUser({
@@ -165,7 +166,7 @@ module.exports.login = async (req, res) => {
                 { path: "userRole", select: "" },
                 { path: "portalId", select: "" }
             ])
-           
+
         if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('User') }] }));
         }
@@ -180,7 +181,7 @@ module.exports.login = async (req, res) => {
         );
 
         const userType = _userTypeFrontendRouteMapping[portal_type];
-       
+
         if (userType !== user.user_type) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
         }
@@ -188,7 +189,7 @@ module.exports.login = async (req, res) => {
         const payload = { email: user.email, user_id: user?._id, portalId: user?.portalId?._id, user_type: user.user_type }
         const expiresIn = 24 * 60 * 60;
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
-        
+
         const typeData = await TypesModel.find()
         const userData = await getPermission(user)
 
