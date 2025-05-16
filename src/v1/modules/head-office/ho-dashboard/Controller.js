@@ -107,7 +107,9 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     const {
       schemeName,
       commodityName,
-      dateRange
+      dateRange,
+      sessionName,
+      stateName
     } = req.query;
     const paymentFilter = {
       ho_id: { $in: [user_id, portalId] },
@@ -144,9 +146,11 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       if (branchIds.length === 0) {
         widgetDetails.branchOffice.total = 0;
       } else {
-        const branchFilter = { _id: { $in: branchIds } };
+        const branchFilter = { 
+          _id: { $in: branchIds },
+           headOfficeId: hoId
+          };
         widgetDetails.branchOffice.total = await Branches.countDocuments(branchFilter);
-        console.log("widgetDetails.branchOffice.total",widgetDetails.branchOffice.total)
       }
     
     } else {
@@ -184,6 +188,8 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       match: {
         ...(commodityName && { "product.name": { $regex: new RegExp(commodityName, "i") } }),
         ...(scheme && { "product.schemeId": scheme._id }),
+        ...(sessionName && {"product.season": { $regex: new RegExp(sessionName, "i") },
+        }),
       }
     }).lean();
 
@@ -324,7 +330,7 @@ function parseDateRange(rangeStr) {
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   const hoId = new mongoose.Types.ObjectId(req.portalId);
 
-  const { limit = 10, page = 1, commodityName, schemeName, sessionName, dateRange } = req.query;
+  const { limit = 10, page = 1, commodityName, schemeName, sessionName, dateRange, stateName } = req.query;
   const { user_id, portalId } = req;
   const skip = (page - 1) * limit;
 
@@ -400,7 +406,7 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
-  const { limit = 10, page = 1, commodityName, schemeName, sessionName, dateRange } = req.query;
+  const { limit = 10, page = 1, commodityName, schemeName, sessionName, dateRange,stateName } = req.query;
   const skip = (page - 1) * limit;
   const { user_id, portalId } = req;
 
@@ -523,7 +529,7 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 //   });
 // });
 module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
-  let { page = 1, limit = 10, commodityName, schemeName, dateRange } = req.query;
+  let { page = 1, limit = 10, commodityName, schemeName, dateRange,sessionName, stateName } = req.query;
   page = Number(page);
   limit = Number(limit);
   const skip = (page - 1) * limit;
@@ -566,6 +572,9 @@ module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
       match: {
         ...(commodityName && { "product.name": { $regex: new RegExp(commodityName, "i") } }),
         ...(scheme && { "product.schemeId": scheme._id }),
+        ...(sessionName && {
+          "session.name": { $regex: new RegExp(sessionName, "i") },
+        }),
       },
     })
     .sort({ createdAt: -1 });
@@ -598,7 +607,7 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
   try {
     const hoId = new mongoose.Types.ObjectId(req.portalId);
     const { user_id, portalId } = req;
-    const { commodityName, schemeName, dateRange } = req.query;
+    const { commodityName, schemeName, dateRange, sessionName } = req.query;
 
     // Step 1: Fetch all states from the only StateDistrictCity document
     const stateContainer = await StateDistrictCity.findOne().lean();
@@ -661,6 +670,9 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
           }),
           ...(scheme && {
             "product.schemeId": scheme._id,
+          }),
+          ...(sessionName && {
+            "session.name": { $regex: new RegExp(sessionName, "i") },
           }),
         },
       })
