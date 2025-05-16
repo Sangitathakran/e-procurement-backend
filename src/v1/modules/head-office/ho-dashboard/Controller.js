@@ -462,10 +462,8 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
 });
 module.exports.stateWiseCommodityDetail = asyncErrorHandler(async (req, res) => {
   try {
-    // STEP 1: Prepare stateId → stateName mapping
+    // STEP 1: STATE MAP
     const stateDoc = await StateDistrictCity.findOne().lean();
-    const stateMap = {};
-
     if (!stateDoc || !Array.isArray(stateDoc.states)) {
       return sendResponse({
         res,
@@ -474,34 +472,47 @@ module.exports.stateWiseCommodityDetail = asyncErrorHandler(async (req, res) => 
       });
     }
 
+    const stateMap = {};
     for (const state of stateDoc.states) {
       stateMap[state._id.toString()] = state.state_title;
     }
 
-    // STEP 2: Aggregation
+    // STEP 2: AGGREGATION
     const result = await Crop.aggregate([
-      // JOIN FARMER
+      // JOIN FARMER (PROJECT ONLY NEEDED FIELDS)
       {
         $lookup: {
           from: "farmers",
           localField: "farmer_id",
           foreignField: "_id",
           as: "farmer",
-        },
+          pipeline: [
+            { $project: { _id: 1, associate_id: 1, address: 1 } }
+          ]
+        }
       },
       { $unwind: "$farmer" },
-    
-      // JOIN ASSOCIATE
+
+      // JOIN ASSOCIATE (PROJECT ONLY NEEDED FIELDS)
       {
         $lookup: {
           from: "users",
           localField: "farmer.associate_id",
           foreignField: "_id",
           as: "associate",
-        },
+          pipeline: [
+            {
+              $project: {
+                _id: 1,
+                associate_type: 1,
+                "basic_details.associate_details.associate_type": 1
+              }
+            }
+          ]
+        }
       },
       { $unwind: { path: "$associate", preserveNullAndEmptyArrays: true } },
-    
+
       // ADD associate_type
       {
         $addFields: {
@@ -510,37 +521,36 @@ module.exports.stateWiseCommodityDetail = asyncErrorHandler(async (req, res) => 
               "$associate.basic_details.associate_details.associate_type",
               "$associate.associate_type"
             ]
-          },
-        },
+          }
+        }
       },
-    
-      // JOIN PAYMENT_COLLECTION BY FARMER ID (FILTER COMPLETED)
+
+      // JOIN PAYMENTS (WITHOUT $expr)
       {
         $lookup: {
           from: "payments",
-          let: { farmerId: "$farmer._id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$farmer_id", "$$farmerId"] },
-                    { $eq: ["$payment_status", "completed"] }
-                  ]
-                }
-              }
-            },
-            {
-              $project: {
-                farmer_id: 1,
-                qtyProcured: 1,
-              }
-            }
-          ],
-          as: "completedPayments"
-        },
+          localField: "farmer._id",
+          foreignField: "farmer_id",
+          as: "completedPaymentsRaw"
+        }
       },
-    
+      {
+        $addFields: {
+          completedPayments: {
+            $filter: {
+              input: "$completedPaymentsRaw",
+              as: "p",
+              cond: { $eq: ["$$p.payment_status", "Completed"] }
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          completedPaymentsRaw: 0
+        }
+      },
+
       // GROUP BY STATE + CROP
       {
         $group: {
@@ -572,13 +582,23 @@ module.exports.stateWiseCommodityDetail = asyncErrorHandler(async (req, res) => 
               $reduce: {
                 input: "$completedPayments",
                 initialValue: 0,
-                in: { $add: ["$$value", { $ifNull: ["$$this.qtyProcured", 0] }] }
+                in: {
+                  $add: [
+                    "$$value",
+                    {
+                      $ifNull: [
+                        { $toDouble: "$$this.qtyProcured" },
+                        0
+                      ]
+                    }
+                  ]
+                }
               }
             }
           }
-        },
+        }
       },
-    
+
       // FINAL PROJECT
       {
         $project: {
@@ -588,14 +608,11 @@ module.exports.stateWiseCommodityDetail = asyncErrorHandler(async (req, res) => 
           totalAssociates: { $size: "$fpoOrPacsAssociates" },
           totalBenefitedFarmers: { $size: "$benefitedFarmerIds" },
           totalQuantityPurchased: "$totalQtyProcured"
-        },
+        }
       }
     ]);
-   
 
-    // console.log("result", result)
-
-    // STEP 3: Format result state → crops[]
+    // STEP 3: GROUP STATE → CROPS[]
     const stateWiseData = {};
 
     for (const item of result) {
@@ -627,6 +644,7 @@ module.exports.stateWiseCommodityDetail = asyncErrorHandler(async (req, res) => 
       message: "State-wise commodity farmer + associate count fetched successfully",
       data: finalResult,
     });
+
   } catch (error) {
     console.error("Error in stateCommodityFarmerCount:", error);
     return sendResponse({
@@ -637,6 +655,146 @@ module.exports.stateWiseCommodityDetail = asyncErrorHandler(async (req, res) => 
     });
   }
 });
+
+
+module.exports.getStateWiseCommodityStats = async (req, res) => {
+  try {
+    const data = await User.aggregate([
+      // JOIN associateoffers with users
+      {
+        $lookup: {
+          from: 'associateoffers',
+          localField: '_id',
+          foreignField: 'seller_id',
+          as: 'offers'
+        }
+      },
+      { $unwind: '$offers' },
+
+      // JOIN requests
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'offers.req_id',
+          foreignField: '_id',
+          as: 'request'
+        }
+      },
+      { $unwind: '$request' },
+
+      // JOIN commodities
+      {
+        $lookup: {
+          from: 'commodities',
+          localField: 'request.product.commodity_id',
+          foreignField: '_id',
+          as: 'commodity'
+        }
+      },
+      { $unwind: '$commodity' },
+
+      // JOIN farmerorders using associateoffers._id
+      {
+        $lookup: {
+          from: 'farmerorders',
+          localField: 'offers._id',
+          foreignField: 'associateOffers_id',
+          as: 'farmerOrders'
+        }
+      },
+      { $unwind: { path: '$farmerOrders', preserveNullAndEmptyArrays: true } },
+
+      // JOIN farmers to get associate_id
+      {
+        $lookup: {
+          from: 'farmers',
+          localField: 'farmerOrders.farmer_id',
+          foreignField: '_id',
+          as: 'farmerInfo'
+        }
+      },
+      { $unwind: { path: '$farmerInfo', preserveNullAndEmptyArrays: true } },
+
+      // Prepare needed fields
+      {
+        $addFields: {
+          farmerId: '$farmerOrders.farmer_id',
+          associateId: '$farmerInfo.associate_id',
+          offeredQty: '$farmerOrders.offeredQty'
+        }
+      },
+
+      // Group by state + commodity
+      {
+        $group: {
+          _id: {
+            state: '$address.registered.state',
+            commodityId: '$commodity._id',
+            commodityName: '$commodity.name'
+          },
+          totalOffers: { $sum: 1 },
+          uniqueFarmers: { $addToSet: '$_id' },
+          totalQtyPurchased: { $sum: '$offeredQty' },
+          allBenefittedFarmers: { $addToSet: '$farmerId' },
+          allRegisteredPacs: { $addToSet: '$associateId' }
+        }
+      },
+
+      // Build commodity object
+      {
+        $project: {
+          state: '$_id.state',
+          commodity: {
+            _id: '$_id.commodityId',
+            name: '$_id.commodityName',
+            // totalOffers: '$totalOffers',
+            // totalFarmers: { $size: '$uniqueFarmers' },
+            quantityPurchased: { $ifNull: ['$totalQtyPurchased', 0] },
+            farmersBenefitted: {
+              $size: {
+                $setUnion: ['$allBenefittedFarmers', []]
+              }
+            },
+            registeredPacs: {
+              $size: {
+                $setUnion: ['$allRegisteredPacs', []]
+              }
+            }
+          },
+          _id: 0
+        }
+      },
+
+      // Group by state and push commodities
+      {
+        $group: {
+          _id: '$state',
+          commodities: { $push: '$commodity' }
+        }
+      },
+
+      // Final formatting
+      {
+        $project: {
+          state: '$_id',
+          commodities: 1,
+          _id: 0
+        }
+      },
+
+      // Sort by state
+      {
+        $sort: { state: 1 }
+      }
+    ]);
+
+    res.status(200).json(data);
+  } catch (err) {
+    console.error('Error generating stats:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 
 
 
