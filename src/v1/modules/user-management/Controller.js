@@ -301,6 +301,9 @@ exports.getUserPermission = async (req, res) => {
           .findOne({ _id: req.user._id })
           .populate(["portalId","userRole"])
 
+          console.log("repsonse", response);
+          
+
         if (response) {
           const newResponse = await getPermission(response)
           const typeData = await TypesModel.find()

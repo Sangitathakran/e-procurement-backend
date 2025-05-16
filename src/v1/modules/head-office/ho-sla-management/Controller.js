@@ -8,6 +8,7 @@ const {
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { mongoose } = require("mongoose");
 const { ObjectId } = require("mongoose").Types;
+const {dumpJSONToExcel} = require("@src/v1/utils/helpers");
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
   try {
@@ -124,13 +125,17 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     state,
   } = req.query;
 
-  const userID = req.user._id;
+  const { portalId, user_id } = req;
+
+  
+const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
 
   if (bo_id || scheme_id) {
     let matchQuery = {
       sla_id: { $exists: true },
       deletedAt: null,
-      "schemes.cna": userID,
+      "schemes.cna": { $in: [portalObjectId, userObjectId] }
     };
     if (bo_id) matchQuery.bo_id = new ObjectId(bo_id);
 
@@ -217,21 +222,20 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
       records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
     }
 
-    if (isExport == 1) {
-      return dumpJSONToExcel(req, res, {
-        data: rows.map((item) => ({
-          "Scheme Id": item?.schemeId || "NA",
-          "Scheme Name": item?.schemeName || "NA",
-          "Scheme Commodity": item?.Schemecommodity || "NA",
-          season: item?.season || "NA",
-          period: item?.period || "NA",
-          procurement: item?.procurement || "NA",
-        })),
-        fileName: "Scheme-Assignments.xlsx",
-        worksheetName: "Scheme Assignments",
-      });
-    }
-
+    // if (isExport == 1) {
+    //   return dumpJSONToExcel(req, res, {
+    //     data: rows.map((item) => ({
+    //       "Scheme Id": item?.schemeId || "NA",
+    //       "Scheme Name": item?.schemeName || "NA",
+    //       "Scheme Commodity": item?.Schemecommodity || "NA",
+    //       season: item?.season || "NA",
+    //       period: item?.period || "NA",
+    //       procurement: item?.procurement || "NA",
+    //     })),
+    //     fileName: "Scheme-Assignments.xlsx",
+    //     worksheetName: "Scheme Assignments",
+    //   });
+    // }
     return res.status(200).send(
       new serviceResponse({
         status: 200,
@@ -243,13 +247,13 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
   let matchQuery = search
     ? {
-        $or: [
-          { "basic_details.name": { $regex: search, $options: "i" } },
-          { "basic_details.email": { $regex: search, $options: "i" } },
-          { "basic_details.mobile": { $regex: search, $options: "i" } },
-        ],
-        deletedAt: null,
-      }
+      $or: [
+        { "basic_details.name": { $regex: search, $options: "i" } },
+        { "basic_details.email": { $regex: search, $options: "i" } },
+        { "basic_details.mobile": { $regex: search, $options: "i" } },
+      ],
+      deletedAt: null,
+    }
     : { deletedAt: null };
 
   if (state) matchQuery["address.state"] = { $regex: state, $options: "i" };
@@ -258,7 +262,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     {
       $match: {
         ...matchQuery,
-        "schemes.cna": userID,
+       "schemes.cna": { $in: [portalObjectId, userObjectId] }
       },
     },
     //   { $match: matchQuery },
@@ -293,7 +297,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     },
   ];
 
-  if (paginate == 1)
+  if (paginate == 1 && isExport != 1)
     aggregationPipeline.push(
       { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
       { $skip: parseInt(skip) },
@@ -301,11 +305,31 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     );
 
   const rows = await SLAManagement.aggregate(aggregationPipeline);
+
+  if (isExport == 1) {
+
+    return dumpJSONToExcel(req, res, {
+      data: rows.map((item) => ({
+        "SLA ID": item?.slaId || "NA",
+        "SLA Name": item?.sla_name || "NA",
+        "POINT OF CONTACT": item?.poc || "NA",
+        "ASSOCIATE COUNT": item?.associate_count || "NA",
+        "Address": item?.address || "NA",
+        "Status": item?.status || "NA",
+        // season: item?.season || "NA",
+        // period: item?.period || "NA",
+        // procurement: item?.procurement || "NA",
+      })),
+      fileName: `HO-SLA-record.xlsx`,
+        worksheetName: `HO-SLA-record`,
+    });
+  }
+
   const countResult = await SLAManagement.aggregate([
     {
       $match: {
         ...matchQuery,
-        "schemes.cna": userID,
+       "schemes.cna": { $in: [portalObjectId, userObjectId] }
       },
     },
     { $count: "total" },
@@ -480,7 +504,11 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const updateData = req.body;
-    const userID = req.user._id;
+    const { portalId, user_id } = req;
+
+    const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
+    // const userID = req.user._id;
 
     if (!slaId) {
       return res.status(400).json(
@@ -493,7 +521,9 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
 
     // Find and update SLA
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+      { $or: [{ slaId }, { _id: slaId }],
+      "schemes.cna": { $in: [portalObjectId, userObjectId] }
+       },
       { $set: updateData },
       { new: true, runValidators: true } // Return updated doc
     );
@@ -574,8 +604,11 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
 module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params; // Get SLA ID from URL params
-    const { status } = req.body; // New status (true/false)
-    const userID = req.user._id;
+    const { status } = req.body;
+    const { portalId, user_id } = req;
+    // const userID = req.user._id;
+    const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
 
     if (!slaId) {
       return res.status(400).json(
@@ -597,7 +630,9 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
 
     // Find and update SLA status
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+      { $or: [{ slaId }, { _id: slaId }],
+       "schemes.cna": { $in: [portalObjectId, userObjectId] }
+       },
       { $set: { status: status } },
       { new: true }
     );
@@ -633,7 +668,10 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const { scheme, cna, branch } = req.body;
-    const userID = req.user._id;
+    const { portalId, user_id } = req;
+    // const userID = req.user._id;
+    const portalObjectId = new mongoose.Types.ObjectId(portalId);
+const userObjectId = new mongoose.Types.ObjectId(user_id);
 
     // Validate input
     if (!scheme || !cna || !branch) {
@@ -647,7 +685,9 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
 
     // Find SLA and update with new scheme
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }], "schemes.cna": userID },
+      { $or: [{ slaId }, { _id: slaId }],
+      "schemes.cna": { $in: [portalObjectId, userObjectId] }
+       },
       { $push: { schemes: { scheme, cna, branch } } },
       { new: true }
     )
@@ -706,6 +746,48 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 
     // Use Mongoose's insertMany to insert multiple documents
     const records = await SchemeAssign.insertMany(recordsToInsert);
+
+    if (sla_id) {
+      const schemeIds = schemeData.map(item => item._id);
+
+      // Fetch existing SLA document
+      const sla = await SLAManagement.findById(sla_id);
+
+      if (!sla) {
+        return res.status(404).send(
+          new serviceResponse({
+            status: 404,
+            message: "SLA not found.",
+          })
+        );
+      }
+
+      // Extract current saved values
+      const existingSchemes = sla.schemes?.scheme?.map(id => id.toString()) || [];
+      const incomingSchemes = schemeIds.map(id => id.toString());
+
+      const existingCna = sla.schemes?.cna?.toString();
+      const existingBranch = sla.schemes?.branch?.toString();
+
+      // Check if any differences
+      const hasSchemeChange = incomingSchemes.length !== existingSchemes.length ||
+        !incomingSchemes.every(id => existingSchemes.includes(id));
+      const hasCnaChange = cna_id.toString() !== existingCna;
+      const hasBranchChange = bo_id.toString() !== existingBranch;
+
+      if (hasSchemeChange || hasCnaChange || hasBranchChange) {
+        await SLAManagement.updateOne(
+          { _id: sla_id },
+          {
+            $set: {
+              "schemes.scheme": schemeIds,
+              "schemes.cna": cna_id,
+              "schemes.branch": bo_id,
+            },
+          }
+        );
+      }
+    }
 
     return res.status(200).send(
       new serviceResponse({

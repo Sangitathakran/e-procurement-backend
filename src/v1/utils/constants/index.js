@@ -61,7 +61,8 @@ const _collectionName = {
     SchemeAssign: "SchemeAssign",
     CCAvenueResponse: "CCAvenueResponse",
     PaymentLogsHistory: "PaymentLogsHistory",
-    eKharidHaryana: "ekharidprocurements"
+    eKharidHaryana: "ekharidprocurements",
+    agristackLog:"agristackLog",
 }
 
 const _userType_Feature_Collection = {
@@ -81,7 +82,8 @@ const _featureType = {
     headOffice: "HeadOffice",
     agency: "Agency",
     associate: "Associate",
-    distiller: "Distiller"
+    distiller: "Distiller",
+    SLA:"SLA"
 }
 
 const _status = {
@@ -188,7 +190,8 @@ const _userType = {
     agent: "6",
     warehouse: "7",
     distiller: "8",
-    nccf: "9"
+    nccf: "9",
+    admin: "10",
 }
 
 const _userStatus = {
@@ -455,14 +458,17 @@ const _frontendLoginRoutes = {
     agent: "https://ep.navbazar.com/agent/sign-in",
     ho: "https://ep.navbazar.com/head-office/sign-in",
     bo: "https://ep.navbazar.com/branch-office/sign-in",
-    nccf: "https://ep.navbazar.com/nccf/sign-in"
+    nccf: "https://ep.navbazar.com/nccf/sign-in",
+    sla: "https://sla.khetisauda.com/sla/sign-in",
 }
 
 const _userTypeFrontendRouteMapping = {
     "agent": "6",
     "head-office": "2",
     "branch-office": "3",
-    "NccfAdmin": "9"
+    "NccfAdmin": "9",
+    "admin": "10",
+
 }
 
 const _poRequestStatus = {

@@ -120,7 +120,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       }
     }
   ];
-  if (paginate == 1) {
+  if (paginate == 1 && isExport != 1) {
     aggregationPipeline.push(
       { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
       { $skip: parseInt(skip) },
@@ -137,7 +137,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   const countResult = await Scheme.aggregate(countPipeline);
   const count = countResult[0]?.total || 0;
   const records = { rows, count };
-  if (paginate == 1) {
+  if (paginate == 1 && isExport != 1) {
     records.page = parseInt(page);
     records.limit = parseInt(limit);
     records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
@@ -146,11 +146,10 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     const record = rows.map((item) => {
       return {
         "Scheme Id": item?.schemeId || "NA",
-        "scheme Name": item?.schemeName || "NA",
-        "SchemeCommodity": item?.commodity || "NA",
-        "season": item?.season || "NA",
-        "period": item?.period || "NA",
-        "procurement": item?.procurement || "NA"
+        "scheme": item?.schemeName || "NA",
+         "PROCUREMENT TARGET (IN MT)": item?.procurement || "NA",
+        "SCHEME CREATED ON": item?.procurementDuration || "NA",
+        "STATUS": item?.status || "NA",
       };
     });
     if (record.length > 0) {

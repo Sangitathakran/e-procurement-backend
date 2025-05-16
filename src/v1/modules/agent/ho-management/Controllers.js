@@ -585,7 +585,6 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getBo = asyncErrorHandler(async (req, res) => {
-
     try {
         const { ho_id, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
 
@@ -605,7 +604,9 @@ module.exports.getBo = asyncErrorHandler(async (req, res) => {
                     emailAddress: 1,
                     pointOfContact: '$pointOfContact.name',
                     address: 1,
+                    district:1,
                     state: 1,
+                    pincode:1,
                     status: 1,
                     createdAt: 1,
                     updatedAt: 1

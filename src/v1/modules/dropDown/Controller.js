@@ -3,6 +3,7 @@ const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 const { User } = require("@src/v1/models/app/auth/User");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Commodity } = require("@src/v1/models/master/Commodity");
 const {
@@ -15,6 +16,8 @@ const {
 const UserRole = require("@src/v1/models/master/UserRole");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { default: mongoose } = require("mongoose");
+
+
 module.exports.scheme = async (req, res) => {
   const query = { deletedAt: null, status: "active" };
   try {
@@ -70,6 +73,27 @@ module.exports.commodity = async (req, res) => {
   }
 };
 
+module.exports.commodityRequest = async (req, res) => {
+  try {
+    const result = await RequestModel.find({ "product.name": { $exists: true } })
+      .select("product.name -_id"); // only fetch product.name
+
+    const nameList = result.map(item => item.product.name);
+
+    return sendResponse({
+      res,
+      message: "Product names fetched successfully.",
+      data: nameList,
+    });
+  } catch (err) {
+    console.error("ERROR:", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: err.message,
+    });
+  }
+};
 module.exports.commodity_standard = async (req, res) => {
   const query = { deletedAt: null, status: "active" };
   try {
@@ -195,6 +219,110 @@ module.exports.getCitiesByState = async (req, res) => {
   }
 };
 
+module.exports.getCitiesByDistrict = async (req, res) => {
+  try {
+    const { state_code, district_title } = req.query;
+
+    if (!state_code || !district_title) {
+      return sendResponse({
+        res,
+        status: 400,
+        message: "Both state_code and district_title are required",
+      });
+    }
+
+    const city_list = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      {
+        $match: {
+          "states.state_code": state_code,
+          "states.status": "active",
+        },
+      },
+      { $unwind: "$states.districts" },
+      {
+        $match: {
+          "states.districts.district_title": district_title,
+          "states.districts.status": "active",
+        },
+      },
+      { $unwind: "$states.districts.cities" },
+      {
+        $match: {
+          "states.districts.cities.status": "active",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          city_title: "$states.districts.cities.city_title",
+        },
+      },
+    ]);
+
+    return sendResponse({
+      res,
+      message: "",
+      data: city_list,
+    });
+  } catch (err) {
+    console.error("ERROR: ", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: err.message,
+    });
+  }
+};
+
+module.exports.getDistrictsByState = async (req, res) => {
+  try {
+    const { state_code } = req.query;
+
+    if (!state_code) {
+      return sendResponse({
+        res,
+        status: 400,
+        message: "State code is required",
+      });
+    }
+
+    const district_list = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      {
+        $match: {
+          "states.state_code": state_code,
+          "states.status": "active",
+        },
+      },
+      { $unwind: "$states.districts" },
+      {
+        $match: {
+          "states.districts.status": "active",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          district_title: "$states.districts.district_title",
+        },
+      },
+    ]);
+
+    return sendResponse({
+      res,
+      message: "",
+      data: district_list,
+    });
+  } catch (err) {
+    console.error("ERROR: ", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: err.message,
+    });
+  }
+};
 
 
 module.exports.getRoles = async (req, res) => {
@@ -225,6 +353,55 @@ module.exports.getAssociates = async (req, res) => {
   } catch (err) {
     console.log("ERROR: ", err);
     return sendResponse({ status: 500, message: err.message });
+  }
+};
+
+module.exports.getDistrictsByState = async (req, res) => {
+  try {
+    const { state_code } = req.query;
+
+    if (!state_code) {
+      return sendResponse({
+        res,
+        status: 400,
+        message: "State code is required",
+      });
+    }
+
+    const district_list = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      {
+        $match: {
+          "states.state_code": state_code,
+          "states.status": "active",
+        },
+      },
+      { $unwind: "$states.districts" },
+      {
+        $match: {
+          "states.districts.status": "active",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          district_title: "$states.districts.district_title",
+        },
+      },
+    ]);
+
+    return sendResponse({
+      res,
+      message: "",
+      data: district_list,
+    });
+  } catch (err) {
+    console.error("ERROR: ", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: err.message,
+    });
   }
 };
 
