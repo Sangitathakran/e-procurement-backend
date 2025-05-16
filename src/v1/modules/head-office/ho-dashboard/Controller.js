@@ -124,13 +124,44 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       todaysQtyProcured: 0,
     };
 
+    if (commodityName) {
+      const matchedRequests = await RequestModel.find({
+        "product.name": { $regex: new RegExp(commodityName, "i") },
+        warehouse_id: { $ne: null },
+        branch_id: { $ne: null }
+      }).select("warehouse_id branch_id").lean();
+    
+      const warehouseIds = [...new Set(matchedRequests.map(req => req.warehouse_id?.toString()).filter(Boolean))];
+      const branchIds = [...new Set(matchedRequests.map(req => req.branch_id?.toString()).filter(Boolean))];
+
+      if (warehouseIds.length === 0) {
+        widgetDetails.wareHouse.total = 0;
+      } else {
+        const warehouseFilter = { _id: { $in: warehouseIds } };
+        widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments(warehouseFilter);
+      }
+    
+      if (branchIds.length === 0) {
+        widgetDetails.branchOffice.total = 0;
+      } else {
+        const branchFilter = { _id: { $in: branchIds } };
+        widgetDetails.branchOffice.total = await Branches.countDocuments(branchFilter);
+        console.log("widgetDetails.branchOffice.total",widgetDetails.branchOffice.total)
+      }
+    
+    } else {
+      // 🧾 No commodity filter, fallback to default counts
+      widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({});
+      widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    }
+
     // Get counts safely
-    widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
-    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    // widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
+    // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     //start of prachi code
 
     widgetDetails.farmerRegistration.distillerTotal = await Distiller.countDocuments({ is_approved: _userStatus.approved });
-    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
     widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
     widgetDetails.farmerRegistration.totalRegistration = (widgetDetails.farmerRegistration.farmertotal + widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal);
