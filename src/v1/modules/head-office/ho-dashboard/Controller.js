@@ -104,6 +104,17 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 
     const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
     const { user_id, portalId } = req;
+    const {
+      schemeName,
+      commodityName,
+      dateRange,
+      sessionName,
+      stateName
+    } = req.query;
+    const paymentFilter = {
+      ho_id: { $in: [user_id, portalId] },
+      payment_status: _paymentstatus.completed,
+    };
     let widgetDetails = {
       branchOffice: { total: 0 },
       farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0, distillerTotal: 0 },
@@ -115,19 +126,72 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       todaysQtyProcured: 0,
     };
 
+    if (commodityName) {
+      const matchedRequests = await RequestModel.find({
+        "product.name": { $regex: new RegExp(commodityName, "i") },
+        warehouse_id: { $ne: null },
+        branch_id: { $ne: null }
+      }).select("warehouse_id branch_id").lean();
+    
+      const warehouseIds = [...new Set(matchedRequests.map(req => req.warehouse_id?.toString()).filter(Boolean))];
+      const branchIds = [...new Set(matchedRequests.map(req => req.branch_id?.toString()).filter(Boolean))];
+
+      if (warehouseIds.length === 0) {
+        widgetDetails.wareHouse.total = 0;
+      } else {
+        const warehouseFilter = { _id: { $in: warehouseIds } };
+        widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments(warehouseFilter);
+      }
+    
+      if (branchIds.length === 0) {
+        widgetDetails.branchOffice.total = 0;
+      } else {
+        const branchFilter = { 
+          _id: { $in: branchIds },
+           headOfficeId: hoId
+          };
+        widgetDetails.branchOffice.total = await Branches.countDocuments(branchFilter);
+      }
+    
+    } else {
+      // 🧾 No commodity filter, fallback to default counts
+      widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({});
+      widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    }
+
     // Get counts safely
-    widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
-    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    // widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
+    // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     //start of prachi code
 
     widgetDetails.farmerRegistration.distillerTotal = await Distiller.countDocuments({ is_approved: _userStatus.approved });
-    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
     widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
     widgetDetails.farmerRegistration.totalRegistration = (widgetDetails.farmerRegistration.farmertotal + widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal);
     widgetDetails.farmerBenifitted = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
    
-    const payments = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: _paymentstatus.completed, }).select("qtyProcured createdAt amount").lean();
+    let scheme = null;
+    if (schemeName) {
+      scheme = await Scheme.findOne({ schemeName: { $regex: new RegExp(schemeName, "i") } }).select("_id").lean();
+    }
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange);
+      paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
+    }
+    
+    const payments = await Payment.find(paymentFilter)
+    .select("qtyProcured createdAt amount")
+    .populate({
+      path: "req_id",
+      select: "product.name product.schemeId",
+      match: {
+        ...(commodityName && { "product.name": { $regex: new RegExp(commodityName, "i") } }),
+        ...(scheme && { "product.schemeId": scheme._id }),
+        ...(sessionName && {"product.season": { $regex: new RegExp(sessionName, "i") },
+        }),
+      }
+    }).lean();
 
     let grandTotalQtyProcured = 0;
     let todaysQtyProcured = 0;
@@ -266,7 +330,7 @@ function parseDateRange(rangeStr) {
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   const hoId = new mongoose.Types.ObjectId(req.portalId);
 
-  const { limit = 10, page = 1, commodityName, schemeName, sessionName, dateRange } = req.query;
+  const { limit = 10, page = 1, commodityName, schemeName, sessionName, dateRange, stateName } = req.query;
   const { user_id, portalId } = req;
   const skip = (page - 1) * limit;
 
@@ -342,7 +406,7 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
-  const { limit = 10, page = 1, commodityName, schemeName, sessionName, dateRange } = req.query;
+  const { limit = 10, page = 1, commodityName, schemeName, sessionName, dateRange,stateName } = req.query;
   const skip = (page - 1) * limit;
   const { user_id, portalId } = req;
 
@@ -465,7 +529,7 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 //   });
 // });
 module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
-  let { page = 1, limit = 10, commodityName, schemeName, dateRange } = req.query;
+  let { page = 1, limit = 10, commodityName, schemeName, dateRange,sessionName, stateName } = req.query;
   page = Number(page);
   limit = Number(limit);
   const skip = (page - 1) * limit;
@@ -508,6 +572,9 @@ module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
       match: {
         ...(commodityName && { "product.name": { $regex: new RegExp(commodityName, "i") } }),
         ...(scheme && { "product.schemeId": scheme._id }),
+        ...(sessionName && {
+          "session.name": { $regex: new RegExp(sessionName, "i") },
+        }),
       },
     })
     .sort({ createdAt: -1 });
@@ -540,7 +607,7 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
   try {
     const hoId = new mongoose.Types.ObjectId(req.portalId);
     const { user_id, portalId } = req;
-    const { commodityName, schemeName, dateRange } = req.query;
+    const { commodityName, schemeName, dateRange, sessionName } = req.query;
 
     // Step 1: Fetch all states from the only StateDistrictCity document
     const stateContainer = await StateDistrictCity.findOne().lean();
@@ -603,6 +670,9 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
           }),
           ...(scheme && {
             "product.schemeId": scheme._id,
+          }),
+          ...(sessionName && {
+            "session.name": { $regex: new RegExp(sessionName, "i") },
           }),
         },
       })
