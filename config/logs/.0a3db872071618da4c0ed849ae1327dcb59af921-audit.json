@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\manish kumar\\Desktop\\projects\\procurement_apis\\config\\logs\\.0a3db872071618da4c0ed849ae1327dcb59af921-audit.json",
+    "files": [
+        {
+            "date": 1747482245518,
+            "name": "C:\\Users\\manish kumar\\Desktop\\projects\\procurement_apis\\config\\logs\\app-2025-05-17.log",
+            "hash": "94fe264cd387e401bda093b705bd2d8394adb140a6092652f0311e17054d366b"
+        }
+    ],
+    "hashType": "sha256"
+}

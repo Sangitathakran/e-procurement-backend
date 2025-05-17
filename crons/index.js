@@ -3,6 +3,8 @@ const { sendLog } = require("./sendLogs");
 const { default: axios } = require("axios");
 const fs = require("fs");
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+
 const {
   AgentPaymentFile,
 } = require("@src/v1/models/app/payment/agentPaymentFile");
@@ -14,6 +16,15 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const xlsx = require("xlsx");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { _paymentstatus } = require("@src/v1/utils/constants");
+
+const hashedAadhars = require('@src/v1/modules/agristack/files/aadhaar_hashes.json');
+const { agristackLogger } = require("@config/logger");
+
+const URL = 'https://ufsi.agristack.gov.in/agristack/seek';
+const SENDER_ID = 'edcb446e-3f86-419d-a07d-026554592a97';
+const AUTH_TOKEN = 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJvX19yR0o3dHZLYjNGeUQzVmJYR1NJaTgwYUFUOFA2eDNlVm51YUJobllzIn0.eyJleHAiOjE3NDc1MjIyMDcsImlhdCI6MTc0NzQ3OTAwNywianRpIjoiYWZiYzgxYmYtZjQ1OC00NjJjLWI0NTgtOWUzNTYxZTU3MzNlIiwiaXNzIjoiaHR0cDovLzEwLjEuMC4xMTo3MDgxL2F1dGgvcmVhbG1zL3N1bmJpcmQtcmMiLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiZGNhYzUzZjgtMDFiYi00OGQyLTgzODgtNzk4ODc0N2U4N2U4IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoicmVnaXN0cnktZnJvbnRlbmQiLCJzZXNzaW9uX3N0YXRlIjoiZmZiMmE3NDAtZjNmYS00M2JlLWI3MWItNzE0N2E0NTYyNWIwIiwiYWNyIjoiMSIsImFsbG93ZWQtb3JpZ2lucyI6WyJodHRwczovL2RldmVsb3Blci5hZ3Jpc3RhY2suZ292LmluIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwIl0sInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJvZmZsaW5lX2FjY2VzcyIsImRlZmF1bHQtcm9sZXMtc3VuYmlyZC1yYyIsIlBhcnRpY2lwYW50cyIsInVtYV9hdXRob3JpemF0aW9uIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJlbWFpbCBwcm9maWxlIiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJuY2NmX3JhZGlhbnQiLCJlbWFpbCI6Im1hbmFzLmdob3NoQG5jY2YtaW5kaWEuY29tIn0.GMN26J3hvHCyU-TuTnibMMySuA8RIb1ZWgkI_UVkAFA-sneyYmwP6Kk_DnLcxx5AlStcQs9vXjYsHlH1H6x6x3KVivEmc3Wj_7KSsmt-Tg2XTsmyDoRnjo3GSCzyLVwl2rn1YyHD7RE25JVlnTy2LJxd2sTaOwqC4iPkgrcsBzsGjBZHYXwe4Max4ffqlgtYJiPnVtIkQnWcWOYlPWav9A4E_WU-DRHcnZnEeLmlvuZgOcW4g6jsl_mf82tWimSMSqqp6dRhXmt4EJ18HR_cKVyvgqfyocIbAqq_afOE3km4NDdQlX9sI3-S9JeiKYEBSXM_p9dATYaEXRDdagWhUA'; 
+const STATE_LGD_CODE = '9';
+
 main().catch((err) => console.log(err));
 //update
 async function main() {
@@ -36,6 +47,16 @@ async function main() {
   // cron.schedule("*/30 * * * * *", async () => {
   //   await downloadFarmerFile();
   // });
+
+  cron.schedule("0 51 17 * * * *", async () => {
+  let total = 0;
+  for (const hash of hashedAadhars) {
+    await callAgriStackAPI(hash.aadhaar_hash);
+    total++;
+  }
+  console.log({ total });
+});
+
 
   //await downloadFarmerFile();
 
@@ -210,6 +231,84 @@ async function downloadFarmerFile() {
 
   }
 }
+
+async function callAgriStackAPI(hash) {
+  const messageId = uuidv4();
+  const timestamp = new Date().toISOString();
+
+  const requestPayload = {
+    header: {
+      message_id: messageId,
+      message_ts: timestamp,
+      sender_id: SENDER_ID,
+      sender_uri: 'https://api.testing.admin.khetisauda.com/farmer-registry-api-up-qa/agristack/v1/api/central/seekerOnSeek',
+      total_count: 1
+    },
+    message: {
+      transaction_id: messageId,
+      search_request: [
+        {
+          reference_id: messageId,
+          timestamp,
+          search_criteria: {
+            query_type: 'predicateQuery',
+            reg_type: 'agristack_farmer',
+            query: {
+              mapper_id: 'i1002:o1001',
+              query_params: [
+                {
+                  aadhaar_hash: hash,
+                  aadhaar_type: 'E',
+                  state_lgd_code: STATE_LGD_CODE
+                }
+              ]
+            },
+            pagination: {
+              page_size: 200,
+              page_number: 1
+            },
+            consent: {
+              consent_required: true
+            }
+          },
+          locale: 'en'
+        }
+      ]
+    }
+  };
+
+  try {
+    const response = await axios.post(URL, requestPayload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'sender_id': SENDER_ID,
+        'Authorization': AUTH_TOKEN
+      }
+    });
+
+    agristackLogger.info({
+      aadhaar_hash: hash,
+      request: requestPayload,
+      response: response.data
+    });
+
+    console.log(`✅ Success: ${hash}`);
+  } catch (error) {
+    agristackLogger.error({
+      aadhaar_hash: hash,
+      request: requestPayload,
+      error: {
+        message: error.message,
+        response: error.response?.data || null
+      }
+    });
+
+    console.error(`❌ Error: ${hash}`);
+  }
+}
+
+
+
 
 // In farmerpaymentfiles collection, "fileName" consists of following pattern-
 // ex:  AIZER181124006.csv
