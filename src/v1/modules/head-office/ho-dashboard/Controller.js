@@ -345,27 +345,47 @@ function parseDateRange(rangeStr) {
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   const hoId = new mongoose.Types.ObjectId(req.portalId);
 
-  const { limit = 10, page = 1, commodityName, schemeName, sessionName, dateRange, stateName } = req.query;
+  let { limit = 10, page = 1, commodityName = [],
+    schemeName = [],
+    sessionName = [], dateRange, stateName = [] } = req.query;
   const { user_id, portalId } = req;
   const skip = (page - 1) * limit;
+
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+  if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
+
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
+  if (!Array.isArray(stateName)) stateName = [stateName];
 
   const paymentFilter = {
     ho_id: portalId,
     payment_status: 'Pending'
   };
-  const scheme = schemeName
-    ? await Scheme.findOne({
-        schemeName: { $regex: new RegExp(schemeName, "i") },
-      }).select("_id").lean()
-    : null;
 
-  if (schemeName && !scheme) {
-    return sendResponse({
-      res,
-      status: 200,
-      message: "Scheme not found",
-      data: { rows: [], totalCount: 0, totalPages: 0, limit, page },
-    });
+  // const scheme = schemeName
+  //   ? await Scheme.findOne({
+  //       schemeName: { $regex: new RegExp(schemeName, "i") },
+  //     }).select("_id").lean()
+  //   : null;
+
+  // if (schemeName && !scheme) {
+  //   return sendResponse({
+  //     res,
+  //     status: 200,
+  //     message: "Scheme not found",
+  //     data: { rows: [], totalCount: 0, totalPages: 0, limit, page },
+  //   });
+  // }
+  let schemeIds = [];
+  if (schemeName.length) {
+    const schemes = await Scheme.find({
+      schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+    }).select("_id").lean();
+    schemeIds = schemes.map(s => s._id);
   }
   
   if (dateRange) {
@@ -375,17 +395,17 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   let pendingPaymentDetails = await Payment.find(paymentFilter)
   .populate({
     path: "req_id",
-    select: "reqNo product.name product.schemeId",
+    select: "reqNo product.name product.schemeId product.season batch_id",
     match: {
-      ...(commodityName && {
-        "product.name": { $regex: new RegExp(commodityName, "i") },
+      ...(commodityName.length && {
+        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
       }),
-      ...(scheme && {
-        "product.schemeId": scheme._id,
-      }),
-      ...(sessionName && {
-        "product.season": { $regex: new RegExp(sessionName, "i") },
-      }),
+       ...(schemeIds.length && {
+          "product.schemeId": { $in: schemeIds },
+        }),
+     ...(sessionName.length && {
+          "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+        }),
     },
     populate: {
       path: "batch_id",
@@ -393,10 +413,10 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
       populate: {
         path: "seller_id",
         select: "address.registered.state",
-        ...(stateName && {
+        ...(stateName.length && {
           match: {
             "address.registered.state": {
-              $regex: new RegExp(stateName, "i"),
+                $in: stateName.map(name => new RegExp(name, "i")),
             },
           },
         }),
