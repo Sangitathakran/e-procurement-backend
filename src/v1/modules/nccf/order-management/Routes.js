@@ -17,5 +17,4 @@ nccfOrderRoutes.put("/batchstatusUpdate", Auth, batchstatusUpdate);
 nccfOrderRoutes.put("/batchscheduleDateUpdate", Auth, batchscheduleDateUpdate);
 nccfOrderRoutes.put("/penalty-apply", Auth, penaltyApply);
 
-
 module.exports = { nccfOrderRoutes }; 

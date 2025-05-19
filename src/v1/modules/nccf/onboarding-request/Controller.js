@@ -18,7 +18,7 @@ module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
     };
 
     if (search) {
-        matchStage.orderId = { $regex: search, $options: "i" };
+        matchStage["user_code"] = { $regex: search, $options: "i" };
     }
 
     let aggregationPipeline = [
@@ -304,8 +304,9 @@ module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
     };
 
     if (search) {
-        matchStage.orderId = { $regex: search, $options: "i" };
+        matchStage["user_code"] = { $regex: search, $options: "i" };
     }
+    
 
     let aggregationPipeline = [
         { $match: matchStage },
