@@ -12,7 +12,7 @@ const {
 const { default: axios } = require("axios");
 const express = require("express");
 const { procurementOrderlogger } = require("@config/logger");
-
+const moment = require('moment'); // if using moment.js
 // Helper function to handle missing fields with default values
 const extractField = (
   field,
@@ -397,9 +397,15 @@ module.exports.updateIformData = async (req, res) => {
       "procurementDetails.iFormId": iFormId,
       "procurementDetails.incidentalExpenses": incidentalExpenses,
       "procurementDetails.laborCharges": laborCharges,
-      "procurementDetails.laborChargesPayableDate": laborChargesPayableDate,
+      // "procurementDetails.laborChargesPayableDate": laborChargesPayableDate,
+       "procurementDetails.laborChargesPayableDate": laborChargesPayableDate
+        ? new Date(moment(laborChargesPayableDate, "DD-MM-YYYY hh:mm:ss A"))
+        : null,
       "procurementDetails.commissionCharges": commissionCharges,
+      // "procurementDetails.commissionChargesPayableDate": commissionChargesPayableDate
       "procurementDetails.commissionChargesPayableDate": commissionChargesPayableDate
+        ? new Date(moment(commissionChargesPayableDate, "DD-MM-YYYY hh:mm:ss A"))
+        : null,
     };
 
     // Perform update
