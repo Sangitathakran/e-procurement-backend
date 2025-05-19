@@ -418,20 +418,20 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
           "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
         }),
     },
+  })
+  .populate({
+    path: "batch_id",
+    select: "seller_id",
     populate: {
-      path: "batch_id",
-      select: "seller_id",
-      populate: {
-        path: "seller_id",
-        select: "address.registered.state",
-        ...(stateName.length && {
-          match: {
+      path: "seller_id",
+      select: "address.registered.state",
+      match: stateName.length
+        ? {
             "address.registered.state": {
-                $in: stateName.map(name => new RegExp(name, "i")),
+              $in: stateName.map(name => new RegExp(name, "i")),
             },
-          },
-        }),
-      },
+          }
+        : undefined,
     },
   })
   .select("req_id qtyProcured amount payment_status")
@@ -528,20 +528,20 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
           "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
         }),
     },
+     })
+  .populate({
+    path: "batch_id",
+    select: "seller_id",
     populate: {
-      path: "batch_id",
-      select: "seller_id",
-      populate: {
-        path: "seller_id",
-        select: "address.registered.state",
-        ...(stateName.length && {
-          match: {
+      path: "seller_id",
+      select: "address.registered.state",
+      match: stateName.length
+        ? {
             "address.registered.state": {
-                $in: stateName.map(name => new RegExp(name, "i")),
+              $in: stateName.map(name => new RegExp(name, "i")),
             },
-          },
-        }),
-      },
+          }
+        : undefined,
     },
   })
   .select("req_id qtyProcured amountPaid ho_approve_status createdAt")
