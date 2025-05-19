@@ -190,6 +190,21 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
         ...(scheme && { "product.schemeId": scheme._id }),
         ...(sessionName && {"product.season": { $regex: new RegExp(sessionName, "i") },
         }),
+        populate: {
+          path: "batch_id",
+          select: "seller_id",
+          populate: {
+            path: "seller_id",
+            select: "address.registered.state",
+            ...(stateName && {
+              match: {
+                "address.registered.state": {
+                  $regex: new RegExp(stateName, "i"),
+                },
+              },
+            }),
+          },
+        },
       }
     }).lean();
 
@@ -372,6 +387,21 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
         "product.season": { $regex: new RegExp(sessionName, "i") },
       }),
     },
+    populate: {
+      path: "batch_id",
+      select: "seller_id",
+      populate: {
+        path: "seller_id",
+        select: "address.registered.state",
+        ...(stateName && {
+          match: {
+            "address.registered.state": {
+              $regex: new RegExp(stateName, "i"),
+            },
+          },
+        }),
+      },
+    },
   })
   .select("req_id qtyProcured amount payment_status")
   .skip(skip)
@@ -462,6 +492,21 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
       ...(sessionName && {
         "session.name": { $regex: new RegExp(sessionName, "i") },
       }),
+    },
+    populate: {
+      path: "batch_id",
+      select: "seller_id",
+      populate: {
+        path: "seller_id",
+        select: "address.registered.state",
+        ...(stateName && {
+          match: {
+            "address.registered.state": {
+              $regex: new RegExp(stateName, "i"),
+            },
+          },
+        }),
+      },
     },
   })
   .select("req_id qtyProcured amountPaid ho_approve_status createdAt")
@@ -575,6 +620,21 @@ module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
         ...(sessionName && {
           "session.name": { $regex: new RegExp(sessionName, "i") },
         }),
+      },
+      populate: {
+        path: "batch_id",
+        select: "seller_id",
+        populate: {
+          path: "seller_id",
+          select: "address.registered.state",
+          ...(stateName && {
+            match: {
+              "address.registered.state": {
+                $regex: new RegExp(stateName, "i"),
+              },
+            },
+          }),
+        },
       },
     })
     .sort({ createdAt: -1 });
