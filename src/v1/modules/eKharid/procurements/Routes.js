@@ -15,6 +15,6 @@ eKharidHaryanaRoutes.post("/payment-details", createPaymentSlip);
 eKharidHaryanaRoutes.get("/farmer-data", getLandData); // this is experimental API, can be used if required
 eKharidHaryanaRoutes.post("/warehouse-details", updateWarehouseData);
 eKharidHaryanaRoutes.get("/", listProcurementOrder);
-eKharidHaryanaRoutes.put("/iform-details", updateIformData);
+eKharidHaryanaRoutes.post("/iform-details", updateIformData);
 
 module.exports = { eKharidHaryanaRoutes };
