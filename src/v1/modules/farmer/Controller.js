@@ -600,7 +600,10 @@ module.exports.getFarmers = async (req, res) => {
       query = {};
     }
     if (search) {
-      query.name = { $regex: search, $options: 'i' };
+      query.$or =[
+     { name: { $regex: search, $options: 'i' } },
+      { farmer_id: { $regex: search, $options: 'i' } }
+    ];
     }
     records.rows = paginate == 1
       ? await farmer.find(query)
