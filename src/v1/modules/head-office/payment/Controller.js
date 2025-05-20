@@ -6000,17 +6000,17 @@ module.exports.exportFarmerPayments = async (req, res) => {
       });
 
       // Check approval status and payment_status
-      //   const allApproved = enrichedBatches.every(
-      //   (b) =>
-      //     b.bo_approve_status === _paymentApproval.approved &&
-      //     b.ho_approve_status === _paymentApproval.approved &&
-      //     b.payment.some(
-      //       (p) =>
-      //         p.payment_status ===
-      //         (paymentStatusCondition || _paymentstatus.pending)
-      //     )
-      // );
-      // if (!allApproved) continue;
+        const allApproved = enrichedBatches.every(
+        (b) =>
+          b.bo_approve_status === _paymentApproval.approved &&
+          b.ho_approve_status === _paymentApproval.approved &&
+          b.payment.some(
+            (p) =>
+              p.payment_status ===
+              (paymentStatusCondition || _paymentstatus.pending)
+          )
+      );
+      if (!allApproved) continue;
 
       const branch = branchMap.get(String(req.branch_id));
       const sla = slaMap.get(String(req.sla_id));
