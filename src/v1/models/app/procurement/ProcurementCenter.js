@@ -21,6 +21,7 @@ const ProcurementCenterSchema = new mongoose.Schema(
     company_details: {
       registration_image: { type: String, trim: true },
       pan_number: { type: String, trim: true },
+      owner_name: { type: String, trim: true },
       pan_image: { type: String, trim: true },
     },
     address: {
@@ -64,6 +65,7 @@ const ProcurementCenterSchema = new mongoose.Schema(
     },
     isPrimary: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
+    ekhrid:{ type: Boolean, default: false },
     ..._commonKeys,
   },
   { timestamps: true }
