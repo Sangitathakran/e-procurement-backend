@@ -107,7 +107,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 
     // Get counts safely
     widgetDetails.wareHouse.total = await wareHousev2.countDocuments({});
-    widgetDetails.branchOffice.total = await Branches.countDocuments({headOfficeId:hoId});
+    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
     widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
 
@@ -147,9 +147,8 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   // Get total count for pagination metadata
   const totalCount = await Payment.countDocuments({ payment_status: "Pending" });
 
-  
 
- 
+
   return sendResponse({
     res,
     status: 200,
@@ -172,7 +171,7 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 
   // Get total count for pagination metadata
   const totalCount = await Payment.countDocuments({ ho_approve_status: "Pending" });
-  
+
   let pendingApprovalDetails = await Payment.find({ ho_approve_status: "Pending" })
     .populate({ path: "req_id", select: "reqNo deliveryDate" })
     .select("req_id qtyProcured amountPaid ho_approve_status")
@@ -182,7 +181,7 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
   // Modify the response to add paymentDueDate (deliveryDate + 72 hours)
   const modifiedDetails = pendingApprovalDetails.map((doc) => {
     const deliveryDate = doc.req_id?.deliveryDate ? new Date(doc.req_id.deliveryDate) : null;
-    
+
     return {
       ...doc.toObject(),
       paymentDueDate: deliveryDate ? moment(deliveryDate).add(72, "hours").toISOString() : null,
@@ -304,26 +303,26 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
   const groupStage =
     option === "week"
       ? {
-          // Group by day of the week
-          $group: {
-            _id: {
-              day: { $dayOfWeek: "$createdAt" }, // 1 (Sunday) to 7 (Saturday)
-              payment_collect_by: "$payment_collect_by",
-            },
-            totalAmount: { $sum: "$amount" },
+        // Group by day of the week
+        $group: {
+          _id: {
+            day: { $dayOfWeek: "$createdAt" }, // 1 (Sunday) to 7 (Saturday)
+            payment_collect_by: "$payment_collect_by",
           },
-        }
+          totalAmount: { $sum: "$amount" },
+        },
+      }
       : {
-          // Group by year and month
-          $group: {
-            _id: {
-              year: { $year: "$createdAt" },
-              month: { $month: "$createdAt" },
-              payment_collect_by: "$payment_collect_by",
-            },
-            totalAmount: { $sum: "$amount" },
+        // Group by year and month
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+            payment_collect_by: "$payment_collect_by",
           },
-        };
+          totalAmount: { $sum: "$amount" },
+        },
+      };
 
   const results = await Payment.aggregate([
     groupStage,
@@ -333,14 +332,14 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
         _id: 0,
         ...(option === "week"
           ? {
-              day: "$_id.day",
-              payment_collect_by: "$_id.payment_collect_by",
-            }
+            day: "$_id.day",
+            payment_collect_by: "$_id.payment_collect_by",
+          }
           : {
-              year: "$_id.year",
-              month: "$_id.month",
-              payment_collect_by: "$_id.payment_collect_by",
-            }),
+            year: "$_id.year",
+            month: "$_id.month",
+            payment_collect_by: "$_id.payment_collect_by",
+          }),
         totalAmount: "$totalAmount",
       },
     },
@@ -499,219 +498,219 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
     {
       state: "Andhra Pradesh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
 
     {
       state: "Arunachal Pradesh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Assam",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Bihar",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Chhattisgarh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Goa",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Gujarat",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Haryana",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Himachal Pradesh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Jharkhand",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       name: "Karnataka",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Kerala",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Madhya Pradesh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Maharashtra",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Manipur",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Meghalaya",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Mizoram",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Nagaland",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Odisha",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Punjab",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       name: "Rajasthan",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Sikkim",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Tamil Nadu",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Telangana",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Tripura",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Uttar Pradesh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Uttarakhand",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "West Bengal",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Andaman and Nicobar Islands",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Chandigarh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Dadra and Nagar Haveli and Daman and Diu",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Lakshadweep",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Delhi",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Puducherry",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Ladakh",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
     {
       state: "Jammu and Kashmir",
       qty: 0,
-      amount:0,
-      total_qty:0
+      amount: 0,
+      total_qty: 0
     },
   ];
   let pipeline = [
@@ -761,7 +760,7 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
       },
     },
   ];
-  
+
   if (stateNames.length > 0) {
     pipeline.push({ $match: { state: { $in: stateNames } } });
   } else {
@@ -769,21 +768,21 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
   let branchOfficeProc = await Batch.aggregate(pipeline);
   let totalProcuredQty = branchOfficeProc.reduce((accumulator, item) => accumulator + (Number(item.qty) || 0), 0);
   totalProcuredQty = Math.round(totalProcuredQty);
-  data=data.map(item=>{
-    let stateDetails=branchOfficeProc.find(item2=>item2.state==item.state);
-   
-        if(stateDetails){
-          return {...stateDetails}
-        }else{
-          return {...item}
-        }
+  data = data.map(item => {
+    let stateDetails = branchOfficeProc.find(item2 => item2.state == item.state);
+
+    if (stateDetails) {
+      return { ...stateDetails }
+    } else {
+      return { ...item }
+    }
   })
 
   return sendResponse({
     res,
     status: 200,
     message: _query.get("BranchOfficeProcurement"),
-    data: {branchOfficeProc: data, totalProcuredQty},
+    data: { branchOfficeProc: data, totalProcuredQty },
   });
 });
 //farmerBenifitted
