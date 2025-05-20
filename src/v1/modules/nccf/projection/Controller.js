@@ -20,7 +20,8 @@ const {
         sortOrder = 'desc',
         search = '',
         state = '',
-        district = ''
+        district = '',
+        isExport = 0,
       } = req.query;
   
       const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -42,6 +43,31 @@ const {
         query.district = { $regex: district, $options: 'i' };
       }
   
+       if (parseInt(isExport) === 1) {
+      const exportData = await CenterProjection.find(query).sort(sort);
+
+      const formattedData = exportData.map((item) => ({
+        "Center Location": item.center_location || "NA",
+        "State": item.state || "NA",
+        "District": item.district || "NA",
+        "Center Projection":item.current_projection || "NA"
+       
+      }));
+
+      if (formattedData.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: formattedData,
+          fileName: `Center-Projections-${new Date().toISOString().split('T')[0]}.xlsx`,
+          worksheetName: "Center Projections",
+        });
+      } else {
+        return res.status(200).json({
+          status: 400,
+          message: "No Center Projection data found to export.",
+          data: [],
+        });
+      }
+    }
       const [total, data] = await Promise.all([
         CenterProjection.countDocuments(query),
         CenterProjection.find(query)
