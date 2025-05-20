@@ -6,7 +6,7 @@ const {
   _taxValue,
   parseDate,
   formatDate,
-  _mandiTax,
+  _mandiTax, _advancePayment
 } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const {
@@ -89,7 +89,9 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
   // const msp = 24470;
   const msp = _distillerMsp();
   const totalAmount = handleDecimal(msp * poQuantity);
-  const tokenAmount = handleDecimal((totalAmount * 3) / 100);
+  const advancePayment = _advancePayment();
+  // const tokenAmount = handleDecimal((totalAmount * 3) / 100);
+  const tokenAmount = handleDecimal((totalAmount * advancePayment) / 100);
   const remainingAmount = handleDecimal(totalAmount - tokenAmount);
 
   const record = await PurchaseOrderModel.create({
