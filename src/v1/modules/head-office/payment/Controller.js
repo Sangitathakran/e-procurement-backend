@@ -5875,7 +5875,6 @@ module.exports.exportFarmerPayments = async (req, res) => {
       .select("_id reqNo product branch_id sla_id createdAt")
       .sort({ createdAt: -1 })
       .lean();
-    console.log("requests", requests.length);
     const requestIds = requests.map((r) => r._id);
 
     // Fetch related documents
@@ -5990,7 +5989,6 @@ module.exports.exportFarmerPayments = async (req, res) => {
             };
           }
         );
-        console.log("batchPayments", batchPayments);
         const procurementAddr =
           procurementAddressMap.get(String(batch.procurementCenter_id)) || {};
 
@@ -6187,21 +6185,12 @@ module.exports.exportFarmerPayments = async (req, res) => {
         return res.status(200).send(
           new serviceResponse({
             status: 200,
-            data: response,
             message: "No payments found",
           })
         );
       }
     }
-    // else {
-    //   return res.status(200).send(
-    //     new serviceResponse({
-    //       status: 200,
-    //       data: response,
-    //       message: "Payments found",
-    //     })
-    //   );
-    // }
+   
   } catch (error) {
     _handleCatchErrors(error, res);
   }
