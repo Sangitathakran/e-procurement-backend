@@ -48,7 +48,7 @@ paymentRoutes.put("/bill-reject", Auth, hoBillRejection)
 
 // ****************************** API WITHOUT AGGREGATION   *******************************
 //paymentRoutes.get("/", Auth, paymentWithoutAgreegation);
-paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPaymentWOAggregation);
+// paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPaymentWOAggregation);
 paymentRoutes.get("/proceed-to-pay-export", Auth, exportFarmerPayments);
 
 
