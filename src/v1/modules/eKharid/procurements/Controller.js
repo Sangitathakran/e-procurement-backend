@@ -94,9 +94,15 @@ module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
       iFormId: procurementDetails.iFormId, // Unique IForm ID
       incidentalExpenses: procurementDetails.incidentalExpenses,
       laborCharges: procurementDetails.laborCharges,
-      laborChargesPayableDate: procurementDetails.laborChargesPayableDate,
+      // laborChargesPayableDate: procurementDetails.laborChargesPayableDate,
+      "procurementDetails.laborChargesPayableDate": procurementDetails.laborChargesPayableDate
+        ? new Date(moment(procurementDetails.laborChargesPayableDate, "DD-MM-YYYY hh:mm:ss A"))
+        : null,
       commissionCharges: procurementDetails.commissionCharges,
-      commissionChargesPayableDate: procurementDetails.commissionChargesPayableDate,
+      // commissionChargesPayableDate: procurementDetails.commissionChargesPayableDate,
+      "procurementDetails.commissionChargesPayableDate": procurementDetails.commissionChargesPayableDate
+        ? new Date(moment(procurementDetails.commissionChargesPayableDate, "DD-MM-YYYY hh:mm:ss A"))
+        : null,
     };
 
     const structuredData = {
@@ -129,6 +135,7 @@ module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
       );
     }
   } catch (error) {
+     console.log(error);
     return res.status(400).send(
       new serviceResponse({
         status: 400,
