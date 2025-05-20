@@ -14,6 +14,8 @@ module.exports.getPermission = async (response) => {
   const featureListDoc = await FeatureList.find({featureType:featureType})
   const featureList = JSON.parse(JSON.stringify(featureListDoc))
   const resultArray = JSON.parse(JSON.stringify(response.userRole));
+  console.log("result ", resultArray);
+  
 
   const mergedResultsArray = [];
 
