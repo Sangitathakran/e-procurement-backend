@@ -7,7 +7,7 @@ const {
   getMonthlyPaidAmount,
   getPublicStates,
   getPublicDistrictByState,
-  getCompanyNames,
+  getCompanyNames
 } = require("./Controller");
 const express = require("express");
 const { Auth } = require("@src/v1/middlewares/jwt");
