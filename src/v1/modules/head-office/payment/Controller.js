@@ -1863,7 +1863,6 @@ module.exports.associateOrders = async (req, res) => {
       req_id: new mongoose.Types.ObjectId(req_id),
       bo_approve_status: _paymentApproval.approved,
     });
- 
 
     let query = {
       _id: { $in: paymentIds },
@@ -5169,7 +5168,6 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
 
     limit = parseInt(limit) || 10;
     page = parseInt(page) || 1;
-  
     const { portalId, user_id } = req;
 
     const cacheKey = generateCacheKey("payment", {
@@ -5439,6 +5437,338 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
   }
 };
 
+// module.exports.exportFarmerPayments = async (req, res) => {
+//   try {
+//     let {
+//       page,
+//       limit,
+//       search = "",
+//       isExport = 0,
+//       payment_status,
+//       state = "",
+//       branch = "",
+//       schemeName = "",
+//       commodityName = "",
+//       paginate = 1,
+//     } = req.query;
+
+//     limit = parseInt(limit) || 10;
+//     page = parseInt(page) || 1;
+
+//     const { portalId, user_id } = req;
+
+//     const cacheKey = generateCacheKey("payment", {
+//       portalId,
+//       user_id,
+//       page,
+//       limit,
+//       search,
+//       payment_status,
+//       state,
+//       branch,
+//       schemeName,
+//       commodityName,
+//       paginate,
+//       isExport,
+//     });
+
+//     const cachedData = getCache(cacheKey);
+//     if (cachedData && isExport != 1) {
+//       return res.status(200).send(
+//         new serviceResponse({
+//           status: 200,
+//           data: cachedData,
+//           message: "Payments found (cached)",
+//         })
+//       );
+//     }
+
+//     const paymentIds = await Payment.distinct("req_id", {
+//       ho_id: { $in: [portalId, user_id] },
+//       bo_approve_status: _paymentApproval.approved,
+//     });
+
+//     let query = {
+//       _id: { $in: paymentIds },
+//     };
+
+//     if (search) {
+//       query.$or = [
+//         { reqNo: { $regex: search, $options: "i" } },
+//         { "product.name": { $regex: search, $options: "i" } },
+//       ];
+//     }
+
+//     const validStatuses = [
+//       _paymentstatus.pending,
+//       _paymentstatus.inProgress,
+//       _paymentstatus.failed,
+//       _paymentstatus.completed,
+//       _paymentstatus.rejected,
+//     ];
+
+//     if (payment_status && !validStatuses.includes(payment_status)) {
+//       return res.status(400).send(
+//         new serviceResponse({
+//           status: 400,
+//           message: `Invalid payment status. Valid statuses are: ${validStatuses.join(
+//             ", "
+//           )}`,
+//         })
+//       );
+//     }
+
+//     let paymentStatusCondition = payment_status;
+//     if (payment_status === "Failed" || payment_status === "Rejected") {
+//       paymentStatusCondition = "Failed";
+//     }
+
+//     const requests = await RequestModel.find(query)
+//       .select("_id reqNo product branch_id sla_id createdAt")
+//       .sort({ createdAt: -1 })
+//       .lean();
+//     const requestIds = requests.map((r) => r._id);
+
+//     // Fetch related documents
+//     const [batches, payments, branches, slas, schemes, commodities] =
+//       await Promise.all([
+//         Batch.find({ req_id: { $in: requestIds } })
+//           .select(
+//             "_id req_id qty totalPrice goodsPrice payement_approval_at bo_approve_status ho_approve_status batchId procurementCenter_id"
+//           )
+//           .lean(),
+//         Payment.find({ req_id: { $in: requestIds } })
+//           .select("batch_id req_id _id payment_status farmer_id transaction_id initiated_at")
+//           .lean(),
+//         Branches.find({}).select("_id branchName branchId state").lean(),
+//         SLAManagement.find({}).select("_id basic_details.name").lean(),
+//         Scheme.find({}).select("_id schemeName season period commodity_id").lean(),
+//         Commodity.find({}).select("_id name").lean(),
+//       ]);
+
+//     const farmerIds = [
+//       ...new Set(payments.map((p) => String(p.farmer_id)).filter(Boolean)),
+//     ];
+//     const procurementId = [
+//       ...new Set(
+//         batches.map((p) => String(p.procurementCenter_id)).filter(Boolean)
+//       ),
+//     ];
+//     const slaId = [...new Set(slas.map((p) => String(p._id)).filter(Boolean))];
+
+//     const [
+//       farmer_details,
+//       crop_detail,
+//       procurement_address,
+//       requestmodel_rate,
+//     ] = await Promise.all([
+//       farmer
+//         .find({ _id: { $in: farmerIds } })
+//         .select("address bank_details parents basic_details farmer_id")
+//         .lean(),
+//       Crop.find({ farmer_id: { $in: farmerIds } })
+//         .select("crop_name farmer_id")
+//         .lean(),
+//       ProcurementCenter.find({ _id: { $in: procurementId } })
+//         .select("address")
+//         .lean(),
+//       RequestModel.find({ sla_id: { $in: slaId } })
+//         .select("quotedPrice")
+//         .lean(),
+//     ]);
+
+//     const farmerDetailsMap = new Map(
+//       farmer_details.map((f) => [String(f._id), f])
+//     );
+//     const procurementAddressMap = new Map(
+//       procurement_address.map((p) => [String(p._id), p.address])
+//     );
+//     const rateMap = new Map(
+//       requestmodel_rate.map((r) => [String(r._id), r.quotedPrice])
+//     );
+
+//     const cropMap = new Map();
+//     for (const crop of crop_detail) {
+//       const farmerIdStr = String(crop.farmer_id);
+//       if (!cropMap.has(farmerIdStr)) cropMap.set(farmerIdStr, []);
+//       cropMap.get(farmerIdStr).push(crop.crop_name);
+//     }
+
+//     const batchMap = new Map();
+//     for (const batch of batches) {
+//       const reqIdStr = String(batch.req_id);
+//       if (!batchMap.has(reqIdStr)) batchMap.set(reqIdStr, []);
+//       batchMap.get(reqIdStr).push(batch);
+//     }
+
+//     const paymentMap = new Map();
+//     for (const p of payments) {
+//       const batchIdStr = String(p.batch_id);
+//       if (!paymentMap.has(batchIdStr)) paymentMap.set(batchIdStr, []);
+//       paymentMap.get(batchIdStr).push(p);
+//     }
+
+//     const branchMap = new Map(branches.map((b) => [String(b._id), b]));
+//     const slaMap = new Map(slas.map((s) => [String(s._id), s]));
+//     const schemeMap = new Map(schemes.map((s) => [String(s._id), s]));
+//     const commodityMap = new Map(commodities.map((c) => [String(c._id), c]));
+
+//     const enrichedRequests = [];
+
+//     for (const req of requests) {
+//       const reqIdStr = String(req._id);
+//       const reqBatches = batchMap.get(reqIdStr) || [];
+//       if (reqBatches.length === 0) continue;
+
+//       const enrichedBatches = reqBatches.map((batch) => {
+//         const batchPayments = (paymentMap.get(String(batch._id)) || []).map(
+//           (payment) => {
+//             const farmerIdStr = String(payment.farmer_id);
+//             const farmerInfo = { ...(farmerDetailsMap.get(farmerIdStr) || {}) };
+//             const cropNames = cropMap.get(farmerIdStr) || [];
+
+//             return {
+//               ...payment,
+//               farmer_details: farmerInfo,
+//               crop_names: cropNames.join(", "), // Directly joining crop names
+//             };
+//           }
+//         );
+
+//         const procurementAddr =
+//           procurementAddressMap.get(String(batch.procurementCenter_id)) || {};
+
+//         return {
+//           ...batch,
+//           payment: batchPayments,
+//           procurement_address: procurementAddr,
+//         };
+//       });
+
+//       const totalPaymentsForRequest = enrichedBatches.flatMap(
+//         (batch) => batch.payment
+//       );
+
+//       const branch = branchMap.get(String(req.branch_id));
+//       const sla = slaMap.get(String(req.sla_id));
+//       const scheme = schemeMap.get(String(req.product?.schemeId));
+//       const commodity = commodityMap.get(String(scheme?.commodity_id));
+
+//       const schemeName = `${scheme?.schemeName || ""} ${
+//         commodity?.name || ""
+//       } ${scheme?.season || ""} ${scheme?.period || ""}`.trim();
+
+//       const firstProcurementAddr =
+//         enrichedBatches[0]?.procurement_address || {};
+//       const batch_payment = enrichedBatches[0]?.payment || {};
+//       const firstFarmer = enrichedBatches[0]?.payment?.[0]?.farmer_details || {};
+
+//       enrichedRequests.push({
+//         _id: req._id,
+//         reqNo: req.reqNo,
+//         product: req.product,
+//         qtyPurchased: enrichedBatches.reduce((sum, b) => sum + (b.qty || 0), 0),
+//         amountPayable: enrichedBatches.reduce(
+//           (sum, b) => sum + (b.totalPrice || 0),
+//           0
+//         ),
+//         amountPaid: enrichedBatches.reduce(
+//           (sum, b) => sum + (b.goodsPrice || 0),
+//           0
+//         ),
+//         approval_date: enrichedBatches[0]?.payement_approval_at || null,
+//         approval_status: "Approved",
+//         payment_status: payment_status || _paymentstatus.pending,
+//         branchDetails: {
+//           branchName: branch?.branchName || "",
+//           branchId: branch?.branchId || "",
+//           state: branch?.state || "",
+//         },
+//         sla: {
+//           basic_details: {
+//             name: sla?.basic_details?.name || "",
+//           },
+//         },
+//         scheme: {
+//           schemeName,
+//         },
+//         batch_payments: batch_payment,
+//         farmer_details: firstFarmer,
+//         procurement_address: firstProcurementAddr,
+//         quotedPrice: rateMap.get(String(req._id)) || null,
+//         payments: totalPaymentsForRequest,
+//       });
+//     }
+
+//     const total = enrichedRequests.length;
+
+//     const response = {
+//       count: total,
+//       rows: enrichedRequests,
+//       page: page,
+//       limit: limit,
+//       pages: Math.ceil(total / limit),
+//     };
+
+//     if (isExport != 1) {
+//       setCache(cacheKey, response, 300); // 5 mins
+//     }
+
+//     if (isExport == 1) {
+//       const record = response.rows.map((item) => {
+
+//       const paymentReferences = item?.payments?.map(payment => payment?._id || payment?.transaction_id).join(", ");
+//         return {
+//           "Order ID": item?.reqNo || "NA",
+//           "BRANCH ID": item?.branchDetails?.branchId || "NA",
+//           "Farmer ID": item?.farmer_details?.farmer_id || "NA",
+//           "Branch name": item?.branchDetails?.branchName || "NA",
+//           "SLA": item?.slaName || "NA",
+//           "Procurement center": item?.procurement_address?.line1 || "NA",
+//           "Farmer Name": item?.farmer_details?.basic_details?.name || "NA",
+//           "Father Name": item?.farmer_details?.parents?.father_name || "NA",
+//           "Address": item?.farmer_details?.address?.address_line_1 || "NA",
+//           "Crop Name": item?.crop_names || "NA",
+//           "Quantity in MT": item?.product?.quantity || "NA",
+//           "Rate (MSP)": item?.quotedPrice || "NA",
+//           "TOTAL AMOUNT": item?.amountPaid || "NA",
+//           "Bank Name": item?.farmer_details?.bank_details?.bank_name || "NA",
+//           "Branch name": item?.farmer_details?.bank_details?.branch_name || "NA",
+//           "Account No.": item?.farmer_details?.bank_details?.account_no || "NA",
+//           "IFSC": item?.farmer_details?.bank_details?.ifsc_code || "NA",
+//           "Reference ID / UTR No.": paymentReferences  || "NA",
+//           "Payment Status": item?.payment_status || "NA",
+//         };
+//       });
+
+//       if (record.length > 0) {
+//         dumpJSONToExcel(req, res, {
+//           data: record,
+//           fileName: `Farmer-Payment-records.xlsx`,
+//           worksheetName: `Farmer-Payment-records`,
+//         });
+//       } else {
+//         return res.status(400).send(
+//           new serviceResponse({
+//             status: 400,
+//             data: response,
+//             message: "No payments found",
+//           })
+//         );
+//       }
+//     } else {
+//       return res.status(200).send(
+//         new serviceResponse({
+//           status: 200,
+//           data: response,
+//           message: "Payments found",
+//         })
+//       );
+//     }
+//   } catch (error) {
+//     _handleCatchErrors(error, res);
+//   }
+// };
 
 module.exports.exportFarmerPayments = async (req, res) => {
   try {
@@ -5453,12 +5783,26 @@ module.exports.exportFarmerPayments = async (req, res) => {
       schemeName = "",
       commodityName = "",
       paginate = 1,
+      isExportType = "",
     } = req.query;
 
     limit = parseInt(limit) || 10;
     page = parseInt(page) || 1;
 
     const { portalId, user_id } = req;
+    let paymentFilter = {};
+
+    //  if (isExport == 1 && ( endDate || startDate )) {
+    // const start = new Date(currentDate);
+    // const end = new Date(lastDate);
+    // end.setHours(23, 59, 59, 999); // Include full last date
+
+    // // Apply on enrichedRequests after it's built
+    // enrichedRequests = enrichedRequests.filter((req) => {
+    //   const approvalDate = new Date(req.approval_date || req.createdAt || null);
+    //   return approvalDate >= start && approvalDate <= end;
+    // });
+    //    }
 
     const cacheKey = generateCacheKey("payment", {
       portalId,
@@ -5473,6 +5817,7 @@ module.exports.exportFarmerPayments = async (req, res) => {
       commodityName,
       paginate,
       isExport,
+      isExportType,
     });
 
     const cachedData = getCache(cacheKey);
@@ -5540,12 +5885,21 @@ module.exports.exportFarmerPayments = async (req, res) => {
             "_id req_id qty totalPrice goodsPrice payement_approval_at bo_approve_status ho_approve_status batchId procurementCenter_id"
           )
           .lean(),
-        Payment.find({ req_id: { $in: requestIds } })
-          .select("batch_id req_id _id payment_status farmer_id transaction_id initiated_at")
+        Payment.find(paymentFilter)
+          .select(
+            "batch_id payment_status farmer_id transaction_id initiated_at updatedAt"
+          )
+          .lean(),
+        Payment.find({})
+          .select(
+            "batch_id payment_status farmer_id transaction_id initiated_at"
+          )
           .lean(),
         Branches.find({}).select("_id branchName branchId state").lean(),
         SLAManagement.find({}).select("_id basic_details.name").lean(),
-        Scheme.find({}).select("_id schemeName season period commodity_id").lean(),
+        Scheme.find({})
+          .select("_id schemeName season period commodity_id")
+          .lean(),
         Commodity.find({}).select("_id name").lean(),
       ]);
 
@@ -5558,7 +5912,6 @@ module.exports.exportFarmerPayments = async (req, res) => {
       ),
     ];
     const slaId = [...new Set(slas.map((p) => String(p._id)).filter(Boolean))];
-
     const [
       farmer_details,
       crop_detail,
@@ -5579,7 +5932,7 @@ module.exports.exportFarmerPayments = async (req, res) => {
         .select("quotedPrice")
         .lean(),
     ]);
-
+    // console.log("crop_detail",crop_detail);
     const farmerDetailsMap = new Map(
       farmer_details.map((f) => [String(f._id), f])
     );
@@ -5622,22 +5975,20 @@ module.exports.exportFarmerPayments = async (req, res) => {
       const reqIdStr = String(req._id);
       const reqBatches = batchMap.get(reqIdStr) || [];
       if (reqBatches.length === 0) continue;
-
       const enrichedBatches = reqBatches.map((batch) => {
         const batchPayments = (paymentMap.get(String(batch._id)) || []).map(
           (payment) => {
             const farmerIdStr = String(payment.farmer_id);
             const farmerInfo = { ...(farmerDetailsMap.get(farmerIdStr) || {}) };
+            // const farmerIdStr = String(firstFarmer._id || "");
             const cropNames = cropMap.get(farmerIdStr) || [];
 
             return {
               ...payment,
               farmer_details: farmerInfo,
-              crop_names: cropNames.join(", "), // Directly joining crop names
             };
           }
         );
-
         const procurementAddr =
           procurementAddressMap.get(String(batch.procurementCenter_id)) || {};
 
@@ -5648,9 +5999,18 @@ module.exports.exportFarmerPayments = async (req, res) => {
         };
       });
 
-      const totalPaymentsForRequest = enrichedBatches.flatMap(
-        (batch) => batch.payment
-      );
+      // Check approval status and payment_status
+      //   const allApproved = enrichedBatches.every(
+      //   (b) =>
+      //     b.bo_approve_status === _paymentApproval.approved &&
+      //     b.ho_approve_status === _paymentApproval.approved &&
+      //     b.payment.some(
+      //       (p) =>
+      //         p.payment_status ===
+      //         (paymentStatusCondition || _paymentstatus.pending)
+      //     )
+      // );
+      // if (!allApproved) continue;
 
       const branch = branchMap.get(String(req.branch_id));
       const sla = slaMap.get(String(req.sla_id));
@@ -5660,11 +6020,13 @@ module.exports.exportFarmerPayments = async (req, res) => {
       const schemeName = `${scheme?.schemeName || ""} ${
         commodity?.name || ""
       } ${scheme?.season || ""} ${scheme?.period || ""}`.trim();
-
       const firstProcurementAddr =
         enrichedBatches[0]?.procurement_address || {};
       const batch_payment = enrichedBatches[0]?.payment || {};
-      const firstFarmer = enrichedBatches[0]?.payment?.[0]?.farmer_details || {};
+      const firstFarmer =
+        enrichedBatches[0]?.payment?.[0]?.farmer_details || {};
+      const farmerIdStr = String(firstFarmer._id || "");
+      const cropNames = cropMap.get(farmerIdStr) || [];
 
       enrichedRequests.push({
         _id: req._id,
@@ -5697,13 +6059,48 @@ module.exports.exportFarmerPayments = async (req, res) => {
         },
         batch_payments: batch_payment,
         farmer_details: firstFarmer,
+        crop_names: cropNames.join(", "),
         procurement_address: firstProcurementAddr,
         quotedPrice: rateMap.get(String(req._id)) || null,
-        payments: totalPaymentsForRequest,
       });
     }
 
+    // Apply filters on enriched data (like $match after $addFields)
+    // const filtered = enrichedRequests.filter((req) => {
+    //   if (state && !new RegExp(state, "i").test(req.branchDetails.state))
+    //     return false;
+    //   if (
+    //     commodityName &&
+    //     !new RegExp(commodityName, "i").test(req.product?.name || "")
+    //   )
+    //     return false;
+    //   if (
+    //     schemeName &&
+    //     !new RegExp(schemeName, "i").test(req.scheme.schemeName || "")
+    //   )
+    //     return false;
+    //   if (
+    //     branch &&
+    //     !new RegExp(branch, "i").test(req.branchDetails.branchName || "")
+    //   )
+    //     return false;
+    //   return true;
+    // });
+
+    // Pagination
     const total = enrichedRequests.length;
+    // const paginated = filtered.slice((page - 1) * limit, page * limit);
+    // let paginated = filtered;
+    // if (isExport != 1 && paginate == 1) {
+    //  paginated = filtered.slice((page - 1) * limit, page * limit);
+    //  }
+
+    // let paginated = [];
+    //  if (isExport != 1 && paginate == 1) {
+    //   paginated = filtered.slice((page - 1) * limit, page * limit);
+    // } else {
+    //   paginated = filtered;
+    //  }
 
     const response = {
       count: total,
@@ -5716,34 +6113,68 @@ module.exports.exportFarmerPayments = async (req, res) => {
     if (isExport != 1) {
       setCache(cacheKey, response, 300); // 5 mins
     }
-
     if (isExport == 1) {
-      const record = response.rows.map((item) => {
+      let start, end;
+      const now = new Date();
 
-      const paymentReferences = item?.payments?.map(payment => payment?._id || payment?.transaction_id).join(", ");
-        return {
-          "Order ID": item?.reqNo || "NA",
-          "BRANCH ID": item?.branchDetails?.branchId || "NA",
-          "Farmer ID": item?.farmer_details?.farmer_id || "NA",
-          "Branch name": item?.branchDetails?.branchName || "NA",
-          "SLA": item?.slaName || "NA",
-          "Procurement center": item?.procurement_address?.line1 || "NA",
-          "Farmer Name": item?.farmer_details?.basic_details?.name || "NA",
-          "Father Name": item?.farmer_details?.parents?.father_name || "NA",
-          "Address": item?.farmer_details?.address?.address_line_1 || "NA",
-          "Crop Name": item?.crop_names || "NA",
-          "Quantity in MT": item?.product?.quantity || "NA",
-          "Rate (MSP)": item?.quotedPrice || "NA",
-          "TOTAL AMOUNT": item?.amountPaid || "NA",
-          "Bank Name": item?.farmer_details?.bank_details?.bank_name || "NA",
-          "Branch name": item?.farmer_details?.bank_details?.branch_name || "NA",
-          "Account No.": item?.farmer_details?.bank_details?.account_no || "NA",
-          "IFSC": item?.farmer_details?.bank_details?.ifsc_code || "NA",
-          "Reference ID / UTR No.": paymentReferences  || "NA",
-          "Payment Status": item?.payment_status || "NA",
-        };
-      });
+      switch (isExportType) {
+        case "lastMonth":
+          start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          end = new Date(now.getFullYear(), now.getMonth(), 0);
+          break;
+        case "currentMonth":
+          start = new Date(now.getFullYear(), now.getMonth(), 1);
+          end = new Date();
+          break;
+        case "last3Months":
+          start = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+          end = new Date();
+          break;
+        case "last6Months":
+          start = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+          end = new Date();
+          break;
+        case "customRange":
+          if (req.query.startDate && req.query.endDate) {
+            start = new Date(req.query.startDate);
+            end = new Date(req.query.endDate);
+          }
+          break;
+      }
 
+      // Ensure end date includes full day
+      if (end) end.setHours(23, 59, 59, 999);
+
+      if (start && end) {
+        response.rows = response.rows.filter((req) => {
+          if (!req.approval_date) return false;
+          const approvalDate = new Date(req.approval_date);
+          return approvalDate >= start && approvalDate <= end;
+        });
+      }
+
+      const record = response.rows.map((item) => ({
+        "Order ID": item?.reqNo || "NA",
+        "BRANCH ID": item?.branchDetails?.branchId || "NA",
+        "Farmer ID": item?.farmer_details?.farmer_id || "NA",
+        "Branch name": item?.branchDetails?.branchName || "NA",
+        " SLA ": item?.slaName || "NA",
+        "Procurement center": item?.procurement_address?.line1 || "NA",
+        "Farmer Name": item?.farmer_details?.basic_details?.name || "NA",
+        "Father Name": item?.farmer_details?.parents?.father_name || "NA",
+        "Address ": item?.farmer_details?.address?.address_line_1 || "NA",
+        "Crop Name": item?.crop_names || "NA",
+        "Quantity in MT": item?.product?.quantity || "NA",
+        "Rate (MSP)": item?.quotedPrice || "NA",
+        "TOTAL AMOUNT": item?.amountPaid || "NA",
+        "Bank Name": item?.farmer_details?.bank_details?.bank_name || "NA",
+        "Branch name ": item?.farmer_details?.bank_details?.branch_name || "NA",
+        "Account No.": item?.farmer_details?.bank_details?.account_no || "NA",
+        IFSC: item?.farmer_details?.bank_details?.ifsc_code || "NA",
+        "Reference ID / UTR No.": item?.batch_payments?.transaction_id || "NA",
+        "Payment Status": item?.payment_status || "NA",
+        "Approval Data": item?.approval_date || "NA",
+      }));
       if (record.length > 0) {
         dumpJSONToExcel(req, res, {
           data: record,
@@ -5751,25 +6182,18 @@ module.exports.exportFarmerPayments = async (req, res) => {
           worksheetName: `Farmer-Payment-records`,
         });
       } else {
-        return res.status(400).send(
+        return res.status(200).send(
           new serviceResponse({
-            status: 400,
-            data: response,
+            status: 200,
             message: "No payments found",
           })
         );
       }
-    } else {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: response,
-          message: "Payments found",
-        })
-      );
     }
+   
   } catch (error) {
     _handleCatchErrors(error, res);
   }
 };
+
 
