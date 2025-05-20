@@ -1,0 +1,20 @@
+{
+  "SENDER_ID": "edcb446e-3f86-419d-a07d-026554592a97",
+  "SENDER_URI" : "https://api.testing.admin.khetisauda.com/farmer-registry-api-up-qa/agristack/v1/api/central/seekerOnSeek",
+  "RECEIVER_ID": "ed5288ce-aada-4fd9-b929-0062a08207c4",
+  "TOKEN_URL": "https://ufsi.agristack.gov.in/nm-auth/realms/sunbird-rc/protocol/openid-connect/token",
+  "states": [
+    {
+      "state": "uttar_pradesh",
+      "url": "https://upde.agristack.gov.in/agristack-data-provisioning/v1/api/assetIdentification/seek",
+      "state_lgd_code": "9",
+      "state_id": "6719f065845487ff168db1ae"
+    },
+    {
+      "state": "karnataka",
+      "url": "https://upde.agristack.gov.in/agristack-data-provisioning/v1/api/assetIdentification/seek",
+      "state_lgd_code": "29",
+      "state_id": "6719f065845487ff168db1ae"
+    }
+  ]
+}
