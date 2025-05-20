@@ -61,7 +61,7 @@ module.exports.createAgency = async (req, res) => {
         }
 
         // const password = generateRandomPassword();
-        const password = "dummy@123";
+        const password = "lakshit@123";
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const agency = new Agency({
@@ -82,9 +82,10 @@ module.exports.createAgency = async (req, res) => {
         }
         await emailService.sendAgencyCredentialsEmail(emailPayload);
 
-        // const type = await TypesModel.findOne({ _id: "67110114f1cae6b6aadc2425" }) // SLA Live
+        // const type = await TypesModel.findOne({ _id: "67110114f1cae6b6aadc2425" }) // SLA testing
+        const type = await TypesModel.findOne({ _id: "67110114f1cae6b6aadc2425" }) // SLA testing
         // const type = await TypesModel.findOne({ _id: "680f6390c55aae436a063e32" }) // Admin live
-        const type = await TypesModel.findOne({ _id: "680f6390c55aae436a063e32" }) // Admin testing
+        // const type = await TypesModel.findOne({ _id: "680f6390c55aae436a063e32" }) // Admin testing
 
         if (savedAgency._id) {
             const masterUser = new MasterUser({
