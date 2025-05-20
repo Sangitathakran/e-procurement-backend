@@ -34,6 +34,7 @@ const farmerOrderSchema = new mongoose.Schema({
     status: { type: String, enum: Object.values(_procuredStatus), default: _procuredStatus.pending },
     batchCreatedAt:{ type: Date },
     gatePassID: { type: Number },
+    exitGatePassId: { type: Number },
     ekhrid:{ type: Boolean, default: false },
     ekhridPaymentDetails:{type: Object,  default: null},
     ..._commonKeys
