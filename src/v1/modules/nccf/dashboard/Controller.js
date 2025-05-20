@@ -79,6 +79,10 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
     const distillerCount = await Distiller.countDocuments();
 
+    const pending_request = await Distiller.countDocuments({
+      is_approved:"pending"
+    });
+
     const realTimeStock = result.length > 0 ? result[0].totalStock : 0;
 
     const records = {
@@ -87,7 +91,8 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       realTimeStock,
       moUCount: moU,
       onBoardingCount: onBoarding,
-      totalRequest: moU + onBoarding,
+      // totalRequest: moU + onBoarding,
+       totalRequest: pending_request,
       distillerCount,
     };
 
