@@ -6184,9 +6184,9 @@ module.exports.exportFarmerPayments = async (req, res) => {
           worksheetName: `Farmer-Payment-records`,
         });
       } else {
-        return res.status(400).send(
+        return res.status(200).send(
           new serviceResponse({
-            status: 400,
+            status: 200,
             data: response,
             message: "No payments found",
           })

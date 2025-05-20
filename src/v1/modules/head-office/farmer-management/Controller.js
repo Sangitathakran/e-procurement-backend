@@ -35,6 +35,8 @@ module.exports.farmerList = async (req, res) => {
       isExport = 0,
       state,
       district,
+      startDate,
+      endDate,
     } = req.query;
 
     state = Array.isArray(state) ? state : state ? [state] : [];
@@ -170,6 +172,18 @@ module.exports.farmerList = async (req, res) => {
 
     //  EXPORT to Excel
     if (isExport == 1) {
+      if (startDate || endDate) {
+        query.createdAt = {};
+        if (startDate) {
+          query.createdAt.$gte = new Date(startDate);
+        }
+        if (endDate) {
+          // Set time to end of the day
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = end;
+        }
+      }
       const farmers = await farmer
         .find(query)
         .populate({ path: "associate_id", select: "user_code" })
@@ -206,10 +220,7 @@ module.exports.farmerList = async (req, res) => {
           land_details: lands, // replaces previous "land_details"
         };
       });
-
-
       const exportData = data.map((item) => {
-
         return {
           "Associate ID": item?.associate_id || "NA",
           "Farmer ID": item?.farmer_id || "NA",
@@ -217,6 +228,7 @@ module.exports.farmerList = async (req, res) => {
           "Father/Spouse Name": item?.father_spouse_name || "NA",
           "Mother Name": item?.parents?.mother_name || "NA",
           "Mobile Number": item?.mobile_no || "NA",
+          "Created At" : item?.createdAt || "NA",
           Email: item?.basic_details?.email || "NA",
           Category: item?.basic_details?.category || "NA",
           Age: item?.basic_details?.age || "NA",
@@ -367,7 +379,7 @@ module.exports.farmerList = async (req, res) => {
     records.rows = await farmer
       .find(query)
       .select(
-        "farmer_code farmer_id name parents mobile_no address basic_details associate_id"
+        "farmer_code farmer_id name parents mobile_no address basic_details associate_id createdAt"
       )
       .populate({ path: "associate_id", select: "user_code" })
       .limit(parseInt(limit))
@@ -390,6 +402,7 @@ module.exports.farmerList = async (req, res) => {
           farmer_id: item?.farmer_id,
           father_spouse_name:
             item?.parents?.father_name || item?.parents?.mother_name || null,
+          createdAt: item?.createdAt || null,
         };
       })
     );
