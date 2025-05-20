@@ -9,6 +9,7 @@ const { nccfPenaltyRoutes } = require("./penalty-tracking/Routes");
 const { nccfPaymentRoutes } = require("./payment/Routes");
 const { nccfDashboardRoutes } = require("./dashboard/Router");
 const { nccfCenterProjectionRoutes } = require("./projection/Router");
+const { dropDownRoutes } = require("./dropDown/Routes");
 const nccfRoutes = express.Router();
 
 nccfRoutes.use("/auth", nccfAuthRoutes);
@@ -20,5 +21,6 @@ nccfRoutes.use("/penalty", nccfPenaltyRoutes);
 nccfRoutes.use("/payment", nccfPaymentRoutes);
 nccfRoutes.use("/dashboard", nccfDashboardRoutes);
 nccfRoutes.use("/center-projection", nccfCenterProjectionRoutes);
+nccfRoutes.use("/dropDown", dropDownRoutes);
 
 module.exports = { nccfRoutes }; 
