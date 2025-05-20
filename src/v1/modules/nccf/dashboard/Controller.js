@@ -24,6 +24,7 @@ const {
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { Scheme } = require("@src/v1/models/master/Scheme");
 const {
   wareHousev2,
 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
@@ -633,4 +634,119 @@ module.exports.getPublicDistrictByState = async (req, res) => {
     _handleCatchErrors(err, res);
   }
 };
+
+//Start of Prachi Code
+module.exports.getState = async (req, res) => {
+  try {
+    const state_list = await Distiller.aggregate([
+      {
+        $match: {
+          deletedAt: null,
+          "address.registered.state": { $ne: null }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          state_title: "$address.registered.state"
+        }
+      },
+      {
+        $sort: { state_title: 1 }
+      }
+    ]);
+
+    return sendResponse({ res, message: "", data: state_list });
+  } catch (err) {
+    console.log("ERROR: ", err);
+    return sendResponse({ res, status: 500, message: err.message });
+  }
+};
+module.exports.getCommodity = async (req, res) => {
+  const query = { deletedAt: null };
+
+  try {
+    const commodity_list = await PurchaseOrderModel.find(query).select({
+      "product.name": 1,
+      distiller_id: 1
+    });
+
+   
+    const result = commodity_list.map(item => ({
+      _id: item._id,
+      name: item.product?.name,
+      distiller_id: item.distiller_id
+    }));
+
+    return sendResponse({ res, message: "", data: result });
+  } catch (err) {
+    console.log("ERROR: ", err);
+    return sendResponse({ res, status: 500, message: err.message });
+  }
+};
+
+
+module.exports.getScheme = async (req, res) => {
+  const query = { deletedAt: null, status: "active" };
+
+  try {
+    const scheme_list = await Scheme.aggregate([
+      { $match: query },
+      {
+        $lookup: {
+          from: "commodities",              
+          localField: "commodity_id",
+          foreignField: "_id",
+          as: "commodityDetails"
+        }
+      },
+      {
+        $addFields: {
+          commodityName: {
+            $ifNull: [{ $arrayElemAt: ["$commodityDetails.name", 0] }, ""]
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          originalSchemeName: "$schemeName",
+          schemeName: {
+            $concat: [
+              "$schemeName",
+              " ",
+              "$commodityName",
+              " ",
+              { $ifNull: ["$season", ""] },
+              " ",
+              { $ifNull: ["$period", ""] }
+            ]
+          },
+          procurement: 1,
+          commodityName: 1, 
+          commodity_id: 1,
+          season: 1,
+          period: 1
+        }
+      },
+      {
+        $sort: { schemeName: 1 }
+      }
+    ]);
+
+    return sendResponse({ res, message: "", data: scheme_list });
+  } catch (err) {
+    console.log("ERROR:", err);
+    return sendResponse({ res, status: 500, message: err.message });
+  }
+};
+
+
+//End of Prachi Code
+
+
+
+
+
+
 
