@@ -292,6 +292,62 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                     }))
                 }
 
+                const newUser = {
+                    client_id: isEmailInput ? '1243' : '9876',
+                    basic_details: isEmailInput
+                        ? { distiller_details: { email: userInput } }
+                        : { distiller_details: { phone: userInput } },
+                    term_condition: true,
+                    user_type: _userType.distiller,
+                    is_approved: _userStatus.approved,
+                };
+                if (isEmailInput) {
+                    newUser.is_email_verified = true;
+                } else {
+                    newUser.is_mobile_verified = true;
+                }
+
+                ownerExist = await Distiller.create(newUser);
+                // warehouse type colllection
+                const type = await TypesModel.findOne({ _id: "67addcb11bdf461a3a7fcca6" })
+
+
+                const masterUser = new MasterUser({
+
+                    isAdmin: true,
+                    mobile: userInput.trim(),
+                    user_type: type.user_type,
+                    userRole: [type.adminUserRoleId],
+                    portalId: ownerExist._id,
+                    ipAddress: getIpAddress(req)
+                });
+
+                const masterUserCreated = await masterUser.save();
+
+                const payload = {
+                    user: { _id: masterUserCreated._id, user_type: masterUserCreated?.user_type, portalId: masterUserCreated.portalId },
+                    userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type
+                }
+                const expiresIn = 24 * 60 * 60; // 24 hour in seconds
+                const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+
+                res.cookie('token', token, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
+                    maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+                });
+
+                ownerExist = {
+                    ...JSON.parse(JSON.stringify(ownerExist)),
+                    onboarding: (ownerExist?.basic_details?.distiller_details?.organization_name && ownerExist?.basic_details?.point_of_contact && ownerExist.address && ownerExist.company_details && ownerExist.authorised && ownerExist.bank_details && ownerExist.is_form_submitted == 'true') ? true : false
+                }
+
+
+                return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist, userWithPermission: masterUserCreated } }));
+
+            }
+            // start of sangita code
+            else{
 
                 const newUser = {
                     client_id: isEmailInput ? '1243' : '9876',
@@ -348,6 +404,7 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
 
             }
 
+            // end of sangita code
         }
 
 
