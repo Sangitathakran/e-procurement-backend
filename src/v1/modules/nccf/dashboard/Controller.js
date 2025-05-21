@@ -40,6 +40,7 @@ const {
   StateDistrictCity,
 } = require("@src/v1/models/master/StateDistrictCity");
 
+/*
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   try {
     const { user_id } = req;
@@ -108,6 +109,104 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+*/
+
+module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
+  try {
+    const { user_id } = req;
+    const { commodity, scheme, state } = req.query;
+
+    const currentDate = new Date();
+    let purchaseOrderCount = 0;
+
+    if (commodity) {
+      purchaseOrderCount =
+        (await PurchaseOrderModel.countDocuments({distiller_id: user_id, 'product.name': commodity })) ?? 0;
+    } else {
+      purchaseOrderCount = (await PurchaseOrderModel.countDocuments({ distiller_id: user_id })) ?? 0;
+    }
+
+    let distillerStateCount = 0;
+    if (state) {
+      distillerStateCount = (await Distiller.countDocuments({ 'address.registered.state': state  })) ?? 0;
+    } else {
+      distillerStateCount = await Distiller.countDocuments();
+    }
+
+    let schemeCount = 0;
+    if (scheme) {
+      schemeCount = (await Scheme.countDocuments({   season: scheme,   deletedAt: null,    status: 'active' })) ?? 0;
+    } else {
+      schemeCount =  (await Scheme.countDocuments({ deletedAt: null,  status: 'active' })) ?? 0;
+    }
+
+    const wareHouseCount = (await wareHousev2.countDocuments()) ?? 0;
+
+    const result = await wareHouseDetails.aggregate([
+      {
+        $project: {
+          stockToSum: {
+            $cond: {
+              if: { $gt: ["$inventory.requiredStock", 0] },
+              then: "$inventory.requiredStock",
+              else: "$inventory.stock",
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalStock: { $sum: "$stockToSum" },
+        },
+      },
+    ]);
+
+    const moU = await Distiller.countDocuments({
+      mou_approval: _userStatus.pending,
+    });
+
+    const onBoarding = await Distiller.countDocuments({
+      is_approved: _userStatus.pending,
+    });
+
+    const distillerCount = await Distiller.countDocuments();
+
+    const pending_request = await Distiller.countDocuments({
+      is_approved: "pending",
+    });
+
+    const realTimeStock = result.length > 0 ? result[0].totalStock : 0;
+
+    const records = {
+      wareHouseCount,
+      purchaseOrderCount,
+      realTimeStock,
+      moUCount: moU,
+      onBoardingCount: onBoarding,
+      totalRequest: pending_request,
+      distillerCount,
+      distillerStateCount,
+      schemeCount,
+    };
+
+    return res.send(
+      new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("NCCF dashboard Stats"),
+      })
+    );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+
+
+
+
+
 
 module.exports.getonBoardingRequests = asyncErrorHandler(async (req, res) => {
   try {
@@ -349,72 +448,72 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 // });
 
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
-  const { limit = 5,procurement_partner,page = 1  } = req.query;
+  const { limit = 5, procurement_partner, page = 1 } = req.query;
   // const {procurement_partner}= req.body;
- 
-  const  sortBy = 'createdAt', sortOrder = 'asc', isExport = Number(req.query.isExport) || 0;
+
+  const sortBy = 'createdAt', sortOrder = 'asc', isExport = Number(req.query.isExport) || 0;
 
   try {
-      // Construct filter object
-      let filter = {};
-      if (procurement_partner) {
-          const partners = Array.isArray(procurement_partner) 
-              ? procurement_partner 
-              : procurement_partner.split(',');
+    // Construct filter object
+    let filter = {};
+    if (procurement_partner) {
+      const partners = Array.isArray(procurement_partner)
+        ? procurement_partner
+        : procurement_partner.split(',');
 
-          filter.procurement_partner = { $in: partners };
-      }
+      filter.procurement_partner = { $in: partners };
+    }
 
-      // Fetch data with pagination and sorting
-      const warehouses = await wareHouseDetails.find(filter)
-          .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
-          .skip((page - 1) * parseInt(limit))
-          .limit(parseInt(limit));
+    // Fetch data with pagination and sorting
+    const warehouses = await wareHouseDetails.find(filter)
+      .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+      .skip((page - 1) * parseInt(limit))
+      .limit(parseInt(limit));
 
-      // Count total warehouses based on filter
-      const totalWarehouses = await wareHouseDetails.countDocuments(filter);
-      const activeWarehouses = await wareHouseDetails.countDocuments({ ...filter, active: true });
-      const inactiveWarehouses = totalWarehouses - activeWarehouses;
+    // Count total warehouses based on filter
+    const totalWarehouses = await wareHouseDetails.countDocuments(filter);
+    const activeWarehouses = await wareHouseDetails.countDocuments({ ...filter, active: true });
+    const inactiveWarehouses = totalWarehouses - activeWarehouses;
 
-      // Handle export functionality
-      if (isExport === 1) {
-          const exportData = warehouses.map(item => ({
-              "Warehouse ID": item._id,
-              "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
-              "City": item.addressDetails?.city || 'NA',
-              "State": item.addressDetails?.state || 'NA',
-              "Status": item.active ? 'Active' : 'Inactive',
-              "Procurement Partner": item.procurement_partner || 'NA'
-          }));
-
-          if (exportData.length) {
-              return dumpJSONToExcel(req, res, {
-                  data: exportData,
-                  fileName: `Warehouse-List.xlsx`,
-                  worksheetName: `Warehouses`
-              });
-          }
-
-          return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
-      }
-
-      // Return paginated results
-      return res.status(200).send(new serviceResponse({
-          status: 200,
-          data: {
-              records: warehouses,
-              page,
-              limit: parseInt(limit),
-              totalRecords: totalWarehouses,
-              activeRecords: activeWarehouses,
-              inactiveRecords: inactiveWarehouses,
-              pages: Math.ceil(totalWarehouses / limit)
-          },
-          message: "Warehouses fetched successfully"
+    // Handle export functionality
+    if (isExport === 1) {
+      const exportData = warehouses.map(item => ({
+        "Warehouse ID": item._id,
+        "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
+        "City": item.addressDetails?.city || 'NA',
+        "State": item.addressDetails?.state || 'NA',
+        "Status": item.active ? 'Active' : 'Inactive',
+        "Procurement Partner": item.procurement_partner || 'NA'
       }));
+
+      if (exportData.length) {
+        return dumpJSONToExcel(req, res, {
+          data: exportData,
+          fileName: `Warehouse-List.xlsx`,
+          worksheetName: `Warehouses`
+        });
+      }
+
+      return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
+    }
+
+    // Return paginated results
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: {
+        records: warehouses,
+        page,
+        limit: parseInt(limit),
+        totalRecords: totalWarehouses,
+        activeRecords: activeWarehouses,
+        inactiveRecords: inactiveWarehouses,
+        pages: Math.ceil(totalWarehouses / limit)
+      },
+      message: "Warehouses fetched successfully"
+    }));
   } catch (error) {
-      console.error(error);
-      return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching warehouses", error: error.message }));
+    console.error(error);
+    return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching warehouses", error: error.message }));
   }
 });
 
