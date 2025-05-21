@@ -111,38 +111,60 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 });
 */
 
+
+
+
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   try {
     const { user_id } = req;
-    const { commodity, scheme, state } = req.query;
+    const { commodity, state, scheme } = req.query;
 
-    const currentDate = new Date();
-    let purchaseOrderCount = 0;
+    let poFilter = {};
+    let distillerFilter = {};
+    let matchQuery = {};
 
-    if (commodity) {
-      purchaseOrderCount =
-        (await PurchaseOrderModel.countDocuments({distiller_id: user_id, 'product.name': commodity })) ?? 0;
-    } else {
-      purchaseOrderCount = (await PurchaseOrderModel.countDocuments({ distiller_id: user_id })) ?? 0;
-    }
-
-    let distillerStateCount = 0;
+    //State filter [shared across all]
+    let stateFilter = {};
     if (state) {
-      distillerStateCount = (await Distiller.countDocuments({ 'address.registered.state': state  })) ?? 0;
-    } else {
-      distillerStateCount = await Distiller.countDocuments();
+      const stateArray = Array.isArray(state) ? state : [state];
+      const regexStates = stateArray.map(name => new RegExp(name, "i"));
+      stateFilter = { 'address.registered.state': { $in: regexStates } };
+      distillerFilter['address.registered.state'] = { $in: regexStates };
+      poFilter['distiller.address.registered.state'] = { $in: regexStates };
+      matchQuery['distiller.address.registered.state'] = { $in: regexStates };
     }
 
-    let schemeCount = 0;
+//example 
+//     poFilter = {
+//   ...poFilter,
+//   'distiller.address.registered.state': { $in: regexStates }
+// };
+
+    //Commodity filter [applied to PO, warehouse, and distiller queries]
+    let commodityFilter = {};
+    if (commodity) {
+      const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
+      const regexCommodities = commodityArray.map(name => new RegExp(name, "i"));
+      poFilter['product.name'] = { $in: regexCommodities };
+      matchQuery['product.name'] = { $in: regexCommodities };
+      distillerFilter['product.name'] = { $in: regexCommodities };
+      stateFilter['product.name'] = { $in: regexCommodities };
+    }
+
+    // Scheme filter applied to warehouse query only
     if (scheme) {
-      schemeCount = (await Scheme.countDocuments({   season: scheme,   deletedAt: null,    status: 'active' })) ?? 0;
-    } else {
-      schemeCount =  (await Scheme.countDocuments({ deletedAt: null,  status: 'active' })) ?? 0;
+      const schemeArray = Array.isArray(scheme) ? scheme : [scheme];
+      matchQuery['season period'] = {
+        $in: schemeArray.map(name => new RegExp(name, "i")),
+      };
     }
 
     const wareHouseCount = (await wareHousev2.countDocuments()) ?? 0;
 
+    const purchaseOrderCount = await PurchaseOrderModel.countDocuments(poFilter);
+
     const result = await wareHouseDetails.aggregate([
+      { $match: matchQuery },
       {
         $project: {
           stockToSum: {
@@ -164,16 +186,19 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
     const moU = await Distiller.countDocuments({
       mou_approval: _userStatus.pending,
+      ...stateFilter,
     });
 
     const onBoarding = await Distiller.countDocuments({
       is_approved: _userStatus.pending,
+      ...stateFilter,
     });
 
-    const distillerCount = await Distiller.countDocuments();
+    const distillerCount = await Distiller.countDocuments(distillerFilter);
 
     const pending_request = await Distiller.countDocuments({
       is_approved: "pending",
+      ...stateFilter,
     });
 
     const realTimeStock = result.length > 0 ? result[0].totalStock : 0;
@@ -186,8 +211,6 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       onBoardingCount: onBoarding,
       totalRequest: pending_request,
       distillerCount,
-      distillerStateCount,
-      schemeCount,
     };
 
     return res.send(
@@ -201,10 +224,6 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
-
-
-
-
 
 
 
