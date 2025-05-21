@@ -1670,8 +1670,9 @@ module.exports.checkJformIdsExist = async (req, res) => {
         const existingDocs = await eKharidHaryanaProcurementModel.find(
             {
                 "procurementDetails.jformID": { $in: allJformIds },
+                // "procurementDetails.iFormId": { $exists: true },
                 // "warehouseData.jformID": { $exists: true },
-                // "paymentDetails.jFormId": { $exists: false }
+                "paymentDetails.jFormId": { $exists: false }
             },
             { "procurementDetails.jformID": 1 }
         ).lean();
@@ -1684,15 +1685,16 @@ module.exports.checkJformIdsExist = async (req, res) => {
         );
 
         //  Filter IDs that are existing in the set
-        // const newJformIds = allJformIds.filter(id => existingIdsSet.has(id));
+        const newJformIds = allJformIds.filter(id => existingIdsSet.has(id));
+        console.log("newJformIds count:", newJformIds.length);
         // //  Write result to file
         // fs.writeFileSync('./paymentDetailsMissing.txt', JSON.stringify(newJformIds, null, 2));
-
+        fs.writeFileSync('./iFormDetailMissing.txt', JSON.stringify(newJformIds, null, 2));
         //  Filter IDs that are not in the existing set
-        const newJformIds = allJformIds.filter(id => !existingIdsSet.has(id));
-        console.log("newJformIds count:", newJformIds.length);
+        // const newJformIds = allJformIds.filter(id => !existingIdsSet.has(id));
+        // console.log("newJformIds count:", newJformIds.length);
         //  Write result to file
-        fs.writeFileSync('./checkJformIdsExist.txt', JSON.stringify(newJformIds, null, 2));
+        // fs.writeFileSync('./checkJformIdsExist.txt', JSON.stringify(newJformIds, null, 2));
 
         return res.json({ message: "OK", newCount: newJformIds.length });
     } catch (err) {
