@@ -24,6 +24,7 @@ const {
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { Scheme } = require("@src/v1/models/master/Scheme");
 const {
   wareHousev2,
 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
@@ -633,4 +634,10 @@ module.exports.getPublicDistrictByState = async (req, res) => {
     _handleCatchErrors(err, res);
   }
 };
+
+
+
+
+
+
 
