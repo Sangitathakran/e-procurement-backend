@@ -484,3 +484,8 @@ exports.makeSearchQuery = (searchFields,search) => ({
       [item]: { $regex: search, $options: 'i' }
   }))
 });
+
+exports._advancePayment = () => {
+  const percentage = 10;
+  return percentage;
+}
