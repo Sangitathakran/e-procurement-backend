@@ -28,14 +28,24 @@ const stateInfo = require("./agristack.json").states.find(
   (obj) => obj.state_lgd_code === "9"
 );
 const AGRISTACK_URL = stateInfo.url;
-const AUTH_TOKEN = '----';
+const AUTH_TOKEN = "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJvX19yR0o3dHZLYjNGeUQzVmJYR1NJaTgwYUFUOFA2eDNlVm51YUJobllzIn0.eyJleHAiOjE3NDc4NDc3NjEsImlhdCI6MTc0NzgwNDU2MSwianRpIjoiNzM5ZmNlNWYtMjdkOC00ODY2LWJmY2UtMjg4MjNiMGM0ZWFlIiwiaXNzIjoiaHR0cDovLzEwLjEuMC4xMTo3MDgxL2F1dGgvcmVhbG1zL3N1bmJpcmQtcmMiLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiZGNhYzUzZjgtMDFiYi00OGQyLTgzODgtNzk4ODc0N2U4N2U4IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoicmVnaXN0cnktZnJvbnRlbmQiLCJzZXNzaW9uX3N0YXRlIjoiODQ5Y2EwZmUtMmMwOC00ZDMxLTg4NzQtMzFkYmZkNmVhNWM3IiwiYWNyIjoiMSIsImFsbG93ZWQtb3JpZ2lucyI6WyJodHRwczovL2RldmVsb3Blci5hZ3Jpc3RhY2suZ292LmluIiwiaHR0cDovL2xvY2FsaG9zdDozMDAwIl0sInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJvZmZsaW5lX2FjY2VzcyIsImRlZmF1bHQtcm9sZXMtc3VuYmlyZC1yYyIsIlBhcnRpY2lwYW50cyIsInVtYV9hdXRob3JpemF0aW9uIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJlbWFpbCBwcm9maWxlIiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJuY2NmX3JhZGlhbnQiLCJlbWFpbCI6Im1hbmFzLmdob3NoQG5jY2YtaW5kaWEuY29tIn0.Y170HrqK3_9dWG44fp0e5pZ8heg5k3zUrqAND9jwCYQke5A6ts80D_DZE7gajlgSNKLdEjk3hsB_keSwEMWq92RNFSLMcQJdSkatuqgqyb6NUVuAzYOoA1CN0WKmgW3nlUTFdQKmayiWKlhJUi71upc--OfUwF9EvbuN9GAI4vcgNpWsxI6S8qyMBSCCSjKDLX7XShG0lRMLPijV6Y5yF1vEjgAOLiNtziGO4iAcdF1el2OTsb0guQa7gUQOjfyTGWwEE_VE8-Gn3vWg9HAt9Hp9vMiGpb70m--NyJFaQ9IqyzgzI5oHgpT9jzkppgxGpSvnkIaUc-y2guRkVTgV1g";
 const STATE_ID = new mongoose.Types.ObjectId(stateInfo.state_id);
 const STATE_LGD_CODE = stateInfo.state_lgd_code;
 
 module.exports.postSeekData = async (req, res) => {
   try {
     const data = req.body;
-    await AgristackLog.create({ responseData: data, farmerData: data?.message?.search_response?.[0]?.data?.reg_records?.farmerData });
+    //await AgristackLog.create({ responseData: data, farmerData: data?.message?.search_response?.[0]?.data?.reg_records?.farmerData });
+    await AgristackLog.updateOne(
+      { correlation_id: data?.message?.correlation_id },
+      {
+        $set: {
+          responseData: data,
+          farmerData:
+            data?.message?.search_response?.[0]?.data?.reg_records?.farmerData,
+        },
+      }
+    );
     return res.status(200).send({ success: true, message: "OK" });
   } catch (err) {
     _handleCatchErrors(err, res);
@@ -69,11 +79,11 @@ module.exports.findStateById = async (req, res) => {
 
 module.exports.getAgristackFarmersData = async (req, res) => {
   const limit = 100;
-  let skip = 5600;
+  let skip = 0;
   let totalProcessed = 0;
 
   try {
-    while (!totalProcessed) {
+    while (totalProcessed < 100) {
       const farmers = await farmer
         .find({
           "proof.aadhar_no": { $exists: true, $ne: null },
@@ -88,13 +98,15 @@ module.exports.getAgristackFarmersData = async (req, res) => {
       for (const farmer of farmers) {
         const aadhaar = scientificToString(farmer.proof.aadhar_no).toString();
         const hashed = sha256Hash(aadhaar);
-        const { correlationId } = await callAgriStackAPI(hashed);
-        console.log({ hashed, aadhaar, adhar_no:farmer.proof.aadhar_no })
+        const { correlationId, payload, type } = await callAgriStackAPI(hashed);
+      //  console.log({ hashed, aadhaar, adhar_no: farmer.proof.aadhar_no });
 
         if (correlationId) {
-          await FarmerAgristackMap.create({
+          await AgristackLog.create({
             correlation_id: correlationId,
             farmer_id: farmer._id,
+            payload: payload,
+            type: type
           });
         }
       }
@@ -113,13 +125,9 @@ module.exports.getAgristackFarmersData = async (req, res) => {
   }
 };
 
-
-
-
 // ***********************************  HELPER FUNCTIONS ********************************************
 
 async function callAgriStackAPI(aadhaarHash) {
-
   const transactionId = uuidv4();
   const timestamp = new Date().toISOString();
 
@@ -187,9 +195,8 @@ async function callAgriStackAPI(aadhaarHash) {
     });
     agristackLogger.info({ request: payload, response: response.data });
 
-    return { correlationId: response?.data?.message?.correlationId };
+    return { correlationId: response?.data?.message?.correlationId, payload, type: "farmerDataByHashedAdhar" };
   } catch (error) {
-    
     console.error("AgriStack API error", error);
     return { correlationId: null };
   }
