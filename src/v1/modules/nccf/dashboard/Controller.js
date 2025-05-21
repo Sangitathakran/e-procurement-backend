@@ -40,6 +40,7 @@ const {
   StateDistrictCity,
 } = require("@src/v1/models/master/StateDistrictCity");
 
+/*
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   try {
     const { user_id } = req;
@@ -108,6 +109,123 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+*/
+
+
+
+
+module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
+  try {
+    const { user_id } = req;
+    const { commodity, state, scheme } = req.query;
+
+    let poFilter = {};
+    let distillerFilter = {};
+    let matchQuery = {};
+
+    //State filter [shared across all]
+    let stateFilter = {};
+    if (state) {
+      const stateArray = Array.isArray(state) ? state : [state];
+      const regexStates = stateArray.map(name => new RegExp(name, "i"));
+      stateFilter = { 'address.registered.state': { $in: regexStates } };
+      distillerFilter['address.registered.state'] = { $in: regexStates };
+      poFilter['distiller.address.registered.state'] = { $in: regexStates };
+      matchQuery['distiller.address.registered.state'] = { $in: regexStates };
+    }
+
+//example 
+//     poFilter = {
+//   ...poFilter,
+//   'distiller.address.registered.state': { $in: regexStates }
+// };
+
+    //Commodity filter [applied to PO, warehouse, and distiller queries]
+    let commodityFilter = {};
+    if (commodity) {
+      const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
+      const regexCommodities = commodityArray.map(name => new RegExp(name, "i"));
+      poFilter['product.name'] = { $in: regexCommodities };
+      matchQuery['product.name'] = { $in: regexCommodities };
+      distillerFilter['product.name'] = { $in: regexCommodities };
+      stateFilter['product.name'] = { $in: regexCommodities };
+    }
+
+    // Scheme filter applied to warehouse query only
+    if (scheme) {
+      const schemeArray = Array.isArray(scheme) ? scheme : [scheme];
+      matchQuery['season period'] = {
+        $in: schemeArray.map(name => new RegExp(name, "i")),
+      };
+    }
+
+    const wareHouseCount = (await wareHousev2.countDocuments()) ?? 0;
+
+    const purchaseOrderCount = await PurchaseOrderModel.countDocuments(poFilter);
+
+    const result = await wareHouseDetails.aggregate([
+      { $match: matchQuery },
+      {
+        $project: {
+          stockToSum: {
+            $cond: {
+              if: { $gt: ["$inventory.requiredStock", 0] },
+              then: "$inventory.requiredStock",
+              else: "$inventory.stock",
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalStock: { $sum: "$stockToSum" },
+        },
+      },
+    ]);
+
+    const moU = await Distiller.countDocuments({
+      mou_approval: _userStatus.pending,
+      ...stateFilter,
+    });
+
+    const onBoarding = await Distiller.countDocuments({
+      is_approved: _userStatus.pending,
+      ...stateFilter,
+    });
+
+    const distillerCount = await Distiller.countDocuments(distillerFilter);
+
+    const pending_request = await Distiller.countDocuments({
+      is_approved: "pending",
+      ...stateFilter,
+    });
+
+    const realTimeStock = result.length > 0 ? result[0].totalStock : 0;
+
+    const records = {
+      wareHouseCount,
+      purchaseOrderCount,
+      realTimeStock,
+      moUCount: moU,
+      onBoardingCount: onBoarding,
+      totalRequest: pending_request,
+      distillerCount,
+    };
+
+    return res.send(
+      new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("NCCF dashboard Stats"),
+      })
+    );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+
 
 module.exports.getonBoardingRequests = asyncErrorHandler(async (req, res) => {
   try {
@@ -349,72 +467,72 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 // });
 
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
-  const { limit = 5,procurement_partner,page = 1  } = req.query;
+  const { limit = 5, procurement_partner, page = 1 } = req.query;
   // const {procurement_partner}= req.body;
- 
-  const  sortBy = 'createdAt', sortOrder = 'asc', isExport = Number(req.query.isExport) || 0;
+
+  const sortBy = 'createdAt', sortOrder = 'asc', isExport = Number(req.query.isExport) || 0;
 
   try {
-      // Construct filter object
-      let filter = {};
-      if (procurement_partner) {
-          const partners = Array.isArray(procurement_partner) 
-              ? procurement_partner 
-              : procurement_partner.split(',');
+    // Construct filter object
+    let filter = {};
+    if (procurement_partner) {
+      const partners = Array.isArray(procurement_partner)
+        ? procurement_partner
+        : procurement_partner.split(',');
 
-          filter.procurement_partner = { $in: partners };
-      }
+      filter.procurement_partner = { $in: partners };
+    }
 
-      // Fetch data with pagination and sorting
-      const warehouses = await wareHouseDetails.find(filter)
-          .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
-          .skip((page - 1) * parseInt(limit))
-          .limit(parseInt(limit));
+    // Fetch data with pagination and sorting
+    const warehouses = await wareHouseDetails.find(filter)
+      .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+      .skip((page - 1) * parseInt(limit))
+      .limit(parseInt(limit));
 
-      // Count total warehouses based on filter
-      const totalWarehouses = await wareHouseDetails.countDocuments(filter);
-      const activeWarehouses = await wareHouseDetails.countDocuments({ ...filter, active: true });
-      const inactiveWarehouses = totalWarehouses - activeWarehouses;
+    // Count total warehouses based on filter
+    const totalWarehouses = await wareHouseDetails.countDocuments(filter);
+    const activeWarehouses = await wareHouseDetails.countDocuments({ ...filter, active: true });
+    const inactiveWarehouses = totalWarehouses - activeWarehouses;
 
-      // Handle export functionality
-      if (isExport === 1) {
-          const exportData = warehouses.map(item => ({
-              "Warehouse ID": item._id,
-              "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
-              "City": item.addressDetails?.city || 'NA',
-              "State": item.addressDetails?.state || 'NA',
-              "Status": item.active ? 'Active' : 'Inactive',
-              "Procurement Partner": item.procurement_partner || 'NA'
-          }));
-
-          if (exportData.length) {
-              return dumpJSONToExcel(req, res, {
-                  data: exportData,
-                  fileName: `Warehouse-List.xlsx`,
-                  worksheetName: `Warehouses`
-              });
-          }
-
-          return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
-      }
-
-      // Return paginated results
-      return res.status(200).send(new serviceResponse({
-          status: 200,
-          data: {
-              records: warehouses,
-              page,
-              limit: parseInt(limit),
-              totalRecords: totalWarehouses,
-              activeRecords: activeWarehouses,
-              inactiveRecords: inactiveWarehouses,
-              pages: Math.ceil(totalWarehouses / limit)
-          },
-          message: "Warehouses fetched successfully"
+    // Handle export functionality
+    if (isExport === 1) {
+      const exportData = warehouses.map(item => ({
+        "Warehouse ID": item._id,
+        "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
+        "City": item.addressDetails?.city || 'NA',
+        "State": item.addressDetails?.state || 'NA',
+        "Status": item.active ? 'Active' : 'Inactive',
+        "Procurement Partner": item.procurement_partner || 'NA'
       }));
+
+      if (exportData.length) {
+        return dumpJSONToExcel(req, res, {
+          data: exportData,
+          fileName: `Warehouse-List.xlsx`,
+          worksheetName: `Warehouses`
+        });
+      }
+
+      return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
+    }
+
+    // Return paginated results
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: {
+        records: warehouses,
+        page,
+        limit: parseInt(limit),
+        totalRecords: totalWarehouses,
+        activeRecords: activeWarehouses,
+        inactiveRecords: inactiveWarehouses,
+        pages: Math.ceil(totalWarehouses / limit)
+      },
+      message: "Warehouses fetched successfully"
+    }));
   } catch (error) {
-      console.error(error);
-      return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching warehouses", error: error.message }));
+    console.error(error);
+    return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching warehouses", error: error.message }));
   }
 });
 
