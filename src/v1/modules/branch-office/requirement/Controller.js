@@ -170,6 +170,7 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
         {
             $addFields: {
                 associateName: "$seller_id.basic_details.associate_details.associate_name",
+                organizationName: "$seller_id.basic_details.associate_details.organization_name",
                 procurementCenterName: "$procurementCenter_id.center_name",
                 deliveryLocation: "$req_id.address.deliveryLocation"
             }
@@ -185,6 +186,7 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
                 $or: [
                     { batchId: { $regex: searchTerm, $options: "i" } },
                     { associateName: { $regex: searchTerm, $options: "i" } },
+                    { organizationName: { $regex: searchTerm, $options: "i" } },
                     { procurementCenterName: { $regex: searchTerm, $options: "i" } },
                     // { deliveryLocation: { $regex: searchTerm, $options: "i" } },
                 ]
