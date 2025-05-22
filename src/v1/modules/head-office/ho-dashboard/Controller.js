@@ -104,6 +104,27 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 
     const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
     const { user_id, portalId } = req;
+    let {
+      schemeName = [],
+      commodityName = [],
+      dateRange,
+      sessionName = [],
+      stateName = []
+    } = req.query;
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+  if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
+
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
+  if (!Array.isArray(stateName)) stateName = [stateName];
+
+    const paymentFilter = {
+      ho_id: { $in: [user_id, portalId] },
+      payment_status: _paymentstatus.completed,
+    };
     let widgetDetails = {
       branchOffice: { total: 0 },
       farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0, distillerTotal: 0 },
@@ -115,19 +136,88 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       todaysQtyProcured: 0,
     };
 
+    if (commodityName.length) {
+      const matchedRequests = await RequestModel.find({
+        "product.name":  { $in: commodityName.map(name => new RegExp(name, "i")) },
+        warehouse_id: { $ne: null },
+        branch_id: { $ne: null }
+      }).select("warehouse_id branch_id").lean();
+     
+    
+      const warehouseIds = [...new Set(matchedRequests.map(req => req.warehouse_id?.toString()).filter(Boolean))];
+      const branchIds = [...new Set(matchedRequests.map(req => req.branch_id?.toString()).filter(Boolean))];
+
+      if (warehouseIds.length === 0) {
+        widgetDetails.wareHouse.total = 0;
+      } else {
+        const warehouseFilter = { _id: { $in: warehouseIds } };
+        widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments(warehouseFilter);
+      }
+    
+      if (branchIds.length === 0) {
+        widgetDetails.branchOffice.total = 0;
+      } else {
+        const branchFilter = { 
+          _id: { $in: branchIds },
+           headOfficeId: hoId
+          };
+        widgetDetails.branchOffice.total = await Branches.countDocuments(branchFilter);
+      }
+    
+    } else {
+      // 🧾 No commodity filter, fallback to default counts
+      widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({});
+      widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    }
+
     // Get counts safely
-    widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
-    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    // widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
+    // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     //start of prachi code
 
     widgetDetails.farmerRegistration.distillerTotal = await Distiller.countDocuments({ is_approved: _userStatus.approved });
-    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
     widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
     widgetDetails.farmerRegistration.totalRegistration = (widgetDetails.farmerRegistration.farmertotal + widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal);
     widgetDetails.farmerBenifitted = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
    
-    const payments = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: _paymentstatus.completed, }).select("qtyProcured createdAt amount").lean();
+    let scheme = null;
+    if (schemeName.length) {
+      scheme = await Scheme.findOne({ schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) } }).select("_id").lean();
+    }
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange);
+      paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
+    }
+    
+    const payments = await Payment.find(paymentFilter)
+    .select("qtyProcured createdAt amount")
+    .populate({
+      path: "req_id",
+      select: "product.name product.schemeId product.season",
+      match: {
+       ...(commodityName.length && { "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) } }),
+          ...(scheme && { "product.schemeId": scheme._id }),
+          ...(sessionName.length && { "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) } })
+        }
+      })
+      .populate({
+        path: "batch_id",
+        select: "seller_id",
+        populate: {
+          path: "seller_id",
+          select: "address.registered.state",
+          ...(stateName.length && {
+            match: {
+              "address.registered.state": {
+                $in: stateName.map(name => new RegExp(name, "i")),
+              },
+            },
+          }),
+        }
+      })
+      .lean();
 
     let grandTotalQtyProcured = 0;
     let todaysQtyProcured = 0;
@@ -266,27 +356,47 @@ function parseDateRange(rangeStr) {
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   const hoId = new mongoose.Types.ObjectId(req.portalId);
 
-  const { limit = 10, page = 1, commodityName, schemeName, sessionName, dateRange } = req.query;
+  let { limit = 10, page = 1, commodityName = [],
+    schemeName = [],
+    sessionName = [], dateRange, stateName = [] } = req.query;
   const { user_id, portalId } = req;
   const skip = (page - 1) * limit;
+
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+  if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
+
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
+  if (!Array.isArray(stateName)) stateName = [stateName];
 
   const paymentFilter = {
     ho_id: portalId,
     payment_status: 'Pending'
   };
-  const scheme = schemeName
-    ? await Scheme.findOne({
-        schemeName: { $regex: new RegExp(schemeName, "i") },
-      }).select("_id").lean()
-    : null;
 
-  if (schemeName && !scheme) {
-    return sendResponse({
-      res,
-      status: 200,
-      message: "Scheme not found",
-      data: { rows: [], totalCount: 0, totalPages: 0, limit, page },
-    });
+  // const scheme = schemeName
+  //   ? await Scheme.findOne({
+  //       schemeName: { $regex: new RegExp(schemeName, "i") },
+  //     }).select("_id").lean()
+  //   : null;
+
+  // if (schemeName && !scheme) {
+  //   return sendResponse({
+  //     res,
+  //     status: 200,
+  //     message: "Scheme not found",
+  //     data: { rows: [], totalCount: 0, totalPages: 0, limit, page },
+  //   });
+  // }
+  let schemeIds = [];
+  if (schemeName.length) {
+    const schemes = await Scheme.find({
+      schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+    }).select("_id").lean();
+    schemeIds = schemes.map(s => s._id);
   }
   
   if (dateRange) {
@@ -296,17 +406,32 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   let pendingPaymentDetails = await Payment.find(paymentFilter)
   .populate({
     path: "req_id",
-    select: "reqNo product.name product.schemeId",
+    select: "reqNo product.name product.schemeId product.season batch_id",
     match: {
-      ...(commodityName && {
-        "product.name": { $regex: new RegExp(commodityName, "i") },
+      ...(commodityName.length && {
+        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
       }),
-      ...(scheme && {
-        "product.schemeId": scheme._id,
-      }),
-      ...(sessionName && {
-        "product.season": { $regex: new RegExp(sessionName, "i") },
-      }),
+       ...(schemeIds.length && {
+          "product.schemeId": { $in: schemeIds },
+        }),
+     ...(sessionName.length && {
+          "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+        }),
+    },
+  })
+  .populate({
+    path: "batch_id",
+    select: "seller_id",
+    populate: {
+      path: "seller_id",
+      select: "address.registered.state",
+      match: stateName.length
+        ? {
+            "address.registered.state": {
+              $in: stateName.map(name => new RegExp(name, "i")),
+            },
+          }
+        : undefined,
     },
   })
   .select("req_id qtyProcured amount payment_status")
@@ -342,31 +467,35 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
-  const { limit = 10, page = 1, commodityName, schemeName, sessionName, dateRange } = req.query;
+  let { limit = 10, page = 1, commodityName = [],
+    schemeName = [],
+    sessionName = [], dateRange, stateName = [] } = req.query;
   const skip = (page - 1) * limit;
   const { user_id, portalId } = req;
 
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+  if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
+
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
+  if (!Array.isArray(stateName)) stateName = [stateName];
 
   const paymentFilter = {
     ho_id: portalId,
     ho_approve_status: 'Pending'
   };
 
-  const scheme = schemeName
-    ? await Scheme.findOne({
-        schemeName: { $regex: new RegExp(schemeName, "i") },
-      }).select("_id").lean()
-    : null;
-
-  if (schemeName && !scheme) {
-    return sendResponse({
-      res,
-      status: 200,
-      message: "Scheme not found",
-      data: { rows: [], totalCount: 0, totalPages: 0, limit, page },
-    });
+  let schemeIds = [];
+  if (schemeName.length) {
+    const schemes = await Scheme.find({
+      schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+    }).select("_id").lean();
+    schemeIds = schemes.map(s => s._id);
   }
-  
+
   if (dateRange) {
     const { startDate, endDate } = parseDateRange(dateRange);
     paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
@@ -387,17 +516,32 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
   let pendingApprovalDetails = await Payment.find(paymentFilter)
   .populate({
     path: "req_id",
-    select: "reqNo deliveryDate product.name session.name",
+    select: "reqNo deliveryDate product.name product.season batch_id",
     match: {
-      ...(commodityName && {
-        "product.name": { $regex: new RegExp(commodityName, "i") },
+       ...(commodityName.length && {
+        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
       }),
-      ...(scheme && {
-        "product.schemeId": scheme._id,
-      }),
-      ...(sessionName && {
-        "session.name": { $regex: new RegExp(sessionName, "i") },
-      }),
+       ...(schemeIds.length && {
+          "product.schemeId": { $in: schemeIds },
+        }),
+     ...(sessionName.length && {
+          "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+        }),
+    },
+     })
+  .populate({
+    path: "batch_id",
+    select: "seller_id",
+    populate: {
+      path: "seller_id",
+      select: "address.registered.state",
+      match: stateName.length
+        ? {
+            "address.registered.state": {
+              $in: stateName.map(name => new RegExp(name, "i")),
+            },
+          }
+        : undefined,
     },
   })
   .select("req_id qtyProcured amountPaid ho_approve_status createdAt")
@@ -465,12 +609,21 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 //   });
 // });
 module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
-  let { page = 1, limit = 10, commodityName, schemeName, dateRange } = req.query;
+  let { page = 1, limit = 10, commodityName = [], schemeName = [], dateRange,sessionName = [], stateName = [] } = req.query;
   page = Number(page);
   limit = Number(limit);
   const skip = (page - 1) * limit;
   const filter = { ho_id: req.portalId };
 
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+  if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
+
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
+  if (!Array.isArray(stateName)) stateName = [stateName];
   // Apply date range filter
   if (dateRange) {
     const { startDate, endDate } = parseDateRange(dateRange);
@@ -478,39 +631,84 @@ module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
   }
 
   // Scheme filter - find scheme ID if schemeName is passed
-  let scheme;
-  if (schemeName) {
-    scheme = await Scheme.findOne({
-      schemeName: { $regex: new RegExp(schemeName, "i") },
-    }).select("_id");
-    if (!scheme) {
-      return sendResponse({
-        res,
-        status: 200,
-        message: "Scheme not found",
-        data: {
-          paymentDetails: [],
-          totalCount: 0,
-          pages: 0,
-          limit,
-          page,
-        },
-      });
-    }
+  let schemeIds = [];
+  if (schemeName.length) {
+    const schemes = await Scheme.find({
+      schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+    }).select("_id").lean();
+    schemeIds = schemes.map(s => s._id);
   }
 
-  const paymentDetails = await Payment.find(filter)
-    .select("initiated_at req_id ho_approve_by ho_approve_at")
-    .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
-    .populate({
-      path: "req_id",
-      select: "reqNo product.name product.schemeId",
-      match: {
-        ...(commodityName && { "product.name": { $regex: new RegExp(commodityName, "i") } }),
-        ...(scheme && { "product.schemeId": scheme._id }),
-      },
-    })
-    .sort({ createdAt: -1 });
+  // const paymentDetails = await Payment.find(filter)
+  //   .select("initiated_at req_id ho_approve_by ho_approve_at")
+  //   .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
+  //   .populate({
+  //     path: "req_id",
+  //     select: "reqNo product.name product.schemeId",
+  //     match: {
+  //      ...(commodityName.length && {
+  //       "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+  //     }),
+  //      ...(schemeIds.length && {
+  //         "product.schemeId": { $in: schemeIds },
+  //       }),
+  //    ...(sessionName.length && {
+  //         "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+  //       }),
+  //   },
+  //   populate: {
+  //     path: "batch_id",
+  //     select: "seller_id",
+  //     populate: {
+  //       path: "seller_id",
+  //       select: "address.registered.state",
+  //       ...(stateName.length && {
+  //         match: {
+  //           "address.registered.state": {
+  //               $in: stateName.map(name => new RegExp(name, "i")),
+  //           },
+  //         },
+  //       }),
+  //     },
+  //   },
+  // })
+  //   .sort({ createdAt: -1 });
+
+ const paymentDetails = await Payment.find(filter)
+  .select("initiated_at req_id ho_approve_by ho_approve_at batch_id")
+  .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
+  .populate({
+    path: "req_id",
+    select: "reqNo product.name product.schemeId product.season",
+    match: {
+      ...(commodityName.length && {
+        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+      }),
+      ...(schemeIds.length && {
+        "product.schemeId": { $in: schemeIds },
+      }),
+      ...(sessionName.length && {
+        "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+      }),
+    },
+  })
+  .populate({
+    path: "batch_id",
+    select: "seller_id",
+    populate: {
+      path: "seller_id",
+      select: "address.registered.state",
+      match: stateName.length
+        ? {
+            "address.registered.state": {
+              $in: stateName.map(name => new RegExp(name, "i")),
+            },
+          }
+        : undefined,
+    },
+  })
+
+  .sort({ createdAt: -1 });
     // .populate({ path: "req_id", select: "reqNo" })
     // .sort({ createdAt: -1 })
     // .skip(skip)
@@ -540,7 +738,17 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
   try {
     const hoId = new mongoose.Types.ObjectId(req.portalId);
     const { user_id, portalId } = req;
-    const { commodityName, schemeName, dateRange } = req.query;
+    let { commodityName = [],
+    schemeName = [],
+    sessionName = [], dateRange } = req.query;
+
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
 
     // Step 1: Fetch all states from the only StateDistrictCity document
     const stateContainer = await StateDistrictCity.findOne().lean();
@@ -558,21 +766,14 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
     for (const state of stateContainer.states) {
       stateMap[state._id.toString()] = state.state_title;
     }
-    let scheme = null;
-    if (schemeName) {
-      scheme = await Scheme.findOne({ schemeName: { $regex: new RegExp(schemeName, "i") } })
-        .select("_id")
-        .lean();
+   let schemeIds = [];
+  if (schemeName.length) {
+    const schemes = await Scheme.find({
+      schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+    }).select("_id").lean();
+    schemeIds = schemes.map(s => s._id);
+  }
 
-      if (!scheme) {
-        return sendResponse({
-          res,
-          status: 200,
-          message: "Scheme not found",
-          data: { states: [], grandTotalQtyProcured: 0 },
-        });
-      }
-    }
 
     const paymentFilter = {
       ho_id: { $in: [user_id, portalId] },
@@ -598,13 +799,16 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
         path: "req_id",
         select: "product.name product.schemeId",
         match: {
-          ...(commodityName && {
-            "product.name": { $regex: new RegExp(commodityName, "i") },
-          }),
-          ...(scheme && {
-            "product.schemeId": scheme._id,
-          }),
-        },
+         ...(commodityName.length && {
+        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+      }),
+       ...(schemeIds.length && {
+          "product.schemeId": { $in: schemeIds },
+        }),
+     ...(sessionName.length && {
+          "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+        }),
+    },
       })
       .lean();
 
