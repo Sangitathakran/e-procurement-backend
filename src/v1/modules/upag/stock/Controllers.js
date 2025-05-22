@@ -17,27 +17,27 @@ module.exports.getStockData = async (req, res) => {
         const { startDate, endDate } = req.query;
 
         // Validate that startDate and endDate are provided
-        if (!startDate || !endDate) {
-            return res.status(400).json({ message: "startDate and endDate are required" });
-        }
+        // if (!startDate || !endDate) {
+        //     return res.status(400).json({ message: "startDate and endDate are required" });
+        // }
 
         // Parse the dates
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        // const start = new Date(startDate);
+        // const end = new Date(endDate);
 
         // Check for invalid dates
-        if (isNaN(start) || isNaN(end)) {
-            return res.status(400).json({ message: "Invalid date format" });
-        }
+        // if (isNaN(start) || isNaN(end)) {
+        //     return res.status(400).json({ message: "Invalid date format" });
+        // }
 
         // Calculate the difference in days
-        const diffTime = Math.abs(end - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        // const diffTime = Math.abs(end - start);
+        // const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         // Check if the difference exceeds 7 days
-        if (diffDays >= 7) {
-            return res.status(400).json({ message: "Date range should not exceed 7 days" });
-        }
+        // if (diffDays >= 7) {
+        //     return res.status(400).json({ message: "Date range should not exceed 7 days" });
+        // }
 
         const schemes = await Scheme.find().select('_id schemeId schemeName season period procurementDuration');
         if (!schemes || schemes.length === 0) {
