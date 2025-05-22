@@ -4786,20 +4786,20 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
 
     console.log("dateFilter",dateFilter);
 
-    // const paymentIds = await Payment.distinct("req_id",dateFilter);
-    // if (!paymentIds.length) {
-    //   return res.status(200).send(
-    //     new serviceResponse({
-    //       status: 200,
-    //       data: { count: 0, rows: [] },
-    //       message: "No payments found",
-    //     })
-    //   );
-    // }
-    const requestIds = await RequestModel.find(dateFilter).distinct("_id");
+    const paymentIds = await Payment.distinct("req_id");
+    if (!paymentIds.length) {
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: { count: 0, rows: [] },
+          message: "No payments found",
+        })
+      );
+    }
+    // const requestIds = await RequestModel.find(dateFilter).distinct("_id");
 
   //  console.log("paymentIds",paymentIds);
-    let query = { _id: { $in: requestIds } };
+    let query = { _id: { $in: paymentIds } };
     if (search) {
       query.$or = [
         { reqNo: { $regex: search, $options: "i" } },
@@ -4836,8 +4836,8 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
     const paginatedResults = [];
     let totalCount = 0;
 
-    for (let i = 0; i < requestIds.length; i += chunkSize) {
-      const chunk = requestIds.slice(i, i + chunkSize);
+    for (let i = 0; i < paymentIds.length; i += chunkSize) {
+      const chunk = paymentIds.slice(i, i + chunkSize);
 
       const chunkQuery = {
         ...query,
