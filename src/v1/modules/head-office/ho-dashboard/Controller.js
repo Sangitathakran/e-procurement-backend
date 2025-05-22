@@ -860,8 +860,11 @@ module.exports.stateWiseCommodityDetail = asyncErrorHandler(async (req, res) => 
 
 module.exports.getStateWiseCommodityStats = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+ 
     const data = await User.aggregate([
-      // JOIN associateoffers with users
       {
         $lookup: {
           from: 'associateoffers',
@@ -871,8 +874,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
         }
       },
       { $unwind: '$offers' },
-
-      // JOIN requests
+ 
       {
         $lookup: {
           from: 'requests',
@@ -882,8 +884,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
         }
       },
       { $unwind: '$request' },
-
-      // JOIN commodities
+ 
       {
         $lookup: {
           from: 'commodities',
@@ -893,8 +894,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
         }
       },
       { $unwind: '$commodity' },
-
-      // JOIN farmerorders using associateoffers._id
+ 
       {
         $lookup: {
           from: 'farmerorders',
@@ -904,8 +904,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
         }
       },
       { $unwind: { path: '$farmerOrders', preserveNullAndEmptyArrays: true } },
-
-      // JOIN farmers to get associate_id
+ 
       {
         $lookup: {
           from: 'farmers',
@@ -915,8 +914,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
         }
       },
       { $unwind: { path: '$farmerInfo', preserveNullAndEmptyArrays: true } },
-
-      // Prepare needed fields
+ 
       {
         $addFields: {
           farmerId: '$farmerOrders.farmer_id',
@@ -924,8 +922,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
           offeredQty: '$farmerOrders.offeredQty'
         }
       },
-
-      // Group by state + commodity
+ 
       {
         $group: {
           _id: {
@@ -940,41 +937,32 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
           allRegisteredPacs: { $addToSet: '$associateId' }
         }
       },
-
-      // Build commodity object
+ 
       {
         $project: {
           state: '$_id.state',
           commodity: {
             _id: '$_id.commodityId',
             name: '$_id.commodityName',
-            // totalOffers: '$totalOffers',
-            // totalFarmers: { $size: '$uniqueFarmers' },
             quantityPurchased: { $ifNull: ['$totalQtyPurchased', 0] },
             farmersBenefitted: {
-              $size: {
-                $setUnion: ['$allBenefittedFarmers', []]
-              }
+              $size: { $setUnion: ['$allBenefittedFarmers', []] }
             },
             registeredPacs: {
-              $size: {
-                $setUnion: ['$allRegisteredPacs', []]
-              }
+              $size: { $setUnion: ['$allRegisteredPacs', []] }
             }
           },
           _id: 0
         }
       },
-
-      // Group by state and push commodities
+ 
       {
         $group: {
           _id: '$state',
           commodities: { $push: '$commodity' }
         }
       },
-
-      // Final formatting
+ 
       {
         $project: {
           state: '$_id',
@@ -982,14 +970,37 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
           _id: 0
         }
       },
-
-      // Sort by state
+ 
+      { $sort: { state: 1 } },
+ 
+      // Pagination using $facet
       {
-        $sort: { state: 1 }
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [{ $skip: skip }, { $limit: limit }]
+        }
+      },
+ 
+      // Format final result
+      {
+        $unwind: "$metadata"
+      },
+      {
+        $project: {
+          total: "$metadata.total",
+          page: { $literal: page },
+          pageSize: { $literal: limit },
+          data: 1
+        }
       }
     ]);
-
-    res.status(200).json(data);
+ 
+    res.status(200).json(data[0] || {
+      total: 0,
+      page,
+      pageSize: limit,
+      data: []
+    });
   } catch (err) {
     console.error('Error generating stats:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
