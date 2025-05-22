@@ -800,8 +800,7 @@ module.exports.getStatewiseDistillerCount = async(req, res)=>{
 module.exports.getProcurmentCountDistiller = async (req, res) => {
 
   try {
-    const pipeline = [
-
+      const pipeline = [
       //if need procurment count for all commodity then comment below match
       {
         $match: {
@@ -829,7 +828,8 @@ module.exports.getProcurmentCountDistiller = async (req, res) => {
         },
       },
     ]
-     const statewiseData = await PurchaseOrderModel.aggregate(pipeline);
+
+    const statewiseData = await PurchaseOrderModel.aggregate(pipeline);
 
     //map results with state name
     const result = statewiseData.map((item) => ({
