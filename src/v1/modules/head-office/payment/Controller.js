@@ -5437,339 +5437,6 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
   }
 };
 
-// module.exports.exportFarmerPayments = async (req, res) => {
-//   try {
-//     let {
-//       page,
-//       limit,
-//       search = "",
-//       isExport = 0,
-//       payment_status,
-//       state = "",
-//       branch = "",
-//       schemeName = "",
-//       commodityName = "",
-//       paginate = 1,
-//     } = req.query;
-
-//     limit = parseInt(limit) || 10;
-//     page = parseInt(page) || 1;
-
-//     const { portalId, user_id } = req;
-
-//     const cacheKey = generateCacheKey("payment", {
-//       portalId,
-//       user_id,
-//       page,
-//       limit,
-//       search,
-//       payment_status,
-//       state,
-//       branch,
-//       schemeName,
-//       commodityName,
-//       paginate,
-//       isExport,
-//     });
-
-//     const cachedData = getCache(cacheKey);
-//     if (cachedData && isExport != 1) {
-//       return res.status(200).send(
-//         new serviceResponse({
-//           status: 200,
-//           data: cachedData,
-//           message: "Payments found (cached)",
-//         })
-//       );
-//     }
-
-//     const paymentIds = await Payment.distinct("req_id", {
-//       ho_id: { $in: [portalId, user_id] },
-//       bo_approve_status: _paymentApproval.approved,
-//     });
-
-//     let query = {
-//       _id: { $in: paymentIds },
-//     };
-
-//     if (search) {
-//       query.$or = [
-//         { reqNo: { $regex: search, $options: "i" } },
-//         { "product.name": { $regex: search, $options: "i" } },
-//       ];
-//     }
-
-//     const validStatuses = [
-//       _paymentstatus.pending,
-//       _paymentstatus.inProgress,
-//       _paymentstatus.failed,
-//       _paymentstatus.completed,
-//       _paymentstatus.rejected,
-//     ];
-
-//     if (payment_status && !validStatuses.includes(payment_status)) {
-//       return res.status(400).send(
-//         new serviceResponse({
-//           status: 400,
-//           message: `Invalid payment status. Valid statuses are: ${validStatuses.join(
-//             ", "
-//           )}`,
-//         })
-//       );
-//     }
-
-//     let paymentStatusCondition = payment_status;
-//     if (payment_status === "Failed" || payment_status === "Rejected") {
-//       paymentStatusCondition = "Failed";
-//     }
-
-//     const requests = await RequestModel.find(query)
-//       .select("_id reqNo product branch_id sla_id createdAt")
-//       .sort({ createdAt: -1 })
-//       .lean();
-//     const requestIds = requests.map((r) => r._id);
-
-//     // Fetch related documents
-//     const [batches, payments, branches, slas, schemes, commodities] =
-//       await Promise.all([
-//         Batch.find({ req_id: { $in: requestIds } })
-//           .select(
-//             "_id req_id qty totalPrice goodsPrice payement_approval_at bo_approve_status ho_approve_status batchId procurementCenter_id"
-//           )
-//           .lean(),
-//         Payment.find({ req_id: { $in: requestIds } })
-//           .select("batch_id req_id _id payment_status farmer_id transaction_id initiated_at")
-//           .lean(),
-//         Branches.find({}).select("_id branchName branchId state").lean(),
-//         SLAManagement.find({}).select("_id basic_details.name").lean(),
-//         Scheme.find({}).select("_id schemeName season period commodity_id").lean(),
-//         Commodity.find({}).select("_id name").lean(),
-//       ]);
-
-//     const farmerIds = [
-//       ...new Set(payments.map((p) => String(p.farmer_id)).filter(Boolean)),
-//     ];
-//     const procurementId = [
-//       ...new Set(
-//         batches.map((p) => String(p.procurementCenter_id)).filter(Boolean)
-//       ),
-//     ];
-//     const slaId = [...new Set(slas.map((p) => String(p._id)).filter(Boolean))];
-
-//     const [
-//       farmer_details,
-//       crop_detail,
-//       procurement_address,
-//       requestmodel_rate,
-//     ] = await Promise.all([
-//       farmer
-//         .find({ _id: { $in: farmerIds } })
-//         .select("address bank_details parents basic_details farmer_id")
-//         .lean(),
-//       Crop.find({ farmer_id: { $in: farmerIds } })
-//         .select("crop_name farmer_id")
-//         .lean(),
-//       ProcurementCenter.find({ _id: { $in: procurementId } })
-//         .select("address")
-//         .lean(),
-//       RequestModel.find({ sla_id: { $in: slaId } })
-//         .select("quotedPrice")
-//         .lean(),
-//     ]);
-
-//     const farmerDetailsMap = new Map(
-//       farmer_details.map((f) => [String(f._id), f])
-//     );
-//     const procurementAddressMap = new Map(
-//       procurement_address.map((p) => [String(p._id), p.address])
-//     );
-//     const rateMap = new Map(
-//       requestmodel_rate.map((r) => [String(r._id), r.quotedPrice])
-//     );
-
-//     const cropMap = new Map();
-//     for (const crop of crop_detail) {
-//       const farmerIdStr = String(crop.farmer_id);
-//       if (!cropMap.has(farmerIdStr)) cropMap.set(farmerIdStr, []);
-//       cropMap.get(farmerIdStr).push(crop.crop_name);
-//     }
-
-//     const batchMap = new Map();
-//     for (const batch of batches) {
-//       const reqIdStr = String(batch.req_id);
-//       if (!batchMap.has(reqIdStr)) batchMap.set(reqIdStr, []);
-//       batchMap.get(reqIdStr).push(batch);
-//     }
-
-//     const paymentMap = new Map();
-//     for (const p of payments) {
-//       const batchIdStr = String(p.batch_id);
-//       if (!paymentMap.has(batchIdStr)) paymentMap.set(batchIdStr, []);
-//       paymentMap.get(batchIdStr).push(p);
-//     }
-
-//     const branchMap = new Map(branches.map((b) => [String(b._id), b]));
-//     const slaMap = new Map(slas.map((s) => [String(s._id), s]));
-//     const schemeMap = new Map(schemes.map((s) => [String(s._id), s]));
-//     const commodityMap = new Map(commodities.map((c) => [String(c._id), c]));
-
-//     const enrichedRequests = [];
-
-//     for (const req of requests) {
-//       const reqIdStr = String(req._id);
-//       const reqBatches = batchMap.get(reqIdStr) || [];
-//       if (reqBatches.length === 0) continue;
-
-//       const enrichedBatches = reqBatches.map((batch) => {
-//         const batchPayments = (paymentMap.get(String(batch._id)) || []).map(
-//           (payment) => {
-//             const farmerIdStr = String(payment.farmer_id);
-//             const farmerInfo = { ...(farmerDetailsMap.get(farmerIdStr) || {}) };
-//             const cropNames = cropMap.get(farmerIdStr) || [];
-
-//             return {
-//               ...payment,
-//               farmer_details: farmerInfo,
-//               crop_names: cropNames.join(", "), // Directly joining crop names
-//             };
-//           }
-//         );
-
-//         const procurementAddr =
-//           procurementAddressMap.get(String(batch.procurementCenter_id)) || {};
-
-//         return {
-//           ...batch,
-//           payment: batchPayments,
-//           procurement_address: procurementAddr,
-//         };
-//       });
-
-//       const totalPaymentsForRequest = enrichedBatches.flatMap(
-//         (batch) => batch.payment
-//       );
-
-//       const branch = branchMap.get(String(req.branch_id));
-//       const sla = slaMap.get(String(req.sla_id));
-//       const scheme = schemeMap.get(String(req.product?.schemeId));
-//       const commodity = commodityMap.get(String(scheme?.commodity_id));
-
-//       const schemeName = `${scheme?.schemeName || ""} ${
-//         commodity?.name || ""
-//       } ${scheme?.season || ""} ${scheme?.period || ""}`.trim();
-
-//       const firstProcurementAddr =
-//         enrichedBatches[0]?.procurement_address || {};
-//       const batch_payment = enrichedBatches[0]?.payment || {};
-//       const firstFarmer = enrichedBatches[0]?.payment?.[0]?.farmer_details || {};
-
-//       enrichedRequests.push({
-//         _id: req._id,
-//         reqNo: req.reqNo,
-//         product: req.product,
-//         qtyPurchased: enrichedBatches.reduce((sum, b) => sum + (b.qty || 0), 0),
-//         amountPayable: enrichedBatches.reduce(
-//           (sum, b) => sum + (b.totalPrice || 0),
-//           0
-//         ),
-//         amountPaid: enrichedBatches.reduce(
-//           (sum, b) => sum + (b.goodsPrice || 0),
-//           0
-//         ),
-//         approval_date: enrichedBatches[0]?.payement_approval_at || null,
-//         approval_status: "Approved",
-//         payment_status: payment_status || _paymentstatus.pending,
-//         branchDetails: {
-//           branchName: branch?.branchName || "",
-//           branchId: branch?.branchId || "",
-//           state: branch?.state || "",
-//         },
-//         sla: {
-//           basic_details: {
-//             name: sla?.basic_details?.name || "",
-//           },
-//         },
-//         scheme: {
-//           schemeName,
-//         },
-//         batch_payments: batch_payment,
-//         farmer_details: firstFarmer,
-//         procurement_address: firstProcurementAddr,
-//         quotedPrice: rateMap.get(String(req._id)) || null,
-//         payments: totalPaymentsForRequest,
-//       });
-//     }
-
-//     const total = enrichedRequests.length;
-
-//     const response = {
-//       count: total,
-//       rows: enrichedRequests,
-//       page: page,
-//       limit: limit,
-//       pages: Math.ceil(total / limit),
-//     };
-
-//     if (isExport != 1) {
-//       setCache(cacheKey, response, 300); // 5 mins
-//     }
-
-//     if (isExport == 1) {
-//       const record = response.rows.map((item) => {
-
-//       const paymentReferences = item?.payments?.map(payment => payment?._id || payment?.transaction_id).join(", ");
-//         return {
-//           "Order ID": item?.reqNo || "NA",
-//           "BRANCH ID": item?.branchDetails?.branchId || "NA",
-//           "Farmer ID": item?.farmer_details?.farmer_id || "NA",
-//           "Branch name": item?.branchDetails?.branchName || "NA",
-//           "SLA": item?.slaName || "NA",
-//           "Procurement center": item?.procurement_address?.line1 || "NA",
-//           "Farmer Name": item?.farmer_details?.basic_details?.name || "NA",
-//           "Father Name": item?.farmer_details?.parents?.father_name || "NA",
-//           "Address": item?.farmer_details?.address?.address_line_1 || "NA",
-//           "Crop Name": item?.crop_names || "NA",
-//           "Quantity in MT": item?.product?.quantity || "NA",
-//           "Rate (MSP)": item?.quotedPrice || "NA",
-//           "TOTAL AMOUNT": item?.amountPaid || "NA",
-//           "Bank Name": item?.farmer_details?.bank_details?.bank_name || "NA",
-//           "Branch name": item?.farmer_details?.bank_details?.branch_name || "NA",
-//           "Account No.": item?.farmer_details?.bank_details?.account_no || "NA",
-//           "IFSC": item?.farmer_details?.bank_details?.ifsc_code || "NA",
-//           "Reference ID / UTR No.": paymentReferences  || "NA",
-//           "Payment Status": item?.payment_status || "NA",
-//         };
-//       });
-
-//       if (record.length > 0) {
-//         dumpJSONToExcel(req, res, {
-//           data: record,
-//           fileName: `Farmer-Payment-records.xlsx`,
-//           worksheetName: `Farmer-Payment-records`,
-//         });
-//       } else {
-//         return res.status(400).send(
-//           new serviceResponse({
-//             status: 400,
-//             data: response,
-//             message: "No payments found",
-//           })
-//         );
-//       }
-//     } else {
-//       return res.status(200).send(
-//         new serviceResponse({
-//           status: 200,
-//           data: response,
-//           message: "Payments found",
-//         })
-//       );
-//     }
-//   } catch (error) {
-//     _handleCatchErrors(error, res);
-//   }
-// };
-
 module.exports.exportFarmerPayments = async (req, res) => {
   try {
     let {
@@ -5783,26 +5450,15 @@ module.exports.exportFarmerPayments = async (req, res) => {
       schemeName = "",
       commodityName = "",
       paginate = 1,
-      isExportType = "",
+      dateFilterType = "",
+      startDate,
+      endDate,
     } = req.query;
 
     limit = parseInt(limit) || 10;
     page = parseInt(page) || 1;
 
     const { portalId, user_id } = req;
-    let paymentFilter = {};
-
-    //  if (isExport == 1 && ( endDate || startDate )) {
-    // const start = new Date(currentDate);
-    // const end = new Date(lastDate);
-    // end.setHours(23, 59, 59, 999); // Include full last date
-
-    // // Apply on enrichedRequests after it's built
-    // enrichedRequests = enrichedRequests.filter((req) => {
-    //   const approvalDate = new Date(req.approval_date || req.createdAt || null);
-    //   return approvalDate >= start && approvalDate <= end;
-    // });
-    //    }
 
     const cacheKey = generateCacheKey("payment", {
       portalId,
@@ -5817,7 +5473,9 @@ module.exports.exportFarmerPayments = async (req, res) => {
       commodityName,
       paginate,
       isExport,
-      isExportType,
+      dateFilterType,
+      startDate,
+      endDate,
     });
 
     const cachedData = getCache(cacheKey);
@@ -5831,6 +5489,83 @@ module.exports.exportFarmerPayments = async (req, res) => {
       );
     }
 
+    // Ensure indexes (if not already present, ideally done at setup)
+    await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
+    await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
+    await Batch.createIndexes({ req_id: 1 });
+    await Payment.createIndexes({ batch_id: 1 });
+    await Branches.createIndexes({ _id: 1 });
+
+    const today = new Date();
+    let dateFilter = {};
+
+    switch (dateFilterType) {
+      case "lastMonth":
+        const startOfLastMonth = new Date(
+          today.getFullYear(),
+          today.getMonth() - 1,
+          1
+        );
+        const endOfLastMonth = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          0
+        );
+        dateFilter = {
+          $gte: startOfLastMonth,
+          $lte: endOfLastMonth,
+        };
+        break;
+
+      case "currentMonth":
+        const startOfCurrentMonth = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          1
+        );
+        dateFilter = {
+          $gte: startOfCurrentMonth,
+          $lte: today,
+        };
+        break;
+
+      case "last3Months":
+        const threeMonthsAgo = new Date(
+          today.getFullYear(),
+          today.getMonth() - 3,
+          1
+        );
+        dateFilter = {
+          $gte: threeMonthsAgo,
+          $lte: today,
+        };
+        break;
+
+      case "last6Months":
+        const sixMonthsAgo = new Date(
+          today.getFullYear(),
+          today.getMonth() - 6,
+          1
+        );
+        dateFilter = {
+          $gte: sixMonthsAgo,
+          $lte: today,
+        };
+        break;
+
+      case "custom":
+        if (startDate && endDate) {
+          dateFilter = {
+            $gte: new Date(startDate),
+            $lte: new Date(endDate),
+          };
+        }
+        break;
+
+      default:
+        break;
+    }
+
     const paymentIds = await Payment.distinct("req_id", {
       ho_id: { $in: [portalId, user_id] },
       bo_approve_status: _paymentApproval.approved,
@@ -5839,6 +5574,10 @@ module.exports.exportFarmerPayments = async (req, res) => {
     let query = {
       _id: { $in: paymentIds },
     };
+
+    if (Object.keys(dateFilter).length) {
+      query.createdAt = dateFilter;
+    }
 
     if (search) {
       query.$or = [
@@ -5871,310 +5610,339 @@ module.exports.exportFarmerPayments = async (req, res) => {
       paymentStatusCondition = "Failed";
     }
 
-    const requests = await RequestModel.find(query)
-      .select("_id reqNo product branch_id sla_id createdAt")
-      .sort({ createdAt: -1 })
-      .lean();
-    const requestIds = requests.map((r) => r._id);
+    const aggregationPipeline = [
+      { $match: query },
+      { $sort: { createdAt: -1 } },
 
-    // Fetch related documents
-    const [batches, payments, branches, slas, schemes, commodities] =
-      await Promise.all([
-        Batch.find({ req_id: { $in: requestIds } })
-          .select(
-            "_id req_id qty totalPrice goodsPrice payement_approval_at bo_approve_status ho_approve_status batchId procurementCenter_id"
-          )
-          .lean(),
-        Payment.find(paymentFilter)
-          .select(
-            "batch_id payment_status farmer_id transaction_id initiated_at updatedAt"
-          )
-          .lean(),
-        Payment.find({})
-          .select(
-            "batch_id payment_status farmer_id transaction_id initiated_at"
-          )
-          .lean(),
-        Branches.find({}).select("_id branchName branchId state").lean(),
-        SLAManagement.find({}).select("_id basic_details.name").lean(),
-        Scheme.find({})
-          .select("_id schemeName season period commodity_id")
-          .lean(),
-        Commodity.find({}).select("_id name").lean(),
-      ]);
-
-    const farmerIds = [
-      ...new Set(payments.map((p) => String(p.farmer_id)).filter(Boolean)),
-    ];
-    const procurementId = [
-      ...new Set(
-        batches.map((p) => String(p.procurementCenter_id)).filter(Boolean)
-      ),
-    ];
-    const slaId = [...new Set(slas.map((p) => String(p._id)).filter(Boolean))];
-    const [
-      farmer_details,
-      crop_detail,
-      procurement_address,
-      requestmodel_rate,
-    ] = await Promise.all([
-      farmer
-        .find({ _id: { $in: farmerIds } })
-        .select("address bank_details parents basic_details farmer_id")
-        .lean(),
-      Crop.find({ farmer_id: { $in: farmerIds } })
-        .select("crop_name farmer_id")
-        .lean(),
-      ProcurementCenter.find({ _id: { $in: procurementId } })
-        .select("address")
-        .lean(),
-      RequestModel.find({ sla_id: { $in: slaId } })
-        .select("quotedPrice")
-        .lean(),
-    ]);
-    // console.log("crop_detail",crop_detail);
-    const farmerDetailsMap = new Map(
-      farmer_details.map((f) => [String(f._id), f])
-    );
-    const procurementAddressMap = new Map(
-      procurement_address.map((p) => [String(p._id), p.address])
-    );
-    const rateMap = new Map(
-      requestmodel_rate.map((r) => [String(r._id), r.quotedPrice])
-    );
-
-    const cropMap = new Map();
-    for (const crop of crop_detail) {
-      const farmerIdStr = String(crop.farmer_id);
-      if (!cropMap.has(farmerIdStr)) cropMap.set(farmerIdStr, []);
-      cropMap.get(farmerIdStr).push(crop.crop_name);
-    }
-
-    const batchMap = new Map();
-    for (const batch of batches) {
-      const reqIdStr = String(batch.req_id);
-      if (!batchMap.has(reqIdStr)) batchMap.set(reqIdStr, []);
-      batchMap.get(reqIdStr).push(batch);
-    }
-
-    const paymentMap = new Map();
-    for (const p of payments) {
-      const batchIdStr = String(p.batch_id);
-      if (!paymentMap.has(batchIdStr)) paymentMap.set(batchIdStr, []);
-      paymentMap.get(batchIdStr).push(p);
-    }
-
-    const branchMap = new Map(branches.map((b) => [String(b._id), b]));
-    const slaMap = new Map(slas.map((s) => [String(s._id), s]));
-    const schemeMap = new Map(schemes.map((s) => [String(s._id), s]));
-    const commodityMap = new Map(commodities.map((c) => [String(c._id), c]));
-
-    const enrichedRequests = [];
-
-    for (const req of requests) {
-      const reqIdStr = String(req._id);
-      const reqBatches = batchMap.get(reqIdStr) || [];
-      if (reqBatches.length === 0) continue;
-      const enrichedBatches = reqBatches.map((batch) => {
-        const batchPayments = (paymentMap.get(String(batch._id)) || []).map(
-          (payment) => {
-            const farmerIdStr = String(payment.farmer_id);
-            const farmerInfo = { ...(farmerDetailsMap.get(farmerIdStr) || {}) };
-            // const farmerIdStr = String(firstFarmer._id || "");
-            const cropNames = cropMap.get(farmerIdStr) || [];
-
-            return {
-              ...payment,
-              farmer_details: farmerInfo,
-            };
-          }
-        );
-        const procurementAddr =
-          procurementAddressMap.get(String(batch.procurementCenter_id)) || {};
-
-        return {
-          ...batch,
-          payment: batchPayments,
-          procurement_address: procurementAddr,
-        };
-      });
-
-      // Check approval status and payment_status
-        const allApproved = enrichedBatches.every(
-        (b) =>
-          b.bo_approve_status === _paymentApproval.approved &&
-          b.ho_approve_status === _paymentApproval.approved &&
-          b.payment.some(
-            (p) =>
-              p.payment_status ===
-              (paymentStatusCondition || _paymentstatus.pending)
-          )
-      );
-      if (!allApproved) continue;
-
-      const branch = branchMap.get(String(req.branch_id));
-      const sla = slaMap.get(String(req.sla_id));
-      const scheme = schemeMap.get(String(req.product?.schemeId));
-      const commodity = commodityMap.get(String(scheme?.commodity_id));
-
-      const schemeName = `${scheme?.schemeName || ""} ${
-        commodity?.name || ""
-      } ${scheme?.season || ""} ${scheme?.period || ""}`.trim();
-      const firstProcurementAddr =
-        enrichedBatches[0]?.procurement_address || {};
-      const batch_payment = enrichedBatches[0]?.payment || {};
-      const firstFarmer =
-        enrichedBatches[0]?.payment?.[0]?.farmer_details || {};
-      const farmerIdStr = String(firstFarmer._id || "");
-      const cropNames = cropMap.get(farmerIdStr) || [];
-
-      enrichedRequests.push({
-        _id: req._id,
-        reqNo: req.reqNo,
-        product: req.product,
-        qtyPurchased: enrichedBatches.reduce((sum, b) => sum + (b.qty || 0), 0),
-        amountPayable: enrichedBatches.reduce(
-          (sum, b) => sum + (b.totalPrice || 0),
-          0
-        ),
-        amountPaid: enrichedBatches.reduce(
-          (sum, b) => sum + (b.goodsPrice || 0),
-          0
-        ),
-        approval_date: enrichedBatches[0]?.payement_approval_at || null,
-        approval_status: "Approved",
-        payment_status: payment_status || _paymentstatus.pending,
-        branchDetails: {
-          branchName: branch?.branchName || "",
-          branchId: branch?.branchId || "",
-          state: branch?.state || "",
+      {
+        $lookup: {
+          from: "batches",
+          localField: "_id",
+          foreignField: "req_id",
+          as: "batches",
+          pipeline: [
+            {
+              $lookup: {
+                from: "payments",
+                localField: "_id",
+                foreignField: "batch_id",
+                as: "payment",
+                pipeline: [
+                  {
+                    $lookup: {
+                      from: "farmers",
+                      localField: "farmer_id",
+                      foreignField: "_id",
+                      as: "farmerDetails",
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 1,
+                      batch_id: 1,
+                      payment_status: 1,
+                      farmer_id: 1,
+                      farmerDetails: { $arrayElemAt: ["$farmerDetails", 0] },
+                    },
+                  },
+                ],
+              },
+            },
+            {
+              $lookup: {
+                from: "procurementcenters",
+                localField: "procurementCenter_id",
+                foreignField: "_id",
+                as: "procurementCenter",
+              },
+            },
+            {
+              $unwind: {
+                path: "$procurementCenter",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+            {
+              $lookup: {
+                from: "requests",
+                localField: "req_id",
+                foreignField: "_id",
+                as: "request",
+              },
+            },
+            {
+              $unwind: {
+                path: "$request",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+            {
+              $lookup: {
+                from: "crops",
+                let: { farmerIds: "$payment.farmer_id" },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $in: ["$farmer_id", "$$farmerIds"] },
+                    },
+                  },
+                  {
+                    $project: {
+                      _id: 1,
+                      farmer_id: 1,
+                      crop_name: 1,
+                      season: 1,
+                      year: 1,
+                    },
+                  },
+                ],
+                as: "crops",
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                qty: 1,
+                totalPrice: 1,
+                goodsPrice: 1,
+                payement_approval_at: 1,
+                bo_approve_status: 1,
+                ho_approve_status: 1,
+                req_id: 1,
+                procurementCenter: 1,
+                request: 1,
+                payment: 1,
+                crops: 1,
+              },
+            },
+          ],
         },
-        sla: {
-          basic_details: {
-            name: sla?.basic_details?.name || "",
+      },
+
+      {
+        $lookup: {
+          from: "branches",
+          localField: "branch_id",
+          foreignField: "_id",
+          as: "branchDetails",
+        },
+      },
+      {
+        $addFields: {
+          branchDetails: {
+            branchName: { $arrayElemAt: ["$branchDetails.branchName", 0] },
+            branchId: { $arrayElemAt: ["$branchDetails.branchId", 0] },
+            state: { $arrayElemAt: ["$branchDetails.state", 0] },
           },
         },
-        scheme: {
-          schemeName,
+      },
+      {
+        $lookup: {
+          from: "slas",
+          localField: "sla_id",
+          foreignField: "_id",
+          as: "sla",
         },
-        batch_payments: batch_payment,
-        farmer_details: firstFarmer,
-        crop_names: cropNames.join(", "),
-        procurement_address: firstProcurementAddr,
-        quotedPrice: rateMap.get(String(req._id)) || null,
+      },
+      { $unwind: { path: "$sla", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "schemes",
+          localField: "product.schemeId",
+          foreignField: "_id",
+          as: "scheme",
+        },
+      },
+      { $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "commodities",
+          localField: "scheme.commodity_id",
+          foreignField: "_id",
+          as: "commodityDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$commodityDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $match: {
+          batches: { $ne: [] },
+          "batches.bo_approve_status": _paymentApproval.approved,
+          "batches.ho_approve_status": _paymentApproval.approved,
+          "batches.payment.payment_status":
+            paymentStatusCondition || _paymentstatus.pending,
+        },
+      },
+      {
+        $addFields: {
+          qtyPurchased: { $sum: "$batches.qty" },
+          amountPayable: { $sum: "$batches.totalPrice" },
+          amountPaid: { $sum: "$batches.goodsPrice" },
+          approval_date: { $arrayElemAt: ["$batches.payement_approval_at", 0] },
+          approval_status: "Approved",
+          payment_status: payment_status || _paymentstatus.pending,
+          schemeName: {
+            $concat: [
+              "$scheme.schemeName",
+              " ",
+              { $ifNull: ["$commodityDetails.name", " "] },
+              " ",
+              { $ifNull: ["$scheme.season", " "] },
+              " ",
+              { $ifNull: ["$scheme.period", " "] },
+            ],
+          },
+        },
+      },
+    ];
+
+    // Apply filters on already aggregated data
+    if (state || commodityName || schemeName || branch) {
+      aggregationPipeline.push({
+        $match: {
+          $and: [
+            ...(state
+              ? [{ "branchDetails.state": { $regex: state, $options: "i" } }]
+              : []),
+            ...(commodityName
+              ? [
+                  {
+                    "product.name": {
+                      $regex: escapeRegex(commodityName),
+                      $options: "i",
+                    },
+                  },
+                ]
+              : []),
+            ...(schemeName
+              ? [{ schemeName: { $regex: schemeName, $options: "i" } }]
+              : []),
+            ...(branch
+              ? [
+                  {
+                    "branchDetails.branchName": {
+                      $regex: branch,
+                      $options: "i",
+                    },
+                  },
+                ]
+              : []),
+          ],
+        },
       });
     }
 
-    // Apply filters on enriched data (like $match after $addFields)
-    // const filtered = enrichedRequests.filter((req) => {
-    //   if (state && !new RegExp(state, "i").test(req.branchDetails.state))
-    //     return false;
-    //   if (
-    //     commodityName &&
-    //     !new RegExp(commodityName, "i").test(req.product?.name || "")
-    //   )
-    //     return false;
-    //   if (
-    //     schemeName &&
-    //     !new RegExp(schemeName, "i").test(req.scheme.schemeName || "")
-    //   )
-    //     return false;
-    //   if (
-    //     branch &&
-    //     !new RegExp(branch, "i").test(req.branchDetails.branchName || "")
-    //   )
-    //     return false;
-    //   return true;
-    // });
+    aggregationPipeline.push(
+      {
+        $project: {
+          _id: 1,
+          reqNo: 1,
+          product: 1,
+          batches: 1,
+          qtyPurchased: 1,
+          amountPayable: 1,
+          amountPaid: 1,
+          approval_status: 1,
+          payment_status: 1,
+          "branchDetails.branchName": 1,
+          "branchDetails.branchId": 1,
+          "sla.basic_details.name": 1,
+          "scheme.schemeName": "$schemeName",
+          approval_date: 1,
+          createdAt: 1,
+        },
+      },
+      { $skip: (page - 1) * limit },
+      { $limit: limit }
+    );
 
-    // Pagination
-    const total = enrichedRequests.length;
-    // const paginated = filtered.slice((page - 1) * limit, page * limit);
-    // let paginated = filtered;
-    // if (isExport != 1 && paginate == 1) {
-    //  paginated = filtered.slice((page - 1) * limit, page * limit);
-    //  }
+    let response = { count: 0 };
+    response.rows = await RequestModel.aggregate(aggregationPipeline);
 
-    // let paginated = [];
-    //  if (isExport != 1 && paginate == 1) {
-    //   paginated = filtered.slice((page - 1) * limit, page * limit);
-    // } else {
-    //   paginated = filtered;
-    //  }
-
-    const response = {
-      count: total,
-      rows: enrichedRequests,
-      page: page,
-      limit: limit,
-      pages: Math.ceil(total / limit),
-    };
-
+    const countResult = await RequestModel.aggregate([
+      ...aggregationPipeline.slice(0, -2),
+      { $count: "count" },
+    ]);
+    response.count = countResult?.[0]?.count ?? 0;
     if (isExport != 1) {
       setCache(cacheKey, response, 300); // 5 mins
     }
+
     if (isExport == 1) {
-      let start, end;
-      const now = new Date();
+      const record = [];
 
-      switch (isExportType) {
-        case "lastMonth":
-          start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          end = new Date(now.getFullYear(), now.getMonth(), 0);
-          break;
-        case "currentMonth":
-          start = new Date(now.getFullYear(), now.getMonth(), 1);
-          end = new Date();
-          break;
-        case "last3Months":
-          start = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-          end = new Date();
-          break;
-        case "last6Months":
-          start = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-          end = new Date();
-          break;
-        case "customRange":
-          if (req.query.startDate && req.query.endDate) {
-            start = new Date(req.query.startDate);
-            end = new Date(req.query.endDate);
-          }
-          break;
-      }
+      response.rows.forEach((item) => {
+        const request = item;
+        const product = item.product;
+        const branch = item.branchDetails?.[0] || {};
+        const schemeName = item.scheme?.schemeName || "NA";
 
-      // Ensure end date includes full day
-      if (end) end.setHours(23, 59, 59, 999);
+        item.batches.forEach((batch) => {
+          const procurementCenter = batch.procurementCenter?.address || {};
+          const crops = batch.crops || [];
+          const request = batch.request || [];
 
-      if (start && end) {
-        response.rows = response.rows.filter((req) => {
-          if (!req.approval_date) return false;
-          const approvalDate = new Date(req.approval_date);
-          return approvalDate >= start && approvalDate <= end;
+          batch.payment.forEach((payment) => {
+            const farmer = payment.farmerDetails || {};
+            const address = farmer.address || {};
+            const bank = farmer.bank_details || {};
+            const basic = farmer.basic_details || {};
+            const parents = farmer.parents || {};
+
+            const farmerCropNames = crops
+              .filter((c) => String(c.farmer_id) === String(farmer._id))
+              .map((c) => c.crop_name)
+              .join(", ");
+
+            record.push({
+              "Order ID": request.reqNo || "NA",
+              "BRANCH ID": branch.branchId || "NA",
+              "Farmer ID": farmer.farmer_id || "NA",
+              "Branch name": branch.branchName || "NA",
+              "SLA ": item.sla || "NA",
+              "Procurement center":
+                [
+                  procurementCenter?.line1,
+                  procurementCenter?.line2,
+                  procurementCenter?.city,
+                  procurementCenter?.district,
+                  procurementCenter?.state,
+                  procurementCenter?.country,
+                  procurementCenter?.postalCode,
+                ]
+                  .filter(Boolean)
+                  .join(", ") || "NA",
+              "Farmer Name": farmer.name || "NA",
+              "Father Name": parents.father_name || "NA",
+              Address: [
+                address.village,
+                address.block,
+                address.country,
+                address.pin_code,
+              ]
+                .filter(Boolean)
+                .join(", "),
+              "Crop Name": farmerCropNames || "NA",
+              "Quantity in MT": product.quantity || batch.qty || "NA",
+              "Rate (MSP)": request.quotedPrice || "NA",
+              "TOTAL AMOUNT": batch.goodsPrice || "NA",
+              "Bank Name": bank.bank_name || "NA",
+              "Branch name ": bank.branch_name || "NA",
+              "Account No.": bank.account_no || "NA",
+              IFSC: bank.ifsc_code || "NA",
+              "Reference ID / UTR No.": payment._id?.toString() || "NA",
+              "Payment Status": payment.payment_status || "NA",
+              "Approval Date": batch.payement_approval_at || "NA",
+              "Created At": request.createdAt || "NA",
+            });
+          });
         });
-      }
+      });
 
-      const record = response.rows.map((item) => ({
-        "Order ID": item?.reqNo || "NA",
-        "BRANCH ID": item?.branchDetails?.branchId || "NA",
-        "Farmer ID": item?.farmer_details?.farmer_id || "NA",
-        "Branch name": item?.branchDetails?.branchName || "NA",
-        " SLA ": item?.slaName || "NA",
-        "Procurement center": item?.procurement_address?.line1 || "NA",
-        "Farmer Name": item?.farmer_details?.basic_details?.name || "NA",
-        "Father Name": item?.farmer_details?.parents?.father_name || "NA",
-        "Address ": item?.farmer_details?.address?.address_line_1 || "NA",
-        "Crop Name": item?.crop_names || "NA",
-        "Quantity in MT": item?.product?.quantity || "NA",
-        "Rate (MSP)": item?.quotedPrice || "NA",
-        "TOTAL AMOUNT": item?.amountPaid || "NA",
-        "Bank Name": item?.farmer_details?.bank_details?.bank_name || "NA",
-        "Branch name ": item?.farmer_details?.bank_details?.branch_name || "NA",
-        "Account No.": item?.farmer_details?.bank_details?.account_no || "NA",
-        IFSC: item?.farmer_details?.bank_details?.ifsc_code || "NA",
-        "Reference ID / UTR No.": item?.batch_payments?.transaction_id || "NA",
-        "Payment Status": item?.payment_status || "NA",
-        "Approval Data": item?.approval_date || "NA",
-      }));
       if (record.length > 0) {
         dumpJSONToExcel(req, res, {
           data: record,
@@ -6182,18 +5950,24 @@ module.exports.exportFarmerPayments = async (req, res) => {
           worksheetName: `Farmer-Payment-records`,
         });
       } else {
-        return res.status(200).send(
+        return res.status(400).send(
           new serviceResponse({
-            status: 200,
+            status: 400,
+            data: response,
             message: "No payments found",
           })
         );
       }
+    } else {
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: response,
+          message: "Payments found",
+        })
+      );
     }
-   
   } catch (error) {
     _handleCatchErrors(error, res);
   }
 };
-
-
