@@ -5856,8 +5856,8 @@ module.exports.exportFarmerPayments = async (req, res) => {
           createdAt: 1,
         },
       },
-      { $skip: (page - 1) * limit },
-      { $limit: limit }
+      // { $skip: (page - 1) * limit },
+      // { $limit: limit }
     );
 
     let response = { count: 0 };
@@ -5937,7 +5937,7 @@ module.exports.exportFarmerPayments = async (req, res) => {
               "Reference ID / UTR No.": payment._id?.toString() || "NA",
               "Payment Status": payment.payment_status || "NA",
               "Approval Date": batch.payement_approval_at || "NA",
-              "Created At": request.createdAt || "NA",
+              // "Created At": request.createdAt || "NA",
             });
           });
         });
@@ -5950,7 +5950,7 @@ module.exports.exportFarmerPayments = async (req, res) => {
           worksheetName: `Farmer-Payment-records`,
         });
       } else {
-        return res.status(400).send(
+        return res.status(200).send(
           new serviceResponse({
             status: 400,
             data: response,
