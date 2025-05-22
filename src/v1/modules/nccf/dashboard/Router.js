@@ -7,7 +7,8 @@ const {
   getMonthlyPaidAmount,
   getPublicStates,
   getPublicDistrictByState,
-  getCompanyNames
+  getCompanyNames,
+  getStatewiseDistillerCount
 } = require("./Controller");
 const express = require("express");
 const { Auth } = require("@src/v1/middlewares/jwt");
@@ -23,5 +24,6 @@ nccfDashboardRoutes.get("/companyNames", Auth, getCompanyNames);
 nccfDashboardRoutes.get("/payment-disteller", Auth, getMonthlyPaidAmount);
 nccfDashboardRoutes.get("/global-states", getPublicStates);
 nccfDashboardRoutes.get("/global-district/:id", getPublicDistrictByState);
+nccfDashboardRoutes.get("/distiller-count-statewise", getStatewiseDistillerCount)
 
 module.exports = { nccfDashboardRoutes };

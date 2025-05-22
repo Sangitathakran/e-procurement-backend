@@ -227,6 +227,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
 
 
+
 module.exports.getonBoardingRequests = asyncErrorHandler(async (req, res) => {
   try {
     const page = 1,
@@ -753,6 +754,46 @@ module.exports.getPublicDistrictByState = async (req, res) => {
   }
 };
 
+module.exports.getStatewiseDistillerCount = async(req, res)=>{
+  try{
+      const StateWiseDistiller = await Distiller.aggregate([
+        {
+          $match: {
+            "address.registered.state" : {$ne : null}
+          }
+        },
+        {
+          $group:{
+            _id:"$address.registered.state",
+            count : {$sum:1}
+          }
+        },
+        {
+          $project : {
+            _id: 0,
+            state:"$_id",
+            count:1,
+          }
+        }
+      ])
+
+      const totalState = StateWiseDistiller.reduce(
+        (sum, state)=>sum+state.count,
+        0
+      );
+
+      return sendResponse({
+        res,
+        status:200,
+        data:{ stateWiseCount:StateWiseDistiller, totalState},
+        message: _response_message.found("All distiller count fetch successfully"),
+      })
+
+  }catch (error) {
+      console.log("error", error);
+      _handleCatchErrors(error, res);
+    }
+}
 
 
 
