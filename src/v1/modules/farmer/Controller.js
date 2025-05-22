@@ -1848,11 +1848,16 @@ module.exports.exportFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = '-createdAt', search = '', isExport = 0 } = req.query;
     const { user_id, user_type } = req;
+    const { isLocalFarmer } = req.query;
 
     let query = {};
     if (user_id && user_type === _userType.associate) {
       query.associate_id = new ObjectId(user_id);
     }
+    else if (isLocalFarmer == 1) {
+     query.associate_id = { $eq: null };
+       }
+       
     let aggregationPipeline = [
       { $match: query },
       { $unwind: { path: '$address.state_id', preserveNullAndEmptyArrays: true } },

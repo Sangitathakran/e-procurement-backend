@@ -1449,7 +1449,7 @@ module.exports.proceedToPayAssociateTabBatchList = async (req, res) => {
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
-        console.log('query', query);
+        // console.log('query', query);
 
         const records = { count: 0 };
 
@@ -2347,7 +2347,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
         let response = { count: 0 };
         response.rows = await RequestModel.aggregate(aggregationPipeline);
-        console.log('>>>>>>>>>>>>>>>>>>>', response.rows.length);
+        // console.log('>>>>>>>>>>>>>>>>>>>', response.rows.length);
 
         const countResult = await RequestModel.aggregate([...aggregationPipeline.slice(0, -2), { $count: "count" }]);
         response.count = countResult?.[0]?.count ?? 0;
@@ -2517,21 +2517,34 @@ module.exports.proceedToPayBatchList = async (req, res) => {
 
         records.count = await Batch.countDocuments(query);
 
-        if (paginate == 1) {
+        if (paginate == 1 && isExport == 0 ) {
             records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
+       
+          if (isExport != 1) {
+          const plainRecords = JSON.parse(JSON.stringify(records));
+          setCache(cacheKey, plainRecords);
+        }
+        
+        
         if (isExport == 1) {
-
-            const record = records.rows.map((item) => {
+  
+            const record = records?.rows.map((item) => {
 
                 return {
-                    "Associate Id": item?.seller_id.user_code || "NA",
-                    "Associate Type": item?.seller_id.basic_details.associate_details.associate_type || "NA",
-                    "Associate Name": item?.seller_id.basic_details.associate_details.associate_name || "NA",
-                    "Quantity Purchased": item?.offeredQty || "NA",
+                    "BATCH ID": item?.batchId || "NA",
+                    "Associate Name": item?.associateName || "NA",
+                    "PROCURED ON": item?.procuredOn || "NA",
+                    "DELIVERY DATE": item?.deliveryDate || "NA",
+                    "QUANTITY PURCHASED	": item?.qtyPurchased || "NA",
+                    "AMOUNT PAYABLE": item?.amountPayable || "NA",
+                    "WHR NO": item?.wh_no || "NA",
+                    "TAGS": item?.tags || "NA",
+                    "APPROVAL PAYABLE": item?.amountProposed || "NA",
+                    "PAYMENT STATUS	": item?.approval_status || "NA",
                 }
             })
 
@@ -2546,13 +2559,15 @@ module.exports.proceedToPayBatchList = async (req, res) => {
                 return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }))
             }
         }
+        else {
+              return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        }
 
           // Save to cache (only if not export)
-    if (isExport != 1) {
-          const plainRecords = JSON.parse(JSON.stringify(records));
-      setCache(cacheKey, plainRecords);
-    }
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }))
+        
+    
+        // 
+       
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -3861,7 +3876,9 @@ module.exports.proceedToPayPaymentNew = async (req, res) => {
                 {
                   $project: {
                     _id: 1,
-                    schemeName: 1
+                    schemeName: 1,
+                    season :1 ,
+                    period : 1,
                   }
                 }
               ],
@@ -3869,6 +3886,20 @@ module.exports.proceedToPayPaymentNew = async (req, res) => {
             }
           },
           { $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true } },
+            {
+           $lookup: {
+            from: "commodities",
+           localField: "product.commodity_id",
+           foreignField: "_id",
+           as: "commodityDetails",
+            },
+           },
+          {
+           $unwind: {
+             path: "$commodityDetails",
+             preserveNullAndEmptyArrays: true,
+           },
+           },
           {
             $match: {
               "batches.agent_approve_status": _paymentApproval.approved,
@@ -3881,7 +3912,18 @@ module.exports.proceedToPayPaymentNew = async (req, res) => {
               amountPayable: { $sum: "$batches.totalPrice" },
               approval_date: { $arrayElemAt: ["$batches.payement_approval_at", 0] },
               approval_status: "Approved",
-              payment_status: payment_status || _paymentstatus.pending
+              payment_status: payment_status || _paymentstatus.pending,
+               schemeName: {
+              $concat: [
+                { $ifNull: ["$scheme.schemeName", ""] },
+                " ",
+                { $ifNull: ["$commodityDetails.name", ""] },
+                " ",
+                { $ifNull: ["$scheme.season", ""] },
+                " ",
+                { $ifNull: ["$scheme.period", ""] },
+              ],
+             },
             }
           },
           {
@@ -3897,7 +3939,8 @@ module.exports.proceedToPayPaymentNew = async (req, res) => {
               'branchDetails.branchName': 1,
               'branchDetails.branchId': 1,
               'sla.basic_details.name': 1,
-              'scheme.schemeName': 1
+              schemeName :1,
+            //   'scheme.schemeName': 1
             }
           }
         ];
