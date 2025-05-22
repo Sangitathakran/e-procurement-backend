@@ -144,13 +144,13 @@ module.exports.getStockData = async (req, res) => {
             finalResponses.push(response);
         }
         if (finalResponses.length === 0) {
-            return res.status(404).json({ message: "No procurement data found for any scheme" });
+            return res.status(404).json({ message: "No stock data found for any scheme" });
         }
 
-        return res.status(200).json({ data: finalResponses, messages: "Procurement Data Fetched Successfully" });
+        return res.status(200).json({ data: finalResponses, messages: "Stock Data Fetched Successfully" });
 
     } catch (error) {
-        console.log("Error in getProcurementData: ", error);
+        console.log("Error in getStockData: ", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 };
