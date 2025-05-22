@@ -17,25 +17,24 @@ module.exports.getStockData = async (req, res) => {
         const { startDate, endDate } = req.query;
 
         // Validate that startDate and endDate are provided
-        if (!startDate || !endDate) {
-            return res.status(400).json({ message: "startDate and endDate are required" });
-        }
+        // if (!startDate || !endDate) {
+        //     return res.status(400).json({ message: "startDate and endDate are required" });
+        // }
 
         // Parse the dates
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        // const start = new Date(startDate);
+        // const end = new Date(endDate);
 
         // Check for invalid dates
-        if (isNaN(start) || isNaN(end)) {
-            return res.status(400).json({ message: "Invalid date format" });
-        }
+        // if (isNaN(start) || isNaN(end)) {
+        //     return res.status(400).json({ message: "Invalid date format" });
+        // }
 
         // Calculate the difference in days
-        const diffTime = Math.abs(end - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        // const diffTime = Math.abs(end - start);
+        // const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         // Check if the difference exceeds 7 days
-        console.log('diffDays', diffDays)
         // if (diffDays >= 7) {
         //     return res.status(400).json({ message: "Date range should not exceed 7 days" });
         // }
@@ -131,8 +130,10 @@ module.exports.getStockData = async (req, res) => {
                 "commoditytype": result[0].commodity.name,
                 "commoditycode": result[0].commodity.commodityId,
                 "scheme": scheme.schemeName,
-                "availableqty ": availableqty,
-                "ageofstock": ageofstock,
+                "availableqtypss": availableqty,
+                "availableqtypsf":0,
+                "Ageofstockpss": ageofstock,
+                "Ageofstockpsf":0, 
                 "lastupdateddate ": dateInterval?.length>0 ?moment(pastDate).format("YYYY MM DD"):null,
                 "year": moment(createdAt).format("YYYY"),
                 "season": scheme.season,
@@ -143,13 +144,13 @@ module.exports.getStockData = async (req, res) => {
             finalResponses.push(response);
         }
         if (finalResponses.length === 0) {
-            return res.status(404).json({ message: "No procurement data found for any scheme" });
+            return res.status(404).json({ message: "No stock data found for any scheme" });
         }
 
-        return res.status(200).json({ data: finalResponses, messages: "Procurement Data Fetched Successfully" });
+        return res.status(200).json({ data: finalResponses, messages: "Stock Data Fetched Successfully" });
 
     } catch (error) {
-        console.log("Error in getProcurementData: ", error);
+        console.log("Error in getStockData: ", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 };

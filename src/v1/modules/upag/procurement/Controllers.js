@@ -285,9 +285,9 @@ module.exports.getProcurementData = async (req, res) => {
         }
 
         const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24));
-        // if (diffDays >= 7) {
-        //     return res.status(400).json({ message: "Date range should not exceed 7 days" });
-        // }
+        if (diffDays >= 7) {
+            return res.status(400).json({ message: "Date range should not exceed 7 days" });
+        }
 
         const schemes = await Scheme.find().select('_id schemeId schemeName season period procurementDuration').lean();
 
