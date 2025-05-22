@@ -754,6 +754,7 @@ module.exports.getPublicDistrictByState = async (req, res) => {
   }
 };
 
+
 module.exports.getStatewiseDistillerCount = async(req, res)=>{
   try{
       const StateWiseDistiller = await Distiller.aggregate([
@@ -794,6 +795,67 @@ module.exports.getStatewiseDistillerCount = async(req, res)=>{
       _handleCatchErrors(error, res);
     }
 }
+
+
+module.exports.getProcurmentCountDistiller = async (req, res) => {
+
+  try {
+      const pipeline = [
+      //if need procurment count for all commodity then comment below match
+      {
+        $match: {
+          "product.name": { $regex: /^maize$/i }, //case-insensitive match for 'Maize'
+        },
+      },
+      {
+        $lookup: {
+          from: "distillers",
+          localField: "distiller_id",
+          foreignField: "_id",
+          as: "distiller",
+        },
+      },
+      { $unwind: "$distiller" },
+      {
+        $match: {
+          "distiller.address.registered.state": { $ne: null },
+        },
+      },
+      {
+        $group: {
+          _id: "$distiller.address.registered.state", //Group by state name
+          productCount: { $sum: 1 }, //count purchase orders
+        },
+      },
+    ]
+
+    const statewiseData = await PurchaseOrderModel.aggregate(pipeline);
+
+    //map results with state name
+    const result = statewiseData.map((item) => ({
+      state_name: item._id,
+      productCount: item.productCount,
+    }));
+
+    const grandTotalProductCount = result.reduce(
+      (sum, item) => sum + item.productCount,
+      0
+    );
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: "State wise procurement count",
+      data: {
+        states: result,
+        grandTotalProductCount,
+      },
+    });
+  }catch (error) {
+      console.log("error", error);
+      _handleCatchErrors(error, res);
+    }
+};
 
 
 
