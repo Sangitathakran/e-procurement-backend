@@ -457,12 +457,21 @@ module.exports.agentPayments = async (req, res) => {
                 .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product.name deliveryDate quotedPrice reqNo" }])
                 .sort(sortBy)
 
-        records.rows = fetchedRecords.map(record => ({
-            orderId: record?.req_id?.reqNo || null,
-            qtyProcured: record?.qtyProcured,
-            billingDate: record?.req_id?.deliveryDate || null,
-            paymentStatus: record?.payment_status
-        })).filter(row => row.orderId !== null);
+        // records.rows = fetchedRecords.map(record => ({
+        //     orderId: record?.req_id?.reqNo || null,
+        //     qtyProcured: record?.qtyProcured,
+        //     billingDate: record?.req_id?.deliveryDate || null,
+        //     paymentStatus: record?.payment_status
+        // })).filter(row => row.orderId !== null);
+
+         records.rows = fetchedRecords
+            .filter(record => record.req_id) // only include records where req_id is not null
+            .map(record => ({
+                orderId: record.req_id.reqNo,
+                qtyProcured: record.qtyProcured,
+                billingDate: record.req_id.deliveryDate,
+                paymentStatus: record.payment_status
+            }));
 
         records.count = await AgentInvoice.countDocuments(query);
        // console.log(records)
