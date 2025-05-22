@@ -5168,7 +5168,7 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
 
     limit = parseInt(limit) || 10;
     page = parseInt(page) || 1;
-
+  
     const { portalId, user_id } = req;
 
     const cacheKey = generateCacheKey("payment", {
@@ -5264,7 +5264,6 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
           .lean(),
         Commodity.find({}).select("_id name").lean(),
       ]);
-
     // console.log(
     //   '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
     //   requests.length,
@@ -5301,7 +5300,6 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
       const reqIdStr = String(req._id);
       const reqBatches = batchMap.get(reqIdStr) || [];
       if (reqBatches.length === 0) continue;
-
       const enrichedBatches = reqBatches.map((batch) => {
         const batchPayments = paymentMap.get(String(batch._id)) || [];
         return { ...batch, payment: batchPayments };
@@ -5359,7 +5357,6 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
         },
       });
     }
-
     // Apply filters on enriched data (like $match after $addFields)
     const filtered = enrichedRequests.filter((req) => {
       if (state && !new RegExp(state, "i").test(req.branchDetails.state))
@@ -5439,6 +5436,9 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
+
+
 
 module.exports.exportFarmerPayments = async (req, res) => {
   try {
@@ -5540,11 +5540,11 @@ module.exports.exportFarmerPayments = async (req, res) => {
       .select("_id reqNo product branch_id sla_id createdAt")
       .sort({ createdAt: -1 })
       .lean();
-
+     console.log("requests",requests.length)
     const requestIds = requests.map((r) => r._id);
 
     // Fetch related documents
-    const [batches, payments, branches, slas, schemes, commodities, Farmer] =
+    const [batches, payments, branches, slas, schemes, commodities,] =
       await Promise.all([
         Batch.find({ req_id: { $in: requestIds } })
           .select(
@@ -5566,7 +5566,7 @@ module.exports.exportFarmerPayments = async (req, res) => {
           .lean(),
         Commodity.find({}).select("_id name").lean(),
       ]);
-
+     
     const farmerIds = [
       ...new Set(payments.map((p) => String(p.farmer_id)).filter(Boolean)),
     ];
@@ -5639,7 +5639,6 @@ module.exports.exportFarmerPayments = async (req, res) => {
       const reqIdStr = String(req._id);
       const reqBatches = batchMap.get(reqIdStr) || [];
       if (reqBatches.length === 0) continue;
-
       const enrichedBatches = reqBatches.map((batch) => {
         const batchPayments = (paymentMap.get(String(batch._id)) || []).map(
           (payment) => {
@@ -5654,7 +5653,7 @@ module.exports.exportFarmerPayments = async (req, res) => {
             };
           }
         );
-
+        console.log("batchPayments",batchPayments);
         const procurementAddr =
           procurementAddressMap.get(String(batch.procurementCenter_id)) || {};
 
@@ -5664,19 +5663,19 @@ module.exports.exportFarmerPayments = async (req, res) => {
           procurement_address: procurementAddr,
         };
       });
-
+      
       // Check approval status and payment_status
-      const allApproved = enrichedBatches.every(
-        (b) =>
-          b.bo_approve_status === _paymentApproval.approved &&
-          b.ho_approve_status === _paymentApproval.approved &&
-          b.payment.some(
-            (p) =>
-              p.payment_status ===
-              (paymentStatusCondition || _paymentstatus.pending)
-          )
-      );
-      if (!allApproved) continue;
+      //   const allApproved = enrichedBatches.every(
+      //   (b) =>
+      //     b.bo_approve_status === _paymentApproval.approved &&
+      //     b.ho_approve_status === _paymentApproval.approved &&
+      //     b.payment.some(
+      //       (p) =>
+      //         p.payment_status ===
+      //         (paymentStatusCondition || _paymentstatus.pending)
+      //     )
+      // );
+      // if (!allApproved) continue;
 
       const branch = branchMap.get(String(req.branch_id));
       const sla = slaMap.get(String(req.sla_id));
@@ -5730,34 +5729,46 @@ module.exports.exportFarmerPayments = async (req, res) => {
     }
 
     // Apply filters on enriched data (like $match after $addFields)
-    const filtered = enrichedRequests.filter((req) => {
-      if (state && !new RegExp(state, "i").test(req.branchDetails.state))
-        return false;
-      if (
-        commodityName &&
-        !new RegExp(commodityName, "i").test(req.product?.name || "")
-      )
-        return false;
-      if (
-        schemeName &&
-        !new RegExp(schemeName, "i").test(req.scheme.schemeName || "")
-      )
-        return false;
-      if (
-        branch &&
-        !new RegExp(branch, "i").test(req.branchDetails.branchName || "")
-      )
-        return false;
-      return true;
-    });
+    // const filtered = enrichedRequests.filter((req) => {
+    //   if (state && !new RegExp(state, "i").test(req.branchDetails.state))
+    //     return false;
+    //   if (
+    //     commodityName &&
+    //     !new RegExp(commodityName, "i").test(req.product?.name || "")
+    //   )
+    //     return false;
+    //   if (
+    //     schemeName &&
+    //     !new RegExp(schemeName, "i").test(req.scheme.schemeName || "")
+    //   )
+    //     return false;
+    //   if (
+    //     branch &&
+    //     !new RegExp(branch, "i").test(req.branchDetails.branchName || "")
+    //   )
+    //     return false;
+    //   return true;
+    // });
 
     // Pagination
-    const total = filtered.length;
-    const paginated = filtered.slice((page - 1) * limit, page * limit);
+    const total = enrichedRequests.length;
+    // const paginated = filtered.slice((page - 1) * limit, page * limit);
+    // let paginated = filtered;
+    // if (isExport != 1 && paginate == 1) {
+    //  paginated = filtered.slice((page - 1) * limit, page * limit);
+    //  }
+
+    // let paginated = [];
+    //  if (isExport != 1 && paginate == 1) {
+    //   paginated = filtered.slice((page - 1) * limit, page * limit);
+    // } else {
+    //   paginated = filtered;
+    //  }
+
 
     const response = {
       count: total,
-      rows: paginated,
+      rows: enrichedRequests,
       page: page,
       limit: limit,
       pages: Math.ceil(total / limit),
@@ -5766,12 +5777,11 @@ module.exports.exportFarmerPayments = async (req, res) => {
     if (isExport != 1) {
       setCache(cacheKey, response, 300); // 5 mins
     }
-
     if (isExport == 1) {
       const record = response.rows.map((item) => ({
         "Order ID": item?.reqNo || "NA",
         "BRANCH ID": item?.branchDetails?.branchId || "NA",
-        "Farmer ID": item?.batch_payments?.farmer_details?.farmer_id || "NA",
+        "Farmer ID": item?.farmer_details?.farmer_id || "NA",
         "Branch name": item?.branchDetails?.branchName || "NA",
         " SLA ": item?.slaName || "NA",
         "Procurement center": item?.procurement_address?.line1 || "NA",
@@ -5796,7 +5806,7 @@ module.exports.exportFarmerPayments = async (req, res) => {
         IFSC:
           item?.farmer_details?.bank_details?.ifsc_code || "NA",
         "Reference ID / UTR No.": item?.batch_payments?.transaction_id || "NA",
-        "Payment Status": item?.batch_payments?.payment_status || "NA",
+        "Payment Status": item?.payment_status || "NA",
       }));
       if (record.length > 0) {
         dumpJSONToExcel(req, res, {
@@ -5804,7 +5814,8 @@ module.exports.exportFarmerPayments = async (req, res) => {
           fileName: `Farmer-Payment-records.xlsx`,
           worksheetName: `Farmer-Payment-records`,
         });
-      } else {
+      }
+       else {
         return res.status(400).send(
           new serviceResponse({
             status: 400,
@@ -5813,16 +5824,16 @@ module.exports.exportFarmerPayments = async (req, res) => {
           })
         );
       }
+    } 
+    else {
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: response,
+          message: "Payments found",
+        })
+      );
     }
-    // else {
-    //   return res.status(200).send(
-    //     new serviceResponse({
-    //       status: 200,
-    //       data: response,
-    //       message: "Payments found",
-    //     })
-    //   );
-    // }
   } catch (error) {
     _handleCatchErrors(error, res);
   }

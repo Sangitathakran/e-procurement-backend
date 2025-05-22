@@ -254,21 +254,65 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 
 //end of prachi code
 */
+function parseDateRange(rangeStr) {
+  const [startStr, endStr] = rangeStr.split(" - ");
+  const [startDay, startMonth, startYear] = startStr.split("/");
+  const [endDay, endMonth, endYear] = endStr.split("/");
 
+  const startDate = new Date(`${startYear}-${startMonth}-${startDay}T00:00:00.000Z`);
+  const endDate = new Date(`${endYear}-${endMonth}-${endDay}T23:59:59.999Z`);
+  return { startDate, endDate };
+}
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   const hoId = new mongoose.Types.ObjectId(req.portalId);
 
-  const { limit = 10, page = 1 } = req.query;
+  const { limit = 10, page = 1, commodityName, schemeName, sessionName, dateRange } = req.query;
   const { user_id, portalId } = req;
   const skip = (page - 1) * limit;
 
-  let pendingPaymentDetails = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: 'Pending' })
-    .select('req_id qtyProcured amount payment_status')
-    .populate({ path: "req_id", select: "reqNo" })
-    .skip(skip)
-    .limit(limit)
-    .lean();
+  const paymentFilter = {
+    ho_id: portalId,
+    payment_status: 'Pending'
+  };
+  const scheme = schemeName
+    ? await Scheme.findOne({
+        schemeName: { $regex: new RegExp(schemeName, "i") },
+      }).select("_id").lean()
+    : null;
 
+  if (schemeName && !scheme) {
+    return sendResponse({
+      res,
+      status: 200,
+      message: "Scheme not found",
+      data: { rows: [], totalCount: 0, totalPages: 0, limit, page },
+    });
+  }
+  
+  if (dateRange) {
+    const { startDate, endDate } = parseDateRange(dateRange);
+    paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
+  }
+  let pendingPaymentDetails = await Payment.find(paymentFilter)
+  .populate({
+    path: "req_id",
+    select: "reqNo product.name product.schemeId",
+    match: {
+      ...(commodityName && {
+        "product.name": { $regex: new RegExp(commodityName, "i") },
+      }),
+      ...(scheme && {
+        "product.schemeId": scheme._id,
+      }),
+      ...(sessionName && {
+        "product.season": { $regex: new RegExp(sessionName, "i") },
+      }),
+    },
+  })
+  .select("req_id qtyProcured amount payment_status")
+  .skip(skip)
+  .limit(limit)
+  .lean();
   // Filter out payments where reqNo is missing
   pendingPaymentDetails = pendingPaymentDetails.filter(payment => payment.req_id && payment.req_id.reqNo);
 
@@ -276,6 +320,7 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   pendingPaymentDetails = pendingPaymentDetails.map(payment => ({
     ...payment,
     reqNo: payment.req_id.reqNo,
+    commodityName: payment.req_id?.product?.name || null
   }));
 
   // Note: Count still includes all "Pending" payments regardless of reqNo presence.
@@ -297,19 +342,67 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
-  const { limit = 10, page = 1 } = req.query;
+  const { limit = 10, page = 1, commodityName, schemeName, sessionName, dateRange } = req.query;
   const skip = (page - 1) * limit;
   const { user_id, portalId } = req;
 
+
+  const paymentFilter = {
+    ho_id: portalId,
+    ho_approve_status: 'Pending'
+  };
+
+  const scheme = schemeName
+    ? await Scheme.findOne({
+        schemeName: { $regex: new RegExp(schemeName, "i") },
+      }).select("_id").lean()
+    : null;
+
+  if (schemeName && !scheme) {
+    return sendResponse({
+      res,
+      status: 200,
+      message: "Scheme not found",
+      data: { rows: [], totalCount: 0, totalPages: 0, limit, page },
+    });
+  }
+  
+  if (dateRange) {
+    const { startDate, endDate } = parseDateRange(dateRange);
+    paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
+  }
+
   // Fetch all relevant records for this page
-  let pendingApprovalDetails = await Payment.find({
-    ho_id: { $in: [user_id, portalId] },
-    ho_approve_status: "Pending"
+  // let pendingApprovalDetails = await Payment.find(paymentFilter)
+  //   .populate({ path: "req_id", select: "reqNo deliveryDate product.name",
+  //     ...(commodityName && {
+  //       match: {
+  //         "product.name": { $regex: new RegExp(commodityName, "i") }
+  //       }
+  //     })
+  //   })
+  //   .select("req_id qtyProcured amountPaid ho_approve_status")
+  //   .skip(skip)
+  //   .limit(limit);
+  let pendingApprovalDetails = await Payment.find(paymentFilter)
+  .populate({
+    path: "req_id",
+    select: "reqNo deliveryDate product.name session.name",
+    match: {
+      ...(commodityName && {
+        "product.name": { $regex: new RegExp(commodityName, "i") },
+      }),
+      ...(scheme && {
+        "product.schemeId": scheme._id,
+      }),
+      ...(sessionName && {
+        "session.name": { $regex: new RegExp(sessionName, "i") },
+      }),
+    },
   })
-    .populate({ path: "req_id", select: "reqNo deliveryDate" })
-    .select("req_id qtyProcured amountPaid ho_approve_status")
-    .skip(skip)
-    .limit(limit);
+  .select("req_id qtyProcured amountPaid ho_approve_status createdAt")
+  .skip(skip)
+  .limit(limit);
 
   // Filter out records without reqNo and compute paymentDueDate using reduce
   const modifiedDetails = pendingApprovalDetails.reduce((acc, doc) => {
@@ -340,43 +433,114 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
   });
 });
 
-module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
-  const skip = (page - 1) * limit;
+// module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
+//   const { page = 1, limit = 10 } = req.query;
+//   const skip = (page - 1) * limit;
 
-  const paymentDetails = await Payment.find({ ho_id: req.portalId })
+//   const paymentDetails = await Payment.find({ ho_id: req.portalId })
+//     .select("initiated_at req_id ho_approve_by ho_approve_at")
+//     .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
+//     .populate({
+//       path: "req_id",
+//       select: "reqNo"
+//     })
+//     .populate({ path: "req_id", select: "reqNo" })
+//     .sort({ createdAt: -1 })
+//     .skip(skip)
+//     .limit(limit);
+
+//   const totalCount = await Payment.countDocuments({ ho_id: req.portalId });
+
+//   return sendResponse({
+//     res,
+//     status: 200,
+//     message: _query.get("PaymentActivity"),
+//     data: {
+//       paymentDetails,
+//       totalCount,
+//       pages: Math.ceil(totalCount / limit),
+//       limit: limit,
+//       page: page,
+//     },
+//   });
+// });
+module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
+  let { page = 1, limit = 10, commodityName, schemeName, dateRange } = req.query;
+  page = Number(page);
+  limit = Number(limit);
+  const skip = (page - 1) * limit;
+  const filter = { ho_id: req.portalId };
+
+  // Apply date range filter
+  if (dateRange) {
+    const { startDate, endDate } = parseDateRange(dateRange);
+    filter.createdAt = { $gte: startDate, $lte: endDate };
+  }
+
+  // Scheme filter - find scheme ID if schemeName is passed
+  let scheme;
+  if (schemeName) {
+    scheme = await Scheme.findOne({
+      schemeName: { $regex: new RegExp(schemeName, "i") },
+    }).select("_id");
+    if (!scheme) {
+      return sendResponse({
+        res,
+        status: 200,
+        message: "Scheme not found",
+        data: {
+          paymentDetails: [],
+          totalCount: 0,
+          pages: 0,
+          limit,
+          page,
+        },
+      });
+    }
+  }
+
+  const paymentDetails = await Payment.find(filter)
     .select("initiated_at req_id ho_approve_by ho_approve_at")
     .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
     .populate({
       path: "req_id",
-      select: "reqNo"
+      select: "reqNo product.name product.schemeId",
+      match: {
+        ...(commodityName && { "product.name": { $regex: new RegExp(commodityName, "i") } }),
+        ...(scheme && { "product.schemeId": scheme._id }),
+      },
     })
-    .populate({ path: "req_id", select: "reqNo" })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit);
+    .sort({ createdAt: -1 });
+    // .populate({ path: "req_id", select: "reqNo" })
+    // .sort({ createdAt: -1 })
+    // .skip(skip)
+    // .limit(limit);
+    const filteredPayments = paymentDetails.filter(p => p.req_id);
 
-  const totalCount = await Payment.countDocuments({ ho_id: req.portalId });
+    // Pagination manually
+    const paginated = filteredPayments.slice(skip, skip + limit);
+
+  // const totalCount = await Payment.countDocuments({ ho_id: req.portalId });
 
   return sendResponse({
     res,
     status: 200,
     message: _query.get("PaymentActivity"),
     data: {
-      paymentDetails,
-      totalCount,
-      pages: Math.ceil(totalCount / limit),
+      paymentDetails: paginated,
+      totalCount: filteredPayments.length,
+      pages: Math.ceil(filteredPayments.length / limit),
       limit: limit,
       page: page,
     },
   });
 });
 
-
 module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
   try {
     const hoId = new mongoose.Types.ObjectId(req.portalId);
     const { user_id, portalId } = req;
+    const { commodityName, schemeName, dateRange } = req.query;
 
     // Step 1: Fetch all states from the only StateDistrictCity document
     const stateContainer = await StateDistrictCity.findOne().lean();
@@ -394,16 +558,53 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
     for (const state of stateContainer.states) {
       stateMap[state._id.toString()] = state.state_title;
     }
+    let scheme = null;
+    if (schemeName) {
+      scheme = await Scheme.findOne({ schemeName: { $regex: new RegExp(schemeName, "i") } })
+        .select("_id")
+        .lean();
 
-    // Step 3: Fetch payments and populate farmer (only getting state_id in address)
-    const payments = await Payment.find({
+      if (!scheme) {
+        return sendResponse({
+          res,
+          status: 200,
+          message: "Scheme not found",
+          data: { states: [], grandTotalQtyProcured: 0 },
+        });
+      }
+    }
+
+    const paymentFilter = {
       ho_id: { $in: [user_id, portalId] },
       payment_status: _paymentstatus.completed,
-    })
+    };
+
+    // Step 5: Add date range filter
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange); // You must have this helper function defined
+      paymentFilter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+    // Step 3: Fetch payments and populate farmer (only getting state_id in address)
+    const payments = await Payment.find(paymentFilter)
       .select("qtyProcured farmer_id")
       .populate({
         path: "farmer_id",
         select: "address.state_id",
+      })
+      .populate({
+        path: "req_id",
+        select: "product.name product.schemeId",
+        match: {
+          ...(commodityName && {
+            "product.name": { $regex: new RegExp(commodityName, "i") },
+          }),
+          ...(scheme && {
+            "product.schemeId": scheme._id,
+          }),
+        },
       })
       .lean();
 
