@@ -35,10 +35,9 @@ module.exports.getStockData = async (req, res) => {
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         // Check if the difference exceeds 7 days
-        console.log('diffDays', diffDays)
-        // if (diffDays >= 7) {
-        //     return res.status(400).json({ message: "Date range should not exceed 7 days" });
-        // }
+        if (diffDays >= 7) {
+            return res.status(400).json({ message: "Date range should not exceed 7 days" });
+        }
 
         const schemes = await Scheme.find().select('_id schemeId schemeName season period procurementDuration');
         if (!schemes || schemes.length === 0) {
@@ -131,8 +130,10 @@ module.exports.getStockData = async (req, res) => {
                 "commoditytype": result[0].commodity.name,
                 "commoditycode": result[0].commodity.commodityId,
                 "scheme": scheme.schemeName,
-                "availableqty ": availableqty,
-                "ageofstock": ageofstock,
+                "availableqtypss": availableqty,
+                "availableqtypsf":0,
+                "Ageofstockpss": ageofstock,
+                "Ageofstockpsf":0, 
                 "lastupdateddate ": dateInterval?.length>0 ?moment(pastDate).format("YYYY MM DD"):null,
                 "year": moment(createdAt).format("YYYY"),
                 "season": scheme.season,
