@@ -1516,13 +1516,13 @@ module.exports.payment = async (req, res) => {
             ...(state ? [{ state: { $regex: state, $options: "i" } }] : []),
             ...(commodityName
               ? [
-                  {
-                    commodity: {
-                      $regex: escapeRegex(commodityName),
-                      $options: "i",
-                    },
+                {
+                  commodity: {
+                    $regex: escapeRegex(commodityName),
+                    $options: "i",
                   },
-                ]
+                },
+              ]
               : []),
             ...(schemeName
               ? [{ schemeName: { $regex: schemeName, $options: "i" } }]
@@ -1999,11 +1999,11 @@ module.exports.batchList = async (req, res) => {
           : _paymentApproval.approved,
       ...(search
         ? {
-            $or: [
-              { batchId: { $regex: search, $options: "i" } },
-              { whrNo: { $regex: search, $options: "i" } },
-            ],
-          }
+          $or: [
+            { batchId: { $regex: search, $options: "i" } },
+            { whrNo: { $regex: search, $options: "i" } },
+          ],
+        }
         : {}),
       // ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
     };
@@ -2314,10 +2314,10 @@ module.exports.batchListWithoutAggregation = async (req, res) => {
           row.ho_approve_status === _paymentApproval.pending
             ? "Pending from CNA"
             : row.bo_approve_status === _paymentApproval.pending
-            ? "Pending from BO"
-            : row.agent_approve_status === _paymentApproval.pending
-            ? "Pending from SLA"
-            : "Approved";
+              ? "Pending from BO"
+              : row.agent_approve_status === _paymentApproval.pending
+                ? "Pending from SLA"
+                : "Approved";
 
         return {
           _id: row._id,
@@ -2697,9 +2697,9 @@ module.exports.orderList = async (req, res) => {
     // Base query
     let query = search
       ? {
-          // req_id: { $regex: search, $options: "i" },
-          ho_id: { $in: [portalId, user_id] },
-        }
+        // req_id: { $regex: search, $options: "i" },
+        ho_id: { $in: [portalId, user_id] },
+      }
       : { ho_id: { $in: [portalId, user_id] } };
 
     query = { ...query, bo_approve_status: _paymentApproval.approved };
@@ -3303,9 +3303,8 @@ module.exports.payFarmers = async (req, res) => {
           const singular_plural = missingFields.length > 1 ? "are" : "is";
           const errorMessage = `${missingFields.join(
             ", "
-          )} ${singular_plural} missing in ${item.farmer_name} (${
-            item.farmer_id
-          })`;
+          )} ${singular_plural} missing in ${item.farmer_name} (${item.farmer_id
+            })`;
           return res.status(400).send(
             new serviceResponse({
               status: 400,
@@ -3351,7 +3350,7 @@ module.exports.payFarmers = async (req, res) => {
         pir_ref_no: paymentFileData["PIR_REF_NO"],
         my_product_code:
           paymentFileData[
-            "MY_PRODUCT_CODE(It should be Digital Products only)"
+          "MY_PRODUCT_CODE(It should be Digital Products only)"
           ],
         amount: paymentFileData["Amount"],
         acc_no: paymentFileData["Acc no(2244102000000055)"],
@@ -3634,7 +3633,7 @@ module.exports.payAgent = async (req, res) => {
         pir_ref_no: paymentFileData["PIR_REF_NO"],
         my_product_code:
           paymentFileData[
-            "MY_PRODUCT_CODE(It should be Digital Products only)"
+          "MY_PRODUCT_CODE(It should be Digital Products only)"
           ],
         amount: paymentFileData["Amount"],
         acc_no: paymentFileData["Acc no(2244102000000055)"],
@@ -4123,26 +4122,26 @@ module.exports.proceedToPayPayment = async (req, res) => {
               : []),
             ...(commodityName
               ? [
-                  {
-                    "product.name": {
-                      $regex: escapeRegex(commodityName),
-                      $options: "i",
-                    },
+                {
+                  "product.name": {
+                    $regex: escapeRegex(commodityName),
+                    $options: "i",
                   },
-                ]
+                },
+              ]
               : []),
             ...(schemeName
               ? [{ schemeName: { $regex: schemeName, $options: "i" } }]
               : []),
             ...(branch
               ? [
-                  {
-                    "branchDetails.branchName": {
-                      $regex: branch,
-                      $options: "i",
-                    },
+                {
+                  "branchDetails.branchName": {
+                    $regex: branch,
+                    $options: "i",
                   },
-                ]
+                },
+              ]
               : []),
           ],
         },
@@ -4286,16 +4285,16 @@ module.exports.proceedToPayBatchList = async (req, res) => {
         $match: {
           ...(search
             ? {
-                $or: [
-                  { batchId: { $regex: search, $options: "i" } },
-                  {
-                    "final_quality_check.whr_receipt": {
-                      $regex: search,
-                      $options: "i",
-                    },
+              $or: [
+                { batchId: { $regex: search, $options: "i" } },
+                {
+                  "final_quality_check.whr_receipt": {
+                    $regex: search,
+                    $options: "i",
                   },
-                ],
-              }
+                },
+              ],
+            }
             : {}),
         },
       },
@@ -4673,10 +4672,10 @@ module.exports.proceedToPaybatchListWithoutAggregation = async (req, res) => {
           (batch?.ho_approve_status || "").toString() === "Pending"
             ? "Pending from CNA"
             : (batch?.bo_approval_status || "").toString() === "Pending"
-            ? "Pending from BO"
-            : (batch?.agent_approval_status || "").toString() === "Pending"
-            ? "Pending from SLA"
-            : "Approved";
+              ? "Pending from BO"
+              : (batch?.agent_approval_status || "").toString() === "Pending"
+                ? "Pending from SLA"
+                : "Approved";
 
         return {
           batchId: batch.batchId,
@@ -4877,7 +4876,7 @@ module.exports.batchListWOAggregation = async (req, res) => {
       const paymentStatuses = paymentArr.map((p) => p.payment_status);
       const tags =
         paymentStatuses.includes("Failed") ||
-        paymentStatuses.includes("Rejected")
+          paymentStatuses.includes("Rejected")
           ? "Re-Initiate"
           : "New";
 
@@ -5108,13 +5107,13 @@ module.exports.getTotalSuccessfulPaidAmount = async (req, res) => {
             ...(state ? [{ state: { $regex: state, $options: "i" } }] : []),
             ...(commodityName
               ? [
-                  {
-                    "product.name": {
-                      $regex: escapeRegex(commodityName),
-                      $options: "i",
-                    },
+                {
+                  "product.name": {
+                    $regex: escapeRegex(commodityName),
+                    $options: "i",
                   },
-                ]
+                },
+              ]
               : []),
             ...(schemeName
               ? [{ "scheme.schemeName": { $regex: schemeName, $options: "i" } }]
@@ -5322,9 +5321,8 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
       const scheme = schemeMap.get(String(req.product?.schemeId));
       const commodity = commodityMap.get(String(scheme?.commodity_id));
 
-      const schemeName = `${scheme?.schemeName || ""} ${
-        commodity?.name || ""
-      } ${scheme?.season || ""} ${scheme?.period || ""}`.trim();
+      const schemeName = `${scheme?.schemeName || ""} ${commodity?.name || ""
+        } ${scheme?.season || ""} ${scheme?.period || ""}`.trim();
 
       enrichedRequests.push({
         _id: req._id,
@@ -5459,6 +5457,14 @@ module.exports.exportFarmerPayments = async (req, res) => {
     page = parseInt(page) || 1;
 
     const { portalId, user_id } = req;
+    let paymentFilter = {};
+
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999); // Include full end date
+      paymentFilter.updatedAt = { $gte: start, $lte: end };
+    }
 
     const cacheKey = generateCacheKey("payment", {
       portalId,
