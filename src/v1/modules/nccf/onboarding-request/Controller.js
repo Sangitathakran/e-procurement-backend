@@ -10,8 +10,12 @@ const { _userType, _userStatus } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 
 module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
-    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = '', isExport = 0 } = req.query;
+    const { page = 1, limit = 10,  paginate = 1, sortBy = "_id", search = '', isExport = 0 } = req.query;
 
+    const pageInt = parseInt(page);
+    const limitInt = parseInt(limit);
+    const skipCount = (pageInt - 1) * limitInt;
+    
     let matchStage = {
         is_approved: _userStatus.pending,
         deletedAt: null,
@@ -45,13 +49,13 @@ module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
                 'status': '$is_approved'
             }
         },
-        { $sort: { [sortBy]: 1 } },
+        // { $sort: { [sortBy]: 1 } },
     ];
         
-    if (( page === 1 || page === '1') && !isExport) {
+    if (!isExport) {
         aggregationPipeline.push(
-            { $skip: parseInt(skip)},
-            { $limit: parseInt(limit) }
+            { $skip: parseInt(skipCount)},
+            { $limit: parseInt(limitInt) }
         );
     } 
 
