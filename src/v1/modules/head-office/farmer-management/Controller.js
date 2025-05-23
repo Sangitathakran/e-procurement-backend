@@ -190,6 +190,8 @@ module.exports.farmerList = async (req, res) => {
         .sort(sortBy)
         .lean();
 
+
+
       const farmerIds = farmers.map((f) => f._id);
       const crops = await Crop.find({ farmer_id: { $in: farmerIds } }).lean();
       const landRecords = await Land.find({
@@ -209,17 +211,20 @@ module.exports.farmerList = async (req, res) => {
         return acc;
       }, {});
 
-      const data = farmers.map((item) => {
+      const data = await Promise.all ( 
+        farmers.map( async (item) => {
+        const address = await getAddress(item);
         const farmerIdStr = item._id.toString();
         const crops = cropsByFarmer[farmerIdStr] || [];
         const lands = landByFarmer[farmerIdStr] || [];
 
         return {
           ...item,
+          address : address,
           crop_details: crops,
           land_details: lands, // replaces previous "land_details"
         };
-      });
+      }) );
       const exportData = data.map((item) => {
         return {
           "Associate ID": item?.associate_id || "NA",
@@ -229,12 +234,12 @@ module.exports.farmerList = async (req, res) => {
           "Mother Name": item?.parents?.mother_name || "NA",
           "Mobile Number": item?.mobile_no || "NA",
           "Created At" : item?.createdAt || "NA",
-          Email: item?.basic_details?.email || "NA",
-          Category: item?.basic_details?.category || "NA",
-          Age: item?.basic_details?.age || "NA",
+          "Email ": item?.basic_details?.email || "NA",
+          "Category": item?.basic_details?.category || "NA",
+          "Age": item?.basic_details?.age || "NA",
           "Date of Birth": item?.basic_details?.dob || "NA",
           "Farmer Type": item?.basic_details?.farmer_type || "NA",
-          Gender: item?.basic_details?.gender || "NA",
+          "Gender": item?.basic_details?.gender || "NA",
           "Address Line 1": item?.address?.address_line_1 || "NA",
           "Address Line 2": item?.address?.address_line_2 || "NA",
           village: item?.address?.village || "NA",
