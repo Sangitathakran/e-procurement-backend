@@ -18,8 +18,8 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 // const jformIds = require('../jform_ids');
 const jformIds = require('../remaining_jformIds');
-// const checkJformIdsExist = require('../allJformIds');
-const checkJformIdsExist = require('../paymentExistingInEkhridTeam');
+const checkJformIdsExist = require('../allJformIds');
+// const checkJformIdsExist = require('../paymentExistingInEkhridTeam');
 
 
 module.exports.getAssociates = async (req, res) => {
