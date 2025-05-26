@@ -4,16 +4,19 @@ const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const {
+  asyncErrorHandler,
+} = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { mongoose } = require("mongoose");
+const { dumpJSONToExcel } = require("@src/v1/utils/helpers");
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
   try {
     const data = {
       ...req.body,
       schemes: {
-        branch: req.user._id
-      }
+        branch: req.user._id,
+      },
     };
     // Required fields validation
 
@@ -61,14 +64,18 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
       // "slaId",
       // "schemes.scheme",
       // "schemes.cna",
-      "schemes.branch"
+      "schemes.branch",
     ];
 
-    const missingFields = requiredFields.filter(field => {
+    const missingFields = requiredFields.filter((field) => {
       const keys = field.split(".");
       let value = data;
       for (let key of keys) {
-        if (value[key] === undefined || value[key] === null || value[key] === "") {
+        if (
+          value[key] === undefined ||
+          value[key] === null ||
+          value[key] === ""
+        ) {
           return true;
         }
         value = value[key];
@@ -77,22 +84,25 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
     });
 
     if (missingFields.length > 0) {
-      return res.status(400).send(new serviceResponse({
-        status: 400,
-        message: `Missing required fields: ${missingFields.join(", ")}`,
-        data: null
-      }));
+      return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          message: `Missing required fields: ${missingFields.join(", ")}`,
+          data: null,
+        })
+      );
     }
 
     // Create SLA document
     const sla = await SLAManagement.create(data);
 
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      data: sla,
-      message: _response_message.created("SLA")
-    }));
-
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: sla,
+        message: _response_message.created("SLA"),
+      })
+    );
   } catch (error) {
     _handleCatchErrors(error, res);
   }
@@ -115,14 +125,12 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
   const portalObjectId = new mongoose.Types.ObjectId(portalId);
   const userObjectId = new mongoose.Types.ObjectId(user_id);
-console.log('portlaId', portalId);
-
 
   if (scheme_id) {
     let matchQuery = {
       sla_id: { $exists: true },
       deletedAt: null,
-       "schemes.branch": { $in: [portalObjectId, userObjectId] }
+      "schemes.branch": { $in: [portalObjectId, userObjectId] },
     };
     //   if (bo_id) matchQuery.bo_id = new ObjectId(bo_id);
 
@@ -233,13 +241,13 @@ console.log('portlaId', portalId);
 
   let matchQuery = search
     ? {
-      $or: [
-        { "basic_details.name": { $regex: search, $options: "i" } },
-        { "basic_details.email": { $regex: search, $options: "i" } },
-        { "basic_details.mobile": { $regex: search, $options: "i" } },
-      ],
-      deletedAt: null,
-    }
+        $or: [
+          { "basic_details.name": { $regex: search, $options: "i" } },
+          { "basic_details.email": { $regex: search, $options: "i" } },
+          { "basic_details.mobile": { $regex: search, $options: "i" } },
+        ],
+        deletedAt: null,
+      }
     : { deletedAt: null };
 
   if (state) matchQuery["address.state"] = { $regex: state, $options: "i" };
@@ -248,7 +256,7 @@ console.log('portlaId', portalId);
     {
       $match: {
         ...matchQuery,
-        "schemes.branch": { $in: [portalObjectId, userObjectId] }
+        "schemes.branch": { $in: [portalObjectId, userObjectId] },
       },
     },
     //   { $match: matchQuery },
@@ -283,7 +291,7 @@ console.log('portlaId', portalId);
     },
   ];
 
-  if (paginate == 1)
+  if (paginate == 1 && isExport != 1)
     aggregationPipeline.push(
       { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
       { $skip: parseInt(skip) },
@@ -295,61 +303,100 @@ console.log('portlaId', portalId);
     {
       $match: {
         ...matchQuery,
-        "schemes.branch": { $in: [portalObjectId, userObjectId] }
+        "schemes.branch": { $in: [portalObjectId, userObjectId] },
       },
     },
     { $count: "total" },
   ]);
   const count = countResult[0]?.total || 0;
 
-  return res.status(200).send(
-    new serviceResponse({
-      status: 200,
-      data: {
-        rows,
-        count,
-        page,
-        limit,
-        pages: limit != 0 ? Math.ceil(count / limit) : 0,
-      },
-      message: _response_message.found("Scheme"),
-    })
-  );
+  if (isExport == 1) {
+    const record = rows.map((item) => ({
+      "SLA ID": item?.slaId || "NA",
+      "SLA Name": item?.sla_name || "NA",
+      "POINT OF CONTACT": item?.poc || "NA",
+      "ASSOCIATE COUNT": item?.associate_count || "NA",
+      "Address": item?.address || "NA",
+      "Status": item?.status || "NA",
+    }));
+
+    if (record.length > 0) {
+      dumpJSONToExcel(req, res, {
+        data: record,
+        fileName: `Sla-record.xlsx`,
+        worksheetName: `Sla-record`,
+      });
+    } else {
+      return res
+        .status(400)
+        .send(
+          new serviceResponse({
+            status: 400,
+            data: records,
+            message: _response_message.notFound("requirement"),
+          })
+        );
+    }
+  } else {
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: {
+          rows,
+          count,
+          page,
+          limit,
+          pages: limit != 0 ? Math.ceil(count / limit) : 0,
+        },
+        message: _response_message.found("Scheme"),
+      })
+    );
+  }
 });
 
 module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params; // Get SLA ID from URL params
-    const userID = req.user._id
+    const userID = req.user._id;
 
     if (!slaId) {
-      return res.status(400).json(new serviceResponse({
-        status: 400,
-        message: "SLA ID is required"
-      }));
+      return res.status(400).json(
+        new serviceResponse({
+          status: 400,
+          message: "SLA ID is required",
+        })
+      );
     }
 
     // Find and delete SLA by slaId or _id
-    const deletedSLA = await SLAManagement.findOneAndDelete({ $or: [{ slaId }, { _id: slaId }], "schemes.branch": userID });
+    const deletedSLA = await SLAManagement.findOneAndDelete({
+      $or: [{ slaId }, { _id: slaId }],
+      "schemes.branch": userID,
+    });
 
     if (!deletedSLA) {
-      return res.status(404).json(new serviceResponse({
-        status: 404,
-        message: "SLA record not found"
-      }));
+      return res.status(404).json(
+        new serviceResponse({
+          status: 404,
+          message: "SLA record not found",
+        })
+      );
     }
 
-    return res.status(200).json(new serviceResponse({
-      status: 200,
-      message: "SLA record deleted successfully"
-    }));
-
+    return res.status(200).json(
+      new serviceResponse({
+        status: 200,
+        message: "SLA record deleted successfully",
+      })
+    );
   } catch (error) {
     console.error("Error deleting SLA:", error);
-    return res.status(500).json(new serviceResponse({
-      status: 500,
-      error: "Internal Server Error"
-    }));
+    return res.status(500).json(
+      new serviceResponse({
+        status: 500,
+        error: "Internal Server Error",
+      })
+    );
   }
 });
 
@@ -357,46 +404,56 @@ module.exports.updateSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const updateData = req.body;
-   
+
     const { portalId, user_id } = req;
 
     const portalObjectId = new mongoose.Types.ObjectId(portalId);
-const userObjectId = new mongoose.Types.ObjectId(user_id);
+    const userObjectId = new mongoose.Types.ObjectId(user_id);
     // const userID = req.user._i
 
     if (!slaId) {
-      return res.status(400).json(new serviceResponse({
-        status: 400,
-        message: "SLA ID is required"
-      }));
+      return res.status(400).json(
+        new serviceResponse({
+          status: 400,
+          message: "SLA ID is required",
+        })
+      );
     }
 
     // Find and update SLA
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }],   "schemes.branch": { $in: [portalObjectId, userObjectId] }},
+      {
+        $or: [{ slaId }, { _id: slaId }],
+        "schemes.branch": { $in: [portalObjectId, userObjectId] },
+      },
       { $set: updateData },
       { new: true, runValidators: true } // Return updated doc
     );
 
     if (!updatedSLA) {
-      return res.status(404).json(new serviceResponse({
-        status: 404,
-        message: "SLA record not found"
-      }));
+      return res.status(404).json(
+        new serviceResponse({
+          status: 404,
+          message: "SLA record not found",
+        })
+      );
     }
 
-    return res.status(200).json(new serviceResponse({
-      status: 200,
-      message: "SLA record updated successfully",
-      data: updatedSLA
-    }));
-
+    return res.status(200).json(
+      new serviceResponse({
+        status: 200,
+        message: "SLA record updated successfully",
+        data: updatedSLA,
+      })
+    );
   } catch (error) {
     console.error("Error updating SLA:", error);
-    return res.status(500).json(new serviceResponse({
-      status: 500,
-      error: "Internal Server Error"
-    }));
+    return res.status(500).json(
+      new serviceResponse({
+        status: 500,
+        error: "Internal Server Error",
+      })
+    );
   }
 });
 
@@ -415,7 +472,6 @@ module.exports.getSLAById = asyncErrorHandler(async (req, res) => {
 
     // Find SLA with selected fields
     const sla = await SLAManagement.findById(slaId);
-   
 
     if (!sla) {
       return res.status(404).json(
@@ -508,49 +564,60 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
     const { portalId, user_id } = req;
     // const userID = req.user._id;
     const portalObjectId = new mongoose.Types.ObjectId(portalId);
-const userObjectId = new mongoose.Types.ObjectId(user_id);
-
+    const userObjectId = new mongoose.Types.ObjectId(user_id);
 
     if (!slaId) {
-      return res.status(400).json(new serviceResponse({
-        status: 400,
-        message: "SLA ID is required"
-      }));
+      return res.status(400).json(
+        new serviceResponse({
+          status: 400,
+          message: "SLA ID is required",
+        })
+      );
     }
 
     if (typeof status !== "boolean") {
-      return res.status(400).json(new serviceResponse({
-        status: 400,
-        message: "Status must be true or false"
-      }));
+      return res.status(400).json(
+        new serviceResponse({
+          status: 400,
+          message: "Status must be true or false",
+        })
+      );
     }
 
     // Find and update SLA status
     const updatedSLA = await SLAManagement.findOneAndUpdate(
-      { $or: [{ slaId }, { _id: slaId }],  "schemes.branch": { $in: [portalObjectId, userObjectId]}},
+      {
+        $or: [{ slaId }, { _id: slaId }],
+        "schemes.branch": { $in: [portalObjectId, userObjectId] },
+      },
       { $set: { status: status ? "active" : "inactive" } },
       { new: true }
     );
 
     if (!updatedSLA) {
-      return res.status(404).json(new serviceResponse({
-        status: 404,
-        message: "SLA record not found"
-      }));
+      return res.status(404).json(
+        new serviceResponse({
+          status: 404,
+          message: "SLA record not found",
+        })
+      );
     }
 
-    return res.status(200).json(new serviceResponse({
-      status: 200,
-      message: `SLA status updated to ${status ? "Active" : "Inactive"}`,
-      data: { slaId: updatedSLA.slaId, status: updatedSLA.active }
-    }));
-
+    return res.status(200).json(
+      new serviceResponse({
+        status: 200,
+        message: `SLA status updated to ${status ? "Active" : "Inactive"}`,
+        data: { slaId: updatedSLA.slaId, status: updatedSLA.active },
+      })
+    );
   } catch (error) {
     console.error("Error updating SLA status:", error);
-    return res.status(500).json(new serviceResponse({
-      status: 500,
-      error: "Internal Server Error"
-    }));
+    return res.status(500).json(
+      new serviceResponse({
+        status: 500,
+        error: "Internal Server Error",
+      })
+    );
   }
 });
 
@@ -558,14 +625,16 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
   try {
     const { slaId } = req.params;
     const { scheme, cna, branch } = req.body;
-    const userID = req.user._id
+    const userID = req.user._id;
 
     // Validate input
     if (!scheme || !cna || !branch) {
-      return res.status(400).json(new serviceResponse({
-        status: 400,
-        message: "Missing required fields: scheme, cna, branch"
-      }));
+      return res.status(400).json(
+        new serviceResponse({
+          status: 400,
+          message: "Missing required fields: scheme, cna, branch",
+        })
+      );
     }
 
     // Find SLA and update with new scheme
@@ -581,22 +650,25 @@ module.exports.addSchemeToSLA = asyncErrorHandler(async (req, res) => {
     if (!updatedSLA) {
       return res.status(404).json({
         status: 404,
-        message: "SLA not found"
+        message: "SLA not found",
       });
     }
 
-    return res.status(200).json(new serviceResponse({
-      status: 200,
-      message: "Scheme added successfully",
-      data: updatedSLA
-    }));
-
+    return res.status(200).json(
+      new serviceResponse({
+        status: 200,
+        message: "Scheme added successfully",
+        data: updatedSLA,
+      })
+    );
   } catch (error) {
     console.error("Error adding scheme to SLA:", error);
-    return res.status(500).json(new serviceResponse({
-      status: 500,
-      error: "Internal Server Error"
-    }));
+    return res.status(500).json(
+      new serviceResponse({
+        status: 500,
+        error: "Internal Server Error",
+      })
+    );
   }
 });
 
@@ -606,19 +678,26 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 
     // Validate input
     if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
-      return res.status(400).send(new serviceResponse({
-        status: 400,
-        message: "Invalid request. 'bo_id' and 'schemeData' must be provided.",
-      }));
+      return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          message:
+            "Invalid request. 'bo_id' and 'schemeData' must be provided.",
+        })
+      );
     }
 
     // Fetch head office ID (ho_id) from the branches collection
-    const branch = await Branches.findOne({ _id: bo_id }).select("headOfficeId");
+    const branch = await Branches.findOne({ _id: bo_id }).select(
+      "headOfficeId"
+    );
     if (!branch) {
-      return res.status(404).send(new serviceResponse({
-        status: 404,
-        message: "Branch not found.",
-      }));
+      return res.status(404).send(
+        new serviceResponse({
+          status: 404,
+          message: "Branch not found.",
+        })
+      );
     }
 
     const ho_id = branch.headOfficeId; // Extract ho_id
@@ -648,7 +727,16 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getAssignedScheme = async (req, res) => {
-  const { slaId, page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
+  const {
+    slaId,
+    page = 1,
+    limit = 10,
+    skip = 0,
+    paginate = 1,
+    sortBy,
+    search = "",
+    isExport = 0,
+  } = req.query;
 
   // Initialize matchQuery
   let matchQuery = { sla_id: new mongoose.Types.ObjectId(slaId) };
@@ -662,20 +750,20 @@ module.exports.getAssignedScheme = async (req, res) => {
     { $match: matchQuery },
     {
       $lookup: {
-        from: 'branches',
-        localField: 'bo_id',
-        foreignField: '_id',
-        as: 'branchDetails',
+        from: "branches",
+        localField: "bo_id",
+        foreignField: "_id",
+        as: "branchDetails",
       },
     },
-    { $unwind: { path: '$branchDetails', preserveNullAndEmptyArrays: true } },
+    { $unwind: { path: "$branchDetails", preserveNullAndEmptyArrays: true } },
     {
       $lookup: {
         from: "schemes", // Adjust this to your actual collection name for branches
         localField: "scheme_id",
         foreignField: "_id",
-        as: "schemeDetails"
-      }
+        as: "schemeDetails",
+      },
     },
     { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
     {
@@ -683,44 +771,48 @@ module.exports.getAssignedScheme = async (req, res) => {
         from: "headoffices", // Adjust this to your actual collection name for branches
         localField: "ho_id",
         foreignField: "_id",
-        as: "headOfficeDetails"
-      }
+        as: "headOfficeDetails",
+      },
     },
-    { $unwind: { path: "$headOfficeDetails", preserveNullAndEmptyArrays: true } },
+    {
+      $unwind: { path: "$headOfficeDetails", preserveNullAndEmptyArrays: true },
+    },
     {
       $project: {
         _id: 1,
-        schemeId: '$schemeDetails.schemeId',
+        schemeId: "$schemeDetails.schemeId",
         // schemeName: '$schemeDetails.schemeName',
         schemeName: {
           $concat: [
-            "$schemeDetails.schemeName", "",
-            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
-            { $ifNull: ["$schemeDetails.season", ""] }, "",
-            { $ifNull: ["$schemeDetails.period", ""] }
-          ]
+            "$schemeDetails.schemeName",
+            "",
+            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+            "",
+            { $ifNull: ["$schemeDetails.season", ""] },
+            "",
+            { $ifNull: ["$schemeDetails.period", ""] },
+          ],
         },
-        branchName: '$branchDetails.branchName',
+        branchName: "$branchDetails.branchName",
         headOfficeName: "$headOfficeDetails.company_details.name",
-        createdOn: '$createdAt'
-      }
-    }
+        createdOn: "$createdAt",
+      },
+    },
   ];
   if (paginate == 1) {
     aggregationPipeline.push(
-      { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } }, // Secondary sort by _id for stability
+      { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Secondary sort by _id for stability
       { $skip: parseInt(skip) },
       { $limit: parseInt(limit) }
     );
   } else {
-    aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
+    aggregationPipeline.push({
+      $sort: { [sortBy || "createdAt"]: -1, _id: -1 },
+    });
   }
 
   const rows = await SchemeAssign.aggregate(aggregationPipeline);
-  const countPipeline = [
-    { $match: matchQuery },
-    { $count: "total" }
-  ];
+  const countPipeline = [{ $match: matchQuery }, { $count: "total" }];
   const countResult = await SchemeAssign.aggregate(countPipeline);
   const count = countResult[0]?.total || 0;
   const records = { rows, count };
@@ -733,24 +825,39 @@ module.exports.getAssignedScheme = async (req, res) => {
     const record = rows.map((item) => {
       return {
         "Scheme Id": item?.schemeId || "NA",
-        "schemeName": item?.schemeName || "NA",
-        "branchName": item?.branchName || "NA",
+        schemeName: item?.schemeName || "NA",
+        branchName: item?.branchName || "NA",
       };
     });
     if (record.length > 0) {
       dumpJSONToExcel(req, res, {
         data: record,
         fileName: `Scheme-record.xlsx`,
-        worksheetName: `Scheme-record`
+        worksheetName: `Scheme-record`,
       });
     } else {
-      return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Scheme Assign") }));
+      return res
+        .status(200)
+        .send(
+          new serviceResponse({
+            status: 200,
+            data: records,
+            message: _response_message.notFound("Scheme Assign"),
+          })
+        );
     }
   } else {
-    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Scheme Assign") }));
+    return res
+      .status(200)
+      .send(
+        new serviceResponse({
+          status: 200,
+          data: records,
+          message: _response_message.found("Scheme Assign"),
+        })
+      );
   }
-}
-
+};
 
 module.exports.getUniqueStates = async (req, res) => {
   try {
@@ -778,8 +885,7 @@ module.exports.getUniqueStates = async (req, res) => {
 
 module.exports.getUniqueSchemes = async (req, res) => {
   try {
-
-    const userID = req.user._id;// Ensure userID is an ObjectId
+    const userID = req.user._id; // Ensure userID is an ObjectId
 
     const schemes = await SLAManagement.aggregate([
       {

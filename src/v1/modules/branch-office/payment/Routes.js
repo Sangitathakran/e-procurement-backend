@@ -1,6 +1,6 @@
 const express = require("express");
 const { payment, paymentLogsHistory, associateOrders, batchList, batchApprove, qcReport, paymentApprove, getBill, lot_list,
-     agentPaymentList, agentBill, boBillRejection, verifyOTP, sendOTP, paymentWithoutAggregtion} = require("./Controller");
+     agentPaymentList, agentBill, boBillRejection, verifyOTP, sendOTP, paymentWithoutAggregtion,paymentWithoutAggregtionExport} = require("./Controller");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
 const paymentRoutes = express.Router();
@@ -18,6 +18,7 @@ paymentRoutes.get("/agent-bill", Auth, agentBill);
 paymentRoutes.get("/payment-logs", Auth, paymentLogsHistory);
 
 paymentRoutes.get("/", Auth, paymentWithoutAggregtion);
+paymentRoutes.get("/payment-export", Auth, paymentWithoutAggregtionExport);
 
 /// dileep code 
 
