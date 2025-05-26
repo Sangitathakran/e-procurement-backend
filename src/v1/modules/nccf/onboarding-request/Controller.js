@@ -329,7 +329,6 @@ module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
                 'hard_copy': '$mou',
             }
         },
-        { $sort: { [sortBy]: 1 } },
     ];
     const withoutPaginationAggregationPipeline = [...aggregationPipeline];
     if (!isExport) {
