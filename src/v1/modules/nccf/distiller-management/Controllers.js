@@ -13,6 +13,7 @@ module.exports.getDistiller = asyncErrorHandler(async (req, res) => {
     const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "createdAt", search = '', isExport = 0 } = req.query;
 
     let matchStage = {
+        is_approved: _userStatus.approved,
         deletedAt: null,
     };
 
