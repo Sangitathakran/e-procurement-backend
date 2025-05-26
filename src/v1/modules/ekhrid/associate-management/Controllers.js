@@ -1661,7 +1661,7 @@ module.exports.getTodaysfarmerOrder = async (req, res) => {
 // 
 module.exports.checkJformIdsExist = async (req, res) => {
     const fs = require('fs');
-
+    const XLSX = require('xlsx');
     try {
         // Assuming jformIds is defined globally or retrieved from req
         const allJformIds = checkJformIdsExist.map(id => parseInt(id));
@@ -1670,9 +1670,9 @@ module.exports.checkJformIdsExist = async (req, res) => {
         const existingDocs = await eKharidHaryanaProcurementModel.find(
             {
                 "procurementDetails.jformID": { $in: allJformIds },
-                // "procurementDetails.iFormId": { $exists: true },
-                // "warehouseData.jformID": { $exists: true },
-                "paymentDetails.jFormId": { $exists: false }
+                "procurementDetails.iFormId": { $exists: true },
+                "warehouseData.jformID": { $exists: true },
+                // "paymentDetails.jFormId": { $exists: false }
             },
             { "procurementDetails.jformID": 1 }
         ).lean();
@@ -1684,12 +1684,30 @@ module.exports.checkJformIdsExist = async (req, res) => {
             existingDocs.map(doc => doc.procurementDetails.jformID)
         );
 
-        //  Filter IDs that are existing in the set
+
         const newJformIds = allJformIds.filter(id => existingIdsSet.has(id));
         console.log("newJformIds count:", newJformIds.length);
         // //  Write result to file
+        // fs.writeFileSync('./paymentDetailsExisting.txt', JSON.stringify(newJformIds, null, 2));
+
+        // Create Excel data (convert to array of objects)
+        const excelData = newJformIds.map(id => ({ jformID: id }));
+        // Create a workbook and worksheet
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(excelData);
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+
+        // Write the workbook to a file
+        XLSX.writeFile(wb, './paymentDetailsExisting.xlsx');
+
+
+        //  Filter IDs that are existing in the set
+        // const newJformIds = allJformIds.filter(id => existingIdsSet.has(id));
+        // console.log("newJformIds count:", newJformIds.length);
+        // //  Write result to file
         // fs.writeFileSync('./paymentDetailsMissing.txt', JSON.stringify(newJformIds, null, 2));
-        fs.writeFileSync('./iFormDetailMissing.txt', JSON.stringify(newJformIds, null, 2));
+        // fs.writeFileSync('./iFormDetailMissing.txt', JSON.stringify(newJformIds, null, 2));
         //  Filter IDs that are not in the existing set
         // const newJformIds = allJformIds.filter(id => !existingIdsSet.has(id));
         // console.log("newJformIds count:", newJformIds.length);
