@@ -1,258 +1,32 @@
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const mongoose = require("mongoose");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType, _paymentstatus, _batchStatus, _associateOfferStatus, _paymentApproval, received_qc_status } = require('@src/v1/utils/constants');
-const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
-const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
-const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
-const { AssociateOffers } = require("@src/v1/models/app/procurement/AssociateOffers");
-const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
-const { sendResponse } = require("@src/v1/utils/helpers/api_response");
-const { smsService } = require("@src/v1/utils/third_party/SMSservices");
-const OTPModel = require("../../../models/app/auth/OTP");
-const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
-const { _collectionName} = require('@src/v1/utils/constants');
-const  SLA = require("@src/v1/models/app/auth/SLAManagement");
-const { Branches }= require("@src/v1/models/app/branchManagement/Branches")
-const { Scheme } = require("@src/v1/models/master/Scheme");
-const { User } = require("@src/v1/models/app/auth/User");
-const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 
-
-
-
-// module.exports.mandiWiseProcurementdata = async (req, res) => {
-//   try {
-//     const { batchIds } = req.body;
-//     const { portalId } = req;
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 10;
-//     const skip = (page - 1) * limit;
-
-//     // Build query for payments
-//     const paymentQuery = { bo_id: portalId };
-//     if (batchIds?.length) {
-//       paymentQuery.batch_id = { $in: batchIds.map(id => new mongoose.Types.ObjectId(id)) };
-//     }
-
-//     const payments = await Payment.find(paymentQuery).lean();
-
-//     const batchIdSet = [...new Set(payments.map(p => String(p.batch_id)).filter(Boolean))];
-
-//     const batches = await Batch.find({ _id: { $in: batchIdSet } })
-//       .populate({
-//         path: 'farmerOrderIds',
-//         model: 'FarmerOrder',
-//         select: 'qty'  // Use qty because from your example that's the field name
-//       })
-//       .populate({
-//         path: 'seller_id',
-//         select: 'address.registered.district basic_details.associate_details.associate_name'
-//       })
-//       .populate({
-//         path: 'procurementCenter_id',
-//         select: 'center_name state'
-//       })
-//       .lean();
-
-//     // Map batches to basic info + sum offeredQty from farmer orders
-//     const combinedData = batches.map(batch => {
-//       const seller = batch.seller_id;
-//       const center = batch.procurementCenter_id;
-//       const farmerOrders = batch.farmerOrderIds || [];
-
-//       const offeredQty = farmerOrders.reduce((sum, order) => {
-//         const qty = order?.qty ?? 0;
-//         return sum + qty;
-//       }, 0);
-
-//       if (!center || !seller) return null;
-
-//       return {
-//         district: seller?.address?.registered?.district || 'Unknown',
-//         associate_name: seller?.basic_details?.associate_details?.associate_name || 'Unknown',
-//         offeredQty,
-//         centerId: center._id.toString(),
-//         centerName: center.center_name,
-//         state: center.state
-//       };
-//     }).filter(Boolean);
-
-//     // Group by centerName and sum offeredQty
-//     const groupedData = combinedData.reduce((acc, item) => {
-//       const key = item.centerName;
-//       if (!acc[key]) {
-//         acc[key] = {
-//           centerName: item.centerName,
-//           centerId: item.centerId,
-//           district: item.district,
-//           state: item.state,
-//           associate_name: item.associate_name,
-//           offeredQty: 0
-//         };
-//       }
-//       acc[key].offeredQty += item.offeredQty;
-//       return acc;
-//     }, {});
-
-//     // Convert grouped object to array
-//     const groupedArray = Object.values(groupedData);
-
-//     // Pagination on grouped data
-//     const totalRecords = groupedArray.length;
-//     const paginatedData = groupedArray.slice(skip, skip + limit);
-
-//     return res.status(200).json({
-//       success: true,
-//       page,
-//       limit,
-//       totalRecords,
-//       totalPages: Math.ceil(totalRecords / limit),
-//       data: paginatedData
-//     });
-
-//   } catch (error) {
-//     console.error("Error in mandiWiseProcurementdata:", error);
-//     return res.status(500).json({ success: false, message: "Server Error", error: error.message });
-//   }
-// };
-
-
-
-// module.exports.mandiWiseProcurementdata = async (req, res) => {
-//   try {
-//     const { batchIds } = req.body;
-//     const { portalId } = req;
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 10;
-//     const skip = (page - 1) * limit;
-
-//     // Step 1: Find payment batches for portal
-//     const paymentQuery = { bo_id: portalId };
-//     if (batchIds?.length) {
-//       paymentQuery.batch_id = {
-//         $in: batchIds.map((id) => new mongoose.Types.ObjectId(id)),
-//       };
-//     }
-
-//     const payments = await Payment.find(paymentQuery).lean();
-//     const batchIdSet = [...new Set(payments.map((p) => String(p.batch_id)).filter(Boolean))];
-
-//     // Step 2: Aggregate batches with sellers, centers and associate offers
-//     const aggregated = await Batch.aggregate([
-//       {
-//         $match: {
-//           _id: { $in: batchIdSet.map(id => new mongoose.Types.ObjectId(id)) },
-//         },
-//       },
-//       // Lookup seller info
-//       {
-//         $lookup: {
-//           from: "users",
-//           localField: "seller_id",
-//           foreignField: "_id",
-//           as: "seller"
-//         }
-//       },
-//       { $unwind: "$seller" },
-
-//       // Lookup procurement center info
-//       {
-//         $lookup: {
-//           from: "procurementcenters",
-//           localField: "procurementCenter_id",
-//           foreignField: "_id",
-//           as: "center"
-//         }
-//       },
-//       { $unwind: "$center" },
-
-//       // Lookup associate offer (one per seller)
-//       {
-//         $lookup: {
-//           from: "associateoffers",
-//           localField: "seller_id",
-//           foreignField: "seller_id",
-//           as: "associateOffer"
-//         }
-//       },
-//       // Unwind associateOffer (if none found, preserve with null)
-//       {
-//         $unwind: {
-//           path: "$associateOffer",
-//           preserveNullAndEmptyArrays: true
-//         }
-//       },
-
-//       // Group by procurement center
-//       {
-//         $group: {
-//           _id: "$procurementCenter_id",
-//           centerName: { $first: "$center.center_name" },
-//           centerId: { $first: "$center._id" },
-//           state: { $first: "$center.state" },
-//           district: { $first: "$seller.address.registered.district" },
-//           associate_name: { $first: "$seller.basic_details.associate_details.associate_name" },
-//           liftedQty: { $sum: "$qty" }, // assuming Batch.qty field
-//           // Sum associate offeredQty, if no associateOffer then 0
-//           offeredQty: { $first: "$associateOffer.offeredQty" }
-//         }
-//       },
-
-//       { $sort: { centerName: 1 } }
-//     ]);
-
-//     // Pagination
-//     const totalRecords = aggregated.length;
-//     const paginatedData = aggregated.slice(skip, skip + limit);
-
-//     return res.status(200).json({
-//       success: true,
-//       page,
-//       limit,
-//       totalRecords,
-//       totalPages: Math.ceil(totalRecords / limit),
-//       data: paginatedData
-//     });
-
-//   } catch (error) {
-//     console.error("Error in mandiWiseProcurementdata:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Server Error",
-//       error: error.message
-//     });
-//   }
-// };
 
 module.exports.mandiWiseProcurementdata = async (req, res) => {
   try {
-    const { batchIds } = req.body;
     const { portalId } = req;
-    const page = parseInt(req.query.page) || 1;
+    let page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-
-    // Step 1: Find all payments related to this portal and batches
+    let skip = (page - 1) * limit;
+    const isExport = parseInt(req.query.isExport) === 1;
+    const searchDistrict = req.query.search?.trim();
+    const centerNames = req.query.centerNames
+      ? Array.isArray(req.query.centerNames)
+        ? req.query.centerNames
+        : req.query.centerNames.split(',').map(c => c.trim())
+      : null;
+    
     const paymentQuery = { bo_id: portalId };
-    if (batchIds?.length) {
-      paymentQuery.batch_id = {
-        $in: batchIds.map((id) => new mongoose.Types.ObjectId(id)),
-      };
-    }
-
     const payments = await Payment.find(paymentQuery).lean();
-    const batchIdSet = [...new Set(payments.map((p) => String(p.batch_id)).filter(Boolean))];
+    const batchIdSet = [...new Set(payments.map(p => String(p.batch_id)).filter(Boolean))];
 
-    // Step 2: Aggregate batches with seller, center, associateOffer, sum quantities, calculate balance
-    const aggregated = await Batch.aggregate([
+    
+    const pipeline = [
       {
         $match: {
-          _id: { $in: batchIdSet.map((id) => new mongoose.Types.ObjectId(id)) },
+          _id: { $in: batchIdSet.map(id => new mongoose.Types.ObjectId(id)) },
         },
       },
       {
@@ -260,8 +34,8 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
           from: "users",
           localField: "seller_id",
           foreignField: "_id",
-          as: "seller"
-        }
+          as: "seller",
+        },
       },
       { $unwind: "$seller" },
       {
@@ -269,8 +43,8 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
           from: "procurementcenters",
           localField: "procurementCenter_id",
           foreignField: "_id",
-          as: "center"
-        }
+          as: "center",
+        },
       },
       { $unwind: "$center" },
       {
@@ -278,15 +52,58 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
           from: "associateoffers",
           localField: "seller_id",
           foreignField: "seller_id",
-          as: "associateOffer"
-        }
+          as: "associateOffer",
+        },
       },
-      // Since you have only one associateOffer per seller, unwind it but preserve if missing
       {
         $unwind: {
           path: "$associateOffer",
-          preserveNullAndEmptyArrays: true
-        }
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "requests",
+          localField: "req_id",
+          foreignField: "_id",
+          as: "relatedRequest",
+        },
+      },
+      {
+        $unwind: {
+          path: "$relatedRequest",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          liftedDataDays: {
+            $cond: [
+              { $and: ["$createdAt", "$relatedRequest.createdAt"] },
+              {
+                $dateDiff: {
+                  startDate: "$relatedRequest.createdAt",
+                  endDate: "$createdAt",
+                  unit: "day",
+                },
+              },
+              null,
+            ],
+          },
+          purchaseDays: {
+            $cond: [
+              { $and: ["$updatedAt", "$relatedRequest.createdAt"] },
+              {
+                $dateDiff: {
+                  startDate: "$relatedRequest.createdAt",
+                  endDate: "$updatedAt",
+                  unit: "day",
+                },
+              },
+              null,
+            ],
+          },
+        },
       },
       {
         $group: {
@@ -295,55 +112,101 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
           Status: { $first: "$center.active" },
           centerId: { $first: "$center._id" },
           district: { $first: "$seller.address.registered.district" },
-          associate_name: { $first: "$seller.basic_details.associate_details.associate_name" },
+          associate_name: {
+            $first: "$seller.basic_details.associate_details.associate_name",
+          },
           liftedQty: { $sum: "$qty" },
-          offeredQty: { $first: { $ifNull: ["$associateOffer.offeredQty", 0] } }
-        }
-      },
-     {
-        $addFields: {
-            balanceMandi: { $subtract: ["$offeredQty", "$liftedQty"] },
-            liftingPercentage: {
-            $cond: {
-                if: { $gt: ["$offeredQty", 0] },  // avoid division by 0
-                then: {
-                $round: [
-                    {
-                    $multiply: [
-                        { $divide: ["$liftedQty", "$offeredQty"] },
-                        100
-                    ]
-                    },
-                    2  // round to 2 decimal places
-                ]
-                },
-                else: 0
-            }
-            }
-        }
+          offeredQty: { $first: { $ifNull: ["$associateOffer.offeredQty", 0] } },
+          liftedDataDays: { $first: "$liftedDataDays" },
+          purchaseDays: { $first: "$purchaseDays" },
+          productName: { $first: "$relatedRequest.product.name" },
         },
-      { $sort: { centerName: 1 } }
-    ]);
+      },
+      {
+        $addFields: {
+          balanceMandi: { $subtract: ["$offeredQty", "$liftedQty"] },
+          liftingPercentage: {
+            $cond: {
+              if: { $gt: ["$offeredQty", 0] },
+              then: {
+                $round: [
+                  {
+                    $multiply: [
+                      { $divide: ["$liftedQty", "$offeredQty"] },
+                      100,
+                    ],
+                  },
+                  2,
+                ],
+              },
+              else: 0,
+            },
+          },
+        },
+      },
+    ];
 
+    if (searchDistrict) {
+      pipeline.push({
+        $match: {
+          district: { $regex: searchDistrict, $options: "i" },
+        },
+      });
+      page = 1;
+      skip = 0;
+    }
+
+    if (centerNames?.length) {
+      pipeline.push({
+        $match: {
+          centerName: { $in: centerNames },
+        },
+      });
+      page = 1;
+      skip = 0;
+    }
+
+    pipeline.push({ $sort: { centerName: 1 } });
+
+    const aggregated = await Batch.aggregate(pipeline);
+
+    if (isExport) {
+      const exportRows = aggregated.map(item => ({
+        "Center Name": item?.centerName || 'NA',
+        "District": item?.district || 'NA',
+        "Associate Name": item?.associate_name || 'NA',
+        "Product Name": item?.productName || 'NA',
+        "Offered Qty": item?.offeredQty || 0,
+        "Lifted Qty": item?.liftedQty || 0,
+        "Balance Qty": item?.balanceMandi || 0,
+        "Lifting %": item?.liftingPercentage + "%" || '0%',
+        "Lifted Days": item?.liftedDataDays ?? 'NA',
+        "Purchase Days": item?.purchaseDays ?? 'NA',
+        "Status": item?.Status ? 'Active' : 'Inactive',
+      }));
+
+      if (exportRows.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: exportRows,
+          fileName: `MandiWiseProcurementData.xlsx`,
+          worksheetName: `Mandi Data`
+        });
+      } else {
+        return res.status(404).json({ message: "No data found to export." });
+      }
+    }
     const totalRecords = aggregated.length;
+    const totalPages = Math.ceil(totalRecords / limit);
     const paginatedData = aggregated.slice(skip, skip + limit);
 
     return res.status(200).json({
-      success: true,
+      totalRecords,
       page,
       limit,
-      totalRecords,
-      totalPages: Math.ceil(totalRecords / limit),
-      data: paginatedData
+      totalPages,
+      data: paginatedData,
     });
-
-  } catch (error) {
-    console.error("Error in mandiWiseProcurementdata:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server Error",
-      error: error.message
-    });
-  }
-};
-
+   } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
