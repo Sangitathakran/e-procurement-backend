@@ -818,46 +818,165 @@ module.exports.getPublicDistrictByState = async (req, res) => {
 };
 
 
-module.exports.getStatewiseDistillerCount = async(req, res)=>{
-  try{
-      const StateWiseDistiller = await Distiller.aggregate([
+// module.exports.getStatewiseDistillerCount = async(req, res)=>{
+//   try{
+//       const StateWiseDistiller = await Distiller.aggregate([
+//         {
+//           $match: {
+//             "address.registered.state" : {$ne : null}
+//           }
+//         },
+//         {
+//           $group:{
+//             _id:"$address.registered.state",
+//             count : {$sum:1}
+//           }
+//         },
+//         {
+//           $project : {
+//             _id: 0,
+//             state:"$_id",
+//             count:1,
+//           }
+//         }
+//       ])
+
+//       const totalState = StateWiseDistiller.reduce(
+//         (sum, state)=>sum+state.count,
+//         0
+//       );
+
+//       return sendResponse({
+//         res,
+//         status:200,
+//         data:{ stateWiseCount:StateWiseDistiller, totalState},
+//         message: _response_message.found("All distiller count fetch successfully"),
+//       })
+
+//   }catch (error) {
+//       console.log("error", error);
+//       _handleCatchErrors(error, res);
+//     }
+// }
+
+module.exports.getStatewiseDistillerCount = async (req, res) => {
+  try {
+    const { state, commodity } = req.query;
+    const hasFilters = state || commodity;
+    let StateWiseDistiller;
+    if (hasFilters) {
+      const poMatch = {};
+
+      if (state) {
+        const stateArray = Array.isArray(state) ? state : [state];
+        const regexStates = stateArray.map(name => new RegExp(name, "i"));
+        poMatch['distiller.address.registered.state'] = { $in: regexStates };
+      }
+
+      if (commodity) {
+        const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
+        const regexCommodities = commodityArray.map(name => new RegExp(name, "i"));
+        poMatch['product.name'] = { $in: regexCommodities };
+      }
+
+      StateWiseDistiller = await Distiller.aggregate([
+        {
+          $lookup: {
+            from: "purchaseorders",
+            let: { distillerId: "$_id" },
+            pipeline: [
+              {
+                $lookup: {
+                  from: "distillers",
+                  localField: "distiller_id",
+                  foreignField: "_id",
+                  as: "distiller"
+                }
+              },
+              { $unwind: "$distiller" },
+              {
+                $match: {
+                  $expr: { $eq: ["$distiller_id", "$$distillerId"] },
+                  ...poMatch
+                }
+              }
+            ],
+            as: "filteredOrders"
+          }
+        },
         {
           $match: {
-            "address.registered.state" : {$ne : null}
+            filteredOrders: { $ne: [] },
+            "address.registered.state": { $ne: null },
+            ...(state ? {
+              "address.registered.state": {
+                $in: (Array.isArray(state) ? state : [state]).map(name => new RegExp(name, "i"))
+              }
+            } : {})
           }
         },
         {
-          $group:{
-            _id:"$address.registered.state",
-            count : {$sum:1}
+          $group: {
+            _id: "$address.registered.state",
+            count: { $sum: 1 }
           }
         },
         {
-          $project : {
+          $project: {
             _id: 0,
-            state:"$_id",
-            count:1,
+            state: "$_id",
+            count: 1
           }
         }
-      ])
+      ]);
 
-      const totalState = StateWiseDistiller.reduce(
-        (sum, state)=>sum+state.count,
-        0
-      );
-
-      return sendResponse({
-        res,
-        status:200,
-        data:{ stateWiseCount:StateWiseDistiller, totalState},
-        message: _response_message.found("All distiller count fetch successfully"),
-      })
-
-  }catch (error) {
-      console.log("error", error);
-      _handleCatchErrors(error, res);
+    } else {
+      //default value for states (without any params)
+      StateWiseDistiller = await Distiller.aggregate([
+        {
+          $match: {
+            "address.registered.state": { $ne: null }
+          }
+        },
+        {
+          $group: {
+            _id: "$address.registered.state",
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            state: "$_id",
+            count: 1
+          }
+        }
+        // {
+        //   $sort: { state: 1 }                  
+        // }
+      ]);
     }
-}
+
+   // console.log(state, commodity)
+
+    const totalState = StateWiseDistiller.reduce(
+      (sum, state) => sum + state.count,
+      0
+    );
+
+    return sendResponse({
+      res,
+      status: 200,
+      data: { stateWiseCount: StateWiseDistiller, totalState },
+      message: _response_message.found("All distiller count fetch successfully"),
+    });
+
+  } catch (error) {
+    console.log("error", error);
+    _handleCatchErrors(error, res);
+  }
+};
+
 
 
 module.exports.getProcurmentCountDistiller = async (req, res) => {
