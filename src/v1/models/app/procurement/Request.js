@@ -21,7 +21,7 @@ const RequestSchema = new mongoose.Schema({
         commodityImage: { type: String, required: true },
         grade: { type: String, required: true },
         quantity: { type: Number, required: true },
-        schemeId: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Scheme },
+        schemeId: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Scheme, index: true },
         season: { type: String },
         period: { type: Date },
         commodity_id:{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Commodity },

@@ -28,6 +28,7 @@ const {
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { router } = require("./src/v1/routes");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
+const { agristackchRoutes } = require("@src/v1/modules/agristack/Routes");
 // application level middlewares
 app.use(helmet());
 app.use(
@@ -38,15 +39,16 @@ app.use(
 );
 app.use(morgan('dev'));
 app.use(morgan("combined", { stream: combinedLogStream }));
-app.use(express.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json({ limit: "30mb" }));
+app.use(express.json( { limit: "50mb"} ));
+app.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
+app.use(bodyParser.json({ limit: "50mb" }));
 app.use(compression());
 app.use(handleCors);
 app.use(handlePagination);
 app.use(cookieParser());
 app.disable("x-powered-by");
 app.use(apiVersion, router);
+app.use('/farmer-registry-api-up-qa', agristackchRoutes);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 require('./crons/index')
 // server status

@@ -1249,7 +1249,7 @@ module.exports.totalQty = async (req, res) => {
         ]);
         const totalQtl = result[0]?.totalGatePassWeightQtl || 0;
         const totalMT = totalQtl / 10;
-        // const totalAmount = totalMT * 22250;
+      
         const totalAmount = totalMT * 59500;
         res.json({
             totalGatePassWeightQtl: totalQtl,

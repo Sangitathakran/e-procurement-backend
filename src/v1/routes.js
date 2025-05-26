@@ -21,21 +21,23 @@ const { nccfRoutes } = require("./modules/nccf/routes");
 const { bankIntegrationRoutes } = require("./modules/bankIntegration/Routes");
 const { dropDownRoutes } = require("./modules/dropDown/Routes");
 const { ekhridRoutes } = require("./modules/ekhrid/Routes");
+const { upagRoutes } = require("./modules/upag/Routes");
+const { slaRoutes } = require("./modules/sla/Routes");
+// const { agristackchRoutes } = require("./modules/agristack/Routes");
 
 /* Define Your Routes */
 router.use(handlePagination)
-router.use(handleRateLimit)
+//router.use(handleRateLimit)
 router.use(multer().any())
 
 router.use('/aws', S3Router)
 router.use("/master", masterRoutes);
 router.use("/modules", FeatureRoutes)
-
 router.use("/agent", agentRoutes);
+router.use("/newsla", slaRoutes);
+
 router.use('/helper', helperRoutes)
-
 router.use('/user', userManagementRoutes)
-
 router.use("/distiller", distillerRoutes);
 router.use("/associate", associateRoutes);
 router.use("/farmer", farmerRoutes);
@@ -46,7 +48,10 @@ router.use("/auth", authRoutes)
 router.use("/nccf", nccfRoutes)
 router.use("/bank", bankIntegrationRoutes)
 router.use("/dropdown", dropDownRoutes);
-
 router.use("/ekhrid", ekhridRoutes);
+router.use("/upag", upagRoutes);
+//router.use("/agristack", agristackchRoutes);
+
+
 
 module.exports = { router };
