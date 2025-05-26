@@ -1077,6 +1077,18 @@ module.exports.bulkUploadDistiller = async (req, res) => {
             const mou = record["Documents"];
             const taluka = record["taluka"];
             const village = record["village"];
+            const esyq3_ethanol_alloc = record["ESYQ3 Ethanol Allocn. (KL)"] || null;
+            const esyq3_maize_req = record["ESYQ3 Maize Reqd. (MT)"] || null;
+            const esyq4_ethanol_alloc = record["ESYQ4 Ethanol Allocn. (KL)"] || null;
+            const esyq4_maize_req = record["ESYQ4 Maize Reqd. (MT)"] || null;
+            const q3q4_ethanol_alloc = record["Q3+Q4  Ethanol Allocn. (KL)"] || null;
+            const q3q4_maize_req = record["Q3+Q4 Maize Reqd. (MT)"] || null;
+            const email = record["E-Mail ID"] || null;
+            const lat_long = record["Lat-Long"] || null;
+            const city = record["City"] || null;
+            const pincode = record["PIN Code"] || null;
+            const distillery_address = record["Distillery Address"] || null;
+            const authorized_contact_no = record["Authorized Contact no"] || null;
             let errors = [];
 
             if (!mobile_no) errors.push("Mobile No. is required");
@@ -1096,16 +1108,16 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                         client_id: '9876',
                         basic_details: {
                             distiller_details: {
-                                associate_type: null,
+                                associate_type: 'Organisation',
                                 organization_name: associate_name,
-                                email: null,
+                                email: email,
                                 phone: mobile_no,
                                 company_logo: null
                             },
                             point_of_contact: {
                                 name: name,
                                 email:null,
-                                mobile: null,
+                                mobile: authorized_contact_no,
                                 designation: null,
                                 aadhar_number: null,
                                 aadhar_image: {
@@ -1126,15 +1138,23 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                             implementation_agency: null,
                             cbbo_name: null
                         },
+                        distiller_alloc_data: {
+                            esyq3_ethanol_alloc,
+                            esyq3_maize_req,
+                            esyq4_ethanol_alloc,
+                            esyq4_maize_req,
+                            q3q4_ethanol_alloc,
+                            q3q4_maize_req,
+                          },
                         address: {
                             registered: {
-                                line1: null,
+                                line1: distillery_address,
                                 line2: null,
                                 country: "India",
                                 state,
                                 district,
-                                taluka,
-                                pinCode: null,
+                                taluka: city,
+                                pinCode: pincode,
                                 village,
                                 ar_circle: null
                             },
@@ -1184,6 +1204,7 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                             account_number: null,
                             upload_proof: null
                         },
+                        lat_long,
                         user_code: null,
                         mou,
                         user_type: _userType.distiller,
@@ -1196,7 +1217,9 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                         term_condition: false,
                         active: true
                     });
-                    await newDistiller.save();
+                    // const saveDistiller = await newDistiller.save();
+                    // console.log("saveDistiller",saveDistiller._id)
+                    const savedDistiller = await newDistiller.save();
                 }
             } catch (error) {
                 return { success: false, errors: [error.message] };
