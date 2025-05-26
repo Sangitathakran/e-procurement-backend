@@ -112,46 +112,37 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 */
 
 
-
-
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   try {
     const { user_id } = req;
     const { commodity, state, scheme } = req.query;
 
+    //Initialize filters
     let poFilter = {};
     let distillerFilter = {};
     let matchQuery = {};
 
-    //State filter [shared across all]
-    let stateFilter = {};
+    //state filter
     if (state) {
       const stateArray = Array.isArray(state) ? state : [state];
       const regexStates = stateArray.map(name => new RegExp(name, "i"));
-      stateFilter = { 'address.registered.state': { $in: regexStates } };
+
       distillerFilter['address.registered.state'] = { $in: regexStates };
       poFilter['distiller.address.registered.state'] = { $in: regexStates };
       matchQuery['distiller.address.registered.state'] = { $in: regexStates };
     }
 
-//example 
-//     poFilter = {
-//   ...poFilter,
-//   'distiller.address.registered.state': { $in: regexStates }
-// };
-
-    //Commodity filter [applied to PO, warehouse, and distiller queries]
-    let commodityFilter = {};
+    //commodity filter
     if (commodity) {
       const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
       const regexCommodities = commodityArray.map(name => new RegExp(name, "i"));
+
       poFilter['product.name'] = { $in: regexCommodities };
       matchQuery['product.name'] = { $in: regexCommodities };
       distillerFilter['product.name'] = { $in: regexCommodities };
-      stateFilter['product.name'] = { $in: regexCommodities };
     }
 
-    // Scheme filter applied to warehouse query only
+    //scheme filter
     if (scheme) {
       const schemeArray = Array.isArray(scheme) ? scheme : [scheme];
       matchQuery['season period'] = {
@@ -159,12 +150,82 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       };
     }
 
-    const wareHouseCount = (await wareHousev2.countDocuments()) ?? 0;
+    //warehouse count
+    const wareHouseCount = await wareHousev2.countDocuments(scheme ? matchQuery : {});
 
-    const purchaseOrderCount = await PurchaseOrderModel.countDocuments(poFilter);
+    //purchase Order pipeline
+    const purchaseOrderPipeline = [
+      {
+        $lookup: {
+          from: "distillers",
+          localField: "distiller_id",
+          foreignField: "_id",
+          as: "distiller"
+        }
+      },
+      { $unwind: "$distiller" }
+    ];
 
-    const result = await wareHouseDetails.aggregate([
-      { $match: matchQuery },
+    if (Object.keys(poFilter).length > 0) {
+      purchaseOrderPipeline.push({ $match: poFilter });
+    }
+
+    purchaseOrderPipeline.push({ $count: "count" });
+
+    const purchaseOrderAggregate = await PurchaseOrderModel.aggregate(purchaseOrderPipeline);
+    const DistillertotalCount = await Distiller.countDocuments();
+    const purchaseOrderCount = purchaseOrderAggregate.length > 0 ? purchaseOrderAggregate[0].count : 0;
+
+    //distiller pipeline with filter applied
+    const distillerPipeline = [
+      {
+        $lookup: {
+          from: "purchaseorders",
+          let: { distillerId: "$_id" },
+          pipeline: [
+            {
+              $lookup: {
+                from: "distillers",
+                localField: "distiller_id",
+                foreignField: "_id",
+                as: "distiller"
+              }
+            },
+            { $unwind: "$distiller" },
+            {
+              $match: {
+                $expr: { $eq: ["$distiller_id", "$$distillerId"] },
+                ...(Object.keys(poFilter).length > 0 ? poFilter : {})
+              }
+            }
+          ],
+          as: "filteredOrders"
+        }
+      },
+      {
+        $match: {
+          filteredOrders: { $ne: [] }
+        }
+      },
+      {
+        $count: "count"
+      }
+    ];
+
+    const distillerAggregate = await Distiller.aggregate(distillerPipeline);
+   // console.log(distillerAggregate)
+
+    const distillerCount = (!state && !commodity)
+      ? DistillertotalCount
+      : (distillerAggregate.length > 0 ? distillerAggregate[0].count : 0);
+
+    //stock pipeline
+    const stockPipeline = [];
+    if (Object.keys(matchQuery).length > 0) {
+      stockPipeline.push({ $match: matchQuery });
+    }
+
+    stockPipeline.push(
       {
         $project: {
           stockToSum: {
@@ -181,30 +242,32 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
           _id: null,
           totalStock: { $sum: "$stockToSum" },
         },
-      },
-    ]);
+      }
+    );
+
+    const result = await wareHouseDetails.aggregate(stockPipeline);
+    const realTimeStock = result.length > 0 ? result[0].totalStock : 0;
+
+    //other filtered counts
+    const stateFilter = state ? { 'address.registered.state': { $in: [new RegExp(state, "i")] } } : {};
 
     const moU = await Distiller.countDocuments({
       mou_approval: _userStatus.pending,
-      ...stateFilter,
+      ...stateFilter
     });
 
     const onBoarding = await Distiller.countDocuments({
       is_approved: _userStatus.pending,
-      ...stateFilter,
+      ...stateFilter
     });
-
-    const distillerCount = await Distiller.countDocuments(distillerFilter);
 
     const pending_request = await Distiller.countDocuments({
       is_approved: "pending",
-      ...stateFilter,
+      ...stateFilter
     });
 
-    const realTimeStock = result.length > 0 ? result[0].totalStock : 0;
-
     const records = {
-      wareHouseCount,
+      wareHouseCount: wareHouseCount ?? 0,
       purchaseOrderCount,
       realTimeStock,
       moUCount: moU,
