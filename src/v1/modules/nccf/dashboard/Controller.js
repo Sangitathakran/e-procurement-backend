@@ -1179,7 +1179,7 @@ module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
           address: {
             $first: "$distiller_info.address.registered.state",
           },
-          total_paid_amount: { $sum: "$paymentInfo.paidAmount" },
+          paidAmount: { $sum: "$paymentInfo.paidAmount" },
         },
       },
       {
@@ -1189,7 +1189,7 @@ module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
           distiller_id: 1,
           distiller_name: 1,
           address: 1,
-          total_paid_amount: 1,
+          paidAmount: 1,
         },
       },
       { $skip: (page - 1) * limit },
