@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Navbazar</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+        }
+        .logo {
+            width: 120px;
+            height: auto;
+        }
+        .content {
+            color: #333333;
+            text-align: center;
+            padding-top: 20px;
+        }
+        a {
+            text-decoration: none;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .cta-button {
+            display: inline-block;
+            padding: 12px 24px;
+            color: #fff;
+            background-color: #28a745;
+            border-color: #28a745;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease-in-out;
+        }
+        .cta-button:hover {
+            color: #fff;
+            background-color: #218838;
+            border-color: #1e7e34;
+        }
+        .footer {
+            text-align: center;
+            padding-top: 20px;
+            color: #777777;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="{{logo_url}}" alt="Navbazar Logo" class="logo">
+        </div>
+        <div class="content">
+            <h2 style="margin-bottom: 20px;">Welcome to Navbazar!</h2>
+            <p>Dear <strong>{{user_name}},</strong></p>
+            <p>We are delighted to inform you that your account has been successfully registered on the NavBazaar portal.</p>
+            <p><strong>Username:</strong> {{email}}</p>
+            <p><strong>Password:</strong> {{password}}</p>
+            <p>You can access your procurement dashboard and track your journey by visiting the following link:</p>
+            <a href="{{app_url}}">
+                <button class="cta-button">Start Your Journey</button>
+            </a>
+            <p>We look forward to a productive partnership and achieving great results together! </p>
+        </div>
+        <div class="footer">
+            <p>Warm regards,<br>Team Navankur</p>
+        </div>
+    </div>
+</body>
+</html>
