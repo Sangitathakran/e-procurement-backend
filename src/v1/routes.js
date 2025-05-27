@@ -22,6 +22,7 @@ const { bankIntegrationRoutes } = require("./modules/bankIntegration/Routes");
 const { dropDownRoutes } = require("./modules/dropDown/Routes");
 const { ekhridRoutes } = require("./modules/ekhrid/Routes");
 const { slaRoutes } = require("./modules/sla/Routes");
+const { upagRoutes } = require("./modules/upag/Routes");
 
 /* Define Your Routes */
 router.use(handlePagination)
@@ -47,5 +48,6 @@ router.use("/nccf", nccfRoutes)
 router.use("/bank", bankIntegrationRoutes)
 router.use("/dropdown", dropDownRoutes);
 router.use("/ekhrid", ekhridRoutes);
+router.use("/upag", upagRoutes);
 
 module.exports = { router };
