@@ -532,222 +532,341 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 //   }
 // });
 
+
+
+
 // module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
 //   const { limit = 5, procurement_partner, page = 1 } = req.query;
-//   // const {procurement_partner}= req.body;
-
 //   const sortBy = 'createdAt', sortOrder = 'asc', isExport = Number(req.query.isExport) || 0;
-  
+
+//   let { state, commodity } = req.query;
 
 //   try {
-//     // Construct filter object
-//     let filter = {};
-//     if (procurement_partner) {
-//       const partners = Array.isArray(procurement_partner)
-//         ? procurement_partner
-//         : procurement_partner.split(',');
+//     if (typeof state === "string") state = JSON.parse(state);
+//     if (typeof commodity === "string") commodity = JSON.parse(commodity);
+//   } catch (err) {
+//     return res.status(400).send(new serviceResponse({
+//       status: 400,
+//       message: "Invalid state or commodity format. Must be a valid JSON array of strings.",
+//     }));
+//   }
 
-//       filter.procurement_partner = { $in: partners };
-//     }
+//   const stateArray = Array.isArray(state) ? state : state ? [state] : [];
+//   const commodityArray = Array.isArray(commodity) ? commodity : commodity ? [commodity] : [];
 
-//     // Fetch data with pagination and sorting
-//     const warehouses = await wareHouseDetails.find(filter).select('_id basicDetails addressDetails.district addressDetails.state inventory procurement_partner')
-//       .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
-//       .skip((page - 1) * parseInt(limit))
-//       .limit(parseInt(limit));
-   
-//     // Count total warehouses based on filter
-//     const totalWarehouses = await wareHouseDetails.countDocuments(filter);
-//     const activeWarehouses = await wareHouseDetails.countDocuments({ ...filter, active: true });
-//     const inactiveWarehouses = totalWarehouses - activeWarehouses;
+//   //query filters
+//   let filter = {};
+//   if (procurement_partner) {
+//     const partners = Array.isArray(procurement_partner)
+//       ? procurement_partner
+//       : procurement_partner.split(',');
+//     filter.procurement_partner = { $in: partners };
+//   }
 
-//     // Handle export functionality
-//     if (isExport === 1) {
-//       const exportData = warehouses.map(item => ({
-//         "Warehouse ID": item._id,
-//         "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
-//         "City": item.addressDetails?.city || 'NA',
-//         "State": item.addressDetails?.state || 'NA',
-//         "Status": item.active ? 'Active' : 'Inactive',
-//         "Procurement Partner": item.procurement_partner || 'NA'
-//       }));
+//   if (stateArray.length) {
+//     filter['addressDetails.state.state_name'] = { $in: stateArray };
+//   }
 
-//       if (exportData.length) {
-//         return dumpJSONToExcel(req, res, {
-//           data: exportData,
-//           fileName: `Warehouse-List.xlsx`,
-//           worksheetName: `Warehouses`
-//         });
+//   // filtered warehouses
+//   const warehouses = await wareHouseDetails.find(filter)
+//     .select('_id basicDetails addressDetails.district addressDetails.state inventory procurement_partner active')
+//     .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+//     .skip((page - 1) * parseInt(limit))
+//     .limit(parseInt(limit))
+//     .lean();
+
+//   // //Calculate left quantity
+//   // const warehousesWithLeftQnty = warehouses.map(wh => {
+//   //   const stock = wh.inventory?.stock || 0;
+//   //   const requiredStock = wh.inventory?.requiredStock || 0;
+//   //   const leftQnty = stock - requiredStock;
+//   //   return {
+//   //     ...wh,
+//   //     leftQnty,
+//   //   };
+//   // });
+
+//   const warehouseIds = warehousesWithLeftQnty.map(wh => wh._id);
+
+//   //commodities for each warehouse
+//   const commoditiesByWarehouse = await RequestModel.aggregate([
+//     {
+//       $match: {
+//         warehouse_id: { $in: warehouseIds }
 //       }
+//     },
+//     {
+//       $lookup: {
+//         from: "branches",
+//         localField: "branch_id",
+//         foreignField: "_id",
+//         as: "branch"
+//       }
+//     },
+//     { $unwind: "$branch" },
+//     {
+//       $lookup: {
+//         from: "purchaseorders",
+//         localField: "branch._id",
+//         foreignField: "branch_id",
+//         as: "purchaseOrders"
+//       }
+//     },
+//     { $unwind: "$purchaseOrders" },
+//     {
+//       $group: {
+//         _id: "$warehouse_id",
+//         commodities: { $addToSet: "$purchaseOrders.product.name" }
+//       }
+//     }
+//   ]);
 
-//       return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
+//   const commodityMap = {};
+//   commoditiesByWarehouse.forEach(item => {
+//     commodityMap[item._id.toString()] = item.commodities;
+//   });
+
+//   //commodities
+//   let warehousesWithCommodities = warehousesWithLeftQnty.map(wh => ({
+//     ...wh,
+//     commodities: commodityMap[wh._id.toString()] || []
+//   }));
+
+//   // apply commodity filter if present
+//   if (commodityArray.length > 0) {
+//     warehousesWithCommodities = warehousesWithCommodities.filter(wh =>
+//       wh.commodities.some(c => commodityArray.includes(c))
+//     );
+//   }
+
+//   const warehousesWithCommodityCount = warehousesWithCommodities.filter(
+//     wh => wh.commodities.length > 0
+//   ).length;
+
+//   const totalWarehouses = await wareHouseDetails.countDocuments(filter);
+//   const activeWarehouses = await wareHouseDetails.countDocuments({ ...filter, active: true });
+//   const inactiveWarehouses = totalWarehouses - activeWarehouses;
+
+//   if (isExport === 1) {
+//     const exportData = warehousesWithCommodities.map(item => ({
+//       "Warehouse ID": item._id,
+//       "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
+//       "City": item.addressDetails?.district?.district_name || 'NA',
+//       "State": item.addressDetails?.state?.state_name || 'NA',
+//       "Status": item.active ? 'Active' : 'Inactive',
+//       "Procurement Partner": item.procurement_partner || 'NA',
+//       "Commodities": item.commodities.join(', ') || 'None'
+//     }));
+
+//     if (exportData.length) {
+//       return dumpJSONToExcel(req, res, {
+//         data: exportData,
+//         fileName: `Warehouse-List.xlsx`,
+//         worksheetName: `Warehouses`
+//       });
 //     }
 
-//     // Return paginated results
 //     return res.status(200).send(new serviceResponse({
 //       status: 200,
-//       data: {
-//         records: warehouses,
-//         page,
-//         limit: parseInt(limit),
-//         totalRecords: totalWarehouses,
-//         activeRecords: activeWarehouses,
-//         inactiveRecords: inactiveWarehouses,
-//         pages: Math.ceil(totalWarehouses / limit)
-//       },
-//       message: "Warehouses fetched successfully"
+//       message: "No data available for export"
 //     }));
-//   } catch (error) {
-//     console.error(error);
-//     return res.status(500).send(new serviceResponse({ status: 500, message: "Error fetching warehouses", error: error.message }));
 //   }
+
+//   return res.status(200).send(new serviceResponse({
+//     status: 200,
+//     data: {
+//       records: warehousesWithCommodities,
+//       page,
+//       limit: parseInt(limit),
+//       totalRecords: totalWarehouses,
+//       activeRecords: activeWarehouses,
+//       inactiveRecords: inactiveWarehouses,
+//       warehousesWithCommodityCount,
+//       pages: Math.ceil(totalWarehouses / limit)
+//     },
+//     message: "Warehouses with commodities fetched successfully"
+//   }));
 // });
-
-
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
   const { limit = 5, procurement_partner, page = 1 } = req.query;
   const sortBy = 'createdAt', sortOrder = 'asc', isExport = Number(req.query.isExport) || 0;
 
+  let { state, commodity } = req.query;
+
   try {
-    // Build filter
-    let filter = {};
-    if (procurement_partner) {
-      const partners = Array.isArray(procurement_partner)
-        ? procurement_partner
-        : procurement_partner.split(',');
-      filter.procurement_partner = { $in: partners };
-    }
-
-    // Fetch paginated warehouses
-    const warehouses = await wareHouseDetails.find(filter)
-      .select('_id basicDetails addressDetails.district addressDetails.state inventory procurement_partner active ')
-      .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
-      .skip((page - 1) * parseInt(limit))
-      .limit(parseInt(limit))
-      .lean();
-     const warehousesWithLeftQnty = warehouses.map(wh => {
-  const stock = wh.inventory?.stock || 0;
-  const requiredStock = wh.inventory?.requiredStock || 0;
-  const leftQnty = stock - requiredStock;
-
-  return {
-    ...wh,
-    leftQnty,
-  };
-});
-
-// Optional: log for verification
-warehousesWithLeftQnty.forEach(wh => {
-  console.log(`Warehouse: ${wh._id}, Left Quantity: ${wh.leftQnty}`);
-});
-
-    const warehouseIds = warehouses.map(wh => wh._id);
-
-    // Aggregation to fetch commodities for each warehouse
-    const commoditiesByWarehouse = await RequestModel.aggregate([
-      {
-        $match: {
-          warehouse_id: { $in: warehouseIds }
-        }
-      },
-      {
-        $lookup: {
-          from: "branches",
-          localField: "branch_id",
-          foreignField: "_id",
-          as: "branch"
-        }
-      },
-      { $unwind: "$branch" },
-      {
-        $lookup: {
-          from: "purchaseorders",
-          localField: "branch._id",
-          foreignField: "branch_id",
-          as: "purchaseOrders"
-        }
-      },
-      { $unwind: "$purchaseOrders" },
-      {
-        $group: {
-          _id: "$warehouse_id",
-          commodities: { $addToSet: "$purchaseOrders.product.name" }
-        }
+    // Parse input parameters
+    if (typeof state === "string") {
+      try {
+        state = JSON.parse(state);
+      } catch (e) {
+        // If not JSON, treat as comma-separated
+        state = state.split(',').map(s => s.trim());
       }
-    ]);
-
-    // Map warehouseId to commodities
-    const commodityMap = {};
-    commoditiesByWarehouse.forEach(item => {
-      commodityMap[item._id.toString()] = item.commodities;
-    });
-
-    // Append commodities to warehouse records
-    const warehousesWithCommodities = warehouses.map(wh => ({
-      ...wh,
-      commodities: commodityMap[wh._id.toString()] || []
-    }));
-
-    // Count how many have commodities
-    const warehousesWithCommodityCount = warehousesWithCommodities.filter(
-      wh => wh.commodities.length > 0
-    ).length;
-
-    // Totals
-    const totalWarehouses = await wareHouseDetails.countDocuments(filter);
-    const activeWarehouses = await wareHouseDetails.countDocuments({ ...filter, active: true });
-    const inactiveWarehouses = totalWarehouses - activeWarehouses;
-
-    // Export
-    if (isExport === 1) {
-      const exportData = warehousesWithCommodities.map(item => ({
-        "Warehouse ID": item._id,
-        "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
-        "City": item.addressDetails?.district || 'NA',
-        "State": item.addressDetails?.state || 'NA',
-        "Status": item.active ? 'Active' : 'Inactive',
-        "Procurement Partner": item.procurement_partner || 'NA',
-        "Commodities": item.commodities.join(', ') || 'None'
-      }));
-
-      if (exportData.length) {
-        return dumpJSONToExcel(req, res, {
-          data: exportData,
-          fileName: `Warehouse-List.xlsx`,
-          worksheetName: `Warehouses`
-        });
-      }
-
-      return res.status(200).send(new serviceResponse({
-        status: 200,
-        message: "No data available for export"
-      }));
     }
-
-    // Return JSON response
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      data: {
-        records: warehousesWithCommodities,
-        page,
-        limit: parseInt(limit),
-        totalRecords: totalWarehouses,
-        activeRecords: activeWarehouses,
-        inactiveRecords: inactiveWarehouses,
-        warehousesWithCommodityCount,
-        pages: Math.ceil(totalWarehouses / limit)
-      },
-      message: "Warehouses with commodities fetched successfully"
-    }));
-  } catch (error) {
-    console.error("Error in getWarehouseList:", error);
-    return res.status(500).send(new serviceResponse({
-      status: 500,
-      message: "Error fetching warehouses",
-      error: error.message
+    if (typeof commodity === "string") {
+      try {
+        commodity = JSON.parse(commodity);
+      } catch (e) {
+        commodity = commodity.split(',').map(c => c.trim());
+      }
+    }
+  } catch (err) {
+    return res.status(400).send(new serviceResponse({
+      status: 400,
+      message: "Invalid state or commodity format. Must be a valid JSON array or comma-separated strings.",
     }));
   }
+
+  const stateArray = Array.isArray(state) ? state : state ? [state] : [];
+  const commodityArray = Array.isArray(commodity) ? commodity : commodity ? [commodity] : [];
+
+  //query filters
+  let filter = {};
+  
+  // partner filter
+  if (procurement_partner) {
+    const partners = Array.isArray(procurement_partner)
+      ? procurement_partner
+      : procurement_partner.split(',').map(p => p.trim());
+    filter.procurement_partner = { $in: partners };
+  }
+
+  //state filter
+  if (stateArray.length) {
+    filter['addressDetails.state.state_name'] = { 
+      $in: stateArray.map(state => new RegExp(`^${state}$`)) 
+    };
+  }
+
+  //filtered warehouses
+  const warehouses = await wareHouseDetails.find(filter)
+    .select('_id basicDetails addressDetails.district addressDetails.state inventory procurement_partner active')
+    .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
+    .skip((page - 1) * parseInt(limit))
+    .limit(parseInt(limit))
+    .lean();
+
+  // // Calculate left quantity
+  // const warehousesWithLeftQnty = warehouses.map(wh => {
+  //   const stock = wh.inventory?.stock || 0;
+  //   const requiredStock = wh.inventory?.requiredStock || 0;
+  //   const leftQnty = stock - requiredStock;
+  //   return {
+  //     ...wh,
+  //     leftQnty,
+  //   };
+  // });
+
+  const warehouseIds = warehouses.map(wh => wh._id);
+
+  //commodities for each warehouse
+  const commoditiesByWarehouse = await RequestModel.aggregate([
+    {
+      $match: {
+        warehouse_id: { $in: warehouseIds }
+      }
+    },
+    {
+      $lookup: {
+        from: "branches",
+        localField: "branch_id",
+        foreignField: "_id",
+        as: "branch"
+      }
+    },
+    { $unwind: "$branch" },
+    {
+      $lookup: {
+        from: "purchaseorders",
+        localField: "branch._id",
+        foreignField: "branch_id",
+        as: "purchaseOrders"
+      }
+    },
+    { $unwind: "$purchaseOrders" },
+    {
+      $group: {
+        _id: "$warehouse_id",
+        commodities: { $addToSet: "$purchaseOrders.product.name" }
+      }
+    }
+  ]);
+
+  //match warehouseId to commodities
+  const commodityMap ={};
+  commoditiesByWarehouse.forEach(item => {
+    commodityMap[item._id.toString()] = item.commodities;
+  });
+
+  //adding commodity to each warehouse
+  let warehousesWithCommodities = warehouses.map(wh => ({
+    ...wh,
+    commodities: commodityMap[wh._id.toString()] || []
+  }));
+
+  //apply commodity filter if present
+  if (commodityArray.length > 0) {
+    warehousesWithCommodities = warehousesWithCommodities.filter(wh =>
+      wh.commodities.some(c => 
+        commodityArray.some(filterCommodity => 
+          new RegExp(`^${filterCommodity}$`, 'i').test(c)
+        )
+      )
+    );
+  }
+
+  // Count totals
+  const warehousesWithCommodityCount = warehousesWithCommodities.filter(
+    wh => wh.commodities.length > 0
+  ).length;
+
+  const totalWarehouses = await wareHouseDetails.countDocuments(filter);
+  const activeWarehouses = await wareHouseDetails.countDocuments({ ...filter, active: true });
+  const inactiveWarehouses = totalWarehouses - activeWarehouses;
+
+
+  if (isExport === 1) {
+    const exportData = warehousesWithCommodities.map(item => ({
+      "Warehouse ID": item._id,
+      "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
+      "City": item.addressDetails?.district?.district_name || 'NA',
+      "State": item.addressDetails?.state?.state_name || 'NA',
+      "Status": item.active ? 'Active' : 'Inactive',
+      "Left Quantity": item.leftQnty,
+      "Procurement Partner": item.procurement_partner || 'NA',
+      "Commodities": item.commodities.join(', ') || 'None'
+    }));
+
+    if (exportData.length) {
+      return dumpJSONToExcel(req, res, {
+        data: exportData,
+        fileName: `Warehouse-List.xlsx`,
+        worksheetName: `Warehouses`
+      });
+    }
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      message: "No data available for export"
+    }));
+  }
+
+  return res.status(200).send(new serviceResponse({
+    status: 200,
+    data: {
+      records: warehousesWithCommodities,
+      page,
+      limit: parseInt(limit),
+      totalRecords: totalWarehouses,
+      activeRecords: activeWarehouses,
+      inactiveRecords: inactiveWarehouses,
+      warehousesWithCommodityCount,
+      pages: Math.ceil(totalWarehouses / limit)
+    },
+    message: "Warehouses with commodities fetched successfully"
+  }));
 });
+
 
 
 
@@ -1103,7 +1222,7 @@ module.exports.getProcurmentCountDistiller = async (req, res) => {
   try {
     let { state, commodity } = req.query;
 
-    //parse and normalize `commodity` and `state`
+    //parse `commodity` and `state`
     try {
       if (typeof commodity === "string") {
         if (commodity.trim().startsWith("[")) {
