@@ -11,11 +11,11 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     let skip = (page - 1) * limit;
     const isExport = parseInt(req.query.isExport) === 1;
-    const searchDistrict = req.query.search?.trim();
-    const centerNames = req.query.centerNames
-      ? Array.isArray(req.query.centerNames)
-        ? req.query.centerNames
-        : req.query.centerNames.split(',').map(c => c.trim())
+    const centerNames = req.query.search?.trim();
+    const searchDistrict = req.query.districtNames
+      ? Array.isArray(req.query.districtNames)
+        ? req.query.districtNames
+        : req.query.districtNames.split(',').map(c => c.trim())
       : null;
     
     const paymentQuery = { bo_id: portalId };
@@ -149,17 +149,17 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
     if (searchDistrict) {
       pipeline.push({
         $match: {
-          district: { $regex: searchDistrict, $options: "i" },
+          district: { $in: searchDistrict },
         },
       });
-      page = 1;
-      skip = 0;
+    //   page = 1;
+    //   skip = 0;
     }
 
     if (centerNames?.length) {
       pipeline.push({
         $match: {
-          centerName: { $in: centerNames },
+          centerName: { $regex: centerNames, $options: 'i' },
         },
       });
       page = 1;
