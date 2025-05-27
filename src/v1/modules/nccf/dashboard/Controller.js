@@ -818,47 +818,6 @@ module.exports.getPublicDistrictByState = async (req, res) => {
 };
 
 
-// module.exports.getStatewiseDistillerCount = async(req, res)=>{
-//   try{
-//       const StateWiseDistiller = await Distiller.aggregate([
-//         {
-//           $match: {
-//             "address.registered.state" : {$ne : null}
-//           }
-//         },
-//         {
-//           $group:{
-//             _id:"$address.registered.state",
-//             count : {$sum:1}
-//           }
-//         },
-//         {
-//           $project : {
-//             _id: 0,
-//             state:"$_id",
-//             count:1,
-//           }
-//         }
-//       ])
-
-//       const totalState = StateWiseDistiller.reduce(
-//         (sum, state)=>sum+state.count,
-//         0
-//       );
-
-//       return sendResponse({
-//         res,
-//         status:200,
-//         data:{ stateWiseCount:StateWiseDistiller, totalState},
-//         message: _response_message.found("All distiller count fetch successfully"),
-//       })
-
-//   }catch (error) {
-//       console.log("error", error);
-//       _handleCatchErrors(error, res);
-//     }
-// }
-
 module.exports.getStatewiseDistillerCount = async (req, res) => {
   try {
     const { state, commodity } = req.query;
@@ -1042,70 +1001,66 @@ module.exports.getStatewiseDistillerCount = async (req, res) => {
 
 module.exports.getProcurmentCountDistiller = async (req, res) => {
   try {
-    const { commodity, state } = req.query;
-
-    // If no filter param provided, return empty response immediately
-    if (!commodity && !state) {
-      return sendResponse({
-        res,
-        status: 200,
-        message: "No filters provided, no data to display",
-        data: {
-          states: [],
-          grandTotalProductCount: 0,
-        },
-      });
-    }
+    const { state, commodity } = req.query;
 
     const matchStage = {};
 
-    // Apply commodity filter if provided
+    // Commodity filter
     if (commodity) {
       const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
-      const regexCommodities = commodityArray.map(name => new RegExp(`^${name}$`, "i"));
+      const regexCommodities = commodityArray.map(name => new RegExp(name, "i"));
       matchStage["product.name"] = { $in: regexCommodities };
     }
 
-    const pipeline = [
-      // Match product name if filter exists
-      ...(Object.keys(matchStage).length ? [{ $match: matchStage }] : []),
+    const pipeline = [];
 
-      {
-        $lookup: {
-          from: "distillers",
-          localField: "distiller_id",
-          foreignField: "_id",
-          as: "distiller",
-        },
-      },
-      { $unwind: "$distiller" },
-      // Filter distillers by state if provided
-      ...(state
-        ? [
-            {
-              $match: {
-                "distiller.address.registered.state": {
-                  $in: (Array.isArray(state) ? state : [state]).map(
-                    (s) => new RegExp(`^${s}$`, "i")
-                  ),
-                },
-              },
-            },
-          ]
-        : []),
-      {
-        $group: {
-          _id: "$distiller.address.registered.state",
-          productCount: { $sum: 1 },
-        },
-      },
-    ];
+    // Add commodity match only if needed
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    // Lookup distiller
+    pipeline.push({
+      $lookup: {
+        from: "distillers",
+        localField: "distiller_id",
+        foreignField: "_id",
+        as: "distiller"
+      }
+    });
+
+    pipeline.push({ $unwind: "$distiller" });
+
+    // Add state filter
+    if (state) {
+      const stateArray = Array.isArray(state) ? state : [state];
+      const regexStates = stateArray.map(name => new RegExp(name, "i"));
+      pipeline.push({
+        $match: {
+          "distiller.address.registered.state": { $in: regexStates }
+        }
+      });
+    } else {
+      pipeline.push({
+        $match: {
+          "distiller.address.registered.state": { $ne: null }
+        }
+      });
+    }
+
+    // Group by state
+    pipeline.push({
+      $group: {
+        _id: "$distiller.address.registered.state",
+        productCount: { $sum: 1 }
+      }
+    });
 
     const statewiseData = await PurchaseOrderModel.aggregate(pipeline);
 
     const result = statewiseData.map((item) => ({
       state_name: item._id,
-      productCount: item.productCount,
+      productCount: item.productCount
     }));
 
     const grandTotalProductCount = result.reduce(
@@ -1116,12 +1071,13 @@ module.exports.getProcurmentCountDistiller = async (req, res) => {
     return sendResponse({
       res,
       status: 200,
-      message: "Filtered state wise procurement count",
+      message: "State wise procurement count",
       data: {
         states: result,
         grandTotalProductCount,
       },
     });
+
   } catch (error) {
     console.log("error", error);
     _handleCatchErrors(error, res);
@@ -1130,5 +1086,185 @@ module.exports.getProcurmentCountDistiller = async (req, res) => {
 
 
 
+// module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
+//   try{
+//     const page = 1,
+//       limit = 5;
+
+//     const data = await Distiller.aggregate([
+//       {
+//         $project: {
+//           distiller_name: "$basic_details.distiller_details.organization_name",
+//           distiller_id: "$user_code",
+//           address: "$address.registered.state",
+//         },
+//       },
+//     ])
+//       .skip((page - 1) * limit)
+//       .limit(limit);
+
+//     const totalCount = await Distiller.countDocuments();
+
+//     const records = {
+//       data,
+//       meta: {
+//         total: totalCount,
+//         page: parseInt(page),
+//         limit: parseInt(limit),
+//         totalPages: Math.ceil(totalCount / limit),
+//       },
+//     };
+
+//     return res.send(
+//       new serviceResponse({
+//         status: 200,
+//         data: records,
+//         message: _response_message.found("NCCF dashboard onboarding requests"),
+//       })
+//     );
+    
+//   }catch (error) {
+//     _handleCatchErrors(error, res);
+//   }
+// });
 
 
+module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const { state, commodity } = req.query;
+
+    // State filter
+    const stateFilters = state
+      ? {
+          "distiller_info.address.registered.state": {
+            $in: (Array.isArray(state) ? state : [state]).map(
+              (name) => new RegExp(name, "i")
+            ),
+          },
+        }
+      : {};
+
+    // Commodity filter
+    const commodityFilters = commodity
+      ? {
+          "product.name": {
+            $in: (Array.isArray(commodity) ? commodity : [commodity]).map(
+              (name) => new RegExp(name, "i")
+            ),
+          },
+        }
+      : {};
+
+    const aggregationPipeline = [
+      {
+        $match: {
+          "paymentInfo.advancePaymentStatus": "Paid",
+          ...commodityFilters, 
+        },
+      },
+      {
+        $lookup: {
+          from: "distillers",
+          localField: "distiller_id",
+          foreignField: "_id",
+          as: "distiller_info",
+        },
+      },
+      { $unwind: "$distiller_info" },
+      {
+        $match: {
+          ...stateFilters, 
+        },
+      },
+      {
+        $group: {
+          _id: "$distiller_info._id",
+          user_code: { $first: "$distiller_info.user_code" },
+          distiller_id: { $first: "$distiller_id" },
+          distiller_name: {
+            $first:
+              "$distiller_info.basic_details.distiller_details.organization_name",
+          },
+          address: {
+            $first: "$distiller_info.address.registered.state",
+          },
+          paidAmount: { $sum: "$paymentInfo.paidAmount" },
+          commodities: {
+            $addToSet: "$product.name"
+          }
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          user_code: 1,
+          distiller_id: 1,
+          distiller_name: 1,
+          address: 1,
+          paidAmount: 1,
+          commodities: 1
+        },
+      },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ];
+
+    const data = await PurchaseOrderModel.aggregate(aggregationPipeline).exec();
+
+    const countPipeline = [
+      {
+        $match: {
+          "paymentInfo.advancePaymentStatus": "Paid",
+          ...commodityFilters,
+        },
+      },
+      {
+        $lookup: {
+          from: "distillers",
+          localField: "distiller_id",
+          foreignField: "_id",
+          as: "distiller_info",
+        },
+      },
+      { $unwind: "$distiller_info" },
+      {
+        $match: {
+          ...stateFilters,
+        },
+      },
+      {
+        $group: {
+          _id: "$distiller_id",
+        },
+      },
+      { $count: "total" },
+    ];
+
+    const countResult = await PurchaseOrderModel.aggregate(countPipeline).exec();
+    const totalCount = countResult[0]?.total || 0;
+
+    return res.send(
+      new serviceResponse({
+        status: 200,
+        data: {
+          data,
+          meta: {
+            total: totalCount,
+            page,
+            limit,
+            totalPages: Math.ceil(totalCount / limit),
+          },
+        },
+        message:
+          data.length > 0
+            ? _response_message.found("Distiller-wise payment data")
+            : "No paid purchase orders found",
+      })
+    );
+  } catch (error) {
+    console.error("Aggregation Error:", error);
+    _handleCatchErrors(error, res);
+  }
+});
