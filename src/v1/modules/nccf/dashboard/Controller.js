@@ -1001,70 +1001,66 @@ module.exports.getStatewiseDistillerCount = async (req, res) => {
 
 module.exports.getProcurmentCountDistiller = async (req, res) => {
   try {
-    const { commodity, state } = req.query;
-
-    // If no filter param provided, return empty response immediately
-    if (!commodity && !state) {
-      return sendResponse({
-        res,
-        status: 200,
-        message: "No filters provided, no data to display",
-        data: {
-          states: [],
-          grandTotalProductCount: 0,
-        },
-      });
-    }
+    const { state, commodity } = req.query;
 
     const matchStage = {};
 
-    // Apply commodity filter if provided
+    // Commodity filter
     if (commodity) {
       const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
-      const regexCommodities = commodityArray.map(name => new RegExp(`^${name}$`, "i"));
+      const regexCommodities = commodityArray.map(name => new RegExp(name, "i"));
       matchStage["product.name"] = { $in: regexCommodities };
     }
 
-    const pipeline = [
-      // Match product name if filter exists
-      ...(Object.keys(matchStage).length ? [{ $match: matchStage }] : []),
+    const pipeline = [];
 
-      {
-        $lookup: {
-          from: "distillers",
-          localField: "distiller_id",
-          foreignField: "_id",
-          as: "distiller",
-        },
-      },
-      { $unwind: "$distiller" },
-      // Filter distillers by state if provided
-      ...(state
-        ? [
-            {
-              $match: {
-                "distiller.address.registered.state": {
-                  $in: (Array.isArray(state) ? state : [state]).map(
-                    (s) => new RegExp(`^${s}$`, "i")
-                  ),
-                },
-              },
-            },
-          ]
-        : []),
-      {
-        $group: {
-          _id: "$distiller.address.registered.state",
-          productCount: { $sum: 1 },
-        },
-      },
-    ];
+    // Add commodity match only if needed
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    // Lookup distiller
+    pipeline.push({
+      $lookup: {
+        from: "distillers",
+        localField: "distiller_id",
+        foreignField: "_id",
+        as: "distiller"
+      }
+    });
+
+    pipeline.push({ $unwind: "$distiller" });
+
+    // Add state filter
+    if (state) {
+      const stateArray = Array.isArray(state) ? state : [state];
+      const regexStates = stateArray.map(name => new RegExp(name, "i"));
+      pipeline.push({
+        $match: {
+          "distiller.address.registered.state": { $in: regexStates }
+        }
+      });
+    } else {
+      pipeline.push({
+        $match: {
+          "distiller.address.registered.state": { $ne: null }
+        }
+      });
+    }
+
+    // Group by state
+    pipeline.push({
+      $group: {
+        _id: "$distiller.address.registered.state",
+        productCount: { $sum: 1 }
+      }
+    });
 
     const statewiseData = await PurchaseOrderModel.aggregate(pipeline);
 
     const result = statewiseData.map((item) => ({
       state_name: item._id,
-      productCount: item.productCount,
+      productCount: item.productCount
     }));
 
     const grandTotalProductCount = result.reduce(
@@ -1075,17 +1071,19 @@ module.exports.getProcurmentCountDistiller = async (req, res) => {
     return sendResponse({
       res,
       status: 200,
-      message: "Filtered state wise procurement count",
+      message: "State wise procurement count",
       data: {
         states: result,
         grandTotalProductCount,
       },
     });
+
   } catch (error) {
     console.log("error", error);
     _handleCatchErrors(error, res);
   }
 };
+
 
 
 // module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
