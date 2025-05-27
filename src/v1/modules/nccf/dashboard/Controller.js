@@ -1130,13 +1130,14 @@ module.exports.getProcurmentCountDistiller = async (req, res) => {
 //   }
 // });
 
+
 module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const { state } = req.query;
+    const { state, commodity } = req.query;
 
-    //state filter
+    // State filter
     const stateFilters = state
       ? {
           "distiller_info.address.registered.state": {
@@ -1147,10 +1148,22 @@ module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
         }
       : {};
 
+    // Commodity filter
+    const commodityFilters = commodity
+      ? {
+          "product.name": {
+            $in: (Array.isArray(commodity) ? commodity : [commodity]).map(
+              (name) => new RegExp(name, "i")
+            ),
+          },
+        }
+      : {};
+
     const aggregationPipeline = [
       {
         $match: {
           "paymentInfo.advancePaymentStatus": "Paid",
+          ...commodityFilters, 
         },
       },
       {
@@ -1164,7 +1177,7 @@ module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
       { $unwind: "$distiller_info" },
       {
         $match: {
-          ...stateFilters,
+          ...stateFilters, 
         },
       },
       {
@@ -1180,6 +1193,9 @@ module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
             $first: "$distiller_info.address.registered.state",
           },
           paidAmount: { $sum: "$paymentInfo.paidAmount" },
+          commodities: {
+            $addToSet: "$product.name"
+          }
         },
       },
       {
@@ -1190,6 +1206,7 @@ module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
           distiller_name: 1,
           address: 1,
           paidAmount: 1,
+          commodities: 1
         },
       },
       { $skip: (page - 1) * limit },
@@ -1198,11 +1215,11 @@ module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
 
     const data = await PurchaseOrderModel.aggregate(aggregationPipeline).exec();
 
-    // Count pipeline
     const countPipeline = [
       {
         $match: {
           "paymentInfo.advancePaymentStatus": "Paid",
+          ...commodityFilters,
         },
       },
       {
