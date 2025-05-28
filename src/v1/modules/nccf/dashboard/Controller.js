@@ -534,26 +534,198 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 // });
 
 
-module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
-  const { limit = 5, state, commodity } = req.query;
+// module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
+//   const { limit = 5, state, commodity } = req.query;
 
+//   const page = 1;
+//   const sortBy = "createdAt";
+//   const sortOrder = "asc";
+//   const isExport = 0;
+
+//   try {
+//     const matchConditions = [];
+
+//     if (state) {
+//       matchConditions.push({ "addressDetails.state": state });
+//     }
+
+//     const commodityMatch = commodity ? commodity.split(",").map(c => c.trim()) : [];
+
+//     const aggregationPipeline = [];
+
+//     // Add initial $match if state exists
+//     if (matchConditions.length) {
+//       aggregationPipeline.push({ $match: { $and: matchConditions } });
+//     }
+
+//     // Sorting and pagination
+//     aggregationPipeline.push(
+//       { $sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 } },
+//       { $skip: (page - 1) * parseInt(limit) },
+//       { $limit: parseInt(limit) }
+//     );
+
+//     // Join with batchorderprocesses
+//     aggregationPipeline.push(
+//       {
+//         $lookup: {
+//           from: "batchorderprocesses",
+//           localField: "_id",
+//           foreignField: "warehouseId",
+//           as: "batchOrders"
+//         }
+//       },
+//       {
+//         $unwind: {
+//           path: "$batchOrders",
+//           preserveNullAndEmptyArrays: true
+//         }
+//       },
+//       {
+//         $lookup: {
+//           from: "purchaseorders",
+//           localField: "batchOrders.orderId",
+//           foreignField: "_id",
+//           as: "purchaseOrder"
+//         }
+//       },
+//       {
+//         $unwind: {
+//           path: "$purchaseOrder",
+//           preserveNullAndEmptyArrays: true
+//         }
+//       }
+//     );
+
+
+
+//     // Final projection
+//     aggregationPipeline.push({
+//       $project: {
+//         _id: 1,
+//         warehouseName: "$basicDetails.warehouseName",
+//         inventory: 1,
+//         procurement_partner: 1,
+//         state: "$addressDetails.state",
+//         district: "$addressDetails.district",
+//         orderId: "$purchaseOrder._id",
+//         poquantity:"$purchaseOrder.purchasedOrder.poQuantity",
+//         commodity: {
+//           $ifNull: ["$purchaseOrder.product.name", "NA"]
+//         },
+//         active: 1,
+//         "basicDetails.warehouseName": 1,
+//         "addressDetails.state.state_name": 1,
+//         "addressDetails.district.district_name": 1
+//       }
+//     });
+
+//     // Run aggregation
+//     let warehouses = await wareHouseDetails.aggregate(aggregationPipeline);
+
+//     // Count total warehouses (filtered by state if applicable)
+//     const totalWarehouses = await wareHouseDetails.countDocuments(
+//       state ? { "addressDetails.state": state } : {}
+//     );
+//     const activeWarehouses = await wareHouseDetails.countDocuments({
+//       active: true,
+//       ...(state ? { "addressDetails.state": state } : {})
+//     });
+//     const inactiveWarehouses = totalWarehouses - activeWarehouses;
+
+//     // Handle export
+//     if (isExport == 1) {
+//       const exportData = warehouses.map((item) => ({
+//         "Warehouse ID": item._id,
+//         "Warehouse Name": item.warehouseName || "NA",
+//         City: item.district?.district_name || "NA",
+//         State: item.state?.state_name || "NA",
+//         Commodity: item.commodity || "NA",
+//         Status: item.active ? "Active" : "Inactive",
+//       }));
+
+      
+//       if (exportData.length) {
+//         return dumpJSONToExcel(req, res, {
+//           data: exportData,
+//           fileName: `Warehouse-List.xlsx`,
+//           worksheetName: `Warehouses`,
+//         });
+//       }
+
+//       return res.status(200).send(
+//         new serviceResponse({
+//           status: 200,
+//           message: "No data available for export",
+//         })
+//       );
+//     }
+
+//     // Return paginated result
+//     return res.status(200).send(
+//       new serviceResponse({
+//         status: 200,
+//         data: {
+//           records: warehouses,
+//           page,
+//           limit,
+//           totalRecords: totalWarehouses,
+//           activeRecords: activeWarehouses,
+//           inactiveRecords: inactiveWarehouses,
+//           pages: Math.ceil(totalWarehouses / limit),
+//         },
+//         message: "Warehouses fetched successfully",
+//       })
+//     );
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).send(
+//       new serviceResponse({
+//         status: 500,
+//         message: "Error fetching warehouses",
+//         error: error.message,
+//       })
+//     );
+//   }
+// });
+
+module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
+  const { limit = 5 } = req.query;
   const page = 1;
   const sortBy = "createdAt";
   const sortOrder = "asc";
   const isExport = 0;
 
-  try {
-    const matchConditions = [];
+  let { state, commodity } = req.query;
 
-    if (state) {
-      matchConditions.push({ "addressDetails.state": state });
+  try {
+    //state and commodity 
+    try {
+      if (typeof state === "string") state = JSON.parse(state);
+      if (typeof commodity === "string") commodity = JSON.parse(commodity);
+    } catch (err) {
+      return res.status(400).send(new serviceResponse({
+        status: 400,
+        message: "Invalid state or commodity format. Must be a valid JSON array of strings.",
+      }));
     }
 
-    const commodityMatch = commodity ? commodity.split(",").map(c => c.trim()) : [];
+    // Ensure values are arrays
+    const stateArray = Array.isArray(state) ? state : state ? [state] : [];
+    const commodityArray = Array.isArray(commodity) ? commodity : commodity ? [commodity] : [];
+
+    const matchConditions = [];
+
+    // Apply filters
+    if (stateArray.length) {
+      matchConditions.push({
+        "addressDetails.state": { $in: stateArray }
+      });
+    }
 
     const aggregationPipeline = [];
 
-    // Add initial $match if state exists
+    // Add initial $match if filters exist
     if (matchConditions.length) {
       aggregationPipeline.push({ $match: { $and: matchConditions } });
     }
@@ -597,9 +769,15 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
       }
     );
 
+    // Filter by commodity
+    if (commodityArray.length > 0) {
+      aggregationPipeline.push({
+        $match: {
+          "purchaseOrder.product.name": { $in: commodityArray }
+        }
+      });
+    }
 
-
-    // Final projection
     aggregationPipeline.push({
       $project: {
         _id: 1,
@@ -609,6 +787,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         state: "$addressDetails.state",
         district: "$addressDetails.district",
         orderId: "$purchaseOrder._id",
+        poquantity: "$purchaseOrder.purchasedOrder.poQuantity",
         commodity: {
           $ifNull: ["$purchaseOrder.product.name", "NA"]
         },
@@ -619,20 +798,18 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
       }
     });
 
-    // Run aggregation
     let warehouses = await wareHouseDetails.aggregate(aggregationPipeline);
 
-    // Count total warehouses (filtered by state if applicable)
+    //count total warehouses 
     const totalWarehouses = await wareHouseDetails.countDocuments(
-      state ? { "addressDetails.state": state } : {}
+      stateArray.length ? { "addressDetails.state": { $in: stateArray } } : {}
     );
     const activeWarehouses = await wareHouseDetails.countDocuments({
       active: true,
-      ...(state ? { "addressDetails.state": state } : {})
+      ...(stateArray.length ? { "addressDetails.state": { $in: stateArray } } : {})
     });
     const inactiveWarehouses = totalWarehouses - activeWarehouses;
 
-    // Handle export
     if (isExport == 1) {
       const exportData = warehouses.map((item) => ({
         "Warehouse ID": item._id,
@@ -686,7 +863,6 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
     );
   }
 });
-
 
 
 module.exports.getCompanyNames = async (req, res) => {
