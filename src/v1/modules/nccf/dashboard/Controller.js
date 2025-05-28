@@ -644,6 +644,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         Status: item.active ? "Active" : "Inactive",
       }));
 
+      
       if (exportData.length) {
         return dumpJSONToExcel(req, res, {
           data: exportData,
