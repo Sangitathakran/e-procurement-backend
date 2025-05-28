@@ -13,7 +13,8 @@ const { paymentRoutes } = require("./payment/Routes");
 const { schemeRoutes } = require("./scheme/Routes");
 const { slaRoute } = require("./ho-sla-management/Routes");
 const { associateMngmntRoutes } = require("./associate-management/Routes");
-const {dropDownRoute} = require("./ho-dropdwon/Routes")
+const {dropDownRoute} = require("./ho-dropdwon/Routes");
+const { mandiWiseProcurementRoute } = require("./mandiWiseProcurement/Routes");
 
 headOfficeRoutes.use("/auth", hoAuthRoutes)
 headOfficeRoutes.use("/associate", associateMngmntRoutes);
@@ -26,6 +27,7 @@ headOfficeRoutes.use("/payment", Auth, paymentRoutes)
 headOfficeRoutes.use("/schemeAssigned", Auth, schemeRoutes)
 headOfficeRoutes.use("/sla", Auth, slaRoute)
 headOfficeRoutes.use("/dropdown", Auth ,dropDownRoute )
+headOfficeRoutes.use("/mandiWiseProcurement", Auth ,mandiWiseProcurementRoute )
 
 
 module.exports = { headOfficeRoutes }
