@@ -41,6 +41,7 @@ const {
 } = require("@src/v1/models/master/StateDistrictCity");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
+const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 
 /*
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
@@ -215,7 +216,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     ];
 
     const distillerAggregate = await Distiller.aggregate(distillerPipeline);
-   // console.log(distillerAggregate)
+    // console.log(distillerAggregate)
 
     const distillerCount = (!state && !commodity)
       ? DistillertotalCount
@@ -452,20 +453,19 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 
 // module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
 //   const { limit = 5 } = req.query;
-
 //   const page = 1,
 //     sortBy = "createdAt",
 //     sortOrder = "asc",
 //     isExport = 0;
 
 //   try {
-//     // Fetch data with pagination and sorting
 //     const warehouses = await wareHouseDetails
-//       .find()
-//       .select()
-//       .sort({ [sortBy]: sortOrder === "asc" ? 1 : -1 })
-//       .skip((page - 1) * limit)
-//       .limit(parseInt(limit));
+//   .find()
+//   .select('_id basicDetails addressDetails.district addressDetails.state inventory procurement_partner active')
+//   .sort({ [sortBy]: sortOrder === "asc" ? 1 : -1 })
+//   .skip((page - 1) * limit)
+//   .limit(parseInt(limit));
+
 
 //     // Count total warehouses
 //     const totalWarehouses = await wareHouseDetails.countDocuments();
@@ -502,6 +502,7 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 //         );
 //     }
 
+
 //     // Return paginated results
 //     return res.status(200).send(
 //       new serviceResponse({
@@ -533,186 +534,309 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 // });
 
 
-module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
-  const { limit = 5, procurement_partner, page = 1 } = req.query;
-  const sortBy = 'createdAt', sortOrder = 'asc', isExport = Number(req.query.isExport) || 0;
 
-  let { state, commodity } = req.query;
+/*
+module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
+  const { limit = 5, state, commodity } = req.query;
+
+  const page = 1,
+    sortBy = "createdAt",
+    sortOrder = "asc",
+    isExport = 0;
 
   try {
-    // Parse input parameters
-    if (typeof state === "string") {
-      try {
-        state = JSON.parse(state);
-      } catch (e) {
-        // If not JSON, treat as comma-separated
-        state = state.split(',').map(s => s.trim());
-      }
+    // Build match conditions
+    const matchConditions = [];
+
+    if (state) {
+      matchConditions.push({ "addressDetails.state": state });
     }
-    if (typeof commodity === "string") {
-      try {
-        commodity = JSON.parse(commodity);
-      } catch (e) {
-        commodity = commodity.split(',').map(c => c.trim());
+
+    const commodityMatch = commodity ? commodity.split(",").map(c => c.trim()) : [];
+
+    // Main aggregation pipeline
+    const aggregationPipeline = [
+      {
+        $sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 }
+      },
+      {
+        $skip: (page - 1) * parseInt(limit)
+      },
+      {
+        $limit: parseInt(limit)
+      },
+      {
+        $lookup: {
+          from: "batchorderprocesses",
+          localField: "_id",
+          foreignField: "warehouseId",
+          as: "batchOrders"
+        }
+      },
+      {
+        $unwind: {
+          path: "$batchOrders",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $lookup: {
+          from: "purchaseorders",
+          localField: "batchOrders.orderId",
+          foreignField: "_id",
+          as: "purchaseOrder"
+        }
+      },
+      {
+        $unwind: {
+          path: "$purchaseOrder",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          warehouseName: "$basicDetails.warehouseName",
+          inventory: 1,
+          procurement_partner: 1,
+          state: "$addressDetails.state",
+          district: "$addressDetails.district",
+          orderId: "$purchaseOrder._id",
+          commodity: "$purchaseOrder.product.name"
+        }
       }
+    ];
+
+    // Optional match for state
+    if (matchConditions.length) {
+      aggregationPipeline.unshift({ $match: { $and: matchConditions } });
     }
-  } catch (err) {
-    return res.status(400).send(new serviceResponse({
-      status: 400,
-      message: "Invalid state or commodity format. Must be a valid JSON array or comma-separated strings.",
-    }));
-  }
 
-  const stateArray = Array.isArray(state) ? state : state ? [state] : [];
-  const commodityArray = Array.isArray(commodity) ? commodity : commodity ? [commodity] : [];
+    // Run initial aggregation
+    let warehouses = await wareHouseDetails.aggregate(aggregationPipeline);
 
-  //query filters
-  let filter = {};
-  
-  // partner filter
-  if (procurement_partner) {
-    const partners = Array.isArray(procurement_partner)
-      ? procurement_partner
-      : procurement_partner.split(',').map(p => p.trim());
-    filter.procurement_partner = { $in: partners };
-  }
-
-  //state filter
-  if (stateArray.length) {
-    filter['addressDetails.state.state_name'] = { 
-      $in: stateArray.map(state => new RegExp(`^${state}$`)) 
-    };
-  }
-
-  //filtered warehouses
-  const warehouses = await wareHouseDetails.find(filter)
-    .select('_id basicDetails addressDetails.district addressDetails.state inventory procurement_partner active')
-    .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 })
-    .skip((page - 1) * parseInt(limit))
-    .limit(parseInt(limit))
-    .lean();
-
-  // // Calculate left quantity
-  // const warehousesWithLeftQnty = warehouses.map(wh => {
-  //   const stock = wh.inventory?.stock || 0;
-  //   const requiredStock = wh.inventory?.requiredStock || 0;
-  //   const leftQnty = stock - requiredStock;
-  //   return {
-  //     ...wh,
-  //     leftQnty,
-  //   };
-  // });
-
-  const warehouseIds = warehouses.map(wh => wh._id);
-
-  //commodities for each warehouse
-  const commoditiesByWarehouse = await RequestModel.aggregate([
-    {
-      $match: {
-        warehouse_id: { $in: warehouseIds }
-      }
-    },
-    {
-      $lookup: {
-        from: "branches",
-        localField: "branch_id",
-        foreignField: "_id",
-        as: "branch"
-      }
-    },
-    { $unwind: "$branch" },
-    {
-      $lookup: {
-        from: "purchaseorders",
-        localField: "branch._id",
-        foreignField: "branch_id",
-        as: "purchaseOrders"
-      }
-    },
-    { $unwind: "$purchaseOrders" },
-    {
-      $group: {
-        _id: "$warehouse_id",
-        commodities: { $addToSet: "$purchaseOrders.product.name" }
-      }
+    // Optional filtering by commodity after aggregation
+    if (commodityMatch.length > 0) {
+      warehouses = warehouses.filter(wh => commodityMatch.includes(wh.commodity));
     }
-  ]);
 
-  //match warehouseId to commodities
-  const commodityMap ={};
-  commoditiesByWarehouse.forEach(item => {
-    commodityMap[item._id.toString()] = item.commodities;
-  });
+    // Count total warehouses (filtered by state if applicable)
+    const totalWarehouses = await wareHouseDetails.countDocuments(
+      state ? { "addressDetails.state": state } : {}
+    );
+    const activeWarehouses = await wareHouseDetails.countDocuments({
+      active: true,
+      ...(state ? { "addressDetails.state": state } : {})
+    });
+    const inactiveWarehouses = totalWarehouses - activeWarehouses;
 
-  //adding commodity to each warehouse
-  let warehousesWithCommodities = warehouses.map(wh => ({
-    ...wh,
-    commodities: commodityMap[wh._id.toString()] || []
-  }));
+    // Handle export
+    if (isExport == 1) {
+      const exportData = warehouses.map((item) => ({
+        "Warehouse ID": item._id,
+        "Warehouse Name": item.basicDetails?.warehouseName || "NA",
+        City: item.addressDetails?.district?.district_name || "NA",
+        State: item.addressDetails?.state?.state_name || "NA",
+        Commodity: item.commodity || "NA",
+        Status: item.active ? "Active" : "Inactive",
+      }));
 
-  //apply commodity filter if present
-  if (commodityArray.length > 0) {
-    warehousesWithCommodities = warehousesWithCommodities.filter(wh =>
-      wh.commodities.some(c => 
-        commodityArray.some(filterCommodity => 
-          new RegExp(`^${filterCommodity}$`, 'i').test(c)
-        )
-      )
+      if (exportData.length) {
+        return dumpJSONToExcel(req, res, {
+          data: exportData,
+          fileName: `Warehouse-List.xlsx`,
+          worksheetName: `Warehouses`,
+        });
+      }
+
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          message: "No data available for export",
+        })
+      );
+    }
+
+    // Return paginated result
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: {
+          records: warehouses,
+          page,
+          limit,
+          totalRecords: totalWarehouses,
+          activeRecords: activeWarehouses,
+          inactiveRecords: inactiveWarehouses,
+          pages: Math.ceil(totalWarehouses / limit),
+        },
+        message: "Warehouses fetched successfully",
+      })
+    );
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send(
+      new serviceResponse({
+        status: 500,
+        message: "Error fetching warehouses",
+        error: error.message,
+      })
     );
   }
+});
+*/
 
-  // Count totals
-  const warehousesWithCommodityCount = warehousesWithCommodities.filter(
-    wh => wh.commodities.length > 0
-  ).length;
+module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
+  const { limit = 5, state, commodity } = req.query;
 
-  const totalWarehouses = await wareHouseDetails.countDocuments(filter);
-  const activeWarehouses = await wareHouseDetails.countDocuments({ ...filter, active: true });
-  const inactiveWarehouses = totalWarehouses - activeWarehouses;
+  const page = 1;
+  const sortBy = "createdAt";
+  const sortOrder = "asc";
+  const isExport = 0;
 
+  try {
+    const matchConditions = [];
 
-  if (isExport === 1) {
-    const exportData = warehousesWithCommodities.map(item => ({
-      "Warehouse ID": item._id,
-      "Warehouse Name": item.basicDetails?.warehouseName || 'NA',
-      "City": item.addressDetails?.district?.district_name || 'NA',
-      "State": item.addressDetails?.state?.state_name || 'NA',
-      "Status": item.active ? 'Active' : 'Inactive',
-      "Left Quantity": item.leftQnty,
-      "Procurement Partner": item.procurement_partner || 'NA',
-      "Commodities": item.commodities.join(', ') || 'None'
-    }));
-
-    if (exportData.length) {
-      return dumpJSONToExcel(req, res, {
-        data: exportData,
-        fileName: `Warehouse-List.xlsx`,
-        worksheetName: `Warehouses`
-      });
+    if (state) {
+      matchConditions.push({ "addressDetails.state": state });
     }
 
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      message: "No data available for export"
-    }));
+    const commodityMatch = commodity ? commodity.split(",").map(c => c.trim()) : [];
+
+    const aggregationPipeline = [];
+
+    // Add initial $match if state exists
+    if (matchConditions.length) {
+      aggregationPipeline.push({ $match: { $and: matchConditions } });
+    }
+
+    // Sorting and pagination
+    aggregationPipeline.push(
+      { $sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 } },
+      { $skip: (page - 1) * parseInt(limit) },
+      { $limit: parseInt(limit) }
+    );
+
+    // Join with batchorderprocesses
+    aggregationPipeline.push(
+      {
+        $lookup: {
+          from: "batchorderprocesses",
+          localField: "_id",
+          foreignField: "warehouseId",
+          as: "batchOrders"
+        }
+      },
+      {
+        $unwind: {
+          path: "$batchOrders",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $lookup: {
+          from: "purchaseorders",
+          localField: "batchOrders.orderId",
+          foreignField: "_id",
+          as: "purchaseOrder"
+        }
+      },
+      {
+        $unwind: {
+          path: "$purchaseOrder",
+          preserveNullAndEmptyArrays: true
+        }
+      }
+    );
+
+
+
+    // Final projection
+    aggregationPipeline.push({
+      $project: {
+        _id: 1,
+        warehouseName: "$basicDetails.warehouseName",
+        inventory: 1,
+        procurement_partner: 1,
+        state: "$addressDetails.state",
+        district: "$addressDetails.district",
+        orderId: "$purchaseOrder._id",
+        commodity: {
+          $ifNull: ["$purchaseOrder.product.name", "NA"]
+        },
+        active: 1,
+        "basicDetails.warehouseName": 1,
+        "addressDetails.state.state_name": 1,
+        "addressDetails.district.district_name": 1
+      }
+    });
+
+    // Run aggregation
+    let warehouses = await wareHouseDetails.aggregate(aggregationPipeline);
+
+    // Count total warehouses (filtered by state if applicable)
+    const totalWarehouses = await wareHouseDetails.countDocuments(
+      state ? { "addressDetails.state": state } : {}
+    );
+    const activeWarehouses = await wareHouseDetails.countDocuments({
+      active: true,
+      ...(state ? { "addressDetails.state": state } : {})
+    });
+    const inactiveWarehouses = totalWarehouses - activeWarehouses;
+
+    // Handle export
+    if (isExport == 1) {
+      const exportData = warehouses.map((item) => ({
+        "Warehouse ID": item._id,
+        "Warehouse Name": item.warehouseName || "NA",
+        City: item.district?.district_name || "NA",
+        State: item.state?.state_name || "NA",
+        Commodity: item.commodity || "NA",
+        Status: item.active ? "Active" : "Inactive",
+      }));
+
+      if (exportData.length) {
+        return dumpJSONToExcel(req, res, {
+          data: exportData,
+          fileName: `Warehouse-List.xlsx`,
+          worksheetName: `Warehouses`,
+        });
+      }
+
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          message: "No data available for export",
+        })
+      );
+    }
+
+    // Return paginated result
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: {
+          records: warehouses,
+          page,
+          limit,
+          totalRecords: totalWarehouses,
+          activeRecords: activeWarehouses,
+          inactiveRecords: inactiveWarehouses,
+          pages: Math.ceil(totalWarehouses / limit),
+        },
+        message: "Warehouses fetched successfully",
+      })
+    );
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send(
+      new serviceResponse({
+        status: 500,
+        message: "Error fetching warehouses",
+        error: error.message,
+      })
+    );
   }
-
-  return res.status(200).send(new serviceResponse({
-    status: 200,
-    data: {
-      records: warehousesWithCommodities,
-      page,
-      limit: parseInt(limit),
-      totalRecords: totalWarehouses,
-      activeRecords: activeWarehouses,
-      inactiveRecords: inactiveWarehouses,
-      warehousesWithCommodityCount,
-      pages: Math.ceil(totalWarehouses / limit)
-    },
-    message: "Warehouses with commodities fetched successfully"
-  }));
 });
-
 
 
 
@@ -1215,7 +1339,7 @@ module.exports.getProcurmentCountDistiller = async (req, res) => {
 //         message: _response_message.found("NCCF dashboard onboarding requests"),
 //       })
 //     );
-    
+
 //   }catch (error) {
 //     _handleCatchErrors(error, res);
 //   }
@@ -1227,7 +1351,7 @@ module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
-    let {state,commodity} = req.query
+    let { state, commodity } = req.query
 
     try {
       if (typeof state === "string") state = JSON.parse(state);
@@ -1246,25 +1370,25 @@ module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
     // Filters
     const stateFilters = stateArray.length
       ? {
-          "distiller_info.address.registered.state": {
-            $in: stateArray.map(name => name)
-          }
+        "distiller_info.address.registered.state": {
+          $in: stateArray.map(name => name)
         }
+      }
       : {};
 
     const commodityFilters = commodityArray.length
       ? {
-          "product.name": {
-            $in: commodityArray.map(name => name)
-          }
+        "product.name": {
+          $in: commodityArray.map(name => name)
         }
+      }
       : {};
 
     const aggregationPipeline = [
       {
         $match: {
           "paymentInfo.advancePaymentStatus": "Paid",
-          ...commodityFilters, 
+          ...commodityFilters,
         },
       },
       {
@@ -1278,7 +1402,7 @@ module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
       { $unwind: "$distiller_info" },
       {
         $match: {
-          ...stateFilters, 
+          ...stateFilters,
         },
       },
       {
