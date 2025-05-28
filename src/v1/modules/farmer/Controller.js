@@ -2954,6 +2954,9 @@ module.exports.getAllFarmersExport = async (req, res) => {
       paginate = 1,
       centertype = "",
       isExport = 0,
+      state = "",                   
+  startDate = "",               
+  endDate = "",
     } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const parsedLimit = parseInt(limit);
@@ -2961,13 +2964,31 @@ module.exports.getAllFarmersExport = async (req, res) => {
     let associatedQuery = { associate_id: { $ne: null } };
     let localQuery = { associate_id: null };
 
-    if (search) {
-      const searchCondition = { name: { $regex: search, $options: "i" } };
-      associatedQuery = { ...associatedQuery, ...searchCondition };
-      localQuery = { ...localQuery, ...searchCondition };
-    }
+   if (search) {
+  const searchCondition = { name: { $regex: search, $options: "i" } };
+  associatedQuery = { ...associatedQuery, ...searchCondition };
+  localQuery = { ...localQuery, ...searchCondition };
+}
 
-    const records = {
+if (state) {
+  const stateCondition = { "address.state": { $regex: state, $options: "i" } };
+  associatedQuery = { ...associatedQuery, ...stateCondition };
+  localQuery = { ...localQuery, ...stateCondition };
+}
+
+if (startDate && endDate) {
+  const dateFilter = {
+    createdAt: {
+      $gte: new Date(startDate),
+      $lte: new Date(endDate),
+    },
+  };
+  associatedQuery = { ...associatedQuery, ...dateFilter };
+  localQuery = { ...localQuery, ...dateFilter };
+}
+
+
+    let records = {
       associatedFarmers: [],
       localFarmers: [],
       associatedFarmersCount: 0,
@@ -2978,31 +2999,39 @@ module.exports.getAllFarmersExport = async (req, res) => {
       _id: 1,
     };
 
-    const query =
-      centertype === "associateFarmer" ? associatedQuery : localQuery;
+    let query = centertype === "associateFarmer" ? associatedQuery : localQuery;
 
-    const results = await farmer.aggregate([
+    let results = await farmer.aggregate([
       { $match: query },
       // Lookup for land details
       {
         $lookup: {
-          from: "lands", // collection name for land
-          localField: "_id", // or "lands" if it's an array
-          foreignField: "farmer_id",
+          from: "lands",
+          let: { farmerId: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$farmer_id", "$$farmerId"] } } },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+          ],
           as: "land",
         },
       },
       {
         $lookup: {
-          from: "crops", // collection name for land
-          localField: "_id", // or "lands" if it's an array
-          foreignField: "farmer_id",
+          from: "crops",
+          let: { farmerId: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$farmer_id", "$$farmerId"] } } },
+            { $sort: { season: -1 } },
+            { $limit: 1 },
+          ],
           as: "crop",
         },
       },
       // Optional sort
       { $sort: sortCriteria },
     ]);
+    // console.log("results  ",results);
 
     if (centertype === "associateFarmer") {
       records.associatedFarmers = results;
@@ -3048,10 +3077,144 @@ module.exports.getAllFarmersExport = async (req, res) => {
       totalPages:
         limit != 0 ? Math.ceil(records.associatedFarmersCount / limit) : 0,
     };
-
     if (isExport == 1 && centertype === "associateFarmer") {
-      const record = responseData?.associatedFarmers?.map((item) => {
-        return {};
+      const record = responseData?.associatedFarmers.map((item) => {
+        return {
+          "Farmer ID": item?.farmer?.farmer_id || "NA",
+          "Farmer Name": item?.farmer?.name || "NA",
+          "Father/Spouse Name": item?.farmer?.parents?.father_name || "NA",
+          "Mother Name": item?.farmer?.parents?.mother_name || "NA",
+          "Mobile Number": item?.farmer?.basic_details?.mobile_no || "NA",
+          "Created At": item?.famer?.createdAt || "NA",
+          "Email ": item?.farmer?.basic_details?.email || "NA",
+          Category: item?.farmer?.basic_details?.category || "NA",
+          Age: item?.farmer?.basic_details?.age || "NA",
+          "Date of Birth": item?.farmer?.basic_details?.dob || "NA",
+          "Farmer Type": item?.farmer?.basic_details?.farmer_type || "NA",
+          Gender: item?.farmer?.basic_details?.gender || "NA",
+          "Address Line 1": item?.updatedFarmerAddress?.address_line_1 || "NA",
+          "Address Line 2": item?.updatedFarmerAddress?.address_line_2 || "NA",
+          village: item?.updatedFarmerAddress?.village || "NA",
+          Block: item?.updatedFarmerAddress?.block || "NA",
+          Tahshil: item?.updatedFarmerAddress?.tahshil || "NA",
+          District: item?.updatedFarmerAddress?.district || "NA",
+          State: item?.updatedFarmerAddress?.state || "NA",
+          Country: item?.updatedFarmerAddress?.country || "NA",
+          "Pin Code": item?.updatedFarmerAddress?.pin_code || "NA",
+          Lat: item?.updatedFarmerAddress?.lat || "NA",
+          Long: item?.updatedFarmerAddress?.long || "NA",
+          "Land Details": item?.farmer?.land_details || "NA",
+          "Crop Details": item?.farmer?.crop_details || "NA",
+          "Bank Name": item?.farmer?.bank_details?.bank_name || "NA",
+          "Account Holder Name":
+            item?.farmer?.bank_details?.account_holder_name || "NA",
+          "IFSC Code": item?.farmer?.bank_details?.ifsc_code || "NA",
+          "Account Number": item?.farmer?.bank_details?.account_no || "NA",
+          "Account Status": item?.farmer?.bank_details?.accountstatus || "NA",
+          "Welcome Msg Send": item?.farmer?.is_welcome_msg_send || "NA",
+          "Verify Otp": item?.farmer?.is_verify_otp || "NA",
+          "Haryna Famer Code": item?.farmer?.harynaNewFarmer_code || "NA",
+          "User Type": item?.farmer?.user_type || "NA",
+          "Marital Status": item?.farmer?.marital_status || "NA",
+          Religion: item?.farmer?.religion || "NA",
+          "Eduction (Highest)": item?.farmer?.education?.highest_edu || "NA",
+          "Eduction (Details)": item?.farmer?.education?.edu_details || "NA",
+          "Proof (Type)": item?.farmer?.proof?.type || "NA",
+          "Proof (Aadhar no.)": item?.farmer?.proof?.aadhar_no || "NA",
+          Status: item?.farmer?.status || "NA",
+          "External Farmer Id": item?.farmer?.external_farmer_id || "NA",
+          "Infra Structure (Warehouse) ":
+            item?.farmer?.infrastructure_needs?.warehouse || "NA",
+          "Infra Structure (Cold Storage) ":
+            item?.farmer?.infrastructure_needs?.cold_storage || "NA",
+          "Infra Structure (Processing Unit) ":
+            item?.farmer?.infrastructure_needs?.processing_unit || "NA",
+          "Infra Structure (Teansportation) ":
+            item?.farmer?.infrastructure_needs?.transportation_facilities ||
+            "NA",
+          Ekhird: item?.farmer?.ekhrid || "NA",
+          "Famer Tracent Code": item?.farmer?.farmer_tracent_code || "NA",
+          "Financial Support (Creadit Facillties)":
+            item?.farmer?.financial_support?.credit_facilities || "NA",
+          "Financial Support (Soure of Credit)":
+            item?.farmer?.financial_support?.source_of_credit || "NA",
+          "Financial Support (Financial Chanllenges)":
+            item?.farmer?.financial_support?.financial_challenges || "NA",
+          "Financial Support (Support Required)":
+            item?.farmer?.financial_support?.support_required || "NA",
+          "Land Details (Khtauni Number)":
+            item?.farmer?.land_details?.khtauni_number || "NA",
+          "Land Details (khasra Number)":
+            item?.farmer?.land_details?.khasra_number || "NA",
+          "Soil Testing Agencies":
+            item?.farmer?.land_details?.soil_testing_agencies || "NA",
+          "Land Details (LandCropID)":
+            item?.farmer?.land_details?.LandCropID || "NA",
+          "Land Details (Area)": item?.farmer?.land?.[0]?.area || "NA",
+          "Land Details (Area Unit)": item?.farmer?.land?.[0]?.area_unit || "NA",
+          "Land Details (Khtauni Number)":
+            item?.farmer?.land?.[0]?.khtauni_number || "NA",
+          "Land Details (Khasra Number)":
+            item?.farmer?.land?.[0]?.khasra_number || "NA",
+          "Land Details (Khata Number)":
+            item?.farmer?.land?.[0]?.khata_number || "NA",
+          "Land Details (Land Type)":
+            item?.farmer?.land?.[0]?.land_type || "NA",
+          "Land Details (Soil Type)":
+            item?.farmer?.land?.[0]?.soil_type || "NA",
+          "land_address(village)":
+            item?.farmer?.land?.[0]?.land_address?.village || "NA",
+            "land_address(Block)":
+            item?.farmer?.land?.[0]?.land_address?.block || "NA",
+            "land_address(Pin Code)":
+            item?.farmer?.land?.land_address?.pin_code || "NA",
+             "Soil Testing Agencies":
+            item?.farmer?.land?.soil_testing_agencies || "NA",
+          "Crop Details (Season Name)": item?.farmer?.crop?.[0]?.seasonname || "NA",
+          "Crop Details (Season Id)": item?.farmer?.crop?.[0]?.seasonid || "NA",
+          "Crop Details (L LGD DIS CODE)":
+            item?.farmer?.crop?.[0]?.L_LGD_DIS_CODE || "NA",
+          "Crop Details (L LGD TEH CODE)":
+            item?.farmer?.crop?.[0]?.L_LGD_TEH_CODE || "NA",
+          "Crop Details (L LGD VIL CODE)":
+            item?.farmer?.crop?.[0]?.L_LGD_VIL_CODE || "NA",
+          "Crop Details (Sown Commodity ID)":
+            item?.farmer?.crop?.[0]?.SownCommodityID || "NA",
+          "Crop Details (Sown Commodity Name)":
+            item?.farmer?.crop?.[0]?.SownCommodityName || "NA",
+          "Crop Details (Commodity Variety)":
+            item?.farmer?.crop?.[0]?.CommodityVariety || "NA",
+          "Crop Details (Crop Growth Stage)":
+            item?.farmer?.crop?.[0]?.crop_growth_stage || "NA",
+          "Crop Details (Crop Name)": item?.farmer?.crop?.[0]?.crop_name || "NA",
+          "Crop Details (Harvesting Date)":
+            item?.farmer?.crop?.[0]?.harvesting_date || "NA",
+          "Crop Details (Production Quantity)":
+            item?.farmer?.crop?.[0]?.production_quantity || "NA",
+          "Crop Details (Production Quantity)":
+            item?.farmer?.crop?.[0]?.production_quantity || "NA",
+          "Crop Details (Selling Price)":
+            item?.farmer?.crop?.[0]?.selling_price || "NA",
+          "Crop Details (Yield)": item?.farmer?.crop?.[0]?.yield || "NA",
+          "Crop Details (Land Name)": item?.farmer?.crop?.[0]?.land_name || "NA",
+          "Crop Details (Crop Disease)":
+            item?.farmer?.crop?.[0]?.crop_disease || "NA",
+          "Crop Details (Crop Rotation)":
+            item?.farmer?.crop?.[0]?.crop_rotation || "NA",
+          "Seeds (Crop Name)": item?.farmer?.crop?.[0]?.input_details?.seeds?.crop_name || "NA",
+          "Seeds (Crop Variety)":
+            item?.farmer?.crop?.[0]?.input_details?.seeds?.crop_variety || "NA",
+          "Seeds (Name of Seeds)":
+            item?.farmer?.crop?.[0]?.input_details?.seeds?.name_of_seeds || "NA",
+          "Seeds (Name of Seeds Company)":
+            item?.farmer?.crop?.[0]?.input_details?.seeds?.name_of_seeds_company || "NA",
+          "Seeds (Package Size)":
+            item?.farmer?.crop?.[0]?.input_details?.seeds?.package_size || "NA",
+          "Seeds (Total Package Required)":
+            item?.farmer?.crop?.[0]?.input_details?.seeds?.total_package_required || "NA",
+          "Seeds (Date of Purchase)":
+            item?.farmer?.crop?.[0]?.input_details?.seeds?.date_of_purchase || "NA",
+        };
       });
       if (record.length > 0) {
         dumpJSONToExcel(req, res, {
@@ -3060,164 +3223,151 @@ module.exports.getAllFarmersExport = async (req, res) => {
           worksheetName: `Associate-Farmer-record`,
         });
       } else {
-        return res
-          .status(200)
-          .send(
-            new serviceResponse({
-              status: 200,
-              data: records,
-              message: _query.notFound(),
-            })
-          );
+        return res.status(200).send(
+          new serviceResponse({
+            status: 200,
+            message: _query.notFound(),
+          })
+        );
       }
     } else if (isExport == 1 && centertype === "localFarmer") {
-      console.log("Local Famer -,", responseData?.localFarmers?.[0]?.associate_id);
-
-      const record = responseData?.localFarmers?.map((item) => {
+      
+       const record = responseData?.localFarmers.map((item) => {
         return {
-          "Associate ID": item?.associate_id || "NA",
-         // "Farmer ID": item?.farmer_id || "NA",
-          "Farmer Name": item?.name || "NA",
-          "Father/Spouse Name": item?.father_spouse_name || "NA",
-          "Mother Name": item?.parents?.mother_name || "NA",
-          "Mobile Number": item?.mobile_no || "NA",
-          "Created At": item?.createdAt || "NA",
-          "Email ": item?.basic_details?.email || "NA",
-          Category: item?.basic_details?.category || "NA",
-          Age: item?.basic_details?.age || "NA",
-          "Date of Birth": item?.basic_details?.dob || "NA",
-          "Farmer Type": item?.basic_details?.farmer_type || "NA",
-          Gender: item?.basic_details?.gender || "NA",
-          "Address Line 1": item?.address?.address_line_1 || "NA",
-          "Address Line 2": item?.address?.address_line_2 || "NA",
-          village: item?.address?.village || "NA",
-          Block: item?.address?.block || "NA",
-          Tahshil: item?.address?.tahshil || "NA",
-          District: item?.address?.district || "NA",
-          State: item?.address?.state || "NA",
-          Country: item?.address?.country || "NA",
-          "Pin Code": item?.address?.pin_code || "NA",
-          Lat: item?.address?.lat || "NA",
-          Long: item?.address?.long || "NA",
-          "Land Details": item?.land_details || "NA",
-          "Crop Details": item?.crop_details || "NA",
-          "Bank Name": item?.bank_details?.bank_name || "NA",
+          "Farmer ID": item?.farmer?.farmer_id || "NA",
+          "Farmer Name": item?.farmer?.name || "NA",
+          "Father/Spouse Name": item?.farmer?.parents?.father_name || "NA",
+          "Mother Name": item?.farmer?.parents?.mother_name || "NA",
+          "Mobile Number": item?.farmer?.basic_details?.mobile_no || "NA",
+          "Created At": item?.famer?.createdAt || "NA",
+          "Email ": item?.farmer?.basic_details?.email || "NA",
+          Category: item?.farmer?.basic_details?.category || "NA",
+          Age: item?.farmer?.basic_details?.age || "NA",
+          "Date of Birth": item?.farmer?.basic_details?.dob || "NA",
+          "Farmer Type": item?.farmer?.basic_details?.farmer_type || "NA",
+          Gender: item?.farmer?.basic_details?.gender || "NA",
+          "Address Line 1": item?.updatedFarmerAddress?.address_line_1 || "NA",
+          "Address Line 2": item?.updatedFarmerAddress?.address_line_2 || "NA",
+          village: item?.updatedFarmerAddress?.village || "NA",
+          Block: item?.updatedFarmerAddress?.block || "NA",
+          Tahshil: item?.updatedFarmerAddress?.tahshil || "NA",
+          District: item?.updatedFarmerAddress?.district || "NA",
+          State: item?.updatedFarmerAddress?.state || "NA",
+          Country: item?.updatedFarmerAddress?.country || "NA",
+          "Pin Code": item?.updatedFarmerAddress?.pin_code || "NA",
+          Lat: item?.updatedFarmerAddress?.lat || "NA",
+          Long: item?.updatedFarmerAddress?.long || "NA",
+          "Land Details": item?.farmer?.land_details || "NA",
+          "Crop Details": item?.farmer?.crop_details || "NA",
+          "Bank Name": item?.farmer?.bank_details?.bank_name || "NA",
           "Account Holder Name":
-            item?.bank_details?.account_holder_name || "NA",
-          "IFSC Code": item?.bank_details?.ifsc_code || "NA",
-          "Account Number": item?.bank_details?.account_no || "NA",
-          "Account Status": item?.bank_details?.accountstatus || "NA",
-          "Welcome Msg Send": item?.is_welcome_msg_send || "NA",
-          "Verify Otp": item?.is_verify_otp || "NA",
-          "Haryna Famer Code": item?.harynaNewFarmer_code || "NA",
-          "User Type": item?.user_type || "NA",
-          "Marital Status": item?.marital_status || "NA",
-          Religion: item?.religion || "NA",
-          "Eduction (Highest)": item?.education?.highest_edu || "NA",
-          "Eduction (Details)": item?.education?.edu_details || "NA",
-          "Proof (Type)": item?.proof?.type || "NA",
-          "Proof (Aadhar no.)": item?.proof?.aadhar_no || "NA",
-          Status: item?.status || "NA",
-          "External Farmer Id": item?.external_farmer_id || "NA",
+            item?.farmer?.bank_details?.account_holder_name || "NA",
+          "IFSC Code": item?.farmer?.bank_details?.ifsc_code || "NA",
+          "Account Number": item?.farmer?.bank_details?.account_no || "NA",
+          "Account Status": item?.farmer?.bank_details?.accountstatus || "NA",
+          "Welcome Msg Send": item?.farmer?.is_welcome_msg_send || "NA",
+          "Verify Otp": item?.farmer?.is_verify_otp || "NA",
+          "Haryna Famer Code": item?.farmer?.harynaNewFarmer_code || "NA",
+          "User Type": item?.farmer?.user_type || "NA",
+          "Marital Status": item?.farmer?.marital_status || "NA",
+          Religion: item?.farmer?.religion || "NA",
+          "Eduction (Highest)": item?.farmer?.education?.highest_edu || "NA",
+          "Eduction (Details)": item?.farmer?.education?.edu_details || "NA",
+          "Proof (Type)": item?.farmer?.proof?.type || "NA",
+          "Proof (Aadhar no.)": item?.farmer?.proof?.aadhar_no || "NA",
+          Status: item?.farmer?.status || "NA",
+          "External Farmer Id": item?.farmer?.external_farmer_id || "NA",
           "Infra Structure (Warehouse) ":
-            item?.infrastructure_needs?.warehouse || "NA",
+            item?.farmer?.infrastructure_needs?.warehouse || "NA",
           "Infra Structure (Cold Storage) ":
-            item?.infrastructure_needs?.cold_storage || "NA",
+            item?.farmer?.infrastructure_needs?.cold_storage || "NA",
           "Infra Structure (Processing Unit) ":
-            item?.infrastructure_needs?.processing_unit || "NA",
+            item?.farmer?.infrastructure_needs?.processing_unit || "NA",
           "Infra Structure (Teansportation) ":
-            item?.infrastructure_needs?.transportation_facilities || "NA",
-          Ekhird: item?.ekhrid || "NA",
-          "Famer Tracent Code": item?.farmer_tracent_code || "NA",
+            item?.farmer?.infrastructure_needs?.transportation_facilities ||
+            "NA",
+          Ekhird: item?.farmer?.ekhrid || "NA",
+          "Famer Tracent Code": item?.farmer?.farmer_tracent_code || "NA",
           "Financial Support (Creadit Facillties)":
-            item?.financial_support?.credit_facilities || "NA",
+            item?.farmer?.financial_support?.credit_facilities || "NA",
           "Financial Support (Soure of Credit)":
-            item?.financial_support?.source_of_credit || "NA",
+            item?.farmer?.financial_support?.source_of_credit || "NA",
           "Financial Support (Financial Chanllenges)":
-            item?.financial_support?.financial_challenges || "NA",
+            item?.farmer?.financial_support?.financial_challenges || "NA",
           "Financial Support (Support Required)":
-            item?.financial_support?.support_required || "NA",
-          "hr_p_code (p_DCodeLGD)": item?.hr_p_code?.p_DCodeLGD || "NA",
-          "hr_p_code (p_BtCodeLGD)": item?.hr_p_code?.p_BtCodeLGD || "NA",
-          "hr_p_code (p_WvCodeLGD)": item?.hr_p_code?.p_WvCodeLGD || "NA",
-          "hr_p_code (p_address)": item?.hr_p_code?.p_address || "NA",
-          "hr_p_code (Dis_code)": item?.hr_p_code?.Dis_code || "NA",
-          "hr_p_code (Teh_code)": item?.hr_p_code?.Teh_code || "NA",
-          "hr_p_code (Vil_code)": item?.hr_p_code?.Vil_code || "NA",
-          "hr_p_code (statecode)": item?.hr_p_code?.statecode || "NA",
+            item?.farmer?.financial_support?.support_required || "NA",
           "Land Details (Khtauni Number)":
-            item?.land_details?.khtauni_number || "NA",
+            item?.farmer?.land_details?.khtauni_number || "NA",
           "Land Details (khasra Number)":
-            item?.land_details?.khasra_number || "NA",
+            item?.farmer?.land_details?.khasra_number || "NA",
           "Soil Testing Agencies":
-            item?.land_details?.soil_testing_agencies || "NA",
-          "Land Details (LandCropID)": item?.land_details?.LandCropID || "NA",
-          "Land Details (Muraba)": item?.land_details?.Muraba || "NA",
-          "Land Details (khewat)": item?.land_details?.khewat || "NA",
-          "Land Details (sownkanal)": item?.land_details?.sownkanal || "NA",
-          "Land Details (SownMarla)": item?.land_details?.SownMarla || "NA",
-          "Land Details (SownAreaInAcre)":
-            item?.land_details?.SownAreaInAcre || "NA",
-          "Land Details (RevenueKanal)":
-            item?.land_details?.RevenueKanal || "NA",
-          "Land Details (RevenueMarla)":
-            item?.land_details?.RevenueMarla || "NA",
-          "Land Details (RevenueAreaInAcre)":
-            item?.land_details?.RevenueAreaInAcre || "NA",
-          "Crop Details (Season Name)": item?.crop_details?.seasonname || "NA",
-          "Crop Details (Season Id)": item?.crop_details?.seasonid || "NA",
+            item?.farmer?.land_details?.soil_testing_agencies || "NA",
+          "Land Details (LandCropID)":
+            item?.farmer?.land_details?.LandCropID || "NA",
+          "Land Details (Area)": item?.farmer?.land?.[0]?.area || "NA",
+          "Land Details (Area Unit)": item?.farmer?.land?.[0]?.area_unit || "NA",
+          "Land Details (Khtauni Number)":
+            item?.farmer?.land?.[0]?.khtauni_number || "NA",
+          "Land Details (Khasra Number)":
+            item?.farmer?.land?.[0]?.khasra_number || "NA",
+          "Land Details (Khata Number)":
+            item?.farmer?.land?.[0]?.khata_number || "NA",
+          "Land Details (Land Type)":
+            item?.farmer?.land?.[0]?.land_type || "NA",
+          "Land Details (Soil Type)":
+            item?.farmer?.land?.[0]?.soil_type || "NA",
+          "land_address(village)":
+            item?.farmer?.land?.[0]?.land_address?.village || "NA",
+            "land_address(Block)":
+            item?.farmer?.land?.[0]?.land_address?.block || "NA",
+            "land_address(Pin Code)":
+            item?.farmer?.land?.land_address?.pin_code || "NA",
+             "Soil Testing Agencies":
+            item?.farmer?.land?.soil_testing_agencies || "NA",
+          "Crop Details (Season Name)": item?.farmer?.crop?.[0]?.seasonname || "NA",
+          "Crop Details (Season Id)": item?.farmer?.crop?.[0]?.seasonid || "NA",
           "Crop Details (L LGD DIS CODE)":
-            item?.crop_details?.L_LGD_DIS_CODE || "NA",
+            item?.farmer?.crop?.[0]?.L_LGD_DIS_CODE || "NA",
           "Crop Details (L LGD TEH CODE)":
-            item?.crop_details?.L_LGD_TEH_CODE || "NA",
+            item?.farmer?.crop?.[0]?.L_LGD_TEH_CODE || "NA",
           "Crop Details (L LGD VIL CODE)":
-            item?.crop_details?.L_LGD_VIL_CODE || "NA",
+            item?.farmer?.crop?.[0]?.L_LGD_VIL_CODE || "NA",
           "Crop Details (Sown Commodity ID)":
-            item?.crop_details?.SownCommodityID || "NA",
+            item?.farmer?.crop?.[0]?.SownCommodityID || "NA",
           "Crop Details (Sown Commodity Name)":
-            item?.crop_details?.SownCommodityName || "NA",
+            item?.farmer?.crop?.[0]?.SownCommodityName || "NA",
           "Crop Details (Commodity Variety)":
-            item?.crop_details?.CommodityVariety || "NA",
+            item?.farmer?.crop?.[0]?.CommodityVariety || "NA",
           "Crop Details (Crop Growth Stage)":
-            item?.crop_details?.crop_growth_stage || "NA",
-          "Crop Details (Crop Name)": item?.crop_details?.crop_name || "NA",
+            item?.farmer?.crop?.[0]?.crop_growth_stage || "NA",
+          "Crop Details (Crop Name)": item?.farmer?.crop?.[0]?.crop_name || "NA",
           "Crop Details (Harvesting Date)":
-            item?.crop_details?.harvesting_date || "NA",
+            item?.farmer?.crop?.[0]?.harvesting_date || "NA",
           "Crop Details (Production Quantity)":
-            item?.crop_details?.production_quantity || "NA",
+            item?.farmer?.crop?.[0]?.production_quantity || "NA",
           "Crop Details (Production Quantity)":
-            item?.crop_details?.production_quantity || "NA",
+            item?.farmer?.crop?.[0]?.production_quantity || "NA",
           "Crop Details (Selling Price)":
-            item?.crop_details?.selling_price || "NA",
-          "Crop Details (Yield)": item?.crop_details?.yield || "NA",
-          "Crop Details (Land Name)": item?.crop_details?.land_name || "NA",
+            item?.farmer?.crop?.[0]?.selling_price || "NA",
+          "Crop Details (Yield)": item?.farmer?.crop?.[0]?.yield || "NA",
+          "Crop Details (Land Name)": item?.farmer?.crop?.[0]?.land_name || "NA",
           "Crop Details (Crop Disease)":
-            item?.crop_details?.crop_disease || "NA",
+            item?.farmer?.crop?.[0]?.crop_disease || "NA",
           "Crop Details (Crop Rotation)":
-            item?.crop_details?.crop_rotation || "NA",
-          "Insurance Details (Insurance Company)":
-            item?.insurance_details?.insurance_company || "NA",
-          "Insurance Details (Insurance Worth)":
-            item?.insurance_details?.insurance_worth || "NA",
-          "Insurance Details (Insurance Premium)":
-            item?.insurance_details?.insurance_premium || "NA",
-          "Insurance Details (Insurance Start Date)":
-            item?.insurance_details?.insurance_start_date || "NA",
-          "Insurance Details (Insurance End Date)":
-            item?.insurance_details?.insurance_end_date || "NA",
-          "Seeds (Crop Name)": item?.input_details?.seeds?.crop_name || "NA",
+            item?.farmer?.crop?.[0]?.crop_rotation || "NA",
+          "Seeds (Crop Name)": item?.farmer?.crop?.[0]?.input_details?.seeds?.crop_name || "NA",
           "Seeds (Crop Variety)":
-            item?.input_details?.seeds?.crop_variety || "NA",
+            item?.farmer?.crop?.[0]?.input_details?.seeds?.crop_variety || "NA",
           "Seeds (Name of Seeds)":
-            item?.input_details?.seeds?.name_of_seeds || "NA",
+            item?.farmer?.crop?.[0]?.input_details?.seeds?.name_of_seeds || "NA",
           "Seeds (Name of Seeds Company)":
-            item?.input_details?.seeds?.name_of_seeds_company || "NA",
+            item?.farmer?.crop?.[0]?.input_details?.seeds?.name_of_seeds_company || "NA",
           "Seeds (Package Size)":
-            item?.input_details?.seeds?.package_size || "NA",
+            item?.farmer?.crop?.[0]?.input_details?.seeds?.package_size || "NA",
           "Seeds (Total Package Required)":
-            item?.input_details?.seeds?.total_package_required || "NA",
+            item?.farmer?.crop?.[0]?.input_details?.seeds?.total_package_required || "NA",
           "Seeds (Date of Purchase)":
-            item?.input_details?.seeds?.date_of_purchase || "NA",
+            item?.farmer?.crop?.[0]?.input_details?.seeds?.date_of_purchase || "NA",
         };
       });
       if (record.length > 0) {
@@ -3227,27 +3377,23 @@ module.exports.getAllFarmersExport = async (req, res) => {
           worksheetName: `Local-Farmer-record`,
         });
       } else {
-        return res
-          .status(200)
-          .send(
-            new serviceResponse({
-              status: 200,
-              data: records,
-              message: _query.notFound(),
-            })
-          );
-      }
-    } else {
-      return res
-        .status(200)
-        .send(
+        return res.status(200).send(
           new serviceResponse({
             status: 200,
-            data: records,
-            message: _response_message.found("collection center"),
+            message: _query.notFound(),
           })
         );
-    }
+      }
+    } 
+    // else {
+    //   return res.status(200).send(
+    //     new serviceResponse({
+    //       status: 200,
+
+    //       message: _response_message.found("collection center"),
+    //     })
+    //   );
+    // }
 
     // return res.status(200).send({
     //   status: 200,
