@@ -2964,14 +2964,17 @@ module.exports.getAllFarmersExport = async (req, res) => {
     let associatedQuery = { associate_id: { $ne: null } };
     let localQuery = { associate_id: null };
 
-   if (search) {
-  const searchCondition = { name: { $regex: search, $options: "i" } };
+  const sanitizedSearch = typeof search === 'string' ? search : '';
+const sanitizedState = typeof state === 'string' ? state : '';
+
+if (sanitizedSearch) {
+  const searchCondition = { name: { $regex: sanitizedSearch, $options: "i" } };
   associatedQuery = { ...associatedQuery, ...searchCondition };
   localQuery = { ...localQuery, ...searchCondition };
 }
 
-if (state) {
-  const stateCondition = { "address.state": { $regex: state, $options: "i" } };
+if (sanitizedState) {
+  const stateCondition = { "address.state": { $regex: sanitizedState, $options: "i" } };
   associatedQuery = { ...associatedQuery, ...stateCondition };
   localQuery = { ...localQuery, ...stateCondition };
 }
@@ -3226,7 +3229,7 @@ if (startDate && endDate) {
         return res.status(200).send(
           new serviceResponse({
             status: 200,
-            message: _query.notFound(),
+             message: "No records found.",
           })
         );
       }
@@ -3380,7 +3383,7 @@ if (startDate && endDate) {
         return res.status(200).send(
           new serviceResponse({
             status: 200,
-            message: _query.notFound(),
+             message: "No records found.",
           })
         );
       }
