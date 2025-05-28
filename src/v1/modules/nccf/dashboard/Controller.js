@@ -609,6 +609,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         state: "$addressDetails.state",
         district: "$addressDetails.district",
         orderId: "$purchaseOrder._id",
+        poquantity:"$purchaseOrder.purchasedOrder.poQuantity",
         commodity: {
           $ifNull: ["$purchaseOrder.product.name", "NA"]
         },
