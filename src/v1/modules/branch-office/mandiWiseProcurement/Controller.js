@@ -2,6 +2,8 @@ const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const mongoose = require("mongoose");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
+const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 
 
 module.exports.mandiWiseProcurementdata = async (req, res) => {
@@ -185,27 +187,45 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
         "Status": item?.Status ? 'Active' : 'Inactive',
       }));
 
-      if (exportRows.length > 0) {
+     if (exportRows.length > 0) {
         return dumpJSONToExcel(req, res, {
           data: exportRows,
           fileName: `MandiWiseProcurementData.xlsx`,
           worksheetName: `Mandi Data`
         });
       } else {
-        return res.status(404).json({ message: "No data found to export." });
+        return res.status(404).json(new serviceResponse({
+          status: 404,
+          message: _response_message.notFound("Mandi Procurement Not Found")
+        }));
       }
     }
     const totalRecords = aggregated.length;
     const totalPages = Math.ceil(totalRecords / limit);
     const paginatedData = aggregated.slice(skip, skip + limit);
 
-    return res.status(200).json({
-      totalRecords,
-      page,
-      limit,
-      totalPages,
-      data: paginatedData,
-    });
+    return res.status(200).json(new serviceResponse({
+    status: 200,
+    data: {
+        page,
+        limit,
+        totalPages,
+        totalRecords,
+        data: paginatedData,
+       message: _response_message.found("Mandi Procurement Data Fetched")
+    }
+    }));
+//     return res.status(200).json(new serviceResponse({
+//   status: 200,
+//   message: _response_message.found("Mandi Procurement Data Fetched"),
+//   data: {
+//     records: paginatedData,
+//     page,
+//     limit,
+//     totalPages,
+//     totalRecords
+//   }
+// }));
    } catch (error) {
         _handleCatchErrors(error, res);
     }
