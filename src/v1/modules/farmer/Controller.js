@@ -889,14 +889,14 @@ module.exports.getBoFarmerExport = async (req, res) => {
       ];
     }
 
-    //const skip = (parseInt(page) - 1) * parseInt(limit);
-    //const parsedLimit = parseInt(limit);
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const parsedLimit = parseInt(limit);
     const farmers = await farmer.aggregate([
       { $match: query },
-      // { $sort: { [sortBy]: 1 } },
+       { $sort: { [sortBy]: 1 } },
       { $sort: sortBy ? sortBy : { createdAt: -1 } },
-      //{ $skip: skip },
-     // { $limit: parsedLimit },
+      { $skip: skip },
+     { $limit: parsedLimit },
       {
         $lookup: {
           from: "lands",
