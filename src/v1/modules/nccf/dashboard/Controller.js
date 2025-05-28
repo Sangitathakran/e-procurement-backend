@@ -293,47 +293,66 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
 
 
-
 module.exports.getonBoardingRequests = asyncErrorHandler(async (req, res) => {
   try {
-    const page = 1,
-      limit = 5;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+    let { state } = req.query;
+
+    //state input to array
+    try {
+      if (typeof state === "string") state = JSON.parse(state);
+    } catch (err) {
+      return res.status(400).send(new serviceResponse({
+        status: 400,
+        message: "Invalid state format. Must be a valid JSON array of strings.",
+      }));
+    }
+
+    const stateArray = Array.isArray(state) ? state : state ? [state] : [];
+
+    //apply state filter
+    const stateFilter = stateArray.length
+      ? { "address.registered.state": { $in: stateArray } }
+      : {};
 
     const data = await Distiller.aggregate([
+      { $match: stateFilter },
       {
         $project: {
           distiller_name: "$basic_details.distiller_details.organization_name",
           distiller_id: "$user_code",
           status: "$is_approved",
+          state: "$address.registered.state"
         },
       },
-    ])
-      .skip((page - 1) * limit)
-      .limit(limit);
+      { $skip: (page - 1) * limit },
+      { $limit: limit }
+    ]);
 
-    const totalCount = await Distiller.countDocuments();
+    const totalCount = await Distiller.countDocuments(stateFilter);
 
     const records = {
       data,
       meta: {
         total: totalCount,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         totalPages: Math.ceil(totalCount / limit),
       },
     };
 
-    return res.send(
-      new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.found("NCCF dashboard onboarding requests"),
-      })
-    );
+    return res.send(new serviceResponse({
+      status: 200,
+      data: records,
+      message: _response_message.found("NCCF dashboard onboarding requests"),
+    }));
   } catch (error) {
     _handleCatchErrors(error, res);
   }
 });
+
+
 
 module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
   try {
