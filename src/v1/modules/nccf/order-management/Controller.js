@@ -281,21 +281,24 @@ module.exports.getOrderById = asyncErrorHandler(async (req, res) => {
 
 module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     try {
+       
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id, isExport = 0 } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
-
+       // console.log(order_id)
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order_id") }] }));
         }
 
         const branch = await PurchaseOrderModel.findOne({ _id: order_id }).select({ _id: 0, branch_id: 1 }).lean();
+    
 
         let query = search ? {
             $or: [
                 { 'companyDetails.name': { $regex: search, $options: 'i' } },
                 { 'ownerDetails.name': { $regex: search, $options: 'i' } },
-                { 'warehouseDetails.basicDetails.warehouseName': { $regex: search, $options: 'i' } },
+                { 'basicDetails.warehouseName': { $regex: search, $options: 'i' } },
+                { 'wareHouse_code': { $regex: search, $options: 'i' } }
             ],
             ...filters, // Additional filters
         } : {};
@@ -344,6 +347,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                             else: '$inventory.requiredStock'
                         }
                     },
+                    warehouseName: '$basicDetails.warehouseName',
                     nodalOfficerName: '$warehousev2Details.ownerDetails.name',
                     nodalOfficerContact: '$warehousev2Details.ownerDetails.mobile',
                     nodalOfficerEmail: '$warehousev2Details.ownerDetails.email',
@@ -361,11 +365,11 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
 
         const records = { count: 0, rows: [] };
         records.rows = await wareHouseDetails.aggregate(aggregationPipeline);
-
         const countAggregation = [
             { $match: query },
             { $count: 'total' }
         ];
+    
         const countResult = await wareHouseDetails.aggregate(countAggregation);
         records.count = countResult.length > 0 ? countResult[0].total : 0;
 
@@ -403,6 +407,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+
 
 module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
     try {
