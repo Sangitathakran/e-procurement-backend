@@ -20,7 +20,7 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const jformIds = require('../remaining_jformIds');
 const checkJformIdsExist = require('../allJformIds');
 // const checkJformIdsExist = require('../paymentExistingInEkhridTeam');
-
+const { AssociateMandiName } = require("@src/v1/models/app/eKharid/associateMandiName");
 
 module.exports.getAssociates = async (req, res) => {
     try {
@@ -1249,7 +1249,7 @@ module.exports.totalQty = async (req, res) => {
         ]);
         const totalQtl = result[0]?.totalGatePassWeightQtl || 0;
         const totalMT = totalQtl / 10;
-      
+
         const totalAmount = totalMT * 59500;
         res.json({
             totalGatePassWeightQtl: totalQtl,
@@ -1827,4 +1827,106 @@ module.exports.ekhridProcrementExport = async (req, res) => {
         console.error(err);
         return res.status(500).json({ error: err.message });
     }
+};
+
+module.exports.associateMandiName = async (req, res) => {
+
+    try {
+        const { associate_id, mandiName, commisionAgentName } = req.body;
+
+        if (!mandiName || !commisionAgentName) {
+            return res.status(400).json({
+                success: false,
+                message: "mandiName, and commisionAgentName are required.",
+            });
+        }
+
+        const newEntry = new AssociateMandiName({
+            associate_id,
+            mandiName,
+            commisionAgentName,
+        });
+
+        const savedEntry = await newEntry.save();
+
+        return res.status(201).json({
+            success: true,
+            message: "Associate Mandi Name added successfully.",
+            data: savedEntry,
+        });
+    }
+    catch (err) {
+        console.error("Error in addAssociateMandiName:", error);
+        return res.status(500).json({ error: err.message });
+    }
+
+};
+
+module.exports.updateAssociateMandiId = async (req, res) => {
+
+    try {
+        const allDocs = await AssociateMandiName.find({});
+
+        if (!allDocs.length) {
+            return res.status(404).json({
+                success: false,
+                message: "No AssociateMandiName documents found.",
+            });
+        }
+
+        // Loop through each document and update related records
+        
+        const results = await Promise.allSettled(
+            allDocs.map(async (doc) => {
+                const { _id, mandiName } = doc;
+
+                if (!mandiName) return;
+
+                const center = await ProcurementCenter.findOne({ center_name: mandiName });
+
+                if (center) {
+                    await AssociateMandiName.findByIdAndUpdate(
+                        _id,
+                        { procurementCenter_id: center._id }
+                    );
+                }
+            })
+        );
+        
+/*
+        const results = await Promise.allSettled(
+            allDocs.map(async (doc) => {
+                const { _id, commisionAgentName } = doc;
+
+                if (!commisionAgentName) return;
+
+                const associate = await User.findOne({ 'basic_details.associate_details.organization_name': commisionAgentName });
+
+                if (associate) {
+                    await AssociateMandiName.findByIdAndUpdate(
+                        _id,
+                        { associate_id: associate._id }
+                    );
+                }
+            })
+        );
+*/
+        const successCount = results.filter(r => r.status === "fulfilled").length;
+        const failCount = results.length - successCount;
+
+        return res.status(200).json({
+            success: true,
+            message: "Bulk update completed.",
+            updated: successCount,
+            failed: failCount,
+        });
+
+    } catch (error) {
+        console.error("Error in bulk update:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error.",
+        });
+    }
+
 };

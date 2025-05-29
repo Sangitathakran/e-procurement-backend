@@ -63,6 +63,7 @@ const _collectionName = {
     PaymentLogsHistory: "PaymentLogsHistory",
     eKharidHaryana: "ekharidprocurements",
     agristackLog:"agristackLog",
+    associateMandiName: "associateMandiName",
 }
 
 const _userType_Feature_Collection = {
