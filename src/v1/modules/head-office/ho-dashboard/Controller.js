@@ -27,6 +27,8 @@ const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity")
 const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
+// const { Commodity } = require("@src/v1/models/master/Commodity");
+// const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
@@ -111,15 +113,15 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       sessionName = [],
       stateName = []
     } = req.query;
-  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
-  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
-  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
-  if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
+    if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+    if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+    if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+    if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
 
-  if (!Array.isArray(commodityName)) commodityName = [commodityName];
-  if (!Array.isArray(schemeName)) schemeName = [schemeName];
-  if (!Array.isArray(sessionName)) sessionName = [sessionName];
-  if (!Array.isArray(stateName)) stateName = [stateName];
+    if (!Array.isArray(commodityName)) commodityName = [commodityName];
+    if (!Array.isArray(schemeName)) schemeName = [schemeName];
+    if (!Array.isArray(sessionName)) sessionName = [sessionName];
+    if (!Array.isArray(stateName)) stateName = [stateName];
 
     const paymentFilter = {
       ho_id: { $in: [user_id, portalId] },
@@ -138,12 +140,12 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 
     if (commodityName.length) {
       const matchedRequests = await RequestModel.find({
-        "product.name":  { $in: commodityName.map(name => new RegExp(name, "i")) },
+        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
         warehouse_id: { $ne: null },
         branch_id: { $ne: null }
       }).select("warehouse_id branch_id").lean();
-     
-    
+
+
       const warehouseIds = [...new Set(matchedRequests.map(req => req.warehouse_id?.toString()).filter(Boolean))];
       const branchIds = [...new Set(matchedRequests.map(req => req.branch_id?.toString()).filter(Boolean))];
 
@@ -153,17 +155,17 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
         const warehouseFilter = { _id: { $in: warehouseIds } };
         widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments(warehouseFilter);
       }
-    
+
       if (branchIds.length === 0) {
         widgetDetails.branchOffice.total = 0;
       } else {
-        const branchFilter = { 
+        const branchFilter = {
           _id: { $in: branchIds },
-           headOfficeId: hoId
-          };
+          headOfficeId: hoId
+        };
         widgetDetails.branchOffice.total = await Branches.countDocuments(branchFilter);
       }
-    
+
     } else {
       // 🧾 No commodity filter, fallback to default counts
       widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({});
@@ -181,7 +183,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
     widgetDetails.farmerRegistration.totalRegistration = (widgetDetails.farmerRegistration.farmertotal + widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal);
     widgetDetails.farmerBenifitted = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
-   
+
     let scheme = null;
     if (schemeName.length) {
       scheme = await Scheme.findOne({ schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) } }).select("_id").lean();
@@ -190,14 +192,14 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       const { startDate, endDate } = parseDateRange(dateRange);
       paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
     }
-    
+
     const payments = await Payment.find(paymentFilter)
-    .select("qtyProcured createdAt amount")
-    .populate({
-      path: "req_id",
-      select: "product.name product.schemeId product.season",
-      match: {
-       ...(commodityName.length && { "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) } }),
+      .select("qtyProcured createdAt amount")
+      .populate({
+        path: "req_id",
+        select: "product.name product.schemeId product.season",
+        match: {
+          ...(commodityName.length && { "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) } }),
           ...(scheme && { "product.schemeId": scheme._id }),
           ...(sessionName.length && { "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) } })
         }
@@ -230,15 +232,15 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       const qty = Number(payment.qtyProcured) || 0;
       const amount = Number(payment.amount) || 0;
       grandTotalQtyProcured += qty;
-      grandTotalamount +=amount;
-      
+      grandTotalamount += amount;
+
       const createdAt = new Date(payment.createdAt);
       if (createdAt >= startOfToday) {
         todaysQtyProcured += qty;
       }
     }
 
-    widgetDetails.paymentInitiated += grandTotalamount; 
+    widgetDetails.paymentInitiated += grandTotalamount;
     widgetDetails.totalProcurement = Math.round(grandTotalQtyProcured * 100) / 100;
     widgetDetails.todaysQtyProcured = todaysQtyProcured;
 
@@ -398,46 +400,46 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
     }).select("_id").lean();
     schemeIds = schemes.map(s => s._id);
   }
-  
+
   if (dateRange) {
     const { startDate, endDate } = parseDateRange(dateRange);
     paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
   }
   let pendingPaymentDetails = await Payment.find(paymentFilter)
-  .populate({
-    path: "req_id",
-    select: "reqNo product.name product.schemeId product.season batch_id",
-    match: {
-      ...(commodityName.length && {
-        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
-      }),
-       ...(schemeIds.length && {
+    .populate({
+      path: "req_id",
+      select: "reqNo product.name product.schemeId product.season batch_id",
+      match: {
+        ...(commodityName.length && {
+          "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+        }),
+        ...(schemeIds.length && {
           "product.schemeId": { $in: schemeIds },
         }),
-     ...(sessionName.length && {
+        ...(sessionName.length && {
           "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
         }),
-    },
-  })
-  .populate({
-    path: "batch_id",
-    select: "seller_id",
-    populate: {
-      path: "seller_id",
-      select: "address.registered.state",
-      match: stateName.length
-        ? {
+      },
+    })
+    .populate({
+      path: "batch_id",
+      select: "seller_id",
+      populate: {
+        path: "seller_id",
+        select: "address.registered.state",
+        match: stateName.length
+          ? {
             "address.registered.state": {
               $in: stateName.map(name => new RegExp(name, "i")),
             },
           }
-        : undefined,
-    },
-  })
-  .select("req_id qtyProcured amount payment_status")
-  .skip(skip)
-  .limit(limit)
-  .lean();
+          : undefined,
+      },
+    })
+    .select("req_id qtyProcured amount payment_status")
+    .skip(skip)
+    .limit(limit)
+    .lean();
   // Filter out payments where reqNo is missing
   pendingPaymentDetails = pendingPaymentDetails.filter(payment => payment.req_id && payment.req_id.reqNo);
 
@@ -514,39 +516,39 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
   //   .skip(skip)
   //   .limit(limit);
   let pendingApprovalDetails = await Payment.find(paymentFilter)
-  .populate({
-    path: "req_id",
-    select: "reqNo deliveryDate product.name product.season batch_id",
-    match: {
-       ...(commodityName.length && {
-        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
-      }),
-       ...(schemeIds.length && {
+    .populate({
+      path: "req_id",
+      select: "reqNo deliveryDate product.name product.season batch_id",
+      match: {
+        ...(commodityName.length && {
+          "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+        }),
+        ...(schemeIds.length && {
           "product.schemeId": { $in: schemeIds },
         }),
-     ...(sessionName.length && {
+        ...(sessionName.length && {
           "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
         }),
-    },
-     })
-  .populate({
-    path: "batch_id",
-    select: "seller_id",
-    populate: {
-      path: "seller_id",
-      select: "address.registered.state",
-      match: stateName.length
-        ? {
+      },
+    })
+    .populate({
+      path: "batch_id",
+      select: "seller_id",
+      populate: {
+        path: "seller_id",
+        select: "address.registered.state",
+        match: stateName.length
+          ? {
             "address.registered.state": {
               $in: stateName.map(name => new RegExp(name, "i")),
             },
           }
-        : undefined,
-    },
-  })
-  .select("req_id qtyProcured amountPaid ho_approve_status createdAt")
-  .skip(skip)
-  .limit(limit);
+          : undefined,
+      },
+    })
+    .select("req_id qtyProcured amountPaid ho_approve_status createdAt")
+    .skip(skip)
+    .limit(limit);
 
   // Filter out records without reqNo and compute paymentDueDate using reduce
   const modifiedDetails = pendingApprovalDetails.reduce((acc, doc) => {
@@ -609,7 +611,7 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 //   });
 // });
 module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
-  let { page = 1, limit = 10, commodityName = [], schemeName = [], dateRange,sessionName = [], stateName = [] } = req.query;
+  let { page = 1, limit = 10, commodityName = [], schemeName = [], dateRange, sessionName = [], stateName = [] } = req.query;
   page = Number(page);
   limit = Number(limit);
   const skip = (page - 1) * limit;
@@ -674,49 +676,49 @@ module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
   // })
   //   .sort({ createdAt: -1 });
 
- const paymentDetails = await Payment.find(filter)
-  .select("initiated_at req_id ho_approve_by ho_approve_at batch_id")
-  .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
-  .populate({
-    path: "req_id",
-    select: "reqNo product.name product.schemeId product.season",
-    match: {
-      ...(commodityName.length && {
-        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
-      }),
-      ...(schemeIds.length && {
-        "product.schemeId": { $in: schemeIds },
-      }),
-      ...(sessionName.length && {
-        "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
-      }),
-    },
-  })
-  .populate({
-    path: "batch_id",
-    select: "seller_id",
-    populate: {
-      path: "seller_id",
-      select: "address.registered.state",
-      match: stateName.length
-        ? {
+  const paymentDetails = await Payment.find(filter)
+    .select("initiated_at req_id ho_approve_by ho_approve_at batch_id")
+    .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
+    .populate({
+      path: "req_id",
+      select: "reqNo product.name product.schemeId product.season",
+      match: {
+        ...(commodityName.length && {
+          "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+        }),
+        ...(schemeIds.length && {
+          "product.schemeId": { $in: schemeIds },
+        }),
+        ...(sessionName.length && {
+          "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+        }),
+      },
+    })
+    .populate({
+      path: "batch_id",
+      select: "seller_id",
+      populate: {
+        path: "seller_id",
+        select: "address.registered.state",
+        match: stateName.length
+          ? {
             "address.registered.state": {
               $in: stateName.map(name => new RegExp(name, "i")),
             },
           }
-        : undefined,
-    },
-  })
+          : undefined,
+      },
+    })
 
-  .sort({ createdAt: -1 });
-    // .populate({ path: "req_id", select: "reqNo" })
-    // .sort({ createdAt: -1 })
-    // .skip(skip)
-    // .limit(limit);
-    const filteredPayments = paymentDetails.filter(p => p.req_id);
+    .sort({ createdAt: -1 });
+  // .populate({ path: "req_id", select: "reqNo" })
+  // .sort({ createdAt: -1 })
+  // .skip(skip)
+  // .limit(limit);
+  const filteredPayments = paymentDetails.filter(p => p.req_id);
 
-    // Pagination manually
-    const paginated = filteredPayments.slice(skip, skip + limit);
+  // Pagination manually
+  const paginated = filteredPayments.slice(skip, skip + limit);
 
   // const totalCount = await Payment.countDocuments({ ho_id: req.portalId });
 
@@ -739,16 +741,16 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
     const hoId = new mongoose.Types.ObjectId(req.portalId);
     const { user_id, portalId } = req;
     let { commodityName = [],
-    schemeName = [],
-    sessionName = [], dateRange } = req.query;
+      schemeName = [],
+      sessionName = [], dateRange } = req.query;
 
-  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
-  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
-  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+    if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+    if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+    if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
 
-  if (!Array.isArray(commodityName)) commodityName = [commodityName];
-  if (!Array.isArray(schemeName)) schemeName = [schemeName];
-  if (!Array.isArray(sessionName)) sessionName = [sessionName];
+    if (!Array.isArray(commodityName)) commodityName = [commodityName];
+    if (!Array.isArray(schemeName)) schemeName = [schemeName];
+    if (!Array.isArray(sessionName)) sessionName = [sessionName];
 
     // Step 1: Fetch all states from the only StateDistrictCity document
     const stateContainer = await StateDistrictCity.findOne().lean();
@@ -766,13 +768,13 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
     for (const state of stateContainer.states) {
       stateMap[state._id.toString()] = state.state_title;
     }
-   let schemeIds = [];
-  if (schemeName.length) {
-    const schemes = await Scheme.find({
-      schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
-    }).select("_id").lean();
-    schemeIds = schemes.map(s => s._id);
-  }
+    let schemeIds = [];
+    if (schemeName.length) {
+      const schemes = await Scheme.find({
+        schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+      }).select("_id").lean();
+      schemeIds = schemes.map(s => s._id);
+    }
 
 
     const paymentFilter = {
@@ -799,16 +801,16 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
         path: "req_id",
         select: "product.name product.schemeId",
         match: {
-         ...(commodityName.length && {
-        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
-      }),
-       ...(schemeIds.length && {
-          "product.schemeId": { $in: schemeIds },
-        }),
-     ...(sessionName.length && {
-          "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
-        }),
-    },
+          ...(commodityName.length && {
+            "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+          }),
+          ...(schemeIds.length && {
+            "product.schemeId": { $in: schemeIds },
+          }),
+          ...(sessionName.length && {
+            "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+          }),
+        },
       })
       .lean();
 
@@ -1062,13 +1064,175 @@ module.exports.stateWiseCommodityDetail = asyncErrorHandler(async (req, res) => 
 });
 
 
+// module.exports.getStateWiseCommodityStats = async (req, res) => {
+//   try {
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+//     const skip = (page - 1) * limit;
+
+//     const data = await User.aggregate([
+//       {
+//         $lookup: {
+//           from: 'associateoffers',
+//           localField: '_id',
+//           foreignField: 'seller_id',
+//           as: 'offers'
+//         }
+//       },
+//       { $unwind: '$offers' },
+
+//       {
+//         $lookup: {
+//           from: 'requests',
+//           localField: 'offers.req_id',
+//           foreignField: '_id',
+//           as: 'request'
+//         }
+//       },
+//       { $unwind: '$request' },
+//       {
+//         $lookup: {
+//           from: 'commodities',
+//           localField: 'request.product.commodity_id',
+//           foreignField: '_id',
+//           as: 'commodity'
+//         }
+//       },
+//       { $unwind: '$commodity' },
+
+//       {
+//         $lookup: {
+//           from: 'farmerorders',
+//           localField: 'offers._id',
+//           foreignField: 'associateOffers_id',
+//           as: 'farmerOrders'
+//         }
+//       },
+//       { $unwind: { path: '$farmerOrders', preserveNullAndEmptyArrays: true } },
+
+//       {
+//         $lookup: {
+//           from: 'farmers',
+//           localField: 'farmerOrders.farmer_id',
+//           foreignField: '_id',
+//           as: 'farmerInfo'
+//         }
+//       },
+//       { $unwind: { path: '$farmerInfo', preserveNullAndEmptyArrays: true } },
+
+//       {
+//         $addFields: {
+//           farmerId: '$farmerOrders.farmer_id',
+//           associateId: '$farmerInfo.associate_id',
+//           offeredQty: '$farmerOrders.offeredQty'
+//         }
+//       },
+
+//       {
+//         $group: {
+//           _id: {
+//             state: '$address.registered.state',
+//             commodityId: '$commodity._id',
+//             commodityName: '$commodity.name'
+//           },
+//           totalOffers: { $sum: 1 },
+//           uniqueFarmers: { $addToSet: '$_id' },
+//           totalQtyPurchased: { $sum: '$offeredQty' },
+//           allBenefittedFarmers: { $addToSet: '$farmerId' },
+//           allRegisteredPacs: { $addToSet: '$associateId' }
+//         }
+//       },
+//       {
+//         $lookup: {
+//           from: 'statedistrictcities',
+//           localField: '_id.state',
+//           foreignField: 'states.state_title',
+//           as: 'stateInfo',
+//         }
+//       },
+//       {
+//         $project: {
+//           state: '$_id.state',
+//            'stateInfo.states':1,
+//           commodity: {
+//             _id: '$_id.commodityId',
+//             name: '$_id.commodityName',
+//             quantityPurchased: { $ifNull: ['$totalQtyPurchased', 0] },
+//             farmersBenefitted: {
+//               $size: { $setUnion: ['$allBenefittedFarmers', []] }
+//             },
+//             registeredPacs: {
+//               $size: { $setUnion: ['$allRegisteredPacs', []] }
+//             }
+//           },
+//           _id: 0
+//         }
+//       },
+
+//       {
+//         $group: {
+//           _id: '$state',
+//           stateInfo: { $first: '$stateInfo' },
+//           commodities: { $push: '$commodity' }
+//         }
+//       },
+
+//       {
+//         $project: {
+//           state: '$_id',
+//           stateInfo: '$stateInfo',
+//           commodities: 1,
+//           _id: 0
+//         }
+//       },
+
+//       { $sort: { state: 1 } },
+
+//       // Pagination using $facet
+//       {
+//         $facet: {
+//           metadata: [{ $count: "total" }],
+//           data: [{ $skip: skip }, { $limit: limit }]
+//         }
+//       },
+
+//       // Format final result
+//       {
+//         $unwind: "$metadata"
+//       },
+//       {
+//         $project: {
+//           total: "$metadata.total",
+//           page: { $literal: page },
+//           data: 1
+//         }
+//       }
+//     ]);
+//     data[0].status = 200;
+//     data[0].message = _query.get("State Wise Commodity Stats");
+//     data[0].data = data[0]?.data || [];
+//     data[0].total = data[0]?.total || 0;
+//     data[0].page = page;
+//     data[0].limit = limit;
+
+//     res.status(200).json(data[0] );
+//   } catch (err) {
+//     console.error('Error generating stats:', err);
+//     res.status(500).json({ message: 'Server error', error: err.message });
+//   }
+// };
 module.exports.getStateWiseCommodityStats = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
- 
-    const data = await User.aggregate([
+const record ={
+  page: page,
+  limit: limit,
+  skip: skip,
+  data: []
+}
+const data = await User.aggregate([
       {
         $lookup: {
           from: 'associateoffers',
@@ -1078,7 +1242,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
         }
       },
       { $unwind: '$offers' },
- 
+
       {
         $lookup: {
           from: 'requests',
@@ -1088,7 +1252,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
         }
       },
       { $unwind: '$request' },
- 
+
       {
         $lookup: {
           from: 'commodities',
@@ -1098,7 +1262,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
         }
       },
       { $unwind: '$commodity' },
- 
+
       {
         $lookup: {
           from: 'farmerorders',
@@ -1108,7 +1272,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
         }
       },
       { $unwind: { path: '$farmerOrders', preserveNullAndEmptyArrays: true } },
- 
+
       {
         $lookup: {
           from: 'farmers',
@@ -1118,7 +1282,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
         }
       },
       { $unwind: { path: '$farmerInfo', preserveNullAndEmptyArrays: true } },
- 
+
       {
         $addFields: {
           farmerId: '$farmerOrders.farmer_id',
@@ -1126,7 +1290,18 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
           offeredQty: '$farmerOrders.offeredQty'
         }
       },
- 
+      // {
+      //   $match: {
+      //     $expr: {
+      //       $or:[
+      //         { $eq: ['$address.registered.state', 'Haryana'] }, // Match exact state name
+
+      //       ]
+      //     }
+         
+      //   }
+      // },
+
       {
         $group: {
           _id: {
@@ -1141,7 +1316,60 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
           allRegisteredPacs: { $addToSet: '$associateId' }
         }
       },
- 
+
+      {
+        $lookup: {
+          from: 'statedistrictcities',
+          let: { stateName: '$_id.state' },
+          pipeline: [
+            { $unwind: '$states' },
+            {
+              $match: {
+                $expr: {
+                  $eq: ['$states.state_title', '$$stateName']  // match state by title string
+                }
+              }
+            },
+            {
+              $lookup: {
+                from: 'farmers',
+                let: { stateName: '$states._id' }, // pass the state title string here
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $eq: ['$address.state_id', '$$stateName']  // match farmers with that state string
+                      }
+                    }
+                  },
+                  {
+                    $group: {
+                      _id: null,
+                      totalFarmers: { $sum: 1 }
+                    }
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      totalFarmers: 1
+                    }
+                  }
+                ],
+                as: 'farmersCount'
+              }
+            },
+            {
+              $project: {
+                _id: '$states._id',
+                state_title: '$states.state_title',
+                totalFarmers: { $arrayElemAt: ['$farmersCount.totalFarmers', 0] }
+              }
+            }
+          ],
+          as: 'stateInfo'
+        }
+      },
+      { $unwind: { path: '$stateInfo', preserveNullAndEmptyArrays: true } },
       {
         $project: {
           state: '$_id.state',
@@ -1154,19 +1382,23 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
             },
             registeredPacs: {
               $size: { $setUnion: ['$allRegisteredPacs', []] }
-            }
+            },
+            farmersRegistered:'$stateInfo.totalFarmers'
           },
           _id: 0
         }
       },
- 
+
+    
+      
+
       {
         $group: {
           _id: '$state',
           commodities: { $push: '$commodity' }
         }
       },
- 
+
       {
         $project: {
           state: '$_id',
@@ -1174,42 +1406,149 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
           _id: 0
         }
       },
- 
+
       { $sort: { state: 1 } },
- 
-      // Pagination using $facet
+
       {
         $facet: {
           metadata: [{ $count: "total" }],
           data: [{ $skip: skip }, { $limit: limit }]
         }
       },
- 
-      // Format final result
-      {
-        $unwind: "$metadata"
-      },
+
+      { $unwind: "$metadata" },
       {
         $project: {
           total: "$metadata.total",
           page: { $literal: page },
-          pageSize: { $literal: limit },
           data: 1
         }
       }
     ]);
- 
-    res.status(200).json(data[0] || {
-      total: 0,
-      page,
-      pageSize: limit,
-      data: []
+
+
+    record.rows= data[0]?.data || [];
+    res.status(200).send({
+      status: 200,
+      message: _query.get("State Wise Commodity Stats"),
+      data: record
     });
+
   } catch (err) {
     console.error('Error generating stats:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
+
+
+
+
+
+// module.exports.getStateWiseCommodityStats = async (req, res) => {
+//   try {
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+//     const skip = (page - 1) * limit;
+
+//     const users = await User.find({}).lean();
+//     const userIds = users.map(u => u._id);
+//     const offers = await AssociateOffers.find({ seller_id: { $in: userIds } }).lean();
+//     const reqIds = offers.map(o => o.req_id);
+//     const requests = await RequestModel.find({ _id: { $in: reqIds } }).lean();
+//     const commodityIds = requests.map(r => r.product.commodity_id);
+//     const commodities = await Commodity.find({ _id: { $in: commodityIds } }).lean();
+//     const offerIds = offers.map(o => o._id);
+//     const farmerOrders = await FarmerOrders.find({ associateOffers_id: { $in: offerIds } }).lean();
+//     const farmerIds = farmerOrders.map(f => f.farmer_id);
+//     const farmers = await farmer.find({ _id: { $in: farmerIds } }).lean();
+
+//     const userMap = new Map(users.map(u => [u._id.toString(), u]));
+//     const offerMap = new Map(offers.map(o => [o._id.toString(), o]));
+//     const requestMap = new Map(requests.map(r => [r._id.toString(), r]));
+//     const commodityMap = new Map(commodities.map(c => [c._id.toString(), c]));
+//     const farmerMap = new Map(farmers.map(f => [f._id.toString(), f]));
+
+//     const stats = {};
+//     const stateFarmersMap = {}; // For total farmers per state
+
+//     farmerOrders.forEach(fOrder => {
+//       const offer = offerMap.get(fOrder.associateOffers_id.toString());
+//       if (!offer) return;
+
+//       const seller = userMap.get(offer.seller_id.toString());
+//       if (!seller) return;
+
+//       const request = requestMap.get(offer.req_id.toString());
+//       if (!request) return;
+
+//       const commodity = commodityMap.get(request.product.commodity_id.toString());
+//       if (!commodity) return;
+
+//       const farmer = farmerMap.get(fOrder.farmer_id?.toString());
+
+//       const state = seller.address?.registered?.state || 'Unknown';
+
+//       if (!stats[state]) stats[state] = {};
+//       if (!stateFarmersMap[state]) stateFarmersMap[state] = new Set();
+
+//       const cId = commodity._id.toString();
+
+//       if (!stats[state][cId]) {
+//         stats[state][cId] = {
+//           commodityId: commodity._id,
+//           commodityName: commodity.name,
+//           totalOffers: 0,
+//           uniqueFarmers: new Set(),
+//           totalQtyPurchased: 0,
+//           registeredPacs: new Set()
+//         };
+//       }
+
+//       stats[state][cId].totalOffers += 1;
+//       if (farmer) {
+//         stats[state][cId].uniqueFarmers.add(farmer._id.toString());
+//         stateFarmersMap[state].add(farmer._id.toString());
+//         if (farmer.associate_id) stats[state][cId].registeredPacs.add(farmer.associate_id.toString());
+//       }
+//       stats[state][cId].totalQtyPurchased += fOrder.offeredQty || 0;
+//     });
+
+//     let results = Object.entries(stats).map(([stateName, commoditiesObj]) => {
+//       const commoditiesArr = Object.values(commoditiesObj).map(c => ({
+//         _id: c.commodityId,
+//         name: c.commodityName,
+//         quantityPurchased: c.totalQtyPurchased,
+//         farmersBenefitted: c.uniqueFarmers.size,
+//         registeredPacs: c.registeredPacs.size
+//       }));
+
+//       return {
+//         state: stateName,
+//         totalFarmersInState: stateFarmersMap[stateName]?.size || 0,
+//         commodities: commoditiesArr
+//       };
+//     });
+
+//     results.sort((a, b) => a.state.localeCompare(b.state));
+
+//     const total = results.length;
+//     const paginatedData = results.slice(skip, skip + limit);
+
+//     res.status(200).json({
+//       total,
+//       page,
+//       limit,
+//       data: paginatedData
+//     });
+
+//   } catch (err) {
+//     console.error('Error generating stats:', err);
+//     res.status(500).json({ message: 'Server error', error: err.message });
+//   }
+// };
+
+
+
 
 
 
@@ -2073,7 +2412,7 @@ module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
   });
 });
 module.exports.getcommodity = asyncErrorHandler(async (req, res) => {
-  const hoId =  new mongoose.Types.ObjectId(req.user.portalId);
+  const hoId = new mongoose.Types.ObjectId(req.user.portalId);
   console.log("hoid", hoId)
   const { name } = req.query;
 
@@ -2086,7 +2425,7 @@ module.exports.getcommodity = asyncErrorHandler(async (req, res) => {
 
   const filteredRequests = await RequestModel.find({
     head_office_id: hoId,
-    "product.name": { $regex: new RegExp(name, "i") } 
+    "product.name": { $regex: new RegExp(name, "i") }
   })
     .select("product.name product.grade product.quantity product.commodityImage status expectedProcurementDate deliveryDate")
     .lean();
@@ -2099,7 +2438,7 @@ module.exports.getcommodity = asyncErrorHandler(async (req, res) => {
 
 module.exports.getAssignedSchemes = asyncErrorHandler(async (req, res) => {
   const hoId = new mongoose.Types.ObjectId(req.user.portalId);
-  console.log("hoId",hoId)
+  console.log("hoId", hoId)
   const { schemeName } = req.query;
 
   const assignedSchemes = await SchemeAssign.find({ ho_id: hoId })
@@ -2110,7 +2449,7 @@ module.exports.getAssignedSchemes = asyncErrorHandler(async (req, res) => {
       //   ? {
       //       schemeName: new RegExp("^" + schemeName.trim(), "i"),
       //     }
-        // : {},
+      // : {},
     })
     .lean();
 
