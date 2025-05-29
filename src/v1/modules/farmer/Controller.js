@@ -881,7 +881,6 @@ module.exports.getBoFarmerExport = async (req, res) => {
     }
     let query = { "address.state_id": state_id };
     if (search.trim()) {
-      //query.name = { $regex: search, $options: 'i' };
       query.$or = [
         { name: { $regex: search, $options: "i" } },
         { mobile_no: { $regex: search, $options: "i" } },
