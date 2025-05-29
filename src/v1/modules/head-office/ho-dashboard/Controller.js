@@ -18,7 +18,6 @@ const {
 } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { _query } = require("@src/v1/utils/constants/messages");
 const moment = require("moment");
-const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { default: mongoose } = require("mongoose");
 const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
