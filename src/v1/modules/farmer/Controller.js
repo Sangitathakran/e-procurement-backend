@@ -860,26 +860,36 @@ module.exports.getBoFarmerExport = async (req, res) => {
     // const user = await Branches.findById(user_id);
 
     const { portalId, user_id } = req;
-    const { page = 1, limit = 10, search = "", sortBy, isExport = 0, } = req.query;
-    // const user = await Branches.findById(user_id);
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      sortBy,
+      isExport = 0,
+      state: queryState,
+    } = req.query;
     const user = await Branches.findOne({ _id: portalId });
     if (!user) {
       return res.status(404).send({ message: "User not found." });
     }
-
     const { state } = user;
     if (!state) {
       return res
         .status(400)
         .send({ message: "User's state information is missing." });
     }
-    const state_id = await getStateId(state);
+
+    let stateToUse = queryState || user.state;
+    const state_id = await getStateId(stateToUse);
+
     if (!state_id) {
       return res
-        .status(400)
-        .send({ message: "State ID not found for the user's state." });
+        .status(200)
+        .send({ message: "State ID not found for the specified state." });
     }
+
     let query = { "address.state_id": state_id };
+
     if (search.trim()) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
@@ -892,10 +902,10 @@ module.exports.getBoFarmerExport = async (req, res) => {
     const parsedLimit = parseInt(limit);
     const farmers = await farmer.aggregate([
       { $match: query },
-       { $sort: { [sortBy]: 1 } },
+      { $sort: { [sortBy]: 1 } },
       { $sort: sortBy ? sortBy : { createdAt: -1 } },
       { $skip: skip },
-     { $limit: parsedLimit },
+      { $limit: parsedLimit },
       {
         $lookup: {
           from: "lands",
@@ -965,24 +975,24 @@ module.exports.getBoFarmerExport = async (req, res) => {
           farmer_type: 1,
           basic_details: 1,
           bank_details: 1,
-          parents : 1,
-          marital_status : 1,
-          education : 1,
-          proof : 1,
-          status : 1,
-          user_type : 1,
+          parents: 1,
+          marital_status: 1,
+          education: 1,
+          proof: 1,
+          status: 1,
+          user_type: 1,
           religion: 1,
-          createdAt : 1,
-          is_welcome_msg_send:1,
-          is_verify_otp : 1,
+          createdAt: 1,
+          is_welcome_msg_send: 1,
+          is_verify_otp: 1,
           address: 1,
-          user_type : 1,
-          marital_status : 1,
+          user_type: 1,
+          marital_status: 1,
           religion: 1,
-          education : 1,
-          proof : 1,
-          external_farmer_id : 1,
-          infrastructure_needs : 1,
+          education: 1,
+          proof: 1,
+          external_farmer_id: 1,
+          infrastructure_needs: 1,
           financial_support: 1,
           farmer_tracent_code: 1,
           land_details: 1,
@@ -995,26 +1005,11 @@ module.exports.getBoFarmerExport = async (req, res) => {
 
     if (farmers.length === 0) {
       return res
-        .status(404)
-        .send({ message: `No farmers found in state: ${state}` });
+        .status(200)
+        .send({ message: `No farmers found in state` });
     }
-      console.log("farmers",farmers);
-      if (isExport == 1) {
-
-
-      // if (startDate || endDate) {
-      //   query.createdAt = {};
-      //   if (startDate) {
-      //     query.createdAt.$gte = new Date(startDate);
-      //   }
-      //   if (endDate) {
-      //     // Set time to end of the day
-      //     const end = new Date(endDate);
-      //     end.setHours(23, 59, 59, 999);
-      //     query.createdAt.$lte = end;
-      //   }
-      // }
-      
+    if (isExport == 1) {
+     
       const exportData = farmers.map((item) => {
         return {
           "Associate ID": item?.associate_info?.user_code || "NA",
@@ -1022,14 +1017,14 @@ module.exports.getBoFarmerExport = async (req, res) => {
           "Farmer Name": item?.name || "NA",
           "Father/Spouse Name": item?.parents?.father_name || "NA",
           "Mother Name": item?.parents?.mother_name || "NA",
-          "Created At" : item?.createdAt || "NA",
-           "Mobile Number": item?.basic_details?.mobile_no || "NA",
+          "Created At": item?.createdAt || "NA",
+          "Mobile Number": item?.basic_details?.mobile_no || "NA",
           "Email ": item?.basic_details?.email || "NA",
-          "Category": item?.basic_details?.category || "NA",
-          "Age": item?.basic_details?.age || "NA",
+          Category: item?.basic_details?.category || "NA",
+          Age: item?.basic_details?.age || "NA",
           "Date of Birth": item?.basic_details?.dob || "NA",
           "Farmer Type": item?.basic_details?.farmer_type || "NA",
-          "Gender": item?.basic_details?.gender || "NA",
+          Gender: item?.basic_details?.gender || "NA",
           "Address Line 1": item?.address?.address_line_1 || "NA",
           "Address Line 2": item?.address?.address_line_2 || "NA",
           village: item?.address?.village || "NA",
@@ -3557,11 +3552,9 @@ module.exports.addDistrictCity = async (req, res) => {
   const { state_title, district_title, city_title } = req.body;
 
   if (!state_title || !district_title || !city_title) {
-    return res
-      .status(400)
-      .json({
-        message: "state_title, district_title, and city_title are required.",
-      });
+    return res.status(400).json({
+      message: "state_title, district_title, and city_title are required.",
+    });
   }
   try {
     const state = await StateDistrictCity.findOne({
