@@ -60,6 +60,7 @@ const _collectionName = {
     SchemeAssign: "SchemeAssign",
     ClientToken : "ClientToken",
     CCAvenueResponse:"CCAvenueResponse",
+    centerProjection: "centerProjection",
 }
 
 const _userType_Feature_Collection = {

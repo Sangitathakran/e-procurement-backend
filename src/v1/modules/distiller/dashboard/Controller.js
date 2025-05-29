@@ -7,6 +7,10 @@ const { asyncErrorHandler, } = require("@src/v1/utils/helpers/asyncErrorHandler"
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { CenterProjection } = require("@src/v1/models/app/distiller/centerProjection");
+const { Distiller } = require("@src/v1/models/app/auth/Distiller");
+
+
 const { mongoose } = require("mongoose");
 
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
@@ -57,6 +61,88 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
+module.exports.getStateWishProjection = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search = '',
+      state = '',
+      district = '',
+      isExport = 0,
+    } = req.query;
+
+    const { user } = req;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sort = { state: 1 };
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        { district: { $regex: search, $options: 'i' } },
+        { center_location: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    if (district) {
+      query.district = { $regex: district, $options: 'i' };
+    }
+
+    let userExist = await Distiller.findOne({ _id: user.portalId })
+
+    query.state = { $regex: userExist?.address?.registered?.state, $options: 'i' };
+    if (parseInt(isExport) === 1) {
+      const exportData = await CenterProjection.find(query).sort(sort);
+
+      const formattedData = exportData.map((item) => ({
+        "Center Location": item.center_location || "NA",
+        "State": item.state || "NA",
+        "District": item.district || "NA",
+        "Center Projection": item.current_projection || "NA"
+
+      }));
+
+      if (formattedData.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: formattedData,
+          fileName: `Center-Projections-${new Date().toISOString().split('T')[0]}.xlsx`,
+          worksheetName: "Center Projections",
+        });
+      } else {
+        return res.status(200).json({
+          status: 400,
+          message: "No Center Projection data found to export.",
+          data: [],
+        });
+      }
+    }
+    const [total, data] = await Promise.all([
+      CenterProjection.countDocuments(query),
+      CenterProjection.find(query)
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit))
+    ]);
+    const pages = limit != 0 ? Math.ceil(total / limit) : 0;
+    return res.status(200).json({
+      status: 200,
+      data,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      pages,
+      message: "Center Projections fetched successfully"
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      status: 500,
+      message: "Error fetching center projections",
+      error: error.message
+    });
+  }
+};
 
 module.exports.getOrder = asyncErrorHandler(async (req, res) => {
   try {
