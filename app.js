@@ -1,5 +1,6 @@
 // Path Alias
 require("module-alias/register");
+require('newrelic');
 // import modules
 const express = require("express");
 const app = express();
