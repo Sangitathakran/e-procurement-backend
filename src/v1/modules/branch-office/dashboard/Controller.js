@@ -13,6 +13,7 @@ const { _userType, _userStatus, _status, _procuredStatus, _paymentStatus, _assoc
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { commodity } = require("../../dropDown/Controller");
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const mongoose = require("mongoose");
@@ -632,3 +633,183 @@ module.exports.agentPayments = async (req, res) => {
     }
 
 }
+module.exports.getStateWiseCommodityStatus = async (req, res) => {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+  
+      const portalId = req.user?.portalId?._id;
+      if (!portalId) return res.status(400).json({ message: 'Invalid portalId' });
+  
+      const branch = await Branches.findOne({ _id: portalId }).lean();
+      if (!branch) return res.status(404).json({ message: 'No branch found for the portal' });
+  
+      const stateData = await StateDistrictCity.findOne(
+        { "states.state_title": branch.state },
+        { "states.$": 1 }
+      ).lean();
+      const stateId = stateData?.states?.[0]?._id;
+      if (!stateId) return res.status(404).json({ message: 'State not found in the master collection' });
+  
+      const baseMatch = { branch_id: branch._id };
+  
+      const farmerCountPromise = farmer.countDocuments({ 'address.state_id': stateId, status: _status.active });
+  
+      const aggregationPipeline = [
+        { $match: baseMatch },
+        {
+          $lookup: {
+            from: 'associateoffers',
+            let: { reqId: '$_id' },
+            pipeline: [
+              { $match: { $expr: { $eq: ['$req_id', '$$reqId'] } } },
+              {
+                $lookup: {
+                  from: 'farmerorders',
+                  let: { offerId: '$_id' },
+                  pipeline: [
+                    { $match: { $expr: { $eq: ['$associateOffers_id', '$$offerId'] } } },
+                    {
+                      $lookup: {
+                        from: 'farmers',
+                        localField: 'farmer_id',
+                        foreignField: '_id',
+                        as: 'farmerInfo'
+                      }
+                    },
+                    {
+                      $unwind: '$farmerInfo'
+                    },
+                    {
+                      $project: {
+                        offeredQty: 1,
+                        farmer_id: 1,
+                        associate_id: '$farmerInfo.associate_id'
+                      }
+                    }
+                  ],
+                  as: 'farmerOrders'
+                }
+              },
+              {
+                $unwind: '$farmerOrders'
+              },
+              {
+                $project: {
+                  farmer_id: '$farmerOrders.farmer_id',
+                  offeredQty: '$farmerOrders.offeredQty',
+                  associate_id: '$farmerOrders.associate_id'
+                }
+              }
+            ],
+            as: 'offers'
+          }
+        },
+        {
+          $unwind: '$offers'
+        },
+        {
+          $lookup: {
+            from: 'commodities',
+            localField: 'product.commodity_id',
+            foreignField: '_id',
+            as: 'commodity'
+          }
+        },
+        {
+          $unwind: '$commodity'
+        },
+        {
+          $group: {
+            _id: {
+              commodityId: '$commodity._id',
+              name: '$commodity.name'
+            },
+            totalQtyPurchased: { $sum: '$offers.offeredQty' },
+            farmerSet: { $addToSet: '$offers.farmer_id' },
+            pacSet: { $addToSet: '$offers.associate_id' }
+          }
+        },
+        {
+          $project: {
+            commodityId: '$_id.commodityId',
+            name: '$_id.name',
+            quantityPurchased: { $ifNull: ['$totalQtyPurchased', 0] },
+            farmersBenefitted: { $size: '$farmerSet' },
+            registeredPacs: { $size: '$pacSet' }
+          }
+        },
+        {
+          $group: {
+            _id: branch.state,
+            commodities: { $push: '$$ROOT' }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            state: '$_id',
+            commodities: 1
+          }
+        },
+        { $skip: skip },
+        { $limit: limit }
+      ];
+  
+      const countPipeline = [
+        { $match: baseMatch },
+        {
+          $group: {
+            _id: branch.state
+          }
+        },
+        { $count: 'total' }
+      ];
+  
+      const [result, countResult, farmerCount] = await Promise.all([
+        RequestModel.aggregate(aggregationPipeline).allowDiskUse(true),
+        RequestModel.aggregate(countPipeline),
+        farmerCountPromise
+      ]);
+  
+      const rows = result.map(entry => ({
+        ...entry,
+        commodities: entry.commodities.map(commodity => ({
+          ...commodity,
+          farmerCount
+        }))
+      }));
+  
+      const count = countResult[0]?.total || 0;
+  
+      res.status(200).json({
+        status: 200,
+        data: {
+          rows,
+          count,
+          page,
+          limit,
+          pages: limit !== 0 ? Math.ceil(count / limit) : 0
+        },
+        message: _query.get('State Wise Commodity Status')
+      });
+  
+    } catch (err) {
+      console.error('Error generating stats:', err);
+      res.status(500).json({ message: 'Server error', error: err.message });
+    }
+  };
+  
+  
+  
+  
+
+  
+  
+  
+  
+  
+  
+
+   
