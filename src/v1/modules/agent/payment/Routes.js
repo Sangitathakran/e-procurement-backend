@@ -29,7 +29,8 @@ const {
   paymentWithoutAgreegation,
   agentDashboardAssociateListWOAggregation,
   agentDashboardPaymentListWOAggregation,
-  proceedToPayPaymentNew
+  proceedToPayPaymentNew,
+  proceedToPayPaymentExport
 } = require("./Controller");
 
 const { verifyAgent } = require("../utils/verifyAgent");
@@ -53,6 +54,7 @@ paymentRoutes.get("/associate-req/batch-list", Auth, AssociateTabBatchList);
 
  //paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPaymentRequests);
 paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPaymentNew);
+paymentRoutes.get("/proceed-to-pay-export", Auth, proceedToPayPaymentExport);
 paymentRoutes.get(
   "/proceed-to-pay-associate-orders",
   Auth,
