@@ -75,6 +75,7 @@ const userSchema = new mongoose.Schema({
         },
         gst_no: { type: String, trim: true, },
         pacs_reg_date: { type: String, trim: true, },
+        registration_number: { type: String, trim: true, },
     },
     authorised: {
         name: { type: String, trim: true, },
@@ -98,6 +99,9 @@ const userSchema = new mongoose.Schema({
         account_number: { type: String, trim: true, },
         upload_proof: { type: String, trim: true },
     },
+    functional_status: { type: String, default:false },
+    location : { type: String, default:false },
+    sector : { type: String, default:false },
     user_code: { type: String, unique: true },
     user_type: { type: String, trim: true, enum: Object.values(_userType) },
     is_mobile_verified: { type: String, default: false },
