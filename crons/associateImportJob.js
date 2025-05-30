@@ -45,7 +45,6 @@ async function importAssociates() {
         const stateName = data["State/UT"] || data.state || data.stateName;
         const districtName = data["District"] || data.district || data.districtName;
         const associate_name = transliterateToEnglish(raw_associate_name);
-        console.log("email",email)
         if (!mobile_no) {
           // console.warn(`⚠️ Record ${index + 1} skipped: Missing mobile number.`);
            errors.push({
