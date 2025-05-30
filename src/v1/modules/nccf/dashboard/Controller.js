@@ -709,13 +709,14 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 // });
 
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
-  const { limit = 5 } = req.query;
-  const page = 1;
+
+  let { state, commodity } = req.query;
+  const limit = 10;
+  const page =  parseInt(req.query.page) || 1
   const sortBy = "createdAt";
   const sortOrder = "asc";
   const isExport = 0;
 
-  let { state, commodity } = req.query;
 
   try {
     //state and commodity 
@@ -749,12 +750,6 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
       aggregationPipeline.push({ $match: { $and: matchConditions } });
     }
 
-    // Sorting and pagination
-    aggregationPipeline.push(
-      { $sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 } },
-      { $skip: (page - 1) * parseInt(limit) },
-      { $limit: parseInt(limit) }
-    );
 
     // Join with batchorderprocesses
     aggregationPipeline.push(
@@ -796,6 +791,12 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         }
       });
     }
+        // Sorting and pagination
+    aggregationPipeline.push(
+      { $sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 } },
+      { $skip: (page - 1) * parseInt(limit) },
+      { $limit: parseInt(limit) }
+    );
 
     aggregationPipeline.push({
       $project: {
