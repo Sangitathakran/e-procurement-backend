@@ -4,10 +4,11 @@ const { verifyAssociate } = require("../utils/verifyAssociate");
 
 const {
   widgetList,
-  dashboardWidgetList, mandiWiseProcurement
+  dashboardWidgetList, mandiWiseProcurement, incidentalExpense
 } = require("./Controller");
 
-dashbaordRoutes.get("/widget-list", widgetList);
-dashbaordRoutes.get("/ho-widget-list", dashboardWidgetList);
+dashbaordRoutes.get("/widget-list", verifyAssociate, widgetList);
+dashbaordRoutes.get("/ho-widget-list", verifyAssociate, dashboardWidgetList);
 dashbaordRoutes.get("/mandiWiseProcurement", verifyAssociate, mandiWiseProcurement);
+dashbaordRoutes.get("/incidentalExpense", verifyAssociate, incidentalExpense);
 module.exports = { dashbaordRoutes };

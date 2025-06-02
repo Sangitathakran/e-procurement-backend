@@ -17,6 +17,7 @@ const moment = require("moment");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const mongoose = require("mongoose");
+const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
 
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
@@ -136,12 +137,12 @@ module.exports.mandiWiseProcurement = async (req, res) => {
         : req.query.districtNames.split(',').map(c => c.trim())
       : null;
 
-    const paymentQuery = { bo_id: portalId };
+    // const paymentQuery = { bo_id: portalId };
     // const payments = await Payment.find(paymentQuery).lean();
     const payments = await Payment.find().lean();
     const batchIdSet = [...new Set(payments.map(p => String(p.batch_id)).filter(Boolean))];
     console.log("Batch IDs:", batchIdSet.length);
-    
+
     const pipeline = [
       {
         $match: {
@@ -336,5 +337,143 @@ module.exports.mandiWiseProcurement = async (req, res) => {
 
   } catch (error) {
     _handleCatchErrors(error, res);
+  }
+}
+
+module.exports.incidentalExpense = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search = ''
+    } = req.query;
+
+    const { user_id } = req;
+
+    const pageInt = Math.max(parseInt(page), 1);
+    const limitInt = Math.max(parseInt(limit), 1);
+    const skip = (pageInt - 1) * limitInt;
+
+    const searchRegex = new RegExp(search, 'i');
+    const filters = {};
+
+    if (user_id && mongoose.Types.ObjectId.isValid(user_id)) {
+      filters.associate_id = new mongoose.Types.ObjectId(user_id);
+    }
+
+    // Step 1: Fetch paginated payments with populated refs
+    let payments = await Payment.find(filters)
+      .select({
+        batch_id: 1,
+        req_id: 1,
+        associate_id: 1,
+        amount: 1,
+        qtyProcured: 1,
+        payment_status: 1
+      })
+      .populate({
+        path: 'batch_id',
+        select: 'batchId procurementCenter_id qty',
+        populate: {
+          path: 'procurementCenter_id',
+          select: 'center_name'
+        }
+      })
+      .populate({
+        path: 'req_id',
+        select: 'product.name'
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitInt)
+      .lean();
+
+    if (!payments.length) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        totalRecords: 0,
+        totalPages: 0,
+        currentPage: pageInt,
+        count: 0,
+      });
+    }
+
+    if (search) {
+      payments = payments.filter(p => {
+        const batchId = p.batch_id?.batchId?.toString().toLowerCase() || '';
+        const mandiName = p.batch_id?.procurementCenter_id?.center_name?.toLowerCase() || '';
+        return (
+          batchId.includes(search.toLowerCase()) ||
+          mandiName.includes(search.toLowerCase())
+        );
+      });
+    }
+
+    // Step 2: Extract all numeric batchIds
+    const batchIdNumbers = payments
+      .map(p => Number(p.batch_id?.batchId))
+      .filter(n => !isNaN(n));
+
+    // Step 3: Fetch related ekharid records
+    const ekharidList = await eKharidHaryanaProcurementModel.find({
+      'warehouseData.exitGatePassId': { $in: batchIdNumbers }
+    })
+      .select(
+        {
+          'warehouseData.exitGatePassId': 1,
+          "procurementDetails.incidentalExpenses": 1,
+          "procurementDetails.laborCharges": 1, "procurementDetails.laborChargesPayableDate": 1,
+          "procurementDetails.commissionCharges": 1, "procurementDetails.commissionChargesPayableDate": 1
+        })
+      .lean();
+
+    // Create a mapping for fast lookup
+    const ekharidMap = new Map();
+    ekharidList.forEach(e => {
+      ekharidMap.set(Number(e.warehouseData.exitGatePassId), e);
+    });
+
+    // Step 4: Transform and attach data
+    const finalData = payments.map(p => {
+      const batchCode = Number(p.batch_id?.batchId);
+      const ekharidRecord = ekharidMap.get(batchCode);
+
+      return {
+        batchId: p.batch_id?.batchId || null,
+        commodity: p.req_id?.product?.name || "NA",
+        amount: p.amount,
+        quantity: p.qtyProcured,
+        mandiName: p.batch_id?.procurementCenter_id?.center_name || "NA",
+        actualIncidentCost: ekharidRecord?.procurementDetails?.incidentalExpenses || 0,
+        incidentCostRecieved: ekharidRecord?.procurementDetails?.incidentalExpenses || 0,
+        actualLaborCharges: ekharidRecord?.procurementDetails?.laborCharges || 0,
+        laborChargeRecieved: ekharidRecord?.procurementDetails?.laborCharges || 0,
+        laborChargesPayableDate: ekharidRecord?.procurementDetails?.laborChargesPayableDate || "NA",
+        commissionRecieved: ekharidRecord?.procurementDetails?.commissionCharges || 0,
+        commissionChargesPayableDate: ekharidRecord?.procurementDetails?.commissionChargesPayableDate || "NA",
+        status: p.payment_status || "NA",
+      };
+    });
+
+    // Step 5: Count total records
+    const total = await Payment.countDocuments(filters);
+
+    return res.status(200).json({
+      success: true,
+      data: finalData,
+      totalRecords: total,
+      totalPages: Math.ceil(total / limitInt),
+      currentPage: pageInt,
+      count: finalData.length,
+    });
+
+  } catch (err) {
+    console.error('Error in incidentalExpense:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: err.message,
+    });
   }
 }
