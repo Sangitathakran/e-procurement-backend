@@ -498,15 +498,14 @@ module.exports.incidentalExpense = async (req, res) => {
   }
 }
 
-module.exports.purchaseLifing = async (req, res) => {
+module.exports.purchaseLifingMandiWise = async (req, res) => {
   try {
     const { user_id } = req;
 
     const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id) })
-      .select('qty associateOffer_id procurementCenter_id intransit') // include intransit
       .populate({
         path: 'procurementCenter_id',
-        select: 'center_name',
+        select: 'center_name address',
       })
       .populate({
         path: 'associateOffer_id',
@@ -518,6 +517,14 @@ module.exports.purchaseLifing = async (req, res) => {
     const centerGroups = {};
 
     for (const batch of batches) {
+      
+      const batchCommodity = batch.req_id?.product?.name;
+      const batchState = batch.procurementCenter_id?.address?.state;
+      
+      // If filtering is applied, skip unmatched batches
+      if (commodity && batchCommodity !== commodity) continue;
+      if (state && batchState !== state) continue;
+
       const centerName = batch.procurementCenter_id?.center_name;
       const purchaseQty = batch.qty || 0;
       const liftedQty = batch.intransit ? purchaseQty : 0;
@@ -553,29 +560,45 @@ module.exports.purchaseLifing = async (req, res) => {
 module.exports.purchaseLifingMonthWise = async (req, res) => {
   try {
     const { user_id } = req;
+    const { commodity, state } = req.query;
 
     const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id) })
-      .select('qty associateOffer_id procurementCenter_id intransit createdAt') // include intransit
+    .populate({
+        path: 'req_id',
+        select: 'product',
+        populate: {
+          path: 'product',
+          select: 'name'
+        }
+      })
       .populate({
         path: 'procurementCenter_id',
-        select: 'center_name',
+        select: 'center_name address',
       })
       .populate({
         path: 'associateOffer_id',
         select: 'offeredQty',
       })
-      .select('qty associateOffer_id procurementCenter_id intransit') // include intransit
+      .select('qty associateOffer_id procurementCenter_id req_id intransit createdAt') // include intransit
       .lean();
 
     const centerGroups = {};
     const monthGroups = {};
 
     for (const batch of batches) {
+
+      const batchCommodity = batch.req_id?.product?.name;
+      const batchState = batch.procurementCenter_id?.address?.state;
+      
+      // If filtering is applied, skip unmatched batches
+      if (commodity && batchCommodity !== commodity) continue;
+      if (state && batchState !== state) continue;
+
       const purchaseQty = batch.qty || 0;
       const liftedQty = batch.intransit ? purchaseQty : 0;
 
       // const month = moment(batch.createdAt).format('YYYY-MM');
-       const month = moment(batch.createdAt).format('MMMM YYYY');
+      const month = moment(batch.createdAt).format('MMMM YYYY');
 
       if (!monthGroups[month]) {
         monthGroups[month] = {
