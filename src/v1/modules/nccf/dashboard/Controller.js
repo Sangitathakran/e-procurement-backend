@@ -117,44 +117,54 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   try {
-    const { user_id } = req;
-    const { commodity, state, scheme } = req.query;
+      const { user_id } = req;
+      let { commodity, state } = req.query;
 
-    //Initialize filters
-    let poFilter = {};
-    let distillerFilter = {};
-    let matchQuery = {};
+      //Initialize filters
+      let poFilter = {};
+      let distillerFilter = {};
+      let matchQuery = {};
 
-    //state filter
-    if (state) {
+      //state filter
+      if (state) {
+      if (typeof state === "string") {
+        try {
+          state = JSON.parse(state)
+        } catch (err) {
+          state = state.split(",").map(s => s.trim())
+        }
+      }
       const stateArray = Array.isArray(state) ? state : [state];
       const regexStates = stateArray.map(name => new RegExp(name, "i"));
-
       distillerFilter['address.registered.state'] = { $in: regexStates };
       poFilter['distiller.address.registered.state'] = { $in: regexStates };
-      matchQuery['distiller.address.registered.state'] = { $in: regexStates };
+      //matchQuery['address.registered.state'] = { $in: regexStates };
+      matchQuery['$or'] = [
+                          { 'address.registered.state': { $in: regexStates } },
+                          { 'addressDetails.state.state_name': { $in: regexStates } }
+                        ];
     }
 
     //commodity filter
     if (commodity) {
+          if (typeof commodity === "string") {
+        try {
+          commodity = JSON.parse(commodity);
+        } catch (err) {
+           commodity = commodity.split(",").map(s => s.trim())
+        }
+      }
       const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
       const regexCommodities = commodityArray.map(name => new RegExp(name, "i"));
-
       poFilter['product.name'] = { $in: regexCommodities };
       matchQuery['product.name'] = { $in: regexCommodities };
       distillerFilter['product.name'] = { $in: regexCommodities };
     }
 
-    //scheme filter
-    if (scheme) {
-      const schemeArray = Array.isArray(scheme) ? scheme : [scheme];
-      matchQuery['season period'] = {
-        $in: schemeArray.map(name => new RegExp(name, "i")),
-      };
-    }
-
     //warehouse count
-    const wareHouseCount = await wareHousev2.countDocuments(scheme ? matchQuery : {});
+    //const wareHouseCount = await wareHousev2.countDocuments();
+
+    const wareHouseCount = await wareHouseDetails.countDocuments(Object.keys(matchQuery).length > 0 ? matchQuery : {});
 
     //purchase Order pipeline
     const purchaseOrderPipeline = [
@@ -224,29 +234,71 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
     //stock pipeline
     const stockPipeline = [];
-    if (Object.keys(matchQuery).length > 0) {
-      stockPipeline.push({ $match: matchQuery });
+      if (state) {
+      const stateArray = Array.isArray(state) ? state : [state];
+      const regexStates = stateArray.map(name => new RegExp(name, "i"));
+
+      stockPipeline.push({
+        $match: {
+          $or: [
+            { 'address.registered.state': { $in: regexStates } },
+            { 'addressDetails.state.state_name': { $in: regexStates } }
+          ]
+        }
+      });
+    }
+    if (commodity) {
+      const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
+      const regexCommodities = commodityArray.map(name => new RegExp(name, "i"));
+
+      stockPipeline.push({
+        $match: {
+          'product.name': { $in: regexCommodities }
+        }
+      });
     }
 
-    stockPipeline.push(
-      {
-        $project: {
-          stockToSum: {
-            $cond: {
-              if: { $gt: ["$inventory.requiredStock", 0] },
-              then: "$inventory.requiredStock",
-              else: "$inventory.stock",
+          stockPipeline.push(
+        {
+          $project: {
+            stockToSum: {
+              $cond: {
+                if: { $gt: ["$inventory.requiredStock", 0] },
+                then: "$inventory.requiredStock",
+                else: "$inventory.stock",
+              },
             },
           },
         },
-      },
-      {
-        $group: {
-          _id: null,
-          totalStock: { $sum: "$stockToSum" },
-        },
-      }
-    );
+        {
+          $group: {
+            _id: null,
+            totalStock: { $sum: "$stockToSum" },
+          },
+        }
+      );
+
+
+    // stockPipeline.push(
+    //   {
+    //     $project: {
+    //       stockToSum: {
+    //         $cond: {
+    //           if: { $gt: ["$inventory.requiredStock", 0] },
+    //           then: "$inventory.requiredStock",
+    //           else: "$inventory.stock",
+    //         },
+    //       },
+    //     },
+    //   },
+    //   {
+    //     $group: {
+    //       _id: null,
+    //       totalStock: { $sum: "$stockToSum" },
+    //     },
+    //   }
+    // );
+
 
     const result = await wareHouseDetails.aggregate(stockPipeline);
     const realTimeStock = result.length > 0 ? result[0].totalStock : 0;
@@ -290,6 +342,8 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
+
 
 
 
@@ -663,7 +717,7 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 //         Status: item.active ? "Active" : "Inactive",
 //       }));
 
-      
+
 //       if (exportData.length) {
 //         return dumpJSONToExcel(req, res, {
 //           data: exportData,
@@ -712,7 +766,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
 
   let { state, commodity } = req.query;
   const limit = 10;
-  const page =  parseInt(req.query.page) || 1
+  const page = parseInt(req.query.page) || 1
   const sortBy = "createdAt";
   const sortOrder = "asc";
   const isExport = 0;
@@ -791,7 +845,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         }
       });
     }
-        // Sorting and pagination
+    // Sorting and pagination
     aggregationPipeline.push(
       { $sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 } },
       { $skip: (page - 1) * parseInt(limit) },
