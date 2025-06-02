@@ -376,7 +376,7 @@ module.exports.incidentalExpense = async (req, res) => {
         select: 'batchId procurementCenter_id qty',
         populate: {
           path: 'procurementCenter_id',
-          select: 'center_name'
+          select: 'center_name address.district',
         }
       })
       .populate({
@@ -445,6 +445,7 @@ module.exports.incidentalExpense = async (req, res) => {
         amount: p.amount,
         quantity: p.qtyProcured,
         mandiName: p.batch_id?.procurementCenter_id?.center_name || "NA",
+        district: p.batch_id?.procurementCenter_id?.address?.district || "NA",
         actualIncidentCost: ekharidRecord?.procurementDetails?.incidentalExpenses || 0,
         incidentCostRecieved: ekharidRecord?.procurementDetails?.incidentalExpenses || 0,
         actualLaborCharges: ekharidRecord?.procurementDetails?.laborCharges || 0,
