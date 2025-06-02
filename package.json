@@ -12,7 +12,6 @@
   "author": "Navankur",
   "license": "ISC",
   "dependencies": {
-    
     "archiver": "^7.0.1",
     "aws-sdk": "^2.1659.0",
     "axios": "^1.7.9",

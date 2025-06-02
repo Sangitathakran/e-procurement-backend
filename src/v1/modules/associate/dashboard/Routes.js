@@ -11,6 +11,6 @@ dashbaordRoutes.get("/widget-list", verifyAssociate, widgetList);
 dashbaordRoutes.get("/ho-widget-list", verifyAssociate, dashboardWidgetList);
 dashbaordRoutes.get("/mandiWiseProcurement", verifyAssociate, mandiWiseProcurement);
 dashbaordRoutes.get("/incidentalExpense", verifyAssociate, incidentalExpense);
-dashbaordRoutes.get("/purchaseLifing", verifyAssociate, purchaseLifing);
+dashbaordRoutes.get("/purchaseLifingMandiWise", verifyAssociate, purchaseLifing);
 dashbaordRoutes.get("/purchaseLifingMonthWise", verifyAssociate, purchaseLifingMonthWise);
 module.exports = { dashbaordRoutes };
