@@ -80,6 +80,7 @@ module.exports.getStateWishProjection = async (req, res) => {
     const query = {};
     if (search) {
       query.$or = [
+         { state: { $regex: search, $options: 'i' } },
         { district: { $regex: search, $options: 'i' } },
         { center_location: { $regex: search, $options: 'i' } },
       ];
@@ -89,11 +90,17 @@ module.exports.getStateWishProjection = async (req, res) => {
       query.district = { $regex: district, $options: 'i' };
     }
 
+    if (state) {
+      query.state = { $regex: state, $options: 'i' };
+    } 
+    else{
     let userExist = await Distiller.findOne({ _id: user.portalId })
-
     query.state = { $regex: userExist?.address?.registered?.state, $options: 'i' };
+    }
+
+
     if (parseInt(isExport) === 1) {
-      const exportData = await CenterProjection.find(query).sort(sort);
+      const exportData = await CenterProjection.find().sort(sort);
 
       const formattedData = exportData.map((item) => ({
         "Center Location": item.center_location || "NA",
