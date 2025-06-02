@@ -345,7 +345,10 @@ module.exports.incidentalExpense = async (req, res) => {
     const {
       page = 1,
       limit = 10,
-      search = ''
+      search = '',
+      commodity = '',
+      state = '',
+      season = '',
     } = req.query;
 
     const { user_id } = req;
@@ -376,7 +379,7 @@ module.exports.incidentalExpense = async (req, res) => {
         select: 'batchId procurementCenter_id qty',
         populate: {
           path: 'procurementCenter_id',
-          select: 'center_name address.district',
+          select: 'center_name address.district address.state',
         }
       })
       .populate({
@@ -407,6 +410,22 @@ module.exports.incidentalExpense = async (req, res) => {
           batchId.includes(search.toLowerCase()) ||
           mandiName.includes(search.toLowerCase())
         );
+      });
+    }
+
+    // State filter
+    if (state) {
+      payments = payments.filter(p => {
+        const stateVal = p.batch_id?.procurementCenter_id?.address?.state?.toLowerCase() || '';
+        return stateVal.includes(state.toLowerCase());
+      });
+    }
+
+    // Commodity filter
+    if (commodity) {
+      payments = payments.filter(p => {
+        const comm = p.req_id?.product?.name?.toLowerCase() || '';
+        return comm.includes(commodity.toLowerCase());
       });
     }
 
