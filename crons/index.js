@@ -14,7 +14,7 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const xlsx = require("xlsx");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { _paymentstatus } = require("@src/v1/utils/constants");
-// const importAssociates = require("./associateImportJob")
+const importAssociates = require("./associateImportJob")
 main().catch((err) => console.log(err));
 //update
 async function main() {
@@ -240,7 +240,7 @@ async function downloadFarmerFile() {
 //   console.log("Running scheduled import job...");
 //   importAssociates();
 // });
-// cron.schedule("*/10 * * * *", () => {
-//   console.log("🕒 Running scheduled import job at", new Date().toLocaleString());
-//   importAssociates();
-// });
+cron.schedule("00 12 * * *", () => {
+  console.log("🕒 Running scheduled import job at", new Date().toLocaleString());
+  importAssociates();
+});
