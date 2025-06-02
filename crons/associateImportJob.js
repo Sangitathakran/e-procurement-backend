@@ -5,7 +5,6 @@ const xlsx = require("xlsx");
 require("module-alias/register");
 const { User } = require("@src/v1/models/app/auth/User");
 require("dotenv").config();
-const Sanscript = require("@sanskrit-coders/sanscript");
 const {fetchFromCollection} = require("@config/database")
 const dumpJSONToExcel = require("@src/v1/utils/helpers/dumpJSONToExcel");
 
@@ -15,11 +14,11 @@ async function importAssociates() {
     const RAW_COLLECTION_NAME = "AssociateData";
     const associatesData = await fetchFromCollection(RAW_COLLECTION_NAME)
 
-     if (!Array.isArray(associatesData )) {
-            throw new Error(`Expected an array but got: ${typeof associatesData}`);
-        }
+    //  if (!Array.isArray(associatesData )) {
+    //         throw new Error(`Expected an array but got: ${typeof associatesData}`);
+    //     }
 
-        // console.log(`📝 Fetched ${associatestData.length} records from "${RAW_COLLECTION_NAME}".`);
+     console.log(`📝 Fetched ${associatesData.length} records from "${RAW_COLLECTION_NAME}".`);
 
     const logDir = path.join(__dirname, "../logs");
     if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
@@ -32,7 +31,7 @@ async function importAssociates() {
 
     for (const [index, data] of associatesData.entries()) {
       try {
-        const raw_associate_name = data["Cooperative Society Name"] || data.cooperativeSocietyName;
+        const associate_name = data["Cooperative Society Name"] || data.cooperativeSocietyName;
         const mobile_no = data["Contact Number"] || data.contactNumber;
         const functional_status = data["Functional Status"] || data.functionalStatus;
         const location = data["Location"] || data.location;
@@ -44,9 +43,9 @@ async function importAssociates() {
         const address_line1 = data["Address"] || data.address || null;
         const stateName = data["State/UT"] || data.state || data.stateName;
         const districtName = data["District"] || data.district || data.districtName;
-        const associate_name = transliterateToEnglish(raw_associate_name);
+        // const associate_name = transliterateToEnglish(raw_associate_name);
         if (!mobile_no) {
-          // console.warn(`⚠️ Record ${index + 1} skipped: Missing mobile number.`);
+          console.warn(`⚠️ Record ${index + 1} skipped: Missing mobile number.`);
            errors.push({
         ...data,
         Error: "Mobile number required"
@@ -54,7 +53,7 @@ async function importAssociates() {
       continue;
         }
        if (!/^\d{10}$/.test(mobile_no)) {
-          // console.warn(`⚠️ Record ${index + 1} skipped: Invalid mobile number format.`);
+          console.warn(`⚠️ Record ${index + 1} skipped: Invalid mobile number format.`);
           duplicateMobiles.push({ ...data, Error: "Invalid mobile number (must be 10 digits)" });
           continue;
         }
@@ -64,7 +63,7 @@ async function importAssociates() {
           duplicateMobiles.push({
             ...data, Error: "Duplicate mobile number"
           });
-          // console.log(`❗ Duplicate found: ${mobile_no}`);
+          console.log(`❗ Duplicate found: ${mobile_no}`);
           continue;
         }
         const newAssociate = new User({
@@ -134,12 +133,12 @@ async function importAssociates() {
 
     fs.writeFileSync(path.join(logDir, `log-from-db-${Date.now()}.json`), JSON.stringify(logData, null, 2));
 
-    // console.log(`✅ Job finished.`);
-    // console.log(`➡️ Inserted: ${inserted}, Duplicates: ${duplicate}, Errors: ${errors.length}`);
+    console.log(`✅ Job finished.`);
+    console.log(`➡️ Inserted: ${inserted}, Duplicates: ${duplicate}, Errors: ${errors.length}`);
 
     const rawCollection = mongoose.connection.collection(RAW_COLLECTION_NAME);
     const deleteResult = await rawCollection.deleteMany({});
-    // console.log(`🧹 AssociateData collection cleared. Deleted ${deleteResult.deletedCount} records.`);
+    console.log(`🧹 AssociateData collection cleared. Deleted ${deleteResult.deletedCount} records.`);
 
     
   } catch (error) {
@@ -147,18 +146,18 @@ async function importAssociates() {
    
   }
 }
-function transliterateToEnglish(text, stripDiacritics = true) {
-  if (!text || typeof text !== 'string') return text;
+// function transliterateToEnglish(text, stripDiacritics = true) {
+//   if (!text || typeof text !== 'string') return text;
 
-  const isHindi = /[\u0900-\u097F]/.test(text);
-  if (!isHindi) return text;
+//   const isHindi = /[\u0900-\u097F]/.test(text);
+//   if (!isHindi) return text;
 
-  let transliterated = Sanscript.t(text, 'devanagari', 'iast');
+//   let transliterated = Sanscript.t(text, 'devanagari', 'iast');
 
-  if (stripDiacritics) {
-    transliterated = transliterated.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  }
+//   if (stripDiacritics) {
+//     transliterated = transliterated.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+//   }
 
-  return transliterated;
-}
+//   return transliterated;
+// }
 module.exports = importAssociates;
