@@ -1222,123 +1222,118 @@ module.exports.stateWiseCommodityDetail = asyncErrorHandler(async (req, res) => 
 // };
 module.exports.getStateWiseCommodityStats = async (req, res) => {
   try {
+    const { state = "", commodityId = null } = req.query;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-const record ={
-  page: page,
-  limit: limit,
-  skip: skip,
-  data: []
-}
-const data = await User.aggregate([
-      {
-        $lookup: {
-          from: 'associateoffers',
-          localField: '_id',
-          foreignField: 'seller_id',
-          as: 'offers'
-        }
-      },
-      { $unwind: '$offers' },
+
+    const matchConditions = {};
+    if (state) matchConditions["address.registered.state"] = state;
+
+    const pipeline = [
+      { $match: matchConditions },
 
       {
         $lookup: {
-          from: 'requests',
-          localField: 'offers.req_id',
-          foreignField: '_id',
-          as: 'request'
+          from: "associateoffers",
+          localField: "_id",
+          foreignField: "seller_id",
+          as: "offers"
         }
       },
-      { $unwind: '$request' },
+      { $unwind: "$offers" },
 
       {
         $lookup: {
-          from: 'commodities',
-          localField: 'request.product.commodity_id',
-          foreignField: '_id',
-          as: 'commodity'
+          from: "requests",
+          let: { reqId: "$offers.req_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$_id", "$$reqId"] } } },
+            ...(commodityId ? [{
+              $match: {
+                "product.commodity_id": new mongoose.Types.ObjectId(commodityId)
+              }
+            }] : [])
+          ],
+          as: "request"
         }
       },
-      { $unwind: '$commodity' },
+      { $unwind: "$request" },
 
       {
         $lookup: {
-          from: 'farmerorders',
-          localField: 'offers._id',
-          foreignField: 'associateOffers_id',
-          as: 'farmerOrders'
+          from: "commodities",
+          localField: "request.product.commodity_id",
+          foreignField: "_id",
+          as: "commodity"
         }
       },
-      { $unwind: { path: '$farmerOrders', preserveNullAndEmptyArrays: true } },
+      { $unwind: "$commodity" },
 
       {
         $lookup: {
-          from: 'farmers',
-          localField: 'farmerOrders.farmer_id',
-          foreignField: '_id',
-          as: 'farmerInfo'
+          from: "farmerorders",
+          localField: "offers._id",
+          foreignField: "associateOffers_id",
+          as: "farmerOrders"
         }
       },
-      { $unwind: { path: '$farmerInfo', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$farmerOrders", preserveNullAndEmptyArrays: true } },
+
+      {
+        $lookup: {
+          from: "farmers",
+          localField: "farmerOrders.farmer_id",
+          foreignField: "_id",
+          as: "farmerInfo"
+        }
+      },
+      { $unwind: { path: "$farmerInfo", preserveNullAndEmptyArrays: true } },
 
       {
         $addFields: {
-          farmerId: '$farmerOrders.farmer_id',
-          associateId: '$farmerInfo.associate_id',
-          offeredQty: '$farmerOrders.offeredQty'
+          farmerId: "$farmerOrders.farmer_id",
+          associateId: "$farmerInfo.associate_id",
+          offeredQty: "$farmerOrders.offeredQty"
         }
       },
-      // {
-      //   $match: {
-      //     $expr: {
-      //       $or:[
-      //         { $eq: ['$address.registered.state', 'Haryana'] }, // Match exact state name
-
-      //       ]
-      //     }
-         
-      //   }
-      // },
 
       {
         $group: {
           _id: {
-            state: '$address.registered.state',
-            commodityId: '$commodity._id',
-            commodityName: '$commodity.name'
+            state: "$address.registered.state",
+            commodityId: "$commodity._id",
+            commodityName: "$commodity.name"
           },
           totalOffers: { $sum: 1 },
-          uniqueFarmers: { $addToSet: '$_id' },
-          totalQtyPurchased: { $sum: '$offeredQty' },
-          allBenefittedFarmers: { $addToSet: '$farmerId' },
-          allRegisteredPacs: { $addToSet: '$associateId' }
+          uniqueFarmers: { $addToSet: "$_id" },
+          totalQtyPurchased: { $sum: "$offeredQty" },
+          allBenefittedFarmers: { $addToSet: "$farmerId" },
+          allRegisteredPacs: { $addToSet: "$associateId" }
         }
       },
 
       {
         $lookup: {
-          from: 'statedistrictcities',
-          let: { stateName: '$_id.state' },
+          from: "statedistrictcities",
+          let: { stateName: "$_id.state" },
           pipeline: [
-            { $unwind: '$states' },
+            { $unwind: "$states" },
             {
               $match: {
                 $expr: {
-                  $eq: ['$states.state_title', '$$stateName']  // match state by title string
+                  $eq: ["$states.state_title", "$$stateName"]
                 }
               }
             },
             {
               $lookup: {
-                from: 'farmers',
-                let: { stateName: '$states._id' }, // pass the state title string here
+                from: "farmers",
+                let: { stateId: "$states._id" },
                 pipeline: [
                   {
                     $match: {
-                      $expr: {
-                        $eq: ['$address.state_id', '$$stateName']  // match farmers with that state string
-                      }
+                      $expr: { $eq: ["$address.state_id", "$$stateId"] }
                     }
                   },
                   {
@@ -1354,53 +1349,51 @@ const data = await User.aggregate([
                     }
                   }
                 ],
-                as: 'farmersCount'
+                as: "farmersCount"
               }
             },
             {
               $project: {
-                _id: '$states._id',
-                state_title: '$states.state_title',
-                totalFarmers: { $arrayElemAt: ['$farmersCount.totalFarmers', 0] }
+                _id: "$states._id",
+                state_title: "$states.state_title",
+                totalFarmers: { $arrayElemAt: ["$farmersCount.totalFarmers", 0] }
               }
             }
           ],
-          as: 'stateInfo'
+          as: "stateInfo"
         }
       },
-      { $unwind: { path: '$stateInfo', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$stateInfo", preserveNullAndEmptyArrays: true } },
+
       {
         $project: {
-          state: '$_id.state',
+          state: "$_id.state",
           commodity: {
-            _id: '$_id.commodityId',
-            name: '$_id.commodityName',
-            quantityPurchased: { $ifNull: ['$totalQtyPurchased', 0] },
+            _id: "$_id.commodityId",
+            name: "$_id.commodityName",
+            quantityPurchased: { $ifNull: ["$totalQtyPurchased", 0] },
             farmersBenefitted: {
-              $size: { $setUnion: ['$allBenefittedFarmers', []] }
+              $size: { $setUnion: ["$allBenefittedFarmers", []] }
             },
             registeredPacs: {
-              $size: { $setUnion: ['$allRegisteredPacs', []] }
+              $size: { $setUnion: ["$allRegisteredPacs", []] }
             },
-            farmersRegistered:'$stateInfo.totalFarmers'
+            farmersRegistered: "$stateInfo.totalFarmers"
           },
           _id: 0
         }
       },
 
-    
-      
-
       {
         $group: {
-          _id: '$state',
-          commodities: { $push: '$commodity' }
+          _id: "$state",
+          commodities: { $push: "$commodity" }
         }
       },
 
       {
         $project: {
-          state: '$_id',
+          state: "$_id",
           commodities: 1,
           _id: 0
         }
@@ -1416,6 +1409,7 @@ const data = await User.aggregate([
       },
 
       { $unwind: "$metadata" },
+
       {
         $project: {
           total: "$metadata.total",
@@ -1423,21 +1417,30 @@ const data = await User.aggregate([
           data: 1
         }
       }
-    ]);
+    ];
 
+    const data = await User.aggregate(pipeline);
 
-    record.rows= data[0]?.data || [];
     res.status(200).send({
       status: 200,
       message: _query.get("State Wise Commodity Stats"),
-      data: record
+      data: {
+        page,
+        limit,
+        rows: data[0]?.data || [],
+        total: data[0]?.total || 0
+      }
     });
 
   } catch (err) {
-    console.error('Error generating stats:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    console.error("Error generating stats:", err);
+    res.status(500).json({
+      message: "Server error",
+      error: err.message
+    });
   }
 };
+
 
 
 
