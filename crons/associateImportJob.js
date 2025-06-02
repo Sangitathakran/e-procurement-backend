@@ -5,7 +5,7 @@ const xlsx = require("xlsx");
 require("module-alias/register");
 const { User } = require("@src/v1/models/app/auth/User");
 require("dotenv").config();
-const Sanscript = require("@sanskrit-coders/sanscript");
+// const Sanscript = require("@sanskrit-coders/sanscript");
 const {fetchFromCollection} = require("@config/database")
 const dumpJSONToExcel = require("@src/v1/utils/helpers/dumpJSONToExcel");
 

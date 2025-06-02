@@ -12,7 +12,7 @@
   "author": "Navankur",
   "license": "ISC",
   "dependencies": {
-    "@sanskrit-coders/sanscript": "^1.2.8",
+    
     "archiver": "^7.0.1",
     "aws-sdk": "^2.1659.0",
     "axios": "^1.7.9",
