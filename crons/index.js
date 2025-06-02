@@ -236,7 +236,7 @@ async function downloadFarmerFile() {
   // UTR_SR_NO: 'ICMS2410300BZA7T',
   // INST_DATE: '29-10-24',
   // PRODUCT_CODE: 'NEFT'
-  cron.schedule("40 17 * * *", () => {
+  cron.schedule("00 13 * * *", () => {
   console.log("🕒 Running scheduled import job at", new Date().toLocaleString());
   importAssociates();
 });
