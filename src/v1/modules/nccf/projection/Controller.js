@@ -16,8 +16,6 @@ const {
       const {
         page = 1,
         limit = 10,
-        sortBy = 'createdAt',
-        sortOrder = 'desc',
         search = '',
         state = '',
         district = '',
@@ -25,7 +23,7 @@ const {
       } = req.query;
   
       const skip = (parseInt(page) - 1) * parseInt(limit);
-      const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
+      const sort = { state: 1 };
   
       const query = {};
       if (search) {
