@@ -117,41 +117,42 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   try {
-      const { user_id } = req;
-      let { commodity, state } = req.query;
+    const { user_id } = req;
+    let { commodity, state } = req.query;
+    let commodities = commodity?.split(",").map(c => c.trim().split(" ")[0]);
+    let stock = 0; //Get realtimestock if commodity is passed
 
-      //Initialize filters
-      let poFilter = {};
-      let distillerFilter = {};
-      let matchQuery = {};
+    // Initialize filters
+    let poFilter = {};
+    let distillerFilter = {};
+    let matchQuery = {};
 
-      //state filter
-      if (state) {
+    // State filter
+    if (state) {
       if (typeof state === "string") {
         try {
-          state = JSON.parse(state)
+          state = JSON.parse(state);
         } catch (err) {
-          state = state.split(",").map(s => s.trim())
+          state = state.split(",").map(s => s.trim());
         }
       }
       const stateArray = Array.isArray(state) ? state : [state];
       const regexStates = stateArray.map(name => new RegExp(name, "i"));
       distillerFilter['address.registered.state'] = { $in: regexStates };
       poFilter['distiller.address.registered.state'] = { $in: regexStates };
-      //matchQuery['address.registered.state'] = { $in: regexStates };
       matchQuery['$or'] = [
-                          { 'address.registered.state': { $in: regexStates } },
-                          { 'addressDetails.state.state_name': { $in: regexStates } }
-                        ];
+        { 'address.registered.state': { $in: regexStates } },
+        { 'addressDetails.state.state_name': { $in: regexStates } }
+      ];
     }
 
-    //commodity filter
+    // Commodity filter 
     if (commodity) {
-          if (typeof commodity === "string") {
+      if (typeof commodity === "string") {
         try {
           commodity = JSON.parse(commodity);
         } catch (err) {
-           commodity = commodity.split(",").map(s => s.trim())
+          commodity = commodity.split(",").map(s => s.trim());
         }
       }
       const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
@@ -161,12 +162,31 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       distillerFilter['product.name'] = { $in: regexCommodities };
     }
 
-    //warehouse count
-    //const wareHouseCount = await wareHousev2.countDocuments();
+    const baseMatch = { active: true };
+    const finalMatchQuery = Object.keys(matchQuery).length > 0 ? { ...baseMatch, ...matchQuery } : baseMatch;
 
-    const wareHouseCount = await wareHouseDetails.countDocuments(Object.keys(matchQuery).length > 0 ? matchQuery : {});
+    //const wareHouseCount = await wareHouseDetails.countDocuments(finalMatchQuery);
+        let wareHouseCount = 0;
+        let matchedBatches = []
+        if (commodity) {
+          const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
+          const regexCommodities = commodityArray.map(name => new RegExp(name, "i"));
 
-    //purchase Order pipeline
+          const matchedRequestIds = await RequestModel.find({
+            $or: regexCommodities.map(regex => ({ 'product.name': { $regex: regex } }))
+          }).distinct('_id');
+
+           matchedBatches = await Batch.find({
+            req_id: { $in: matchedRequestIds }
+          }).distinct('warehousedetails_id');
+
+          wareHouseCount = await wareHouseDetails.countDocuments({
+            _id: { $in: matchedBatches }
+          });
+        } else {
+          wareHouseCount = await wareHouseDetails.countDocuments(finalMatchQuery);
+        }
+    // Purchase Order aggregation
     const purchaseOrderPipeline = [
       {
         $lookup: {
@@ -189,7 +209,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const DistillertotalCount = await Distiller.countDocuments();
     const purchaseOrderCount = purchaseOrderAggregate.length > 0 ? purchaseOrderAggregate[0].count : 0;
 
-    //distiller pipeline with filter applied
+    // Distiller aggregation
     const distillerPipeline = [
       {
         $lookup: {
@@ -215,29 +235,20 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
           as: "filteredOrders"
         }
       },
-      {
-        $match: {
-          filteredOrders: { $ne: [] }
-        }
-      },
-      {
-        $count: "count"
-      }
+      { $match: { filteredOrders: { $ne: [] } } },
+      { $count: "count" }
     ];
 
     const distillerAggregate = await Distiller.aggregate(distillerPipeline);
-    // console.log(distillerAggregate)
+    const distillerCount = (!state && !commodity) ? DistillertotalCount : (distillerAggregate.length > 0 ? distillerAggregate[0].count : 0);
 
-    const distillerCount = (!state && !commodity)
-      ? DistillertotalCount
-      : (distillerAggregate.length > 0 ? distillerAggregate[0].count : 0);
-
-    //stock pipeline
+    // Stock pipeline filter
     const stockPipeline = [];
-      if (state) {
+
+    //state filter for warehouse
+    if (state) {
       const stateArray = Array.isArray(state) ? state : [state];
       const regexStates = stateArray.map(name => new RegExp(name, "i"));
-
       stockPipeline.push({
         $match: {
           $or: [
@@ -247,79 +258,51 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
         }
       });
     }
+
+    //commodity filter for warehouse
     if (commodity) {
       const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
       const regexCommodities = commodityArray.map(name => new RegExp(name, "i"));
-
       stockPipeline.push({
         $match: {
           'product.name': { $in: regexCommodities }
         }
       });
+       const wareHouseArr = await wareHouseDetails.find({
+            _id: { $in: matchedBatches }
+          }, { inventory: 1});
+
+          stock = wareHouseArr.reduce( (acc, curr) => acc+curr?.inventory?.stock || 0 , 0);
     }
 
-          stockPipeline.push(
-        {
-          $project: {
-            stockToSum: {
-              $cond: {
-                if: { $gt: ["$inventory.requiredStock", 0] },
-                then: "$inventory.requiredStock",
-                else: "$inventory.stock",
-              },
-            },
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            totalStock: { $sum: "$stockToSum" },
-          },
+    stockPipeline.push(
+      {
+        $project: {
+          stockToSum: {
+            $cond: {
+              if: { $gt: ["$inventory.requiredStock", 0] },
+              then: "$inventory.requiredStock",
+              else: "$inventory.stock"
+            }
+          }
         }
-      );
-
-
-    // stockPipeline.push(
-    //   {
-    //     $project: {
-    //       stockToSum: {
-    //         $cond: {
-    //           if: { $gt: ["$inventory.requiredStock", 0] },
-    //           then: "$inventory.requiredStock",
-    //           else: "$inventory.stock",
-    //         },
-    //       },
-    //     },
-    //   },
-    //   {
-    //     $group: {
-    //       _id: null,
-    //       totalStock: { $sum: "$stockToSum" },
-    //     },
-    //   }
-    // );
-
+      },
+      {
+        $group: {
+          _id: null,
+          totalStock: { $sum: "$stockToSum" }
+        }
+      }
+    );
 
     const result = await wareHouseDetails.aggregate(stockPipeline);
-    const realTimeStock = result.length > 0 ? result[0].totalStock : 0;
+    const realTimeStock = commodity ? stock: (result.length > 0 ? result[0].totalStock : 0);
 
-    //other filtered counts
+    // Other filtered counts
     const stateFilter = state ? { 'address.registered.state': { $in: [new RegExp(state, "i")] } } : {};
-
-    const moU = await Distiller.countDocuments({
-      mou_approval: _userStatus.pending,
-      ...stateFilter
-    });
-
-    const onBoarding = await Distiller.countDocuments({
-      is_approved: _userStatus.pending,
-      ...stateFilter
-    });
-
-    const pending_request = await Distiller.countDocuments({
-      is_approved: "pending",
-      ...stateFilter
-    });
+    const moU = await Distiller.countDocuments({ mou_approval: _userStatus.pending, ...stateFilter });
+    const onBoarding = await Distiller.countDocuments({ is_approved: _userStatus.pending, ...stateFilter });
+    const pending_request = await Distiller.countDocuments({ is_approved: "pending", ...stateFilter });
 
     const records = {
       wareHouseCount: wareHouseCount ?? 0,
@@ -342,6 +325,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
 
 
 
