@@ -2769,7 +2769,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
             const anyPendingPayments = req.batches.some(batch =>
                 batch.payment?.some(pay => pay.payment_status === 'Pending')
             );
-            req.payment_status = anyPendingPayments ? 'Pending' : 'Completed';
+            req.payment_status = anyPendingPayments ? 'Completed' : 'Pending';
  
             // Simplify branchDetails
             req.branchDetails = {
