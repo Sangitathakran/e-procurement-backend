@@ -497,3 +497,108 @@ module.exports.incidentalExpense = async (req, res) => {
     });
   }
 }
+
+module.exports.purchaseLifing = async (req, res) => {
+  try {
+    const { user_id } = req;
+
+    const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id) })
+      .select('qty associateOffer_id procurementCenter_id intransit') // include intransit
+      .populate({
+        path: 'procurementCenter_id',
+        select: 'center_name',
+      })
+      .populate({
+        path: 'associateOffer_id',
+        select: 'offeredQty',
+      })
+      .select('qty associateOffer_id procurementCenter_id intransit') // include intransit
+      .lean();
+
+    const centerGroups = {};
+
+    for (const batch of batches) {
+      const centerName = batch.procurementCenter_id?.center_name;
+      const purchaseQty = batch.qty || 0;
+      const liftedQty = batch.intransit ? purchaseQty : 0;
+
+      if (!centerName) continue;
+
+      if (!centerGroups[centerName]) {
+        centerGroups[centerName] = {
+          center_name: centerName,
+          purchaseQty: 0,
+          liftedQty: 0,
+          balanceQty: 0,
+        };
+      }
+
+      centerGroups[centerName].purchaseQty += purchaseQty;
+      centerGroups[centerName].liftedQty += liftedQty;
+    }
+
+    const result = Object.values(centerGroups).map(entry => ({
+      ...entry,
+      balanceQty: entry.purchaseQty - entry.liftedQty,
+    }));
+
+    return res.status(200).json({ data: result });
+  } catch (error) {
+    console.error('Error in getBatchesGroupedByCenter:', error);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+
+}
+
+module.exports.purchaseLifingMonthWise = async (req, res) => {
+  try {
+    const { user_id } = req;
+
+    const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id) })
+      .select('qty associateOffer_id procurementCenter_id intransit createdAt') // include intransit
+      .populate({
+        path: 'procurementCenter_id',
+        select: 'center_name',
+      })
+      .populate({
+        path: 'associateOffer_id',
+        select: 'offeredQty',
+      })
+      .select('qty associateOffer_id procurementCenter_id intransit') // include intransit
+      .lean();
+
+    const centerGroups = {};
+    const monthGroups = {};
+
+    for (const batch of batches) {
+      const purchaseQty = batch.qty || 0;
+      const liftedQty = batch.intransit ? purchaseQty : 0;
+
+      // const month = moment(batch.createdAt).format('YYYY-MM');
+       const month = moment(batch.createdAt).format('MMMM YYYY');
+
+      if (!monthGroups[month]) {
+        monthGroups[month] = {
+          month,
+          purchaseQty: 0,
+          liftedQty: 0,
+          balanceQty: 0,
+        };
+      }
+
+      monthGroups[month].purchaseQty += purchaseQty;
+      monthGroups[month].liftedQty += liftedQty;
+    }
+
+    const result = Object.values(monthGroups).map(entry => ({
+      ...entry,
+      balanceQty: entry.purchaseQty - entry.liftedQty,
+    }));
+
+    return res.status(200).json({ data: result });
+  } catch (error) {
+    console.error('Error in getBatchesGroupedByCenter:', error);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+
+}
