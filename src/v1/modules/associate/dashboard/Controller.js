@@ -43,28 +43,28 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 
     widgetDetails.totalLifting = totalLifting[0]?.totalQty || 0;
 
-    // const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id), intransit: { $exists: true, $ne: null } })
-    //   .populate('req_id', 'createdAt') // populate only createdAt from Request
-    //   .select('qty updatedAt req_id'); // fetch only necessary fields
+    const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id), intransit: { $exists: true, $ne: null } })
+      .populate('req_id', 'createdAt') // populate only createdAt from Request
+      .select('qty updatedAt req_id'); // fetch only necessary fields
 
-    // // Step 2: Calculate totalQty and totalDays
-    // let totalQty = 0;
-    // let totalDays = 0;
+    // Step 2: Calculate totalQty and totalDays
+    let totalQty = 0;
+    let totalDays = 0;
 
-    // for (const batch of batches) {
-    //   totalQty += batch.qty || 0;
+    for (const batch of batches) {
+      totalQty += batch.qty || 0;
 
-    //   const createdAt = batch.req_id?.createdAt;
-    //   const updatedAt = batch.req_id?.updatedAt;
+      const createdAt = batch.req_id?.createdAt;
+      const updatedAt = batch.req_id?.updatedAt;
 
-    //   if (createdAt && updatedAt) {
-    //     const diffMs = updatedAt - createdAt;
-    //     const days = Math.round(diffMs / (1000 * 60 * 60 * 24)); // convert to days
-    //     totalDays += days;
-    //   }
-    // }
+      if (createdAt && updatedAt) {
+        const diffMs = updatedAt - createdAt;
+        const days = Math.round(diffMs / (1000 * 60 * 60 * 24)); // convert to days
+        totalDays += days;
+      }
+    }
 
-    // widgetDetails.totalDaysLifting = { totalQty, totalDays };
+    widgetDetails.totalDaysLifting = totalDays;
 
 
     return sendResponse({
