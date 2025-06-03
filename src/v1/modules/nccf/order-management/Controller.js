@@ -491,7 +491,7 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
 
         // Execute bulk operations
         const result = await wareHouseDetails.bulkWrite(bulkOperations);
-
+        console.log(result)
         return res.status(200).send(
             new serviceResponse({
                 status: 200,
