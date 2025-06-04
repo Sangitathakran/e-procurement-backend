@@ -1470,6 +1470,10 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
             const sla = slaMap[req.sla_id?.toString()] || {};
             const branch = branchMap[req.branch_id?.toString()] || {};
             const schemeData = schemeMap[req.product?.schemeId?.toString()] || {};
+            const commodityName = req.product?.name || "";
+            const season = schemeData.season || "";
+            const period = schemeData.period || "";
+            const schemeNameFinal = [schemeData.schemeName, commodityName, season, period].filter(Boolean).join(" ");
 
             const boStatusMatch = approve_status === 'Pending'
                 ? reqBatches.some(b => b.bo_approve_status === 'Pending')
@@ -1486,7 +1490,13 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
                 product: req.product,
                 sla,
                 branch,
-                scheme: schemeData,
+                scheme: {
+                    id: schemeData._id,
+                    season : schemeData.season,
+                    period: schemeData.period,
+                    commodity_id: schemeData.commodity_id,
+                    schemeName: schemeNameFinal 
+                },
                 qtyPurchased,
                 amountPayable,
                 payment_status,

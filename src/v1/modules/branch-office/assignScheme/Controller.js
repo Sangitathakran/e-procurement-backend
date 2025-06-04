@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const {
@@ -12,11 +12,14 @@ const { mongoose } = require("mongoose");
 
 module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, commodity, season, isExport = 0 } = req.query;
+    const { page = 1, limit = 10,  paginate = 1, sortBy, search = '', schemeName, status, commodity, season, isExport = 0 } = req.query;
 
     const { user_id, portalId } = req;
 
     // Initialize matchQuery
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
     let matchQuery = {
       bo_id: new mongoose.Types.ObjectId(portalId),
       deletedAt: null,
@@ -114,6 +117,10 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
       },
     });
 
+    const countPipeline = [...aggregationPipeline, { $count: "total" }];
+    const countResult = await SchemeAssign.aggregate(countPipeline);
+    const count = countResult[0]?.total || 0;
+
     if (paginate == 1) {
       aggregationPipeline.push(
         { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Secondary sort by _id for stability
@@ -126,12 +133,12 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
       });
     }
     const rows = await SchemeAssign.aggregate(aggregationPipeline);
-    const countPipeline = [
-      ...aggregationPipeline.slice(0, -1),
-      { $count: "total" },
-    ]; //[{ $match: matchQuery }, { $count: "total" }];
-    const countResult = await SchemeAssign.aggregate(countPipeline);
-    const count = countResult[0]?.total || 0;
+    // const countPipeline = [
+    //   ...aggregationPipeline.slice(0, -1),
+    //   { $count: "total" },
+    // ]; //[{ $match: matchQuery }, { $count: "total" }];
+    // const countResult = await SchemeAssign.aggregate(countPipeline);
+    // const count = countResult[0]?.total || 0;
     const records = { rows, count };
     if (paginate == 1) {
       records.page = parseInt(page);
