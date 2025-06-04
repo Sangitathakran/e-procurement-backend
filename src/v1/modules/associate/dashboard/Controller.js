@@ -20,91 +20,52 @@ const mongoose = require("mongoose");
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
 
 //widget listss
-module.exports.widgetList = asyncErrorHandler(async (req, res) => {
-  try {
-    report = [
-      { monthName: "January", month: 1, total: 0 },
-      { monthName: "February", month: 2, total: 0 },
-      { monthName: "March", month: 3, total: 0 },
-      { monthName: "April", month: 4, total: 0 },
-      { monthName: "May", month: 5, total: 0 },
-      { monthName: "June", month: 6, total: 0 },
-      { monthName: "July", month: 7, total: 0 },
-      { monthName: "Augest", month: 8, total: 0 },
-      { monthName: "September", month: 9, total: 0 },
-      { monthName: "Octorber", month: 10, total: 0 },
-      { monthName: "November", month: 11, total: 0 },
-      { monthName: "Decmeber", month: 12, total: 0 },
-    ];
-    let widgetDetails = {
-      branch: { total: 0, lastMonth: [] },
-
-      associate: { total: 0, lastMonth: [] },
-      procCenter: { total: 0, lastMonth: [] },
-      farmer: { total: 0, lastMonth: [] },
-    };
-    let associateFCount = (await farmer.countDocuments({})) ?? 0;
-    widgetDetails.farmer.total = associateFCount;
-    widgetDetails.associate.total = await User.countDocuments({});
-    widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
-    let lastMonthUser = await User.aggregate([
-      { $match: { user_type: "Associate" } },
-      { $project: { month: { $month: "$createdAt" } } },
-      { $group: { _id: "$month", total: { $sum: 1 } } },
-    ]);
-    let lastMonthFarmer = await farmer.aggregate([
-      { $project: { month: { $month: "$createdAt" } } },
-      { $group: { _id: "$month", total: { $sum: 1 } } },
-    ]);
-
-    let getReport = (report, data) => {
-      return report.map((item) => {
-        let details = data?.find((item2) => item2?._id == item.month);
-        if (details?._id == item.month) {
-          return { month: item.monthName, total: details.total };
-        } else {
-          return { month: item.monthName, total: item.total };
-        }
-      });
-    };
-    widgetDetails.associate.lastMonth = getReport(report, lastMonthUser);
-    widgetDetails.farmer.lastMonth = getReport(report, lastMonthFarmer);
-
-    return sendResponse({
-      res,
-      status: 200,
-      message: _query.get("Widget List"),
-      data: widgetDetails,
-    });
-  } catch (error) {
-    console.log("error", error);
-  }
-});
 
 module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   try {
 
-    const hoId = req.portalId;
+    const { user_id, portalId } = req;
+    let widgetDetails = {};
 
-    let widgetDetails = {
-      branchOffice: { total: 0 },
-      farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0 },
-      wareHouse: { total: 0 },
-      //procurementTarget: { total: 0 }
-    };
+    widgetDetails.farmertotal = await farmer.countDocuments({ associate_id: new mongoose.Types.ObjectId(user_id) });
+    widgetDetails.rocurementCenter = await ProcurementCenter.countDocuments({ user_id: new mongoose.Types.ObjectId(user_id) });
 
+    const totalPurchased = await Batch.aggregate([
+      { $match: { seller_id: new mongoose.Types.ObjectId(user_id) } },
+      { $group: { _id: null, totalQty: { $sum: "$qty" } } }
+    ]);
+    widgetDetails.totalPurchased = totalPurchased[0]?.totalQty || 0;
 
+    const totalLifting = await Batch.aggregate([
+      { $match: { seller_id: new mongoose.Types.ObjectId(user_id), intransit: { $exists: true, $ne: null } } },
+      { $group: { _id: null, totalQty: { $sum: "$qty" } } }
+    ]);
 
-    // Get counts safely
-    widgetDetails.wareHouse.total = await wareHousev2.countDocuments({});
-    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
-    widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
-    widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
+    widgetDetails.totalLifting = totalLifting[0]?.totalQty || 0;
 
-    //let procurementTargetQty = await RequestModel.find({})
-    widgetDetails.farmerRegistration.totalRegistration =
-      widgetDetails.farmerRegistration.farmertotal +
-      widgetDetails.farmerRegistration.associateFarmerTotal;
+    const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id), intransit: { $exists: true, $ne: null } })
+      .populate('req_id', 'createdAt') // populate only createdAt from Request
+      .select('qty updatedAt req_id'); // fetch only necessary fields
+
+    // Step 2: Calculate totalQty and totalDays
+    let totalQty = 0;
+    let totalDays = 0;
+
+    for (const batch of batches) {
+      totalQty += batch.qty || 0;
+
+      const createdAt = batch.req_id?.createdAt;
+      const updatedAt = batch.req_id?.updatedAt;
+
+      if (createdAt && updatedAt) {
+        const diffMs = updatedAt - createdAt;
+        const days = Math.round(diffMs / (1000 * 60 * 60 * 24)); // convert to days
+        totalDays += days;
+      }
+    }
+
+    widgetDetails.totalDaysLifting = totalDays;
+
 
     return sendResponse({
       res,
@@ -137,8 +98,6 @@ module.exports.mandiWiseProcurement = async (req, res) => {
         : req.query.districtNames.split(',').map(c => c.trim())
       : null;
 
-    // const paymentQuery = { bo_id: portalId };
-    // const payments = await Payment.find(paymentQuery).lean();
     const payments = await Payment.find().lean();
     const batchIdSet = [...new Set(payments.map(p => String(p.batch_id)).filter(Boolean))];
     console.log("Batch IDs:", batchIdSet.length);
@@ -479,8 +438,19 @@ module.exports.incidentalExpense = async (req, res) => {
     // Step 5: Count total records
     const total = await Payment.countDocuments(filters);
 
-    return res.status(200).json({
-      success: true,
+    // return res.status(200).json({
+    //   success: true,
+    //   data: finalData,
+    //   totalRecords: total,
+    //   totalPages: Math.ceil(total / limitInt),
+    //   currentPage: pageInt,
+    //   count: finalData.length,
+    // });
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: _query.get("Incidental Expense"),
       data: finalData,
       totalRecords: total,
       totalPages: Math.ceil(total / limitInt),
@@ -498,15 +468,15 @@ module.exports.incidentalExpense = async (req, res) => {
   }
 }
 
-module.exports.purchaseLifing = async (req, res) => {
+module.exports.purchaseLifingMandiWise = async (req, res) => {
   try {
     const { user_id } = req;
+    const { commodity, state } = req.query;
 
     const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id) })
-      .select('qty associateOffer_id procurementCenter_id intransit') // include intransit
       .populate({
         path: 'procurementCenter_id',
-        select: 'center_name',
+        select: 'center_name address',
       })
       .populate({
         path: 'associateOffer_id',
@@ -518,6 +488,14 @@ module.exports.purchaseLifing = async (req, res) => {
     const centerGroups = {};
 
     for (const batch of batches) {
+
+      const batchCommodity = batch.req_id?.product?.name;
+      const batchState = batch.procurementCenter_id?.address?.state;
+
+      // If filtering is applied, skip unmatched batches
+      if (commodity && batchCommodity !== commodity) continue;
+      if (state && batchState !== state) continue;
+
       const centerName = batch.procurementCenter_id?.center_name;
       const purchaseQty = batch.qty || 0;
       const liftedQty = batch.intransit ? purchaseQty : 0;
@@ -542,7 +520,13 @@ module.exports.purchaseLifing = async (req, res) => {
       balanceQty: entry.purchaseQty - entry.liftedQty,
     }));
 
-    return res.status(200).json({ data: result });
+    return sendResponse({
+      res,
+      status: 200,
+      message: _query.get("Purchase Lisfing Mandi Wise"),
+      data: result,
+    });
+
   } catch (error) {
     console.error('Error in getBatchesGroupedByCenter:', error);
     return res.status(500).json({ message: 'Internal Server Error' });
@@ -553,29 +537,45 @@ module.exports.purchaseLifing = async (req, res) => {
 module.exports.purchaseLifingMonthWise = async (req, res) => {
   try {
     const { user_id } = req;
+    const { commodity, state } = req.query;
 
     const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id) })
-      .select('qty associateOffer_id procurementCenter_id intransit createdAt') // include intransit
+      .populate({
+        path: 'req_id',
+        select: 'product',
+        populate: {
+          path: 'product',
+          select: 'name'
+        }
+      })
       .populate({
         path: 'procurementCenter_id',
-        select: 'center_name',
+        select: 'center_name address',
       })
       .populate({
         path: 'associateOffer_id',
         select: 'offeredQty',
       })
-      .select('qty associateOffer_id procurementCenter_id intransit') // include intransit
+      .select('qty associateOffer_id procurementCenter_id req_id intransit createdAt') // include intransit
       .lean();
 
     const centerGroups = {};
     const monthGroups = {};
 
     for (const batch of batches) {
+
+      const batchCommodity = batch.req_id?.product?.name;
+      const batchState = batch.procurementCenter_id?.address?.state;
+
+      // If filtering is applied, skip unmatched batches
+      if (commodity && batchCommodity !== commodity) continue;
+      if (state && batchState !== state) continue;
+
       const purchaseQty = batch.qty || 0;
       const liftedQty = batch.intransit ? purchaseQty : 0;
 
       // const month = moment(batch.createdAt).format('YYYY-MM');
-       const month = moment(batch.createdAt).format('MMMM YYYY');
+      const month = moment(batch.createdAt).format('MMMM YYYY');
 
       if (!monthGroups[month]) {
         monthGroups[month] = {
@@ -595,7 +595,12 @@ module.exports.purchaseLifingMonthWise = async (req, res) => {
       balanceQty: entry.purchaseQty - entry.liftedQty,
     }));
 
-    return res.status(200).json({ data: result });
+    return sendResponse({
+      res,
+      status: 200,
+      message: _query.get("Purchase Lisfing Month Wise"),
+      data: result,
+    });
   } catch (error) {
     console.error('Error in getBatchesGroupedByCenter:', error);
     return res.status(500).json({ message: 'Internal Server Error' });
