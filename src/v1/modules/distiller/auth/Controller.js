@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { Types } = mongoose;
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
@@ -260,8 +261,8 @@ module.exports.saveDistillerDetails = async (req, res) => {
 };
 
 module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
-    const { user_id } = req;
-    let record = await Distiller.findOne({ _id: user_id }).lean();
+    const { user_id, organization_id } = req;
+    let record = await Distiller.findOne({ _id: organization_id._id }).lean();
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }));
     }
@@ -280,19 +281,40 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
 module.exports.formPreview = async (req, res) => {
     try {
         const { organization_id } = req;
-        if (!organization_id) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
+        console.log('organization_id-->', organization_id._id);
+
+        if (!organization_id || !Types.ObjectId.isValid(organization_id._id)) {
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    message: "Invalid or missing organization_id"
+                })
+            );
         }
-        const response = await Distiller.findById({ _id: organization_id });
+
+        const response = await Distiller.findById(organization_id._id);
+
         if (!response) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
-        } else {
-            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
+            return res.status(404).send(
+                new serviceResponse({
+                    status: 404,
+                    message: _response_message.notFound("User")
+                })
+            );
         }
+
+        return res.status(200).send(
+            new serviceResponse({
+                status: 200,
+                message: _query.get("data"),
+                data: response
+            })
+        );
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
 
 module.exports.findUserStatus = async (req, res) => {
     try {

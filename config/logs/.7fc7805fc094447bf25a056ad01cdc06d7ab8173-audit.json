@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\xampp\\htdocs\\procurement_apis\\config\\logs\\.7fc7805fc094447bf25a056ad01cdc06d7ab8173-audit.json",
+    "files": [
+        {
+            "date": 1748261520703,
+            "name": "C:\\xampp\\htdocs\\procurement_apis\\config\\logs\\app-2025-05-26.log",
+            "hash": "1442ec6460c226e7dbb96e617d1c353bdfa484311b27bcbbce163c97115e2189"
+        }
+    ],
+    "hashType": "sha256"
+}

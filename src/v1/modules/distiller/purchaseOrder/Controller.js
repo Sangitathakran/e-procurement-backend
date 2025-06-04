@@ -35,7 +35,7 @@ const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 
 module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
-  const { user_id, user_type } = req;
+  const { organization_id, user_id, user_type } = req
   const {
     branch_id,
     name,
@@ -68,7 +68,8 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
   }
 
   let randomVal;
-
+  console.log("user_id", user_id);
+  console.log("portalId", organization_id._id);
   // Generate a sequential order number
   const lastOrder = await PurchaseOrderModel.findOne()
     .sort({ createdAt: -1 })
@@ -86,16 +87,17 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     randomVal = "OD1001";
   }
 
-  // const msp = 24470;
   const msp = _distillerMsp();
   const totalAmount = handleDecimal(msp * poQuantity);
+  const tax = _mandiTax(totalAmount);
+  const mandiTax = handleDecimal(tax);
   const advancePayment = _advancePayment();
-  // const tokenAmount = handleDecimal((totalAmount * 3) / 100);
-  const tokenAmount = handleDecimal((totalAmount * advancePayment) / 100);
+  const tokenAmount = handleDecimal(((totalAmount * advancePayment) / 100) + mandiTax);
+  // const remainingAmount = handleDecimal((totalAmount - tokenAmount) - mandiTax);
   const remainingAmount = handleDecimal(totalAmount - tokenAmount);
 
   const record = await PurchaseOrderModel.create({
-    distiller_id: user_id,
+    distiller_id: organization_id._id,
     branch_id,
     purchasedOrder: {
       poNo: randomVal,
@@ -121,8 +123,8 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     },
     paymentInfo: {
       totalAmount: handleDecimal(totalAmount), // Assume this is calculated during the first step
-      advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 3% of totalAmount
-      balancePayment: handleDecimal(remainingAmount), // Auto-calculated: 97% of totalAmount
+      advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 10% of totalAmount
+      balancePayment: handleDecimal(remainingAmount), // Auto-calculated: 90% of totalAmount
       tax: _taxValue(),
       // paidAmount: handleDecimal(tokenAmount), // this val
       // advancePaymentStatus:_poAdvancePaymentStatus.pending
@@ -165,12 +167,12 @@ module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
   } = req.query;
   let query = search
     ? {
-        $or: [
-          { reqNo: { $regex: search, $options: "i" } },
-          { "product.name": { $regex: search, $options: "i" } },
-          { "product.grade": { $regex: search, $options: "i" } },
-        ],
-      }
+      $or: [
+        { reqNo: { $regex: search, $options: "i" } },
+        { "product.name": { $regex: search, $options: "i" } },
+        { "product.grade": { $regex: search, $options: "i" } },
+      ],
+    }
     : {};
 
   const records = { count: 0 };
@@ -178,10 +180,10 @@ module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
   records.rows =
     paginate == 1
       ? await PurchaseOrderModel.find(query)
-          .sort(sortBy)
-          .skip(skip)
-          .populate({ path: "branch_id", select: "_id branchName branchId" })
-          .limit(parseInt(limit))
+        .sort(sortBy)
+        .skip(skip)
+        .populate({ path: "branch_id", select: "_id branchName branchId" })
+        .limit(parseInt(limit))
       : await PurchaseOrderModel.find(query).sort(sortBy);
 
   records.count = await PurchaseOrderModel.countDocuments(query);
@@ -260,7 +262,7 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
-  const { user_id } = req;
+  const { user_id, organization_id } = req;
 
   const {
     id,
@@ -282,7 +284,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
   const record = await PurchaseOrderModel.findOne({ _id: id }).populate(
     "branch_id"
   );
-  
+
   const branch_office_location = `${record.branch_id.state}`;
 
   if (!record) {
@@ -296,10 +298,12 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
 
   const msp = _distillerMsp();
 
+
   const totalAmount = handleDecimal(msp * poQuantity);
-  const tokenAmount = handleDecimal((totalAmount * 3) / 100);
+  const advancePaymentPercentage = _advancePayment();
   const tax = _mandiTax(totalAmount);
   const mandiTax = handleDecimal(tax);
+  const tokenAmount = handleDecimal(((totalAmount * advancePaymentPercentage) / 100)+mandiTax);
 
   (record.branch_id = branch_id || record.branch_id),
     // Update product details
@@ -354,35 +358,27 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     additionalDetails.digitalSignature ||
     record.additionalDetails.digitalSignature;
   // Update quality specification
-  record.qualitySpecificationOfProduct.moisture =
-    qualitySpecificationOfProduct.moisture ||
-    record.qualitySpecificationOfProduct.moisture;
-  record.qualitySpecificationOfProduct.broken =
-    qualitySpecificationOfProduct.broken ||
-    record.qualitySpecificationOfProduct.broken;
+  record.qualitySpecificationOfProduct.moisture = qualitySpecificationOfProduct.moisture || record.qualitySpecificationOfProduct.moisture;
+  record.qualitySpecificationOfProduct.broken = qualitySpecificationOfProduct.broken || record.qualitySpecificationOfProduct.broken;
   // Payment Info
-  (record.paymentInfo.advancePaymentDate =
-    paymentInfo?.advancePaymentDate || record?.paymentInfo?.advancePaymentDate),
-    (record.paymentInfo.totalAmount =  record?.paymentInfo?.totalAmount + mandiTax || record?.paymentInfo?.totalAmount),
+  (record.paymentInfo.advancePaymentDate = paymentInfo?.advancePaymentDate || record?.paymentInfo?.advancePaymentDate),
+    (record.paymentInfo.totalAmount = record?.paymentInfo?.totalAmount || record?.paymentInfo?.totalAmount),
     (record.paymentInfo.mandiTax = mandiTax || record?.paymentInfo?.mandiTax),
-    (record.paymentInfo.advancePaymentUtrNo =
-      paymentInfo?.advancePaymentUtrNo ||
-      record?.paymentInfo?.advancePaymentUtrNo),
-    (record.paymentInfo.payment_proof =
-      paymentInfo?.payment_proof || record?.paymentInfo?.payment_proof),
-    (record.paymentInfo.advancePaymentStatus = record?.paymentInfo?.advancePaymentStatus || "NA"); 
+    (record.paymentInfo.advancePaymentUtrNo = paymentInfo?.advancePaymentUtrNo || record?.paymentInfo?.advancePaymentUtrNo),
+    (record.paymentInfo.payment_proof = paymentInfo?.payment_proof || record?.paymentInfo?.payment_proof),
+    (record.paymentInfo.advancePaymentStatus = record?.paymentInfo?.advancePaymentStatus || "NA");
   // console.log("_final_record=>", record);
   // Save the updated record
   await record.save();
 
-  const distillerDetails = await Distiller.findOne({ _id: user_id }).select({
+  const distillerDetails = await Distiller.findOne({ _id: organization_id._id }).select({
     "basic_details.distiller_details": 1,
     _id: 0,
   });
   // console.log(distillerDetails);
   const organization_name = distillerDetails?.basic_details?.distiller_details?.organization_name;
   const distillerPhone = distillerDetails?.basic_details?.distiller_details?.phone;
-  
+
   // const {
   //   basic_details: {
   //     distiller_details: { organization_name, phone: distillerPhone },

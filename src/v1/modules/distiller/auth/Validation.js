@@ -10,7 +10,7 @@ const organizationSchema = Joi.object({
 });
 
 const manufactoringStorageSchema = Joi.object({
-    manufactoring_storage:Joi.object({
+    manufactoring_storage: Joi.object({
         manufactoring_details: Joi.boolean().required().messages({
             'string.empty': _middleware.require('Manufacturing Unit'),
         }),
@@ -39,9 +39,10 @@ const basicDetailsSchema = Joi.object({
         email: Joi.string().trim().lowercase().email().required().messages({
             'string.empty': _middleware.require('Email'),
         }),
-        mobile: Joi.string().trim().trim().pattern(/^[6-9][0-9]{9}$/)
+        mobile: Joi.string().trim().pattern(/^[0-9]{10}$/)
             .messages({
                 'string.empty': _middleware.require('phone'),
+                'string.pattern.base': _response_message.invalid('phone number'),
             }),
         designation: Joi.string().trim().required().messages({
             'string.empty': _middleware.require('designation'),
