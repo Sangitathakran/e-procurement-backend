@@ -460,21 +460,24 @@ module.exports.viewTrackDelivery = async (req, res) => {
 module.exports.trackDeliveryByBatchId = async (req, res) => {
 
     try {
-
         const { id } = req.params;
         console.log('check trandsitt', id)
         const record = await Batch.findOne({ _id: id })
             .select({ dispatched: 1, intransit: 1, status: 1, delivered: 1 })
             .populate({
                 path: 'req_id', select: 'product address'
-            });
+            }).lean();
 
         if (!record) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
         }
-
+        if (record.req_id?.address?.deliveryLocation) {
+            record.intransit = {
+                ...record.intransit,
+                deliveryLocation: record.req_id.address.deliveryLocation
+            };
+        }
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Track order") }));
-
     } catch (error) {
         _handleCatchErrors(error, res);
     }
