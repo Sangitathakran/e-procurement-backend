@@ -18,9 +18,9 @@ const {
   _poAdvancePaymentStatus,
   _poRequestStatus,
   _poPaymentStatus,
-  _userStatus,
+  _userStatus, _status, _userType
 } = require("@src/v1/utils/constants");
-const { _userType } = require("@src/v1/utils/constants");
+// const { _userType } = require("@src/v1/utils/constants");
 const moment = require("moment");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
 const {
@@ -68,8 +68,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
   }
 
   let randomVal;
-  console.log("user_id", user_id);
-  console.log("portalId", organization_id._id);
+
   // Generate a sequential order number
   const lastOrder = await PurchaseOrderModel.findOne()
     .sort({ createdAt: -1 })
@@ -87,12 +86,14 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     randomVal = "OD1001";
   }
 
+
   const msp = _distillerMsp();
   const totalAmount = handleDecimal(msp * poQuantity);
   const tax = _mandiTax(totalAmount);
   const mandiTax = handleDecimal(tax);
   const advancePayment = _advancePayment();
   const tokenAmount = handleDecimal(((totalAmount * advancePayment) / 100) + mandiTax);
+  console.log("tokenAmount", tokenAmount);
   // const remainingAmount = handleDecimal((totalAmount - tokenAmount) - mandiTax);
   const remainingAmount = handleDecimal(totalAmount - tokenAmount);
 
@@ -303,7 +304,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
   const advancePaymentPercentage = _advancePayment();
   const tax = _mandiTax(totalAmount);
   const mandiTax = handleDecimal(tax);
-  const tokenAmount = handleDecimal(((totalAmount * advancePaymentPercentage) / 100)+mandiTax);
+  const tokenAmount = handleDecimal(((totalAmount * advancePaymentPercentage) / 100) + mandiTax);
 
   (record.branch_id = branch_id || record.branch_id),
     // Update product details
@@ -443,7 +444,7 @@ module.exports.deletePurchaseOrder = asyncErrorHandler(async (req, res) => {
 
 module.exports.branchList = asyncErrorHandler(async (req, res) => {
   try {
-    const record = await Branches.find();
+    const record = await Branches.find({ status: _status.active });
 
     if (!record) {
       return res.status(400).send(
