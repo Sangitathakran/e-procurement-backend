@@ -379,7 +379,7 @@ module.exports.getProcurementById = async (req, res) => {
         );
     }
 
-     const scheme = record.product.schemeId;
+    const scheme = record.product.schemeId;
     const commodityName = record.product.name || '';
     if (scheme) {
       scheme.schemeName = `${scheme.schemeName || ''} ${commodityName} ${scheme.season || ''} ${scheme.period || ''}`
@@ -1118,7 +1118,9 @@ module.exports.farmerOrderList = async (req, res) => {
       .sort(sortBy)
       .skip(skip)
       .populate("farmer_id")
-      .populate("procurementCenter_id")
+      .populate({ path: "procurementCenter_id",
+        select: "center_name address point_of_contact"
+        })
       .limit(parseInt(limit));
 
     records.count = await FarmerOrders.countDocuments(query);
