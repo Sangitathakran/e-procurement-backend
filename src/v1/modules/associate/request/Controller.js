@@ -379,8 +379,8 @@ module.exports.getProcurementById = async (req, res) => {
         );
     }
 
-    const scheme = record.product.schemeId;
-    const commodityName = record.product.name || '';
+    const scheme = record?.product?.schemeId;
+    const commodityName = record?.product?.name || '';
     if (scheme) {
       scheme.schemeName = `${scheme.schemeName || ''} ${commodityName} ${scheme.season || ''} ${scheme.period || ''}`
         .trim()
