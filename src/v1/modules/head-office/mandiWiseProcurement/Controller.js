@@ -78,9 +78,8 @@ module.exports.getMandiProcurement = asyncErrorHandler(async (req, res) => {
       ? req.query.stateNames
       : req.query.stateNames.split(',').map(s => s.trim())
     : null;
-
   const paymentQuery = { ho_id: portalId };
-  const payments = await Payment.find(paymentQuery).lean();
+  const payments = await Payment.find(paymentQuery, { batch_id: 1}).lean();
   const batchIdSet = [...new Set(payments.map(p => String(p.batch_id)).filter(Boolean))];
 
   const pipeline = [
@@ -241,8 +240,8 @@ module.exports.getMandiProcurement = asyncErrorHandler(async (req, res) => {
   }
 
   pipeline.push({ $sort: { centerName: 1 } });
-
   const aggregated = await Batch.aggregate(pipeline);
+
 
   if (isExport) {
     const exportRows = aggregated.map(item => ({
