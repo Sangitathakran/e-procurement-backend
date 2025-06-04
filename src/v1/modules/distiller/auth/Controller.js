@@ -280,10 +280,11 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
 module.exports.formPreview = async (req, res) => {
     try {
         const { organization_id } = req;
+        console.log('organization_id-->', organization_id)
         if (!organization_id) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
         }
-        const response = await Distiller.findById({ _id: organization_id });
+        const response = await Distiller.findById({ _id:  new mongoose.Types.ObjectId(organization_id) });
         if (!response) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         } else {
