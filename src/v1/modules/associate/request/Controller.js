@@ -379,6 +379,13 @@ module.exports.getProcurementById = async (req, res) => {
         );
     }
 
+     const scheme = record.product.schemeId;
+    const commodityName = record.product.name || '';
+    if (scheme) {
+      scheme.schemeName = `${scheme.schemeName || ''} ${commodityName} ${scheme.season || ''} ${scheme.period || ''}`
+        .trim()
+        .replace(/\s+/g, ' ');
+    }
     record.myOffer = await AssociateOffers.findOne({
       req_id: id,
       seller_id: user_id,
