@@ -261,8 +261,8 @@ module.exports.saveDistillerDetails = async (req, res) => {
 };
 
 module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
-    const { user_id } = req;
-    let record = await Distiller.findOne({ _id: user_id }).lean();
+    const { user_id, organization_id } = req;
+    let record = await Distiller.findOne({ _id: organization_id._id }).lean();
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }));
     }

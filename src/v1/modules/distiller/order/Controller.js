@@ -15,7 +15,7 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 module.exports.getOrder = asyncErrorHandler(async (req, res) => {
     try {
         const { page, limit, skip, sortBy, search = '', isExport = 0 } = req.query
-        const { user_id } = req;
+        const { user_id, organization_id } = req;
         if (/[.*+?^${}()|[\]\\]/.test(search)) {
             return sendResponse({ res, status: 400, errorCode: 400, errors: [{ message: "Do not use any special character" }], message: "Do not use any special character" })
         }
@@ -33,7 +33,7 @@ module.exports.getOrder = asyncErrorHandler(async (req, res) => {
             {
                 $match: {
                     "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
-                    distiller_id: new mongoose.Types.ObjectId(user_id),
+                    distiller_id: new mongoose.Types.ObjectId(organization_id._id),
                     deletedAt: null, // Ensures only active records
                     ...(search
                         ? {
