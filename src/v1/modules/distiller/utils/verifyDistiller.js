@@ -33,7 +33,6 @@ exports.verifyDistiller = asyncErrorHandler(async (req, res, next) => {
         
         // const userExist = await Distiller.findOne({ _id: decodedToken.organization_id })
          const userExist = await Distiller.findOne({ _id: decodedToken.user.portalId })
-        console.log("decodedToken", decodedToken);
         //  const userExist = await Distiller.findOne({ _id: decodedToken.user_id })
         if (!userExist) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("User") }] }));
