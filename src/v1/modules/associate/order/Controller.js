@@ -460,7 +460,6 @@ module.exports.viewTrackDelivery = async (req, res) => {
 module.exports.trackDeliveryByBatchId = async (req, res) => {
 
     try {
-
         const { id } = req.params;
         console.log('check trandsitt', id)
         const record = await Batch.findOne({ _id: id })
@@ -472,9 +471,14 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
         if (!record) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
         }
-
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Track order") }));
-
+        const data = record.toObject();
+        if (data.req_id?.address?.deliveryLocation) {
+            data.intransit = {
+                ...data.intransit,
+                deliveryLocation: data.req_id.address.deliveryLocation
+            };
+        }
+        return res.status(200).send(new serviceResponse({ status: 200, data: data, message: _response_message.found("Track order") }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }
