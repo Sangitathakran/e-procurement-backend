@@ -33,6 +33,74 @@ const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { default: mongoose } = require("mongoose");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
+const { StateTaxModel } = require('@src/v1/models/app/distiller/stateTax');
+
+
+module.exports.amountCalculation = asyncErrorHandler(async (req, res) => {
+  try {
+    const { poQuantity, branch_id } = req.body;
+
+    if (!poQuantity) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          errors: [{ message: _response_message.notFound("poQuantity") }],
+        })
+      );
+    }
+
+    if (!branch_id) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          errors: [{ message: _response_message.notFound("branch_id") }],
+        })
+      );
+    }
+
+    const branch = await Branches.findById(branch_id);
+
+    const taxDoc = await StateTaxModel.findOne({
+       state_name: { $regex: new RegExp(`^${branch.state}$`, 'i') }, // case-insensitive match
+      });
+
+    let mandiTax = 0;
+    let advancePayment = _advancePayment();
+
+    if (taxDoc) {
+      mandiTax = taxDoc.mandi_tax;
+      advancePayment = taxDoc.token_percentage;
+    }
+    let data = {}
+    const msp = _distillerMsp();
+    const totalAmount = handleDecimal(msp * poQuantity);
+    const tokenAmount = handleDecimal((totalAmount * advancePayment) / 100);
+    const mandiTaxAmount = handleDecimal((mandiTax * totalAmount) / 100);
+    const advancenAmount = handleDecimal(tokenAmount + mandiTaxAmount);
+    const remainingAmount = handleDecimal(totalAmount - advancenAmount);
+
+    data.msp = msp;
+    data.mandiTax = mandiTax;
+    data.mandiTaxAmount = mandiTaxAmount;
+    data.totalAmount = totalAmount;
+    data.tokenAmount = tokenAmount;
+    data.advancenAmount = advancenAmount;
+    data.remainingAmount = remainingAmount;
+
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: data,
+        message: _response_message.found("amount calculation"),
+      })
+    );
+
+  } catch (err) {   
+    console.error('Error fetching mandi tax:', err.message);
+    return 0; // or throw error depending on your use case
+  }
+})
 
 module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
   const { organization_id, user_id, user_type } = req
