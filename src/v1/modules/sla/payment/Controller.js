@@ -3872,16 +3872,16 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
     const paymentIds = await Payment.distinct("req_id", {
       sla_id: { $in: [portalId, user_id] },
     });
-    // Build search query
-    const searchQuery = search
-      ? {
-          $or: [
-            { reqNo: { $regex: search, $options: "i" } },
-            { "product.name": { $regex: search, $options: "i" } },
-          ],
-        }
-      : {};
-
+        // Build search query
+        const searchQuery = search
+            ? {
+                $or: [
+                    { reqNo: { $regex: search, $options: 'i' } },
+                    { 'product.name': { $regex: search, $options: 'i' } }
+                ]
+            }
+            : {};
+ 
     // Final query
     let query = {
       _id: { $in: paymentIds },
