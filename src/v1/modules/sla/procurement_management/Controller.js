@@ -83,7 +83,7 @@ module.exports.getProcurementCenter = async (req, res) => {
         if (city) query["address.city"] = city;
 
         const records = { count: 0 };
-        records.rows = paginate == 1
+        records.rows = (paginate == 1 && isExport != 1)
             ? await ProcurementCenter.find(query)
                 .populate({
                     path: 'user_id',
@@ -101,9 +101,10 @@ module.exports.getProcurementCenter = async (req, res) => {
                     select: 'basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code basic_details.associate_details.organization_name'
                 })
                 .sort(sortBy);
+
         records.count = await ProcurementCenter.countDocuments(query);
 
-        if (paginate == 1) {
+        if (paginate == 1 && isExport != 1 ) {
             records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
@@ -112,19 +113,15 @@ module.exports.getProcurementCenter = async (req, res) => {
         if (isExport == 1) {
 
             const record = records.rows.map((item) => {
+                  const { line1, line2,country, state, district, city,postalCode } = item?.address || {};
                 return {
-                    "Address Line 1": item?.address?.line1 || 'NA',
-                    "Address Line 2": item?.address?.line2 || 'NA',
-                    "Country": item?.address?.country || 'NA',
-                    "State": item?.address?.country || 'NA',
-                    "District": item?.address?.district || 'NA',
-                    "City": item?.address?.city || 'NA',
-                    "PIN Code": item?.address?.postalCode || 'NA',
-                    "Name": item?.point_of_contact?.name || 'NA',
-                    "Email": item?.point_of_contact?.email || 'NA',
-                    "Mobile": item?.point_of_contact?.mobile || 'NA',
-                    "Designation": item?.point_of_contact?.designation || 'NA',
-                    "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
+                    "Centre ID": item?.center_code || 'NA',
+                     "CENTRE NAME": item?.center_name || 'NA',
+                      "STATE": item?.address?.state || 'NA',
+                       "City": item?.address?.district || 'NA',
+                        "POINT OF CONTACT": item?.point_of_contact?.name || 'NA',
+                         "LOCATION": `${line1} , ${line2} , ${city}, ${district} , ${state} , ${country} , ${postalCode}` || "NA",
+                         "STATUS": item?.active,
                 }
             })
             if (record.length > 0) {
@@ -139,7 +136,6 @@ module.exports.getProcurementCenter = async (req, res) => {
         } else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
         }
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
