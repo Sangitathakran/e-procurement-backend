@@ -22,7 +22,8 @@ const calculateAmount = async (poQuantity, branch_id) => {
     const tokenAmount = handleDecimal((totalAmount * advancePayment) / 100);
     const mandiTaxAmount = handleDecimal((mandiTax * totalAmount) / 100);
     const advancenAmount = handleDecimal(tokenAmount + mandiTaxAmount);
-    const remainingAmount = handleDecimal(totalAmount - advancenAmount);
+    // const remainingAmount = handleDecimal(totalAmount - advancenAmount);
+    const remainingAmount = handleDecimal(totalAmount - tokenAmount);
 
     return {
         msp,
