@@ -69,7 +69,7 @@ module.exports.sendRequest = async (req, res) => {
     // const decrypted = ccav.decrypt(encRequest, keyBase64, ivBase64);
     // console.log("decrypted response myEnc=>", decrypted);
 
-    return res.json({ paymentUrl, status: 200 });
+    return res.json({ accessCode:accessCode,encRequest:encRequest, status: 200 });
     // return res.redirect(paymentUrl);
   } catch (error) {
     console.error("Encryption Error:", error);
