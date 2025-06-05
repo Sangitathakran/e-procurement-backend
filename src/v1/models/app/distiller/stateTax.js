@@ -30,6 +30,6 @@ const stateTaxSchema = new mongoose.Schema(
   }
 );
  
-const stateWiseMandiTax = mongoose.model(_collectionName.stateWiseMandiTax, stateTaxSchema);
+const StateTaxModel = mongoose.model(_collectionName.statewisemanditax, stateTaxSchema);
  
-module.exports = { stateWiseMandiTax };
+module.exports = { StateTaxModel };

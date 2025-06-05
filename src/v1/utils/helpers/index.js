@@ -13,6 +13,8 @@ const ExcelJS = require('exceljs');
 const { Console } = require("console");
 const PDFDocument = require('pdfkit');
 const FileCounter = require("@src/v1/models/app/payment/fileCounter");
+const { stateWiseMandiTax } = require('@src/v1/models/app/distiller/stateTax');
+
 /**
  * 
  * @param {any} error 
@@ -462,11 +464,30 @@ exports._distillerMsp = () => {
   const msp = 24470;
   return msp;
 }
-exports._mandiTax = (amount) => {
-  
- const tax =  (amount * 1.2) / 100;
-  return tax;
-}
+
+// exports._mandiTax = (amount) => {
+
+//  const tax =  (amount * 1.2) / 100;
+//   return tax;
+// }
+
+exports._mandiTax = async (amount, stateId) => {
+  try {
+    const taxDoc = await stateWiseMandiTax.findOne({ state_id: stateId });
+    console.log('taxDoc', taxDoc);
+    if (!taxDoc) {
+      throw new Error('State Mandi Tax not found');
+    }
+
+    const mandiTaxRate = taxDoc.mandi_tax; // e.g., 1.2 for 1.2%
+    const tax = (amount * mandiTaxRate) / 100;
+
+    return tax;
+  } catch (err) {
+    console.error('Error fetching mandi tax:', err.message);
+    return 0; // or throw error depending on your use case
+  }
+};
 
 exports.formatDate = (timestamp, format = "DD/MM/YYYY") => {
   if (!timestamp) return "-";
@@ -479,9 +500,9 @@ exports.formatDate = (timestamp, format = "DD/MM/YYYY") => {
 
   return `${day}/${month}/${year}`;
 }
-exports.makeSearchQuery = (searchFields,search) => ({
+exports.makeSearchQuery = (searchFields, search) => ({
   $or: searchFields.map(item => ({
-      [item]: { $regex: search, $options: 'i' }
+    [item]: { $regex: search, $options: 'i' }
   }))
 });
 
