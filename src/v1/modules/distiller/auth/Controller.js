@@ -647,7 +647,7 @@ module.exports.getManufacturingUnit = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
         const { organization_id } = req;
-       
+       console.log('organization_id-->', organization_id);
         const query = { 'distiller_id': organization_id }
         const records = { count: 0 };
         const getState = async (stateId) => {

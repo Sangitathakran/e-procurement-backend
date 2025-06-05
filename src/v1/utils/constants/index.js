@@ -61,6 +61,7 @@ const _collectionName = {
     ClientToken : "ClientToken",
     CCAvenueResponse:"CCAvenueResponse",
     centerProjection: "centerProjection",
+    stateWiseMandiTax:"stateWiseMandiTax"
 }
 
 const _userType_Feature_Collection = {
