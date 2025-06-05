@@ -302,8 +302,6 @@ module.exports.mandiWiseProcurement = async (req, res) => {
 module.exports.incidentalExpense = async (req, res) => {
   try {
     const {
-      page = 1,
-      limit = 10,
       search = '',
       commodity = '',
       state = '',
@@ -311,10 +309,9 @@ module.exports.incidentalExpense = async (req, res) => {
     } = req.query;
 
     const { user_id } = req;
-
-    const pageInt = Math.max(parseInt(page), 1);
-    const limitInt = Math.max(parseInt(limit), 1);
-    const skip = (pageInt - 1) * limitInt;
+    let page = parseInt(req.query.page) || 1;
+    let limit = parseInt(req.query.limit) || 10;
+    let skip = (page - 1) * limit;
 
     const searchRegex = new RegExp(search, 'i');
     const filters = {};
@@ -346,20 +343,9 @@ module.exports.incidentalExpense = async (req, res) => {
         select: 'product.name'
       })
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitInt)
-      .lean();
-
-    if (!payments.length) {
-      return res.status(200).json({
-        success: true,
-        data: [],
-        totalRecords: 0,
-        totalPages: 0,
-        currentPage: pageInt,
-        count: 0,
-      });
-    }
+      // .skip(skip)
+      // .limit(limitInt)
+      // .lean();
 
     if (search) {
       payments = payments.filter(p => {
@@ -387,9 +373,49 @@ module.exports.incidentalExpense = async (req, res) => {
         return comm.includes(commodity.toLowerCase());
       });
     }
+    const totals = payments.length;
+    const paymentPage = payments.slice(skip, skip + limit);
+    
+    if (!paymentPage.length) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        totalRecords: 0,
+        totalPages: 0,
+        currentPage: page,
+        count: 0,
+      });
+    }
+  
+    // if (search) {
+    //   payments = payments.filter(p => {
+    //     const batchId = p.batch_id?.batchId?.toString().toLowerCase() || '';
+    //     const mandiName = p.batch_id?.procurementCenter_id?.center_name?.toLowerCase() || '';
+    //     return (
+    //       batchId.includes(search.toLowerCase()) ||
+    //       mandiName.includes(search.toLowerCase())
+    //     );
+    //   });
+    // }
+
+    // // State filter
+    // if (state) {
+    //   payments = payments.filter(p => {
+    //     const stateVal = p.batch_id?.procurementCenter_id?.address?.state?.toLowerCase() || '';
+    //     return stateVal.includes(state.toLowerCase());
+    //   });
+    // }
+
+    // // Commodity filter
+    // if (commodity) {
+    //   payments = payments.filter(p => {
+    //     const comm = p.req_id?.product?.name?.toLowerCase() || '';
+    //     return comm.includes(commodity.toLowerCase());
+    //   });
+    // }
 
     // Step 2: Extract all numeric batchIds
-    const batchIdNumbers = payments
+    const batchIdNumbers = paymentPage
       .map(p => Number(p.batch_id?.batchId))
       .filter(n => !isNaN(n));
 
@@ -413,7 +439,7 @@ module.exports.incidentalExpense = async (req, res) => {
     });
 
     // Step 4: Transform and attach data
-    const finalData = payments.map(p => {
+      const finalData = paymentPage.map(p => {
       const batchCode = Number(p.batch_id?.batchId);
       const ekharidRecord = ekharidMap.get(batchCode);
 
@@ -435,28 +461,27 @@ module.exports.incidentalExpense = async (req, res) => {
       };
     });
 
-    // Step 5: Count total records
-    const total = await Payment.countDocuments(filters);
 
-    // return res.status(200).json({
-    //   success: true,
-    //   data: finalData,
-    //   totalRecords: total,
-    //   totalPages: Math.ceil(total / limitInt),
-    //   currentPage: pageInt,
-    //   count: finalData.length,
-    // });
-
-    return sendResponse({
-      res,
-      status: 200,
-      message: _query.get("Incidental Expense"),
+    return res.status(200).json({
+      success: true,
       data: finalData,
-      totalRecords: total,
-      totalPages: Math.ceil(total / limitInt),
-      currentPage: pageInt,
+      totalRecords: totals,
+      totalPages: Math.ceil(totals / limit),
+      currentPage: page,
       count: finalData.length,
     });
+
+    // return sendResponse({
+    //   res,
+    //   success: true,
+    //   // message: _query.get("Incidental Expense"),
+    //   totalRecords: totals,
+    //   // data: finalData,
+      
+    //   totalPages:Math.ceil(totals / limit),
+    //   currentPage: page,
+    //   count: finalData.length,
+    // });
 
   } catch (err) {
     console.error('Error in incidentalExpense:', err);
@@ -467,6 +492,8 @@ module.exports.incidentalExpense = async (req, res) => {
     });
   }
 }
+
+
 
 module.exports.purchaseLifingMandiWise = async (req, res) => {
   try {
