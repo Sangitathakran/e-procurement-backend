@@ -23,19 +23,19 @@ const {
 const {
   BatchOrderProcess,
 } = require("@src/v1/models/app/distiller/batchOrderProcess.js");
-// const {REDIRECT_URL  } = require("@config/envconfig.js")
+
 const {
   MERCHANT_ID,
   ACCESS_CODE,
   WORKING_KEY,
   // REDIRECT_URL,
   PG_ENV,
-  CANCEL_URL,
+  // CANCEL_URL,
 } = process.env;
 
 const FRONTEND_SUCCESS_URL = "https://testing.distiller.khetisauda.com";
 const FRONTEND_FAILURE_URL = "https://testing.distiller.khetisauda.com";
-
+const {REDIRECT_URL ,CANCEL_URL} = require("@config/index.js")
 var workingKey = WORKING_KEY, //Put in the 32-Bit key shared by CCAvenues.
   accessCode = ACCESS_CODE, //Put in the Access Code shared by CCAvenues.
   encRequest = "";
@@ -50,8 +50,6 @@ var ivBase64 = Buffer.from([
   0x0d, 0x0e, 0x0f,
 ]).toString("base64");
 
-const REDIRECT_URL =
-  "https://api-testing-distiller.khetisauda.com/v1/bank/payment-status ";
 
 module.exports.sendRequest = async (req, res) => {
   try {
@@ -69,8 +67,7 @@ module.exports.sendRequest = async (req, res) => {
     // const decrypted = ccav.decrypt(encRequest, keyBase64, ivBase64);
     // console.log("decrypted response myEnc=>", decrypted);
 
-    return res.json({ accessCode:accessCode,encRequest:encRequest, status: 200 });
-    // return res.redirect(paymentUrl);
+    return res.json({ paymentUrl, status: 200 });
   } catch (error) {
     console.error("Encryption Error:", error);
     res.status(500).json({ error: "Internal Server Error" });

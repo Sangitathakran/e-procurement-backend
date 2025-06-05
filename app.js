@@ -29,6 +29,7 @@ const {
 const { router } = require("./src/v1/routes");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 // application level middlewares
+const requestLogger = require('@common/logger/requestLogger'); 
 app.use(helmet());
 app.use(
   cors({
@@ -38,6 +39,7 @@ app.use(
 );
 app.use(morgan('dev'));
 app.use(morgan("combined", { stream: combinedLogStream }));
+app.use(requestLogger);
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json({ limit: "30mb" }));
