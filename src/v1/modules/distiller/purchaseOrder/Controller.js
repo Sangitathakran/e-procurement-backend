@@ -518,7 +518,9 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
   record.qualitySpecificationOfProduct.broken = qualitySpecificationOfProduct.broken || record.qualitySpecificationOfProduct.broken;
   // Payment Info
   (record.paymentInfo.advancePaymentDate = paymentInfo?.advancePaymentDate || record?.paymentInfo?.advancePaymentDate),
-    (record.paymentInfo.totalAmount = record?.paymentInfo?.totalAmount || record?.paymentInfo?.totalAmount),
+    (record.paymentInfo.totalAmount = totalAmount || record?.paymentInfo?.totalAmount),
+    (record.paymentInfo.balancePayment = remainingAmount || record?.paymentInfo?.balancePayment),
+    (record.paymentInfo.advancePayment = advancenAmount || record?.paymentInfo?.advancePayment),
     (record.paymentInfo.mandiTax = mandiTax || record?.paymentInfo?.mandiTax),
     (record.paymentInfo.advancePaymentUtrNo = paymentInfo?.advancePaymentUtrNo || record?.paymentInfo?.advancePaymentUtrNo),
     (record.paymentInfo.payment_proof = paymentInfo?.payment_proof || record?.paymentInfo?.payment_proof),
