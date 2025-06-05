@@ -1432,6 +1432,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
       data: {
         page,
         limit,
+        pages: Math.ceil(data[0]?.total / limit) || 1,
         rows: data[0]?.data || [],
         total: data[0]?.total || 0
       }
