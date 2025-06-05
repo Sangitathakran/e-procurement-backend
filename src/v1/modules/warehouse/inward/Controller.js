@@ -113,7 +113,7 @@ const PaymentLogsHistory = require('@src/v1/models/app/procurement/PaymentLogsHi
 
 //using aggregate for filter and search
 module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
-    const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status, productName, warehouse_name } = req.query;
+    const { page = 1, limit = 10, search = '', isExport = 0, status, productName, warehouse_name } = req.query;
     const { warehouseIds = [] } = req.body;
 
     try {
@@ -145,6 +145,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
         }
 
         const searchRegex = search ? new RegExp(search, 'i') : null;
+        const sortBy = 'createdAt';
 
         const pipeline = [
             {
@@ -244,7 +245,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                     createdAt: 1
                 }
             },
-            { $sort: { [sortBy]: 1 } },
+            { $sort: { [sortBy]: -1 } },
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) }
         ];
@@ -488,7 +489,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
 
 //using aggregate for search and filter getPendingBatchesByWarehouse
 module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
-    const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status, productName, warehouse_name } = req.query;
+    const { page = 1, limit = 10,  search = '', isExport = 0, status, productName, warehouse_name } = req.query;
     const { warehouseIds = [] } = req.body;
 
     try {
@@ -520,6 +521,7 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
         }
 
         const searchRegex = search ? new RegExp(search, 'i') : null;
+        const sortBy = "createdAt";
 
         const pipeline = [
             {
