@@ -34,9 +34,11 @@ const { default: mongoose } = require("mongoose");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const { StateTaxModel } = require('@src/v1/models/app/distiller/stateTax');
+const { calculateAmount } = require("@src/v1/utils/helpers/amountCalculation");
 
 
 module.exports.amountCalculation = asyncErrorHandler(async (req, res) => {
+
   try {
     const { poQuantity, branch_id } = req.body;
 
@@ -58,27 +60,10 @@ module.exports.amountCalculation = asyncErrorHandler(async (req, res) => {
       );
     }
 
-    const branch = await Branches.findById(branch_id);
+    // Calculate amounts
+    const { msp, mandiTax, mandiTaxAmount, totalAmount, tokenAmount, advancenAmount, remainingAmount } = await calculateAmount(poQuantity, branch_id);
 
-    const taxDoc = await StateTaxModel.findOne({
-       state_name: { $regex: new RegExp(`^${branch.state}$`, 'i') }, // case-insensitive match
-      });
-
-    let mandiTax = 0;
-    let advancePayment = _advancePayment();
-
-    if (taxDoc) {
-      mandiTax = taxDoc.mandi_tax;
-      advancePayment = taxDoc.token_percentage;
-    }
     let data = {}
-    const msp = _distillerMsp();
-    const totalAmount = handleDecimal(msp * poQuantity);
-    const tokenAmount = handleDecimal((totalAmount * advancePayment) / 100);
-    const mandiTaxAmount = handleDecimal((mandiTax * totalAmount) / 100);
-    const advancenAmount = handleDecimal(tokenAmount + mandiTaxAmount);
-    const remainingAmount = handleDecimal(totalAmount - advancenAmount);
-
     data.msp = msp;
     data.mandiTax = mandiTax;
     data.mandiTaxAmount = mandiTaxAmount;
@@ -96,11 +81,134 @@ module.exports.amountCalculation = asyncErrorHandler(async (req, res) => {
       })
     );
 
-  } catch (err) {   
+  } catch (err) {
     console.error('Error fetching mandi tax:', err.message);
     return 0; // or throw error depending on your use case
   }
 })
+
+/*
+module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
+  const { organization_id, user_id, user_type } = req
+  const {
+    branch_id,
+    name,
+    grade,
+    grade_remark,
+    material_code,
+    poQuantity,
+    quantityDuration,
+    manufacturingLocation,
+    storageLocation,
+    location,
+    lat,
+    long,
+    locationUrl,
+    locationDetails,
+    companyDetails,
+    additionalDetails,
+    qualitySpecificationOfProduct,
+    termsAndConditions,
+    comment,
+  } = req.body;
+
+  if (user_type && user_type != _userType.distiller) {
+    return res.send(
+      new serviceResponse({
+        status: 400,
+        errors: [{ message: _response_message.Unauthorized() }],
+      })
+    );
+  }
+
+  let randomVal;
+
+  // Generate a sequential order number
+  const lastOrder = await PurchaseOrderModel.findOne()
+    .sort({ createdAt: -1 })
+    .select("purchasedOrder.poNo")
+    .lean();
+  if (lastOrder && lastOrder.purchasedOrder?.poNo) {
+    // Extract the numeric part from the last order's poNo and increment it
+    const lastNumber = parseInt(
+      lastOrder.purchasedOrder.poNo.replace(/\D/g, ""),
+      10
+    ); // Remove non-numeric characters
+    randomVal = `OD${lastNumber + 1}`;
+  } else {
+    // Default starting point if no orders exist
+    randomVal = "OD1001";
+  }
+
+  const msp = _distillerMsp();
+  const totalAmount = handleDecimal(msp * poQuantity);
+  const tax = _mandiTax(totalAmount);
+  const mandiTax = handleDecimal(tax);
+  const advancePayment = _advancePayment();
+  const tokenAmount = handleDecimal(((totalAmount * advancePayment) / 100) + mandiTax);
+  console.log("tokenAmount", tokenAmount);
+  // const remainingAmount = handleDecimal((totalAmount - tokenAmount) - mandiTax);
+  const remainingAmount = handleDecimal(totalAmount - tokenAmount);
+
+  const record = await PurchaseOrderModel.create({
+    distiller_id: organization_id._id,
+    branch_id,
+    purchasedOrder: {
+      poNo: randomVal,
+      poQuantity: handleDecimal(poQuantity),
+      poAmount: handleDecimal(totalAmount),
+    },
+    product: {
+      name,
+      grade,
+      grade_remark,
+      material_code,
+      msp: _distillerMsp(),
+      quantityDuration,
+    },
+    manufacturingLocation,
+    storageLocation,
+    deliveryLocation: {
+      location,
+      lat,
+      long,
+      locationUrl,
+      locationDetails
+    },
+    paymentInfo: {
+      totalAmount: handleDecimal(totalAmount), // Assume this is calculated during the first step
+      advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 10% of totalAmount
+      balancePayment: handleDecimal(remainingAmount), // Auto-calculated: 90% of totalAmount
+      tax: _taxValue(),
+      // paidAmount: handleDecimal(tokenAmount), // this val
+      // advancePaymentStatus:_poAdvancePaymentStatus.pending
+      // advancePaymentStatus:_poAdvancePaymentStatus.paid
+    },
+    companyDetails,
+    additionalDetails,
+    qualitySpecificationOfProduct,
+    termsAndConditions,
+    comments: {
+      user_id,
+      comment,
+    },
+    createdBy: user_id,
+  });
+
+  eventEmitter.emit(_webSocketEvents.procurement, {
+    ...record,
+    method: "created",
+  });
+
+  return res.status(200).send(
+    new serviceResponse({
+      status: 200,
+      data: record,
+      message: _response_message.created("procurement"),
+    })
+  );
+});
+*/
 
 module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
   const { organization_id, user_id, user_type } = req
@@ -154,16 +262,8 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     randomVal = "OD1001";
   }
 
-
-  const msp = _distillerMsp();
-  const totalAmount = handleDecimal(msp * poQuantity);
-  const tax = _mandiTax(totalAmount);
-  const mandiTax = handleDecimal(tax);
-  const advancePayment = _advancePayment();
-  const tokenAmount = handleDecimal(((totalAmount * advancePayment) / 100) + mandiTax);
-  console.log("tokenAmount", tokenAmount);
-  // const remainingAmount = handleDecimal((totalAmount - tokenAmount) - mandiTax);
-  const remainingAmount = handleDecimal(totalAmount - tokenAmount);
+  // Calculate amounts
+  const { msp, mandiTax, mandiTaxAmount, totalAmount, tokenAmount, advancenAmount, remainingAmount } = await calculateAmount(poQuantity, branch_id);
 
   const record = await PurchaseOrderModel.create({
     distiller_id: organization_id._id,
@@ -178,7 +278,8 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
       grade,
       grade_remark,
       material_code,
-      msp: _distillerMsp(),
+      // msp: _distillerMsp(),
+      msp,
       quantityDuration,
     },
     manufacturingLocation,
@@ -191,13 +292,11 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
       locationDetails
     },
     paymentInfo: {
-      totalAmount: handleDecimal(totalAmount), // Assume this is calculated during the first step
-      advancePayment: handleDecimal(tokenAmount), // Auto-calculated: 10% of totalAmount
+      totalAmount, // Assume this is calculated during the first step
+      mandiTax, // Auto-calculated: 10% of totalAmount
+      advancePayment: handleDecimal(advancenAmount), // Auto-calculated: 10% of totalAmount
       balancePayment: handleDecimal(remainingAmount), // Auto-calculated: 90% of totalAmount
       tax: _taxValue(),
-      // paidAmount: handleDecimal(tokenAmount), // this val
-      // advancePaymentStatus:_poAdvancePaymentStatus.pending
-      // advancePaymentStatus:_poAdvancePaymentStatus.paid
     },
     companyDetails,
     additionalDetails,
@@ -365,14 +464,16 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     );
   }
 
-  const msp = _distillerMsp();
+  // const msp = _distillerMsp();
+  // const totalAmount = handleDecimal(msp * poQuantity);
+  // const advancePaymentPercentage = _advancePayment();
+  // const tax = _mandiTax(totalAmount);
+  // const mandiTax = handleDecimal(tax);
+  // const tokenAmount = handleDecimal(((totalAmount * advancePaymentPercentage) / 100) + mandiTax);
 
+  // Calculate amounts
+  const { msp, mandiTax, mandiTaxAmount, totalAmount, tokenAmount, advancenAmount, remainingAmount } = await calculateAmount(poQuantity, branch_id);
 
-  const totalAmount = handleDecimal(msp * poQuantity);
-  const advancePaymentPercentage = _advancePayment();
-  const tax = _mandiTax(totalAmount);
-  const mandiTax = handleDecimal(tax);
-  const tokenAmount = handleDecimal(((totalAmount * advancePaymentPercentage) / 100) + mandiTax);
 
   (record.branch_id = branch_id || record.branch_id),
     // Update product details
@@ -402,30 +503,16 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     companyDetails.gstin || record.companyDetails.gstin;
   record.companyDetails.cin = companyDetails.cin || record.companyDetails.cin;
   // Update purchase order reference
-  record.purchasedOrder.poQuantity = poQuantity
-    ? handleDecimal(poQuantity)
-    : record.purchasedOrder.poQuantity;
-  record.purchasedOrder.poAmount = totalAmount
-    ? handleDecimal(totalAmount)
-    : record.purchasedOrder.poAmount;
+  record.purchasedOrder.poQuantity = poQuantity ? handleDecimal(poQuantity) : record.purchasedOrder.poQuantity;
+  record.purchasedOrder.poAmount = totalAmount ? handleDecimal(totalAmount) : record.purchasedOrder.poAmount;
   // Update additional details
-  record.additionalDetails.indentNumber =
-    additionalDetails.indentNumber || record.additionalDetails.indentNumber;
-  record.additionalDetails.indentDate =
-    additionalDetails.indentDate || record.additionalDetails.indentDate;
-  record.additionalDetails.referenceDate =
-    additionalDetails.referenceDate || record.additionalDetails.referenceDate;
-  record.additionalDetails.contactPerson =
-    additionalDetails.contactPerson || record.additionalDetails.contactPerson;
-  record.additionalDetails.transportDetails =
-    additionalDetails.transportDetails ||
-    record.additionalDetails.transportDetails;
-  record.additionalDetails.termsOfDelivery =
-    additionalDetails.termsOfDelivery ||
-    record.additionalDetails.termsOfDelivery;
-  record.additionalDetails.digitalSignature =
-    additionalDetails.digitalSignature ||
-    record.additionalDetails.digitalSignature;
+  record.additionalDetails.indentNumber = additionalDetails.indentNumber || record.additionalDetails.indentNumber;
+  record.additionalDetails.indentDate = additionalDetails.indentDate || record.additionalDetails.indentDate;
+  record.additionalDetails.referenceDate = additionalDetails.referenceDate || record.additionalDetails.referenceDate;
+  record.additionalDetails.contactPerson = additionalDetails.contactPerson || record.additionalDetails.contactPerson;
+  record.additionalDetails.transportDetails = additionalDetails.transportDetails || record.additionalDetails.transportDetails;
+  record.additionalDetails.termsOfDelivery = additionalDetails.termsOfDelivery || record.additionalDetails.termsOfDelivery;
+  record.additionalDetails.digitalSignature = additionalDetails.digitalSignature || record.additionalDetails.digitalSignature;
   // Update quality specification
   record.qualitySpecificationOfProduct.moisture = qualitySpecificationOfProduct.moisture || record.qualitySpecificationOfProduct.moisture;
   record.qualitySpecificationOfProduct.broken = qualitySpecificationOfProduct.broken || record.qualitySpecificationOfProduct.broken;
@@ -436,7 +523,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     (record.paymentInfo.advancePaymentUtrNo = paymentInfo?.advancePaymentUtrNo || record?.paymentInfo?.advancePaymentUtrNo),
     (record.paymentInfo.payment_proof = paymentInfo?.payment_proof || record?.paymentInfo?.payment_proof),
     (record.paymentInfo.advancePaymentStatus = record?.paymentInfo?.advancePaymentStatus || "NA");
-  // console.log("_final_record=>", record);
+ 
   // Save the updated record
   await record.save();
 

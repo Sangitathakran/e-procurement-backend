@@ -4,7 +4,7 @@ const { verifyDistiller } = require("../utils/verifyDistiller");
 const distillerpurchaseOrderRoutes = express.Router();
 
 distillerpurchaseOrderRoutes.get("/branch-list", branchList);
-distillerpurchaseOrderRoutes.get("/amountCalculation", verifyDistiller, amountCalculation);
+distillerpurchaseOrderRoutes.post("/amountCalculation", verifyDistiller, amountCalculation);
 distillerpurchaseOrderRoutes.post("/", verifyDistiller, createPurchaseOrder);
 distillerpurchaseOrderRoutes.get("/", verifyDistiller, getPurchaseOrder);
 distillerpurchaseOrderRoutes.get("/:id", verifyDistiller, getPurchaseOrderById);
