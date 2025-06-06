@@ -5449,23 +5449,12 @@ module.exports.proceedToPayPaymentWOAggregation = async (req, res) => {
 module.exports.exportFarmerPayments = async (req, res) => {
   try {
     let {
-      page,
-      limit,
-      search = "",
-      isExport = 0,
       payment_status,
-      state = "",
-      branch = "",
-      schemeName = "",
-      commodityName = "",
-      paginate = 1,
       dateFilterType = "",
       startDate,
       endDate,
     } = req.query;
 
-    limit = parseInt(limit) || 10;
-    page = parseInt(page) || 1;
 
     const { portalId, user_id } = req;
     let paymentFilter = {};
@@ -5476,42 +5465,6 @@ module.exports.exportFarmerPayments = async (req, res) => {
       end.setHours(23, 59, 59, 999); // Include full end date
       paymentFilter.updatedAt = { $gte: start, $lte: end };
     }
-
-    const cacheKey = generateCacheKey("payment", {
-      portalId,
-      user_id,
-      page,
-      limit,
-      search,
-      payment_status,
-      state,
-      branch,
-      schemeName,
-      commodityName,
-      paginate,
-      isExport,
-      dateFilterType,
-      startDate,
-      endDate,
-    });
-
-    const cachedData = getCache(cacheKey);
-    if (cachedData && isExport != 1) {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: cachedData,
-          message: "Payments found (cached)",
-        })
-      );
-    }
-
-    // Ensure indexes (if not already present, ideally done at setup)
-    await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
-    await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
-    await Batch.createIndexes({ req_id: 1 });
-    await Payment.createIndexes({ batch_id: 1 });
-    await Branches.createIndexes({ _id: 1 });
 
     const today = new Date();
     let dateFilter = {};
@@ -5594,13 +5547,6 @@ module.exports.exportFarmerPayments = async (req, res) => {
 
     if (Object.keys(dateFilter).length) {
       query.createdAt = dateFilter;
-    }
-
-    if (search) {
-      query.$or = [
-        { reqNo: { $regex: search, $options: "i" } },
-        { "product.name": { $regex: search, $options: "i" } },
-      ];
     }
 
     const validStatuses = [
@@ -5817,42 +5763,7 @@ module.exports.exportFarmerPayments = async (req, res) => {
       },
     ];
 
-    // Apply filters on already aggregated data
-    if (state || commodityName || schemeName || branch) {
-      aggregationPipeline.push({
-        $match: {
-          $and: [
-            ...(state
-              ? [{ "branchDetails.state": { $regex: state, $options: "i" } }]
-              : []),
-            ...(commodityName
-              ? [
-                  {
-                    "product.name": {
-                      $regex: escapeRegex(commodityName),
-                      $options: "i",
-                    },
-                  },
-                ]
-              : []),
-            ...(schemeName
-              ? [{ schemeName: { $regex: schemeName, $options: "i" } }]
-              : []),
-            ...(branch
-              ? [
-                  {
-                    "branchDetails.branchName": {
-                      $regex: branch,
-                      $options: "i",
-                    },
-                  },
-                ]
-              : []),
-          ],
-        },
-      });
-    }
-
+    
     aggregationPipeline.push(
       {
         $project: {
@@ -5873,8 +5784,7 @@ module.exports.exportFarmerPayments = async (req, res) => {
           createdAt: 1,
         },
       },
-      // { $skip: (page - 1) * limit },
-      // { $limit: limit }
+     
     );
 
     let response = { count: 0 };
@@ -5884,12 +5794,8 @@ module.exports.exportFarmerPayments = async (req, res) => {
       ...aggregationPipeline.slice(0, -2),
       { $count: "count" },
     ]);
-    response.count = countResult?.[0]?.count ?? 0;
-    if (isExport != 1) {
-      setCache(cacheKey, response, 300); // 5 mins
-    }
-
-    if (isExport == 1) {
+   
+   
       const record = [];
 
       response.rows.forEach((item) => {
@@ -5969,21 +5875,13 @@ module.exports.exportFarmerPayments = async (req, res) => {
       } else {
         return res.status(200).send(
           new serviceResponse({
-            status: 400,
+            status: 200,
             data: response,
             message: "No payments found",
           })
         );
       }
-    } else {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: response,
-          message: "Payments found",
-        })
-      );
-    }
+
   } catch (error) {
     _handleCatchErrors(error, res);
   }

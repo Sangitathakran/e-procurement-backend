@@ -132,14 +132,14 @@ module.exports.getHoProcurementCenter = async (req, res) => {
             .populate('user_id', 'bank_details')
             .sort(sortBy);
 
-        if (paginate == 1) {
+        if (paginate == 1 && isExport != 1) {
             baseQuery.skip(Number(skip)).limit(Number(limit));
         }
 
         records.rows = await baseQuery.lean();
         records.count = await ProcurementCenter.countDocuments(query);
 
-        if (paginate == 1) {
+        if (paginate == 1 && isExport != 1) {
             records.page = page;
             records.limit = limit;
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
@@ -147,29 +147,25 @@ module.exports.getHoProcurementCenter = async (req, res) => {
 
         // Export to Excel
         if (isExport == 1) {
-            const exportData = records.rows.map(item => ({
-                "Address Line 1": item?.address?.line1 || 'NA',
-                "Address Line 2": item?.address?.line2 || 'NA',
-                "Country": item?.address?.country || 'NA',
-                "State": item?.address?.state || 'NA',
-                "District": item?.address?.district || 'NA',
-                "City": item?.address?.city || 'NA',
-                "PIN Code": item?.address?.postalCode || 'NA',
-                "Name": item?.point_of_contact?.name || 'NA',
-                "Email": item?.point_of_contact?.email || 'NA',
-                "Mobile": item?.point_of_contact?.mobile || 'NA',
-                "Designation": item?.point_of_contact?.designation || 'NA',
-                "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
-                "Bank Name": item?.user_id?.bank_details?.bank_name || 'NA',
-                "Branch Name": item?.user_id?.bank_details?.branch_name || 'NA',
-                "Account Holder": item?.user_id?.bank_details?.account_holder_name || 'NA',
-                "IFSC Code": item?.user_id?.bank_details?.ifsc_code || 'NA',
-                "Account Number": item?.user_id?.bank_details?.account_number || 'NA'
-            }));
+              const record = records.rows.map((item) => {
 
-            if (exportData.length > 0) {
+                let {line1,line2,city,district,postalCode} = item?.address || {}
+                return {
+                  "CENTER ID": item?.center_code || "NA",
+                  "CENTER TYPE": item?.center_code || "NA",
+                  "CENTER NAME": item?.center_code || "NA",
+                  CONTACT: item?.point_of_contact?.mobile || "NA",
+                  EMAIL: item?.point_of_contact?.email || "NA",
+                  State: item?.address?.country || "NA",
+                  City: item?.address?.city || "NA",
+                  "LOCATION": `${line1} ${line2}${city}${district}${postalCode}` || "NA",
+                  "POINT OF CONTACT": item?.point_of_contact?.name || "NA",
+                };
+              });
+
+            if (record.length > 0) {
                 return dumpJSONToExcel(req, res, {
-                    data: exportData,
+                    data: record,
                     fileName: `collection-center.xlsx`,
                     worksheetName: `collection-center`
                 });
