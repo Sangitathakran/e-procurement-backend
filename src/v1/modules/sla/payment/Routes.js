@@ -3,7 +3,7 @@ const { payment, associateOrders, batchList, lot_list, AssociateTabPaymentReques
     AssociateTabBatchApprove, AssociateTabGenrateBill, AssociateTabBatchList, associateBillApprove,
     getBill, agentPayments, proceedToPayPaymentRequests, proceedToPayAssociateOrders,
     proceedToPayAssociateTabBatchList, editBill, getBillProceedToPay, agencyBill,
-    associateBillReject, editAssociateBill, proceedToPayPayment, proceedToPayBatchList, paymentLogsHistory, qcReport,
+    associateBillReject, editAssociateBill, proceedToPayPayment, proceedToPayPaymentExport, proceedToPayBatchList, paymentLogsHistory, qcReport,
     agentDashboardPaymentList,
     agentDashboardAssociateList,
     paymentWithoutAgreegation} = require("./Controller");
@@ -27,6 +27,7 @@ paymentRoutes.get("/associate-req/batch-list", Auth, AssociateTabBatchList);
 
 // paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPaymentRequests);
 paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPayment);
+paymentRoutes.get("/proceed-to-pay-export", Auth, proceedToPayPaymentExport);
 paymentRoutes.get("/proceed-to-pay-associate-orders", Auth, proceedToPayAssociateOrders);
 // paymentRoutes.get("/proceed-to-pay-batch-list", Auth, proceedToPayAssociateTabBatchList);
 paymentRoutes.get("/proceed-to-pay-batch-list", Auth, proceedToPayBatchList);
