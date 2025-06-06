@@ -43,6 +43,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       locationDetails: { type: Object },
     },
     paymentInfo: {
+      token:{ type: Number, required: true }, // Unique token for payment processing
       totalAmount: { type: Number, required: true }, // Assume this is calculated during the first step
       advancePayment: { type: Number, required: true }, // Auto-calculated: 3% of totalAmount
       advancePaymentStatus: {
