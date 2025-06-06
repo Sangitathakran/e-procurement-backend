@@ -15,7 +15,7 @@ module.exports = {
     apiVersion: process.env.API_VERSION,
 
     REDIRECT_URL :`${process.env.APP_URL}v1/bank/payment-status`,
-    CANCEL_URL :`${process.env.APP_URL}distiller/penaltyorders`,
+    CANCEL_URL :`${process.env.FRONTEND_URL}distiller/penaltyorders`,
     // Default Secret Key For Auth Token
     JWT_SECRET_KEY: process.env.SECRET_KEY,
     THIRD_PARTY_JWT_SECRET: process.env.THIRD_PARTY_JWT_SECRET,
