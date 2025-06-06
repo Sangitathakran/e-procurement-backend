@@ -3872,16 +3872,16 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
     const paymentIds = await Payment.distinct("req_id", {
       sla_id: { $in: [portalId, user_id] },
     });
-        // Build search query
-        const searchQuery = search
-            ? {
-                $or: [
-                    { reqNo: { $regex: search, $options: 'i' } },
-                    { 'product.name': { $regex: search, $options: 'i' } }
-                ]
-            }
-            : {};
- 
+    // Build search query
+    const searchQuery = search
+      ? {
+          $or: [
+            { reqNo: { $regex: search, $options: "i" } },
+            { "product.name": { $regex: search, $options: "i" } },
+          ],
+        }
+      : {};
+
     // Final query
     let query = {
       _id: { $in: paymentIds },
@@ -3908,6 +3908,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
       .lean();
 
     // Add batch and payment data
+
     for (let req of requests) {
       req.batches = await Batch.find({ req_id: req._id })
         // .populate({
@@ -3954,6 +3955,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
       req.scheme = req.product?.schemeId || {};
       req.scheme.commodity_name = commodityObj?.name || "";
     }
+
     // Filter by approval status
     requests = requests.filter((req) =>
       approve_status === "Pending"
@@ -3967,37 +3969,14 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
     if (isExport == 1) {
       const exportRecords = requests.map((item) => ({
         "Order ID": item?.reqNo || "NA",
-        Commodity: item?.product?.name || "NA",
-        "Quantity Purchased": item?.qtyPurchased || "NA",
-        "Amount Payable": item?.amountPayable || "NA",
-        "Approval Status": item?.approval_status ?? "NA",
+        "Branch Name": item?.branchDetails?.branchName || "NA",
+        "Branch ID": item?.branchDetails?.branchId || "NA",
+        "SLA Name": item?.sla?.basic_details?.name || "NA",
+        "Scheme": item?.scheme?.schemeName || "NA",
+         "Commodity": item?.product?.name || "NA",
+        "Quantity Purchased": item?.qtyPurchased ,
         "Payment Status": item?.payment_status ?? "NA",
-        "Associate User Code": item?.sellers?.[0]?.user_code || "NA",
-        "Associate Name":
-          item?.sellers?.[0]?.basic_details?.associate_details
-            ?.associate_name || "NA",
-        "Farmer ID": item?.farmer?.[0]?.farmer_id || "NA",
-        "Farmer Name": item?.farmer?.[0]?.name || "NA",
-        "Mobile No": item?.farmer?.[0]?.basic_details?.mobile_no || "NA",
-        "Farmer DOB": item?.farmer?.[0]?.basic_details?.dob || "NA",
-        "Father Name": item?.farmer?.[0]?.parents?.father_name || "NA",
-        "Farmer Address": item?.farmer?.[0]?.address
-          ? `${item.farmer[0].address.village || "NA"}, ${
-              item.farmer[0].address.block || "NA"
-            }, ${item.farmer[0].address.country || "NA"}`
-          : "NA",
-        "Collection center": item?.ProcurementCenter?.[0]?.center_name ?? "NA",
-        "Procurement Address Line 1":
-          item?.ProcurementCenter?.[0]?.address?.line1 || "NA",
-        "Procurement City": item?.ProcurementCenter?.[0]?.address?.city || "NA",
-        "Procurement District":
-          item?.ProcurementCenter?.[0]?.address?.district || "NA",
-        "Procurement State":
-          item?.ProcurementCenter?.[0]?.address?.state || "NA",
-        "Procurement Country":
-          item?.ProcurementCenter?.[0]?.address?.country || "NA",
-        "Procurement Postal Code":
-          item?.ProcurementCenter?.[0]?.address?.postalCode || "NA",
+        "Approval Status": item?.approval_status ?? "NA",
       }));
 
       if (exportRecords.length > 0) {

@@ -2737,7 +2737,7 @@ const getDistrict = async (districtId) => {
       },
     },
   ]);
-  return district[0].district;
+  return district[0]?.district || " ";
 };
 
 const getState = async (stateId) => {
@@ -2930,7 +2930,6 @@ module.exports.getAllFarmersExport = async (req, res) => {
     }else if(centertype === "localFarmers") {
       query = { associate_id: null };
     }
-    //let query = { associate_id: { $ne: null } };
     const stateDistrictData = await StateDistrictCity.find(
       {},
       { states: 1 }
@@ -3002,19 +3001,23 @@ module.exports.getAllFarmersExport = async (req, res) => {
     }, {});
     const data = await Promise.all(
       farmers.map(async (item) => {
-       // const address = await getAddress(item);
+        //console.log("Item ->",item);
+        const state = await getState(item?.address?.state_id);
+       
+        const district = await getDistrict(item?.address?.district_id);
         const farmerIdStr = item._id.toString();
         const crops = cropsByFarmer[farmerIdStr] || [];
         const lands = landByFarmer[farmerIdStr] || [];
         return {
           ...item,
-         // address: address,
+          state: state,
+          district: district,
           crop_details: crops,
           land_details: lands,
         };
       })
     );
-
+    // console.log("Data -> ",data);
     const exportData = data.map((item) => {
       return {
         "Associate ID": item?.associate_id?.user_code || "NA",
@@ -3035,8 +3038,8 @@ module.exports.getAllFarmersExport = async (req, res) => {
         village: item?.address?.village || "NA",
         Block: item?.address?.block || "NA",
         Tahshil: item?.address?.tahshil || "NA",
-        District: item?.address?.district || "NA",
-        State: item?.address?.state || "NA",
+        District: item?.district || "NA",
+        State: item?.state || "NA",
         Country: item?.address?.country || "NA",
         "Pin Code": item?.address?.pin_code || "NA",
         "Bank Name": item?.bank_details?.bank_name || "NA",
