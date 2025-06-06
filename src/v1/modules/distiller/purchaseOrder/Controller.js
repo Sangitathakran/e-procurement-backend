@@ -36,64 +36,45 @@ const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const { StateTaxModel } = require('@src/v1/models/app/distiller/stateTax');
 const { calculateAmount } = require("@src/v1/utils/helpers/amountCalculation");
 
-
 module.exports.amountCalculation = asyncErrorHandler(async (req, res) => {
+  const { token, poQuantity, branch_id } = req.body;
+
+  const missingFields = [];
+  if (!token) missingFields.push("token");
+  if (!poQuantity) missingFields.push("poQuantity");
+  if (!branch_id) missingFields.push("branch_id");
+
+  if (missingFields.length > 0) {
+    return res.status(400).send(
+      new serviceResponse({
+        status: 400,
+        errors: missingFields.map((field) => ({
+          message: _response_message.notFound(field),
+        })),
+      })
+    );
+  }
 
   try {
-    const { token, poQuantity, branch_id } = req.body;
-    
-    if (!token) {
-      return res.send(
-        new serviceResponse({
-          status: 400,
-          errors: [{ message: _response_message.notFound("token") }],
-        })
-      );
-    }
-    if (!poQuantity) {
-      return res.send(
-        new serviceResponse({
-          status: 400,
-          errors: [{ message: _response_message.notFound("poQuantity") }],
-        })
-      );
-    }
-
-    if (!branch_id) {
-      return res.send(
-        new serviceResponse({
-          status: 400,
-          errors: [{ message: _response_message.notFound("branch_id") }],
-        })
-      );
-    }
-
-    // Calculate amounts
-    const { msp, mandiTax, mandiTaxAmount, totalAmount, tokenAmount, advancenAmount, remainingAmount } = await calculateAmount(token, poQuantity, branch_id);
-
-    let data = {}
-    data.msp = msp;
-    data.mandiTax = mandiTax;
-    data.mandiTaxAmount = mandiTaxAmount;
-    data.totalAmount = totalAmount;
-    data.tokenAmount = tokenAmount;
-    data.advancenAmount = advancenAmount;
-    data.remainingAmount = remainingAmount;
-
+    const amountDetails = await calculateAmount(token, poQuantity, branch_id);
 
     return res.status(200).send(
       new serviceResponse({
         status: 200,
-        data: data,
+        data: amountDetails,
         message: _response_message.found("amount calculation"),
       })
     );
-
   } catch (err) {
-    console.error('Error fetching mandi tax:', err.message);
-    return 0; // or throw error depending on your use case
+    console.error("Amount calculation error:", err.message);
+    return res.status(500).send(
+      new serviceResponse({
+        status: 500,
+        errors: [{ message: "Internal server error during amount calculation" }],
+      })
+    );
   }
-})
+});
 
 /*
 module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
@@ -222,6 +203,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
   const { organization_id, user_id, user_type } = req
   const {
     branch_id,
+    token,
     name,
     grade,
     grade_remark,
@@ -271,7 +253,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
   }
 
   // Calculate amounts
-  const { msp, mandiTax, mandiTaxAmount, totalAmount, tokenAmount, advancenAmount, remainingAmount } = await calculateAmount(poQuantity, branch_id);
+  const { msp, mandiTax, mandiTaxAmount, totalAmount, tokenAmount, advancenAmount, remainingAmount } = await calculateAmount(token, poQuantity, branch_id);
 
   const record = await PurchaseOrderModel.create({
     distiller_id: organization_id._id,
@@ -300,6 +282,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
       locationDetails
     },
     paymentInfo: {
+      token,
       totalAmount, // Assume this is calculated during the first step
       mandiTax, // Auto-calculated: 10% of totalAmount
       advancePayment: handleDecimal(advancenAmount), // Auto-calculated: 10% of totalAmount
@@ -321,6 +304,34 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     ...record,
     method: "created",
   });
+
+  // start of sangita code
+  const distillerDetails = await Distiller.findOne({ _id: organization_id._id }).select({
+    "basic_details.distiller_details": 1,
+    _id: 0,
+  });
+  // console.log(distillerDetails);
+  const organization_name = distillerDetails?.basic_details?.distiller_details?.organization_name;
+  const distillerPhone = distillerDetails?.basic_details?.distiller_details?.phone;
+  const distiller_contact_number = `+91 ${distillerPhone}`;
+  const distiller_name = organization_name;
+  const delivery_location = record.deliveryLocation.location;
+  const emailData = {
+    order_date: formatDate(record.paymentInfo.advancePaymentDate),
+    msp: `₹${_distillerMsp()}`,
+    total_amount: `₹${record.purchasedOrder.poAmount}`,
+    advance_payment: `₹${record.paymentInfo.advancePayment}`,
+    advance_payment_date: formatDate(record.paymentInfo.advancePaymentDate),
+    distiller_name: distiller_name,
+    delivery_location,
+    contact_number: distiller_contact_number,
+    receiver_name: "Team NCCF",
+  };
+  const subject = `New Purchase Order Received! (Order ID:${emailData.po_number})`;
+  const receiver = process.env.PO_RECEPIENT_ADDRESS;
+
+  emailService.sendPurchaseOrderConfirmation(receiver, emailData, subject);
+  // end of sangita code
 
   return res.status(200).send(
     new serviceResponse({
@@ -472,15 +483,8 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     );
   }
 
-  // const msp = _distillerMsp();
-  // const totalAmount = handleDecimal(msp * poQuantity);
-  // const advancePaymentPercentage = _advancePayment();
-  // const tax = _mandiTax(totalAmount);
-  // const mandiTax = handleDecimal(tax);
-  // const tokenAmount = handleDecimal(((totalAmount * advancePaymentPercentage) / 100) + mandiTax);
-
   // Calculate amounts
-  const { msp, mandiTax, mandiTaxAmount, totalAmount, tokenAmount, advancenAmount, remainingAmount } = await calculateAmount(poQuantity, branch_id);
+  const { msp, mandiTax, mandiTaxAmount, totalAmount, tokenAmount, advancenAmount, remainingAmount } = await calculateAmount(token, poQuantity, branch_id);
 
 
   (record.branch_id = branch_id || record.branch_id),
@@ -533,7 +537,7 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
     (record.paymentInfo.advancePaymentUtrNo = paymentInfo?.advancePaymentUtrNo || record?.paymentInfo?.advancePaymentUtrNo),
     (record.paymentInfo.payment_proof = paymentInfo?.payment_proof || record?.paymentInfo?.payment_proof),
     (record.paymentInfo.advancePaymentStatus = record?.paymentInfo?.advancePaymentStatus || "NA");
- 
+
   // Save the updated record
   await record.save();
 
@@ -544,13 +548,6 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
   // console.log(distillerDetails);
   const organization_name = distillerDetails?.basic_details?.distiller_details?.organization_name;
   const distillerPhone = distillerDetails?.basic_details?.distiller_details?.phone;
-
-  // const {
-  //   basic_details: {
-  //     distiller_details: { organization_name, phone: distillerPhone },
-  //   } = {},
-  // } = distillerDetails || {};
-
   const distiller_contact_number = `+91 ${distillerPhone}`;
   const distiller_name = organization_name;
   const delivery_location = record.deliveryLocation.location;

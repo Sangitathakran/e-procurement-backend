@@ -39,40 +39,45 @@ const calculateAmount = async (poQuantity, branch_id) => {
 */
 
 const calculateAmount = async (token, poQuantity, branch_id) => {
-    const branch = await Branches.findById(branch_id);
 
-    const taxDoc = await StateTaxModel.findOne({
-        state_name: { $regex: new RegExp(`^${branch.state}$`, 'i') },
-    });
+  // Fetch branch and corresponding state tax document
+  const branch = await Branches.findById(branch_id).lean();
+  if (!branch) {
+    throw new Error("Branch not found");
+  }
 
-    let mandiTax = 0;
-    let advancePayment = 100;
+  const taxDoc = await StateTaxModel.findOne({
+    state_name: { $regex: `^${branch.state}$`, $options: 'i' },
+  }).lean();
 
-    if (token === 10) {
-        advancePayment = _advancePayment();
-    }
-    if (taxDoc && token === 100) {
-        mandiTax = taxDoc.mandi_tax;
-        advancePayment = 100;
-    }
+  // Initialize defaults
+  const msp = _distillerMsp(); // Assuming returns a number
+  let mandiTax = 0;
+  let advancePercent = 100;
 
-    const msp = _distillerMsp();
-    const totalAmount = handleDecimal(msp * poQuantity);
-    const tokenAmount = handleDecimal((totalAmount * advancePayment) / 100);
-    const mandiTaxAmount = handleDecimal((mandiTax * totalAmount) / 100);
-    const advancenAmount = handleDecimal(tokenAmount + mandiTaxAmount);
-    // const remainingAmount = handleDecimal(totalAmount - advancenAmount);
-    const remainingAmount = handleDecimal(totalAmount - tokenAmount);
+  if (token === 10) {
+    advancePercent = _advancePayment(); // e.g. 20
+  } else if (token === 100 && taxDoc) {
+    mandiTax = taxDoc.mandi_tax || 0;
+    advancePercent = 100;
+  }
 
-    return {
-        msp,
-        mandiTax,
-        mandiTaxAmount,
-        totalAmount,
-        tokenAmount,
-        advancenAmount,
-        remainingAmount,
-    };
+  // Calculations
+  const totalAmount = handleDecimal(msp * poQuantity);
+  const tokenAmount = handleDecimal((totalAmount * advancePercent) / 100);
+  const mandiTaxAmount = handleDecimal((totalAmount * mandiTax) / 100);
+  const advancenAmount = handleDecimal(tokenAmount + mandiTaxAmount);
+  const remainingAmount = handleDecimal(totalAmount - tokenAmount); // As per your comment
+
+  return {
+    msp,
+    mandiTax,
+    mandiTaxAmount,
+    totalAmount,
+    tokenAmount,
+    advancenAmount,
+    remainingAmount,
+  };
 };
 
 module.exports = { calculateAmount };
