@@ -40,8 +40,16 @@ const { calculateAmount } = require("@src/v1/utils/helpers/amountCalculation");
 module.exports.amountCalculation = asyncErrorHandler(async (req, res) => {
 
   try {
-    const { poQuantity, branch_id } = req.body;
-
+    const { token, poQuantity, branch_id } = req.body;
+    
+    if (!token) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          errors: [{ message: _response_message.notFound("token") }],
+        })
+      );
+    }
     if (!poQuantity) {
       return res.send(
         new serviceResponse({
@@ -61,7 +69,7 @@ module.exports.amountCalculation = asyncErrorHandler(async (req, res) => {
     }
 
     // Calculate amounts
-    const { msp, mandiTax, mandiTaxAmount, totalAmount, tokenAmount, advancenAmount, remainingAmount } = await calculateAmount(poQuantity, branch_id);
+    const { msp, mandiTax, mandiTaxAmount, totalAmount, tokenAmount, advancenAmount, remainingAmount } = await calculateAmount(token, poQuantity, branch_id);
 
     let data = {}
     data.msp = msp;
