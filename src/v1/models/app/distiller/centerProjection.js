@@ -18,6 +18,10 @@ const centerProjectionSchema = new mongoose.Schema({
   current_projection: {
     type: Number, // or String if it's not strictly numeric
     required: true,
+  },
+   qty_booked: {
+    type: Number, // or String if it's not strictly numeric
+    required: false,
   }
 }, {
   timestamps: true,

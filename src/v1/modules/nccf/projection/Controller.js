@@ -48,8 +48,8 @@ const {
         "Center Location": item.center_location || "NA",
         "State": item.state || "NA",
         "District": item.district || "NA",
-        "Center Projection":item.current_projection || "NA"
-       
+        "Center Projection":item.current_projection || "NA",
+       "Qty Booked" : item.qty_booked || "NA",
       }));
 
       if (formattedData.length > 0) {
@@ -114,6 +114,7 @@ module.exports.bulkuplodCenterProjection = async (req, res) => {
         const district = rec["district"];
         const center_location = rec["center_location"] || null;
         const current_projection = rec["current_projection"];
+        const qty_booked = rec["qty_booked"] || 0;
   
         try {
           if (!state || !district || !center_location || !current_projection) {
@@ -124,9 +125,8 @@ module.exports.bulkuplodCenterProjection = async (req, res) => {
             state,
             district,
             center_location,
-            current_projection: isNaN(current_projection)
-              ? current_projection
-              : Number(current_projection),
+            current_projection: isNaN(current_projection) ? current_projection : Number(current_projection),
+              qty_booked: isNaN(qty_booked) ? qty_booked : Number(qty_booked),
           });
   
           return { success: true };
