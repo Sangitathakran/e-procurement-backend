@@ -606,7 +606,8 @@ module.exports.deletePurchaseOrder = asyncErrorHandler(async (req, res) => {
 
 module.exports.branchList = asyncErrorHandler(async (req, res) => {
   try {
-    const record = await Branches.find({ status: _status.active });
+    const {state} = req.query;
+    const record = await Branches.find({ state: state, status: _status.active });
 
     if (!record) {
       return res.status(400).send(
