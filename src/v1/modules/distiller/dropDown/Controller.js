@@ -187,21 +187,29 @@ module.exports.getCitiesByDistrict = async (req, res) => {
 
 module.exports.getDistrictsByState = async (req, res) => {
   try {
-    const { state_code } = req.query;
+    const { state_code, state_name } = req.query;
 
-    if (!state_code) {
+    if (!state_code && !state_name) {
       return sendResponse({
         res,
         status: 400,
-        message: "State code is required",
+        message: "Either state code or state name is required",
       });
     }
-  const district_list = await StateDistrictCity.aggregate([
+
+    const district_list = await StateDistrictCity.aggregate([
       { $unwind: "$states" },
       {
         $match: {
-          "states.state_code": state_code,
-          "states.status": "active",
+          $and: [
+            {
+              $or: [
+                { "states.state_code": state_code },
+                { "states.state_title": state_name }
+              ]
+            },
+            { "states.status": "active" }
+          ]
         },
       },
       { $unwind: "$states.districts" },
@@ -232,4 +240,5 @@ module.exports.getDistrictsByState = async (req, res) => {
     });
   }
 };
+
 
