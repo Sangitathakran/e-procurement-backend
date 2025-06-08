@@ -33,8 +33,8 @@ const purchaseOrderSchema = new mongoose.Schema(
       quantityDuration: { type: String, required: false },
     },
 
-    manufacturingLocation: { type: String, required: true },
-    storageLocation: { type: String, required: true },
+    manufacturingLocation: { type: String, required: false },
+    storageLocation: { type: String, required: false },
     deliveryLocation: {
       location: { type: String },
       lat: { type: String },
