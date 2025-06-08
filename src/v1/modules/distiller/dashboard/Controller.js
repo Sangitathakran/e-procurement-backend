@@ -98,8 +98,8 @@ module.exports.getStateWishProjection = async (req, res) => {
         "Center Location": item.center_location || "NA",
         "State": item.state || "NA",
         "District": item.district || "NA",
-        "Center Projection":item.current_projection || "NA"
-       
+        "Center Projection":item.current_projection || "NA",
+         "Qty Booked": item.qty_booked || "NA",
       }));
 
       if (formattedData.length > 0) {
