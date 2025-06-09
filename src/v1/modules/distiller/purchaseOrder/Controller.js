@@ -456,7 +456,6 @@ module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
             ? {
               $or: [
                 { 'purchasedOrder.poNo': { $regex: search, $options: "i" } },
-                { "branch_id.branchName": { $regex: search, $options: "i" } },
               ]
             }
             : {})
