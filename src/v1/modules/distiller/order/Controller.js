@@ -109,7 +109,7 @@ module.exports.getOrder = asyncErrorHandler(async (req, res) => {
 
 module.exports.getOrderById = asyncErrorHandler(async (req, res) => {
     const { id } = req.params;
-    const record = await PurchaseOrderModel.findOne({ _id: id });
+    const record = await PurchaseOrderModel.findOne({ _id: new mongoose.Types.ObjectId(id) });
 
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
@@ -138,7 +138,7 @@ module.exports.deleteOrder = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.createBatch = asyncErrorHandler(async (req, res) => {
-    const { user_id, user_type } = req;
+    const { user_id, user_type, organization_id } = req;
     const { warehouseId, orderId, quantityRequired } = req.body;
 
     if (user_type && user_type != _userType.distiller) {
@@ -158,7 +158,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceed PO Qty." }] }))
     }
 
-    const existBatch = await BatchOrderProcess.find({ distiller_id: user_id, orderId });
+    const existBatch = await BatchOrderProcess.find({ distiller_id: organization_id._id, orderId });
 
     if (existBatch) {
         const addedQty = existBatch.reduce((quantityRequired, existBatch) => quantityRequired + existBatch.quantityRequired, 0);
@@ -174,7 +174,6 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         }
     }
 
-    // const msp = 24470;
     const msp = _distillerMsp();
     const totalAmount = handleDecimal(paymentInfo.totalAmount);
     const tokenAmount = handleDecimal(paymentInfo.advancePayment);
@@ -182,13 +181,22 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     const paidAmount = handleDecimal(paymentInfo.paidAmount);
 
     let amountToBePaid = ''
-
-    if (existBatch.length > 0) {
-        amountToBePaid = handleDecimal(msp * quantityRequired);
+    console.log(paymentInfo.token);
+    if (paymentInfo.token == 100) {
+        amountToBePaid = 0;
     } else {
-        amountToBePaid = handleDecimal((msp * quantityRequired) - tokenAmount);
-
+        if (existBatch.length > 0) {
+            amountToBePaid = handleDecimal(msp * quantityRequired);
+        } else {
+            amountToBePaid = handleDecimal((msp * quantityRequired) - tokenAmount);
+        }
     }
+    // if (existBatch.length > 0) {
+    //     amountToBePaid = handleDecimal(msp * quantityRequired);
+    // } else {
+    //     amountToBePaid = handleDecimal((msp * quantityRequired) - tokenAmount);
+
+    // }
 
     let randomVal;
 
@@ -206,7 +214,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     let currentDate = new Date(); // Get the current date
 
     const record = await BatchOrderProcess.create({
-        distiller_id: user_id,
+        distiller_id: organization_id._id,
         warehouseId,
         warehouseOwnerId: warehouseOwner_Id,
         orderId,
@@ -214,7 +222,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         quantityRequired: handleDecimal(quantityRequired),
         'payment.amount': amountToBePaid,
         // scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
-        // 'payment.status': _poBatchPaymentStatus.paid,
+        'payment.status': _poBatchPaymentStatus.paid,
         createdBy: user_id
     });
 
@@ -312,16 +320,16 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
     try {
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-        const { user_id } = req;
+        const { user_id, organization_id } = req;
 
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("orderId") }] }));
         }
-
+        // console.log("order_id", order_id); console.log("organization_id", organization_id._id);
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
-            distiller_id: new mongoose.Types.ObjectId(user_id),
-            status: _poBatchStatus.accepted,
+            distiller_id: new mongoose.Types.ObjectId(organization_id._id),
+            // status: _poBatchStatus.accepted,
             ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
