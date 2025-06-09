@@ -19,7 +19,7 @@ const {
 const { _query } = require("@src/v1/utils/constants/messages");
 const moment = require("moment");
 const { default: mongoose } = require("mongoose");
-const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
+const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName, _associateOfferStatus, _status } = require("@src/v1/utils/constants");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
@@ -178,7 +178,10 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     //start of prachi code
     const {farmersCount, associateCount, distillerCount} = await getFarmersCount( { commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName} );
+
+//console.time('getBenifittedFarmers');
     const {benifittedFarmersCount, totalProcurement, totalPaymentInitiated, todaysQtyProcured } = await getBenifittedFarmers({ hoId: hoId, commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName });
+   // console.timeEnd('getBenifittedFarmers');
     const { branchOfficeCount, wareHouseCount } = await getBOWarehouseCount( { hoId:hoId, commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName} );
      widgetDetails.farmerRegistration.distillerTotal = distillerCount; //await Distiller.countDocuments({ is_approved: _userStatus.approved });
     // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
@@ -188,14 +191,14 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     widgetDetails.farmerBenifitted =benifittedFarmersCount;  //await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
     widgetDetails.branchOffice.total = branchOfficeCount;
     widgetDetails.wareHouse.total = wareHouseCount;
-    let scheme = null;
-    if (schemeName.length) {
-      scheme = await Scheme.findOne({ schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) } }).select("_id").lean();
-    }
-    if (dateRange) {
-      const { startDate, endDate } = parseDateRange(dateRange);
-      paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
-    }
+    // let scheme = null;
+    // if (schemeName.length) {
+    //   scheme = await Scheme.findOne({ schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) } }).select("_id").lean();
+    // }
+    // if (dateRange) {
+    //   const { startDate, endDate } = parseDateRange(dateRange);
+    //   paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
+    // }
 
     // const payments = await Payment.find(paymentFilter)
     //   .select("qtyProcured createdAt amount")
@@ -2659,7 +2662,7 @@ async function getBenifittedFarmers({
   const pipeline = [
     {
       $match: {
-        payment_status: 'Completed',
+        payment_status: _paymentstatus.completed, 
         ho_id: hoId,
       },
     },
