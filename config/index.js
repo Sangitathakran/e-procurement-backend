@@ -45,5 +45,9 @@ module.exports = {
     },
     logEmails: 'imran@radiantinfonet.com , maneesh@radiantinfonet.com ,ayush@navankur.org , dileep@radiantinfonet.com',
     AADHAR_SERVICE_PROVIDER_KEY: process.env.AADHAR_VERIFICATION_API_KEY,
-    AADHAR_SERVICE_PROVIDER: process.env.AADHAR_VERIFICATION_API_PROVIDER
+    AADHAR_SERVICE_PROVIDER: process.env.AADHAR_VERIFICATION_API_PROVIDER,
+    PG_ENV:process.env.PG_ENV,
+    MERCHANT_ID:process.env.MERCHANT_ID,
+    ACCESS_CODE:process.env.ACCESS_CODE,
+    WORKING_KEY:process.env.WORKING_KEY,
 }

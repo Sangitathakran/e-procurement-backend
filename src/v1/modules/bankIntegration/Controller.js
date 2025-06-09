@@ -24,18 +24,7 @@ const {
   BatchOrderProcess,
 } = require("@src/v1/models/app/distiller/batchOrderProcess.js");
 
-const {
-  MERCHANT_ID,
-  ACCESS_CODE,
-  WORKING_KEY,
-  // REDIRECT_URL,
-  PG_ENV,
-  // CANCEL_URL,
-} = process.env;
-
-const FRONTEND_SUCCESS_URL = "https://testing.distiller.khetisauda.com";
-const FRONTEND_FAILURE_URL = "https://testing.distiller.khetisauda.com";
-const {REDIRECT_URL ,CANCEL_URL} = require("@config/index.js")
+const {REDIRECT_URL ,CANCEL_URL,PG_ENV, MERCHANT_ID,ACCESS_CODE, WORKING_KEY,} = require("@config/index.js")
 var workingKey = WORKING_KEY, //Put in the 32-Bit key shared by CCAvenues.
   accessCode = ACCESS_CODE, //Put in the Access Code shared by CCAvenues.
   encRequest = "";
