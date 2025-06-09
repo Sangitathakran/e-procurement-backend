@@ -43,7 +43,7 @@ var ivBase64 = Buffer.from([
 module.exports.sendRequest = async (req, res) => {
   try {
     let { order_id, currency, cancel_url , amount, paymentSection } = req.body;
-    cancel_url = cancel_url ? CANCEL_URL : `${APP_URL}${cancel_url}`
+    cancel_url = cancel_url ? `${APP_URL}${cancel_url}`: CANCEL_URL
     const paymentData = `merchant_id=${MERCHANT_ID}&order_id=${order_id}&currency=${currency}&amount=${amount}&redirect_url=${REDIRECT_URL}&cancel_url=${cancel_url}&access_code=${accessCode}&language=EN&merchant_param1=${paymentSection}`;
     // CCAvenue Encryption
     encRequest = ccav.encrypt(paymentData, keyBase64, ivBase64);
