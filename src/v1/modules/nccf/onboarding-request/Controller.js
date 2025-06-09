@@ -22,9 +22,11 @@ module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
     };
 
     if (search) {
-        matchStage["user_code"] = { $regex: search, $options: "i" };
+        matchStage["$or"] = [
+            {user_code:{ $regex: search, $options: "i"}},
+            {"basic_details.distiller_details.organization_name": { $regex: search, $options: "i"}}
+        ]
     }
-
     let aggregationPipeline = [
         { $match: matchStage },
         { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
@@ -58,6 +60,7 @@ module.exports.getPendingDistillers = asyncErrorHandler(async (req, res) => {
             { $limit: parseInt(limitInt) }
         );
     } 
+
 
     const records = { count: 0 };
     records.rows = await Distiller.aggregate(aggregationPipeline);
@@ -308,9 +311,12 @@ module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
     };
 
     if (search) {
-        matchStage["user_code"] = { $regex: search, $options: "i" };
+        matchStage["$or"] = [
+            {user_code : { $regex: search, $options: "i" }},
+            {"basic_details.distiller_details.organization_name" : { $regex: search, $options: "i" }}
+        ];
     }
-    
+
 
     let aggregationPipeline = [
         { $match: matchStage },
