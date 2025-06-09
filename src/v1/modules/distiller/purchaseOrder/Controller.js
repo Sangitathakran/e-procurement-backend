@@ -342,86 +342,6 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
   );
 });
 
-/*
-module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
-  const {
-    page,
-    limit,
-    skip,
-    paginate = 1,
-    sortBy,
-    search = "",
-    isExport = 0,
-  } = req.query;
-  let query = search
-    ? {
-      $or: [
-        { reqNo: { $regex: search, $options: "i" } },
-        { "product.name": { $regex: search, $options: "i" } },
-        { "product.grade": { $regex: search, $options: "i" } },
-      ],
-    }
-    : {};
-
-  const records = { count: 0 };
-
-  records.rows =
-    paginate == 1
-      ? await PurchaseOrderModel.find(query)
-        .sort(sortBy)
-        .skip(skip)
-        .populate({ path: "branch_id", select: "_id branchName branchId" })
-        .limit(parseInt(limit))
-      : await PurchaseOrderModel.find(query).sort(sortBy);
-
-  records.count = await PurchaseOrderModel.countDocuments(query);
-
-  if (paginate == 1) {
-    records.page = page;
-    records.limit = limit;
-    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-  }
-
-  if (isExport == 1) {
-    const record = records.rows.map((item) => {
-      return {
-        "Order Id": item?.reqNo || "NA",
-        "BO Name": item?.branch_id?.branchName || "NA",
-        Commodity: item?.product?.name || "NA",
-        Grade: item?.product?.grade || "NA",
-        Quantity: item?.product?.quantity || "NA",
-        MSP: item?.quotedPrice || "NA",
-        "Delivery Location": item?.address?.deliveryLocation || "NA",
-      };
-    });
-
-    if (record.length > 0) {
-      dumpJSONToExcel(req, res, {
-        data: record,
-        fileName: `Requirement-record.xlsx`,
-        worksheetName: `Requirement-record`,
-      });
-    } else {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: records,
-          message: _response_message.notFound("procurement"),
-        })
-      );
-    }
-  } else {
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.found("procurement"),
-      })
-    );
-  }
-});
-*/
-
 module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy, search = '', isExport = 0 } = req.query;
@@ -534,15 +454,16 @@ module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
       const record = (records.rows || []).map(item => {
         try {
           return {
-            "Order Id": item?.reqNo || "NA",
-            "BO Name": item?.branch_id?.branchName || "NA",
+            "PO Number": item?.purchasedOrder?.poNo || "NA",
+            "PO Date": item?.createdAt || "NA",
             "Commodity": item?.product?.name || "NA",
-            "Grade": item?.product?.grade || "NA",
-            "Quantity": item?.product?.quantity || "NA",
-            "MSP": item?.quotedPrice || "NA",
+            "MSP": _distillerMsp() || "NA",
+            "Quantity": item?.paymentInfo?.token || "NA",
+            "PO(%)": item?.purchasedOrder?.poQuantity || "NA",
+            "MandiTax": item?.paymentInfo?.mandiTax || "NA",
             "Advance Payment": item?.paymentInfo?.advancePayment || "NA",
             "Balance Payment": item?.paymentInfo?.balancePayment || "NA",
-            "Delivery Location": item?.address?.deliveryLocation || "NA"
+            "Total Amount": (item?.paymentInfo?.advancePayment + item?.paymentInfo?.balancePayment) || "NA"
           };
         } catch (e) {
           console.error("Error mapping export row:", e);
