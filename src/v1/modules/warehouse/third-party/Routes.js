@@ -11,7 +11,8 @@ const {
     saveWarehouseDetails,
     listWarehouseDetails,
     saveAgribidDetails,
-    updateAgribidDetails
+    updateAgribidDetails,
+    createbatchAcrossWarehouse
 } = require("./Controller");
 const { verifyThirdParty,apiKeyAuth, incrementApiUsage } = require("../utils/verifyWarehouseOwner");
 
@@ -31,6 +32,8 @@ thirdPartyRoutes.post("/warehouse-detail", apiKeyAuth, saveWarehouseDetails);
 thirdPartyRoutes.get("/warehouse-detail-list", apiKeyAuth, listWarehouseDetails);
 thirdPartyRoutes.post("/agribid", apiKeyAuth, saveAgribidDetails);
 thirdPartyRoutes.post("/update-agribid", apiKeyAuth, updateAgribidDetails);
+thirdPartyRoutes.post("/batch-create", apiKeyAuth, createbatchAcrossWarehouse);
+
 
 
 
