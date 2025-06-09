@@ -93,6 +93,7 @@ module.exports.warehouseList = async (req, res) => {
       {
         $addFields: {
           advancePayment: { $literal: branch.paymentInfo?.advancePayment ?? null },
+          balancePayment: { $literal: branch.paymentInfo?.balancePayment ?? null },
           mandiTax: { $literal: branch.paymentInfo?.mandiTax ?? null },
           poQuantity: { $literal: branch.purchasedOrder?.poQuantity ?? null },
           branch_id: { $literal: branch.branch_id },
@@ -127,6 +128,7 @@ module.exports.warehouseList = async (req, res) => {
           orderId: order_id,
           branch_id: branch.branch_id,
           advancePayment: 1,
+          balancePayment: 1,
           mandiTax: 1,
           poQuantity: 1,
         },
