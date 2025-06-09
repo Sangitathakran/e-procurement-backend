@@ -13,7 +13,7 @@ module.exports = {
     webSocketPort: process.env.WEBSOCKETPORT || 8080,
     rootDir: path.resolve('./'),
     apiVersion: process.env.API_VERSION,
-
+    APP_URL:process.env.APP_URL,
     REDIRECT_URL :`${process.env.APP_URL}/v1/bank/payment-status`,
     CANCEL_URL :`${process.env.FRONTEND_URL}/distiller/penaltyorders`,
     // Default Secret Key For Auth Token

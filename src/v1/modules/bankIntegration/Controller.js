@@ -24,7 +24,7 @@ const {
   BatchOrderProcess,
 } = require("@src/v1/models/app/distiller/batchOrderProcess.js");
 
-const {REDIRECT_URL ,CANCEL_URL,PG_ENV, MERCHANT_ID,ACCESS_CODE, WORKING_KEY,} = require("@config/index.js")
+const {REDIRECT_URL,APP_URL ,CANCEL_URL,PG_ENV, MERCHANT_ID,ACCESS_CODE, WORKING_KEY,} = require("@config/index.js")
 var workingKey = WORKING_KEY, //Put in the 32-Bit key shared by CCAvenues.
   accessCode = ACCESS_CODE, //Put in the Access Code shared by CCAvenues.
   encRequest = "";
@@ -42,7 +42,8 @@ var ivBase64 = Buffer.from([
 
 module.exports.sendRequest = async (req, res) => {
   try {
-    const { order_id, currency, cancel_url, amount, paymentSection } = req.body;
+    let { order_id, currency, cancel_url , amount, paymentSection } = req.body;
+    cancel_url = cancel_url ? CANCEL_URL : `${APP_URL}${cancel_url}`
     const paymentData = `merchant_id=${MERCHANT_ID}&order_id=${order_id}&currency=${currency}&amount=${amount}&redirect_url=${REDIRECT_URL}&cancel_url=${cancel_url}&access_code=${accessCode}&language=EN&merchant_param1=${paymentSection}`;
     // CCAvenue Encryption
     encRequest = ccav.encrypt(paymentData, keyBase64, ivBase64);
@@ -50,7 +51,6 @@ module.exports.sendRequest = async (req, res) => {
 
     if (!encRequest)
       return res.status(400).json({ error: "Failed to encrypt request" });
-
     const paymentUrl = `https://${PG_ENV}.ccavenue.com/transaction/transaction.do?command=initiateTransaction&encRequest=${encRequest}&access_code=${accessCode}&language=EN`;
 
     // const decrypted = ccav.decrypt(encRequest, keyBase64, ivBase64);
