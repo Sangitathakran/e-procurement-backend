@@ -179,6 +179,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     const totalAmount = handleDecimal(paymentInfo.totalAmount);
     const tokenAmount = handleDecimal(paymentInfo.advancePayment);
     const remainingAmount = handleDecimal(paymentInfo.balancePayment);
+    const paidAmount = handleDecimal(paymentInfo.paidAmount);
 
     let amountToBePaid = ''
 
@@ -405,7 +406,7 @@ module.exports.batchPayNow = asyncErrorHandler(async (req, res) => {
         if (!record) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
         }
-       
+
         if (record.payment.status == _poBatchPaymentStatus.paid) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyUpdated("Batch") }] }));
         }

@@ -330,7 +330,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
   const subject = `New Purchase Order Received! (Order ID:${emailData.po_number})`;
   const receiver = process.env.PO_RECEPIENT_ADDRESS;
 
-  emailService.sendPurchaseOrderConfirmation(receiver, emailData, subject);
+  // emailService.sendPurchaseOrderConfirmation(receiver, emailData, subject);
   // end of sangita code
 
   return res.status(200).send(
@@ -342,6 +342,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
   );
 });
 
+/*
 module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
   const {
     page,
@@ -419,6 +420,159 @@ module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
     );
   }
 });
+*/
+
+module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
+  try {
+    const { page = 1, limit = 10, sortBy, search = '', isExport = 0 } = req.query;
+    const { user_id, organization_id } = req;
+    console.log(organization_id);
+
+    // Validate search input
+    if (/[.*+?^${}()|[\]\\]/.test(search)) {
+      return sendResponse({
+        res,
+        status: 400,
+        errorCode: 400,
+        errors: [{ message: "Do not use any special character" }],
+        message: "Do not use any special character"
+      });
+    }
+
+    const pageInt = Math.max(parseInt(page) || 1, 1);
+    const limitInt = Math.max(parseInt(limit) || 10, 1);
+    const skipInt = (pageInt - 1) * limitInt;
+    const sortField = typeof sortBy === 'string' ? sortBy : "createdAt";
+
+    const pipeline = [
+      {
+        $match: {
+          "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+          distiller_id: new mongoose.Types.ObjectId(
+            typeof organization_id === 'string' ? organization_id : organization_id._id
+          ),
+          deletedAt: null,
+          ...(search
+            ? {
+              $or: [
+                { 'purchasedOrder.poNo': { $regex: search, $options: "i" } },
+                { "branch_id.branchName": { $regex: search, $options: "i" } },
+              ]
+            }
+            : {})
+        }
+      },
+
+      {
+        $group: {
+          _id: null,
+          allDocs: { $push: "$$ROOT" },
+          totalCount: { $sum: 1 },
+          totalAmount: { $sum: { $add: ["$paymentInfo.advancePayment", "$paymentInfo.balancePayment"] } },
+          poAmount: { $sum: "$paymentInfo.advancePayment" },
+          balanceAmount: { $sum: "$paymentInfo.balancePayment" }
+        }
+      },
+
+      {
+        $project: {
+          allDocs: 1,
+          totalCount: 1,
+          totalAmount: 1,
+          poAmount: 1,
+          balanceAmount: 1
+        }
+      },
+
+      {
+        $facet: {
+          metadata: [
+            {
+              $project: {
+                total: "$totalCount",
+                totalAmount: "$totalAmount",
+                poAmount: "$poAmount",
+                balanceAmount: "$balanceAmount"
+              }
+            }
+          ],
+          data: [
+            { $unwind: "$allDocs" },
+            { $replaceRoot: { newRoot: "$allDocs" } },
+            { $sort: { [sortField]: -1, _id: -1 } },
+            { $skip: skipInt },
+            { $limit: limitInt }
+          ]
+        }
+      }
+    ];
+
+    const result = await PurchaseOrderModel.aggregate(pipeline);
+
+    const metadata = result[0]?.metadata[0] || {};
+    const records = {
+      count: metadata.total || 0,
+      totalAmount: metadata.totalAmount || 0,
+      poAmount: metadata.poAmount || 0,
+      balanceAmount: metadata.balanceAmount || 0,
+      rows: result[0]?.data || [],
+    };
+
+    if (!isExport) {
+      records.page = pageInt;
+      records.limit = limitInt;
+      records.pages = limitInt !== 0 ? Math.ceil(records.count / limitInt) : 0;
+
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: records,
+          message: _response_message.found("procurement")
+        })
+      );
+    } else {
+      // Prepare Excel export
+      const record = (records.rows || []).map(item => {
+        try {
+          return {
+            "Order Id": item?.reqNo || "NA",
+            "BO Name": item?.branch_id?.branchName || "NA",
+            "Commodity": item?.product?.name || "NA",
+            "Grade": item?.product?.grade || "NA",
+            "Quantity": item?.product?.quantity || "NA",
+            "MSP": item?.quotedPrice || "NA",
+            "Advance Payment": item?.paymentInfo?.advancePayment || "NA",
+            "Balance Payment": item?.paymentInfo?.balancePayment || "NA",
+            "Delivery Location": item?.address?.deliveryLocation || "NA"
+          };
+        } catch (e) {
+          console.error("Error mapping export row:", e);
+          return {};
+        }
+      });
+
+      if (record.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Requirement-record.xlsx`,
+          worksheetName: `Requirement-record`
+        });
+      } else {
+        return res.status(200).send(
+          new serviceResponse({
+            status: 200,
+            data: records,
+            message: _response_message.notFound("procurement")
+          })
+        );
+      }
+    }
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+
 
 module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
   const { id } = req.params;
@@ -606,7 +760,7 @@ module.exports.deletePurchaseOrder = asyncErrorHandler(async (req, res) => {
 
 module.exports.branchList = asyncErrorHandler(async (req, res) => {
   try {
-    const {state} = req.query;
+    const { state } = req.query;
     const record = await Branches.find({ state: state, status: _status.active });
 
     if (!record) {
