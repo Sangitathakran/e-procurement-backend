@@ -24,18 +24,7 @@ const {
   BatchOrderProcess,
 } = require("@src/v1/models/app/distiller/batchOrderProcess.js");
 
-const {
-  MERCHANT_ID,
-  ACCESS_CODE,
-  WORKING_KEY,
-  // REDIRECT_URL,
-  PG_ENV,
-  CANCEL_URL,
-} = process.env;
-
-const FRONTEND_SUCCESS_URL = "https://testing.distiller.khetisauda.com";
-const FRONTEND_FAILURE_URL = "https://testing.distiller.khetisauda.com";
-
+const {REDIRECT_URL,APP_URL ,CANCEL_URL,PG_ENV, MERCHANT_ID,ACCESS_CODE, WORKING_KEY,} = require("@config/index.js")
 var workingKey = WORKING_KEY, //Put in the 32-Bit key shared by CCAvenues.
   accessCode = ACCESS_CODE, //Put in the Access Code shared by CCAvenues.
   encRequest = "";
@@ -50,12 +39,11 @@ var ivBase64 = Buffer.from([
   0x0d, 0x0e, 0x0f,
 ]).toString("base64");
 
-const REDIRECT_URL =
-  "https://api-testing-distiller.khetisauda.com/v1/bank/payment-status ";
 
 module.exports.sendRequest = async (req, res) => {
   try {
-    const { order_id, currency, cancel_url, amount, paymentSection } = req.body;
+    let { order_id, currency, cancel_url , amount, paymentSection } = req.body;
+    cancel_url = cancel_url ? `${APP_URL}${cancel_url}`: CANCEL_URL
     const paymentData = `merchant_id=${MERCHANT_ID}&order_id=${order_id}&currency=${currency}&amount=${amount}&redirect_url=${REDIRECT_URL}&cancel_url=${cancel_url}&access_code=${accessCode}&language=EN&merchant_param1=${paymentSection}`;
     // CCAvenue Encryption
     encRequest = ccav.encrypt(paymentData, keyBase64, ivBase64);
@@ -63,7 +51,6 @@ module.exports.sendRequest = async (req, res) => {
 
     if (!encRequest)
       return res.status(400).json({ error: "Failed to encrypt request" });
-
     const paymentUrl = `https://${PG_ENV}.ccavenue.com/transaction/transaction.do?command=initiateTransaction&encRequest=${encRequest}&access_code=${accessCode}&language=EN`;
 
     // const decrypted = ccav.decrypt(encRequest, keyBase64, ivBase64);
@@ -104,11 +91,21 @@ module.exports.paymentStatus = async (req, res) => {
     if (paymentStatus === "Success") {
       if (paymentSection && paymentSection === "myorders") {
         const record = await BatchOrderProcess.findOne({ _id: order_id });
+
+        const purchaseOrderRecord = await PurchaseOrderModel.findOne({ _id: record.order_id });
+
         const amountToBePaid = handleDecimal(amount);
         record.payment.status = _poBatchPaymentStatus.paid;
         record.payment.amount = amountToBePaid;
         record.payment.date = Date.now();
         await record.save();
+
+        purchaseOrderRecord.paymentGatewayDetails.transactionId = tracking_id;
+        purchaseOrderRecord.paymentGatewayDetails.paymentStatus = "Success";
+
+
+        await purchaseOrderRecord.save();
+
       } else if (paymentSection && paymentSection === "penalty") {
         const record = await BatchOrderProcess.findOne({ _id: order_id });
         const amountToBePaid = handleDecimal(amount);
@@ -123,11 +120,14 @@ module.exports.paymentStatus = async (req, res) => {
 
         if (record) {
           // console.log(record);
-          const totalPaid =
-            record.paymentInfo?.advancePayment + record.paymentInfo?.mandiTax;
-          record.paymentInfo.advancePaymentStatus =
-            _poAdvancePaymentStatus.paid;
+          // const totalPaid = record.paymentInfo?.advancePayment + record.paymentInfo?.mandiTax;
+          const totalPaid = record.paymentInfo?.advancePayment;
+          record.paymentInfo.advancePaymentStatus = _poAdvancePaymentStatus.paid;
           record.paymentInfo.paidAmount = handleDecimal(totalPaid);
+          record.paymentInfo.advancePaymentDate = Date.now();
+          record.paymentGatewayDetails.transactionId = tracking_id;
+          record.paymentGatewayDetails.paymentStatus = "Success";
+
           await record.save();
         }
       }
@@ -168,11 +168,10 @@ module.exports.paymentStatus = async (req, res) => {
                             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
                         }
                         h2 {
-                            color: ${
-                              paymentStatus === "Success"
-                                ? "#28a745"
-                                : "#dc3545"
-                            };
+                            color: ${paymentStatus === "Success"
+        ? "#28a745"
+        : "#dc3545"
+      };
                         }
                         p {
                             font-size: 16px;
@@ -184,42 +183,36 @@ module.exports.paymentStatus = async (req, res) => {
                             padding: 10px 20px;
                             font-size: 16px;
                             color: #fff;
-                            background-color: ${
-                              paymentStatus === "Success"
-                                ? "#28a745"
-                                : "#dc3545"
-                            };
+                            background-color: ${paymentStatus === "Success"
+        ? "#28a745"
+        : "#dc3545"
+      };
                             text-decoration: none;
                             border-radius: 5px;
                         }
                         .btn:hover {
-                            background-color: ${
-                              paymentStatus === "Success"
-                                ? "#218838"
-                                : "#c82333"
-                            };
+                            background-color: ${paymentStatus === "Success"
+        ? "#218838"
+        : "#c82333"
+      };
                         }
                     </style>
                 </head>
                 <body>
                     <div class="container">
-                        <h2>${
-                          paymentStatus === "Success"
-                            ? "🎉 Payment Successful!"
-                            : "❌ Payment Failed"
-                        }</h2>
+                        <h2>${paymentStatus === "Success"
+        ? "🎉 Payment Successful!"
+        : "❌ Payment Failed"
+      }</h2>
                         <p><strong>Order ID:</strong> ${order_id}</p>
                         <p><strong>Amount:</strong> ₹${amount}</p>
                         <p><strong>Status:</strong> ${paymentStatus}</p>
-                        <p><strong>Tracking ID:</strong> ${
-                          tracking_id || "N/A"
-                        }</p>
-                        <p><strong>Payment Mode:</strong> ${
-                          payment_mode || "N/A"
-                        }</p>
-                        <p><strong>Bank Ref No:</strong> ${
-                          bank_ref_no || "N/A"
-                        }</p>
+                        <p><strong>Tracking ID:</strong> ${tracking_id || "N/A"
+      }</p>
+                        <p><strong>Payment Mode:</strong> ${payment_mode || "N/A"
+      }</p>
+                        <p><strong>Bank Ref No:</strong> ${bank_ref_no || "N/A"
+      }</p>
                         <a class="btn" href="${redirectUrlFE}?order_id=${order_id}&status=${paymentStatus}">Go Back</a>
                     </div>
                 </body>

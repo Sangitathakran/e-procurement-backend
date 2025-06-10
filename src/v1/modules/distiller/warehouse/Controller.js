@@ -41,7 +41,7 @@ module.exports.warehouseList = async (req, res) => {
     }
 
     const branch = await PurchaseOrderModel.findOne({ _id: order_id })
-      .select({ _id: 0, branch_id: 1 })
+      .select({ _id: 0, branch_id: 1, paymentInfo: 1, purchasedOrder: 1 })
       .lean();
 
     const aggregationPipeline = [
@@ -61,16 +61,16 @@ module.exports.warehouseList = async (req, res) => {
       },
       {
         $addFields: {
-            fullAddress: {
-                $concat: [
-                    { $ifNull: ["$addressDetails.addressLine1", ""] }, 
-                    ",", 
-                    { $ifNull: ["$addressDetails.addressLine2", ""] }
-                ]
-            }
+          fullAddress: {
+            $concat: [
+              { $ifNull: ["$addressDetails.addressLine1", ""] },
+              ",",
+              { $ifNull: ["$addressDetails.addressLine2", ""] }
+            ]
+          }
         }
-    },
-    {
+      },
+      {
         $match: {
           $or: [
             {
@@ -89,6 +89,16 @@ module.exports.warehouseList = async (req, res) => {
             { "basicDetails.warehouseName": { $regex: search, $options: "i" } },
           ],
         },
+      },
+      {
+        $addFields: {
+          advancePayment: { $literal: branch.paymentInfo?.advancePayment ?? null },
+          balancePayment: { $literal: branch.paymentInfo?.balancePayment ?? null },
+          mandiTax: { $literal: branch.paymentInfo?.mandiTax ?? null },
+          poQuantity: { $literal: branch.purchasedOrder?.poQuantity ?? null },
+          branch_id: { $literal: branch.branch_id },
+          orderId: { $literal: order_id }
+        }
       },
       {
         $project: {
@@ -117,6 +127,10 @@ module.exports.warehouseList = async (req, res) => {
           },
           orderId: order_id,
           branch_id: branch.branch_id,
+          advancePayment: 1,
+          balancePayment: 1,
+          mandiTax: 1,
+          poQuantity: 1,
         },
       },
 
@@ -171,6 +185,7 @@ module.exports.warehouseList = async (req, res) => {
       }
     } else {
       records.rows = await wareHouseDetails.aggregate(aggregationPipeline);
+
       copyAggregationPipeline.push({ $count: "total" });
       const countResult = await wareHouseDetails.aggregate(
         copyAggregationPipeline

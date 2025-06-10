@@ -98,8 +98,8 @@ module.exports.getStateWishProjection = async (req, res) => {
         "Center Location": item.center_location || "NA",
         "State": item.state || "NA",
         "District": item.district || "NA",
-        "Center Projection":item.current_projection || "NA"
-       
+        "Center Projection":item.current_projection || "NA",
+         "Qty Booked": item.qty_booked || "NA",
       }));
 
       if (formattedData.length > 0) {
@@ -257,7 +257,9 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
       },
       {
         $project: {
-          address: "$warehouseDetails.addressDetails",
+          warehousename: "$warehouseDetails.basicDetails.warehouseName",
+          inventory : "$warehouseDetails.inventory.requiredStock",
+          address: "$warehouseDetails.addressDetails.state",
           totalCapicity: "$warehouseDetails.basicDetails.warehouseCapacity",
           utilizedCapicity: {
             $cond: {
