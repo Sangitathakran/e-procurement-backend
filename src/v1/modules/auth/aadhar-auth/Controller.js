@@ -18,11 +18,11 @@ module.exports.sendAadharOTP = async (req, res) => {
     const { uidai_aadharNo } = req.body;
 
     if (!uidai_aadharNo) {
-      adharLogger.warn("Missing Aadhaar number in request");
+      adharLogger.warn('Missing Aadhaar number in request');
       return res.status(400).send(
         new serviceResponse({
           status: 400,
-          errors: [{ message: _middleware.require("Aadhar Number") }],
+          errors: [{ message: _middleware.require('Aadhar Number') }],
         })
       );
     }
@@ -34,27 +34,27 @@ module.exports.sendAadharOTP = async (req, res) => {
 
     const apiUrl = `${AADHAR_SERVICE_PROVIDER}/generate-otp`;
     const headers = {
-      Accept: "application/json, text/plain, */*",
-      "Accept-Language": "en-US,en;q=0.9",
-      Connection: "keep-alive",
-      "Content-Type": "application/json",
-      "Sec-Fetch-Dest": "empty",
-      "Sec-Fetch-Mode": "cors",
-      "Sec-Fetch-Site": "same-site",
-      "X-API-Key": AADHAR_SERVICE_PROVIDER_KEY,
-      "X-Auth-Type": "API-Key",
+      Accept: 'application/json, text/plain, */*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      Connection: 'keep-alive',
+      'Content-Type': 'application/json',
+      'Sec-Fetch-Dest': 'empty',
+      'Sec-Fetch-Mode': 'cors',
+      'Sec-Fetch-Site': 'same-site',
+      'X-API-Key': AADHAR_SERVICE_PROVIDER_KEY,
+      'X-Auth-Type': 'API-Key',
     };
 
     const payload = {
       aadhaar_number: uidai_aadharNo,
-      consent: "Y",
+      consent: 'Y',
     };
 
-    adharLogger.info("Sending request to Aadhar OTP API", {
+    adharLogger.info('Sending request to Aadhar OTP API', {
       url: apiUrl,
       headers: {
-        "X-API-Key": headers["X-API-Key"],
-        "X-Auth-Type": headers["X-Auth-Type"],
+        'X-API-Key': headers['X-API-Key'],
+        'X-Auth-Type': headers['X-Auth-Type'],
       },
       payload,
     });
@@ -63,7 +63,7 @@ module.exports.sendAadharOTP = async (req, res) => {
     const { status, data: responseData } = response || {};
 
     if (status !== 200 || !responseData?.transaction_id) {
-      adharLogger.warn("Failed Aadhar OTP response", {
+      adharLogger.warn('Failed Aadhar OTP response', {
         status,
         error: response?.data?.error,
       });
@@ -82,7 +82,7 @@ module.exports.sendAadharOTP = async (req, res) => {
         code,
       };
 
-      adharLogger.info("Aadhar OTP sent successfully", {
+      adharLogger.info('Aadhar OTP sent successfully', {
         transaction_id,
         status,
         code,
@@ -96,36 +96,39 @@ module.exports.sendAadharOTP = async (req, res) => {
         })
       );
     } else {
-      return res.json(
+      return res.status(200).send(
         new serviceResponse({
-          status: 400,
-          message: "Something went wrong",
-          data: {},
+          status: 500,
+          message: 'Unexpected response from Aadhar service provider',
+          errors: {
+            message:
+              'Unable to generate OTP at this moment. Please try again later.',
+          },
         })
       );
     }
   } catch (error) {
-    const { status } = error?.response || {};
-    const errLog = {
-      status,
-      responseData: error?.response?.data,
-      stack: error.stack,
-    };
+    const status = error?.response?.status || 500; // Default to 500 if undefined
 
-    adharLogger.error("Error in Aadhar OTP API", errLog);
+    adharLogger.error(
+      `❌ Error while sending Aadhar OTP: ${
+        error?.message || 'Unknown error'
+      } | Status: ${status}`
+    );
 
     return res.status(200).send(
       new serviceResponse({
         status,
-        message: _query.invalid("response from service provider"),
+        message: _query.invalid('response from service provider'),
         errors: error?.response?.data?.error?.metadata?.fields ||
           error?.response?.data || {
-            message: "Something went wrong, please try again later",
+            message: 'Something went wrong, please try again later',
           },
       })
     );
   }
 };
+
 
 module.exports.verifyAadharOTP = async (req, res) => {
   try {
@@ -209,26 +212,35 @@ module.exports.verifyAadharOTP = async (req, res) => {
       );
     }
   } catch (error) {
-    const { error: { message: responseMessage, status: serviceStatus } = {} } =
-      error?.response?.data || {};
+  let responseMessage = "Something went wrong";
+  let serviceStatus = 500;
+  let fields = null;
 
-    adharLogger.error(
-      `❌ Error during OTP verification: ${
-        responseMessage || "Unknown error"
-      }}`
-    );
-
-    return res.status(404).send(
-      new serviceResponse({
-        status: serviceStatus,
-        message:
-          responseMessage ||
-          _response_message.invalid("response from service provider"),
-        errors: error?.response?.data?.error?.metadata?.fields ||
-          error?.response?.data?.error || {
-            message: "Something went wrong, please try again later",
-          },
-      })
-    );
+  try {
+    // Safely extract message and status if present
+    const errorData = error?.response?.data?.error;
+    responseMessage = errorData?.message || responseMessage;
+    serviceStatus = errorData?.status || error?.response?.status || serviceStatus;
+    fields = errorData?.metadata?.fields || fields;
+  } catch (parseErr) {
+    // If error structure is unexpected, log parsing failure
+    adharLogger.error(`❌ Failed to parse error response: ${parseErr?.message}`);
   }
+
+  // Log the actual error
+  adharLogger.error(
+    `❌ Error during OTP verification: ${responseMessage} | Status: ${serviceStatus}`
+  );
+
+  return res.status(404).send(
+    new serviceResponse({
+      status: serviceStatus,
+      message: responseMessage || _response_message.invalid("response from service provider"),
+      errors: fields || {
+        message: "Something went wrong, please try again later",
+      },
+    })
+  );
+}
+
 };
