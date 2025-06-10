@@ -100,6 +100,9 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     let districtArray = Array.isArray(district) ? district : [district];
     let regexDistrict = districtArray.map(dist => new RegExp(dist, "i"));
 
+    let seasonArray = Array.isArray(season) ? season : [season];
+    let regexSeason = seasonArray.map(e=> new RegExp(e, "i"))
+
     // Commodity waise filter for farmer    
     widgetDetails.farmertotal = await farmer.countDocuments({ associate_id: new mongoose.Types.ObjectId(user_id) });
     
@@ -126,7 +129,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     }
 
     //Commodity wise  and district wise POC Count
-    widgetDetails.rocurementCenter = await ProcurementCenter.countDocuments({ 
+    widgetDetails.procurementCenter = await ProcurementCenter.countDocuments({ 
       user_id: new mongoose.Types.ObjectId(user_id) 
     });
 
@@ -150,7 +153,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
        if(district) {
         matchPOCQuery['address.district'] = { $in: regexDistrict };
       }
-       widgetDetails.rocurementCenter = await ProcurementCenter.countDocuments(matchPOCQuery);
+       widgetDetails.procurementCenter = await ProcurementCenter.countDocuments(matchPOCQuery);
     }
 
     //Filter wise total purchase
@@ -277,7 +280,6 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
               totalDays += days;
             }
           }
-
           widgetDetails.totalDaysLifting = totalDays;
 
 
