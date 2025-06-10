@@ -101,30 +101,58 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     let districtArray = Array.isArray(district) ? district : [district];
     let regexDistrict = districtArray.map(dist => new RegExp(dist, "i"));
 
-    // let seasonArray = Array.isArray(season) ? season : [season];
-    // let regexSeason = seasonArray.map(e=> new RegExp(e, "i"))
+    let seasonArray = Array.isArray(season) ? season : [season];
+    let regexSeason = seasonArray.map(e=> new RegExp(e, "i"))
 
-    // Commodity waise filter for farmer    
+    // Commodity waise filter for farmer 
     widgetDetails.farmertotal = await farmer.countDocuments({ associate_id: new mongoose.Types.ObjectId(user_id) });
     
-    if (commodity || district) {
+    if (commodity || district || season) {
        let matchFarmerQuery = {
           associate_id: new mongoose.Types.ObjectId(user_id)
         };
+    let requestFilter = {};
 
-      //Request IDs based on commodity
-      const requestIDs = await RequestModel.find({
-         'product.name': { $in: regexCommodity } 
-      }).distinct('_id');
+    if (commodity) {
+        requestFilter['product.name'] = { $in: regexCommodity };
+      }
+
+    if (season) {
+      requestFilter['product.season'] = { $in: regexSeason };
+    }
+    let requestIds = [], farmersIDInfo = [], farmersDis = []
+
+    if (Object.keys(requestFilter).length > 0) {
+        const requestDocs = await RequestModel.find(requestFilter).select("_id");
+        requestIds = requestDocs.map(doc => doc._id);
+      }
 
       //farmer IDs from payment based on req_id
       const farmerIDs = await Payment.find({
-        req_id: { $in: requestIDs }
+        req_id: { $in: requestIds }
       }).distinct('farmer_id');
 
+      //console.log(">>>>>>>>>>>",requestIds )
+      
+      const districtId = await farmer.find({
+        _id : {$in: farmerIDs}
+      }).distinct('address.district_id address.state_id')
+      //console.log("farmer dis id", districtId)
+
+      // for( let obj of districtId){
+      //   farmersIDInfo.push( { farmer_id: obj._id, state_id: obj.address.state_id, district_id: obj.address.district_id} );
+      // }
+      // console.log(farmersIDInfo)
+      // for(let obj of farmersInfo){
+      //   let dis_title = await getName(obj.state_id, dis_id);
+      //     farmersDis.push( {...obj, dis_title});
+      // }
+
+      // if(){}
+
       if (farmerIDs.length > 0) {
-      matchFarmerQuery._id = { $in: farmerIDs };
-    }
+      matchFarmerQuery._id = {  $in: farmerIDs };
+      }
        widgetDetails.farmertotal = await farmer.countDocuments(matchFarmerQuery);
     }
 
@@ -133,19 +161,27 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       user_id: new mongoose.Types.ObjectId(user_id) 
     });
 
-    if(commodity || district){
+    if(commodity || district ||season){
       let matchPOCQuery = { user_id: new mongoose.Types.ObjectId(user_id) };
+      let requestFilter = {};
 
-      let requestIds = await RequestModel.find({
-        'product.name' : {$in : regexCommodity}
-      }).select("_id")
+      if (commodity) {
+        requestFilter['product.name'] = { $in: regexCommodity };
+      }
 
-      let reqIDs = requestIds.map(e=>e._id);
+      if (season) {
+      requestFilter['product.season'] = { $in: regexSeason };
+    }
+      let requestIds = [];
+      if (Object.keys(requestFilter).length > 0) {
+          const requestDocs = await RequestModel.find(requestFilter).select("_id");
+          requestIds = requestDocs.map(doc => doc._id);
+        }
 
-      let batchIds = await Batch.find({
-        req_id : {$in: reqIDs}
-      }).select('procurementCenter_id')
-      let procurementCenterIds = batchIds.map(b => b.procurementCenter_id);
+        let batchIds = await Batch.find({
+          req_id : {$in: requestIds}
+        }).select('procurementCenter_id')
+        let procurementCenterIds = batchIds.map(b => b.procurementCenter_id);
 
       if (procurementCenterIds.length > 0) {
       matchPOCQuery._id = { $in: procurementCenterIds };
@@ -153,18 +189,26 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
        if(district) {
         matchPOCQuery['address.district'] = { $in: regexDistrict };
       }
+      
        widgetDetails.procurementCenter = await ProcurementCenter.countDocuments(matchPOCQuery);
     }
 
     //Filter wise total purchase
-      if (commodity || district) {
-      const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
-      const regexCommodity = commodityArray.map(name => new RegExp(name, "i"));
+      if (commodity || district || season) {
+      let requestFilter = {};
 
-      const requestDocs = await RequestModel.find({
-        'product.name': { $in: regexCommodity }
-      }).select("_id");
-      const requestIds = requestDocs.map(doc => doc._id);
+       if (commodity) {
+        requestFilter['product.name'] = { $in: regexCommodity };
+      }
+
+      if (season) {
+      requestFilter['product.season'] = { $in: regexSeason };
+    }
+      let requestIds = [];
+      if (Object.keys(requestFilter).length > 0) {
+          const requestDocs = await RequestModel.find(requestFilter).select("_id");
+          requestIds = requestDocs.map(doc => doc._id);
+        }
 
       // Filtered Total Purchased
       const totalPurchasedFiltered = await Batch.aggregate([
@@ -241,12 +285,22 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
             seller_id: new mongoose.Types.ObjectId(user_id),
             intransit: { $exists: true, $ne: null }
           };
-          if (commodity || district) {
+          if (commodity || district ||season) {
             // Find matching Request IDs based on commodity
-            const requestDocs = await RequestModel.find({
-              'product.name': { $in: regexCommodity }
-            }).select('_id');
-            const requestIds = requestDocs.map(doc => doc._id);
+          let requestFilter = {};
+
+          if (commodity) {
+            requestFilter['product.name'] = { $in: regexCommodity };
+          }
+
+          if (season) {
+          requestFilter['product.season'] = { $in: regexSeason };
+          }
+          let requestIds = [];
+          if (Object.keys(requestFilter).length > 0) {
+              const requestDocs = await RequestModel.find(requestFilter).select("_id");
+              requestIds = requestDocs.map(doc => doc._id);
+            }
 
             //Find users matching seller_id and district
             const sellerUsers = await User.find({
@@ -281,32 +335,6 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
             }
           }
           widgetDetails.totalDaysLifting = totalDays;
-
-
-   
-    // const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id), intransit: { $exists: true, $ne: null } })
-    //   .populate('req_id', 'createdAt') // populate only createdAt from Request
-    //   .select('qty updatedAt req_id'); // fetch only necessary fields
-
-    // // Step 2: Calculate totalQty and totalDays
-    // let totalQty = 0;
-    // let totalDays = 0;
-
-    // for (const batch of batches) {
-    //   totalQty += batch.qty || 0;
-
-    //   const createdAt = batch.req_id?.createdAt;
-    //   const updatedAt = batch.req_id?.updatedAt;
-
-    //   if (createdAt && updatedAt) {
-    //     const diffMs = updatedAt - createdAt;
-    //     const days = Math.round(diffMs / (1000 * 60 * 60 * 24)); // convert to days
-    //     totalDays += days;
-    //   }
-    // }
-
-    // widgetDetails.totalDaysLifting = totalDays;
-
 
     return sendResponse({
       res,
@@ -881,44 +909,49 @@ module.exports.purchaseLifingMonthWise = async (req, res) => {
 //DropDown for state wise district 
 module.exports.getDistrict = async (req, res) => {
   try {
-    const stateDistrictList = await StateDistrictCity.aggregate([
+    const { state_title } = req.query;
+
+    if (!state_title) {
+      return sendResponse({
+        res,
+        status: 400,
+        message: "State code is required",
+      });
+    }
+
+    const district_list = await StateDistrictCity.aggregate([
       { $unwind: "$states" },
       {
         $match: {
-          "states.deletedAt": null,
-          "states.status": "active"
-        }
+          "states.state_title": state_title,
+          "states.status": "active",
+        },
       },
       { $unwind: "$states.districts" },
       {
         $match: {
-          "states.districts.deletedAt": null,
-          "states.districts.status": "active"
-        }
-      },
-      {
-        $group: {
-          _id: "$states.state_title",
-          districts: { $addToSet: "$states.districts.district_title" }
-        }
+          "states.districts.status": "active",
+        },
       },
       {
         $project: {
           _id: 0,
-          districts: 1,
-          state_title: "$_id",
-        }
+          district_title: "$states.districts.district_title",
+        },
       },
-      { $sort: { state_title: 1 } }
     ]);
 
     return sendResponse({
       res,
-      message: "States with districts",
-      data: stateDistrictList
+      message: "",
+      data: district_list,
     });
   } catch (err) {
     console.error("ERROR: ", err);
-    return sendResponse({ res, status: 500, message: err.message });
+    return sendResponse({
+      res,
+      status: 500,
+      message: err.message,
+    });
   }
 };
