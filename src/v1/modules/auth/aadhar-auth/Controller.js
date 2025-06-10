@@ -115,6 +115,7 @@ module.exports.sendAadharOTP = async (req, res) => {
         error?.message || 'Unknown error'
       } | Status: ${status}`
     );
+    //log
 
     return res.status(200).send(
       new serviceResponse({
