@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
@@ -101,8 +101,8 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     let districtArray = Array.isArray(district) ? district : [district];
     let regexDistrict = districtArray.map(dist => new RegExp(dist, "i"));
 
-    let seasonArray = Array.isArray(season) ? season : [season];
-    let regexSeason = seasonArray.map(e=> new RegExp(e, "i"))
+    // let seasonArray = Array.isArray(season) ? season : [season];
+    // let regexSeason = seasonArray.map(e=> new RegExp(e, "i"))
 
     // Commodity waise filter for farmer    
     widgetDetails.farmertotal = await farmer.countDocuments({ associate_id: new mongoose.Types.ObjectId(user_id) });
@@ -116,7 +116,6 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       const requestIDs = await RequestModel.find({
          'product.name': { $in: regexCommodity } 
       }).distinct('_id');
-      //console.log(requestIDs)
 
       //farmer IDs from payment based on req_id
       const farmerIDs = await Payment.find({
@@ -343,7 +342,7 @@ module.exports.mandiWiseProcurement = async (req, res) => {
 
     const payments = await Payment.find().lean();
     const batchIdSet = [...new Set(payments.map(p => String(p.batch_id)).filter(Boolean))];
-    console.log("Batch IDs:", batchIdSet.length);
+    //console.log("Batch IDs:", batchIdSet.length);
 
     const pipeline = [
       {
@@ -493,7 +492,7 @@ module.exports.mandiWiseProcurement = async (req, res) => {
 
     const aggregated = await Batch.aggregate(pipeline);
 
-    if (isExport) {
+    if (isExport == 1) {
       const exportRows = aggregated.map(item => ({
         "Center Name": item?.centerName || 'NA',
         "District": item?.district || 'NA',
