@@ -18,53 +18,295 @@ const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema"
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const mongoose = require("mongoose");
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 
 //widget listss
+
+// module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
+//   try {
+
+//     const { user_id, portalId } = req;
+//     let widgetDetails = {};
+
+//     widgetDetails.farmertotal = await farmer.countDocuments({ associate_id: new mongoose.Types.ObjectId(user_id) });
+//     widgetDetails.rocurementCenter = await ProcurementCenter.countDocuments({ user_id: new mongoose.Types.ObjectId(user_id) });
+
+//     const totalPurchased = await Batch.aggregate([
+//       { $match: { seller_id: new mongoose.Types.ObjectId(user_id) } },
+//       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
+//     ]);
+//     widgetDetails.totalPurchased = totalPurchased[0]?.totalQty || 0;
+
+//     const totalLifting = await Batch.aggregate([
+//       { $match: { seller_id: new mongoose.Types.ObjectId(user_id), intransit: { $exists: true, $ne: null } } },
+//       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
+//     ]);
+
+//     widgetDetails.totalLifting = totalLifting[0]?.totalQty || 0;
+
+//     const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id), intransit: { $exists: true, $ne: null } })
+//       .populate('req_id', 'createdAt') // populate only createdAt from Request
+//       .select('qty updatedAt req_id'); // fetch only necessary fields
+
+//     // Step 2: Calculate totalQty and totalDays
+//     let totalQty = 0;
+//     let totalDays = 0;
+
+//     for (const batch of batches) {
+//       totalQty += batch.qty || 0;
+
+//       const createdAt = batch.req_id?.createdAt;
+//       const updatedAt = batch.req_id?.updatedAt;
+
+//       if (createdAt && updatedAt) {
+//         const diffMs = updatedAt - createdAt;
+//         const days = Math.round(diffMs / (1000 * 60 * 60 * 24)); // convert to days
+//         totalDays += days;
+//       }
+//     }
+
+//     widgetDetails.totalDaysLifting = totalDays;
+
+
+//     return sendResponse({
+//       res,
+//       status: 200,
+//       message: _query.get("Widget List"),
+//       data: widgetDetails,
+//     });
+//   } catch (error) {
+//     console.error("Error in widgetList:", error);
+//     return sendResponse({
+//       res,
+//       status: 500,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// });
+
+
 
 module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   try {
 
     const { user_id, portalId } = req;
+    const {district, commodity, season} = req.query;
+
     let widgetDetails = {};
 
+    let commodityArray = Array.isArray(commodity) ? commodity : [commodity];
+    let regexCommodity = commodityArray.map(name => new RegExp(name, "i"));
+
+    let districtArray = Array.isArray(district) ? district : [district];
+    let regexDistrict = districtArray.map(dist => new RegExp(dist, "i"));
+
+    let seasonArray = Array.isArray(season) ? season : [season];
+    let regexSeason = seasonArray.map(e=> new RegExp(e, "i"))
+
+    // Commodity waise filter for farmer    
     widgetDetails.farmertotal = await farmer.countDocuments({ associate_id: new mongoose.Types.ObjectId(user_id) });
-    widgetDetails.rocurementCenter = await ProcurementCenter.countDocuments({ user_id: new mongoose.Types.ObjectId(user_id) });
+    
+    if (commodity || district) {
+       let matchFarmerQuery = {
+          associate_id: new mongoose.Types.ObjectId(user_id)
+        };
 
-    const totalPurchased = await Batch.aggregate([
-      { $match: { seller_id: new mongoose.Types.ObjectId(user_id) } },
-      { $group: { _id: null, totalQty: { $sum: "$qty" } } }
-    ]);
-    widgetDetails.totalPurchased = totalPurchased[0]?.totalQty || 0;
+      //Request IDs based on commodity
+      const requestIDs = await RequestModel.find({
+         'product.name': { $in: regexCommodity } 
+      }).distinct('_id');
+      //console.log(requestIDs)
 
-    const totalLifting = await Batch.aggregate([
-      { $match: { seller_id: new mongoose.Types.ObjectId(user_id), intransit: { $exists: true, $ne: null } } },
-      { $group: { _id: null, totalQty: { $sum: "$qty" } } }
-    ]);
+      //farmer IDs from payment based on req_id
+      const farmerIDs = await Payment.find({
+        req_id: { $in: requestIDs }
+      }).distinct('farmer_id');
 
-    widgetDetails.totalLifting = totalLifting[0]?.totalQty || 0;
-
-    const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id), intransit: { $exists: true, $ne: null } })
-      .populate('req_id', 'createdAt') // populate only createdAt from Request
-      .select('qty updatedAt req_id'); // fetch only necessary fields
-
-    // Step 2: Calculate totalQty and totalDays
-    let totalQty = 0;
-    let totalDays = 0;
-
-    for (const batch of batches) {
-      totalQty += batch.qty || 0;
-
-      const createdAt = batch.req_id?.createdAt;
-      const updatedAt = batch.req_id?.updatedAt;
-
-      if (createdAt && updatedAt) {
-        const diffMs = updatedAt - createdAt;
-        const days = Math.round(diffMs / (1000 * 60 * 60 * 24)); // convert to days
-        totalDays += days;
-      }
+      if (farmerIDs.length > 0) {
+      matchFarmerQuery._id = { $in: farmerIDs };
+    }
+       widgetDetails.farmertotal = await farmer.countDocuments(matchFarmerQuery);
     }
 
-    widgetDetails.totalDaysLifting = totalDays;
+    //Commodity wise  and district wise POC Count
+    widgetDetails.procurementCenter = await ProcurementCenter.countDocuments({ 
+      user_id: new mongoose.Types.ObjectId(user_id) 
+    });
+
+    if(commodity || district){
+      let matchPOCQuery = { user_id: new mongoose.Types.ObjectId(user_id) };
+
+      let requestIds = await RequestModel.find({
+        'product.name' : {$in : regexCommodity}
+      }).select("_id")
+
+      let reqIDs = requestIds.map(e=>e._id);
+
+      let batchIds = await Batch.find({
+        req_id : {$in: reqIDs}
+      }).select('procurementCenter_id')
+      let procurementCenterIds = batchIds.map(b => b.procurementCenter_id);
+
+      if (procurementCenterIds.length > 0) {
+      matchPOCQuery._id = { $in: procurementCenterIds };
+    }
+       if(district) {
+        matchPOCQuery['address.district'] = { $in: regexDistrict };
+      }
+       widgetDetails.procurementCenter = await ProcurementCenter.countDocuments(matchPOCQuery);
+    }
+
+    //Filter wise total purchase
+      if (commodity || district) {
+      const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
+      const regexCommodity = commodityArray.map(name => new RegExp(name, "i"));
+
+      const requestDocs = await RequestModel.find({
+        'product.name': { $in: regexCommodity }
+      }).select("_id");
+      const requestIds = requestDocs.map(doc => doc._id);
+
+      // Filtered Total Purchased
+      const totalPurchasedFiltered = await Batch.aggregate([
+        {
+          $match: {
+            seller_id: new mongoose.Types.ObjectId(user_id),
+            req_id: { $in: requestIds }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalQty: { $sum: "$qty" }
+          }
+        }
+      ]);
+
+      widgetDetails.totalPurchased = totalPurchasedFiltered[0]?.totalQty || 0;
+
+      // Filtered Total Lifting
+      const totalLiftingFiltered = await Batch.aggregate([
+        {
+          $match: {
+            seller_id: new mongoose.Types.ObjectId(user_id),
+            intransit: { $exists: true, $ne: null },
+            req_id: { $in: requestIds }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalQty: { $sum: "$qty" }
+          }
+        }
+      ]);
+
+      widgetDetails.totalLifting = totalLiftingFiltered[0]?.totalQty || 0;
+    }else{
+      // Unfiltered totalPurchased
+      const totalPurchased = await Batch.aggregate([
+        {
+          $match: { seller_id: new mongoose.Types.ObjectId(user_id) }
+        },
+        {
+          $group: {
+            _id: null,
+            totalQty: { $sum: "$qty" }
+          }
+        }
+      ]);
+      widgetDetails.totalPurchased = totalPurchased[0]?.totalQty || 0;
+
+      // Unfiltered totalLifting
+      const totalLifting = await Batch.aggregate([
+        {
+          $match: {
+            seller_id: new mongoose.Types.ObjectId(user_id),
+            intransit: { $exists: true, $ne: null }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalQty: { $sum: "$qty" }
+          }
+        }
+      ]);
+
+      widgetDetails.totalLifting = totalLifting[0]?.totalQty || 0;
+    }
+
+    // filter days lifting 
+    let batchMatch = {
+            seller_id: new mongoose.Types.ObjectId(user_id),
+            intransit: { $exists: true, $ne: null }
+          };
+          if (commodity || district) {
+            // Find matching Request IDs based on commodity
+            const requestDocs = await RequestModel.find({
+              'product.name': { $in: regexCommodity }
+            }).select('_id');
+            const requestIds = requestDocs.map(doc => doc._id);
+
+            //Find users matching seller_id and district
+            const sellerUsers = await User.find({
+              _id: new mongoose.Types.ObjectId(user_id),
+              'address.registered.district': { $in: regexDistrict }
+            }).select('_id');
+            const validSellerIds = sellerUsers.map(u => u._id);
+
+          //Apply filters
+            batchMatch.req_id = { $in: requestIds };
+            batchMatch.seller_id = { $in: validSellerIds };
+          }
+
+          //Fetch filtered batches
+          const batches = await Batch.find(batchMatch)
+            .populate('req_id', 'createdAt updatedAt') 
+            .select('qty updatedAt req_id');
+
+          let totalQty = 0;
+          let totalDays = 0;
+
+          for (const batch of batches) {
+            totalQty += batch.qty || 0;
+
+            const createdAt = batch.req_id?.createdAt;
+            const updatedAt = batch.updatedAt;
+
+            if (createdAt && updatedAt) {
+              const diffMs = new Date(updatedAt) - new Date(createdAt);
+              const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+              totalDays += days;
+            }
+          }
+          widgetDetails.totalDaysLifting = totalDays;
+
+
+   
+    // const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id), intransit: { $exists: true, $ne: null } })
+    //   .populate('req_id', 'createdAt') // populate only createdAt from Request
+    //   .select('qty updatedAt req_id'); // fetch only necessary fields
+
+    // // Step 2: Calculate totalQty and totalDays
+    // let totalQty = 0;
+    // let totalDays = 0;
+
+    // for (const batch of batches) {
+    //   totalQty += batch.qty || 0;
+
+    //   const createdAt = batch.req_id?.createdAt;
+    //   const updatedAt = batch.req_id?.updatedAt;
+
+    //   if (createdAt && updatedAt) {
+    //     const diffMs = updatedAt - createdAt;
+    //     const days = Math.round(diffMs / (1000 * 60 * 60 * 24)); // convert to days
+    //     totalDays += days;
+    //   }
+    // }
+
+    // widgetDetails.totalDaysLifting = totalDays;
 
 
     return sendResponse({
@@ -83,6 +325,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     });
   }
 });
+
 
 module.exports.mandiWiseProcurement = async (req, res) => {
   try {
@@ -634,3 +877,48 @@ module.exports.purchaseLifingMonthWise = async (req, res) => {
   }
 
 }
+
+//DropDown for state wise district 
+module.exports.getDistrict = async (req, res) => {
+  try {
+    const stateDistrictList = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      {
+        $match: {
+          "states.deletedAt": null,
+          "states.status": "active"
+        }
+      },
+      { $unwind: "$states.districts" },
+      {
+        $match: {
+          "states.districts.deletedAt": null,
+          "states.districts.status": "active"
+        }
+      },
+      {
+        $group: {
+          _id: "$states.state_title",
+          districts: { $addToSet: "$states.districts.district_title" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          districts: 1,
+          state_title: "$_id",
+        }
+      },
+      { $sort: { state_title: 1 } }
+    ]);
+
+    return sendResponse({
+      res,
+      message: "States with districts",
+      data: stateDistrictList
+    });
+  } catch (err) {
+    console.error("ERROR: ", err);
+    return sendResponse({ res, status: 500, message: err.message });
+  }
+};
