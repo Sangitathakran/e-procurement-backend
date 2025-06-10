@@ -243,7 +243,6 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
             const requestDocs = await RequestModel.find({
               'product.name': { $in: regexCommodity }
             }).select('_id');
-
             const requestIds = requestDocs.map(doc => doc._id);
 
             //Find users matching seller_id and district
@@ -251,7 +250,6 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
               _id: new mongoose.Types.ObjectId(user_id),
               'address.registered.district': { $in: regexDistrict }
             }).select('_id');
-
             const validSellerIds = sellerUsers.map(u => u._id);
 
           //Apply filters
@@ -281,7 +279,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
           }
 
           widgetDetails.totalDaysLifting = totalDays;
-          console.log("Total Days of Lifting:", widgetDetails.totalDaysLifting);
+
 
    
     // const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id), intransit: { $exists: true, $ne: null } })
