@@ -234,6 +234,7 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
 
             if (user?.user_type === "8") {
                 const payload = { user: { _id: user._id, user_type: user?.user_type, portalId: user.portalId }, userInput: userInput, user_id: user._id, organization_id: user.portalId, user_type: user?.user_type }
+
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
                 const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
@@ -324,10 +325,21 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
 
                 const masterUserCreated = await masterUser.save();
 
+                // const payload = {
+                //     user: { _id: masterUserCreated._id, user_type: masterUserCreated?.user_type, portalId: masterUserCreated.portalId },
+                //     userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type
+                // }
+
+                const user = await MasterUser.findOne({ mobile: userInput.trim() })
+                    .populate([
+                        { path: "userRole", select: "" },
+                        { path: "portalId", select: "organization_name _id email phone" }
+                    ])
                 const payload = {
-                    user: { _id: masterUserCreated._id, user_type: masterUserCreated?.user_type, portalId: masterUserCreated.portalId },
-                    userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type
+                    user: { _id: user._id, user_type: user?.user_type, portalId: user.portalId },
+                    userInput: userInput, user_id: user._id, organization_id: user.portalId, user_type: user?.user_type
                 }
+               
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
                 const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
@@ -347,7 +359,7 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
 
             }
             // start of sangita code
-            else{
+            else {
 
                 const newUser = {
                     client_id: isEmailInput ? '1243' : '9876',
@@ -381,10 +393,17 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
 
                 const masterUserCreated = await masterUser.save();
 
+                const user = await MasterUser.findOne({ mobile: userInput.trim() })
+                    .populate([
+                        { path: "userRole", select: "" },
+                        { path: "portalId", select: "organization_name _id email phone" }
+                    ])
+
                 const payload = {
-                    user: { _id: masterUserCreated._id, user_type: masterUserCreated?.user_type, portalId: masterUserCreated.portalId },
-                    userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type
+                    user: { _id: user._id, user_type: user?.user_type, portalId: user.portalId },
+                    userInput: userInput, user_id: user._id, organization_id: user.portalId, user_type: user?.user_type
                 }
+               
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
                 const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
