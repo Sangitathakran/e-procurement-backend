@@ -18,6 +18,7 @@ const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema"
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const mongoose = require("mongoose");
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 
 //widget listss
 
@@ -876,3 +877,48 @@ module.exports.purchaseLifingMonthWise = async (req, res) => {
   }
 
 }
+
+//DropDown for state wise district 
+module.exports.getDistrict = async (req, res) => {
+  try {
+    const stateDistrictList = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      {
+        $match: {
+          "states.deletedAt": null,
+          "states.status": "active"
+        }
+      },
+      { $unwind: "$states.districts" },
+      {
+        $match: {
+          "states.districts.deletedAt": null,
+          "states.districts.status": "active"
+        }
+      },
+      {
+        $group: {
+          _id: "$states.state_title",
+          districts: { $addToSet: "$states.districts.district_title" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          districts: 1,
+          state_title: "$_id",
+        }
+      },
+      { $sort: { state_title: 1 } }
+    ]);
+
+    return sendResponse({
+      res,
+      message: "States with districts",
+      data: stateDistrictList
+    });
+  } catch (err) {
+    console.error("ERROR: ", err);
+    return sendResponse({ res, status: 500, message: err.message });
+  }
+};

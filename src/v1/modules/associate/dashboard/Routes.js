@@ -4,7 +4,7 @@ const { verifyAssociate } = require("../utils/verifyAssociate");
 
 const {
   widgetList,
-  dashboardWidgetList, mandiWiseProcurement, incidentalExpense, purchaseLifingMandiWise, purchaseLifingMonthWise
+  dashboardWidgetList, mandiWiseProcurement, incidentalExpense, purchaseLifingMandiWise, purchaseLifingMonthWise, getDistrict
 } = require("./Controller");
 
 
@@ -13,4 +13,5 @@ dashbaordRoutes.get("/mandiWiseProcurement", verifyAssociate, mandiWiseProcureme
 dashbaordRoutes.get("/incidentalExpense", verifyAssociate, incidentalExpense);
 dashbaordRoutes.get("/purchaseLifingMandiWise", verifyAssociate, purchaseLifingMandiWise);
 dashbaordRoutes.get("/purchaseLifingMonthWise", verifyAssociate, purchaseLifingMonthWise);
+dashbaordRoutes.get("/state-wise-district", getDistrict)
 module.exports = { dashbaordRoutes };
