@@ -706,12 +706,13 @@ module.exports.incidentalExpense = async (req, res) => {
 
 
     return res.status(200).json({
-      success: true,
       data: finalData,
+      status: 200,
       totalRecords: totals,
       totalPages: Math.ceil(totals / limit),
       currentPage: page,
-      count: finalData.length,
+      limit: finalData.length,
+      
     });
 
     // return sendResponse({
