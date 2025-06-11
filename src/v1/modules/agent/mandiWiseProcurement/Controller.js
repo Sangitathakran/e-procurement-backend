@@ -23,12 +23,7 @@ module.exports.getMandiProcurement = asyncErrorHandler(async (req, res) => {
   let skip = (page - 1) * limit;
   const isExport = parseInt(req.query.isExport) === 1;
   const centerNames = req.query.search?.trim();
-
-  const searchStates = req.query.stateNames
-    ? Array.isArray(req.query.stateNames)
-      ? req.query.stateNames
-      : req.query.stateNames.split(',').map(s => s.trim())
-    : null;
+const searchDistrict = req.query.districtNames?.trim() || null;
 
   const pipeline = [
     {
@@ -78,49 +73,61 @@ module.exports.getMandiProcurement = asyncErrorHandler(async (req, res) => {
       },
     },
     {
-  $lookup: {
-    from: "branches", 
-    localField: "relatedRequest.branch_id",
-    foreignField: "_id",
-    as: "branch",
-  },
-},
-{
-  $unwind: {
-    path: "$branch",
-    preserveNullAndEmptyArrays: true,
-  },
-},
+    $lookup: {
+        from: "branches", 
+        localField: "relatedRequest.branch_id",
+        foreignField: "_id",
+        as: "branch",
+    },
+    },
     {
-      $addFields: {
-        liftedDataDays: {
-          $cond: [
-            { $and: ["$createdAt", "$relatedRequest.createdAt"] },
-            {
-              $dateDiff: {
-                startDate: "$relatedRequest.createdAt",
-                endDate: "$createdAt",
-                unit: "day",
-              },
+    $unwind: {
+        path: "$branch",
+        preserveNullAndEmptyArrays: true,
+    },
+    },
+        {
+        $addFields: {
+            liftedDataDays: {
+            $cond: [
+                { $and: ["$createdAt", "$relatedRequest.createdAt"] },
+                {
+                $dateDiff: {
+                    startDate: "$relatedRequest.createdAt",
+                    endDate: "$createdAt",
+                    unit: "day",
+                },
+                },
+                null,
+            ],
             },
-            null,
-          ],
+            purchaseDays: {
+            $cond: [
+                { $and: ["$updatedAt", "$relatedRequest.createdAt"] },
+                {
+                $dateDiff: {
+                    startDate: "$relatedRequest.createdAt",
+                    endDate: "$updatedAt",
+                    unit: "day",
+                },
+                },
+                null,
+            ],
+            },
         },
-        purchaseDays: {
-          $cond: [
-            { $and: ["$updatedAt", "$relatedRequest.createdAt"] },
-            {
-              $dateDiff: {
-                startDate: "$relatedRequest.createdAt",
-                endDate: "$updatedAt",
-                unit: "day",
-              },
-            },
-            null,
-          ],
+    },
+];
+
+    if (searchDistrict) {
+    pipeline.push({
+      $match: {
+        "seller.address.registered.district": {
+          $regex: new RegExp(searchDistrict, "i"),
         },
       },
-    },
+    });
+  }
+     pipeline.push(
     {
       $group: {
         _id: "$procurementCenter_id",
@@ -162,16 +169,8 @@ module.exports.getMandiProcurement = asyncErrorHandler(async (req, res) => {
         },
       },
     },
-  ];
-
-  if (searchStates) {
-    pipeline.push({
-      $match: {
-        state: { $regex: searchStates, $options: "i" },
-      },
-    });
-  }
-
+);
+  
   if (centerNames?.length) {
     pipeline.push({
       $match: {
@@ -182,7 +181,21 @@ module.exports.getMandiProcurement = asyncErrorHandler(async (req, res) => {
     skip = 0;
   }
 
-  pipeline.push({ $sort: { centerName: 1 } });
+  pipeline.push({
+  $addFields: {
+    haryanaFirst: {
+      $cond: [{ $eq: ["$state", "Haryana"] }, 0, 1],
+    },
+  },
+});
+
+pipeline.push({
+  $sort: {
+    haryanaFirst: 1,
+    centerName: 1,
+  },
+});
+
   const aggregated = await Batch.aggregate(pipeline);
 
 
