@@ -1318,21 +1318,27 @@ module.exports.purchaseLifingMonthWise = async (req, res) => {
   }
 };
 
-
-
 module.exports.getDistrict = async (req, res) => {
   try {
-    const { state_title } = req.query;
+    const { state_title, district_titles } = req.query;
 
     if (!state_title) {
       return sendResponse({
         res,
         status: 400,
-        message: "State code is required",
+        message: "State title is required",
       });
     }
 
-    const district_list = await StateDistrictCity.aggregate([
+    // Parse district_titles it can be array or comma-separated string
+    let districtArray = [];
+    if (district_titles) {
+      districtArray = Array.isArray(district_titles)
+        ? district_titles
+        : district_titles.split(',').map(d => d.trim());
+    }
+
+    const pipeline = [
       { $unwind: "$states" },
       {
         $match: {
@@ -1344,6 +1350,9 @@ module.exports.getDistrict = async (req, res) => {
       {
         $match: {
           "states.districts.status": "active",
+          ...(districtArray.length > 0 && {
+            "states.districts.district_title": { $in: districtArray },
+          }),
         },
       },
       {
@@ -1352,7 +1361,9 @@ module.exports.getDistrict = async (req, res) => {
           district_title: "$states.districts.district_title",
         },
       },
-    ]);
+    ];
+
+    const district_list = await StateDistrictCity.aggregate(pipeline);
 
     return sendResponse({
       res,
@@ -1368,3 +1379,53 @@ module.exports.getDistrict = async (req, res) => {
     });
   }
 };
+
+
+// module.exports.getDistrict = async (req, res) => {
+//   try {
+//     const { state_title } = req.query;
+
+//     if (!state_title) {
+//       return sendResponse({
+//         res,
+//         status: 400,
+//         message: "State code is required",
+//       });
+//     }
+
+//     const district_list = await StateDistrictCity.aggregate([
+//       { $unwind: "$states" },
+//       {
+//         $match: {
+//           "states.state_title": state_title,
+//           "states.status": "active",
+//         },
+//       },
+//       { $unwind: "$states.districts" },
+//       {
+//         $match: {
+//           "states.districts.status": "active",
+//         },
+//       },
+//       {
+//         $project: {
+//           _id: 0,
+//           district_title: "$states.districts.district_title",
+//         },
+//       },
+//     ]);
+
+//     return sendResponse({
+//       res,
+//       message: "",
+//       data: district_list,
+//     });
+//   } catch (err) {
+//     console.error("ERROR: ", err);
+//     return sendResponse({
+//       res,
+//       status: 500,
+//       message: err.message,
+//     });
+//   }
+// };
