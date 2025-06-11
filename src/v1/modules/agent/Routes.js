@@ -14,6 +14,8 @@ const { schemeRoutes } = require("./scheme/Routes");
 const { commodityRoutes } = require("./commodity/Routes");
 const { slaRoute } = require("./sla-management/Routes");
 const { standardRoutes } = require("./standard/Routes");
+const { mandiWiseProcurementRoute } = require("./mandiWiseProcurement/Routes");
+const { Auth } = require("@src/v1/middlewares/jwt");
 
 const agentRoutes = express.Router();
 
@@ -32,6 +34,7 @@ agentRoutes.use("/agency", agencyMngmntRoutes);
 agentRoutes.use("/commodity", commodityRoutes);
 agentRoutes.use("/sla", slaRoute);
 agentRoutes.use("/standard", standardRoutes);
+agentRoutes.use("/mandiWiseProcurement", mandiWiseProcurementRoute )
 
 
 module.exports = { agentRoutes } 
