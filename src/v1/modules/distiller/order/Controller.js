@@ -333,7 +333,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         'payment.status': batchPaymentStatus,
         createdBy: user_id
     });
-
+console.log("poRecord", poRecord._id);
     // Update PO record
     poRecord.fulfilledQty = handleDecimal(fulfilledQty + quantityRequired);
     poRecord.paymentInfo.paidAmount = handleDecimal(poRecord.paymentInfo.paidAmount + amountToBePaid);
