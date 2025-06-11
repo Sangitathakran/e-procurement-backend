@@ -45,20 +45,20 @@ async function main() {
   //await downloadFarmerFile();
 
    // Schedule the API call at 11 PM daily
-   cron.schedule("0 23 * * *", async () => {
-    await callExternalFarmerAPI(); //saveExternalFarmerData();
-  });
+  //  cron.schedule("0 23 * * *", async () => {
+  //   await callExternalFarmerAPI(); //saveExternalFarmerData();
+  // });
 
 
-  cron.schedule("0 3 * * *", async () => {
-    console.log("Running scheduled task to genearte farmer id at 3 AM...");
-    await updateFarmersWithFarmerId(); 
-  });
+  // cron.schedule("0 3 * * *", async () => {
+  //   console.log("Running scheduled task to genearte farmer id at 3 AM...");
+  //   await updateFarmersWithFarmerId(); 
+  // });
 
-  cron.schedule("* 13 * * *", async () => {
-    console.log("Running scheduled task to remove duplicate haryana farmers entries at 6 AM...");
-    await removeDuplicateFarmers(); 
-  });
+  // cron.schedule("* 13 * * *", async () => {
+  //   console.log("Running scheduled task to remove duplicate haryana farmers entries at 6 AM...");
+  //   await removeDuplicateFarmers(); 
+  // });
 
 }
 
