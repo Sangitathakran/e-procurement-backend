@@ -2,7 +2,7 @@ const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, } = require("@src/v1/utils/constants/messages");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const { _userType, _poAdvancePaymentStatus, _userStatus } = require("@src/v1/utils/constants");
+const { _userType, _poAdvancePaymentStatus, _userStatus, _poPickupStatus } = require("@src/v1/utils/constants");
 const { asyncErrorHandler, } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
@@ -313,3 +313,88 @@ module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
+module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
+  try {
+    const result = await BatchOrderProcess.aggregate([
+      {
+        $match: {
+          warehouseId: { $ne: null }
+        }
+      },
+      {
+        $lookup: {
+          from: "warehousedetails",
+          localField: "warehouseId",
+          foreignField: "_id",
+          as: "warehouse"
+        }
+      },
+      {
+        $unwind: {
+          path: "$warehouse",
+          preserveNullAndEmptyArrays: false
+        }
+      },
+      {
+        $group: {
+          _id: "$warehouse.warehouseDetailsId",
+          liftingQty: { $sum: "$quantityRequired" },
+          liftedQty: {
+            $sum: {
+              $cond: [
+                { $eq: ["$status", "Accepted"] },
+                "$quantityRequired",
+                0
+              ]
+            }
+          },
+          liftingInProgressQty: {
+            $sum: {
+              $cond: [
+                { $eq: ["$status", "Pending"] },
+                "$quantityRequired",
+                0
+              ]
+            }
+          },
+          warehouseName: { $first: "$warehouse.basicDetails.warehouseName" },
+          address: { $first: "$warehouse.addressDetails" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          warehouseId: "$_id",
+          warehouseName: 1,
+          liftingQty: 1,
+          liftedQty: 1,
+          liftingInProgressQty: 1,
+          totalQty: "$liftingQty",
+          address: {
+            addressLine1: "$address.addressLine1",
+            addressLine2: "$address.addressLine2",
+            city: "$address.city",
+            tehsil: "$address.tehsil",
+            pincode: "$address.pincode",
+            state: "$address.state.state_name",
+            district: "$address.district.district_name"
+          }
+        }
+      },
+      {
+        $sort: { liftingQty: -1 }
+      }
+    ]);
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        message: _response_message.found("Warehouse lifting list"),
+        data: result
+      })
+    );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+})
