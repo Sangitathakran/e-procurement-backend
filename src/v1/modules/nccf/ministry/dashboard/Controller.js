@@ -1,0 +1,337 @@
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
+const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { _response_message, _middleware, } = require("@src/v1/utils/constants/messages");
+const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
+const { _userType, _poAdvancePaymentStatus, _userStatus } = require("@src/v1/utils/constants");
+const { asyncErrorHandler, } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
+const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { CenterProjection } = require("@src/v1/models/app/distiller/centerProjection");
+const { Distiller } = require("@src/v1/models/app/auth/Distiller");
+const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
+const { mongoose } = require("mongoose");
+
+
+module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
+
+  try {
+    const { user_id } = req;
+    const now = new Date();
+
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(startOfCurrentMonth.getTime() - 1);
+
+    const result = await PurchaseOrderModel.aggregate([
+      {
+        $facet: {
+          currentMonth: [
+            {
+              $match: {
+                createdAt: { $gte: startOfCurrentMonth }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                ongoingOrder: { $sum: "$purchasedOrder.poQuantity" },
+                paymentReceived: { $sum: "$paymentInfo.paidAmount" }
+              }
+            }
+          ],
+          lastMonth: [
+            {
+              $match: {
+                createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                ongoingOrder: { $sum: "$purchasedOrder.poQuantity" },
+                paymentReceived: { $sum: "$paymentInfo.paidAmount" }
+              }
+            }
+          ]
+        }
+      }
+    ]);
+
+    const current = result[0].currentMonth[0] || { ongoingOrder: 0, paymentReceived: 0 };
+    const last = result[0].lastMonth[0] || { ongoingOrder: 0, paymentReceived: 0 };
+
+    const calculateChange = (currentVal, lastVal) => {
+      if (lastVal === 0) {
+        return currentVal === 0 ? 0 : 100;
+      }
+      return ((currentVal - lastVal) / lastVal) * 100;
+    };
+
+    const getTrend = (currentVal, lastVal) => {
+      if (currentVal > lastVal) return "increase";
+      if (currentVal < lastVal) return "decrease";
+      return "no change";
+    };
+
+    const noOfDistiller = await Distiller.countDocuments({ is_approved: _userStatus.approved });
+
+    const batch = await BatchOrderProcess.aggregate([
+      {
+        $facet: {
+          currentMonth: [
+            {
+              $match: {
+                createdAt: { $gte: startOfCurrentMonth }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                totalQuantityRequired: { $sum: "$quantityRequired" }
+              }
+            }
+          ],
+          lastMonth: [
+            {
+              $match: {
+                createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                totalQuantityRequired: { $sum: "$quantityRequired" }
+              }
+            }
+          ]
+        }
+      }
+    ]);
+
+    const currentMonth = batch[0].currentMonth[0] || { totalQuantityRequired: 0 };
+    const lastMonth = batch[0].lastMonth[0] || { totalQuantityRequired: 0 };
+
+    const currentQty = currentMonth.totalQuantityRequired;
+    const lastQty = lastMonth.totalQuantityRequired;
+
+    const percentChange = lastQty === 0 ? currentQty === 0 ? 0 : 100 : ((currentQty - lastQty) / lastQty) * 100;
+
+    const trendLifted = currentQty > lastQty ? "increase" : currentQty < lastQty ? "decrease" : "no change";
+
+    const totalQtyDoc = await BatchOrderProcess.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalQuantityRequired: { $sum: "$quantityRequired" }
+        }
+      }
+    ]);
+
+    const totalQty = totalQtyDoc[0]?.totalQuantityRequired || 0;
+
+    const summary = {
+      ongoingOrder: current.ongoingOrder,
+      paymentReceived: current.paymentReceived,
+      ongoingOrderChange: {
+        percent: +calculateChange(current.ongoingOrder, last.ongoingOrder).toFixed(2),
+        trend: getTrend(current.ongoingOrder, last.ongoingOrder)
+      },
+      paymentReceivedChange: {
+        percent: +calculateChange(current.paymentReceived, last.paymentReceived).toFixed(2),
+        trend: getTrend(current.paymentReceived, last.paymentReceived)
+      },
+      noOfDistiller: noOfDistiller || 0,
+      quantityLifted: totalQty,
+      changeFromLastMonth: {
+        percent: +percentChange.toFixed(2),
+        trendLifted: trendLifted
+      }
+    };
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: summary,
+        message: _response_message.found("Order"),
+      })
+    );
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
+  try {
+    const monthlySummary = await BatchOrderProcess.aggregate([
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" }
+          },
+          totalQuantityRequired: { $sum: "$quantityRequired" },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { "_id.year": -1, "_id.month": -1 }
+      },
+      {
+        $project: {
+          _id: 0,
+          year: "$_id.year",
+          //  month: "$_id.month",
+          month: {
+            $let: {
+              vars: {
+                monthsInString: [
+                  "", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+                ]
+              },
+              in: {
+                $arrayElemAt: ["$$monthsInString", "$_id.month"]
+              }
+            }
+          },
+          totalQuantityRequired: 1,
+          count: 1
+        }
+      }
+
+    ]);
+
+    return res.status(200).json({
+      status: true,
+      message: "Monthly Lifted summary fetched successfully",
+      data: monthlySummary
+    });
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+module.exports.MonthlyPaymentRecieved = asyncErrorHandler(async (req, res) => {
+  try {
+    // Fetch aggregated monthly paid amounts
+    const monthlyPaidAmounts = await PurchaseOrderModel.aggregate([
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+          },
+          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
+        },
+      },
+      {
+        $sort: {
+          "_id.year": 1,
+          "_id.month": 1,
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          year: "$_id.year",
+          month: "$_id.month",
+          totalPaidAmount: 1,
+        },
+      },
+    ]);
+
+    // Generate a full list of months with 0 for missing data
+    const currentYear = new Date().getFullYear();
+    const startYear = monthlyPaidAmounts.length ? monthlyPaidAmounts[0].year : currentYear;
+    const endYear = currentYear;
+
+    const filledMonthlyData = [];
+    for (let year = startYear; year <= endYear; year++) {
+      for (let month = 1; month <= 12; month++) {
+        const existingData = monthlyPaidAmounts.find(
+          (data) => data.year === year && data.month === month
+        );
+
+        filledMonthlyData.push({
+          year,
+          month,
+          totalPaidAmount: existingData ? existingData.totalPaidAmount : 0,
+        });
+      }
+    }
+
+    // Check if data is available
+    if (!filledMonthlyData.length) {
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        message: "No data available for monthly paid amounts"
+      }));
+    }
+
+    // Return aggregated results with missing months filled in
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: filledMonthlyData,
+      message: "Monthly paid amounts fetched successfully"
+    }));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send(new serviceResponse({
+      status: 500,
+      message: "Error fetching monthly paid amounts",
+      error: error.message
+    }));
+  }
+});
+
+module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
+  try {
+    const monthlyPayments = await PurchaseOrderModel.aggregate([
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" }
+          },
+          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { "_id.year": -1, "_id.month": -1 }
+      },
+      {
+        $project: {
+          _id: 0,
+          year: "$_id.year",
+          // month: "$_id.month",
+          month: {
+            $let: {
+              vars: {
+                monthsInString: [
+                  "", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+                ]
+              },
+              in: {
+                $arrayElemAt: ["$$monthsInString", "$_id.month"]
+              }
+            }
+          },
+          totalPaidAmount: 1,
+          count: 1
+        }
+      }
+    ]);
+
+    return res.status(200).json({
+      status: true,
+      message: "Monthly payments fetched successfully",
+      data: monthlyPayments
+    });
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
