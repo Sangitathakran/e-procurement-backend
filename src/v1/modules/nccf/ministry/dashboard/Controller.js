@@ -213,79 +213,6 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
   }
 });
 
-module.exports.MonthlyPaymentRecieved = asyncErrorHandler(async (req, res) => {
-  try {
-    // Fetch aggregated monthly paid amounts
-    const monthlyPaidAmounts = await PurchaseOrderModel.aggregate([
-      {
-        $group: {
-          _id: {
-            year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" },
-          },
-          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
-        },
-      },
-      {
-        $sort: {
-          "_id.year": 1,
-          "_id.month": 1,
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          year: "$_id.year",
-          month: "$_id.month",
-          totalPaidAmount: 1,
-        },
-      },
-    ]);
-
-    // Generate a full list of months with 0 for missing data
-    const currentYear = new Date().getFullYear();
-    const startYear = monthlyPaidAmounts.length ? monthlyPaidAmounts[0].year : currentYear;
-    const endYear = currentYear;
-
-    const filledMonthlyData = [];
-    for (let year = startYear; year <= endYear; year++) {
-      for (let month = 1; month <= 12; month++) {
-        const existingData = monthlyPaidAmounts.find(
-          (data) => data.year === year && data.month === month
-        );
-
-        filledMonthlyData.push({
-          year,
-          month,
-          totalPaidAmount: existingData ? existingData.totalPaidAmount : 0,
-        });
-      }
-    }
-
-    // Check if data is available
-    if (!filledMonthlyData.length) {
-      return res.status(200).send(new serviceResponse({
-        status: 200,
-        message: "No data available for monthly paid amounts"
-      }));
-    }
-
-    // Return aggregated results with missing months filled in
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      data: filledMonthlyData,
-      message: "Monthly paid amounts fetched successfully"
-    }));
-  } catch (error) {
-    console.error(error);
-    return res.status(500).send(new serviceResponse({
-      status: 500,
-      message: "Error fetching monthly paid amounts",
-      error: error.message
-    }));
-  }
-});
-
 module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
   try {
     const monthlyPayments = await PurchaseOrderModel.aggregate([
@@ -331,6 +258,57 @@ module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
       message: "Monthly payments fetched successfully",
       data: monthlyPayments
     });
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
+  try {
+    const result = await PurchaseOrderModel.aggregate([
+      // Lookup to get branch details including state
+      {
+        $lookup: {
+          from: "branches", // Collection name in MongoDB
+          localField: "branch_id",
+          foreignField: "_id",
+          as: "branch"
+        }
+      },
+      {
+        $unwind: {
+          path: "$branch",
+          preserveNullAndEmptyArrays: false
+        }
+      },
+      // Group by state and sum poQuantity
+      {
+        $group: {
+          _id: "$branch.state",
+          totalQuantity: { $sum: "$purchasedOrder.poQuantity" }
+        }
+      },
+      // Format output
+      {
+        $project: {
+          _id: 0,
+          state: "$_id",
+          totalQuantity: 1
+        }
+      },
+      // Sort by totalQuantity descending
+      {
+        $sort: { totalQuantity: -1 }
+      }
+    ]);
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: result,
+        message: _response_message.found("State-wise purchase order quantity")
+      })
+    );
   } catch (error) {
     _handleCatchErrors(error, res);
   }
