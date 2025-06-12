@@ -41,6 +41,7 @@ module.exports.getProcurement = async (req, res) => {
       page = 1,
       limit = 10,
       commodity = "",
+      state = "",
       skip = 0,
       paginate = 1,
       sortBy,
@@ -48,7 +49,7 @@ module.exports.getProcurement = async (req, res) => {
       status,
     } = req.query;
     // Build query for search
-
+   
     let query = search
       ? {
           $or: [
@@ -63,6 +64,12 @@ module.exports.getProcurement = async (req, res) => {
     if (commodity) {
       const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
       query["product.name"] = { $in: commodityArray };
+    }
+
+     if (state) {
+      const stateArray = Array.isArray(state) ? state : [state];
+     
+       query["associateUserDetails.address.registered.state"] = { $in: stateArray };
     }
 
     if (status) {
@@ -97,20 +104,56 @@ module.exports.getProcurement = async (req, res) => {
           },
         },
 
-        // {
-        //   $lookup: {
-        //     from: "payments",
-        //     localField: "_id",
-        //     foreignField: "req_id",
-        //     as: "payments",
-        //   },
-        // },
-        // {
-        //   $unwind: {
-        //     path: "$payments",
-        //     preserveNullAndEmptyArrays: true, // In case no payment exists
-        //   },
-        // },
+        {
+          $lookup: {
+            from: "payments",
+            localField: "_id",
+            foreignField: "req_id",
+             pipeline: [
+              {
+                $project: {
+                  _id: 0,
+                  associate_id: 1, // adjust based on what fields you need
+                },
+              },
+            ],
+            as: "payments",
+          },
+        },
+        {
+          $unwind: {
+            path: "$payments",
+            preserveNullAndEmptyArrays: true, // In case no payment exists
+          },
+        },
+
+        {
+          $lookup: {
+            from: "users",
+            let: { associateId: "$payments.associate_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", "$$associateId"] },
+                },
+              },
+              {
+                $project: {
+                  _id: 0,
+                  address: 1, // adjust based on what fields you need
+                },
+              },
+            ],
+            as: "associateUserDetails",
+          },
+        },
+        {
+          $unwind: {
+            path: "$associateUserDetails",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
         ...conditionPipeline,
         { $unwind: "$myoffer" },
         {
