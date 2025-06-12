@@ -10,6 +10,8 @@ const { default: axios } = require("axios");
 const {
   AADHAR_SERVICE_PROVIDER_KEY,
   AADHAR_SERVICE_PROVIDER,
+  BANK_VERIFICATION_API_KEY,
+  BANK_VERIFICATION_API_PROVIDER,
 } = require("@config/index");
 const { adharLogger } = require("@config/logger");
 
@@ -115,15 +117,14 @@ module.exports.sendAadharOTP = async (req, res) => {
         error?.message || 'Unknown error'
       } | Status: ${status}`
     );
-    //log
 
-    return res.status(200).send(
+    return res.status(status).send(
       new serviceResponse({
         status,
-        message: _query.invalid('response from service provider'),
+        message: error.meesage,
         errors: error?.response?.data?.error?.metadata?.fields ||
           error?.response?.data || {
-            message: 'Something went wrong, please try again later',
+            message: error.message,
           },
       })
     );
@@ -245,3 +246,88 @@ module.exports.verifyAadharOTP = async (req, res) => {
 }
 
 };
+
+module.exports.verifyBankAccount = async (req, res) => {
+  try {
+    const { account_number, ifsc, farmer_id } = req.body;
+
+    if (!account_number || !ifsc) {
+      return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          errors: [{ message: _middleware.require('account_number and ifsc') }],
+        })
+      );
+    }
+
+    const apiUrl = `${BANK_VERIFICATION_API_PROVIDER}/hybrid`;
+    const headers = {
+      'X-API-Key': BANK_VERIFICATION_API_KEY,
+      'X-Auth-Type': 'API-Key',
+    };
+
+    const payload = {
+      account_number,
+      ifsc,
+      consent: 'Y',
+    };
+
+    const response = await axios.post(apiUrl, payload, { headers });
+    console.log('>>>>>>>>>>>>>>>>>>>>>>>>>>>',response);
+    const { status, data: responseData } = response || {};
+    return res.json( {status, responseData} );
+    if (status !== 200 || !responseData?.transaction_id) {
+      return res.status(200).send(
+        new serviceResponse({
+          status,
+          errors: [{ message: { ...response?.data?.error } }],
+        })
+      );
+    } else if (responseData?.transaction_id) {
+      const { transaction_id, request_id, status, data } = responseData || {};
+      const requiredData = {
+        transaction_id,
+        status,
+        request_id,
+        message: data?.message || "",
+        code: data?.code || "",
+        bank_account_data: data?.bank_account_data || {}
+      };
+
+     
+
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          message: ResponseMsg,
+          data: requiredData,
+        })
+      );
+    } else {
+      return res.status(200).send(
+        new serviceResponse({
+          status: 500,
+          message: 'Unexpected response from Bank service provider',
+          errors: {
+            message:
+              'Unable to verify bank account at this moment. Please try again later.',
+          },
+        })
+      );
+    }
+  } catch (error) {
+    const status = error?.response?.status || 500; // Default to 500 if undefined
+
+    return res.status(200).send(
+      new serviceResponse({
+        status,
+        message: _query.invalid('response from service provider'),
+        errors: error?.response?.data?.error?.metadata?.fields ||
+          error?.response?.data || {
+            message: 'Something went wrong, please try again later',
+          },
+      })
+    );
+  }
+};
+

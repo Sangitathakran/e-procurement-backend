@@ -59,6 +59,7 @@ const farmerSchema = new mongoose.Schema({
         account_no: { type: String, trim: true },
         proof_doc_key: { type: String, trim: true },
         accountstatus: { type: String, trim:true},
+        is_verified: { type: Boolean, default: false }
     },
     land_details: [{ land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: false } }],
 
