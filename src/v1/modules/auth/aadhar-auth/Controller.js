@@ -96,9 +96,9 @@ module.exports.sendAadharOTP = async (req, res) => {
         })
       );
     } else {
-      return res.status(200).send(
+      return res.status(400).send(
         new serviceResponse({
-          status: 500,
+          status: 400,
           message: 'Unexpected response from Aadhar service provider',
           errors: {
             message:
@@ -117,13 +117,13 @@ module.exports.sendAadharOTP = async (req, res) => {
     );
     //log
 
-    return res.status(200).send(
+    return res.status(status).send(
       new serviceResponse({
         status,
-        message: _query.invalid('response from service provider'),
+        message: _query.invalid(error.message),
         errors: error?.response?.data?.error?.metadata?.fields ||
           error?.response?.data || {
-            message: 'Something went wrong, please try again later',
+            message: error.message,
           },
       })
     );
