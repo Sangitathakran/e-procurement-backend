@@ -23,7 +23,8 @@ module.exports.getMandiProcurement = asyncErrorHandler(async (req, res) => {
   let skip = (page - 1) * limit;
   const isExport = parseInt(req.query.isExport) === 1;
   const centerNames = req.query.search?.trim();
-const searchDistrict = req.query.districtNames?.trim() || null;
+  const searchDistrict = req.query.districtNames?.trim() || null;
+  const associateName = req.query.associateName?.trim() || null;
 
   const pipeline = [
     {
@@ -175,6 +176,15 @@ const searchDistrict = req.query.districtNames?.trim() || null;
     pipeline.push({
       $match: {
         centerName: { $regex: centerNames, $options: "i" },
+      },
+    });
+    page = 1;
+    skip = 0;
+  }
+  if (associateName?.length) {
+    pipeline.push({
+      $match: {
+        associate_name: { $regex: associateName, $options: "i" },
       },
     });
     page = 1;
