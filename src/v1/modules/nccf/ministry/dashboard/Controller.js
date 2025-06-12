@@ -398,3 +398,93 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 })
+
+module.exports.poRaised = asyncErrorHandler(async (req, res) => {
+  try {
+    const { page = 1, limit = 10, sortBy, search = '', isExport = 0 } = req.query;
+    const { user_id } = req;
+
+    const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+
+    // Reject special characters in search
+    if (/[.*+?^${}()|[\]\\]/.test(search)) {
+      return sendResponse({
+        res,
+        status: 400,
+        errorCode: 400,
+        errors: [{ message: "Do not use any special character" }],
+        message: "Do not use any special character"
+      });
+    }
+
+    const pipeline = [
+      {
+        $lookup: {
+          from: "distillers",
+          localField: "distiller_id",
+          foreignField: "_id",
+          as: "distillers"
+        }
+      },
+      { $unwind: { path: "$distillers", preserveNullAndEmptyArrays: true } },
+      {
+        $match: {
+          "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+          deletedAt: null,
+          ...(search
+            ? {
+              $or: [
+                { 'purchasedOrder.poNo': { $regex: search, $options: "i" } },
+                { "distillers.name": { $regex: search, $options: "i" } }
+              ]
+            }
+            : {})
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          distillerName: "$distillers.basic_details.distiller_details.organization_name",
+          poToken:"$paymentInfo.token",
+          poAmount: "$paymentInfo.totalAmount",
+          commodity: "$product.name",
+          quantity: "$purchasedOrder.poQuantity",
+          status: "$payment_status",
+          createdAt: 1
+        }
+      },
+      {
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [
+            { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
+            { $skip: skip },
+            { $limit: parseInt(limit, 10) }
+          ]
+        }
+      }
+    ];
+
+    const result = await PurchaseOrderModel.aggregate(pipeline);
+
+    const records = {
+      count: result[0].metadata.length ? result[0].metadata[0].total : 0,
+      rows: result[0].data || [],
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      pages: limit != 0 ? Math.ceil((result[0].metadata[0]?.total || 0) / limit) : 0
+    };
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: records,
+      message: records.count === 0
+        ? _response_message.notFound("procurement")
+        : _response_message.found("procurement")
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
