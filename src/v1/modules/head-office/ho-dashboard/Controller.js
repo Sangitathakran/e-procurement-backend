@@ -188,6 +188,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     widgetDetails.farmerBenifitted =benifittedFarmersCount;  //await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
     widgetDetails.branchOffice.total = branchOfficeCount;
     widgetDetails.wareHouse.total = wareHouseCount;
+    console.log(widgetDetails.wareHouse.total)
     let scheme = null;
     if (schemeName.length) {
       scheme = await Scheme.findOne({ schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) } }).select("_id").lean();
@@ -2888,7 +2889,7 @@ async function getBOWarehouseCount({
     }
 
     const { branchIds, warehouseIds } = aggregationResult[0];
-//console.log( {branchIds, warehouseIds} );
+    // console.log( {branchIds, warehouseIds} );
     // Build state filter if provided
     const stateFilter = state.length
       ? { state: { $in: state.map((s) => new RegExp(`^${s}$`, 'i')) } }
@@ -2911,17 +2912,16 @@ async function getBOWarehouseCount({
     // });
 
     // Construct the state filter only if the state array is not empty
-const WRstateFilter = state.length
+    const WRstateFilter = state.length
   ? { 'addressDetails.state.state_name': { $in: state.map(s => new RegExp(`^${s}$`, 'i')) } }
   : {};
 
 // Count unique warehouses matching the state filter
-const wareHouseCount = await wareHouseDetails.countDocuments({
-  active: true,
-  _id: { $in: warehouseIds },
-  ...WRstateFilter,
-});
-
+    const wareHouseCount = await wareHouseDetails.countDocuments({
+      active: true,
+      // _id: { $in: warehouseIds },
+      // ...WRstateFilter,
+    });
 
 //console.log( { branchOfficeCount, wareHouseCount })
     return { branchOfficeCount, wareHouseCount };
