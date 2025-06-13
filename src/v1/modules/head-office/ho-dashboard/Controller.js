@@ -2922,7 +2922,6 @@ async function getBOWarehouseCount({
       // _id: { $in: warehouseIds },
       // ...WRstateFilter,
     });
-console.log(">>>>>>>>>", wareHouseCount)
 
 //console.log( { branchOfficeCount, wareHouseCount })
     return { branchOfficeCount, wareHouseCount };
