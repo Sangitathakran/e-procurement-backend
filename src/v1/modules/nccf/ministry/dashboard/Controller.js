@@ -418,7 +418,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     );
 
     const result = { count: 0 };
-    withoutPaginationPipeline.push({$count: "count"})
+    withoutPaginationPipeline.push({ $count: "count" })
 
     result.rows = await BatchOrderProcess.aggregate(aggregationPipeline);
     const totalCount = await BatchOrderProcess.aggregate(withoutPaginationPipeline);
@@ -465,18 +465,15 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
         }
       },
       { $unwind: { path: "$distillers", preserveNullAndEmptyArrays: true } },
+      ...(search
+        ? [{
+          $match: { 'distillers.basic_details.distiller_details.organization_name': { $regex: search, $options: 'i' } }
+        }]
+        : []),
       {
         $match: {
           "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
-          deletedAt: null,
-          ...(search
-            ? {
-              $or: [
-                { 'purchasedOrder.poNo': { $regex: search, $options: "i" } },
-                { "distillers.name": { $regex: search, $options: "i" } }
-              ]
-            }
-            : {})
+          deletedAt: null
         }
       },
       {
