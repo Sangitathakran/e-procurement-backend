@@ -320,7 +320,9 @@ module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
 
 module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
   try {
-    const result = await BatchOrderProcess.aggregate([
+    const { page = 1, limit = 5, skip = 0, sortBy = "createdAt", search = '', state = '' } = req.query;
+
+    const aggregationPipeline = [
       {
         $match: {
           warehouseId: { $ne: null }
@@ -340,6 +342,23 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
           preserveNullAndEmptyArrays: false
         }
       },
+      ...(search
+        ? [{
+          $match: {
+            $or: [
+              { 'warehouse.basicDetails.warehouseName': { $regex: search, $options: 'i' } },
+              { 'warehouse.warehouseDetailsId': { $regex: search, $options: 'i' } }
+            ]
+          }
+        }]
+        : []),
+      ...(state
+        ? [{
+          $match: {
+            'warehouse.addressDetails.state.state_name': { $regex: state, $options: 'i' }
+          }
+        }]
+        : []),
       {
         $group: {
           _id: "$warehouse.warehouseDetailsId",
@@ -389,7 +408,25 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
       {
         $sort: { liftingQty: -1 }
       }
-    ]);
+    ]
+
+    const withoutPaginationPipeline = [...aggregationPipeline];
+
+    aggregationPipeline.push(
+      { $skip: parseInt(skip) },
+      { $limit: parseInt(limit) }
+    );
+
+    const result = { count: 0 };
+    withoutPaginationPipeline.push({$count: "count"})
+
+    result.rows = await BatchOrderProcess.aggregate(aggregationPipeline);
+    const totalCount = await BatchOrderProcess.aggregate(withoutPaginationPipeline);
+
+    result.count = totalCount?.[0]?.count ?? 0;
+    result.page = page;
+    result.limit = limit;
+    result.pages = limit != 0 ? Math.ceil(result.count / limit) : 0;
 
     return res.status(200).send(
       new serviceResponse({
@@ -405,10 +442,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
 
 module.exports.poRaised = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy, search = '', isExport = 0 } = req.query;
-    const { user_id } = req;
-
-    const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '' } = req.query;
 
     // Reject special characters in search
     if (/[.*+?^${}()|[\]\\]/.test(search)) {
@@ -458,33 +492,31 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
         }
       },
       {
-        $facet: {
-          metadata: [{ $count: "total" }],
-          data: [
-            { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
-            { $skip: skip },
-            { $limit: parseInt(limit, 10) }
-          ]
-        }
+        $sort: { createdAt: -1 }
       }
     ];
+    const withoutPaginationPipeline = [...pipeline];
 
-    const result = await PurchaseOrderModel.aggregate(pipeline);
+    pipeline.push(
+      { $skip: parseInt(skip) },
+      { $limit: parseInt(limit) }
+    );
 
-    const records = {
-      count: result[0].metadata.length ? result[0].metadata[0].total : 0,
-      rows: result[0].data || [],
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
-      pages: limit != 0 ? Math.ceil((result[0].metadata[0]?.total || 0) / limit) : 0
-    };
+    withoutPaginationPipeline.push({ $count: "count" })
+
+    const result = { count: 0 };
+    result.rows = await PurchaseOrderModel.aggregate(pipeline);
+    const totalCount = await PurchaseOrderModel.aggregate(withoutPaginationPipeline);
+
+    result.count = totalCount?.[0]?.count ?? 0;
+    result.page = page;
+    result.limit = limit;
+    result.pages = limit != 0 ? Math.ceil(result.count / limit) : 0;
 
     return res.status(200).send(new serviceResponse({
       status: 200,
-      data: records,
-      message: records.count === 0
-        ? _response_message.notFound("procurement")
-        : _response_message.found("procurement")
+      data: result,
+      message: _response_message.found("PO Raised"),
     }));
 
   } catch (error) {
