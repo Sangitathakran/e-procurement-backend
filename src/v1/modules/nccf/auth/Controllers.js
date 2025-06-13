@@ -51,10 +51,10 @@ module.exports.createNccf = async (req, res) => {
     try {
         const { nccf_name, email, phone } = req.body
 
-        // const pwd = "lakshit@123";
-        // const hashedpwd = await bcrypt.hash(pwd, 10);
-        // console.log(hashedpwd);
-        // return false;
+        const pwd = "finance123@";
+        const hashedpwd = await bcrypt.hash(pwd, 10);
+        console.log(hashedpwd);
+        return false;
 
         const existUser = await NccfAdmin.findOne({ email: email });
 
@@ -73,7 +73,7 @@ module.exports.createNccf = async (req, res) => {
         // const password = generateRandomPassword();
         // const password = "Ministry@1234";
         // const password = "Ministry123@";
-        const password = "Agribid123";
+        const password = "finance123@";
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const nccfData = new NccfAdmin({
