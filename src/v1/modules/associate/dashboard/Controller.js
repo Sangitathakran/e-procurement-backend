@@ -107,7 +107,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
         return null;
       })
       .filter(id => id !== null);
-   console.log(objectIdArray)
+
 
     const districtArray = district
       ? (Array.isArray(district) ? district : [district])
