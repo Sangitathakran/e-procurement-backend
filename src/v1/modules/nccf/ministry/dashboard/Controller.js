@@ -470,6 +470,13 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
           $match: { 'distillers.basic_details.distiller_details.organization_name': { $regex: search, $options: 'i' } }
         }]
         : []),
+         ...(state
+        ? [{
+          $match: {
+            'distillers.address.registered.state': { $regex: state, $options: 'i' }
+          }
+        }]
+        : []),
       {
         $match: {
           "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
@@ -480,6 +487,7 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
         $project: {
           _id: 0,
           distillerName: "$distillers.basic_details.distiller_details.organization_name",
+          state: "$distillers.address.registered.state",
           poToken: "$paymentInfo.token",
           poAmount: "$paymentInfo.totalAmount",
           commodity: "$product.name",
