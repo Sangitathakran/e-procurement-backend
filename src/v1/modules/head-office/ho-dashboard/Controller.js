@@ -188,7 +188,6 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     widgetDetails.farmerBenifitted =benifittedFarmersCount;  //await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
     widgetDetails.branchOffice.total = branchOfficeCount;
     widgetDetails.wareHouse.total = wareHouseCount;
-    console.log(widgetDetails.wareHouse.total)
     let scheme = null;
     if (schemeName.length) {
       scheme = await Scheme.findOne({ schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) } }).select("_id").lean();
