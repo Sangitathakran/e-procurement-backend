@@ -16,7 +16,8 @@ const { mongoose } = require("mongoose");
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
   try {
-    const { user_id } = req;
+     const {state = '', commodity = '', cna = 'NCCF' } = req.query;
+
     const now = new Date();
 
     const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -164,6 +165,8 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
 module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
   try {
+      const {state = '', commodity = '', cna = 'NCCF' } = req.query;
+
     const monthlySummary = await BatchOrderProcess.aggregate([
       {
         $group: {
@@ -217,6 +220,8 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
 
 module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
   try {
+      const {state = '', commodity = '', cna = 'NCCF' } = req.query;
+
     const monthlyPayments = await PurchaseOrderModel.aggregate([
       {
         $group: {
@@ -269,6 +274,8 @@ module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
 
 module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
   try {
+      const {state = '', commodity = '', cna = 'NCCF' } = req.query;
+
     const result = await PurchaseOrderModel.aggregate([
       // Lookup to get branch details including state
       {
@@ -320,7 +327,22 @@ module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
 
 module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit = 5, skip = 0, sortBy = "createdAt", search = '', state = '' } = req.query;
+    const { page = 1, limit = 5, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0
+      ? commodity.split(',').map(name => name.trim())
+      : [];
+
+    // Reject special characters in search
+    if (/[.*+?^${}()|[\]\\]/.test(search)) {
+      return sendResponse({
+        res,
+        status: 400,
+        errorCode: 400,
+        errors: [{ message: "Do not use any special character" }],
+        message: "Do not use any special character"
+      });
+    }
 
     const aggregationPipeline = [
       {
@@ -359,6 +381,27 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
           }
         }]
         : []),
+        {
+        $lookup: {
+          from: "purchaseorders",
+          localField: "orderId",
+          foreignField: "_id",
+          as: "purchaseorders"
+        }
+      },
+      {
+        $unwind: {
+          path: "$purchaseorders",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      ...(commodityNames.length > 0
+        ? [{
+          $match: {
+            'purchaseorders.product.name': { $in: commodityNames }
+          }
+        }]
+        : []),
       {
         $group: {
           _id: "$warehouse.warehouseDetailsId",
@@ -388,6 +431,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
       {
         $project: {
           _id: 0,
+          commodity:'$purchaseorders.product.name',
           warehouseId: "$_id",
           warehouseName: 1,
           liftingQty: 1,
@@ -442,7 +486,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
 
 module.exports.poRaised = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '' } = req.query;
+    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
 
     // Reject special characters in search
     if (/[.*+?^${}()|[\]\\]/.test(search)) {
@@ -454,6 +498,10 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
         message: "Do not use any special character"
       });
     }
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0
+      ? commodity.split(',').map(name => name.trim())
+      : [];
 
     const pipeline = [
       {
@@ -470,10 +518,17 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
           $match: { 'distillers.basic_details.distiller_details.organization_name': { $regex: search, $options: 'i' } }
         }]
         : []),
-         ...(state
+      ...(state
         ? [{
           $match: {
             'distillers.address.registered.state': { $regex: state, $options: 'i' }
+          }
+        }]
+        : []),
+      ...(commodityNames.length > 0
+        ? [{
+          $match: {
+            'product.name': { $in: commodityNames }
           }
         }]
         : []),
