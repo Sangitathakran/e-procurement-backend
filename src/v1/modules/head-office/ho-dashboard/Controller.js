@@ -2896,9 +2896,10 @@ async function getBOWarehouseCount({
 
     // Count unique branches matching the state filter
     const branchOfficeCount = await Branches.countDocuments({
+      status: "active",
       _id: { $in: branchIds },
-      headOfficeId: hoId,
-      ...stateFilter,
+      // headOfficeId: hoId,
+      // ...stateFilter,
     });
 
     // // Count unique warehouses matching the state filter
