@@ -203,11 +203,13 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
 
     ]);
 
-    return res.status(200).json({
-      status: true,
-      message: "Monthly Lifted summary fetched successfully",
-      data: monthlySummary
-    });
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: monthlySummary,
+        message: _response_message.found("Monthly Lifted summary"),
+      })
+    );
   } catch (error) {
     _handleCatchErrors(error, res);
   }
@@ -253,11 +255,13 @@ module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
       }
     ]);
 
-    return res.status(200).json({
-      status: true,
-      message: "Monthly payments fetched successfully",
-      data: monthlyPayments
-    });
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: monthlyPayments,
+        message: _response_message.found("Monthly payments"),
+      })
+    );
   } catch (error) {
     _handleCatchErrors(error, res);
   }
@@ -445,7 +449,7 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
         $project: {
           _id: 0,
           distillerName: "$distillers.basic_details.distiller_details.organization_name",
-          poToken:"$paymentInfo.token",
+          poToken: "$paymentInfo.token",
           poAmount: "$paymentInfo.totalAmount",
           commodity: "$product.name",
           quantity: "$purchasedOrder.poQuantity",
