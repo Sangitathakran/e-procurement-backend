@@ -24,9 +24,12 @@ module.exports = {
     },
 
     handlePagination: (req, res, next) => {
+        const escapeRegExp = (string) => {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
+        }
         try {
             let maxLimit = 50;
-            let { limit, page, paginate = 1, sort_by = 'createdAt', sort_order = -1 } = req.query;
+            let { limit, page, paginate = 1, sort_by = 'createdAt', sort_order = -1,search="" } = req.query;
             let skip = 0;
             if (limit && page) {
                 limit = limit <= maxLimit ? limit : maxLimit
@@ -34,6 +37,7 @@ module.exports = {
             }
             req.query.limit = limit ? parseInt(limit) : 10;
             req.query.page = page ? parseInt(page) : 1;
+            req.query.search = search ? escapeRegExp(search) : "";
             req.query.skip = skip ? parseInt(skip) : 0;
             req.query.paginate = paginate == 0 ? 0 : 1;
             req.query.sortBy = {

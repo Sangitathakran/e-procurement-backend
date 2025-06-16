@@ -187,15 +187,31 @@ const farmerIdGenerator = async (obj) => {
 
 exports.generateFarmerId = async (obj) => {
   let farmerId;
-
-  while (true) {
-    farmerId = await farmerIdGenerator(obj);
-    const existingFarmer = await farmer.findOne({ farmer_id: farmerId });
-    if (!existingFarmer) {
-      return farmerId;
-    }
+ try{ while (true) {
+  farmerId = await farmerIdGenerator(obj);
+  const existingFarmer = await farmer.findOne({ farmer_id: farmerId });
+  if (!existingFarmer) {
+    return farmerId;
   }
+}}catch(err){
+  console.log('ERROR IN GENERATE FARMER ID', err);
+}
 };
+
+// exports.generateFarmerId = async obj => {
+//   let farmerId;
+//   try {
+//     while (true) {
+//       farmerId = await farmerIdGenerator(obj);
+//       const existingFarmer = await farmer.find({}, { farmer_id: 1});
+//       if (!existingFarmer.includes(farmerId)) {
+//         return farmerId;
+//       }
+//     }
+//   } catch (err) {
+//     console.log('ERROR IN GENERATE FARMER ID', err);
+//   }
+// };
 
 exports.generateFileName = async (clientCode) => {
 
@@ -479,3 +495,8 @@ exports.formatDate = (timestamp, format = "DD/MM/YYYY") => {
 
   return `${day}/${month}/${year}`;
 }
+exports.makeSearchQuery = (searchFields,search) => ({
+  $or: searchFields.map(item => ({
+      [item]: { $regex: search, $options: 'i' }
+  }))
+});

@@ -250,15 +250,15 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
         sumOfAllotedQty += batch.qtyAllotment;
 
-        if (batchRecord.available_qty == 0 && batchRecord.allotedQty == 0) {
-            batchRecord.available_qty = batchRecord.qty;
-        }
+        // if (batchRecord.allotedQty == 0) {
+        //     batchRecord.available_qty = batchRecord.qty;
+        // }
 
         batchRecord.allotedQty += batch.qtyAllotment;
         batchRecord.available_qty -= batch.qtyAllotment;
 
-        if(batchRecord.available_qty < 0 ) { 
-            return res.status(200).send(new serviceResponse({ status : 404 , errors : [{ message : "Entered quantity not available!"}]}))
+        if (batchRecord.available_qty < 0) {
+            return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "Entered quantity not available!" }] }))
         }
 
         await batchRecord.save();
@@ -310,7 +310,7 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
 
     let totalQtyOfBatches = 0;
 
-    let sumOfRemainingBag = 0; 
+    let sumOfRemainingBag = 0;
 
     for (let batch of batches) {
 
@@ -321,24 +321,24 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
         // console.log("batch.associate_id" ,  batch.associate_batch_id ) ;  
 
         const trackOrderBatch = await TrackOrder.findOne(
-            { "_id" : trackOrder_id , "ready_to_ship.pickup_batch.associate_batch_id": batch.associate_batch_id },
-            { "ready_to_ship.pickup_batch.$": 1 } 
+            { "_id": trackOrder_id, "ready_to_ship.pickup_batch.associate_batch_id": batch.associate_batch_id },
+            { "ready_to_ship.pickup_batch.$": 1 }
         );
 
         // console.log("trackOrderBatch : >> " , JSON.stringify(trackOrderBatch) ) ; 
 
         if (!trackOrderBatch || !trackOrderBatch.ready_to_ship.pickup_batch.length) {
-            return res.status(200).send(new serviceResponse({ status: 404 , errors: [{ message: "Batch not found" }]}));
+            return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "Batch not found" }] }));
         }
 
         const existingBatch = trackOrderBatch.ready_to_ship.pickup_batch[0];
 
         if (existingBatch.remaining_bag == 0) {
-            return res.status(200).send(new serviceResponse({ status: 404 , errors: [{ message: "No bags can be added to this batch as remaining bag is zero." }] }));
+            return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "No bags can be added to this batch as remaining bag is zero." }] }));
         }
 
         if (existingBatch.remaining_bag < batch.no_of_bags) {
-            return res.status(200).send(new serviceResponse({status: 404, errors: [{ message: "No of bags exceeds remaining bags in the batch" }]}));
+            return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "No of bags exceeds remaining bags in the batch" }] }));
         }
 
         const perBagUnit = Math.floor(batch.allotedQty.count / batch.noOfBagsAlloted);
@@ -351,21 +351,21 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
             {
                 "_id": trackOrder_id,
                 "ready_to_ship.pickup_batch.associate_batch_id": batch.associate_batch_id,
-                "ready_to_ship.pickup_batch.remaining_bag": { $gte: batch.no_of_bags }  
+                "ready_to_ship.pickup_batch.remaining_bag": { $gte: batch.no_of_bags }
             },
             {
                 $inc: {
-                    "ready_to_ship.pickup_batch.$.remaining_bag": -batch.no_of_bags, 
+                    "ready_to_ship.pickup_batch.$.remaining_bag": -batch.no_of_bags,
                 },
             },
-            { 
-                new: true, 
-                projection: { "ready_to_ship.pickup_batch": 1 } 
+            {
+                new: true,
+                projection: { "ready_to_ship.pickup_batch": 1 }
             }
-        );  
+        );
 
         if (!updatedBatch) {
-            return res.status(200).send(new serviceResponse({status: 404, errors: [{ message: "We can't subtract more bags, insufficient remaining bags." }]}));
+            return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "We can't subtract more bags, insufficient remaining bags." }] }));
         }
 
         // console.log("updatedBatch : >>> " , JSON.stringify(updatedBatch)) ; 
@@ -393,12 +393,12 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
 
     if (totalQtyOfBatches > trackOrderRecord?.purchaseOrder_id?.quantityRequired) {
         trackOrderRecord.in_transit.qtyFulfilled = true;
-        await trackOrderRecord.save(); 
+        await trackOrderRecord.save();
         // console.log("required quantiy shipped") ;
         return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "required quantity already shipped!" }] }));
 
     }
-    if (sumOfRemainingBag === 0) { 
+    if (sumOfRemainingBag === 0) {
         trackOrderRecord.in_transit.qtyFulfilled = true;
         await trackOrderRecord.save();
         // console.log("remaining bag sum is 0") ;
@@ -474,7 +474,7 @@ module.exports.getBatches = asyncErrorHandler(async (req, res) => {
             },
             receving_date: batch.receving_date,
             noOfBagsAlloted: batch.no_of_bags,
-            remaining_bag : batch.remaining_bag,
+            remaining_bag: batch.remaining_bag,
         }
 
         data.push(batchData);
@@ -502,7 +502,7 @@ module.exports.fetchBatches = asyncErrorHandler(async (req, res) => {
     }
 
 
-    const batches = await Batch.find({ warehousedetails_id: record.warehouseId , available_qty : { $gt : 0 } });
+    const batches = await Batch.find({ warehousedetails_id: record.warehouseId, available_qty: { $gt: 0 } });
 
     if (batches.length == 0) {
         return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("batches with this warehouse") }] }))
@@ -682,11 +682,36 @@ module.exports.createExternalOrder = async (req, res) => {
                 message: "External Batch not found"
             }));
         }
+        
+        let errors = [];
+
+        if (quantity <= 0) {
+            errors.push("Quantity must be greater than zero");
+        }
+        if (batchExists.remaining_quantity <= 0) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "No remaining quantity available for this batch"
+            }));
+        }
+        if (quantity > batchExists.remaining_quantity) {
+            errors.push("Quantity must be less than remaining_quantity");
+        }
+        if (errors.length > 0) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: errors.join(", ") 
+            }));
+        }
+        batchExists.outward_quantity += quantity;
+        batchExists.remaining_quantity = batchExists.inward_quantity - batchExists.outward_quantity;
+        await batchExists.save();
 
         const orderData = {
             commodity,
             quantity: quantity || 0,
             external_batch_id,
+            warehousedetails_id : batchExists.warehousedetails_id,
             basic_details: {
                 buyer_name: basic_details.buyer_name,
                 email: basic_details.email?.toLowerCase(),
@@ -708,6 +733,8 @@ module.exports.createExternalOrder = async (req, res) => {
         const newExternalOrder = new ExternalOrder(orderData);
         const savedOrder = await newExternalOrder.save();
         
+        
+
         return res.status(200).send(new serviceResponse({ message: _query.add('External Order'), data: savedOrder }));
 
     } catch (error) {
@@ -724,3 +751,109 @@ module.exports.listExternalbatch = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.listExternalOrderList = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
+
+        let query = {};
+        if (search) {
+            query["batchName"] = { $regex: search, $options: "i" };
+        }
+
+        const records = { count: 0, rows: [] };
+
+        if (paginate == 1) {
+            records.rows = await ExternalOrder.find(query)
+                .populate({
+                    path: "external_batch_id",
+                    select: "batchName",
+                })
+                .populate({
+                    path: "warehousedetails_id",
+                    select: "basicDetails.warehouseName",
+                })
+                .sort(sortBy)
+                .skip(parseInt(skip))
+                .limit(parseInt(limit));
+
+            records.count = await ExternalOrder.countDocuments(query);
+            records.page = parseInt(page);
+            records.limit = parseInt(limit);
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        } else {
+            records.rows = await ExternalOrder.find(query)
+                .populate({
+                    path: "external_batch_id",
+                    select: "batchName",
+                })
+                .sort(sortBy);
+        }
+
+        return res.status(200).send(
+            new serviceResponse({ status: 200, data: records, message: _response_message.found("ExternalOrder") })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+
+module.exports.shippedView = asyncErrorHandler(async (req, res) => {
+
+
+    const { id } = req.params;
+
+    const record = await BatchOrderProcess.findOne({ _id: id }).populate([
+        {
+            path: "orderId",
+            select: { "product.name": 1, "purchasedOrder.poNo": 1 }
+        }
+
+    ])
+
+    if (!record) {
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("purchase record") }] }))
+    }
+
+
+    const trackRecord = await TrackOrder.findOne({ purchaseOrder_id: id });
+
+    if (!trackRecord) {
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("track record") }] }))
+    }
+
+
+    const batches = trackRecord.ready_to_ship?.pickup_batch;
+
+    let totalBags = 0;
+    let totalQty = 0 ;
+    for (let batch of batches) {
+
+        totalBags += batch.no_of_bags;
+        totalQty+=batch.qtyAllotment ; 
+    }
+
+    const orderDetails = { commodity: record.orderId.product.name, orderId: record.orderId.purchasedOrder.poNo, qty: record.quantityRequired, totalBags , totalQty };
+
+    const data = { batches, orderDetails };
+
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: data, message: _response_message.found("shippping details") }));
+
+
+})
+
+module.exports.transitVeiw = asyncErrorHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    const trackRecord = await TrackOrder.findOne({ purchaseOrder_id: id }).populate({ path: "in_transit.truck_id" })
+
+    if (!trackRecord) {
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("track record") }] }))
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: trackRecord.in_transit.truck_id, message: _response_message.found("in-transit") }))
+
+})

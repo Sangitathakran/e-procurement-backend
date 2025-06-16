@@ -1,8 +1,9 @@
 const express = require("express")
 const mobileAuthRoutes = express.Router()
 
-const { login } = require("./Controller")
+const { loginOrRegister, sendOtp } = require("./Controller")
 
-mobileAuthRoutes.post('/login', login )
+mobileAuthRoutes.post("/send-otp", sendOtp);
+mobileAuthRoutes.post("/register-login", loginOrRegister);
 
 module.exports = { mobileAuthRoutes }

@@ -50,6 +50,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     lat,
     long,
     locationUrl,
+    locationDetails,
     companyDetails,
     additionalDetails,
     qualitySpecificationOfProduct,
@@ -114,6 +115,7 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
       lat,
       long,
       locationUrl,
+      locationDetails
     },
     paymentInfo: {
       totalAmount: handleDecimal(totalAmount), // Assume this is calculated during the first step
@@ -140,15 +142,13 @@ module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
     method: "created",
   });
 
-  return res
-    .status(200)
-    .send(
-      new serviceResponse({
-        status: 200,
-        data: record,
-        message: _response_message.created("procurement"),
-      })
-    );
+  return res.status(200).send(
+    new serviceResponse({
+      status: 200,
+      data: record,
+      message: _response_message.created("procurement"),
+    })
+  );
 });
 
 module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
@@ -210,26 +210,22 @@ module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
         worksheetName: `Requirement-record`,
       });
     } else {
-      return res
-        .status(200)
-        .send(
-          new serviceResponse({
-            status: 200,
-            data: records,
-            message: _response_message.notFound("procurement"),
-          })
-        );
-    }
-  } else {
-    return res
-      .status(200)
-      .send(
+      return res.status(200).send(
         new serviceResponse({
           status: 200,
           data: records,
-          message: _response_message.found("procurement"),
+          message: _response_message.notFound("procurement"),
         })
       );
+    }
+  } else {
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("procurement"),
+      })
+    );
   }
 });
 
@@ -244,25 +240,21 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
   const record = await PurchaseOrderModel.findOne({ _id: id });
 
   if (!record) {
-    return res
-      .status(400)
-      .send(
-        new serviceResponse({
-          status: 400,
-          errors: [{ message: _response_message.notFound("purchase order") }],
-        })
-      );
-  }
-
-  return res
-    .status(200)
-    .send(
+    return res.status(400).send(
       new serviceResponse({
-        status: 200,
-        data: record,
-        message: _response_message.found("purchase order"),
+        status: 400,
+        errors: [{ message: _response_message.notFound("purchase order") }],
       })
     );
+  }
+
+  return res.status(200).send(
+    new serviceResponse({
+      status: 200,
+      data: record,
+      message: _response_message.found("purchase order"),
+    })
+  );
 });
 
 module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
@@ -288,17 +280,16 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
   const record = await PurchaseOrderModel.findOne({ _id: id }).populate(
     "branch_id"
   );
+  
   const branch_office_location = `${record.branch_id.state}`;
 
   if (!record) {
-    return res
-      .status(400)
-      .send(
-        new serviceResponse({
-          status: 400,
-          message: _response_message.notFound("request"),
-        })
-      );
+    return res.status(400).send(
+      new serviceResponse({
+        status: 400,
+        message: _response_message.notFound("request"),
+      })
+    );
   }
 
   const msp = _distillerMsp();
@@ -371,11 +362,9 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
   (record.paymentInfo.advancePaymentDate =
     paymentInfo?.advancePaymentDate || record?.paymentInfo?.advancePaymentDate),
     (record.paymentInfo.totalAmount =
-        record?.paymentInfo?.totalAmount + mandiTax|| record?.paymentInfo?.totalAmount),
-
-    (record.paymentInfo.mandiTax =
-        mandiTax|| record?.paymentInfo?.mandiTax),
-
+      record?.paymentInfo?.totalAmount + mandiTax ||
+      record?.paymentInfo?.totalAmount),
+    (record.paymentInfo.mandiTax = mandiTax || record?.paymentInfo?.mandiTax),
     (record.paymentInfo.advancePaymentUtrNo =
       paymentInfo?.advancePaymentUtrNo ||
       record?.paymentInfo?.advancePaymentUtrNo),
@@ -386,16 +375,15 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
   // // Save the updated record
   await record.save();
 
-  const distillerDetails = await Distiller.findOne({ _id: user_id }).select({
-    "basic_details.distiller_details": 1,
-    _id: 0,
-  });
-  // console.log(distillerDetails);
-  const {
-    basic_details: {
-      distiller_details: { organization_name, phone: distillerPhone },
-    } = {},
-  } = distillerDetails || {};
+  const distillerDetails = await Distiller.findOne({ _id: user_id }).select({ "basic_details.distiller_details": 1,_id: 0}).lean();
+  const organization_name = distillerDetails?.basic_details?.distiller_details?.organization_name;
+  const distillerPhone = distillerDetails?.basic_details?.distiller_details?.phone;
+
+  // const {
+  //   basic_details: {
+  //     distiller_details: { organization_name, phone: distillerPhone },
+  //   } = {},
+  // } = distillerDetails || {}; 
 
   const distiller_contact_number = `+91 ${distillerPhone}`;
   const distiller_name = organization_name;
@@ -419,15 +407,13 @@ module.exports.updatePurchaseOrder = asyncErrorHandler(async (req, res) => {
   const receiver = process.env.PO_RECEPIENT_ADDRESS;
 
   emailService.sendPurchaseOrderConfirmation(receiver, emailData, subject);
-  return res
-    .status(200)
-    .send(
-      new serviceResponse({
-        status: 200,
-        data: record,
-        message: _response_message.updated("Request"),
-      })
-    );
+  return res.status(200).send(
+    new serviceResponse({
+      status: 200,
+      data: record,
+      message: _response_message.updated("Request"),
+    })
+  );
 });
 
 module.exports.deletePurchaseOrder = asyncErrorHandler(async (req, res) => {
@@ -441,26 +427,22 @@ module.exports.deletePurchaseOrder = asyncErrorHandler(async (req, res) => {
   const record = await PurchaseOrderModel.findOne({ _id: id });
 
   if (!record) {
-    return res
-      .status(400)
-      .send(
-        new serviceResponse({
-          status: 400,
-          errors: [{ message: _response_message.notFound("Requirement") }],
-        })
-      );
+    return res.status(400).send(
+      new serviceResponse({
+        status: 400,
+        errors: [{ message: _response_message.notFound("Requirement") }],
+      })
+    );
   }
 
   await record.deleteOne();
 
-  return res
-    .status(200)
-    .send(
-      new serviceResponse({
-        status: 200,
-        message: _response_message.deleted("Requirement"),
-      })
-    );
+  return res.status(200).send(
+    new serviceResponse({
+      status: 200,
+      message: _response_message.deleted("Requirement"),
+    })
+  );
 });
 
 module.exports.branchList = asyncErrorHandler(async (req, res) => {
@@ -468,25 +450,21 @@ module.exports.branchList = asyncErrorHandler(async (req, res) => {
     const record = await Branches.find();
 
     if (!record) {
-      return res
-        .status(400)
-        .send(
-          new serviceResponse({
-            status: 400,
-            errors: [{ message: _response_message.notFound("Branch") }],
-          })
-        );
-    }
-
-    return res
-      .status(200)
-      .send(
+      return res.status(400).send(
         new serviceResponse({
-          status: 200,
-          data: record,
-          message: _response_message.found("Branches"),
+          status: 400,
+          errors: [{ message: _response_message.notFound("Branch") }],
         })
       );
+    }
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: record,
+        message: _response_message.found("Branches"),
+      })
+    );
   } catch (err) {
     return res
       .status(500)

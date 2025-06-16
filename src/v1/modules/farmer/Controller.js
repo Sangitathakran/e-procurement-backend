@@ -1,7 +1,7 @@
 const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel, isStateAvailable, isDistrictAvailable, updateDistrict, generateFarmerId, calculateAge } = require("@src/v1/utils/helpers")
 const { _userType } = require('@src/v1/utils/constants');
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
-const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
+const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords, insertNewHaryanaFarmerRecord, insertNewHaryanaRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
@@ -2683,4 +2683,306 @@ module.exports.addDistrictCity = async (req, res) => {
     console.error("Error adding district and city:", error);
     return res.status(500).json({ message: "Internal server error.", error: error.message });
   }
+};
+module.exports.haryanaFarmerUplod = async (req, res) => {
+  try {
+    const { user_id } = req;
+    const { isxlsx = 1 } = req.body;
+    const [file] = req.files;
+
+    if (!file) {
+      return res.status(400).json({
+        message: _response_message.notFound("file"),
+        status: 400
+      });
+    }
+
+    let farmers = [];
+    let headers = [];
+
+    if (isxlsx) {
+      const workbook = xlsx.read(file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      farmers = xlsx.utils.sheet_to_json(worksheet);
+      headers = Object.keys(farmers[0]);
+    } else {
+      const csvContent = file.buffer.toString('utf8');
+      const lines = csvContent.split('\n');
+      headers = lines[0].trim().split(',');
+      const dataContent = lines.slice(1).join('\n');
+
+      const parser = csv({ headers });
+      const readableStream = Readable.from(dataContent);
+
+      readableStream.pipe(parser);
+      parser.on('data', async (data) => {
+        if (Object.values(data).some(val => val !== '')) {
+          const result = await processFarmerRecord(data);
+          if (!result.success) {
+            errorArray = errorArray.concat(result.errors);
+          }
+        }
+      });
+
+      parser.on('end', () => {
+        console.log("Stream end");
+      });
+      parser.on('error', (err) => {
+        console.log("Stream error", err);
+      });
+    }
+
+    let errorArray = [];
+    const processFarmerRecord = async (rec) => {
+      const toLowerCaseIfExists = (value) => value ? value.toLowerCase().trim() : value;
+    //   const parseDateOfBirth = (dob) => {
+    //     if (!isNaN(dob)) {
+    //         const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    //         const parsedDate = new Date(excelEpoch.getTime() + (dob) * 86400000); 
+    //         return moment.utc(parsedDate).format('DD-MM-YYYY'); 
+    //     }
+    
+    //     return moment(dob, 'DD-MM-YYYY', true).isValid() ? dob : null;
+    // };
+      const parseBooleanYesNo = (value) => {
+        if (value === true || value?.toLowerCase() === 'yes') return true;
+        if (value === false || value?.toLowerCase() === 'no') return false;
+        return null;
+      };
+      const name = rec["NAME*"];
+      const father_name = rec["FATHER NAME*"];
+      const email = rec["EMAIL ID"] ? rec["EMAIL ID"] : null;
+      const mobile_no = rec["MOBILE NO*"];
+      const category = toLowerCaseIfExists(rec["CATEGORY"]) ? toLowerCaseIfExists(rec["CATEGORY"]) : 'N/A';
+      const date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)"];
+      const farmer_category = rec["FARMER CATEGORY"] ? rec["FARMER CATEGORY"] : null;
+      const gender = toLowerCaseIfExists(rec["GENDER*"]);
+      const address_line = rec["ADDRESS LINE"];
+      const country = rec["COUNTRY NAME"] ? rec["COUNTRY NAME"] : 'India';
+      const state_name = rec["STATE NAME*"];
+      const district_name = rec["DISTRICT NAME*"];
+      const village = rec["VILLAGE NAME"];
+      const landPincode = rec["LAND PINCODE"] ? rec["LAND PINCODE"] : null;
+      const state = (rec["STATE*"]);
+      const district = rec["DISTRICT*"];
+      const landvillage = rec["ViLLAGE"] ? rec["ViLLAGE"] : null;
+      const LandBlock = rec["LAND BLOCK"] ? rec["LAND BLOCK"] : null;
+      const khasra_number = rec["KHASRA NUMBER*"];
+      const khtauni_number = rec["KHATAUNI*"];
+      const land_type = rec["LAND TYPE"] ? rec["LAND TYPE"] : 'other';
+      const total_area = rec["TOTAL AREA*"];
+      const sow_area = rec["SOW AREA*"];
+      const ghat_number = rec["Ghat number*"];
+      const khewat_number = rec["Khewat number*"];
+      const karnal_number = rec["Karnal number*"];
+      const murla_number = rec["Murla number*"];
+      const revenue_area_karnal = rec["Revenue area karnal"] ? rec["Revenue area karnal"] : null;
+      const revenue_area_murla = rec["Revenue area mulla"] ? rec["Revenue area mulla"] : null;
+      const sow_area_karnal = rec["Sow area karnal"] ? rec["Sow area karnal"] : null;
+      const sow_area_murla = rec["Sow area murla"] ? rec["Sow area murla"] : null;
+      const aadhar_no = rec["AADHAR NUMBER"] ? rec["AADHAR NUMBER"] : null;
+      const pan_number = rec["PAN card"] ? rec["PAN card"] : null;
+      const bank_name = rec["BANK NAME*"];
+      const account_no = rec["ACCOUNT NUMBER*"];
+      const branch_name = rec["BRANCH NAME*"];
+      const ifsc_code = rec["IFSC CODE*"];
+      const account_holder_name = rec["ACCOUNT HOLDER NAME*"];
+
+      const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS"]) ? toLowerCaseIfExists(rec["MARITAL STATUS"]) : 'N/A';
+      const religion = toLowerCaseIfExists(rec["RELIGION"]) ? toLowerCaseIfExists(rec["RELIGION"]) : 'N/A';
+      const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL"]);
+      const edu_details = rec["EDU DETAILS"] ? rec["EDU DETAILS"] : null;
+      const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"]) ? toLowerCaseIfExists(rec["ID PROOF TYPE*"]) : 'aadhar' ;
+      const tahshil = rec["TAHSHIL*"];
+      const block = rec["BLOCK NAME*"];
+      const pinCode = rec["PINCODE*"];
+      const lat = rec["LATITUDE"] ? rec["LATITUDE"] : null;
+      const long = rec["LONGITUDE"] ? rec["LONGITUDE"] : null;
+      const warehouse = rec["WAREHOUSE"] && rec["WAREHOUSE"].toLowerCase() === 'yes' ? 'yes' : 'no';
+      const cold_storage = rec["COLD STORAGE"] && rec["COLD STORAGE"].toLowerCase() === 'yes' ? 'yes' : 'no';
+      const processing_unit = rec["PROCESSING UNIT"] && rec["PROCESSING UNIT"].toLowerCase() === 'yes' ? 'yes' : 'no';
+      const transportation_facilities = rec["TRANSPORTATION FACILITIES"] && rec["TRANSPORTATION FACILITIES"].toLowerCase() === 'yes' ? 'yes' : 'no';
+      const credit_facilities = rec["CREDIT FACILITIES"] && rec["CREDIT FACILITIES"].toLowerCase() === 'yes' ? 'yes' : 'no';
+      const source_of_credit = rec["SOURCE OF CREDIT"] ? rec["SOURCE OF CREDIT"] : null;
+      const financial_challenges = rec["FINANCIAL CHALLENGE"] ? rec["FINANCIAL CHALLENGE"] : null;
+      const support_required = rec["SUPPORT REQUIRED"] ? rec["SUPPORT REQUIRED"] : null;
+      const land_name = rec["LAND NAME"] ? rec["LAND NAME"] : null;
+      const cultivation_area = rec["CULTIVATION AREA"] ? rec["CULTIVATION AREA"] : null;
+      const area_unit = toLowerCaseIfExists(rec["AREA UNIT"]) ? toLowerCaseIfExists(rec["AREA UNIT"]) : 'Other';
+      const khata_number = rec["KHATA NUMBER"] ? rec["KHATA NUMBER"] : null;
+      const expected_production = rec["EXPECTED PRODUCTION"] ? rec["EXPECTED PRODUCTION"] : null;
+      const soil_type = toLowerCaseIfExists(rec["SOIL TYPE"]) ? toLowerCaseIfExists(rec["SOIL TYPE"]) : 'other';
+      const soil_tested = toLowerCaseIfExists(rec["SOIL TESTED"]) ? toLowerCaseIfExists(rec["SOIL TESTED"]) : 'yes';
+      const soil_testing_agencies = rec["SOIL TESTING AGENCY"] ? rec["SOIL TESTING AGENCY"] : null;
+      const upload_geotag = rec["UPLOD GEOTAG"] ? rec["UPLOD GEOTAG"] : null;
+      const crop_name = rec["CROPS NAME*"];
+      const crop_variety = rec["CROP VARITY"] ? rec["CROP VARITY"] : null;
+      const production_quantity = rec["PRODUCTION QUANTITY"] ? rec["PRODUCTION QUANTITY"] : null;
+      const selling_price = rec["SELLING PRICE"] ? rec["SELLING PRICE"] : null;
+      const yield = rec["YIELD(KG)"] ? rec["YIELD(KG)"] : null;
+      const crop_land_name = rec["CROP LAND NAME"] ? rec["CROP LAND NAME"] : null;
+      const crop_growth_stage = rec["CROP GROWTH STAGE"] ? rec["CROP GROWTH STAGE"] : 'Stage1';
+      const crop_disease = rec["CROP DISEASE"] ? rec["CROP DISEASE"] : null;
+      const crop_rotation = parseBooleanYesNo(rec["CROP ROTATION"]);
+      const previous_crop_session = rec["PREVIOUS CROP SESSION"] ? rec["PREVIOUS CROP SESSION"] : 'others';
+      const previous_crop_name = rec["PREVIOUS CROP NAME"] ? rec["PREVIOUS CROP NAME"] : null;
+      const crop_season = toLowerCaseIfExists(rec["CROP SEASONS*"]) ? toLowerCaseIfExists(rec["CROP SEASONS*"]) : 'others';
+      const crop_sold = rec["CROP SOLD"] ? rec["CROP SOLD"] : null;
+      const quantity_sold = rec["QUANTITY SOLD"] ? rec["QUANTITY SOLD"] : null;
+      const average_selling_price = rec["AVERAGE SELLING PRICE"] ? rec["AVERAGE SELLING PRICE"] : null;
+      const marketing_channels_used = rec["MARKETING CHANNELS USED"] ? rec["MARKETING CHANNELS USED"] : null;
+      const challenges_faced = rec["CHALLENGES FACED"] ? rec["CHALLENGES FACED"] : null;
+      const insurance_company = rec["INSURANCE COMPANY"] ? rec["INSURANCE COMPANY"] : null;
+      const insurance_worth = rec["INSURANCE WORTH"] ? rec["INSURANCE WORTH"] : null;
+      const insurance_premium = rec["INSURANCE PREMIUM"] ? rec["INSURANCE PREMIUM"] : null;
+      const insurance_start_date = rec["INSURANCE START DATE(DD-MM-YYYY)"] ? rec["INSURANCE START DATE(DD-MM-YYYY)"] : null;
+      const insurance_end_date = rec["INSURANCE END DATE(DD-MM-YYYY)"] ? rec["INSURANCE END DATE(DD-MM-YYYY)"] : null;
+      const requiredFields = [
+        { field: "NAME*", label: "NAME" },
+        { field: "FATHER NAME*", label: "FATHER NAME" },
+        { field: "MOBILE NO*", label: "MOBILE NUMBER" },
+        { field: "GENDER*", label: "GENDER" },
+        { field: "STATE NAME*", label: "STATE NAME" },
+        { field: "DISTRICT NAME*", label: "DISTRICT NAME" },
+        { field: "STATE*", label: " LAND STATE" },
+        { field: "DISTRICT*", label: "LAND DISTRICT" },
+        { field: "ACCOUNT NUMBER*", label: "ACCOUNT NUMBER" },
+        { field: "BANK NAME*", label: "BANK NAME" },
+        { field: "BRANCH NAME*", label: "BRANCH NAME" },
+        { field: "IFSC CODE*", label: "IFSC CODE" },
+        { field: "ACCOUNT HOLDER NAME*", label: "ACCOUNT HOLDER NAME" },
+        { field: "Ghat number*", label: "Ghat number"},
+        { field: "Khewat number*", label: "Khewat number"},
+        { field: "Karnal number*", label: "Karnal number"},
+        { field: "Murla number*", label: "Murla number"},
+        { field: "KHASRA NUMBER*", label: "KHASRA NUMBER"},
+        { field: "KHATAUNI*", label: "KHATAUNI"},
+        { field: "TOTAL AREA*", label: "TOTAL AREA"},
+        { field: "SOW AREA*", label: "SOW AREA"},
+      ];
+      let stateName = state_name.replace(/_/g, ' ');
+      if (
+        stateName === 'Dadra and Nagar Haveli' ||
+        stateName === 'Andaman and Nicobar' ||
+        stateName === 'Daman and Diu' ||
+        stateName === 'Jammu and Kashmir'
+      ) {
+        stateName = stateName.replace('and', '&');
+      }
+      let errors = [];
+      let missingFields = [];
+
+      requiredFields.forEach(({ field, label }) => {
+        if (!rec[field]) missingFields.push(label);
+      });
+
+      if (missingFields.length > 0) {
+        errors.push({ record: rec, error: `Required fields missing: ${missingFields.join(', ')}` });
+      }
+      // if (!/^\d{12}$/.test(aadhar_no)) {
+      //   errors.push({ record: rec, error: "Invalid Aadhar Number" });
+      // }
+      if (!/^\d{6,20}$/.test(account_no)) {
+        errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 20 digits." });
+      }
+      if (!/^\d{10}$/.test(mobile_no)) {
+        errors.push({ record: rec, error: "Invalid Mobile Number" });
+      }
+      if (!Object.values(_gender).includes(gender)) {
+        errors.push({ record: rec, error: `Invalid Gender: ${gender}. Valid options: ${Object.values(_gender).join(', ')}` });
+      }
+     
+      if (!Object.values(_maritalStatus).includes(marital_status)) {
+        errors.push({ record: rec, error: `Invalid Marital Status: ${marital_status}. Valid options: ${Object.values(_maritalStatus).join(', ')}` });
+      }
+      if (!Object.values(_religion).includes(religion)) {
+        errors.push({ record: rec, error: `Invalid Religion: ${religion}. Valid options: ${Object.values(_religion).join(', ')}` });
+      }
+      if (!Object.values(_individual_category).includes(category)) {
+        errors.push({ record: rec, error: `Invalid Category: ${category}. Valid options: ${Object.values(_individual_category).join(', ')}` });
+      }
+      if (!Object.values(_proofType).includes(type)) {
+        errors.push({ record: rec, error: `Invalid Proof type: ${type}. Valid options: ${Object.values(_proofType).join(', ')}` });
+      }
+      if (area_unit && !Object.values(_areaUnit).includes(area_unit)) {
+        errors.push({ record: rec, error: `Invalid Area Unit: ${area_unit}. Valid options: ${Object.values(_areaUnit).join(', ')}` });
+      }
+      if (!Object.values(_seasons).includes(crop_season)) {
+        errors.push({ record: rec, error: `Invalid Crop Season: ${crop_season}. Valid options: ${Object.values(_seasons).join(', ')}` });
+      }
+      if (!Object.values(_yesNo).includes(soil_tested)) {
+        errors.push({ record: rec, error: `Invalid Yes No: ${soil_tested}. Valid options: ${Object.values(_yesNo).join(', ')}` });
+      }
+
+
+      if (errors.length > 0) return { success: false, errors };
+      try {
+        const state_id = await getStateId(stateName);
+        const district_id = await getDistrictId(district_name);
+        const land_state_id = await getStateId(state);
+        const land_district_id = await getDistrictId(district);
+        const uniqueFarmerCode = generateFarmerCode(state_name, mobile_no, name);
+
+        let farmerRecord = await farmer.findOne({ 'mobile_no': mobile_no });
+        if (farmerRecord) {
+          return { success: false, errors: [{ record: rec, error: `Farmer  with Mobile No. ${mobile_no} already registered.` }] };
+          
+        } else {
+          // Insert new farmer record
+          farmerRecord = await insertNewHaryanaFarmerRecord({
+            name, father_name, uniqueFarmerCode, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, pan_number, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
+          });
+          await insertNewHaryanaRelatedRecords(farmerRecord._id, {
+            total_area, khasra_number, land_name, cultivation_area, area_unit, khata_number, land_type, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, landvillage, LandBlock, landPincode, expected_production, soil_type, soil_tested, soil_testing_agencies, upload_geotag, crop_name, production_quantity, selling_price, ghat_number,
+            khewat_number, karnal_number, murla_number, revenue_area_karnal, revenue_area_murla, sow_area_karnal, sow_area_murla, yield, insurance_company, insurance_worth, crop_season, crop_land_name, crop_growth_stage, crop_disease, crop_rotation, previous_crop_session, previous_crop_name, crop_sold, quantity_sold, average_selling_price,
+            marketing_channels_used, challenges_faced, insurance_premium, insurance_start_date, insurance_end_date, crop_variety,
+          });
+        }
+
+      } catch (error) {
+        console.log(error)
+        errors.push({ record: rec, error: error.message });
+      }
+
+      return { success: errors.length === 0, errors };
+    };
+
+    for (const farmer of farmers) {
+      const result = await processFarmerRecord(farmer);
+      if (!result.success) {
+        errorArray = errorArray.concat(result.errors);
+      }
+    }
+
+    if (errorArray.length > 0) {
+      const errorData = errorArray.map(err => ({ ...err.record, Error: err.error }));
+      // console.log("error data->",errorData)
+      dumpJSONToExcel(req, res, {
+        data: errorData,
+        fileName: `Farmer-error_records.xlsx`,
+        worksheetName: `Farmer-record-error_records`
+      });
+    } else {
+      return res.status(200).json({
+        status: 200,
+        data: {},
+        message: "Farmers successfully uploaded."
+      });
+    }
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+const generateFarmerCode = (state, mobile_no, name) => {
+  if (!state || !mobile_no || !name) {
+      throw new Error('State Mobile number and Name are required to generate code');
+  }
+ const farmerName = name.substring(0, 3).toUpperCase();
+  const stateCode = state.substring(0, 3).toUpperCase();
+
+  const mobileCode = String(mobile_no).slice(-4);
+
+  return `${stateCode}${mobileCode}${farmerName}`;
 };

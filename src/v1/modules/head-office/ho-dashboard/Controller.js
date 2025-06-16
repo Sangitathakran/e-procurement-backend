@@ -12,15 +12,18 @@ const {
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const {
   AssociateOffers,
 } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { _query } = require("@src/v1/utils/constants/messages");
-const moment=require('moment');
+const moment = require("moment");
+const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
+
+
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   try {
-
     report = [
       { monthName: "January", month: 1, total: 0 },
       { monthName: "February", month: 2, total: 0 },
@@ -43,7 +46,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
       farmer: { total: 0, lastMonth: [] },
     };
     let associateFCount = (await farmer.countDocuments({})) ?? 0;
-    widgetDetails.farmer.total =  associateFCount;
+    widgetDetails.farmer.total = associateFCount;
     widgetDetails.associate.total = await User.countDocuments({});
     widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
     let lastMonthUser = await User.aggregate([
@@ -55,7 +58,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
       { $project: { month: { $month: "$createdAt" } } },
       { $group: { _id: "$month", total: { $sum: 1 } } },
     ]);
-   
+
     let getReport = (report, data) => {
       return report.map((item) => {
         let details = data?.find((item2) => item2?._id == item.month);
@@ -68,8 +71,7 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
     };
     widgetDetails.associate.lastMonth = getReport(report, lastMonthUser);
     widgetDetails.farmer.lastMonth = getReport(report, lastMonthFarmer);
-    
-    
+
     return sendResponse({
       res,
       status: 200,
@@ -77,10 +79,123 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
       data: widgetDetails,
     });
   } catch (error) {
-    console.log('error', error)
+    console.log("error", error);
   }
-
 });
+
+module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
+  try {
+
+    const hoId = req.portalId;
+
+    let widgetDetails = {
+      branchOffice: { total: 0 },
+      farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0 },
+      wareHouse: { total: 0 },
+      //procurementTarget: { total: 0 }
+    };
+
+
+
+    // Get counts safely
+    widgetDetails.wareHouse.total = await wareHousev2.countDocuments({});
+    widgetDetails.branchOffice.total = await Branches.countDocuments({headOfficeId:hoId});
+    widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
+    widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
+
+    //let procurementTargetQty = await RequestModel.find({})
+    widgetDetails.farmerRegistration.totalRegistration =
+      widgetDetails.farmerRegistration.farmertotal +
+      widgetDetails.farmerRegistration.associateFarmerTotal;
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: _query.get("Widget List"),
+      data: widgetDetails,
+    });
+  } catch (error) {
+    console.error("Error in widgetList:", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+});
+
+
+module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
+  const { limit = 10, page = 1 } = req.query;
+
+  const skip = (page - 1) * limit;
+  let pendingPaymentDetails = await Payment.find({payment_status:'Pending'})
+  .populate({ path: "req_id", select: "reqNo" })
+  .select('req_id qtyProcured amount payment_status')
+  .skip(skip)
+  .limit(limit);
+
+  // Get total count for pagination metadata
+  const totalCount = await Payment.countDocuments({ payment_status: "Pending" });
+
+  
+
+ 
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Farmer Payments"),
+    //data: pendingPaymentDetails,
+    data: {
+      rows: pendingPaymentDetails,
+      totalCount: totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      limit: limit,
+      page: page
+    },
+  });
+});
+
+module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
+
+  const { limit = 10, page = 1 } = req.query;
+  const skip = (page - 1) * limit;
+
+  // Get total count for pagination metadata
+  const totalCount = await Payment.countDocuments({ ho_approve_status: "Pending" });
+  
+  let pendingApprovalDetails = await Payment.find({ ho_approve_status: "Pending" })
+    .populate({ path: "req_id", select: "reqNo deliveryDate" })
+    .select("req_id qtyProcured amountPaid ho_approve_status")
+    .skip(skip)
+    .limit(limit);
+
+  // Modify the response to add paymentDueDate (deliveryDate + 72 hours)
+  const modifiedDetails = pendingApprovalDetails.map((doc) => {
+    const deliveryDate = doc.req_id?.deliveryDate ? new Date(doc.req_id.deliveryDate) : null;
+    
+    return {
+      ...doc.toObject(),
+      paymentDueDate: deliveryDate ? moment(deliveryDate).add(72, "hours").toISOString() : null,
+    };
+  });
+
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Farmer Payments"),
+    //data: modifiedDetails,
+    data: {
+      rows: modifiedDetails,
+      totalCount: totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      limit: limit,
+      page: page
+    },
+  });
+});
+
 
 //farmer payments
 module.exports.farmerPayments = asyncErrorHandler(async (req, res) => {
@@ -178,28 +293,29 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
     ],
   };
 
-  const groupStage = option === 'week'
-    ? {
-      // Group by day of the week
-      $group: {
-        _id: {
-          day: { $dayOfWeek: "$createdAt" }, // 1 (Sunday) to 7 (Saturday)
-          payment_collect_by: "$payment_collect_by",
-        },
-        totalAmount: { $sum: "$amount" },
-      },
-    }
-    : {
-      // Group by year and month
-      $group: {
-        _id: {
-          year: { $year: "$createdAt" },
-          month: { $month: "$createdAt" },
-          payment_collect_by: "$payment_collect_by",
-        },
-        totalAmount: { $sum: "$amount" },
-      },
-    };
+  const groupStage =
+    option === "week"
+      ? {
+          // Group by day of the week
+          $group: {
+            _id: {
+              day: { $dayOfWeek: "$createdAt" }, // 1 (Sunday) to 7 (Saturday)
+              payment_collect_by: "$payment_collect_by",
+            },
+            totalAmount: { $sum: "$amount" },
+          },
+        }
+      : {
+          // Group by year and month
+          $group: {
+            _id: {
+              year: { $year: "$createdAt" },
+              month: { $month: "$createdAt" },
+              payment_collect_by: "$payment_collect_by",
+            },
+            totalAmount: { $sum: "$amount" },
+          },
+        };
 
   const results = await Payment.aggregate([
     groupStage,
@@ -207,29 +323,38 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
       // Reshape the output
       $project: {
         _id: 0,
-        ...(option === 'week' ? {
-          day: "$_id.day",
-          payment_collect_by: "$_id.payment_collect_by",
-        } : {
-          year: "$_id.year",
-          month: "$_id.month",
-          payment_collect_by: "$_id.payment_collect_by",
-        }),
+        ...(option === "week"
+          ? {
+              day: "$_id.day",
+              payment_collect_by: "$_id.payment_collect_by",
+            }
+          : {
+              year: "$_id.year",
+              month: "$_id.month",
+              payment_collect_by: "$_id.payment_collect_by",
+            }),
         totalAmount: "$totalAmount",
       },
     },
     {
-
       $group: {
-        _id: option === 'week' ? "$day" : { month: "$month" },
+        _id: option === "week" ? "$day" : { month: "$month" },
         farmer: {
           $sum: {
-            $cond: [{ $eq: ["$payment_collect_by", "farmer"] }, "$totalAmount", 0],
+            $cond: [
+              { $eq: ["$payment_collect_by", "farmer"] },
+              "$totalAmount",
+              0,
+            ],
           },
         },
         agency: {
           $sum: {
-            $cond: [{ $eq: ["$payment_collect_by", "Agency"] }, "$totalAmount", 0],
+            $cond: [
+              { $eq: ["$payment_collect_by", "Agency"] },
+              "$totalAmount",
+              0,
+            ],
           },
         },
       },
@@ -238,27 +363,33 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
       // Final projection to shape the output
       $project: {
         _id: 0,
-        ...(option === 'week' ? { day: "$_id" } : { month: "$_id.month" }),
+        ...(option === "week" ? { day: "$_id" } : { month: "$_id.month" }),
         farmer: 1,
         agency: 1,
       },
     },
     {
       // Sort by day or by year and month
-      $sort: option === 'week' ? { day: 1 } : { month: 1 },
+      $sort: option === "week" ? { day: 1 } : { month: 1 },
     },
   ]);
   let paymentDetails = report[option].map((item) => {
     let payment = results?.find((item2) => item2[option] == item[option]);
-    console.log('payment', payment, item)
+    console.log("payment", payment, item);
     if (payment) {
-      return { [option]: item[`${option}Name`], farmer: payment.farmer, agency: payment.agency };
+      return {
+        [option]: item[`${option}Name`],
+        farmer: payment.farmer,
+        agency: payment.agency,
+      };
     } else {
-      return { [option]: item[`${option}Name`], farmer: item.farmer, agency: item.agency };
+      return {
+        [option]: item[`${option}Name`],
+        farmer: item.farmer,
+        agency: item.agency,
+      };
     }
   });
-
-
 
   return sendResponse({
     res,
@@ -327,7 +458,7 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
     .skip(skip)
     .limit(limit);
 
-  records.count = await RequestModel.countDocuments({})
+  records.count = await RequestModel.countDocuments({});
   records.page = page;
   records.limit = limit;
   records.pages = Math.ceil(records.count / limit);
@@ -339,15 +470,11 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
   });
 });
 module.exports.optionRequestId = asyncErrorHandler(async (req, res) => {
-  
   let records = { count: 0 };
   records.row = await RequestModel.find({
     // head_office_id:req.user.portalId
-  })
-    .select("reqNo")
+  }).select("reqNo");
 
-
- 
   return sendResponse({
     res,
     status: 200,
@@ -355,7 +482,7 @@ module.exports.optionRequestId = asyncErrorHandler(async (req, res) => {
     data: records,
   });
 });
-//branchOfficeProcurement
+//branchOfficeProcurements
 module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
   let { stateNames } = req.query;
 
@@ -363,148 +490,220 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
   let data = [
     {
       state: "Andhra Pradesh",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
 
     {
       state: "Arunachal Pradesh",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Assam",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Bihar",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Chhattisgarh",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Goa",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Gujarat",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Haryana",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Himachal Pradesh",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Jharkhand",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       name: "Karnataka",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Kerala",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Madhya Pradesh",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Maharashtra",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Manipur",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Meghalaya",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Mizoram",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Nagaland",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Odisha",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Punjab",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       name: "Rajasthan",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Sikkim",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Tamil Nadu",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Telangana",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Tripura",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Uttar Pradesh",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Uttarakhand",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "West Bengal",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Andaman and Nicobar Islands",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Chandigarh",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Dadra and Nagar Haveli and Daman and Diu",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Lakshadweep",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Delhi",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Puducherry",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Ladakh",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
     {
       state: "Jammu and Kashmir",
-      farmers: 0,
+      qty: 0,
+      amount:0,
+      total_qty:0
     },
   ];
   let pipeline = [
@@ -516,42 +715,72 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
         as: "result",
       },
     },
-
+    {
+      $lookup: {
+        from: "requests",
+        localField: "req_id",
+        foreignField: "_id",
+        as: "requests",
+      },
+    },
     {
       $unwind: {
         path: "$result",
-        preserveNullAndEmptyArrays: false,
+        preserveNullAndEmptyArrays: false, // Ensures only documents with procurement centers are processed
       },
     },
-
-    { $group: { _id: "$result.address.state", farmers: { $count: {} } } },
-
-    { $project: { state: "$_id", farmers: 1, _id: 0 } },
+    {
+      $unwind: {
+        path: "$requests",
+        preserveNullAndEmptyArrays: true, // Allows docs with no matching requests to be included
+      },
+    },
+    {
+      $group: {
+        _id: "$result.address.state",
+        qty: { $sum: "$qty" },
+        amount: { $sum: "$totalPrice" },
+        total_qty: { $sum: "$requests.fulfilledQty" }, // Now works after unwinding requests
+      },
+    },
+    {
+      $project: {
+        state: "$_id",
+        qty: 1,
+        amount: 1,
+        total_qty: 1,
+        _id: 0,
+      },
+    },
   ];
+  
   if (stateNames.length > 0) {
     pipeline.push({ $match: { state: { $in: stateNames } } });
   } else {
   }
   let branchOfficeProc = await Batch.aggregate(pipeline);
-  // data=data.map(item=>{
-  //   let stateDetails=branchOfficeProc.find(item2=>item2.state==item.state)
-  //       if(stateDetails){
-  //         return {...item,farmers:stateDetails.farmers}
-  //       }else{
-  //         return {...item}
-  //       }
-  // })
+  let totalProcuredQty = branchOfficeProc.reduce((accumulator, item) => accumulator + (Number(item.qty) || 0), 0);
+  totalProcuredQty = Math.round(totalProcuredQty);
+  data=data.map(item=>{
+    let stateDetails=branchOfficeProc.find(item2=>item2.state==item.state);
+   
+        if(stateDetails){
+          return {...stateDetails}
+        }else{
+          return {...item}
+        }
+  })
 
   return sendResponse({
     res,
     status: 200,
     message: _query.get("BranchOfficeProcurement"),
-    data: branchOfficeProc,
+    data: {branchOfficeProc: data, totalProcuredQty},
   });
 });
 //farmerBenifitted
 module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
-    const {startDate,endDate}=req.query;
+  const { startDate, endDate } = req.query;
   const report = {
     month: [
       { monthName: "January", month: 1, farmers: 0 },
@@ -568,7 +797,7 @@ module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
       { monthName: "Decmeber", month: 12, farmers: 0 },
     ],
   };
-  const pipeline=[
+  const pipeline = [
     // query,
     {
       $project: { month: { $month: "$createdAt" } },
@@ -576,20 +805,18 @@ module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
     {
       $group: { _id: "$month", farmers: { $count: {} } },
     },
-  ]
-  if(startDate!=undefined ||endDate!=undefined){
-    let formatStartDate= moment(startDate).format('DD-MM-YYYY');
-    let formatEndDate= moment(endDate).format('DD-MM-YYYY');
-    pipeline.unshift({$match:{createdAt:{$gt:formatStartDate,$lte:formatEndDate}}})
-   
-  }else{
-   
-   
+  ];
+  if (startDate != undefined || endDate != undefined) {
+    let formatStartDate = moment(startDate).format("DD-MM-YYYY");
+    let formatEndDate = moment(endDate).format("DD-MM-YYYY");
+    pipeline.unshift({
+      $match: { createdAt: { $gt: formatStartDate, $lte: formatEndDate } },
+    });
+  } else {
   }
-  
-  let farmerBenifittedDetails = await AssociateOffers.aggregate(pipeline)
- 
-  
+
+  let farmerBenifittedDetails = await AssociateOffers.aggregate(pipeline);
+
   farmerBenifittedDetails = report.month.map((item) => {
     let farmerDetails = farmerBenifittedDetails?.find(
       (item2) => item2?._id == item.month
@@ -717,6 +944,83 @@ module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
     data: statusDetails,
   });
 });
+//payment status by batch
+module.exports.paymentStatusByDate = asyncErrorHandler(async (req, res) => {
+  const { date } = req.query;
+  const paymentDetails = await Payment.aggregate([
+    {
+      $match: {
+        $expr: {
+          $eq: [
+            { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            date,
+          ],
+        },
+      },
+    },
+    {
+      $project: { createdAt: 1, amount: 1, payment_status: 1 },
+    },
+  ]);
+  const totalPendingAmount = await calculateAmount(paymentDetails, "Pending");
+  const totalCompletedAmount = await calculateAmount(
+    paymentDetails,
+    "Completed"
+  );
+  const totalProcureDelivered = await calculateProcureQuantity(
+    paymentDetails,
+    "Completed"
+  );
+  let data = {
+    sentAmount: totalCompletedAmount,
+    dueAmount: totalPendingAmount,
+    ProcurementDelivered: totalProcureDelivered,
+  };
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("PaymentByDate"),
+    data: data,
+  });
+});
+//payment status by batch
+module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+  const skip = (page - 1) * limit;
+
+  const paymentDetails = await Payment.find()
+    .select("initiated_at req_id ho_approve_by")
+    .populate({ path: "ho_approve_by", select: "" })
+    .populate({ path: "req_id", select: "reqNo" })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+
+  const totalCount = await Payment.countDocuments();
+
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("PaymentActivity"),
+    data: {
+      paymentDetails,
+      totalCount,
+      pages: Math.ceil(totalCount / limit),
+      limit: limit,
+      page: page,
+    },
+  });
+});
+const calculateProcureQuantity = async (paymentDetails, status) => {
+  return paymentDetails
+    .filter((item) => item.payment_status == status)
+    .reduce((acc, item) => acc + item.qtyProcured, 0);
+};
+const calculateAmount = async (paymentDetails, status) => {
+  return paymentDetails
+    .filter((item) => item.payment_status == status)
+    .reduce((acc, item) => acc + item.amount, 0);
+};
 //procurementOnTime
 module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
   let data = [
