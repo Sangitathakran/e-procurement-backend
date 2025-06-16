@@ -314,4 +314,3 @@ module.exports.verifyAadharOTP = async (req, res) => {
   }
 };
 
-
