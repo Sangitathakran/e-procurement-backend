@@ -613,6 +613,7 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     const skip = (page - 1) * limit;
     const isExport = parseInt(req.query.isExport) === 1;
     const centerSearch = req.query.search?.trim();
+  
 
     // Get payment batch IDs
     const payments = await Payment.find().lean();
@@ -843,7 +844,7 @@ module.exports.incidentalExpense = async (req, res) => {
       state = '',
       season = '',
       district = '',
-      schemeName = '',   // added schemeName from query
+      schemeName = '', 
     } = req.query;
 
     const { user_id } = req;
@@ -1007,6 +1008,8 @@ module.exports.incidentalExpense = async (req, res) => {
     });
   }
 };
+
+
 
 
 // module.exports.purchaseLifingMandiWise = async (req, res) => {
