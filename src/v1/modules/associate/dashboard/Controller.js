@@ -90,264 +90,128 @@ const { LexRuntimeV2 } = require("aws-sdk");
 module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   try {
     const { user_id } = req;
-    let { schemeName, commodity, district } = req.query;
+    const { schemeName, commodity, district } = req.query;
     const userObjectId = new mongoose.Types.ObjectId(user_id);
 
     let widgetDetails = {};
 
-    // Normalize filters
-    const commodityArray = commodity ? (Array.isArray(commodity) ? commodity : [commodity]):[];
+    //filter
+    const commodityArray = commodity ? (Array.isArray(commodity) ? commodity : [commodity]) : [];
     const regexCommodity = commodityArray.map(name => new RegExp(name, 'i'));
 
-    const schemaArray = schemeName ? (Array.isArray(schemeName) ? schemeName : [schemeName]):[];
-    const objectIdArray = schemaArray.map(id => {
-        if (mongoose.Types.ObjectId.isValid(id)) {
-          return new mongoose.Types.ObjectId(id);
-        }
-        return null;
-      })
+    const schemeArray = schemeName ? (Array.isArray(schemeName) ? schemeName : [schemeName]) : [];
+    const objectIdArray = schemeArray
+      .map(id => (mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null))
       .filter(id => id !== null);
 
-
-    const districtArray = district
-      ? (Array.isArray(district) ? district : [district])
-      : [];
-
+    const districtArray = district ? (Array.isArray(district) ? district : [district]) : [];
     const regexDistrict = districtArray.map(title => new RegExp(`^${title}$`, 'i'));
 
-    // Get district ObjectIds from district titles
     const districtDocs = await StateDistrictCity.aggregate([
       { $unwind: "$states" },
       { $unwind: "$states.districts" },
-      {
-        $match: {
-          "states.districts.district_title": { $in: regexDistrict }
-        }
-      },
-      {
-        $project: {
-          _id: "$states.districts._id",
-          district_title: "$states.districts.district_title"
-        }
-      }
+      { $match: { "states.districts.district_title": { $in: regexDistrict } } },
+      { $project: { _id: "$states.districts._id" } }
     ]);
-
     const districtObjectIds = districtDocs.map(d => d._id);
 
-    // Farmer Count Calculation
+    //farmer count
     const baseFarmerQuery = { associate_id: userObjectId };
+    if (districtArray.length || commodityArray.length || schemeArray.length) {
+      const requestFilter = {};
+      if (commodityArray.length) requestFilter['product.name'] = { $in: regexCommodity };
+      if (objectIdArray.length) requestFilter['product.schemeId'] = { $in: objectIdArray };
 
-    if (commodityArray.length || districtObjectIds.length || schemaArray.length) {
-
-      let requestFilter = {};
-      if (commodityArray.length) {
-        requestFilter['product.name'] = { $in: regexCommodity };
-      }
-      //Scheme Filter
-      // const results = await RequestModel.find({
-      // 'product.schemeId': { $in: objectIdArray }
-      // });
-      //  requestFilter = results.map(doc => doc.product.schemeId);
-      // const scheme = await RequestModel.find({
-      //   requestFilter : {$in : schemeName}
-      // }).select('_id')
-      
-      // find request IDs based on commodity
       const requestIds = await RequestModel.find(requestFilter).distinct('_id');
+      const paymentFarmerIds = await Payment.find({ req_id: { $in: requestIds } }).distinct('farmer_id');
 
-      //find farmer IDs from Payment collection based on request IDs
-      const paymentFarmerIds = await Payment.find({
-        req_id: { $in: requestIds }
-      }).distinct('farmer_id');
-
-      //Apply district filter to farmers if needed
       const farmerFilterQuery = { _id: { $in: paymentFarmerIds } };
+      if (districtObjectIds.length) farmerFilterQuery['address.district_id'] = { $in: districtObjectIds };
 
-      if (districtObjectIds.length) {
-        farmerFilterQuery['address.district_id'] = { $in: districtObjectIds };
-      }
       const filteredFarmerIds = await farmer.find(farmerFilterQuery).distinct('_id');
-
-      // Final filter
       baseFarmerQuery._id = { $in: filteredFarmerIds };
     }
     widgetDetails.farmertotal = await farmer.countDocuments(baseFarmerQuery);
 
-
-    //Procurement Center Count
+    //procurementcenter count
     const basePOCQuery = { user_id: userObjectId };
-    if (commodityArray.length || districtArray.length) {
-      let requestFilter = {};
+    if (districtArray.length || commodityArray.length || schemeArray.length) {
+      const requestFilter = {};
       if (commodityArray.length) requestFilter['product.name'] = { $in: regexCommodity };
+      if (objectIdArray.length) requestFilter['product.schemeId'] = { $in: objectIdArray };
 
       const requestIds = await RequestModel.find(requestFilter).distinct('_id');
       const batchPOCs = await Batch.find({ req_id: { $in: requestIds } }).distinct('procurementCenter_id');
 
       basePOCQuery._id = { $in: batchPOCs };
-      if (districtArray.length) {
-        basePOCQuery['address.district'] = { $in: regexDistrict };
-      }
+      if (districtArray.length) basePOCQuery['address.district'] = { $in: regexDistrict };
     }
-
     widgetDetails.procurementCenter = await ProcurementCenter.countDocuments(basePOCQuery);
 
+    //total purchased quantity
+    const purchasedMatch = { seller_id: userObjectId };
+    if (commodityArray.length || schemeArray.length || districtArray.length) {
+      const requestFilter = {};
+      if (commodityArray.length) requestFilter['product.name'] = { $in: regexCommodity };
+      if (objectIdArray.length) requestFilter['product.schemeId'] = { $in: objectIdArray };
+      const requestIds = await RequestModel.find(requestFilter).distinct('_id');
 
-    // Total Purchased and Lifting with filters
-    const totalPurchased = await Batch.aggregate([
-      { $match: { seller_id: new mongoose.Types.ObjectId(user_id) } },
+      if (requestIds.length) purchasedMatch.req_id = { $in: requestIds };
+    }
+    const purchased = await Batch.aggregate([
+      { $match: purchasedMatch },
       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
     ]);
-    widgetDetails.totalPurchased = totalPurchased[0]?.totalQty || 0;
+    widgetDetails.totalPurchased = purchased[0]?.totalQty || 0;
 
-    if (districtArray.length || commodityArray.length) {
+    //total lifting quantity
+    const liftingMatch = { seller_id: userObjectId, intransit: { $exists: true, $ne: null } };
+    if (commodityArray.length || schemeArray.length || districtArray.length) {
+      const requestFilter = {};
+      if (commodityArray.length) requestFilter['product.name'] = { $in: regexCommodity };
+      if (objectIdArray.length) requestFilter['product.schemeId'] = { $in: objectIdArray };
+      const requestIds = await RequestModel.find(requestFilter).distinct('_id');
 
-      let POCIDs = await Batch.find({
-        seller_id: new mongoose.Types.ObjectId(user_id)
-      }).select('procurementCenter_id req_id');
-      const commIDs = POCIDs.map(e => e.req_id)
-
-      // District Count
-      let districtName = await ProcurementCenter.find({
-        'address.district': { $in: districtArray }
-      }).select('_id')
-      const districtPOCIDs = districtName.map(d => d._id);
-      let DisPOCIDs = await RequestModel.find({
-        'product.name': { $in: districtArray }
-      }).select('_id');
-
-      //Commodity Count 
-      let commodityReqIds = await RequestModel.find({
-        _id: { $in: commIDs },
-      }).select('_id')
-
-      let commodityReqMatchDocs = await RequestModel.find({
-        _id: { $in: commodityReqIds },
-        'product.name': { $in: commodityArray }
-      }).select("_id")
-      const commodityReqMatchIds = commodityReqMatchDocs.map(doc => doc._id);
-
-      let districtIDsforQty = await Batch.aggregate([
-        {
-          $match: {
-            $or: [
-              { req_id: { $in: commodityReqMatchIds } },
-              { procurementCenter_id: { $in: districtPOCIDs } }
-            ]
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            totalQty: { $sum: "$qty" }
-          }
-        }
-      ]);
-      widgetDetails.totalPurchased = districtIDsforQty.length > 0 ? districtIDsforQty[0].totalQty : 0
+      if (requestIds.length) liftingMatch.req_id = { $in: requestIds };
     }
+    const lifting = await Batch.aggregate([
+      { $match: liftingMatch },
+      { $group: { _id: null, totalQty: { $sum: "$qty" } } }
+    ]);
+    widgetDetails.totalLifting = lifting[0]?.totalQty || 0;
 
-    // Calculate IST offset (UTC+5:30)
+    //total Lifting Days(suggeted by Neeraj sir)
     const now = new Date();
     const istOffset = 5.5 * 60 * 60 * 1000;
     const utcMidnight = new Date(now.setUTCHours(0, 0, 0, 0));
     const startOfDayIST = new Date(utcMidnight.getTime() - istOffset);
     const endOfDayIST = new Date(startOfDayIST.getTime() + 24 * 60 * 60 * 1000 - 1);
 
-    //Day purchase
-    const totalDayPurchase = await Batch.aggregate([
-      {
-        $match: {
-          seller_id: new mongoose.Types.ObjectId(user_id),
-          delivered: { $exists: true, $ne: null },
-          updatedAt: { $gte: startOfDayIST, $lt: endOfDayIST }
-        },
-        
-      },
-      { $group: { _id: null, totalQty: { $sum: "$qty" } } }
-    ]);
-    widgetDetails.totalDayPurchase = totalDayPurchase[0]?.totalQty || 0;
-    const batches = await Batch.find({
-      seller_id: new mongoose.Types.ObjectId(user_id), intransit: { $exists: true, $ne: null },
+    const dayPurchaseMatch = {
+      seller_id: userObjectId,
+      delivered: { $exists: true, $ne: null },
       updatedAt: { $gte: startOfDayIST, $lt: endOfDayIST }
-    })
-      .populate('req_id', 'createdAt') // populate only createdAt from Request
-      .select('qty updatedAt req_id'); // fetch only necessary fields
-
-    // Step 2: Calculate totalQty and totalDays
-    let totalQty = 0;
-    let totalDays = 0;
-    for (const batch of batches) {
-      totalQty += batch.qty || 0;
-    }
-
-    widgetDetails.totalDaysLifting = totalQty;
-
-     //total Lifting
-    const totalLifting = await Batch.aggregate([
-      { $match: { seller_id: new mongoose.Types.ObjectId(user_id), intransit: { $exists: true, $ne: null } } },
+    };
+    const dayPurchase = await Batch.aggregate([
+      { $match: dayPurchaseMatch },
       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
     ]);
-    widgetDetails.totalLifting = totalLifting[0]?.totalQty || 0;
+    widgetDetails.totalDayPurchase = dayPurchase[0]?.totalQty || 0;
 
-    if (districtArray.length || commodityArray.length) {
+    const todayLiftingBatches = await Batch.find({
+      seller_id: userObjectId,
+      intransit: { $exists: true, $ne: null },
+      updatedAt: { $gte: startOfDayIST, $lt: endOfDayIST }
+    }).select('qty');
 
-      let totalLifting_POCIDs = await Batch.find({
-        seller_id: new mongoose.Types.ObjectId(user_id),
-        intransit: { $exists: true, $ne: null }
-      }).select('procurementCenter_id req_id');
-      const commIDs = totalLifting_POCIDs.map(e => e.req_id)
-
-      //district Count
-      let districtName = await ProcurementCenter.find({
-        'address.district': { $in: districtArray }
-      }).select('_id')
-
-      const districtPOCIDs = districtName.map(d => d._id);
-      let DisPOCIDs = await RequestModel.find({
-        'product.name': { $in: districtArray }
-      }).select('_id');
-
-      //Commodity Count 
-      let commodityReqIds = await RequestModel.find({
-        _id: { $in: commIDs },
-      }).select('_id')
-
-      let commodityReqMatchDocs = await RequestModel.find({
-        _id: { $in: commodityReqIds },
-        'product.name': { $in: commodityArray }
-      }).select("_id")
-      const commodityReqMatchIds = commodityReqMatchDocs.map(doc => doc._id);
-
-      let districtIDsforQty = await Batch.aggregate([
-        {
-          $match: {
-            seller_id: new mongoose.Types.ObjectId(user_id),
-            intransit: { $exists: true, $ne: null },
-            $or: [
-              { req_id: { $in: commodityReqMatchIds } },
-              { procurementCenter_id: { $in: districtPOCIDs } }
-            ]
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            totalQty: { $sum: "$qty" }
-          }
-        }
-      ]);
-      widgetDetails.totalLifting = districtIDsforQty.length > 0 ? districtIDsforQty[0].totalQty : 0
-    }
-
-
-
-    // widgetDetails.totalDays = totalQty
-
+    const totalLiftingQtyToday = todayLiftingBatches.reduce((sum, b) => sum + (b.qty || 0), 0);
+    widgetDetails.totalDaysLifting = totalLiftingQtyToday;
 
     return sendResponse({
       res,
       status: 200,
       message: _query.get("Widget List"),
-      data: widgetDetails,
+      data: widgetDetails
     });
   } catch (error) {
     console.error("Error in widgetList:", error);
@@ -355,10 +219,11 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       res,
       status: 500,
       message: "Internal Server Error",
-      error: error.message,
+      error: error.message
     });
   }
 });
+
 
 
 
@@ -618,6 +483,7 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     // Get payment batch IDs
     const payments = await Payment.find().lean();
     const batchIdSet = [...new Set(payments.map((p) => String(p.batch_id)).filter(Boolean))];
+    console.log(batchIdSet)
 
     const pipeline = [
       {
@@ -680,7 +546,13 @@ module.exports.mandiWiseProcurement = async (req, res) => {
               {
                 $dateDiff: {
                   startDate: "$relatedRequest.createdAt",
-                  endDate: "$createdAt",
+                  endDate: {
+                      $cond: [
+                        { $ifNull: ["$deliveryDate", false] },
+                        "$deliveryDate",
+                        "$updatedAt"
+                      ]
+                    },
                   unit: "day",
                 },
               },
@@ -713,7 +585,16 @@ module.exports.mandiWiseProcurement = async (req, res) => {
           associate_name: {
             $first: "$seller.basic_details.associate_details.associate_name",
           },
-          liftedQty: { $sum: "$qty" },
+          totalPurchase:{$sum:"$qty"},
+          liftedQty: {
+              $sum: {
+                $cond: [
+                  { $ne: [{ $ifNull: ["$intransit", null] }, null] },
+                  "$qty",
+                  0
+                ]
+              }
+          },
           offeredQty: { $first: { $ifNull: ["$associateOffer.offeredQty", 0] } },
           liftedDataDays: { $first: "$liftedDataDays" },
           purchaseDays: { $first: "$purchaseDays" },
@@ -750,12 +631,15 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     if (districtArray.length > 0) {
       filterMatch.district = { $in: districtArray };
     }
+
     if (commodityArray.length > 0) {
       filterMatch.productName = { $in: commodityArray };
     }
+
     if (schemeArray.length > 0) {
       filterMatch.schemeId = { $in: schemeArray };
     }
+    
     if (Object.keys(filterMatch).length > 0) {
       pipeline.push({ $match: filterMatch });
     }
