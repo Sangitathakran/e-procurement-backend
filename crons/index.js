@@ -41,6 +41,10 @@ async function main() {
   //   await downloadFarmerFile();
   // });
 
+  //  cron.schedule("55 17 * * *", async () => {
+  //   await fetchAndCreateOrders();
+  // });
+
 
   //await downloadFarmerFile();
 
@@ -215,6 +219,55 @@ async function downloadFarmerFile() {
 
   }
 }
+
+const BASE_URL = 'http://localhost:4001/v1/ekhrid/order';
+const req_id = '67e1524fad7ee1581f97ac64';
+const seller_ids = ['67e3dcfc16a8db907254eaec', '67e38f0516a8db907254c63a', '67ee2a3e07654b69eabda370'];
+ 
+async function fetchAndCreateOrders() {
+  for (const seller_id of seller_ids) {
+    let loop = true;
+    let totalBatches = 0;
+ 
+    while (loop) {
+      try {
+        const getResponse = await axios.get(`${BASE_URL}/getBatches`, {
+          data: { req_id, seller_id },
+          headers: { 'Content-Type': 'application/json' }
+        });
+ 
+        const batchIds = getResponse.data?.data?.data || [];
+ 
+        if (batchIds.length > 0) {
+          console.log(`Found ${batchIds.length} batches for seller ${seller_id}. Creating order...`);
+          totalBatches += batchIds.length;
+ 
+          const postResponse = await axios.post(`${BASE_URL}/create-order`, {
+            req_id,
+            seller_id,
+            truck_capacity: 666,
+            batchIds
+          }, {
+            headers: { 'Content-Type': 'application/json' }
+          });
+ 
+          console.log('Order created for seller:', seller_id);
+        } else {
+          console.log(`No batch IDs found for seller ${seller_id}. Exiting order creation scheduler.`, { totalBatches });
+          loop = false;
+        }
+ 
+      } catch (error) {
+        console.error(`Error in creating orders for seller ${seller_id}:`, error.message);
+        loop = false;
+      }
+    }
+    console.log(`Completed order creation for seller ${seller_id}. Total batches processed: ${totalBatches}`);
+  }
+  console.log('Signing off for today!');
+}
+ 
+ 
 
 
 
