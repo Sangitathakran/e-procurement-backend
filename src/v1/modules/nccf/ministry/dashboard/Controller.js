@@ -731,6 +731,88 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
   }
 });
 
+
+module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
+  try {
+    // 1. Distiller counts
+    const distillerState = Distiller.aggregate([
+      { $group: { _id: '$address.registered.state', distillerCount: { $sum: 1 } } }
+    ]);
+
+    // 2. Warehouse counts and requiredStock
+    const warehouseState = wareHouseDetails.aggregate([
+      {
+        $group: {
+          _id: '$addressDetails.state.state_name',
+          warehouseCount: { $sum: 1 },
+          totalRequiredStock: { $sum: '$inventory.requiredStock' }
+        }
+      }
+    ]);
+
+    // 3. Batch-order stats via PurchaseOrder → Distiller → State
+    const batchState = BatchOrderProcess.aggregate([
+      { $lookup: { from: 'purchaseorders', localField: 'orderId', foreignField: '_id', as: 'po' } },
+      { $unwind: '$po' },
+      { $lookup: { from: 'distillers', localField: 'po.distiller_id', foreignField: '_id', as: 'dist' } },
+      { $unwind: '$dist' },
+      {
+        $group: {
+          _id: '$dist.address.registered.state',
+          batchCount: { $sum: 1 },
+          totalBatchQty: { $sum: '$quantityRequired' }
+        }
+      }
+    ]);
+
+    // 4. Totals
+    const totalDistillers = Distiller.countDocuments();
+    const totalWarehouses = wareHouseDetails.countDocuments();
+
+    const [dState, wState, bState, totalD, totalW] = await Promise.all([
+      distillerState, warehouseState, batchState, totalDistillers, totalWarehouses
+    ]);
+
+    // Combine all states into one map
+    const map = {};
+
+    dState.forEach(d => {
+      const state = d._id || 'Unknown';
+      map[state] = { state, distillerCount: d.distillerCount, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
+    });
+    wState.forEach(w => {
+      const state = w._id || 'Unknown';
+      if (!map[state]) map[state] = { state, distillerCount: 0, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
+      map[state].warehouseCount = w.warehouseCount;
+      map[state].totalRequiredStock = w.totalRequiredStock;
+    });
+    bState.forEach(b => {
+      const state = b._id || 'Unknown';
+      if (!map[state]) map[state] = { state, distillerCount: 0, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
+      map[state].batchOrderCount = b.batchCount;
+      map[state].totalBatchQty = b.totalBatchQty;
+    });
+
+    const response = {
+      totalDistillers: totalD,
+      totalWarehouses: totalW,
+      stateWiseStats: Object.values(map),      
+    };
+
+    // res.status(200).json({ success: true, data: response });
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: response,
+      message: _response_message.found("State wise analysis"),
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+
 module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
   try {
     let {
