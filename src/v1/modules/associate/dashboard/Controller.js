@@ -588,7 +588,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 module.exports.mandiWiseProcurement = async (req, res) => {
   try {
     const { user_id } = req;
-    const { commodity, district, schemeName } = req.query;
+    const { commodity, district, schemeName, search  } = req.query;
 
     // Normalize query params to arrays or empty arrays
     const commodityArray = commodity
@@ -613,6 +613,7 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     const skip = (page - 1) * limit;
     const isExport = parseInt(req.query.isExport) === 1;
     const centerSearch = req.query.search?.trim();
+  
 
     // Get payment batch IDs
     const payments = await Payment.find().lean();
@@ -761,8 +762,16 @@ module.exports.mandiWiseProcurement = async (req, res) => {
 
     // Center name search filter if any
     if (centerSearch && centerSearch.length > 0) {
+      const searchRegex = new RegExp(centerSearch, "i");
       pipeline.push({
-        $match: { centerName: { $regex: centerSearch, $options: "i" } },
+        // $match: { centerName: { $regex: centerSearch, $options: "i" } },
+         $match: {
+            $or: [
+              { centerName: { $regex: searchRegex } },
+              { productName: { $regex: searchRegex } },
+              { district: { $regex: searchRegex } },
+            ],
+          },
       });
       page = 1;
     }
@@ -835,7 +844,7 @@ module.exports.incidentalExpense = async (req, res) => {
       state = '',
       season = '',
       district = '',
-      schemeName = '',   // added schemeName from query
+      schemeName = '', 
     } = req.query;
 
     const { user_id } = req;
@@ -999,6 +1008,8 @@ module.exports.incidentalExpense = async (req, res) => {
     });
   }
 };
+
+
 
 
 // module.exports.purchaseLifingMandiWise = async (req, res) => {
