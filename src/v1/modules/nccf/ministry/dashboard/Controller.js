@@ -612,7 +612,6 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
   }
 });
 
-
 module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
   try {
     const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
@@ -664,7 +663,8 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
       {
         $match: {
           "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
-          deletedAt: null
+          deletedAt: null,
+          status: { $ne: "Completed" }
         }
       },
       {
@@ -730,7 +730,6 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
-
 
 module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
   try {
