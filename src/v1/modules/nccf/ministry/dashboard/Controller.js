@@ -463,7 +463,21 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
 
     const result = { count: 0 };
     withoutPaginationPipeline.push({ $count: "count" })
+    ///////////////////
+    const liftingQtySumPipeline = aggregationPipeline
+      .slice(0, aggregationPipeline.findIndex(stage => stage.$group)) // Up to $group stage
+      .concat([
+        {
+          $group: {
+            _id: null,
+            totalLiftingQty: { $sum: "$quantityRequired" }
+          }
+        }
+      ]);
 
+    const [liftingQtyResult] = await BatchOrderProcess.aggregate(liftingQtySumPipeline);
+    result.totalLiftingQty = liftingQtyResult?.totalLiftingQty ?? 0;
+    //////////////
     result.rows = await BatchOrderProcess.aggregate(aggregationPipeline);
     const totalCount = await BatchOrderProcess.aggregate(withoutPaginationPipeline);
 
@@ -562,13 +576,27 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
       { $limit: parseInt(limit) }
     );
 
-    withoutPaginationPipeline.push({ $count: "count" })
+    // Count total documents
+    const countPipeline = [...withoutPaginationPipeline, { $count: "count" }];
 
-    const result = { count: 0 };
+    // Sum of poAmount
+    const sumPipeline = [
+      ...withoutPaginationPipeline,
+      {
+        $group: {
+          _id: null,
+          totalPoAmount: { $sum: "$poAmount" }
+        }
+      }
+    ];
+
+    const result = { count: 0, totalPoAmount: 0 };
     result.rows = await PurchaseOrderModel.aggregate(pipeline);
-    const totalCount = await PurchaseOrderModel.aggregate(withoutPaginationPipeline);
+    const [countResult] = await PurchaseOrderModel.aggregate(countPipeline);
+    const [sumResult] = await PurchaseOrderModel.aggregate(sumPipeline);
 
-    result.count = totalCount?.[0]?.count ?? 0;
+    result.count = countResult?.count ?? 0;
+    result.totalPoAmount = sumResult?.totalPoAmount ?? 0;
     result.page = page;
     result.limit = limit;
     result.pages = limit != 0 ? Math.ceil(result.count / limit) : 0;
@@ -583,6 +611,7 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
 
 module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
   try {
@@ -649,28 +678,46 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
           poAmount: "$paymentInfo.totalAmount",
           state: "$distillers.address.registered.state",
           district: "$distillers.address.registered.district",
+          createdAt: 1 // needed for sorting
         }
       },
       {
         $sort: { createdAt: -1 }
       }
     ];
+
     const withoutPaginationPipeline = [...pipeline];
 
+    // Pagination
     pipeline.push(
       { $skip: parseInt(skip) },
       { $limit: parseInt(limit) }
     );
 
-    withoutPaginationPipeline.push({ $count: "count" })
+    // Count total documents
+    const countPipeline = [...withoutPaginationPipeline, { $count: "count" }];
 
-    const result = { count: 0 };
+    // Sum of poAmount
+    const totalAmountPipeline = [
+      ...withoutPaginationPipeline,
+      {
+        $group: {
+          _id: null,
+          totalPoAmount: { $sum: "$poAmount" }
+        }
+      }
+    ];
+
+    const result = { count: 0, totalPoAmount: 0 };
     result.rows = await PurchaseOrderModel.aggregate(pipeline);
-    const totalCount = await PurchaseOrderModel.aggregate(withoutPaginationPipeline);
 
-    result.count = totalCount?.[0]?.count ?? 0;
-    result.page = page;
-    result.limit = limit;
+    const [countResult] = await PurchaseOrderModel.aggregate(countPipeline);
+    const [sumResult] = await PurchaseOrderModel.aggregate(totalAmountPipeline);
+
+    result.count = countResult?.count ?? 0;
+    result.totalPoAmount = sumResult?.totalPoAmount ?? 0;
+    result.page = parseInt(page);
+    result.limit = parseInt(limit);
     result.pages = limit != 0 ? Math.ceil(result.count / limit) : 0;
 
     return res.status(200).send(new serviceResponse({
@@ -683,6 +730,7 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
 
 module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
   try {
