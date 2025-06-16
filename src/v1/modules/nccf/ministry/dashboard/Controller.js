@@ -794,12 +794,18 @@ module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
     });
 
     const response = {
-      stateWiseStats: Object.values(map),
       totalDistillers: totalD,
-      totalWarehouses: totalW
+      totalWarehouses: totalW,
+      stateWiseStats: Object.values(map),      
     };
 
-    res.status(200).json({ success: true, data: response });
+    // res.status(200).json({ success: true, data: response });
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: response,
+      message: _response_message.found("State wise analysis"),
+    }));
 
   } catch (error) {
     _handleCatchErrors(error, res);
