@@ -16,7 +16,7 @@ const { mongoose } = require("mongoose");
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
   try {
-     const {state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
 
     const now = new Date();
 
@@ -165,7 +165,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
 module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
   try {
-      const {state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
 
     const monthlySummary = await BatchOrderProcess.aggregate([
       {
@@ -220,7 +220,7 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
 
 module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
   try {
-      const {state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
 
     const monthlyPayments = await PurchaseOrderModel.aggregate([
       {
@@ -274,7 +274,7 @@ module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
 
 module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
   try {
-      const {state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
 
     const result = await PurchaseOrderModel.aggregate([
       // Lookup to get branch details including state
@@ -381,7 +381,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
           }
         }]
         : []),
-        {
+      {
         $lookup: {
           from: "purchaseorders",
           localField: "orderId",
@@ -431,7 +431,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
       {
         $project: {
           _id: 0,
-          commodity:'$purchaseorders.product.name',
+          commodity: '$purchaseorders.product.name',
           warehouseId: "$_id",
           warehouseName: 1,
           liftingQty: 1,
@@ -584,44 +584,144 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
   }
 });
 
+module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
+  try {
+    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
+
+    // Reject special characters in search
+    if (/[.*+?^${}()|[\]\\]/.test(search)) {
+      return sendResponse({
+        res,
+        status: 400,
+        errorCode: 400,
+        errors: [{ message: "Do not use any special character" }],
+        message: "Do not use any special character"
+      });
+    }
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0
+      ? commodity.split(',').map(name => name.trim())
+      : [];
+
+    const pipeline = [
+      {
+        $lookup: {
+          from: "distillers",
+          localField: "distiller_id",
+          foreignField: "_id",
+          as: "distillers"
+        }
+      },
+      { $unwind: { path: "$distillers", preserveNullAndEmptyArrays: true } },
+      ...(search
+        ? [{
+          $match: { 'distillers.basic_details.distiller_details.organization_name': { $regex: search, $options: 'i' } }
+        }]
+        : []),
+      ...(state
+        ? [{
+          $match: {
+            'distillers.address.registered.state': { $regex: state, $options: 'i' }
+          }
+        }]
+        : []),
+      ...(commodityNames.length > 0
+        ? [{
+          $match: {
+            'product.name': { $in: commodityNames }
+          }
+        }]
+        : []),
+      {
+        $match: {
+          "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+          deletedAt: null
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          orderId: "$purchasedOrder.poNo",
+          distillerName: "$distillers.basic_details.distiller_details.organization_name",
+          poToken: "$paymentInfo.token",
+          commodity: "$product.name",
+          quantity: "$purchasedOrder.poQuantity",
+          poAmount: "$paymentInfo.totalAmount",
+          state: "$distillers.address.registered.state",
+          district: "$distillers.address.registered.district",
+        }
+      },
+      {
+        $sort: { createdAt: -1 }
+      }
+    ];
+    const withoutPaginationPipeline = [...pipeline];
+
+    pipeline.push(
+      { $skip: parseInt(skip) },
+      { $limit: parseInt(limit) }
+    );
+
+    withoutPaginationPipeline.push({ $count: "count" })
+
+    const result = { count: 0 };
+    result.rows = await PurchaseOrderModel.aggregate(pipeline);
+    const totalCount = await PurchaseOrderModel.aggregate(withoutPaginationPipeline);
+
+    result.count = totalCount?.[0]?.count ?? 0;
+    result.page = page;
+    result.limit = limit;
+    result.pages = limit != 0 ? Math.ceil(result.count / limit) : 0;
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: result,
+      message: _response_message.found("PO Raised"),
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
 module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
- try {
-      let {
-        page = 1,
-        limit = 10,
-        search = '',
-        state = '',
-        district = '',
-        isExport = 0,
-      } = req.query;
-      const skip = (parseInt(page) - 1) * parseInt(limit);
-      const sort = { state: 1 };
-  
-      const query = {};
-      if (search) {
-        query.$or = [
-          { state: { $regex: search, $options: 'i' } },
-          { district: { $regex: search, $options: 'i' } },
-          { center_location: { $regex: search, $options: 'i' } },
-        ];
-      }
-      if (state) {
-        query.state = { $regex: state, $options: 'i' };
-      }
-  
-      if (district) {
-        query.district = { $regex: district, $options: 'i' };
-      }
-  
-       if (parseInt(isExport) === 1) {
+  try {
+    let {
+      page = 1,
+      limit = 10,
+      search = '',
+      state = '',
+      district = '',
+      isExport = 0,
+    } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sort = { state: 1 };
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        { state: { $regex: search, $options: 'i' } },
+        { district: { $regex: search, $options: 'i' } },
+        { center_location: { $regex: search, $options: 'i' } },
+      ];
+    }
+    if (state) {
+      query.state = { $regex: state, $options: 'i' };
+    }
+
+    if (district) {
+      query.district = { $regex: district, $options: 'i' };
+    }
+
+    if (parseInt(isExport) === 1) {
       const exportData = await CenterProjection.find(query).sort(sort);
 
       const formattedData = exportData.map((item) => ({
         "Center Location": item.center_location || "NA",
         "State": item.state || "NA",
         "District": item.district || "NA",
-        "Center Projection":item.current_projection || "NA",
-         "Qty Booked": item.qty_booked || "NA",
+        "Center Projection": item.current_projection || "NA",
+        "Qty Booked": item.qty_booked || "NA",
       }));
 
       if (formattedData.length > 0) {
@@ -639,29 +739,29 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
       }
     }
 
-      const [total, data] = await Promise.all([
-        CenterProjection.countDocuments(query),
-        CenterProjection.find(query)
-          .sort(sort)
-          .skip(skip)
-          .limit(parseInt(limit))
-      ]);
-      const pages = limit != 0 ? Math.ceil(total / limit) : 0;
-      return res.status(200).json({
-        status: 200,
-        data,
-        total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages,
-        message: "Center Projections fetched successfully"
-      });
-  
-    } catch (error) {
-      return res.status(500).json({
-        status: 500,
-        message: "Error fetching center projections ",
-        error: error.message
-      });
-    }
+    const [total, data] = await Promise.all([
+      CenterProjection.countDocuments(query),
+      CenterProjection.find(query)
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit))
+    ]);
+    const pages = limit != 0 ? Math.ceil(total / limit) : 0;
+    return res.status(200).json({
+      status: 200,
+      data,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      pages,
+      message: "Center Projections fetched successfully"
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      status: 500,
+      message: "Error fetching center projections ",
+      error: error.message
+    });
+  }
 });

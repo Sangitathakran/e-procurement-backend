@@ -19,7 +19,8 @@ module.exports = {
     THIRD_PARTY_API_KEY: process.env.THIRD_PARTY_API_KEY,
     connection_string: process.env.CONNECTION_STRING,
     platform_org: process.env.PLATFORM_ORG,
-
+    app_name: process.env.APP_NAME,
+    license_key: process.env.LICENSE_KEY,
     mailer: {
         service: 'gmail',
         host: 'smtp.mailtrap.io',
@@ -40,6 +41,6 @@ module.exports = {
         bucketName: process.env.BUCKET_NAME
     },
     logEmails: 'imran@radiantinfonet.com , maneesh@radiantinfonet.com ,ayush@navankur.org , dileep@radiantinfonet.com',
-    AADHAR_SERVICE_PROVIDER_KEY : process.env.AADHAR_VERIFICATION_API_KEY,
-    AADHAR_SERVICE_PROVIDER : process.env.AADHAR_VERIFICATION_API_PROVIDER
+    AADHAR_SERVICE_PROVIDER_KEY: process.env.AADHAR_VERIFICATION_API_KEY,
+    AADHAR_SERVICE_PROVIDER: process.env.AADHAR_VERIFICATION_API_PROVIDER
 }
