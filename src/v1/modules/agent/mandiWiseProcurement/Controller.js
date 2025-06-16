@@ -12,6 +12,7 @@ const {
   _response_message,
 } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
+const { User } = require("@src/v1/models/app/auth/User");
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
@@ -22,7 +23,7 @@ module.exports.getMandiProcurement = asyncErrorHandler(async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
   let skip = (page - 1) * limit;
   const isExport = parseInt(req.query.isExport) === 1;
-  const centerNames = req.query.search?.trim();
+  const search = req.query.search?.trim();
   const searchDistrict = req.query.districtNames?.trim() || null;
   const associateName = req.query.associateName?.trim() || null;
 
@@ -118,6 +119,18 @@ module.exports.getMandiProcurement = asyncErrorHandler(async (req, res) => {
         },
     },
 ];
+if (search) {
+    pipeline.push({
+      $match: {
+        $or: [
+          { "center.center_name": { $regex: new RegExp(search, "i") } },
+          { "seller.address.registered.district": { $regex: new RegExp(search, "i") } },
+        ],
+      },
+    });
+    page = 1;
+    skip = 0;
+  }
 
     if (searchDistrict) {
     pipeline.push({
@@ -171,16 +184,6 @@ module.exports.getMandiProcurement = asyncErrorHandler(async (req, res) => {
       },
     },
 );
-  
-  if (centerNames?.length) {
-    pipeline.push({
-      $match: {
-        centerName: { $regex: centerNames, $options: "i" },
-      },
-    });
-    page = 1;
-    skip = 0;
-  }
   if (associateName?.length) {
     pipeline.push({
       $match: {
@@ -260,3 +263,36 @@ pipeline.push({
     })
   );
 });
+module.exports.getAssociates = async (req, res) => {
+  const query = { active: true, deletedAt: null };
+  const stateName = req.query.stateName?.trim() || null; 
+
+  try {
+    const matchStage = { $match: query };
+
+    const pipeline = [matchStage];
+
+    if (stateName) {
+      pipeline.push({
+        $match: {
+          "address.registered.state": { $regex: new RegExp(stateName, "i") },
+        },
+      });
+    }
+
+    pipeline.push({
+      $project: {
+        name: "$basic_details.associate_details.associate_name",
+        organization_name: "$basic_details.associate_details.organization_name",
+      },
+    });
+
+    const associate_list = await User.aggregate(pipeline);
+
+    return sendResponse({ res, message: "",  data: associate_list });
+   
+  } catch (err) {
+    console.log("ERROR: ", err);
+    return sendResponse({ status: 500, message: err.message });
+  }
+};
