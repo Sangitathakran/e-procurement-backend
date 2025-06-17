@@ -20,7 +20,7 @@ const mongoose = require("mongoose");
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 const { LexRuntimeV2 } = require("aws-sdk");
-
+const { escapeRegex } = require("@src/v1/utils/helpers/regex");
 //widget listss
 
 // module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
@@ -96,9 +96,6 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     let widgetDetails = {};
     
     //It will filter the special character
-    function escapeRegex(str) {
-      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
-    }
     //filter
     const commodityArray = commodity ? (Array.isArray(commodity) ? commodity : [commodity]) : [];
     const regexCommodity = commodityArray.map(name => new RegExp(escapeRegex(name), 'i'));
@@ -458,10 +455,6 @@ module.exports.mandiWiseProcurement = async (req, res) => {
   try {
     const { user_id } = req;
     const { commodity, district, schemeName, search } = req.query;
-    //It will filter the special character
-    function escapeRegex(str) {
-      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
-    }
 
     // Normalize query params to arrays or empty arrays
     const commodityArray = commodity
@@ -641,7 +634,7 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     }
 
     if (commodityArray.length > 0) {
-      filterMatch.productName = {  $in: commodityArray.map(name => new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')) };
+      filterMatch.productName =  {$in: commodityArray.map(name => new RegExp(escapeRegex(name), 'i'))}
     }
 
     if (schemeArray.length > 0) {
@@ -800,10 +793,7 @@ module.exports.incidentalExpense = async (req, res) => {
     }
 
     if (commodity) {
-      const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // escape special characters
-      const lowerCommodity = commodity.toLowerCase();
-      const escapedCommodity = escapeRegex(lowerCommodity);
-
+      const escapedCommodity = escapeRegex(commodity.toLowerCase());
       const regex = new RegExp(escapedCommodity, 'i');
 
       payments = payments.filter((p) => {
@@ -1020,7 +1010,12 @@ module.exports.purchaseLifingMandiWise = async (req, res) => {
       const batchSchemeId = batch.req_id?.product?.schemeId?.toString().toLowerCase();
 
       //skip unmatch batche by commodity, state, district
-      if (commodity && (!batchCommodity || !batchCommodity.includes(commodity.toLowerCase()))) continue;
+     if (commodity) {
+        const escapedCommodity = escapeRegex(commodity.toLowerCase());
+        const regex = new RegExp(escapedCommodity, 'i');
+
+        if (!batchCommodity || !batchCommodity.some((item) => regex.test(item))) continue;
+      }
       if (state && (!batchState || !batchState.includes(state.toLowerCase()))) continue;
       if (district && (!batchDistrict || !batchDistrict.includes(district.toLowerCase()))) continue;
 
