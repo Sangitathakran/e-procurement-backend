@@ -76,7 +76,7 @@ module.exports.forgetPassword = async (req, res) => {
 
     if(!req.body.email) return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Email') }] }));
 
-    const user = await MasterUser.findOne({ email: req.body.email.trim(),portalRef: req.body.portal_type });
+    const user = await MasterUser.findOne({ email: req.body.email.trim(),portalRef: req.body.portalRef });
 
     if (!user) return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('Email') }] }));
 
