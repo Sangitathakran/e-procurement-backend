@@ -731,7 +731,6 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
   }
 });
 
-
 module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
   try {
     // 1. Distiller counts
@@ -811,7 +810,6 @@ module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
-
 
 module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
   try {
