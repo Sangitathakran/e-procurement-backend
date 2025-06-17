@@ -11,7 +11,8 @@ const {
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { default: axios } = require("axios");
 const express = require("express");
-
+const { procurementOrderlogger } = require("@config/logger");
+const moment = require('moment'); // if using moment.js
 // Helper function to handle missing fields with default values
 const extractField = (
   field,
@@ -26,8 +27,18 @@ const extractField = (
 };
 
 const KRSH_BWN_FMR_API = process.env.KRSH_BWN_FMR_API;
+let apiCallCount = 0; // basic in-memory counter (resets on server restart)
+
 
 module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
+  apiCallCount++; // increment counter
+  const ip = req.ip || req.connection.remoteAddress;
+  const timestamp = new Date().toISOString();
+
+  procurementOrderlogger.info(
+    `API: createProcurementOrder called | Count: ${apiCallCount} | Time: ${timestamp} | IP: ${ip}`
+  );
+
   try {
     const { session = "NA", procurementDetails = {} } = req.body;
     const { jformID = "" } = procurementDetails;
@@ -79,6 +90,19 @@ module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
       ),
       jformApprovalDate: extractField(procurementDetails.jformApprovalDate),
       mspRateMT: extractField(procurementDetails.mspRateMT, "number"),
+
+      iFormId: procurementDetails.iFormId, // Unique IForm ID
+      incidentalExpenses: procurementDetails.incidentalExpenses,
+      laborCharges: procurementDetails.laborCharges,
+      // laborChargesPayableDate: procurementDetails.laborChargesPayableDate,
+      "procurementDetails.laborChargesPayableDate": procurementDetails.laborChargesPayableDate
+        ? new Date(moment(procurementDetails.laborChargesPayableDate, "DD-MM-YYYY hh:mm:ss A"))
+        : null,
+      commissionCharges: procurementDetails.commissionCharges,
+      // commissionChargesPayableDate: procurementDetails.commissionChargesPayableDate,
+      "procurementDetails.commissionChargesPayableDate": procurementDetails.commissionChargesPayableDate
+        ? new Date(moment(procurementDetails.commissionChargesPayableDate, "DD-MM-YYYY hh:mm:ss A"))
+        : null,
     };
 
     const structuredData = {
@@ -111,6 +135,7 @@ module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
       );
     }
   } catch (error) {
+     console.log(error);
     return res.status(400).send(
       new serviceResponse({
         status: 400,
@@ -120,6 +145,7 @@ module.exports.createProcurementOrder = asyncErrorHandler(async (req, res) => {
     );
   }
 });
+
 module.exports.createPaymentSlip = asyncErrorHandler(async (req, res) => {
   try {
     const {
@@ -313,6 +339,91 @@ module.exports.updateWarehouseData = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Warehouse data updated successfully",
+      data: updatedRecord,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: err.message,
+    });
+  }
+};
+
+module.exports.listProcurementOrder = asyncErrorHandler(async (req, res) => {
+  try {
+    const data = await eKharidHaryanaProcurementModel.find({}).limit(1);
+    // console.log("Data", data);
+    res.status(200).json({
+      success: true,
+      count: data.length,
+      data,
+    });
+
+  } catch (error) {
+    return res.status(400).send(
+      new serviceResponse({
+        status: 400,
+        errors: [error],
+        message: "Something went wrong",
+      })
+    );
+  }
+});
+
+module.exports.updateIformData = async (req, res) => {
+  try {
+    const {
+      jformID,
+      iFormId,
+      incidentalExpenses,
+      laborCharges,
+      laborChargesPayableDate,
+      commissionCharges,
+      commissionChargesPayableDate
+    } = req.body;
+
+    if (!jformID) {
+      return res
+        .status(400)
+        .json({ success: false, message: "jformID is required" });
+    }
+
+    const existingRecord = await eKharidHaryanaProcurementModel.findOne({
+      "procurementDetails.jformID": jformID,
+    });
+
+    if (!existingRecord) {
+      return res.status(404).json({
+        success: false,
+        message: "Record not found for given jformID",
+      });
+    }
+
+    const iFormIdUpdate = {
+      "procurementDetails.iFormId": iFormId,
+      "procurementDetails.incidentalExpenses": incidentalExpenses,
+      "procurementDetails.laborCharges": laborCharges,
+      // "procurementDetails.laborChargesPayableDate": laborChargesPayableDate,
+       "procurementDetails.laborChargesPayableDate": laborChargesPayableDate
+        ? new Date(moment(laborChargesPayableDate, "DD-MM-YYYY hh:mm:ss A"))
+        : null,
+      "procurementDetails.commissionCharges": commissionCharges,
+      // "procurementDetails.commissionChargesPayableDate": commissionChargesPayableDate
+      "procurementDetails.commissionChargesPayableDate": commissionChargesPayableDate
+        ? new Date(moment(commissionChargesPayableDate, "DD-MM-YYYY hh:mm:ss A"))
+        : null,
+    };
+
+    // Perform update
+    const updatedRecord = await eKharidHaryanaProcurementModel.updateOne(
+      { "procurementDetails.jformID": jformID },
+      { $set: iFormIdUpdate }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "iForm data updated successfully",
       data: updatedRecord,
     });
   } catch (err) {
