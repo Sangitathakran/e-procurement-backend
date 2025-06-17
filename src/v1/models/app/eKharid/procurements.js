@@ -1,5 +1,6 @@
 const { _collectionName } = require("@src/v1/utils/constants");
 const mongoose = require("mongoose");
+const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 // Procurement Details Schema
 const ProcurementDetailsSchema = new mongoose.Schema({
@@ -22,6 +23,14 @@ const ProcurementDetailsSchema = new mongoose.Schema({
   receivedAtDestinationDate: { type: String },
   jformApprovalDate: { type: String },
   mspRateMT: { type: Number },
+
+  iFormId: { type: Number, unique: true }, // Unique IForm ID
+  incidentalExpenses: { type: Number },
+  laborCharges: { type: Number },
+  laborChargesPayableDate: { type: Date },
+  commissionCharges: { type: Number },
+  commissionChargesPayableDate: { type: Date },
+
 });
 
 // Payment Details Schema
@@ -53,7 +62,8 @@ const EKhairidSchema = new mongoose.Schema({
   procurementDetails: { type: ProcurementDetailsSchema },
   paymentDetails: { type: PaymentDetailsSchema },
   warehouseData: { type: WarehouseDataSchema },
-});
+  ..._commonKeys
+}, { timestamps: true });
 
 const eKharidHaryanaProcurementModel = mongoose.model(
   _collectionName.eKharidHaryana,
