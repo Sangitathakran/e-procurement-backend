@@ -1,3 +1,4 @@
+const { getUpagAccessToken, submitProcurementData } = require("@src/v1/common/services/upag_api");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Scheme } = require("@src/v1/models/master/Scheme");
@@ -438,6 +439,16 @@ module.exports.getProcurementData = async (req, res) => {
         return res.status(500).json({ message: "Internal Server Error" });
     }
 };
+
+module.exports.postProcurementData = async (req, res) => {
+  try {
+    const token = await getUpagAccessToken();
+    const result = await submitProcurementData(token, req.body);
+    return res.json(result);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}
 
 
 

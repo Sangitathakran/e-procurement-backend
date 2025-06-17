@@ -39,5 +39,10 @@ module.exports = {
     },
     logEmails: 'imran@radiantinfonet.com , maneesh@radiantinfonet.com ,ayush@navankur.org , dileep@radiantinfonet.com',
     AADHAR_SERVICE_PROVIDER_KEY : process.env.AADHAR_VERIFICATION_API_KEY,
-    AADHAR_SERVICE_PROVIDER : process.env.AADHAR_VERIFICATION_API_PROVIDER
+    AADHAR_SERVICE_PROVIDER : process.env.AADHAR_VERIFICATION_API_PROVIDER,
+    UPAG_BASE_URL: process.env.UPAG_BASE_URL,
+    UPAG_CLIENT_ID:process.env.UPAG_CLIENT_ID,
+    UPAG_CLIENT_SECRET: process.env.UPAG_CLIENT_SECRET,
+    UPAG_EMAIL: process.env.UPAG_EMAIL,
+    UPAG_PASSWORD: process.env.UPAG_PASSWORD
 }
