@@ -94,10 +94,14 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     const userObjectId = new mongoose.Types.ObjectId(user_id);
 
     let widgetDetails = {};
-
+    
+    //It will filter the special character
+    function escapeRegex(str) {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
+    }
     //filter
     const commodityArray = commodity ? (Array.isArray(commodity) ? commodity : [commodity]) : [];
-    const regexCommodity = commodityArray.map(name => new RegExp(name, 'i'));
+    const regexCommodity = commodityArray.map(name => new RegExp(escapeRegex(name), 'i'));
 
     const schemeArray = schemeName ? (Array.isArray(schemeName) ? schemeName : [schemeName]) : [];
     const objectIdArray = schemeArray
@@ -454,6 +458,10 @@ module.exports.mandiWiseProcurement = async (req, res) => {
   try {
     const { user_id } = req;
     const { commodity, district, schemeName, search } = req.query;
+    //It will filter the special character
+    function escapeRegex(str) {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
+    }
 
     // Normalize query params to arrays or empty arrays
     const commodityArray = commodity
@@ -633,7 +641,7 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     }
 
     if (commodityArray.length > 0) {
-      filterMatch.productName = { $in: commodityArray };
+      filterMatch.productName = {  $in: commodityArray.map(name => new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')) };
     }
 
     if (schemeArray.length > 0) {
@@ -792,10 +800,15 @@ module.exports.incidentalExpense = async (req, res) => {
     }
 
     if (commodity) {
+      const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // escape special characters
       const lowerCommodity = commodity.toLowerCase();
+      const escapedCommodity = escapeRegex(lowerCommodity);
+
+      const regex = new RegExp(escapedCommodity, 'i');
+
       payments = payments.filter((p) => {
-        const comm = p.req_id?.product?.name?.toLowerCase() || '';
-        return comm.includes(lowerCommodity);
+        const comm = p.req_id?.product?.name || '';
+        return regex.test(comm);
       });
     }
 
