@@ -41,5 +41,8 @@ module.exports = {
     },
     logEmails: 'imran@radiantinfonet.com , maneesh@radiantinfonet.com ,ayush@navankur.org , dileep@radiantinfonet.com',
     AADHAR_SERVICE_PROVIDER_KEY : process.env.AADHAR_VERIFICATION_API_KEY,
-    AADHAR_SERVICE_PROVIDER : process.env.AADHAR_VERIFICATION_API_PROVIDER
+    AADHAR_SERVICE_PROVIDER : process.env.AADHAR_VERIFICATION_API_PROVIDER,//** */
+    BANK_VERIFICATION_API_KEY: process.env.BANK_VERIFICATION_API_KEY,
+    BANK_VERIFICATION_API_PROVIDER: process.env.BANK_VERIFICATION_API_PROVIDER,
+    ON_GRID_BASE_URL: process.env.ON_GRID_BASE_URL
 }

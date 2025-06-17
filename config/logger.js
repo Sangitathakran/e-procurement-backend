@@ -9,6 +9,7 @@ const localFarmersLogPath = path.join(__dirname, 'logs/localFarmers.log');
 const generateFIdsLogPath = path.join(__dirname, 'logs/updateFarmersWithFarmerId.log');
 const createProcurementOrderLogPath = path.join(__dirname, 'logs/createProcurementOrder.log');
 
+const adharLoggerPath = path.join(__dirname, 'logs/adharAPILog.log')
 
 
 
@@ -92,8 +93,14 @@ const procurementOrderlogger = winston.createLogger({
     new winston.transports.Console(),
     new winston.transports.File({ filename: createProcurementOrderLogPath })
   ]
+})
+// Configure Winston for combined logging for aadhar apis
+const adharLogger = winston.createLogger({
+    transports: [
+        new winston.transports.File({ filename: adharLoggerPath })
+    ]
 });
 
   
 
-module.exports = { accessLogger, errorLogger, combinedLogger, combinedLogStream, localFarmersLogger, generateFarmersIdLogger, procurementOrderlogger };
+module.exports = { accessLogger, errorLogger, combinedLogger, combinedLogStream, localFarmersLogger, generateFarmersIdLogger, adharLogger,procurementOrderlogger };
