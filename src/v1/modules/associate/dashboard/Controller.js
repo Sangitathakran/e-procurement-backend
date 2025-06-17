@@ -559,6 +559,16 @@ module.exports.mandiWiseProcurement = async (req, res) => {
               null,
             ],
           },
+          totalPurchase: { $sum: "$qty" },
+          liftedQty: {
+            $sum: {
+              $cond: [
+                { $ne: [{ $ifNull: ["$intransit", null] }, null] },
+                "$qty",
+                0
+              ]
+            }
+          },
           purchaseDays: {
             $cond: [
               { $and: ["$updatedAt", "$relatedRequest.createdAt"] },
@@ -585,21 +595,15 @@ module.exports.mandiWiseProcurement = async (req, res) => {
           associate_name: {
             $first: "$seller.basic_details.associate_details.associate_name",
           },
-          totalPurchase: { $sum: "$qty" },
-          liftedQty: {
-            $sum: {
-              $cond: [
-                { $ne: [{ $ifNull: ["$intransit", null] }, null] },
-                "$qty",
-                0
-              ]
-            }
-          },
+          // totalPurchase: { $sum: "$qty" },
           offeredQty: { $first: { $ifNull: ["$associateOffer.offeredQty", 0] } },
+          totalPurchaseQty :  { $first: "$totalPurchase" },
+          totalLiftingQty :{ $first: "$liftedQty" },
           liftedDataDays: { $first: "$liftedDataDays" },
           purchaseDays: { $first: "$purchaseDays" },
           productName: { $first: "$relatedRequest.product.name" },
           schemeId: { $first: "$relatedRequest.product.schemeId" },
+          totalPurchaseQty :  { $first: "$totalPurchase" },
         },
       },
       {
@@ -661,7 +665,6 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     }
 
     pipeline.push({ $sort: { centerName: 1 } });
-
     const aggregated = await Batch.aggregate(pipeline);
 
     // No records message
@@ -781,6 +784,13 @@ module.exports.incidentalExpense = async (req, res) => {
           commodityName.includes(lowerSearch)
         );
       });
+       if (payments.length === 0) {
+        return res.status(404).json({
+          status: 404,
+          message: "No records found for the applied filters",
+          data: [],
+        });
+    }
     }
 
     if (state) {
@@ -845,6 +855,29 @@ module.exports.incidentalExpense = async (req, res) => {
       .map((p) => Number(p.batch_id?.batchId))
       .filter((n) => !isNaN(n));
 
+    //Extracting batchId from payment whose ekhrid_payment exit true
+    const batchIDEkhrid = await Payment.find({
+      ekhrid_payment: { $exists: true }
+    }).select('batch_id');
+
+    const batchIdArray = batchIDEkhrid
+    .map(doc => doc.batch_id?.toString()) 
+    .filter((id, index, self) => id && self.indexOf(id) === index) 
+    .map(id => new mongoose.Types.ObjectId(id)); 
+    
+    const commisionCost = await Batch.find({
+      '_id' : {$in:batchIdArray}
+    })
+    .select({
+      _id: 1,
+      'dispatched.bills.commission':1
+    })
+    .lean();
+    
+    const result = commisionCost.map(doc => ({
+      batchId: doc._id,
+      commission: doc?.dispatched?.bills?.commission ?? 0
+    }));
     const ekharidList = await eKharidHaryanaProcurementModel.find({
       'warehouseData.exitGatePassId': { $in: batchIdNumbers },
     })
@@ -858,14 +891,24 @@ module.exports.incidentalExpense = async (req, res) => {
       })
       .lean();
 
+    // Seelcted commission for ekhrid_payment true (payment collection)
+    const batchCommissionMap = new Map();
+      result.forEach((item) => {
+        batchCommissionMap.set(item.batchId.toString(), item.commission);
+      });
     const ekharidMap = new Map();
     ekharidList.forEach((e) => {
       ekharidMap.set(Number(e.warehouseData.exitGatePassId), e);
     });
 
+
     const finalData = paymentPage.map((p) => {
-      const batchCode = Number(p.batch_id?.batchId);
-      const ekharidRecord = ekharidMap.get(batchCode);
+    const batchCode = Number(p.batch_id?.batchId);
+    const batchMongoId = p.batch_id?._id?.toString();
+    const ekharidRecord = ekharidMap.get(batchCode);
+
+    const commissionFromEkharid = ekharidRecord?.procurementDetails?.commissionCharges;
+    const commissionFromBatch = batchCommissionMap.get(batchMongoId) || 0;
 
       return {
         batchId: p.batch_id?.batchId || null,
@@ -879,7 +922,7 @@ module.exports.incidentalExpense = async (req, res) => {
         actualLaborCharges: ekharidRecord?.procurementDetails?.laborCharges || 0,
         laborChargeRecieved: ekharidRecord?.procurementDetails?.laborCharges || 0,
         laborChargesPayableDate: ekharidRecord?.procurementDetails?.laborChargesPayableDate || 'NA',
-        commissionRecieved: ekharidRecord?.procurementDetails?.commissionCharges || 0,
+        commissionRecieved: commissionFromEkharid ?? commissionFromBatch,
         commissionChargesPayableDate: ekharidRecord?.procurementDetails?.commissionChargesPayableDate || 'NA',
         status: p.payment_status || 'NA',
       };
