@@ -7,6 +7,8 @@ const errorLogPath = path.join(__dirname, 'logs/error.log');
 const combinedLogPath = path.join(__dirname, 'logs/combined.log');
 const localFarmersLogPath = path.join(__dirname, 'logs/localFarmers.log');
 const generateFIdsLogPath = path.join(__dirname, 'logs/updateFarmersWithFarmerId.log');
+const createProcurementOrderLogPath = path.join(__dirname, 'logs/createProcurementOrder.log');
+
 
 
 
@@ -77,6 +79,21 @@ const generateFarmersIdLogger = winston.createLogger({
   ],
 });
 
+
+const procurementOrderlogger = winston.createLogger({
+  level: "info",
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.printf(({ timestamp, level, message }) => {
+      return `[${timestamp}] ${level.toUpperCase()}: ${message}`;
+    })
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: createProcurementOrderLogPath })
+  ]
+});
+
   
 
-module.exports = { accessLogger, errorLogger, combinedLogger, combinedLogStream, localFarmersLogger, generateFarmersIdLogger };
+module.exports = { accessLogger, errorLogger, combinedLogger, combinedLogStream, localFarmersLogger, generateFarmersIdLogger, procurementOrderlogger };
