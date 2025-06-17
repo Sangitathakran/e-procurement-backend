@@ -95,7 +95,6 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 
     let widgetDetails = {};
     
-    //It will filter the special character
     //filter
     const commodityArray = commodity ? (Array.isArray(commodity) ? commodity : [commodity]) : [];
     const regexCommodity = commodityArray.map(name => new RegExp(escapeRegex(name), 'i'));
