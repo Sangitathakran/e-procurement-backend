@@ -795,7 +795,7 @@ module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
     const response = {
       totalDistillers: totalD,
       totalWarehouses: totalW,
-      stateWiseStats: Object.values(map),      
+      stateWiseStats: Object.values(map),
     };
 
     // res.status(200).json({ success: true, data: response });
@@ -890,5 +890,113 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
       message: "Error fetching center projections ",
       error: error.message
     });
+  }
+});
+
+
+module.exports.paymentWithTenPercant = asyncErrorHandler(async (req, res) => {
+  try {
+    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
+
+    const pipeline = [
+      {
+        $match: {
+          "paymentInfo.token": { $in: [10] },
+          deletedAt: null
+        }
+      },
+      {
+        $group: {
+          _id: {
+            token: "$paymentInfo.token"
+          },
+          totalPOQuantity: { $sum: "$purchasedOrder.poQuantity" },
+          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
+          distillerIds: { $addToSet: "$distiller_id" }
+        }
+      },
+      {
+        $addFields: {
+          totalDistillers: { $size: "$distillerIds" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          token: "$_id.token",
+          totalPOQuantity: 1,
+          totalPaidAmount: 1,
+          totalDistillers: 1
+        }
+      },
+      {
+        $sort: { token: 1 }
+      }
+    ];
+
+    const result = await PurchaseOrderModel.aggregate(pipeline);
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: result,
+      message: _response_message.found("PO Raised"),
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+
+module.exports.paymentWithHundredPercant = asyncErrorHandler(async (req, res) => {
+  try {
+    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
+
+    const pipeline = [
+      {
+        $match: {
+          "paymentInfo.token": { $in: [100] },
+          deletedAt: null
+        }
+      },
+      {
+        $group: {
+          _id: {
+            token: "$paymentInfo.token"
+          },
+          totalPOQuantity: { $sum: "$purchasedOrder.poQuantity" },
+          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
+          distillerIds: { $addToSet: "$distiller_id" }
+        }
+      },
+      {
+        $addFields: {
+          totalDistillers: { $size: "$distillerIds" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          token: "$_id.token",
+          totalPOQuantity: 1,
+          totalPaidAmount: 1,
+          totalDistillers: 1
+        }
+      },
+      {
+        $sort: { token: 1 }
+      }
+    ];
+
+    const result = await PurchaseOrderModel.aggregate(pipeline);
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: result,
+      message: _response_message.found("Token-wise PO Summary"),
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
   }
 });
