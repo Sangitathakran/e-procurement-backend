@@ -20,7 +20,7 @@ const mongoose = require("mongoose");
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 const { LexRuntimeV2 } = require("aws-sdk");
-
+const { escapeRegex } = require("@src/v1/utils/helpers/regex");
 //widget listss
 
 // module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
@@ -94,10 +94,11 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     const userObjectId = new mongoose.Types.ObjectId(user_id);
 
     let widgetDetails = {};
-
+    
+    //It will filter the special character
     //filter
     const commodityArray = commodity ? (Array.isArray(commodity) ? commodity : [commodity]) : [];
-    const regexCommodity = commodityArray.map(name => new RegExp(name, 'i'));
+    const regexCommodity = commodityArray.map(name => new RegExp(escapeRegex(name), 'i'));
 
     const schemeArray = schemeName ? (Array.isArray(schemeName) ? schemeName : [schemeName]) : [];
     const objectIdArray = schemeArray
@@ -633,7 +634,7 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     }
 
     if (commodityArray.length > 0) {
-      filterMatch.productName = { $in: commodityArray };
+      filterMatch.productName =  {$in: commodityArray.map(name => new RegExp(escapeRegex(name), 'i'))}
     }
 
     if (schemeArray.length > 0) {
@@ -792,10 +793,12 @@ module.exports.incidentalExpense = async (req, res) => {
     }
 
     if (commodity) {
-      const lowerCommodity = commodity.toLowerCase();
+      const escapedCommodity = escapeRegex(commodity.toLowerCase());
+      const regex = new RegExp(escapedCommodity, 'i');
+
       payments = payments.filter((p) => {
-        const comm = p.req_id?.product?.name?.toLowerCase() || '';
-        return comm.includes(lowerCommodity);
+        const comm = p.req_id?.product?.name || '';
+        return regex.test(comm);
       });
     }
 
@@ -1007,7 +1010,12 @@ module.exports.purchaseLifingMandiWise = async (req, res) => {
       const batchSchemeId = batch.req_id?.product?.schemeId?.toString().toLowerCase();
 
       //skip unmatch batche by commodity, state, district
-      if (commodity && (!batchCommodity || !batchCommodity.includes(commodity.toLowerCase()))) continue;
+     if (commodity) {
+        const escapedCommodity = escapeRegex(commodity.toLowerCase());
+        const regex = new RegExp(escapedCommodity, 'i');
+
+        if (!batchCommodity || !batchCommodity.some((item) => regex.test(item))) continue;
+      }
       if (state && (!batchState || !batchState.includes(state.toLowerCase()))) continue;
       if (district && (!batchDistrict || !batchDistrict.includes(district.toLowerCase()))) continue;
 
