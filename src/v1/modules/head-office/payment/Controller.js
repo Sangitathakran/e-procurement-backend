@@ -4166,9 +4166,16 @@ module.exports.proceedToPayPayment = async (req, res) => {
           approval_date: 1,
         },
       },
-      { $skip: (page - 1) * limit },
-      { $limit: limit }
+        // { $skip: (page - 1) * limit },
+        // { $limit: limit }
     );
+
+    if (paginate == 1) {
+      aggregationPipeline.push(
+        { $skip: (page - 1) * limit },
+        { $limit: limit }
+      );
+    }
 
     let response = { count: 0 };
     response.rows = await RequestModel.aggregate(aggregationPipeline);
@@ -4178,6 +4185,10 @@ module.exports.proceedToPayPayment = async (req, res) => {
       { $count: "count" },
     ]);
     response.count = countResult?.[0]?.count ?? 0;
+    response.totalPages = Math.ceil(response.count / limit);
+    response.page = page;
+    response.limit = limit
+
     if (isExport != 1) {
       setCache(cacheKey, response, 300); // 5 mins
     }

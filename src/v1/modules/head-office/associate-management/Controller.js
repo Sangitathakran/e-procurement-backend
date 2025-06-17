@@ -20,9 +20,15 @@ module.exports.getAssociates = async (req, res) => {
             // bank_details: { $ne: null }
         };
 
+
         // If there's a search term, add it to the match query
         if (search) {
-            matchQuery['basic_details.associate_details.associate_name'] = { $regex: search, $options: 'i' };
+            const searchRegx =  new RegExp(search, 'i');
+            matchQuery.$or =[
+                {'basic_details.associate_details.associate_name' : searchRegx},
+                {'basic_details.associate_details.organization_name' : searchRegx},
+                {'user_code':searchRegx}
+            ] 
         }
 
         // Aggregation pipeline to join farmers and procurement centers and get counts
