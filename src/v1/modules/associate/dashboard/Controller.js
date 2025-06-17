@@ -453,7 +453,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 module.exports.mandiWiseProcurement = async (req, res) => {
   try {
     const { user_id } = req;
-    const { commodity, district, schemeName, search  } = req.query;
+    const { commodity, district, schemeName, search } = req.query;
 
     // Normalize query params to arrays or empty arrays
     const commodityArray = commodity
@@ -478,12 +478,12 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     const skip = (page - 1) * limit;
     const isExport = parseInt(req.query.isExport) === 1;
     const centerSearch = req.query.search?.trim();
-  
+
 
     // Get payment batch IDs
     const payments = await Payment.find().lean();
     const batchIdSet = [...new Set(payments.map((p) => String(p.batch_id)).filter(Boolean))];
-    console.log(batchIdSet)
+  
 
     const pipeline = [
       {
@@ -547,12 +547,12 @@ module.exports.mandiWiseProcurement = async (req, res) => {
                 $dateDiff: {
                   startDate: "$relatedRequest.createdAt",
                   endDate: {
-                      $cond: [
-                        { $ifNull: ["$deliveryDate", false] },
-                        "$deliveryDate",
-                        "$updatedAt"
-                      ]
-                    },
+                    $cond: [
+                      { $ifNull: ["$deliveryDate", false] },
+                      "$deliveryDate",
+                      "$updatedAt"
+                    ]
+                  },
                   unit: "day",
                 },
               },
@@ -585,15 +585,15 @@ module.exports.mandiWiseProcurement = async (req, res) => {
           associate_name: {
             $first: "$seller.basic_details.associate_details.associate_name",
           },
-          totalPurchase:{$sum:"$qty"},
+          totalPurchase: { $sum: "$qty" },
           liftedQty: {
-              $sum: {
-                $cond: [
-                  { $ne: [{ $ifNull: ["$intransit", null] }, null] },
-                  "$qty",
-                  0
-                ]
-              }
+            $sum: {
+              $cond: [
+                { $ne: [{ $ifNull: ["$intransit", null] }, null] },
+                "$qty",
+                0
+              ]
+            }
           },
           offeredQty: { $first: { $ifNull: ["$associateOffer.offeredQty", 0] } },
           liftedDataDays: { $first: "$liftedDataDays" },
@@ -639,7 +639,7 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     if (schemeArray.length > 0) {
       filterMatch.schemeId = { $in: schemeArray };
     }
-    
+
     if (Object.keys(filterMatch).length > 0) {
       pipeline.push({ $match: filterMatch });
     }
@@ -649,13 +649,13 @@ module.exports.mandiWiseProcurement = async (req, res) => {
       const searchRegex = new RegExp(centerSearch, "i");
       pipeline.push({
         // $match: { centerName: { $regex: centerSearch, $options: "i" } },
-         $match: {
-            $or: [
-              { centerName: { $regex: searchRegex } },
-              { productName: { $regex: searchRegex } },
-              { district: { $regex: searchRegex } },
-            ],
-          },
+        $match: {
+          $or: [
+            { centerName: { $regex: searchRegex } },
+            { productName: { $regex: searchRegex } },
+            { district: { $regex: searchRegex } },
+          ],
+        },
       });
       page = 1;
     }
@@ -728,7 +728,7 @@ module.exports.incidentalExpense = async (req, res) => {
       state = '',
       season = '',
       district = '',
-      schemeName = '', 
+      schemeName = '',
     } = req.query;
 
     const { user_id } = req;
@@ -736,7 +736,6 @@ module.exports.incidentalExpense = async (req, res) => {
     let limit = parseInt(req.query.limit) || 10;
     let skip = (page - 1) * limit;
 
-    const searchRegex = new RegExp(search, 'i');
     const filters = {};
 
     if (user_id && mongoose.Types.ObjectId.isValid(user_id)) {
@@ -750,7 +749,7 @@ module.exports.incidentalExpense = async (req, res) => {
         associate_id: 1,
         amount: 1,
         qtyProcured: 1,
-        payment_status: 1
+        payment_status: 1,
       })
       .populate({
         path: 'batch_id',
@@ -758,59 +757,69 @@ module.exports.incidentalExpense = async (req, res) => {
         populate: {
           path: 'procurementCenter_id',
           select: 'center_name address.district address.state',
-        }
+        },
       })
       .populate({
         path: 'req_id',
-        select: 'product.name product.season product.schemeId' 
+        select: 'product.name product.season product.schemeId',
       })
       .sort({ createdAt: -1 });
 
     if (search) {
-      payments = payments.filter(p => {
+      const lowerSearch = search.toLowerCase();
+      payments = payments.filter((p) => {
         const batchId = p.batch_id?.batchId?.toString().toLowerCase() || '';
         const mandiName = p.batch_id?.procurementCenter_id?.center_name?.toLowerCase() || '';
-        return batchId.includes(search.toLowerCase()) || mandiName.includes(search.toLowerCase());
+        const districtName = p.batch_id?.procurementCenter_id?.address?.district?.toLowerCase() || '';
+         const commodityName = p.req_id?.product?.name?.toLowerCase() || '';
+
+        //search by batchId, mandiName, district, commodity
+        return (
+          batchId.includes(lowerSearch) ||
+          mandiName.includes(lowerSearch) ||
+          districtName.includes(lowerSearch)||
+          commodityName.includes(lowerSearch)
+        );
       });
     }
 
     if (state) {
-      payments = payments.filter(p => {
+      const lowerState = state.toLowerCase();
+      payments = payments.filter((p) => {
         const stateVal = p.batch_id?.procurementCenter_id?.address?.state?.toLowerCase() || '';
-        return stateVal.includes(state.toLowerCase());
+        return stateVal.includes(lowerState);
       });
     }
 
     if (commodity) {
-      payments = payments.filter(p => {
+      const lowerCommodity = commodity.toLowerCase();
+      payments = payments.filter((p) => {
         const comm = p.req_id?.product?.name?.toLowerCase() || '';
-        return comm.includes(commodity.toLowerCase());
+        return comm.includes(lowerCommodity);
       });
     }
 
     if (season) {
-      payments = payments.filter(p => {
+      const lowerSeason = season.toLowerCase();
+      payments = payments.filter((p) => {
         const seasonVal = p.req_id?.product?.season?.toLowerCase() || '';
-        return seasonVal.includes(season.toLowerCase());
+        return seasonVal.includes(lowerSeason);
       });
     }
 
     if (district) {
-      payments = payments.filter(p => {
+      const lowerDistrict = district.toLowerCase();
+      payments = payments.filter((p) => {
         const districtVal = p.batch_id?.procurementCenter_id?.address?.district?.toLowerCase() || '';
-        return districtVal.includes(district.toLowerCase());
+        return districtVal.includes(lowerDistrict);
       });
     }
 
-    // === Added schemeName filter ===
     if (schemeName) {
-      const schemeArray = schemeName.split(',').map(s => s.trim().toLowerCase());
-
-      payments = payments.filter(p => {
+      const schemeArray = schemeName.split(',').map((s) => s.trim().toLowerCase());
+      payments = payments.filter((p) => {
         const schemeId = p.req_id?.product?.schemeId;
         if (!schemeId) return false;
-
-        // schemeId is ObjectId, convert to string and lowercase
         const schemeIdStr = schemeId.toString().toLowerCase();
         return schemeArray.includes(schemeIdStr);
       });
@@ -831,11 +840,11 @@ module.exports.incidentalExpense = async (req, res) => {
     }
 
     const batchIdNumbers = paymentPage
-      .map(p => Number(p.batch_id?.batchId))
-      .filter(n => !isNaN(n));
+      .map((p) => Number(p.batch_id?.batchId))
+      .filter((n) => !isNaN(n));
 
     const ekharidList = await eKharidHaryanaProcurementModel.find({
-      'warehouseData.exitGatePassId': { $in: batchIdNumbers }
+      'warehouseData.exitGatePassId': { $in: batchIdNumbers },
     })
       .select({
         'warehouseData.exitGatePassId': 1,
@@ -843,34 +852,34 @@ module.exports.incidentalExpense = async (req, res) => {
         'procurementDetails.laborCharges': 1,
         'procurementDetails.laborChargesPayableDate': 1,
         'procurementDetails.commissionCharges': 1,
-        'procurementDetails.commissionChargesPayableDate': 1
+        'procurementDetails.commissionChargesPayableDate': 1,
       })
       .lean();
 
     const ekharidMap = new Map();
-    ekharidList.forEach(e => {
+    ekharidList.forEach((e) => {
       ekharidMap.set(Number(e.warehouseData.exitGatePassId), e);
     });
 
-    const finalData = paymentPage.map(p => {
+    const finalData = paymentPage.map((p) => {
       const batchCode = Number(p.batch_id?.batchId);
       const ekharidRecord = ekharidMap.get(batchCode);
 
       return {
         batchId: p.batch_id?.batchId || null,
-        commodity: p.req_id?.product?.name || "NA",
+        commodity: p.req_id?.product?.name || 'NA',
         amount: p.amount,
         quantity: p.qtyProcured,
-        mandiName: p.batch_id?.procurementCenter_id?.center_name || "NA",
-        district: p.batch_id?.procurementCenter_id?.address?.district || "NA",
+        mandiName: p.batch_id?.procurementCenter_id?.center_name || 'NA',
+        district: p.batch_id?.procurementCenter_id?.address?.district || 'NA',
         actualIncidentCost: ekharidRecord?.procurementDetails?.incidentalExpenses || 0,
         incidentCostRecieved: ekharidRecord?.procurementDetails?.incidentalExpenses || 0,
         actualLaborCharges: ekharidRecord?.procurementDetails?.laborCharges || 0,
         laborChargeRecieved: ekharidRecord?.procurementDetails?.laborCharges || 0,
-        laborChargesPayableDate: ekharidRecord?.procurementDetails?.laborChargesPayableDate || "NA",
+        laborChargesPayableDate: ekharidRecord?.procurementDetails?.laborChargesPayableDate || 'NA',
         commissionRecieved: ekharidRecord?.procurementDetails?.commissionCharges || 0,
-        commissionChargesPayableDate: ekharidRecord?.procurementDetails?.commissionChargesPayableDate || "NA",
-        status: p.payment_status || "NA",
+        commissionChargesPayableDate: ekharidRecord?.procurementDetails?.commissionChargesPayableDate || 'NA',
+        status: p.payment_status || 'NA',
       };
     });
 
@@ -882,7 +891,6 @@ module.exports.incidentalExpense = async (req, res) => {
       currentPage: page,
       limit: finalData.length,
     });
-
   } catch (err) {
     console.error('Error in incidentalExpense:', err);
     return res.status(500).json({
@@ -985,7 +993,7 @@ module.exports.purchaseLifingMandiWise = async (req, res) => {
       })
       .populate({
         path: 'req_id',
-        select: 'product.name product.schemeId'  
+        select: 'product.name product.schemeId'
       })
       .select('qty associateOffer_id procurementCenter_id req_id intransit')
       .lean();
