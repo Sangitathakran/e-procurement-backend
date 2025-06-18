@@ -669,12 +669,15 @@ module.exports.mandiWiseProcurement = async (req, res) => {
 
     // No records message
     if (aggregated.length === 0) {
-      return res.status(404).json({
-        status: 404,
-        message: "No records found for the applied filters",
-        data: [],
-      });
-    }
+    return res.status(200).json({
+      status: 200,
+      data: [],
+      totalRecords: 0,
+      totalPages: 0,
+      currentPage: page,
+      limit: 0,
+    });
+  }
 
     if (isExport) {
       const exportRows = aggregated.map((item) => ({
@@ -784,13 +787,6 @@ module.exports.incidentalExpense = async (req, res) => {
           commodityName.includes(lowerSearch)
         );
       });
-       if (payments.length === 0) {
-        return res.status(404).json({
-          status: 404,
-          message: "No records found for the applied filters",
-          data: [],
-        });
-    }
     }
 
     if (state) {
@@ -840,16 +836,16 @@ module.exports.incidentalExpense = async (req, res) => {
     const totals = payments.length;
     const paymentPage = payments.slice(skip, skip + limit);
 
-    if (!paymentPage.length) {
-      return res.status(200).json({
-        success: true,
-        data: [],
-        totalRecords: 0,
-        totalPages: 0,
-        currentPage: page,
-        count: 0,
-      });
-    }
+    if (payments.length === 0) {
+    return res.status(200).json({
+      status: 200,
+      data: [],
+      totalRecords: 0,
+      totalPages: 0,
+      currentPage: page,
+      limit: 0,
+    });
+  }
 
     const batchIdNumbers = paymentPage
       .map((p) => Number(p.batch_id?.batchId))
@@ -908,7 +904,7 @@ module.exports.incidentalExpense = async (req, res) => {
     const ekharidRecord = ekharidMap.get(batchCode);
 
     const commissionFromEkharid = ekharidRecord?.procurementDetails?.commissionCharges;
-    const commissionFromBatch = batchCommissionMap.get(batchMongoId) || 0;
+    const commissionFromBatch = batchCommissionMap.get(batchMongoId) ?? 0;
 
       return {
         batchId: p.batch_id?.batchId || null,
