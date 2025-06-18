@@ -8,7 +8,7 @@ const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { User } = require("@src/v1/models/app/auth/User");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
-const { _response_message, _middleware } = require("@src/v1/utils/constants/messages");
+const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const Readable = require('stream').Readable;
@@ -25,6 +25,8 @@ const fs = require('fs');
 const axios = require('axios');
 const moment = require('moment');
 const mongoose = require('mongoose');
+const { Verifyfarmer } = require("@src/v1/models/app/farmerDetails/verifyFarmer");
+const { getVerifiedAadharInfo, getAgristackFarmerByAadhar } = require("./Services");
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -2987,3 +2989,39 @@ const generateFarmerCode = (state, mobile_no, name) => {
 
   return `${stateCode}${mobileCode}${farmerName}`;
 };
+
+
+module.exports.getVerifiedAdharDetails = async (req, res) => {
+  try {
+    const { uidai_aadharNo } = req.body;
+
+    // Run both queries in parallel for better performance
+    const [adharDetails, agristackFarmerDetails] = await Promise.all([
+      getVerifiedAadharInfo(uidai_aadharNo),
+      getAgristackFarmerByAadhar(uidai_aadharNo),
+    ]);
+
+    // Return 404 if both are null
+    if (!adharDetails && !agristackFarmerDetails) {
+      return res.status(404).json({
+        status: 404,
+        message: _query.notFound('aadhar'),
+      });
+    }
+
+    return res.json(
+      new serviceResponse({
+        status: 200,
+        message: _query.get('aadhar'),
+        data: {
+          adharDetails,
+          agristackFarmerDetails,
+        },
+      })
+    );
+  } catch (err) {
+    console.error('Error in getVerifiedAadharDetails:', err);
+    _handleCatchErrors(err, res);
+  }
+};
+

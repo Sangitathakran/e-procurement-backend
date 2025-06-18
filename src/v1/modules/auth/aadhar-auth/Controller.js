@@ -9,6 +9,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 
 const { sendOtpToAadhar, verifyOtpWithAadhar } = require("@src/v1/common/services/gridlines/AadharVerification");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
+const { Verifyfarmer } = require("@src/v1/models/app/farmerDetails/verifyFarmer");
 
 // module.exports.sendAadharOTP = async (req, res) => {
 //   try {
@@ -243,7 +244,7 @@ module.exports.sendAadharOTP = async (req, res) => {
 
 module.exports.verifyAadharOTP = async (req, res) => {
   try {
-    const { otp, code, transaction_id } = req.body;
+    const { otp, code, transaction_id, uidai_aadharNo  } = req.body;
 
     if (!otp || !transaction_id) {
       return res.status(400).send(
@@ -271,7 +272,27 @@ module.exports.verifyAadharOTP = async (req, res) => {
       );
     }
 
+    let farmerObj = await farmer.findOne({"proof.aadhar_no": uidai_aadharNo}, { _id: 1});
+
     if (fetchedData?.aadhaar_data) {
+     await Verifyfarmer.findOneAndUpdate(
+      { "aadhaar_details.uidai_aadharNo": uidai_aadharNo }, // Match condition
+      {
+        $set: {
+          farmer_id: farmerObj?._id,
+          aadhaar_details: {...uidai_aadharNo, ...fetchedData?.aadhaar_data},
+          is_verify_aadhaar: true,
+          is_verify_aadhaar_date: new Date()
+        }
+      },
+      {
+        new: true,      // Return the updated document
+        upsert: true,   // Create if not exists
+        setDefaultsOnInsert: true
+      }
+    );
+
+
       return res.status(200).send(
         new serviceResponse({
           status: 200,
