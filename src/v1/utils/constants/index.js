@@ -459,7 +459,8 @@ const _userTypeFrontendRouteMapping = {
     "agent": "6",
     "head-office": "2",
     "branch-office": "3",
-    "NccfAdmin": "9"
+    "NccfAdmin": "9",
+    "ministry": "11"
 }
 
 const _poRequestStatus = {
