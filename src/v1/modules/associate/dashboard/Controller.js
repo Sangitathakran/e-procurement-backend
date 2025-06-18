@@ -840,7 +840,7 @@ module.exports.incidentalExpense = async (req, res) => {
     if (payments.length === 0) {
     return res.status(200).json({
       status: 200,
-       message: _response_message.notFound("data"),
+      message: _response_message.notFound("data"),
       data: [],
       totalRecords: 0,
       totalPages: 0,
@@ -1054,7 +1054,8 @@ module.exports.purchaseLifingMandiWise = async (req, res) => {
         const escapedCommodity = escapeRegex(commodity.toLowerCase());
         const regex = new RegExp(escapedCommodity, 'i');
 
-        if (!batchCommodity || !batchCommodity.some((item) => regex.test(item))) continue;
+        // if (!batchCommodity || !batchCommodity.some((item) => regex.test(item))) continue;
+        if (!batchCommodity || !regex.test(batchCommodity)) continue;
       }
       if (state && (!batchState || !batchState.includes(state.toLowerCase()))) continue;
       if (district && (!batchDistrict || !batchDistrict.includes(district.toLowerCase()))) continue;
