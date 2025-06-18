@@ -40,4 +40,45 @@ connection.once('open', function (error) {
         console.log("Connected MongoDB Successfully...!", connection._connectionString)
     }
 })
-module.exports = { connection };
+
+
+const performOperation = async (collectionName, operation, payload = {}, options = {}) => {
+  try {
+    const collection = connection.collection(collectionName);
+
+    switch (operation) {
+      case 'find':
+        return await collection.find(payload.query || {}, options).toArray();
+
+      case 'findOne':
+        return await collection.findOne(payload.query || {}, options);
+
+      case 'insertOne':
+        return await collection.insertOne(payload.document, options);
+
+      case 'insertMany':
+        return await collection.insertMany(payload.documents, options);
+
+      case 'updateOne':
+        return await collection.updateOne(payload.filter, payload.update, options);
+
+      case 'updateMany':
+        return await collection.updateMany(payload.filter, payload.update, options);
+
+      case 'deleteOne':
+        return await collection.deleteOne(payload.filter, options);
+
+      case 'deleteMany':
+        return await collection.deleteMany(payload.filter, options);
+
+      default:
+        throw new Error(`Unsupported operation: ${operation}`);
+    }
+
+  } catch (err) {
+    console.error(`Mongo operation error: ${err.message}`);
+    throw err;
+  }
+};
+
+module.exports = { connection ,performOperation};

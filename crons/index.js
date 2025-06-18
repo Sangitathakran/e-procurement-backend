@@ -4,13 +4,9 @@ const { default: axios } = require("axios");
 const fs = require("fs");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
-
-const {
-  AgentPaymentFile,
-} = require("@src/v1/models/app/payment/agentPaymentFile");
-const {
-  FarmerPaymentFile,
-} = require("@src/v1/models/app/payment/farmerPaymentFile");
+const { VERFICATION } = require("@config/index");
+const { AgentPaymentFile,} = require("@src/v1/models/app/payment/agentPaymentFile");
+const { FarmerPaymentFile} = require("@src/v1/models/app/payment/farmerPaymentFile");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const xlsx = require("xlsx");
@@ -28,8 +24,32 @@ const seller_ids = [
 ];
 
 main().catch((err) => console.log(err));
+const { runBankVerificationJob } = require('./verifyDraftJob');
+
+
+
 //update
 async function main() {
+  const VERFICATION = process.env.VERFICATION || "OFF"; 
+
+  if (VERFICATION === "ON") {
+    console.log(' Bank verification scheduler initialized...');
+    
+    cron.schedule('* * * * *', async () => {
+      console.log(' Running bank verification cron...');
+      
+      try {
+        await runBankVerificationJob();
+        console.log(" Bank verification cron finished.");
+      } catch (err) {
+        console.error(" Error running bank verification cron:", err.message);
+      }
+    });
+  } else {
+    console.log(" VERFICATION flag is OFF. Cron not started.");
+  }
+
+
   // cron.schedule("0 9-17/2 * * 1-5", () => {
   //   sendLog();
   // });
@@ -179,7 +199,7 @@ async function downloadFarmerFile() {
             item2.ADDR_5 === "Paid" ||
             (item2.LIQ_STATUS === "Paid" &&
               paymentDetails?.farmer_id?.bank_details?.account_no.toString() ===
-                item2.BENEF_ACCOUNT_NMBR.toString())
+              item2.BENEF_ACCOUNT_NMBR.toString())
           ) {
             console.log(
               "item2.SENDER_TO_RECEIVER_INFO1 Paid-->",
@@ -194,7 +214,7 @@ async function downloadFarmerFile() {
             item2.ADDR_5 === "Open" ||
             (item2.LIQ_STATUS === "Open" &&
               paymentDetails?.farmer_id?.bank_details?.account_no.toString() ===
-                item2.BENEF_ACCOUNT_NMBR.toString())
+              item2.BENEF_ACCOUNT_NMBR.toString())
           ) {
             paymentDetails.transaction_id = item2.SENDER_TO_RECEIVER_INFO1;
           } else {

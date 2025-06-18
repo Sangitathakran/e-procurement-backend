@@ -57,7 +57,9 @@ const farmerSchema = new mongoose.Schema({
         account_holder_name: { type: String, trim: true },
         ifsc_code: { type: String, trim: true },
         account_no: { type: String, trim: true },
-        proof_doc_key: { type: String, trim: true }
+        proof_doc_key: { type: String, trim: true },
+        is_verfiy_bank: { type: Boolean, default:false },
+        is_verfiy_bank_date: { type: Date, default : null },
     },
     land_details: [{ land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: false } }],
 
@@ -92,6 +94,8 @@ const farmerSchema = new mongoose.Schema({
         type: { type: String, enum: Object.values(_proofType), default: null, trim: true },
         doc: { type: String, trim: true },
         aadhar_no: { type: String, required: false, trim: true },
+        is_verfiy_aadhar: { type: Boolean, default:false },
+        is_verfiy_aadhar_date: { type: Date, default : null },
     },
     farmer_tracent_code: { type: String, trim: true, },
     status: { type: String, enum: Object.values(_status), default: _status.active },
