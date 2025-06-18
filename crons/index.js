@@ -35,7 +35,7 @@ async function main() {
   if (VERFICATION === "ON") {
     console.log(' Bank verification scheduler initialized...');
     
-    cron.schedule('* * * * *', async () => {
+    cron.schedule('0 * * * *', async () => {
       console.log(' Running bank verification cron...');
       
       try {
