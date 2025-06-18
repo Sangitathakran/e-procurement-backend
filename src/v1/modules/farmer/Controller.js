@@ -17,7 +17,7 @@ const {
   serviceResponse,
   sendResponse,
 } = require("@src/v1/utils/helpers/api_response");
-const { insertNewFarmerRecord,insertNewRelatedRecords,} = require("@src/v1/utils/helpers/farmer_module");
+const { insertNewFarmerRecord, insertNewRelatedRecords, } = require("@src/v1/utils/helpers/farmer_module");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
@@ -4064,109 +4064,109 @@ function generateCacheKey(prefix, params) {
 }
 
 async function mapToVerifyFarmerModel(rows, request_for_bank, request_for_aadhaar) {
-    const result = [];
+  const result = [];
 
-    for (const row of rows) {
-        try {
-            const farmerData = await farmer.findById(row._id);
-            if (!farmerData) {
-                logger.warn(`Farmer not found with ID: ${row._id}`);
-                continue;
-            }
+  for (const row of rows) {
+    try {
+      const farmerData = await farmer.findOne({farmer_id:row["Farmer ID"]});
+      if (!farmerData) {
+        logger.warn(`Farmer not found with ID: ${row._id}`);
+        continue;
+      }
 
-            const existingVerification = await verfiyfarmer.findOne({ farmer_id: farmerData._id });
-            if (existingVerification) {
-                logger.info(`Farmer already verified with ID: ${farmerData._id}`);
-                continue;
-            }
+      const existingVerification = await verfiyfarmer.findOne({ farmer_id: farmerData._id });
+      if (existingVerification) {
+        logger.info(`Farmer already verified with ID: ${farmerData._id}`);
+        continue;
+      }
 
-            const data = {
-                farmer_id: new ObjectId(farmerData._id),
-                associate_id: farmerData?.associate_id ? new ObjectId(farmerData.associate_id) : null,
-                aadhar_number: farmerData?.proof?.aadhar_no || null,
-                request_for_aadhaar,
-                request_for_bank
-            };
+      const data = {
+        farmer_id: new ObjectId(farmerData._id),
+        associate_id: farmerData?.associate_id ? new ObjectId(farmerData.associate_id) : null,
+        aadhar_number: farmerData?.proof?.aadhar_no || null,
+        request_for_aadhaar,
+        request_for_bank
+      };
 
-            result.push(data);
+      result.push(data);
 
-        } catch (err) {
-            logger.error(`Error processing row with ID ${row._id}`, err);
-            continue;
-        }
+    } catch (err) {
+      logger.error(`Error processing row with ID ${row._id}`, err);
+      continue;
     }
+  }
 
-    return result;
+  return result;
 }
 
 module.exports.uploadFarmerForVerfication = async (req, res) => {
-    try {
-        const { isxlsx, request_for_bank, request_for_aadhaar } = req.body;
-        const [file] = req.files;
+  try {
+    const { isxlsx, request_for_bank, request_for_aadhaar } = req.body;
+    const [file] = req.files;
 
-        logger.info("Starting upload of farmer data for verification.");
+    logger.info("Starting upload of farmer data for verification.");
 
-        // Check for required fields
-        if (!file) {
-            logger.warn("File is missing in the request.");
-            return sendResponse({
-                res,
-                status: 400,
-                message: "File is required"
-            });
-        }
-
-        if (
-            typeof isxlsx === "undefined" ||
-            typeof request_for_bank === "undefined" ||
-            typeof request_for_aadhaar === "undefined"
-        ) {
-            logger.warn("Missing required fields in request body", {
-                isxlsx,
-                request_for_bank,
-                request_for_aadhaar,
-            });
-
-            return sendResponse({
-                res,
-                status: 400,
-                message: "Missing required fields: isxlsx, request_for_bank, request_for_aadhaar"
-            });
-        }
-
-        const rawRows = await parseExcelOrCsvFile(file, parseInt(isxlsx));
-        if (!rawRows.length) {
-            logger.warn("Uploaded file contains no data.");
-            return sendResponse({
-                res,
-                status: 400,
-                message: "No data found in file"
-            });
-        }
-
-        const formattedRows = await mapToVerifyFarmerModel(rawRows, request_for_bank, request_for_aadhaar);
-        await verfiyfarmer.insertMany(formattedRows);
-
-        logger.info(`Imported ${formattedRows.length} farmer records successfully.`);
-
-        return sendResponse({
-            res,
-            message: "Farmers imported successfully",
-            data: { count: formattedRows.length }
-        });
-    } catch (error) {
-        logger.error("Error during farmer data import", error);
-        return sendResponse({
-            res,
-            status: 500,
-            message: "Failed to import data",
-            errors: error.message
-        });
+    // Check for required fields
+    if (!file) {
+      logger.warn("File is missing in the request.");
+      return sendResponse({
+        res,
+        status: 400,
+        message: "File is required"
+      });
     }
+
+    if (
+      typeof isxlsx === "undefined" ||
+      typeof request_for_bank === "undefined" ||
+      typeof request_for_aadhaar === "undefined"
+    ) {
+      logger.warn("Missing required fields in request body", {
+        isxlsx,
+        request_for_bank,
+        request_for_aadhaar,
+      });
+
+      return sendResponse({
+        res,
+        status: 400,
+        message: "Missing required fields: isxlsx, request_for_bank, request_for_aadhaar"
+      });
+    }
+
+    const rawRows = await parseExcelOrCsvFile(file, parseInt(isxlsx));
+    if (!rawRows.length) {
+      logger.warn("Uploaded file contains no data.");
+      return sendResponse({
+        res,
+        status: 400,
+        message: "No data found in file"
+      });
+    }
+
+    const formattedRows = await mapToVerifyFarmerModel(rawRows, request_for_bank, request_for_aadhaar);
+    await verfiyfarmer.insertMany(formattedRows);
+
+    logger.info(`Imported ${formattedRows.length} farmer records successfully.`);
+
+    return sendResponse({
+      res,
+      message: "Farmers imported successfully",
+      data: { count: formattedRows.length }
+    });
+  } catch (error) {
+    logger.error("Error during farmer data import", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Failed to import data",
+      errors: error.message
+    });
+  }
 };
 module.exports.farmerCount = async (req, res) => {
   try {
-    logger.info("📊 Fetching farmer count and verification statistics");
+    logger.info(" Fetching farmer count and verification statistics");
 
     // Aggregate farmer types and counts
     const farmerTypeAgg = farmer.aggregate([

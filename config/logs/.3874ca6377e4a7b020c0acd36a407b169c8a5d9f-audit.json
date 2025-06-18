@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\SHYAM\\Desktop\\admin cron apis\\procurement_admin_apis\\config\\logs\\.3874ca6377e4a7b020c0acd36a407b169c8a5d9f-audit.json",
+    "files": [
+        {
+            "date": 1750247966129,
+            "name": "C:\\Users\\SHYAM\\Desktop\\admin cron apis\\procurement_admin_apis\\config\\logs\\app-2025-06-18.log",
+            "hash": "ac27a0a84bc914fefcb58784c1dc1f6794b5ba53d07356ebf5dc9183dad6ff61"
+        }
+    ],
+    "hashType": "sha256"
+}
