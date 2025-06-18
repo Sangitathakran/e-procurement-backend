@@ -24,9 +24,9 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
       bo_id: new mongoose.Types.ObjectId(portalId),
       deletedAt: null,
     };
-    // if (search) {
-    //   matchQuery.schemeId = { $regex: search, $options: "i" };
-    // }
+    if (search) {
+      matchQuery.schemeId = { $regex: search, $options: "i" };
+    }
   /*  if (schemeName) {
       matchQuery["schemeDetails.schemeName"] = { $regex: schemeName, $options: "i" };
     }
