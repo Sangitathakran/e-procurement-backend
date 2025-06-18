@@ -51,10 +51,10 @@ module.exports.createNccf = async (req, res) => {
     try {
         const { nccf_name, email, phone } = req.body
 
-        const pwd = "finance123@";
-        const hashedpwd = await bcrypt.hash(pwd, 10);
-        console.log(hashedpwd);
-        return false;
+        // const pwd = "finance123@";
+        // const hashedpwd = await bcrypt.hash(pwd, 10);
+        // console.log(hashedpwd);
+        // return false;
 
         const existUser = await NccfAdmin.findOne({ email: email });
 
@@ -73,7 +73,7 @@ module.exports.createNccf = async (req, res) => {
         // const password = generateRandomPassword();
         // const password = "Ministry@1234";
         // const password = "Ministry123@";
-        const password = "finance123@";
+        const password = "Ministry123";
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const nccfData = new NccfAdmin({
@@ -182,9 +182,15 @@ module.exports.login = async (req, res) => {
 
         const userType = _userTypeFrontendRouteMapping[portal_type];
 
-        if (userType !== user.user_type) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
-        }
+        if (user.user_type !== _userTypeFrontendRouteMapping.ministry) {
+            if (userType !== user.user_type) {
+                return res.status(400).send(new serviceResponse({ status: 400, message: _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
+            }
+        } 
+
+        // if (userType !== user.user_type) {
+        //     return res.status(400).send(new serviceResponse({ status: 400, message: _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
+        // }
 
         const payload = { email: user.email, user_id: user?._id, portalId: user?.portalId?._id, user_type: user.user_type }
         const expiresIn = 24 * 60 * 60;
