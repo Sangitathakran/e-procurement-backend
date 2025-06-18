@@ -671,6 +671,7 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     if (aggregated.length === 0) {
     return res.status(200).json({
       status: 200,
+       message: _response_message.notFound("data"),
       data: [],
       totalRecords: 0,
       totalPages: 0,
@@ -839,6 +840,7 @@ module.exports.incidentalExpense = async (req, res) => {
     if (payments.length === 0) {
     return res.status(200).json({
       status: 200,
+       message: _response_message.notFound("data"),
       data: [],
       totalRecords: 0,
       totalPages: 0,
