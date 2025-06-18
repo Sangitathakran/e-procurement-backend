@@ -61,7 +61,8 @@ const _collectionName = {
     commodityStandard:"commodityStandard",
     SchemeAssign: "SchemeAssign",
     ClientToken:"ClientToken",
-    eKharidHaryana:"eKharidProcurement"
+    eKharidHaryana:"eKharidProcurement",
+    AgristackFarmerDetail: 'AgristackFarmerDetails',
 
 }
 
@@ -557,6 +558,13 @@ const _centralNodalAgency = {
     nodal3:'nodal3'
 }
 
+const _verificationStatus = {
+    pending: 1,
+    succeed: 2,
+    failed: 3
+}
+
+
 module.exports = {
     _userAction,
     _farmerType,
@@ -627,5 +635,6 @@ module.exports = {
     _season,
     _period,
     _centralNodalAgency,
-    _whr_status
+    _whr_status,
+    _verificationStatus
 }
