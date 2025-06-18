@@ -16,6 +16,7 @@ const {
 const UserRole = require("@src/v1/models/master/UserRole");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { default: mongoose } = require("mongoose");
+const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 
 
 module.exports.scheme = async (req, res) => {
@@ -423,6 +424,27 @@ module.exports.getWarehouses = async (req, res) => {
   } catch (err) {
     console.log("ERROR: ", err);
     return sendResponse({ status: 500, message: err.message });
+  }
+};
+module.exports.districtWisecenter = async (req, res) => {
+   try {
+    const { district } = req.query;
+
+    if (!district) {
+      return res.status(400).json({ success: false, message: 'District is required in query params' });
+    }
+
+    const centers = await ProcurementCenter.find({
+      'address.district': { $regex: `^${district}$`, $options: 'i' },
+      active: true
+    }).select('center_name -_id');
+
+    const centerNames = centers.map(center => center.center_name);
+
+    return res.status(200).json({ status: 200, data: centerNames });
+  } catch (error) {
+    console.error('Error in districtWisecenter:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 

@@ -95,7 +95,7 @@ const processSingleFarmerRecord = async (record) => {
 
           await farmer.findByIdAndUpdate(record.farmer_id, {
             $set: {
-              "bank_details.is_verfiy_bank": true,
+              "bank_details.is_verified": true,
               "bank_details.is_verfiy_bank_date": timestamp,
             },
           });
@@ -121,7 +121,7 @@ const processSingleFarmerRecord = async (record) => {
 
           await farmer.findByIdAndUpdate(record.farmer_id, {
             $set: {
-              "bank_details.is_verfiy_bank": false,
+              "bank_details.is_verified": false,
               "bank_details.is_verfiy_bank_date": timestamp,
             },
           });
@@ -157,7 +157,7 @@ const processSingleFarmerRecord = async (record) => {
 
           await farmer.findByIdAndUpdate(record.farmer_id, {
             $set: {
-              "proof.is_verfiy_aadhar": true,
+              "proof.is_verified": true,
               "proof.is_verfiy_aadhar_date": timestamp,
             },
           });
@@ -178,7 +178,7 @@ const processSingleFarmerRecord = async (record) => {
 
           await farmer.findByIdAndUpdate(record.farmer_id, {
             $set: {
-              "proof.is_verfiy_aadhar": false,
+              "proof.is_verified": false,
               "proof.is_verfiy_aadhar_date": timestamp,
             },
           });

@@ -11,19 +11,52 @@ const {
   _query,
   _response_message,
 } = require("@src/v1/utils/constants/messages");
+const mongoose = require("mongoose");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
+const { User } = require("@src/v1/models/app/auth/User");
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
+const {
+  StateDistrictCity,
+} = require("@src/v1/models/master/StateDistrictCity");
 
 
 module.exports.getMandiProcurement = asyncErrorHandler(async (req, res) => {
+  const { portalId, user_type} = req;
   let page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   let skip = (page - 1) * limit;
   const isExport = parseInt(req.query.isExport) === 1;
-  const centerNames = req.query.search?.trim();
-const searchDistrict = req.query.districtNames?.trim() || null;
+  const search = req.query.search?.trim();
+  const searchDistrict = req.query.districtNames?.trim() || null;
+  const associateName = req.query.associateName?.trim() || null;
+  let batchIdSet = [];
+  const isUserType6 = user_type === '6';
+
+  if (isUserType6) {
+    const paymentQuery = { sla_id: portalId };
+    const payments = await Payment.find(paymentQuery, { batch_id: 1 }).lean();
+    batchIdSet = [...new Set(payments.map(p => String(p.batch_id)).filter(Boolean))];
+
+    if (batchIdSet.length === 0) {
+      return res.status(200).json(
+        new serviceResponse({
+          status: 200,
+          data: {
+            page: 1,
+            limit,
+            totalPages: 0,
+            totalRecords: 0,
+            data: [],
+            message: "No data found for the given user",
+          },
+        })
+      );
+    }
+  }
 
   const pipeline = [
     {
@@ -118,6 +151,27 @@ const searchDistrict = req.query.districtNames?.trim() || null;
     },
 ];
 
+ if (isUserType6 && batchIdSet.length) {
+    pipeline.push({
+      $match: {
+        _id: { $in: batchIdSet.map(id => new mongoose.Types.ObjectId(id)) },
+      },
+    });
+  }
+
+if (search) {
+    pipeline.push({
+      $match: {
+        $or: [
+          { "center.center_name": { $regex: new RegExp(search, "i") } },
+          { "seller.address.registered.district": { $regex: new RegExp(search, "i") } },
+        ],
+      },
+    });
+    page = 1;
+    skip = 0;
+  }
+
     if (searchDistrict) {
     pipeline.push({
       $match: {
@@ -170,11 +224,10 @@ const searchDistrict = req.query.districtNames?.trim() || null;
       },
     },
 );
-  
-  if (centerNames?.length) {
+  if (associateName?.length) {
     pipeline.push({
       $match: {
-        centerName: { $regex: centerNames, $options: "i" },
+        associate_name: { $regex: associateName, $options: "i" },
       },
     });
     page = 1;
@@ -250,3 +303,79 @@ pipeline.push({
     })
   );
 });
+module.exports.getAssociates = async (req, res) => {
+  const query = { active: true, deletedAt: null };
+  const stateName = req.query.stateName?.trim() || null; 
+
+  try {
+    const matchStage = { $match: query };
+
+    const pipeline = [matchStage];
+
+    if (stateName) {
+      pipeline.push({
+        $match: {
+          "address.registered.state": { $regex: new RegExp(stateName, "i") },
+        },
+      });
+    }
+
+    pipeline.push({
+      $project: {
+        name: "$basic_details.associate_details.associate_name",
+        organization_name: "$basic_details.associate_details.organization_name",
+      },
+    });
+
+    const associate_list = await User.aggregate(pipeline);
+
+    return sendResponse({ res, message: "",  data: associate_list });
+   
+  } catch (err) {
+    console.log("ERROR: ", err);
+    return sendResponse({ status: 500, message: err.message });
+  }
+};
+
+module.exports.getState = async (req, res) => {
+  try {
+    const { portalId, user_type } = req;
+
+    let matchStage = {
+      "states.deletedAt": null,
+      "states.status": "active"
+    };
+
+    if (user_type == "6") {
+      const sla = await SLAManagement.findOne({ _id: portalId }, { "address.state": 1 }).lean();
+      if (!sla || !sla.address?.state) {
+        return sendResponse({
+          res,
+          status: 404,
+          message: "SLA record or state not found"
+        });
+      }
+
+      const userState = sla.address.state;
+      matchStage["states.state_title"] = userState;
+    }
+
+    const state_list = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      { $match: matchStage },
+      {
+        $project: {
+          _id: 0,
+          state_title: "$states.state_title",
+          state_code: "$states.state_code"
+        }
+      }
+    ]);
+
+    return sendResponse({ res, message: "", data: state_list });
+
+  } catch (err) {
+    console.error("ERROR: ", err);
+    return sendResponse({ res, status: 500, message: err.message });
+  }
+};

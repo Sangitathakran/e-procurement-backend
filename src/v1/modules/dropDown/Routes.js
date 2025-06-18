@@ -1,5 +1,5 @@
 const express = require('express');
-const { scheme, commodity, commodity_standard,commodityRequest, bo_list, cna_list, sla_list, getStates, getRoles, getCitiesByState, getAssociates, getWarehouses, getDistrictsByState } = require('./Controller');
+const { scheme, commodity, commodity_standard,commodityRequest, bo_list, cna_list, sla_list, getStates, getRoles, getCitiesByState, getAssociates, getWarehouses, getDistrictsByState, districtWisecenter } = require('./Controller');
 
 const dropDownRoutes = express.Router();
 
@@ -17,6 +17,7 @@ dropDownRoutes.get('/roles', getRoles);
 dropDownRoutes.get('/cities', getCitiesByState);
 dropDownRoutes.get('/associates', getAssociates);
 dropDownRoutes.get('/warehouses', getWarehouses);
+dropDownRoutes.get('/procurementcenter', districtWisecenter);
 
 
 

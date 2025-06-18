@@ -42,43 +42,40 @@ connection.once('open', function (error) {
 })
 
 
-const performOperation = async (collectionName, operation, payload = {}, options = {}) => {
-  try {
+const db = new Proxy({}, {
+  get: (_, collectionName) => {
     const collection = connection.collection(collectionName);
 
-    switch (operation) {
-      case 'find':
-        return await collection.find(payload.query || {}, options).toArray();
+    return {
+      find: async (query = {}, options = {}) =>
+        await collection.find(query, options).toArray(),
 
-      case 'findOne':
-        return await collection.findOne(payload.query || {}, options);
+      findOne: async (query = {}, options = {}) =>
+        await collection.findOne(query, options),
 
-      case 'insertOne':
-        return await collection.insertOne(payload.document, options);
+      insertOne: async (document, options = {}) =>
+        await collection.insertOne(document, options),
 
-      case 'insertMany':
-        return await collection.insertMany(payload.documents, options);
+      insertMany: async (documents, options = {}) =>
+        await collection.insertMany(documents, options),
 
-      case 'updateOne':
-        return await collection.updateOne(payload.filter, payload.update, options);
+      updateOne: async (filter, update, options = {}) =>
+        await collection.updateOne(filter, update, options),
 
-      case 'updateMany':
-        return await collection.updateMany(payload.filter, payload.update, options);
+      updateMany: async (filter, update, options = {}) =>
+        await collection.updateMany(filter, update, options),
 
-      case 'deleteOne':
-        return await collection.deleteOne(payload.filter, options);
+      deleteOne: async (filter, options = {}) =>
+        await collection.deleteOne(filter, options),
 
-      case 'deleteMany':
-        return await collection.deleteMany(payload.filter, options);
+      deleteMany: async (filter, options = {}) =>
+        await collection.deleteMany(filter, options),
 
-      default:
-        throw new Error(`Unsupported operation: ${operation}`);
-    }
-
-  } catch (err) {
-    console.error(`Mongo operation error: ${err.message}`);
-    throw err;
+      aggregate: async (pipeline = [], options = {}) =>
+        await collection.aggregate(pipeline, options).toArray()
+    };
   }
-};
+});
 
-module.exports = { connection ,performOperation};
+
+module.exports = { connection ,db};
