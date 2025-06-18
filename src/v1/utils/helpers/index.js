@@ -381,13 +381,27 @@ exports.getStateId = async (stateName) => {
     if (myAddress.get(stateName)) {
       return myAddress.get(stateName)
     }
-    const stateDoc = await StateDistrictCity.findOne({
-      'states.state_title': stateName
-    });
-    if (stateDoc) {
-      const state = stateDoc.states.find(state => state.state_title == stateName);
+    // const stateDoc = await StateDistrictCity.findOne({
+    //   'states.state_title': { $regex: new RegExp(`^${stateName}$`, 'i') }
+    // });
+    const stateDoc = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      {
+        $match: {
+          "states.state_title": { $regex: new RegExp(`^${stateName}$`, "i") }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          state: "$states"
+        }
+      }
+    ]);
+    if (stateDoc && stateDoc.length > 0) {
+      const state = stateDoc[0].state;
       // console.log('state', state._id);
-      if (state) {
+      if (state && state._id) {
         myAddress.set(stateName, state._id);
         return state._id;
       }
