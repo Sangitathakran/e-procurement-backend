@@ -63,6 +63,7 @@ const _collectionName = {
     PaymentLogsHistory: "PaymentLogsHistory",
     eKharidHaryana: "ekharidprocurements",
     agristackLog:"agristackLog",
+    verfiyFarmer: "verfiyfarmer",
 }
 
 const _userType_Feature_Collection = {
@@ -112,6 +113,15 @@ const _orderStatus = {
     failed: "failed",
     drop: "drop"
 }
+
+
+const _verfiycationStatus = {
+    pending: 1,
+    succeed: 2,
+    failed: 3
+}
+
+
 
 const _farmingType = {
     natural: 'Natural',
@@ -653,5 +663,6 @@ module.exports = {
     _period,
     _centralNodalAgency,
     _schemeName,
+    _verfiycationStatus,
     _ccAvenuePaymentStatus
 }
