@@ -75,7 +75,7 @@ farmerRoutes.put('/submit-form/:id',
 farmerRoutes.get('/download-zipFile', createZip)
 
 farmerRoutes.post('/get-state-from-ip-address',getLocationOfIpaddress)
-farmerRoutes.post("/verfiy_farmer",uploadFarmerForVerfication)
-farmerRoutes.get("/farmer_count",farmerCount)
+farmerRoutes.post("/verfiy_farmer",Auth,uploadFarmerForVerfication)
+farmerRoutes.get("/farmer_count",Auth,farmerCount)
 
 module.exports = { farmerRoutes } 
