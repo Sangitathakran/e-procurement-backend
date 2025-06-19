@@ -297,7 +297,6 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   }
 });
 
-
 module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
   try {
     const { state = '', commodity = '', cna = 'NCCF' } = req.query;
@@ -453,6 +452,96 @@ module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
         status: 200,
         data: result,
         message: _response_message.found("State-wise purchase order quantity")
+      })
+    );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+module.exports.stateWiseProcurementQuantity = asyncErrorHandler(async (req, res) => {
+  try {
+    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+
+    const { sort = 'desc' } = req.query;
+
+    const sortOrder = sort === 'asc' ? 1 : -1;
+
+    const result = await BatchOrderProcess.aggregate([
+      {
+        $lookup: {
+          from: 'warehousedetails', // Make sure the collection name is correct in MongoDB
+          localField: 'warehouseId',
+          foreignField: '_id',
+          as: 'warehouse',
+        },
+      },
+      {
+        $unwind: '$warehouse',
+      },
+      {
+        $group: {
+          _id: '$warehouse.addressDetails.state.state_name',
+          quantityProcured: { $sum: '$quantityRequired' }
+        },
+      },
+      {
+        $sort: {
+          quantityProcured: sortOrder,
+        },
+      },
+    ]);
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: result,
+        message: _response_message.found("State-wise procurement quantity")
+      })
+    );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+module.exports.stateWiseLiftingQuantity = asyncErrorHandler(async (req, res) => {
+  try {
+    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+
+    const { sort = 'desc' } = req.query;
+
+    const sortOrder = sort === 'asc' ? 1 : -1;
+
+    const result = await BatchOrderProcess.aggregate([
+      {
+        $lookup: {
+          from: 'warehousedetails', // Make sure the collection name is correct in MongoDB
+          localField: 'warehouseId',
+          foreignField: '_id',
+          as: 'warehouse',
+        },
+      },
+      {
+        $unwind: '$warehouse',
+      },
+      {
+        $group: {
+          _id: '$warehouse.addressDetails.state.state_name',
+          liftingQuantity: { $sum: '$quantityRequired' }
+        },
+      },
+      {
+        $sort: {
+          liftingQuantity: sortOrder,
+        },
+      },
+    ]);
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: result,
+        message: _response_message.found("State-wise lifting quantity")
       })
     );
   } catch (error) {
