@@ -1,5 +1,6 @@
 const express = require('express');
-const { generateToken } = require('./Controllers');
+const {  registerUser, loginUser } = require('./Controllers');
 const authRouters = express.Router();
- authRouters.get('/',generateToken)
+ authRouters.post('/login',loginUser)
+ authRouters.post('/ragister-user',registerUser)
 module.exports = {authRouters}

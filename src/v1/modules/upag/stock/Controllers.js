@@ -13,6 +13,7 @@ const getDateInterval = (endDate) => {
     return diffDays
 }
 
+
 module.exports.getStockData = async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
