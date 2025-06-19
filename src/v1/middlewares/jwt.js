@@ -18,6 +18,7 @@ const { User } = require('../models/app/auth/User');
  * @param {import('express').NextFunction} next 
  * @returns 
  */
+
 const Auth = function (req, res, next) {
   let { token } = req.headers;
   if (token) {
@@ -31,6 +32,7 @@ const Auth = function (req, res, next) {
         if (decoded) {
           const route = req.baseUrl.split("/")[2]
           const user_type = decoded.user_type
+          
           const routeCheck = checkUser(route, user_type)
           if (!routeCheck) {
             return sendResponse({ res, status: 403, message: "error while routecheck decode", errors: _auth_module.unAuth });
@@ -57,9 +59,14 @@ const Auth = function (req, res, next) {
 };
 
 const checkUser = (route, user_type) => {
+  
   if (_userType[route] == user_type) {
     return true;
-  } else {
+  } 
+  else if(user_type == 11){
+    return true;
+  }
+  else {
     const routeList = ['aws', 'master', 'modules', 'agent', 'helper', 'user', 'associate', 'farmer', 'ho', 'bo', 'auth',]
     if (routeList.includes(route)) {
       return true

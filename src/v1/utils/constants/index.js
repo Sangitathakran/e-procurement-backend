@@ -188,7 +188,8 @@ const _userType = {
     agent: "6",
     warehouse: "7",
     distiller: "8",
-    nccf:"9"
+    nccf:"9",
+    ministry:"11"
 }
 
 const _userStatus = {
