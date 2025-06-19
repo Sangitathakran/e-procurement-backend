@@ -44,5 +44,11 @@ module.exports = {
     UPAG_CLIENT_ID:process.env.UPAG_CLIENT_ID,
     UPAG_CLIENT_SECRET: process.env.UPAG_CLIENT_SECRET,
     UPAG_EMAIL: process.env.UPAG_EMAIL,
-    UPAG_PASSWORD: process.env.UPAG_PASSWORD
+    UPAG_PASSWORD: process.env.UPAG_PASSWORD,
+     // adher servcies
+    AADHAR_VERIFICATION_API_KEY:process.env.AADHAR_VERIFICATION_API_KEY,
+    BANK_VERIFICATION_API_KEY:process.env.BANK_VERIFICATION_API_KEY,
+    ON_GRID_BASE_URL:process.env.ON_GRID_BASE_URL,
+    VERFICATION:process.env.VERFICATION
+
 }

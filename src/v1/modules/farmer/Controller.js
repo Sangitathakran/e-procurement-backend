@@ -17,12 +17,7 @@ const {
   serviceResponse,
   sendResponse,
 } = require("@src/v1/utils/helpers/api_response");
-const {
-  insertNewFarmerRecord,
-  updateFarmerRecord,
-  updateRelatedRecords,
-  insertNewRelatedRecords,
-} = require("@src/v1/utils/helpers/farmer_module");
+const { insertNewFarmerRecord, insertNewRelatedRecords, } = require("@src/v1/utils/helpers/farmer_module");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
@@ -59,7 +54,10 @@ const axios = require("axios");
 const moment = require("moment");
 const mongoose = require("mongoose");
 const { setCache, getCache } = require("@src/v1/utils/cache");
-
+const parseExcelOrCsvFile = require('@src/common/services/parseExcelOrCsvFile');
+const { verfiyfarmer } = require('@src/v1/models/app/farmerDetails/verfiyFarmer');
+const logger = require('@common/logger/logger');
+const { VerificationType } = require('@common/enum');
 module.exports.sendOTP = async (req, res) => {
   try {
     const { mobileNumber, acceptTermCondition } = req.body;
@@ -669,11 +667,11 @@ module.exports.getFarmers = async (req, res) => {
     records.rows =
       paginate == 1
         ? await farmer
-            .find(query)
-            .limit(parseInt(limit))
-            .skip(parseInt(skip))
-            .sort(sortBy)
-            .populate("associate_id", "_id user_code")
+          .find(query)
+          .limit(parseInt(limit))
+          .skip(parseInt(skip))
+          .sort(sortBy)
+          .populate("associate_id", "_id user_code")
         : await farmer.find(query).sort(sortBy);
 
     records.count = await farmer.countDocuments(query);
@@ -1080,15 +1078,15 @@ module.exports.getLand = async (req, res) => {
     let lands =
       paginate == 1
         ? await Land.find(query)
-            .limit(parseInt(limit))
-            .skip(parseInt(skip))
-            .sort(sortBy)
-            .populate("farmer_id", "id name")
-            .lean()
+          .limit(parseInt(limit))
+          .skip(parseInt(skip))
+          .sort(sortBy)
+          .populate("farmer_id", "id name")
+          .lean()
         : await Land.find(query)
-            .sort(sortBy)
-            .populate("farmer_id", "id name")
-            .lean();
+          .sort(sortBy)
+          .populate("farmer_id", "id name")
+          .lean();
 
     records.rows = await Promise.all(
       lands.map(async (land) => {
@@ -1446,10 +1444,10 @@ module.exports.getCrop = async (req, res) => {
     const fetchCrops = async (query) =>
       paginate == 1
         ? Crop.find(query)
-            .limit(parseInt(limit))
-            .skip(parseInt(skip))
-            .sort(sortBy)
-            .populate("farmer_id", "id name")
+          .limit(parseInt(limit))
+          .skip(parseInt(skip))
+          .sort(sortBy)
+          .populate("farmer_id", "id name")
         : Crop.find(query).sort(sortBy).populate("farmer_id", "id name");
 
     const [pastCrops, upcomingCrops] = await Promise.all([
@@ -1702,10 +1700,10 @@ module.exports.getBank = async (req, res) => {
     records.rows =
       paginate == 1
         ? await Bank.find(query)
-            .limit(parseInt(limit))
-            .skip(parseInt(skip))
-            .sort(sortBy)
-            .populate("farmer_id", "id name")
+          .limit(parseInt(limit))
+          .skip(parseInt(skip))
+          .sort(sortBy)
+          .populate("farmer_id", "id name")
         : await Bank.find(query).sort(sortBy);
 
     records.count = await Bank.countDocuments(query);
@@ -1939,12 +1937,12 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           : "no";
       const transportation_facilities =
         rec["TRANSPORTATION FACILITIES"] &&
-        rec["TRANSPORTATION FACILITIES"].toLowerCase() === "yes"
+          rec["TRANSPORTATION FACILITIES"].toLowerCase() === "yes"
           ? "yes"
           : "no";
       const credit_facilities =
         rec["CREDIT FACILITIES"] &&
-        rec["CREDIT FACILITIES"].toLowerCase() === "yes"
+          rec["CREDIT FACILITIES"].toLowerCase() === "yes"
           ? "yes"
           : "no";
       const source_of_credit = rec["SOURCE OF CREDIT"]
@@ -2710,13 +2708,13 @@ const getAddress = async (item) => {
     district: item?.address?.district
       ? item?.address?.district
       : item?.address?.district_id
-      ? await getDistrict(item?.address?.district_id)
-      : "unknown",
+        ? await getDistrict(item?.address?.district_id)
+        : "unknown",
     state: item?.address?.state
       ? item?.address?.state
       : item?.address?.state_id
-      ? await getState(item?.address?.state_id)
-      : "unknown",
+        ? await getState(item?.address?.state_id)
+        : "unknown",
     pinCode: item?.address?.pinCode,
   };
 };
@@ -2954,9 +2952,9 @@ module.exports.getAllFarmersExport = async (req, res) => {
       paginate = 1,
       centertype = "",
       isExport = 0,
-      state = "",                   
-  startDate = "",               
-  endDate = "",
+      state = "",
+      startDate = "",
+      endDate = "",
     } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const parsedLimit = parseInt(limit);
@@ -2964,31 +2962,31 @@ module.exports.getAllFarmersExport = async (req, res) => {
     let associatedQuery = { associate_id: { $ne: null } };
     let localQuery = { associate_id: null };
 
-  const sanitizedSearch = typeof search === 'string' ? search : '';
-const sanitizedState = typeof state === 'string' ? state : '';
+    const sanitizedSearch = typeof search === 'string' ? search : '';
+    const sanitizedState = typeof state === 'string' ? state : '';
 
-if (sanitizedSearch) {
-  const searchCondition = { name: { $regex: sanitizedSearch, $options: "i" } };
-  associatedQuery = { ...associatedQuery, ...searchCondition };
-  localQuery = { ...localQuery, ...searchCondition };
-}
+    if (sanitizedSearch) {
+      const searchCondition = { name: { $regex: sanitizedSearch, $options: "i" } };
+      associatedQuery = { ...associatedQuery, ...searchCondition };
+      localQuery = { ...localQuery, ...searchCondition };
+    }
 
-if (sanitizedState) {
-  const stateCondition = { "address.state": { $regex: sanitizedState, $options: "i" } };
-  associatedQuery = { ...associatedQuery, ...stateCondition };
-  localQuery = { ...localQuery, ...stateCondition };
-}
+    if (sanitizedState) {
+      const stateCondition = { "address.state": { $regex: sanitizedState, $options: "i" } };
+      associatedQuery = { ...associatedQuery, ...stateCondition };
+      localQuery = { ...localQuery, ...stateCondition };
+    }
 
-if (startDate && endDate) {
-  const dateFilter = {
-    createdAt: {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate),
-    },
-  };
-  associatedQuery = { ...associatedQuery, ...dateFilter };
-  localQuery = { ...localQuery, ...dateFilter };
-}
+    if (startDate && endDate) {
+      const dateFilter = {
+        createdAt: {
+          $gte: new Date(startDate),
+          $lte: new Date(endDate),
+        },
+      };
+      associatedQuery = { ...associatedQuery, ...dateFilter };
+      localQuery = { ...localQuery, ...dateFilter };
+    }
 
 
     let records = {
@@ -3167,11 +3165,11 @@ if (startDate && endDate) {
             item?.farmer?.land?.[0]?.soil_type || "NA",
           "land_address(village)":
             item?.farmer?.land?.[0]?.land_address?.village || "NA",
-            "land_address(Block)":
+          "land_address(Block)":
             item?.farmer?.land?.[0]?.land_address?.block || "NA",
-            "land_address(Pin Code)":
+          "land_address(Pin Code)":
             item?.farmer?.land?.land_address?.pin_code || "NA",
-             "Soil Testing Agencies":
+          "Soil Testing Agencies":
             item?.farmer?.land?.soil_testing_agencies || "NA",
           "Crop Details (Season Name)": item?.farmer?.crop?.[0]?.seasonname || "NA",
           "Crop Details (Season Id)": item?.farmer?.crop?.[0]?.seasonid || "NA",
@@ -3229,13 +3227,13 @@ if (startDate && endDate) {
         return res.status(200).send(
           new serviceResponse({
             status: 200,
-             message: "No records found.",
+            message: "No records found.",
           })
         );
       }
     } else if (isExport == 1 && centertype === "localFarmer") {
-      
-       const record = responseData?.localFarmers.map((item) => {
+
+      const record = responseData?.localFarmers.map((item) => {
         return {
           "Farmer ID": item?.farmer?.farmer_id || "NA",
           "Farmer Name": item?.farmer?.name || "NA",
@@ -3321,11 +3319,11 @@ if (startDate && endDate) {
             item?.farmer?.land?.[0]?.soil_type || "NA",
           "land_address(village)":
             item?.farmer?.land?.[0]?.land_address?.village || "NA",
-            "land_address(Block)":
+          "land_address(Block)":
             item?.farmer?.land?.[0]?.land_address?.block || "NA",
-            "land_address(Pin Code)":
+          "land_address(Pin Code)":
             item?.farmer?.land?.land_address?.pin_code || "NA",
-             "Soil Testing Agencies":
+          "Soil Testing Agencies":
             item?.farmer?.land?.soil_testing_agencies || "NA",
           "Crop Details (Season Name)": item?.farmer?.crop?.[0]?.seasonname || "NA",
           "Crop Details (Season Id)": item?.farmer?.crop?.[0]?.seasonid || "NA",
@@ -3383,11 +3381,11 @@ if (startDate && endDate) {
         return res.status(200).send(
           new serviceResponse({
             status: 200,
-             message: "No records found.",
+            message: "No records found.",
           })
         );
       }
-    } 
+    }
     // else {
     //   return res.status(200).send(
     //     new serviceResponse({
@@ -4064,3 +4062,271 @@ function generateCacheKey(prefix, params) {
     .map(([k, v]) => `${k}=${v}`)
     .join("&")}`;
 }
+
+async function mapToVerifyFarmerModel(rows, request_for_verfication) {
+  const result = [];
+  let request_for_aadhaar = false
+  let request_for_bank = false
+
+  switch (request_for_verfication) {
+    case VerificationType.BANK:
+      request_for_bank = true;
+      break;
+    case VerificationType.AADHAAR:
+      request_for_aadhaar = true;
+      break;
+    case VerificationType.BOTH:
+      request_for_bank = true;
+      request_for_aadhaar = true;
+      break;
+  }
+
+  for (const row of rows) {
+    try {
+      const farmerData = await farmer.findOne({ farmer_id: row["Farmer ID"] });
+      if (!farmerData) {
+        logger.warn(`Farmer not found with ID: ${row._id}`);
+        continue;
+      }
+
+      const existingVerification = await verfiyfarmer.findOne({ farmer_id: farmerData._id });
+      if (existingVerification) {
+        logger.info(`Farmer already verified with ID: ${farmerData._id}`);
+        continue;
+      }
+
+      const data = {
+        farmer_id: new ObjectId(farmerData._id),
+        associate_id: farmerData?.associate_id ? new ObjectId(farmerData.associate_id) : null,
+        aadhar_number: farmerData?.proof?.aadhar_no || null,
+        request_for_aadhaar,
+        request_for_bank
+      };
+
+      result.push(data);
+
+    } catch (err) {
+      logger.error(`Error processing row with ID ${row._id}`, err);
+      continue;
+    }
+  }
+
+  return result;
+}
+
+module.exports.uploadFarmerForVerfication = async (req, res) => {
+  try {
+    let { isxlsx, request_for_verfication } = req.body;
+    const [file] = req.files;
+    request_for_verfication = +request_for_verfication
+    logger.info("Starting upload of farmer data for verification.");
+
+    // Check for required fields
+    if (!file) {
+      logger.warn("File is missing in the request.");
+      return sendResponse({
+        res,
+        status: 400,
+        message: "File is required"
+      });
+    }
+
+    // Check if isxlsx is provided
+    if (typeof isxlsx === "undefined") {
+      logger.warn("Missing required field: isxlsx");
+      return sendResponse({
+        res,
+        status: 400,
+        message: "Missing required field: isxlsx"
+      });
+    }
+    if (!Object.values(VerificationType).includes(request_for_verfication)) {
+      logger.warn("Invalid or missing request_for_verfication value", { request_for_verfication });
+
+      return sendResponse({
+        res,
+        status: 400,
+        message: "Invalid or missing value: request_for_verfication"
+      });
+    }
+
+
+    const rawRows = await parseExcelOrCsvFile(file, parseInt(isxlsx));
+    if (!rawRows.length) {
+      logger.warn("Uploaded file contains no data.");
+      return sendResponse({
+        res,
+        status: 400,
+        message: "No data found in file"
+      });
+    }
+
+    const formattedRows = await mapToVerifyFarmerModel(rawRows, request_for_verfication);
+    await verfiyfarmer.insertMany(formattedRows);
+
+    logger.info(`Imported ${formattedRows.length} farmer records successfully.`);
+
+    return sendResponse({
+      res,
+      message: "Farmers imported successfully",
+      data: { count: formattedRows.length }
+    });
+  } catch (error) {
+    logger.error("Error during farmer data import", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Failed to import data",
+      errors: error.message
+    });
+  }
+};
+
+module.exports.farmerCount = async (req, res) => {
+  try {
+    logger.info(" Fetching farmer count and verification statistics");
+
+    // Aggregate farmer types and counts
+    const farmerTypeAgg = farmer.aggregate([
+      {
+        $group: {
+          _id: "$farmer_type",
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$count" },
+          data: {
+            $push: {
+              type: "$_id",
+              count: "$count"
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          totalFarmers: "$total",
+          individualFarmers: {
+            $ifNull: [
+              {
+                $let: {
+                  vars: {
+                    match: {
+                      $first: {
+                        $filter: {
+                          input: "$data",
+                          as: "item",
+                          cond: { $eq: ["$$item.type", "Individual"] }
+                        }
+                      }
+                    }
+                  },
+                  in: "$$match.count"
+                }
+              },
+              0
+            ]
+          },
+          associateFarmers: {
+            $ifNull: [
+              {
+                $let: {
+                  vars: {
+                    match: {
+                      $first: {
+                        $filter: {
+                          input: "$data",
+                          as: "item",
+                          cond: { $eq: ["$$item.type", "Associate"] }
+                        }
+                      }
+                    }
+                  },
+                  in: "$$match.count"
+                }
+              },
+              0
+            ]
+          }
+        }
+      }
+    ]).exec();
+
+    // Aggregate verified farmers count
+    const verifiedFarmerAgg = farmer.aggregate([
+      {
+        $facet: {
+          bankVerified: [
+            { $match: { "bank_details.is_verified": true } },
+            { $count: "count" }
+          ],
+          aadhaarVerified: [
+            { $match: { "proof.is_verified": true } },
+            { $count: "count" }
+          ],
+          bothVerified: [
+            {
+              $match: {
+                "bank_details.is_verified": true,
+                "proof.is_verified": true
+              }
+            },
+            { $count: "count" }
+          ]
+        }
+      },
+      {
+        $project: {
+          bankVerified: {
+            $ifNull: [{ $arrayElemAt: ["$bankVerified.count", 0] }, 0]
+          },
+          aadhaarVerified: {
+            $ifNull: [{ $arrayElemAt: ["$aadhaarVerified.count", 0] }, 0]
+          },
+          bothVerified: {
+            $ifNull: [{ $arrayElemAt: ["$bothVerified.count", 0] }, 0]
+          }
+        }
+      }
+    ]).exec();
+
+    const [farmerTypes, verifiedFarmers] = await Promise.all([
+      farmerTypeAgg,
+      verifiedFarmerAgg
+    ]);
+
+    logger.info("✅ Farmer statistics fetched successfully");
+
+    return sendResponse({
+      res,
+      message: "Farmer count fetched successfully",
+      data: {
+        farmerTypes: farmerTypes[0] || {
+          totalFarmers: 0,
+          individualFarmers: 0,
+          associateFarmers: 0
+        },
+        verifiedFarmers: verifiedFarmers[0] || {
+          bankVerified: 0,
+          aadhaarVerified: 0,
+          bothVerified: 0
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error("❌ Error while fetching farmer count", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Failed to fetch farmer count",
+      errors: error.message
+    });
+  }
+};
+
+
