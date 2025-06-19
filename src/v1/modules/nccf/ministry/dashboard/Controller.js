@@ -12,161 +12,10 @@ const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 const { mongoose } = require("mongoose");
 
-/*
-module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
-
-  try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
-
-    const now = new Date();
-
-    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(startOfCurrentMonth.getTime() - 1);
-
-    const result = await PurchaseOrderModel.aggregate([
-      {
-        $facet: {
-          currentMonth: [
-            {
-              $match: {
-                createdAt: { $gte: startOfCurrentMonth }
-              }
-            },
-            {
-              $group: {
-                _id: null,
-                ongoingOrder: { $sum: "$purchasedOrder.poQuantity" },
-                paymentReceived: { $sum: "$paymentInfo.paidAmount" }
-              }
-            }
-          ],
-          lastMonth: [
-            {
-              $match: {
-                createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
-              }
-            },
-            {
-              $group: {
-                _id: null,
-                ongoingOrder: { $sum: "$purchasedOrder.poQuantity" },
-                paymentReceived: { $sum: "$paymentInfo.paidAmount" }
-              }
-            }
-          ]
-        }
-      }
-    ]);
-
-    const current = result[0].currentMonth[0] || { ongoingOrder: 0, paymentReceived: 0 };
-    const last = result[0].lastMonth[0] || { ongoingOrder: 0, paymentReceived: 0 };
-
-    const calculateChange = (currentVal, lastVal) => {
-      if (lastVal === 0) {
-        return currentVal === 0 ? 0 : 100;
-      }
-      return ((currentVal - lastVal) / lastVal) * 100;
-    };
-
-    const getTrend = (currentVal, lastVal) => {
-      if (currentVal > lastVal) return "increase";
-      if (currentVal < lastVal) return "decrease";
-      return "no change";
-    };
-
-    const noOfDistiller = await Distiller.countDocuments({ is_approved: _userStatus.approved });
-
-    const batch = await BatchOrderProcess.aggregate([
-      {
-        $facet: {
-          currentMonth: [
-            {
-              $match: {
-                createdAt: { $gte: startOfCurrentMonth }
-              }
-            },
-            {
-              $group: {
-                _id: null,
-                totalQuantityRequired: { $sum: "$quantityRequired" }
-              }
-            }
-          ],
-          lastMonth: [
-            {
-              $match: {
-                createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
-              }
-            },
-            {
-              $group: {
-                _id: null,
-                totalQuantityRequired: { $sum: "$quantityRequired" }
-              }
-            }
-          ]
-        }
-      }
-    ]);
-
-    const currentMonth = batch[0].currentMonth[0] || { totalQuantityRequired: 0 };
-    const lastMonth = batch[0].lastMonth[0] || { totalQuantityRequired: 0 };
-
-    const currentQty = currentMonth.totalQuantityRequired;
-    const lastQty = lastMonth.totalQuantityRequired;
-
-    const percentChange = lastQty === 0 ? currentQty === 0 ? 0 : 100 : ((currentQty - lastQty) / lastQty) * 100;
-
-    const trendLifted = currentQty > lastQty ? "increase" : currentQty < lastQty ? "decrease" : "no change";
-
-    const totalQtyDoc = await BatchOrderProcess.aggregate([
-      {
-        $group: {
-          _id: null,
-          totalQuantityRequired: { $sum: "$quantityRequired" }
-        }
-      }
-    ]);
-
-    const totalQty = totalQtyDoc[0]?.totalQuantityRequired || 0;
-
-    const summary = {
-      noOfDistiller: noOfDistiller || 0,
-      ongoingOrder: current.ongoingOrder,
-      paymentReceived: current.paymentReceived,
-      ongoingOrderChange: {
-        percent: +calculateChange(current.ongoingOrder, last.ongoingOrder).toFixed(2),
-        trend: getTrend(current.ongoingOrder, last.ongoingOrder)
-      },
-      paymentReceivedChange: {
-        percent: +calculateChange(current.paymentReceived, last.paymentReceived).toFixed(2),
-        trend: getTrend(current.paymentReceived, last.paymentReceived)
-      },      
-      quantityLifted: totalQty,
-      changeFromLastMonth: {
-        percent: +percentChange.toFixed(2),
-        trendLifted: trendLifted
-      }
-    };
-
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: summary,
-        message: _response_message.found("Order"),
-      })
-    );
-
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
-});
-*/
 
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = 'NCCF', dateRange = '' } = req.query;
 
     const now = new Date();
     const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -357,10 +206,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const trendOrder = getTrend(currentMonthOrder, lastMonthOrder);
     const totalOrderPlace = totalQtyOrders[0].totalOders[0]?.poQuantity || 0;
 
-     /*****************************************************************
-     * WAREHOUSE STOCK AGGREGATION (Based on Warehouse IDs in Batch) *
-     *****************************************************************/
-    // Function to fetch summed stock for warehouses with BatchOrderProcess documents in a given date range.
+    // warehouse stock 
     const getWarehouseStock = async () => {
       const agg = await BatchOrderProcess.aggregate([
         // { $match: matchCondition },
