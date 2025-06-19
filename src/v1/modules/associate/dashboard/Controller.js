@@ -104,34 +104,54 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       .map(id => (mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null))
       .filter(id => id !== null);
 
-    const districtArray = district ? (Array.isArray(district) ? district : [district]) : [];
+    const districtArray = district ? Array.isArray(district) ? district: district.split(',').map(d => d.trim()) : [];
     const regexDistrict = districtArray.map(title => new RegExp(`^${title}$`, 'i'));
+    // console.log(regexDistrict)
 
-    const districtDocs = await StateDistrictCity.aggregate([
-      { $unwind: "$states" },
-      { $unwind: "$states.districts" },
-      { $match: { "states.districts.district_title": { $in: regexDistrict } } },
-      { $project: { _id: "$states.districts._id" } }
-    ]);
-    const districtObjectIds = districtDocs.map(d => d._id);
-
+     let districtObjectIds = [];
+      if (districtArray.length) {
+      const districtDocs = await StateDistrictCity.aggregate([
+        { $unwind: "$states" },
+        { $unwind: "$states.districts" },
+        { $match: { "states.districts.district_title": { $in: regexDistrict } } },
+        { $project: { _id: "$states.districts._id" } }
+      ]);
+      districtObjectIds = districtDocs.map(d => d._id);
+    }
+// console.log(districtObjectIds)
     //farmer count
     const baseFarmerQuery = { associate_id: userObjectId };
     if (districtArray.length || commodityArray.length || schemeArray.length) {
       const requestFilter = {};
       if (commodityArray.length) requestFilter['product.name'] = { $in: regexCommodity };
       if (objectIdArray.length) requestFilter['product.schemeId'] = { $in: objectIdArray };
+      if (districtObjectIds.length) requestFilter['district_id'] = { $in: districtObjectIds };
 
       const requestIds = await RequestModel.find(requestFilter).distinct('_id');
-      const paymentFarmerIds = await Payment.find({ req_id: { $in: requestIds } }).distinct('farmer_id');
-
-      const farmerFilterQuery = { _id: { $in: paymentFarmerIds } };
-      if (districtObjectIds.length) farmerFilterQuery['address.district_id'] = { $in: districtObjectIds };
-
-      const filteredFarmerIds = await farmer.find(farmerFilterQuery).distinct('_id');
-      baseFarmerQuery._id = { $in: filteredFarmerIds };
+      //const paymentFarmerIds = await Payment.find({ req_id: { $in: requestIds } }).distinct('farmer_id');
+      if (requestIds.length) {
+        const paymentFarmerIds = await Payment.find({ req_id: { $in: requestIds } }).distinct('farmer_id');
+        if (paymentFarmerIds.length) {
+          const farmerFilter = {
+            _id: { $in: paymentFarmerIds },
+          };
+          if (districtObjectIds.length) {
+            farmerFilter['address.district_id'] = { $in: districtObjectIds };
+          }
+          const filteredFarmerIds = await farmer.find(farmerFilter).distinct('_id');
+          baseFarmerQuery._id = { $in: filteredFarmerIds };
+        } else {
+          baseFarmerQuery._id = { $in: [] };
+        }
+      } else {
+        baseFarmerQuery._id = { $in: [] };
+      }
     }
     widgetDetails.farmertotal = await farmer.countDocuments(baseFarmerQuery);
+
+      // const farmerFilterQuery = { _id: { $in: paymentFarmerIds } };
+      // const filteredFarmerIds = await farmer.find(farmerFilterQuery).distinct('_id');
+      // baseFarmerQuery._id = { $in: filteredFarmerIds };
 
     //procurementcenter count
     const basePOCQuery = { user_id: userObjectId };
@@ -139,48 +159,70 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       const requestFilter = {};
       if (commodityArray.length) requestFilter['product.name'] = { $in: regexCommodity };
       if (objectIdArray.length) requestFilter['product.schemeId'] = { $in: objectIdArray };
+      if (districtObjectIds.length) requestFilter['address.district'] = { $in: districtObjectIds };
+      // console.log(districtObjectIds)
 
       const requestIds = await RequestModel.find(requestFilter).distinct('_id');
-      const batchPOCs = await Batch.find({ req_id: { $in: requestIds } }).distinct('procurementCenter_id');
-
-      basePOCQuery._id = { $in: batchPOCs };
-      if (districtArray.length) basePOCQuery['address.district'] = { $in: regexDistrict };
-    }
+        if (requestIds.length) {
+          const batchPOCs = await Batch.find({ req_id: { $in: requestIds } }).distinct('procurementCenter_id');
+          basePOCQuery._id = { $in: batchPOCs };
+          if (districtObjectIds.length) {
+            basePOCQuery['address.district'] = { $in: districtObjectIds };
+          }
+        } else {
+          basePOCQuery._id = { $in: [] };
+        }
+      }
     widgetDetails.procurementCenter = await ProcurementCenter.countDocuments(basePOCQuery);
+      // const batchPOCs = await Batch.find({ req_id: { $in: requestIds } }).distinct('procurementCenter_id');
 
-    //total purchased quantity
+      // basePOCQuery._id = { $in: batchPOCs };
+      // if (districtArray.length) basePOCQuery['address.district'] = { $in: regexDistrict };
+    // TOTAL PURCHASED QUANTITY
     const purchasedMatch = { seller_id: userObjectId };
     if (commodityArray.length || schemeArray.length || districtArray.length) {
       const requestFilter = {};
       if (commodityArray.length) requestFilter['product.name'] = { $in: regexCommodity };
       if (objectIdArray.length) requestFilter['product.schemeId'] = { $in: objectIdArray };
-      const requestIds = await RequestModel.find(requestFilter).distinct('_id');
+      if (districtObjectIds.length) requestFilter['district_id'] = { $in: districtObjectIds };
 
-      if (requestIds.length) purchasedMatch.req_id = { $in: requestIds };
+      const requestIds = await RequestModel.find(requestFilter).distinct('_id');
+      if (requestIds.length) {
+        purchasedMatch.req_id = { $in: requestIds };
+      } else {
+        purchasedMatch.req_id = { $in: [] };
+      }
     }
-    const purchased = await Batch.aggregate([
+
+    const purchase = await Batch.aggregate([
       { $match: purchasedMatch },
       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
     ]);
-    widgetDetails.totalPurchased = purchased[0]?.totalQty || 0;
+    widgetDetails.totalPurchased = purchase[0]?.totalQty ? Number(purchase[0].totalQty.toFixed(3)) : 0;
 
-    //total lifting quantity
+    // TOTAL LIFTING QUANTITY
     const liftingMatch = { seller_id: userObjectId, intransit: { $exists: true, $ne: null } };
     if (commodityArray.length || schemeArray.length || districtArray.length) {
       const requestFilter = {};
       if (commodityArray.length) requestFilter['product.name'] = { $in: regexCommodity };
       if (objectIdArray.length) requestFilter['product.schemeId'] = { $in: objectIdArray };
-      const requestIds = await RequestModel.find(requestFilter).distinct('_id');
+      if (districtObjectIds.length) requestFilter['district_id'] = { $in: districtObjectIds };
 
-      if (requestIds.length) liftingMatch.req_id = { $in: requestIds };
+      const requestIds = await RequestModel.find(requestFilter).distinct('_id');
+      if (requestIds.length) {
+        liftingMatch.req_id = { $in: requestIds };
+      } else {
+        liftingMatch.req_id = { $in: [] };
+      }
     }
+
     const lifting = await Batch.aggregate([
       { $match: liftingMatch },
       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
     ]);
-    widgetDetails.totalLifting = lifting[0]?.totalQty || 0;
+    widgetDetails.totalLifting = lifting[0]?.totalQty ? Number(lifting[0].totalQty.toFixed(3)) : 0;
 
-    //total Lifting Days(suggeted by Neeraj sir)
+    // TOTAL DAY PURCHASE & LIFTING (Today)
     const now = new Date();
     const istOffset = 5.5 * 60 * 60 * 1000;
     const utcMidnight = new Date(now.setUTCHours(0, 0, 0, 0));
@@ -203,9 +245,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       intransit: { $exists: true, $ne: null },
       updatedAt: { $gte: startOfDayIST, $lt: endOfDayIST }
     }).select('qty');
-
-    const totalLiftingQtyToday = todayLiftingBatches.reduce((sum, b) => sum + (b.qty || 0), 0);
-    widgetDetails.totalDaysLifting = totalLiftingQtyToday;
+    widgetDetails.totalDaysLifting = todayLiftingBatches.reduce((sum, b) => sum + (b.qty || 0), 0);
 
     return sendResponse({
       res,
