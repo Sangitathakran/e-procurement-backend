@@ -8,12 +8,12 @@ const { getDashboardStats, monthlyLiftedTrends, getMonthlyPayments, stateWiseQua
 
 ministrydashboardRoutes.get("/", Auth, getDashboardStats);
 ministrydashboardRoutes.get("/monthlyLiftedTrends", Auth, monthlyLiftedTrends);
-ministrydashboardRoutes.get("/monthlyPaymentRecieved", getMonthlyPayments);
-ministrydashboardRoutes.get("/stateWiseQuantity", stateWiseQuantity);
-ministrydashboardRoutes.get("/warehouseList", warehouseList);
-ministrydashboardRoutes.get("/poRaised", poRaised);
-ministrydashboardRoutes.get("/ongoingOrders", ongoingOrders);
-ministrydashboardRoutes.get("/stateWiseAnalysis", stateWiseAnalysis);
+ministrydashboardRoutes.get("/monthlyPaymentRecieved", Auth, getMonthlyPayments);
+ministrydashboardRoutes.get("/stateWiseQuantity", Auth, stateWiseQuantity);
+ministrydashboardRoutes.get("/warehouseList", Auth, warehouseList);
+ministrydashboardRoutes.get("/poRaised", Auth, poRaised);
+ministrydashboardRoutes.get("/ongoingOrders", Auth, ongoingOrders);
+ministrydashboardRoutes.get("/stateWiseAnalysis", Auth, stateWiseAnalysis);
 ministrydashboardRoutes.get("/getCenterProjections", Auth, getStateWishProjection);
 ministrydashboardRoutes.get("/paymentWithTenPercant", Auth, paymentWithTenPercant);
 ministrydashboardRoutes.get("/paymentWithHundredPercant", Auth, paymentWithHundredPercant);
