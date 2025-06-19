@@ -584,7 +584,6 @@ module.exports.getFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy, search = '', skip, paginate = 1, is_associated } = req.query;
     const { user_id } = req
-
     let query = {};
     const records = { count: 0 };
     // query.associate_id = is_associated == 1 ? user_id : null
@@ -621,6 +620,14 @@ module.exports.getFarmers = async (req, res) => {
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
+
+    if (records.count === 0) {
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: [],
+        message: _response_message.notFound("data")
+      }));
+    }
     return res.status(200).send(new serviceResponse({
       status: 200,
       data: records,
