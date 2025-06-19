@@ -1,5 +1,7 @@
 const axios = require('axios');
 require('dotenv').config();
+const https = require("https");
+
 
 /**
  * Generic request handler for third-party APIs with dynamic headers
@@ -20,6 +22,7 @@ const callThirdPartyAPI = async ({ baseURL, path, data = {}, method = 'POST', he
       data,
       headers,
       timeout: 10000,
+      httpsAgent: new https.Agent({ rejectUnauthorized: false })
     });
 
     return response.data;

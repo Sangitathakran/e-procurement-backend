@@ -443,6 +443,7 @@ module.exports.getProcurementData = async (req, res) => {
 module.exports.postProcurementData = async (req, res) => {
   try {
     const token = await getUpagAccessToken();
+    console.log("token", token);
     const result = await submitProcurementData(token, req.body);
     return res.json(result);
   } catch (err) {

@@ -5,6 +5,6 @@ const { validateProcurement } = require("@src/v1/middlewares/upag_validations");
 const procurementRoutes = express.Router()
 
 procurementRoutes.get("/get-procurement",authMiddleware,getProcurementData)
-procurementRoutes.post('/submit-procurement', validateProcurement, postProcurementData);
+procurementRoutes.post('/submit-procurement', postProcurementData);
 module.exports = { procurementRoutes };
 

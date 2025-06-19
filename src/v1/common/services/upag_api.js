@@ -17,7 +17,7 @@ const getUpagAccessToken = async () => {
   }
 
   const baseURL = UPAG_BASE_URL;
-  const path = "/api/v1/auth/generate-token";
+  const path = "/auth/generate-token";
 
   const headers = {
     clientId: UPAG_CLIENT_ID,
@@ -30,6 +30,8 @@ const getUpagAccessToken = async () => {
     password: UPAG_PASSWORD,
   };
 
+  console.log( baseURL, path, headers, data);
+
   const response = await callThirdPartyAPI({
     baseURL,
     path,
@@ -37,7 +39,7 @@ const getUpagAccessToken = async () => {
     headers,
     data,
   });
-
+console.log(response);
   // Set cache for 5 min (300 seconds)
   setCache(cacheKey, response.access_token, 300);
 
@@ -46,7 +48,7 @@ const getUpagAccessToken = async () => {
 
 const submitProcurementData = async (token, payload) => {
   const baseURL = UPAG_BASE_URL;
-  const path = "/api/v1/procurement";
+  const path = "/procurement";
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -68,7 +70,7 @@ const submitStockData = async (token, payload) => {
    
   return await callThirdPartyAPI({
     baseURL: UPAG_BASE_URL,
-    path: "/api/v1/stock",
+    path: "/stock",
     method: "POST",
     data: payload,
     headers: {
