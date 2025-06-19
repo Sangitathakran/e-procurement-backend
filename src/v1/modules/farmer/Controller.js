@@ -57,7 +57,7 @@ const { setCache, getCache } = require("@src/v1/utils/cache");
 const parseExcelOrCsvFile = require('@src/common/services/parseExcelOrCsvFile');
 const { verfiyfarmer } = require('@src/v1/models/app/farmerDetails/verfiyFarmer');
 const logger = require('@common/logger/logger');
-
+const { VerificationType } = require('@common/enum');
 module.exports.sendOTP = async (req, res) => {
   try {
     const { mobileNumber, acceptTermCondition } = req.body;
@@ -4063,12 +4063,27 @@ function generateCacheKey(prefix, params) {
     .join("&")}`;
 }
 
-async function mapToVerifyFarmerModel(rows, request_for_bank, request_for_aadhaar) {
+async function mapToVerifyFarmerModel(rows, request_for_verfication) {
   const result = [];
+  let request_for_aadhaar = false
+  let request_for_bank = false
+
+  switch (request_for_verfication) {
+    case VerificationType.BANK:
+      request_for_bank = true;
+      break;
+    case VerificationType.AADHAAR:
+      request_for_aadhaar = true;
+      break;
+    case VerificationType.BOTH:
+      request_for_bank = true;
+      request_for_aadhaar = true;
+      break;
+  }
 
   for (const row of rows) {
     try {
-      const farmerData = await farmer.findOne({farmer_id:row["Farmer ID"]});
+      const farmerData = await farmer.findOne({ farmer_id: row["Farmer ID"] });
       if (!farmerData) {
         logger.warn(`Farmer not found with ID: ${row._id}`);
         continue;
@@ -4101,9 +4116,9 @@ async function mapToVerifyFarmerModel(rows, request_for_bank, request_for_aadhaa
 
 module.exports.uploadFarmerForVerfication = async (req, res) => {
   try {
-    const { isxlsx, request_for_bank, request_for_aadhaar } = req.body;
+    let { isxlsx, request_for_verfication } = req.body;
     const [file] = req.files;
-
+    request_for_verfication = +request_for_verfication
     logger.info("Starting upload of farmer data for verification.");
 
     // Check for required fields
@@ -4116,23 +4131,25 @@ module.exports.uploadFarmerForVerfication = async (req, res) => {
       });
     }
 
-    if (
-      typeof isxlsx === "undefined" ||
-      typeof request_for_bank === "undefined" ||
-      typeof request_for_aadhaar === "undefined"
-    ) {
-      logger.warn("Missing required fields in request body", {
-        isxlsx,
-        request_for_bank,
-        request_for_aadhaar,
+    // Check if isxlsx is provided
+    if (typeof isxlsx === "undefined") {
+      logger.warn("Missing required field: isxlsx");
+      return sendResponse({
+        res,
+        status: 400,
+        message: "Missing required field: isxlsx"
       });
+    }
+    if (!Object.values(VerificationType).includes(request_for_verfication)) {
+      logger.warn("Invalid or missing request_for_verfication value", { request_for_verfication });
 
       return sendResponse({
         res,
         status: 400,
-        message: "Missing required fields: isxlsx, request_for_bank, request_for_aadhaar"
+        message: "Invalid or missing value: request_for_verfication"
       });
     }
+
 
     const rawRows = await parseExcelOrCsvFile(file, parseInt(isxlsx));
     if (!rawRows.length) {
@@ -4144,7 +4161,7 @@ module.exports.uploadFarmerForVerfication = async (req, res) => {
       });
     }
 
-    const formattedRows = await mapToVerifyFarmerModel(rawRows, request_for_bank, request_for_aadhaar);
+    const formattedRows = await mapToVerifyFarmerModel(rawRows, request_for_verfication);
     await verfiyfarmer.insertMany(formattedRows);
 
     logger.info(`Imported ${formattedRows.length} farmer records successfully.`);
@@ -4164,6 +4181,7 @@ module.exports.uploadFarmerForVerfication = async (req, res) => {
     });
   }
 };
+
 module.exports.farmerCount = async (req, res) => {
   try {
     logger.info(" Fetching farmer count and verification statistics");
