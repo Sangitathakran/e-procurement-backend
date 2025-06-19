@@ -485,150 +485,181 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     const batchIdSet = [...new Set(payments.map((p) => String(p.batch_id)).filter(Boolean))];
   
 
-    const pipeline = [
-      {
-        $match: {
-          _id: { $in: batchIdSet.map((id) => new mongoose.Types.ObjectId(id)) },
-          seller_id: new mongoose.Types.ObjectId(user_id),
-        },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "seller_id",
-          foreignField: "_id",
-          as: "seller",
-        },
-      },
-      { $unwind: "$seller" },
-      {
-        $lookup: {
-          from: "procurementcenters",
-          localField: "procurementCenter_id",
-          foreignField: "_id",
-          as: "center",
-        },
-      },
-      { $unwind: "$center" },
-      {
-        $lookup: {
-          from: "associateoffers",
-          localField: "seller_id",
-          foreignField: "seller_id",
-          as: "associateOffer",
-        },
-      },
-      {
-        $unwind: {
-          path: "$associateOffer",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $lookup: {
-          from: "requests",
-          localField: "req_id",
-          foreignField: "_id",
-          as: "relatedRequest",
-        },
-      },
-      {
-        $unwind: {
-          path: "$relatedRequest",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $addFields: {
-          liftedDataDays: {
-            $cond: [
-              { $and: ["$createdAt", "$relatedRequest.createdAt"] },
-              {
-                $dateDiff: {
-                  startDate: "$relatedRequest.createdAt",
-                  endDate: {
-                    $cond: [
-                      { $ifNull: ["$deliveryDate", false] },
-                      "$deliveryDate",
-                      "$updatedAt"
-                    ]
-                  },
-                  unit: "day",
-                },
-              },
-              null,
-            ],
-          },
-          totalPurchase: { $sum: "$qty" },
-          liftedQty: {
-            $sum: {
-              $cond: [
-                { $ne: [{ $ifNull: ["$intransit", null] }, null] },
-                "$qty",
-                0
-              ]
-            }
-          },
-          purchaseDays: {
-            $cond: [
-              { $and: ["$updatedAt", "$relatedRequest.createdAt"] },
-              {
-                $dateDiff: {
-                  startDate: "$relatedRequest.createdAt",
-                  endDate: "$updatedAt",
-                  unit: "day",
-                },
-              },
-              null,
-            ],
-          },
-        },
-      },
-      {
-        $group: {
-          _id: "$procurementCenter_id",
-          centerName: { $first: "$center.center_name" },
-          Status: { $first: "$center.active" },
-          centerId: { $first: "$center._id" },
-          // Use procurement center district here:
-          district: { $first: "$center.address.district" },
-          associate_name: {
-            $first: "$seller.basic_details.associate_details.associate_name",
-          },
-          // totalPurchase: { $sum: "$qty" },
-          offeredQty: { $first: { $ifNull: ["$associateOffer.offeredQty", 0] } },
-          totalPurchaseQty :  { $first: "$totalPurchase" },
-          totalLiftingQty :{ $first: "$liftedQty" },
-          liftedDataDays: { $first: "$liftedDataDays" },
-          purchaseDays: { $first: "$purchaseDays" },
-          productName: { $first: "$relatedRequest.product.name" },
-          schemeId: { $first: "$relatedRequest.product.schemeId" },
-          totalPurchaseQty :  { $first: "$totalPurchase" },
-        },
-      },
-      {
-        $addFields: {
-          balanceMandi: { $subtract: ["$offeredQty", "$liftedQty"] },
-          liftingPercentage: {
-            $cond: {
-              if: { $gt: ["$offeredQty", 0] },
-              then: {
-                $round: [
-                  {
-                    $multiply: [
-                      { $divide: ["$liftedQty", "$offeredQty"] },
-                      100,
-                    ],
-                  },
-                  2,
-                ],
-              },
-              else: 0,
+      const pipeline = [
+          {
+            $match: {
+              _id: { $in: batchIdSet.map((id) => new mongoose.Types.ObjectId(id)) },
+              seller_id: new mongoose.Types.ObjectId(user_id),
             },
           },
-        },
-      },
-    ];
+          {
+            $lookup: {
+              from: "users",
+              localField: "seller_id",
+              foreignField: "_id",
+              as: "seller",
+            },
+          },
+          { $unwind: "$seller" },
+          {
+            $lookup: {
+              from: "procurementcenters",
+              localField: "procurementCenter_id",
+              foreignField: "_id",
+              as: "center",
+            },
+          },
+          { $unwind: "$center" },
+          {
+            $lookup: {
+              from: "associateoffers",
+              localField: "seller_id",
+              foreignField: "seller_id",
+              as: "associateOffer",
+            },
+          },
+          {
+            $unwind: {
+              path: "$associateOffer",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $lookup: {
+              from: "requests",
+              localField: "req_id",
+              foreignField: "_id",
+              as: "relatedRequest",
+            },
+          },
+          {
+            $unwind: {
+              path: "$relatedRequest",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $addFields: {
+              liftedDataDays: {
+                $cond: [
+                  { $and: ["$createdAt", "$relatedRequest.createdAt"] },
+                  {
+                    $dateDiff: {
+                      startDate: "$relatedRequest.createdAt",
+                      endDate: {
+                        $cond: [
+                          { $ifNull: ["$deliveryDate", false] },
+                          "$deliveryDate",
+                          "$updatedAt",
+                        ],
+                      },
+                      unit: "day",
+                    },
+                  },
+                  0,
+                ],
+              },
+              purchaseDays: {
+                $cond: [
+                  { $and: ["$updatedAt", "$relatedRequest.createdAt"] },
+                  {
+                    $dateDiff: {
+                      startDate: "$relatedRequest.createdAt",
+                      endDate: "$updatedAt",
+                      unit: "day",
+                    },
+                  },
+                  0,
+                ],
+              },
+
+              liftedDataValid: {
+                $cond: [
+                  { $and: ["$createdAt", "$relatedRequest.createdAt"] },
+                  true,
+                  false,
+                ],
+              },
+
+              purchaseDataValid: {
+                $cond: [
+                  { $and: ["$updatedAt", "$relatedRequest.createdAt"] },
+                  true,
+                  false,
+                ],
+              },
+
+              liftedQty: {
+                $cond: [
+                  { $ne: [{ $ifNull: ["$intransit", null] }, null] },
+                  "$qty",
+                  0,
+                ],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: "$procurementCenter_id",
+              centerName: { $first: "$center.center_name" },
+              Status: { $first: "$center.active" },
+              centerId: { $first: "$center._id" },
+              district: { $first: "$center.address.district" },
+              associate_name: {
+                $first: "$seller.basic_details.associate_details.associate_name",
+              },
+              offeredQty: {
+                $first: { $ifNull: ["$associateOffer.offeredQty", 0] },
+              },
+              productName: { $first: "$relatedRequest.product.name" },
+              schemeId: { $first: "$relatedRequest.product.schemeId" },
+
+              totalPurchaseQty: { $sum: "$qty" },
+               totalLiftedQty: {
+                $sum: {
+                  $cond: [
+                    { $ne: [{ $ifNull: ["$intransit", null] }, null] },
+                    "$qty",
+                    0,
+                  ],
+                },
+              },
+              liftedDataDays: {
+                $sum: {
+                  $cond: [{ $eq: ["$liftedDataValid", true] }, "$qty", 0],
+                },
+              },
+              purchaseDays: {
+                $sum: {
+                  $cond: [{ $eq: ["$purchaseDataValid", true] }, "$qty", 0],
+                },
+              },
+            },
+          },
+          {
+            $addFields: {
+              balanceMandi: { $subtract: ["$offeredQty", "$totalLiftedQty"] },
+              liftingPercentage: {
+                $cond: {
+                  if: { $gt: ["$offeredQty", 0] },
+                  then: {
+                    $round: [
+                      {
+                        $multiply: [
+                          { $divide: ["$totalLiftedQty", "$offeredQty"] },
+                          100,
+                        ],
+                      },
+                      2,
+                    ],
+                  },
+                  else: 0,
+                },
+              },
+            },
+          },
+        ];
+
 
     // Apply filters **after grouping** on grouped fields
     const filterMatch = {};
