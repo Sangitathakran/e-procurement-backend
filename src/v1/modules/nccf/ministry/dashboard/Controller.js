@@ -893,7 +893,6 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
   }
 });
 
-
 module.exports.paymentWithTenPercant = asyncErrorHandler(async (req, res) => {
   try {
     const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
@@ -946,7 +945,6 @@ module.exports.paymentWithTenPercant = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
-
 
 module.exports.paymentWithHundredPercant = asyncErrorHandler(async (req, res) => {
   try {
