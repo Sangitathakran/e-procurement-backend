@@ -2,7 +2,7 @@ const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, } = require("@src/v1/utils/constants/messages");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const { _userType, _poAdvancePaymentStatus, _userStatus, _poPickupStatus } = require("@src/v1/utils/constants");
+const { _userType, _poAdvancePaymentStatus, _userStatus, _poBatchStatus } = require("@src/v1/utils/constants");
 const { asyncErrorHandler, } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
@@ -14,12 +14,10 @@ const { mongoose } = require("mongoose");
 
 
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
-
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = 'NCCF', dateRange = '' } = req.query;
 
     const now = new Date();
-
     const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(startOfCurrentMonth.getTime() - 1);
@@ -28,11 +26,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       {
         $facet: {
           currentMonth: [
-            {
-              $match: {
-                createdAt: { $gte: startOfCurrentMonth }
-              }
-            },
+            { $match: { createdAt: { $gte: startOfCurrentMonth } } },
             {
               $group: {
                 _id: null,
@@ -63,9 +57,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const last = result[0].lastMonth[0] || { ongoingOrder: 0, paymentReceived: 0 };
 
     const calculateChange = (currentVal, lastVal) => {
-      if (lastVal === 0) {
-        return currentVal === 0 ? 0 : 100;
-      }
+      if (lastVal === 0) return currentVal === 0 ? 0 : 100;
       return ((currentVal - lastVal) / lastVal) * 100;
     };
 
@@ -89,7 +81,12 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
             {
               $group: {
                 _id: null,
-                totalQuantityRequired: { $sum: "$quantityRequired" }
+                totalQuantityRequired: { $sum: "$quantityRequired" },
+                completedQty: {
+                  $sum: {
+                    $cond: [{ $eq: ["$status", _poBatchStatus.completed] }, "$quantityRequired", 0]
+                  }
+                }
               }
             }
           ],
@@ -102,23 +99,31 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
             {
               $group: {
                 _id: null,
-                totalQuantityRequired: { $sum: "$quantityRequired" }
+                totalQuantityRequired: { $sum: "$quantityRequired" },
+                completedQty: {
+                  $sum: {
+                    $cond: [{ $eq: ["$status", _poBatchStatus.completed] }, "$quantityRequired", 0]
+                  }
+                }
+              }
+            }
+          ],
+          totalCompleted: [
+            {
+              $match: {
+                status: _poBatchStatus.completed
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                completedQty: { $sum: "$quantityRequired" }
               }
             }
           ]
         }
       }
     ]);
-
-    const currentMonth = batch[0].currentMonth[0] || { totalQuantityRequired: 0 };
-    const lastMonth = batch[0].lastMonth[0] || { totalQuantityRequired: 0 };
-
-    const currentQty = currentMonth.totalQuantityRequired;
-    const lastQty = lastMonth.totalQuantityRequired;
-
-    const percentChange = lastQty === 0 ? currentQty === 0 ? 0 : 100 : ((currentQty - lastQty) / lastQty) * 100;
-
-    const trendLifted = currentQty > lastQty ? "increase" : currentQty < lastQty ? "decrease" : "no change";
 
     const totalQtyDoc = await BatchOrderProcess.aggregate([
       {
@@ -129,25 +134,154 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       }
     ]);
 
+    const currentMonth = batch[0].currentMonth[0]?.totalQuantityRequired || { totalQuantityRequired: 0, completedQty: 0 };
+    const lastMonth = batch[0].lastMonth[0]?.totalQuantityRequired || { totalQuantityRequired: 0, completedQty: 0 };
+    const totalCompletedQty = batch[0].totalCompleted[0]?.completedQty || 0;
     const totalQty = totalQtyDoc[0]?.totalQuantityRequired || 0;
 
+    const currentQty = currentMonth.totalQuantityRequired;
+    const lastQty = lastMonth.totalQuantityRequired;
+
+    const currentCompleted = currentMonth.completedQty;
+    const lastCompleted = lastMonth.completedQty;
+
+    const quantityChangePercent = calculateChange(currentQty, lastQty);
+    const completedChangePercent = calculateChange(currentCompleted, lastCompleted);
+
+    const trendLifted = getTrend(currentQty, lastQty);
+    const trendCompleted = getTrend(currentCompleted, lastCompleted);
+
+    // order place
+    const totalQtyOrders = await PurchaseOrderModel.aggregate([
+      {
+        $facet: {
+          currentMonth: [
+            {
+              $match: {
+                'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
+                createdAt: { $gte: startOfCurrentMonth }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                poQuantity: { $sum: "$purchasedOrder.poQuantity" },
+              }
+            }
+          ],
+          lastMonth: [
+            {
+              $match: {
+                'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
+                createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                poQuantity: { $sum: "$purchasedOrder.poQuantity" },
+              }
+            }
+          ],
+          totalOders: [
+            {
+              $match: {
+                'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                poQuantity: { $sum: "$purchasedOrder.poQuantity" }
+              }
+            }
+          ]
+        }
+      }
+    ]);
+
+    const currentMonthOrder = totalQtyOrders[0].currentMonth[0]?.poQuantity || { poQuantity: 0 };
+    const lastMonthOrder = totalQtyOrders[0].lastMonth[0]?.poQuantity || { poQuantity: 0 };
+    const orderChangePercent = calculateChange(currentMonthOrder, lastMonthOrder);
+    const trendOrder = getTrend(currentMonthOrder, lastMonthOrder);
+    const totalOrderPlace = totalQtyOrders[0].totalOders[0]?.poQuantity || 0;
+
+    // warehouse stock 
+    const getWarehouseStock = async () => {
+      const agg = await BatchOrderProcess.aggregate([
+        // { $match: matchCondition },
+        // Get unique warehouseIds from batch orders
+        { $group: { _id: "$warehouseId" } },
+        // Lookup WarehouseDetails for each warehouseId (ensure the collection name matches)
+        {
+          $lookup: {
+            from: "warehousedetails",
+            localField: "_id",
+            foreignField: "_id",
+            as: "warehouse"
+          }
+        },
+        { $unwind: { path: "$warehouse", preserveNullAndEmptyArrays: false } },
+        {
+          $group: {
+            _id: null,
+            totalStock: { $sum: "$warehouse.inventory.stock" }
+          }
+        }
+      ]);
+      return agg;
+    };
+
+    // Get current month's and last month's warehouse stock sums
+    const currentWarehouseStockAgg = await getWarehouseStock({ createdAt: { $gte: startOfCurrentMonth } });
+    const lastWarehouseStockAgg = await getWarehouseStock({ createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth } });
+
+    const currentWarehouseStock = currentWarehouseStockAgg[0]?.totalStock || 0;
+    const lastWarehouseStock = lastWarehouseStockAgg[0]?.totalStock || 0;
+
+    // Calculate percentage change and trend for warehouse stock
+    const warehouseStockChangePercent = calculateChange(currentWarehouseStock, lastWarehouseStock);
+    const warehouseStockTrend = getTrend(currentWarehouseStock, lastWarehouseStock);
+
+
     const summary = {
-      ongoingOrder: current.ongoingOrder,
-      paymentReceived: current.paymentReceived,
-      ongoingOrderChange: {
-        percent: +calculateChange(current.ongoingOrder, last.ongoingOrder).toFixed(2),
-        trend: getTrend(current.ongoingOrder, last.ongoingOrder)
+      noOfDistiller: noOfDistiller || 0,
+      orderPlaceQuantity: totalOrderPlace || 0,
+      orderPlaceQuantityChange: {
+        percent: +orderChangePercent.toFixed(2),
+        trend: trendOrder
       },
+      completedOrderQuantity: currentCompleted,
+      completedOrderChange: {
+        percent: +completedChangePercent.toFixed(2),
+        trend: trendCompleted
+      },
+      paymentReceived: current.paymentReceived,
       paymentReceivedChange: {
         percent: +calculateChange(current.paymentReceived, last.paymentReceived).toFixed(2),
         trend: getTrend(current.paymentReceived, last.paymentReceived)
       },
-      noOfDistiller: noOfDistiller || 0,
+      ongoingOrder: current.ongoingOrder,
+      ongoingOrderChange: {
+        percent: +calculateChange(current.ongoingOrder, last.ongoingOrder).toFixed(2),
+        trend: getTrend(current.ongoingOrder, last.ongoingOrder)
+      },
+      procurementQuantity: totalOrderPlace || 0,
+      procurementChange: {
+        percent: +orderChangePercent.toFixed(2),
+        trend: trendOrder
+      },
       quantityLifted: totalQty,
-      changeFromLastMonth: {
-        percent: +percentChange.toFixed(2),
-        trendLifted: trendLifted
+      quantityLiftedChange: {
+        percent: +quantityChangePercent.toFixed(2),
+        trendLifted
+      },
+      warehouseStock: currentWarehouseStock,
+      warehouseStockChange: {
+        percent: +warehouseStockChangePercent.toFixed(2),
+        trend: warehouseStockTrend
       }
+
     };
 
     return res.status(200).send(
@@ -162,6 +296,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
 
 module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
   try {

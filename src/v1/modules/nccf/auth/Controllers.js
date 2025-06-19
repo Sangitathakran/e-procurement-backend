@@ -65,15 +65,13 @@ module.exports.createNccf = async (req, res) => {
         // checking the existing user in Master User collection
         const isUserAlreadyExist = await MasterUser.findOne(
             { $or: [{ mobile: { $exists: true, $eq: phone.trim() } }, { email: { $exists: true, $eq: email.trim() } }] });
-
+       
         if (isUserAlreadyExist) {
             return sendResponse({ res, status: 400, message: "user already existed with this mobile number or email in Master" })
         }
 
         // const password = generateRandomPassword();
-        // const password = "Ministry@1234";
-        // const password = "Ministry123@";
-        const password = "Ministry123";
+        const password = "Coop123@";
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const nccfData = new NccfAdmin({
@@ -186,7 +184,7 @@ module.exports.login = async (req, res) => {
             if (userType !== user.user_type) {
                 return res.status(400).send(new serviceResponse({ status: 400, message: _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
             }
-        } 
+        }
 
         // if (userType !== user.user_type) {
         //     return res.status(400).send(new serviceResponse({ status: 400, message: _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
