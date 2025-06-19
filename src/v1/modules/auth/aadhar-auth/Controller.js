@@ -280,7 +280,7 @@ module.exports.verifyAadharOTP = async (req, res) => {
       {
         $set: {
           farmer_id: farmerObj?._id,
-          aadhaar_details: {...uidai_aadharNo, ...fetchedData?.aadhaar_data},
+          aadhaar_details: {uidai_aadharNo, ...fetchedData?.aadhaar_data},
           is_verify_aadhaar: true,
           is_verify_aadhaar_date: new Date()
         }
