@@ -1,3 +1,4 @@
+const { getUpagAccessToken, submitStockData } = require("@src/v1/common/services/upag_api");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Scheme } = require("@src/v1/models/master/Scheme");
@@ -11,6 +12,7 @@ const getDateInterval = (endDate) => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays
 }
+
 
 module.exports.getStockData = async (req, res) => {
     try {
@@ -154,3 +156,13 @@ module.exports.getStockData = async (req, res) => {
         return res.status(500).json({ message: "Internal Server Error" });
     }
 };
+
+module.exports.postStockData = async (req, res) => {
+  try {
+    const token = await getUpagAccessToken();
+    const result = await submitStockData(token, req.body);
+    return res.json(result);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}

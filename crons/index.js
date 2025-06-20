@@ -23,6 +23,8 @@ const seller_ids = [
   "67ee2a3e07654b69eabda370",
 ];
 
+
+
 main().catch((err) => console.log(err));
 const { runBankVerificationJob } = require('./verifyDraftJob');
 
@@ -72,14 +74,15 @@ async function main() {
 
   //await downloadFarmerFile();
 
-  cron.schedule("* * * * *", async () => {
-    for (const seller_id of seller_ids) {
-      // await fetchAndProcessBatches(
-      //   req_id,
-      //   new mongoose.Types.ObjectId(seller_id)
-      // );
-    }
-  });
+  // cron.schedule("* * * * *", async () => {
+  //   for (const seller_id of seller_ids) {
+  //     // await fetchAndProcessBatches(
+  //     //   req_id,
+  //     //   new mongoose.Types.ObjectId(seller_id)
+  //     // );
+  //   }
+  // });
+
 }
 
 async function downloadAgentFile() {
@@ -306,6 +309,8 @@ async function fetchAndProcessBatches(req_id, seller_id) {
   );
 }
 
+
+
 // In farmerpaymentfiles collection, "fileName" consists of following pattern-
 // ex:  AIZER181124006.csv
 // here, starting 5 letters are client code - `AIZER`
@@ -329,3 +334,6 @@ async function fetchAndProcessBatches(req_id, seller_id) {
 // UTR_SR_NO: 'ICMS2410300BZA7T',
 // INST_DATE: '29-10-24',
 // PRODUCT_CODE: 'NEFT'
+
+
+

@@ -1,6 +1,8 @@
+const { getUpagAccessToken, submitProcurementData } = require("@src/v1/common/services/upag_api");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Scheme } = require("@src/v1/models/master/Scheme");
+const { _statesAndUTs } = require("@src/v1/utils/constants");
 const moment = require('moment')
 
 
@@ -403,10 +405,10 @@ module.exports.getProcurementData = async (req, res) => {
             const progressiveprocurement = farmerOrdersByRange[0]?.totalQty || 0;
             const totalFarmers = farmerOrdersByRange[0]?.count || 0;
             const quantityprocuredyesterday = farmerOrdersLastWeek[0]?.totalQty || 0;
-
+            const statecode = _statesAndUTs?.find((st)=>st?.name===associateState)?.code || associateState
             const [pocStartDate, pocEndDate] = scheme.procurementDuration.split(' - ');
             finalResponses.push({
-                "statecode": associateState,
+                "statecode": statecode,
                 "statename": associateState,
                 "commoditycode": commodityId,
                 "scheme": scheme.schemeName,
@@ -423,7 +425,7 @@ module.exports.getProcurementData = async (req, res) => {
                 "season": scheme.season,
                 "uom_of_qty": "MT",
                 "price": quotedPrice,
-                "uom_of_no_of_farmers_benifited": totalFarmers
+                "uom_of_no_of_farmers_benifited": "Count"
             });
         }
 
@@ -438,6 +440,17 @@ module.exports.getProcurementData = async (req, res) => {
         return res.status(500).json({ message: "Internal Server Error" });
     }
 };
+
+module.exports.postProcurementData = async (req, res) => {
+  try {
+    const token = await getUpagAccessToken();
+    console.log("token", token);
+    const result = await submitProcurementData(token, req.body);
+    return res.json(result);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}
 
 
 
