@@ -13,12 +13,22 @@ async function getVerifiedAadharInfo(uidai_aadharNo) {
       },
       { aadhaar_details: 1, farmer_id: 1 }
     ).lean();
+
+    if (!adharDetails) return null;
+
+    // Update the care_of field inside the nested aadhaar_details
+    if (adharDetails.aadhaar_details?.care_of) {
+      adharDetails.aadhaar_details.care_of = adharDetails.aadhaar_details.care_of.replace(/^C\/O:\s*/i, '');
+    }
+
     return adharDetails;
+
   } catch (err) {
     console.log(err);
     throw new Error(err.message);
   }
 }
+
 
 async function getAgristackFarmerByAadhar(uidai_aadharNo) {
   try {
