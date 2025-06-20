@@ -240,7 +240,7 @@ async function downloadFarmerFile() {
 //   console.log("Running scheduled import job...");
 //   importAssociates();
 // });
-cron.schedule("00 12 * * *", () => {
-  console.log("🕒 Running scheduled import job at", new Date().toLocaleString());
+cron.schedule("00 0,14 * * *", () => {
+  console.log("Running scheduled import job at", new Date().toLocaleString());
   importAssociates();
 });

@@ -260,10 +260,14 @@ module.exports.getProcurementCenter = async (req, res) => {
     const { user_id } = req;
     let query = {
       user_id: user_id,
-      ...(search
-        ? { center_name: { $regex: search, $options: "i" }, deletedAt: null }
-        : { deletedAt: null }),
-    };
+      deletedAt: null,
+      ...(search && {
+        $or: [
+         { center_name: { $regex: search, $options: "i" } },
+         { center_code: { $regex: search, $options: "i" } }
+        ]
+        })
+      };
     const records = { count: 0 };
     records.rows =
       paginate == 1

@@ -1,5 +1,5 @@
 const express = require('express');
-const { scheme, commodity, commodity_standard, bo_list, cna_list, sla_list, getStates, getRoles, getCitiesByState, getAssociates, getWarehouses } = require('./Controller');
+const { scheme, commodity, commodity_standard, bo_list, cna_list, sla_list, getStates, getRoles, getCitiesByState, getAssociates, getWarehouses} = require('./Controller');
 
 const dropDownRoutes = express.Router();
 
