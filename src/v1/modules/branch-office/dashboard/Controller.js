@@ -120,114 +120,53 @@ const totalPaymentAmount = PaymentCompletedSumAgg[0]?.totalAmount || 0;
 
 module.exports.getDashboardStats = async (req, res) => {
     try {
-        const currentDate = new Date();
-        const startOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-        const startOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-        const endOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
+  
+        const boId = new mongoose.Types.ObjectId(req.portalId);
 
-        const [
-            lastMonthBo,
-            currentMonthAssociates,
-            lastMonthFarmers,
-            currentMonthFarmers,
-            branchOfficeCount,
-            associateCount,
-            procurementCenterCount,
-            farmerCount,
-            warehouseCount,
-            PaymentInitiatedCount,
-            PaymentCompletedSumAgg
-        ] = await Promise.all([
-            User.countDocuments({
-                user_type: _userType.bo,
-                is_form_submitted: true,
-                is_approved: _userStatus.approved,
-                createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
-            }),
-            User.countDocuments({
-                user_type: _userType.associate,
-                is_form_submitted: true,
-                is_approved: _userStatus.approved,
-                createdAt: { $gte: startOfCurrentMonth }
-            }),
-            farmer.countDocuments({
-                status: _status.active,
-                createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
-            }),
-            farmer.countDocuments({
-                status: _status.active,
-                createdAt: { $gte: startOfCurrentMonth }
-            }),
-            Branches.countDocuments({ status: _status.active }),
-            User.countDocuments({
-                user_type: _userType.associate,
-                is_approved: _userStatus.approved
-            }),
-            ProcurementCenter.countDocuments({ deletedAt: null }),
-            farmer.countDocuments({ status: _status.active }),
-            wareHouseDetails.countDocuments({ active: true }),
-            // Updated count query to handle missing or null deletedAt
-            Payment.countDocuments({
-                payment_status: "Completed",
-                $or: [
-                    { deletedAt: null },
-                    { deletedAt: { $exists: false } }
-                ]
-            }),
-            // Aggregation to get sum of completed payments
-            Payment.aggregate([
-                {
-                    $match: {
-                        payment_status: "Completed",
-                        $or: [
-                            { deletedAt: null },
-                            { deletedAt: { $exists: false } }
-                        ]
-                    }
-                },
-                {
-                    $group: {
-                        _id: null,
-                        totalAmount: { $sum: "$amount" }
-                    }
-                }
-            ])
+        const userDetails = await Branches.findOne({ _id: boId })
+        const stateName = userDetails?.state?.trim();
+        const stateDoc = await StateDistrictCity.aggregate([
+            { $unwind: "$states" },
+            { $match: { "states.state_title": stateName } },
+            { $project: { _id: 0, state_id: "$states._id" } }
         ]);
 
-        const associateDifference = currentMonthAssociates - lastMonthBo;
-        const associateStatus = associateDifference >= 0 ? 'increased' : 'decreased';
-        const associateDifferencePercentage = lastMonthBo > 0
-            ? ((associateDifference / lastMonthBo) * 100).toFixed(2) + '%'
-            : '0%';
+        const stateId = stateDoc[0]?.state_id;
+        const farmerRegisteredCount = await farmer.countDocuments({
+            "address.state_id": stateId
+        });
 
-        const farmerDifference = currentMonthFarmers - lastMonthFarmers;
-        const farmerStatus = farmerDifference >= 0 ? 'increased' : 'decreased';
-        const farmerDifferencePercentage = lastMonthFarmers > 0
-            ? ((farmerDifference / lastMonthFarmers) * 100).toFixed(2) + '%'
-            : '0%';
-        
+        // warehouse count 
+        const warehouseCount = await wareHouseDetails.countDocuments({ active: true });
+
+        // Procurement center count
+        const procurementCenterCount = await ProcurementCenter.countDocuments({deletedAt: null, active:true})
+
+        //Payment Count 
+        const PaymentInitiatedCount = await Payment.countDocuments({
+            bo_id: { $exists: true },
+            payment_status: "Completed"
+        })
+
+        // total Procurment count
+        const totalProducments = await Payment.find(
+            { payment_status: "Completed" },
+            'qtyProcured'
+        );
+        const totalProcurementCount = totalProducments.reduce((sum, item) => {
+            const qty = parseFloat(item.qtyProcured || 0);
+            const currentSum = sum + qty;
+            return currentSum;
+        }, 0);
+
+
         const records = {
-            branchOfficeCount,
-            associateStats: {
-                totalAssociates: associateCount,
-                currentMonthAssociates,
-                lastMonthBo,
-                difference: associateDifference,
-                differencePercentage: associateDifferencePercentage,
-                status: associateStatus
-            },
+            farmerRegisteredCount,
             procurementCenterCount,
-            farmerStats: {
-                totalFarmers: farmerCount,
-                currentMonthFarmers,
-                lastMonthFarmers,
-                difference: farmerDifference,
-                differencePercentage: farmerDifferencePercentage,
-                status: farmerStatus
-            },
-            warehouseCount,            
-            PaymentInitiatedCount: PaymentCompletedSumAgg[0]?.totalAmount || 0 // ✅ assign sum here
-           
+            warehouseCount,
+            PaymentInitiatedCount,
+            totalProcurementCount,
+
         };
 
         return res.send(new serviceResponse({
@@ -635,181 +574,180 @@ module.exports.agentPayments = async (req, res) => {
 }
 module.exports.getStateWiseCommodityStatus = async (req, res) => {
     try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const skip = (page - 1) * limit;
-  
-      const portalId = req.user?.portalId?._id;
-      if (!portalId) return res.status(400).json({ message: 'Invalid portalId' });
-  
-      const branch = await Branches.findOne({ _id: portalId }).lean();
-      if (!branch) return res.status(404).json({ message: 'No branch found for the portal' });
-  
-      const stateData = await StateDistrictCity.findOne(
-        { "states.state_title": branch.state },
-        { "states.$": 1 }
-      ).lean();
-      const stateId = stateData?.states?.[0]?._id;
-      if (!stateId) return res.status(404).json({ message: 'State not found in the master collection' });
-  
-      const baseMatch = { branch_id: branch._id };
-  
-      const farmerCountPromise = farmer.countDocuments({ 'address.state_id': stateId, status: _status.active });
-  
-      const aggregationPipeline = [
-        { $match: baseMatch },
-        {
-          $lookup: {
-            from: 'associateoffers',
-            let: { reqId: '$_id' },
-            pipeline: [
-              { $match: { $expr: { $eq: ['$req_id', '$$reqId'] } } },
-              {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const portalId = req.user?.portalId?._id;
+        if (!portalId) return res.status(400).json({ message: 'Invalid portalId' });
+
+        const branch = await Branches.findOne({ _id: portalId }).lean();
+        if (!branch) return res.status(404).json({ message: 'No branch found for the portal' });
+
+        const stateData = await StateDistrictCity.findOne(
+            { "states.state_title": branch.state },
+            { "states.$": 1 }
+        ).lean();
+        const stateId = stateData?.states?.[0]?._id;
+        if (!stateId) return res.status(404).json({ message: 'State not found in the master collection' });
+
+        const baseMatch = { branch_id: branch._id };
+
+        const farmerCountPromise = farmer.countDocuments({ 'address.state_id': stateId, status: _status.active });
+
+        const aggregationPipeline = [
+            { $match: baseMatch },
+            {
                 $lookup: {
-                  from: 'farmerorders',
-                  let: { offerId: '$_id' },
-                  pipeline: [
-                    { $match: { $expr: { $eq: ['$associateOffers_id', '$$offerId'] } } },
-                    {
-                      $lookup: {
-                        from: 'farmers',
-                        localField: 'farmer_id',
-                        foreignField: '_id',
-                        as: 'farmerInfo'
-                      }
-                    },
-                    {
-                      $unwind: '$farmerInfo'
-                    },
-                    {
-                      $project: {
-                        offeredQty: 1,
-                        farmer_id: 1,
-                        associate_id: '$farmerInfo.associate_id'
-                      }
-                    }
-                  ],
-                  as: 'farmerOrders'
+                    from: 'associateoffers',
+                    let: { reqId: '$_id' },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ['$req_id', '$$reqId'] } } },
+                        {
+                            $lookup: {
+                                from: 'farmerorders',
+                                let: { offerId: '$_id' },
+                                pipeline: [
+                                    { $match: { $expr: { $eq: ['$associateOffers_id', '$$offerId'] } } },
+                                    {
+                                        $lookup: {
+                                            from: 'farmers',
+                                            localField: 'farmer_id',
+                                            foreignField: '_id',
+                                            as: 'farmerInfo'
+                                        }
+                                    },
+                                    {
+                                        $unwind: '$farmerInfo'
+                                    },
+                                    {
+                                        $project: {
+                                            offeredQty: 1,
+                                            farmer_id: 1,
+                                            associate_id: '$farmerInfo.associate_id'
+                                        }
+                                    }
+                                ],
+                                as: 'farmerOrders'
+                            }
+                        },
+                        {
+                            $unwind: '$farmerOrders'
+                        },
+                        {
+                            $project: {
+                                farmer_id: '$farmerOrders.farmer_id',
+                                offeredQty: '$farmerOrders.offeredQty',
+                                associate_id: '$farmerOrders.associate_id'
+                            }
+                        }
+                    ],
+                    as: 'offers'
                 }
-              },
-              {
-                $unwind: '$farmerOrders'
-              },
-              {
-                $project: {
-                  farmer_id: '$farmerOrders.farmer_id',
-                  offeredQty: '$farmerOrders.offeredQty',
-                  associate_id: '$farmerOrders.associate_id'
-                }
-              }
-            ],
-            as: 'offers'
-          }
-        },
-        {
-          $unwind: '$offers'
-        },
-        {
-          $lookup: {
-            from: 'commodities',
-            localField: 'product.commodity_id',
-            foreignField: '_id',
-            as: 'commodity'
-          }
-        },
-        {
-          $unwind: '$commodity'
-        },
-        {
-          $group: {
-            _id: {
-              commodityId: '$commodity._id',
-              name: '$commodity.name'
             },
-            totalQtyPurchased: { $sum: '$offers.offeredQty' },
-            farmerSet: { $addToSet: '$offers.farmer_id' },
-            pacSet: { $addToSet: '$offers.associate_id' }
-          }
-        },
-        {
-          $project: {
-            commodityId: '$_id.commodityId',
-            name: '$_id.name',
-            quantityPurchased: { $ifNull: ['$totalQtyPurchased', 0] },
-            farmersBenefitted: { $size: '$farmerSet' },
-            registeredPacs: { $size: '$pacSet' }
-          }
-        },
-        {
-          $group: {
-            _id: branch.state,
-            commodities: { $push: '$$ROOT' }
-          }
-        },
-        {
-          $project: {
-            _id: 0,
-            state: '$_id',
-            commodities: 1
-          }
-        },
-        { $skip: skip },
-        { $limit: limit }
-      ];
-  
-      const countPipeline = [
-        { $match: baseMatch },
-        {
-          $group: {
-            _id: branch.state
-          }
-        },
-        { $count: 'total' }
-      ];
-  
-      const [result, countResult, farmerCount] = await Promise.all([
-        RequestModel.aggregate(aggregationPipeline).allowDiskUse(true),
-        RequestModel.aggregate(countPipeline),
-        farmerCountPromise
-      ]);
-  
-      const rows = result.map(entry => ({
-        ...entry,
-        commodities: entry.commodities.map(commodity => ({
-          ...commodity,
-          farmerCount
-        }))
-      }));
-  
-      const count = countResult[0]?.total || 0;
-  
-      res.status(200).json({
-        status: 200,
-        data: {
-          rows,
-          count,
-          page,
-          limit,
-          pages: limit !== 0 ? Math.ceil(count / limit) : 0
-        },
-        message: _query.get('State Wise Commodity Status')
-      });
-  
+            {
+                $unwind: '$offers'
+            },
+            {
+                $lookup: {
+                    from: 'commodities',
+                    localField: 'product.commodity_id',
+                    foreignField: '_id',
+                    as: 'commodity'
+                }
+            },
+            {
+                $unwind: '$commodity'
+            },
+            {
+                $group: {
+                    _id: {
+                        commodityId: '$commodity._id',
+                        name: '$commodity.name'
+                    },
+                    totalQtyPurchased: { $sum: '$offers.offeredQty' },
+                    farmerSet: { $addToSet: '$offers.farmer_id' },
+                    pacSet: { $addToSet: '$offers.associate_id' }
+                }
+            },
+            {
+                $project: {
+                    commodityId: '$_id.commodityId',
+                    name: '$_id.name',
+                    quantityPurchased: { $ifNull: ['$totalQtyPurchased', 0] },
+                    farmersBenefitted: { $size: '$farmerSet' },
+                    registeredPacs: { $size: '$pacSet' }
+                }
+            },
+            {
+                $group: {
+                    _id: branch.state,
+                    commodities: { $push: '$$ROOT' }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    state: '$_id',
+                    commodities: 1
+                }
+            },
+            { $skip: skip },
+            { $limit: limit }
+        ];
+
+        const countPipeline = [
+            { $match: baseMatch },
+            {
+                $group: {
+                    _id: branch.state
+                }
+            },
+            { $count: 'total' }
+        ];
+
+        const [result, countResult, farmerCount] = await Promise.all([
+            RequestModel.aggregate(aggregationPipeline).allowDiskUse(true),
+            RequestModel.aggregate(countPipeline),
+            farmerCountPromise
+        ]);
+
+        const rows = result.map(entry => ({
+            ...entry,
+            commodities: entry.commodities.map(commodity => ({
+                ...commodity,
+                farmerCount
+            }))
+        }));
+
+        const count = countResult[0]?.total || 0;
+
+        res.status(200).json({
+            status: 200,
+            data: {
+                rows,
+                count,
+                page,
+                limit,
+                pages: limit !== 0 ? Math.ceil(count / limit) : 0
+            },
+            message: _query.get('State Wise Commodity Status')
+        });
+
     } catch (err) {
-      console.error('Error generating stats:', err);
-      res.status(500).json({ message: 'Server error', error: err.message });
+        console.error('Error generating stats:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
     }
-  };
-  
-  
-  
-  
+};
 
-  
-  
-  
-  
-  
-  
 
-   
+
+
+
+
+
+
+
+
+
+
