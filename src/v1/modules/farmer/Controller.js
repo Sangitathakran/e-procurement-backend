@@ -3003,8 +3003,8 @@ module.exports.getVerifiedAdharDetails = async (req, res) => {
 
     // Return 404 if both are null
     if (!adharDetails && !agristackFarmerDetails) {
-      return res.status(404).json({
-        status: 404,
+      return res.status(200).json({
+        status: 200,
         message: _query.notFound('aadhar'),
       });
     }
