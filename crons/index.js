@@ -23,95 +23,6 @@ const seller_ids = [
   "67ee2a3e07654b69eabda370",
 ];
 
-// UPAG schedular 
-
-const GET_API_URL = "http://localhost:4001/v1/upag/procurment/get-procurement"; //process.env.GET_API_URL;
-const POST_API_URL = "http://localhost:4001/v1/upag/procurment/submit-procurement";//process.env.POST_API_URL;
-const AUTH_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEyMywidXNlcm5hbWUiOiJqb2huZG9lIiwiaWF0IjoxNzUwMzExMzI2LCJleHAiOjE3NTAzOTc3MjZ9.4FkHJc1QZlZEEo868ZEG_KJvJXpKM49lANGDdTv2SW8"; //process.env.AUTH_TOKEN;
-
-// Convert Date -> 'YYYY-MM-DD'
-const formatDate = (date) => date.toISOString().slice(0, 10);
-
-// Split range into chunks of 7 days
-const splitDateRangeIntoChunks = (start, end) => {
-  const chunks = [];
-  let currentStart = new Date(start);
-
-  while (currentStart <= end) {
-    const currentEnd = new Date(currentStart);
-    currentEnd.setDate(currentEnd.getDate() + 6); // 7-day chunk
-
-    if (currentEnd > end) currentEnd.setTime(end.getTime());
-
-    chunks.push({
-      startDate: formatDate(currentStart),
-      endDate: formatDate(currentEnd),
-    });
-
-    currentStart.setDate(currentStart.getDate() + 7);
-  }
-
-  return chunks;
-};
-
-// Main processing function
-const fetchAndPushProcurement = async (startDate, endDate) => {
-  const dateChunks = splitDateRangeIntoChunks(new Date(startDate), new Date(endDate));
-
-  for (const { startDate, endDate } of dateChunks) {
-    console.log(`🔍 Processing chunk: ${startDate} to ${endDate}`);
-
-    try {
-      const getResponse = await axios.get(GET_API_URL, {
-        params: { startDate, endDate },
-        headers: {
-          Authorization: `Bearer ${AUTH_TOKEN}`,
-          token: "", // if needed
-        },
-      });
-
-      const allowedCommodityCodes = [
-  "UW1GW6", "TU24AR", "MAIZ13", "LENMA25",
-  "BNG28G", "BGUB25J", "GGWG25J", "PCJUL74",
-  "WHJUL74", "GGM0910"
-];
-
-const allRecords = getResponse.data?.data || [];
-console.log(" allRecords ", allRecords );
-
-const records = allRecords.filter(record =>
-  allowedCommodityCodes.includes(record.commoditycode?.toUpperCase())
-);
-
-      console.log('>>>>>>>>>>>>>>>>>>>>', records.length);
-      if (records.length === 0) {
-        console.log(`No data for ${startDate} to ${endDate}`);
-        continue;
-      }
-
-
-      for (const record of records) {
-        try {
-          const postResponse = await axios.post(POST_API_URL, record, {
-            headers: { "Content-Type": "application/json" },
-          });
-          console.log(`✅ Pushed ${record.statecode}-${record.commoditycode}:`, postResponse.data.message);
-        } catch (err) {
-          console.error(`❌ Failed to push record: ${record.statecode}-${record.commoditycode}`, err.response?.data || err.message);
-        }
-      }
-    } catch (err) {
-      console.error(`❌ Failed to fetch for ${startDate} to ${endDate}:`, err.response?.data || err.message);
-    }
-  }
-};
-
-// Example: run with specific start-end range
-const runProcurementJob = () => {
-  const startDate = '2025-06-01';
-  const endDate = '2025-06-18';
-  fetchAndPushProcurement(startDate, endDate);
-};
 
 
 main().catch((err) => console.log(err));
@@ -172,7 +83,6 @@ async function main() {
   //   }
   // });
 
-  cron.schedule('00 12 * * *', runProcurementJob)
 }
 
 async function downloadAgentFile() {

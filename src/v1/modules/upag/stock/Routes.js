@@ -5,6 +5,6 @@ const { validateStock } = require("@src/v1/middlewares/upag_validations");
 const stockRoutes = express.Router()
 
 stockRoutes.get("/get-stock",authMiddleware,getStockData)
-stockRoutes.post('/stock', validateStock, postStockData );
+stockRoutes.post('/stock', postStockData );
 module.exports = { stockRoutes };
 
