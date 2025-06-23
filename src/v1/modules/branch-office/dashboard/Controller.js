@@ -120,11 +120,13 @@ const totalPaymentAmount = PaymentCompletedSumAgg[0]?.totalAmount || 0;
 
 module.exports.getDashboardStats = async (req, res) => {
     try {
-  
         const boId = new mongoose.Types.ObjectId(req.portalId);
+        const { commodity, season, scheme } = req.query;
 
-        const userDetails = await Branches.findOne({ _id: boId })
+        // Get branch user details and resolve stateId
+        const userDetails = await Branches.findOne({ _id: boId });
         const stateName = userDetails?.state?.trim();
+
         const stateDoc = await StateDistrictCity.aggregate([
             { $unwind: "$states" },
             { $match: { "states.state_title": stateName } },
@@ -132,53 +134,97 @@ module.exports.getDashboardStats = async (req, res) => {
         ]);
 
         const stateId = stateDoc[0]?.state_id;
-        const farmerRegisteredCount = await farmer.countDocuments({
-            "address.state_id": stateId
-        });
 
-        // warehouse count 
+        // Default Stats (unfiltered)
+        const farmerRegisteredCount = await farmer.countDocuments({ "address.state_id": stateId });
         const warehouseCount = await wareHouseDetails.countDocuments({ active: true });
-
-        // Procurement center count
-        const procurementCenterCount = await ProcurementCenter.countDocuments({deletedAt: null, active:true})
-
-        //Payment Count 
+        const procurementCenterCount = await ProcurementCenter.countDocuments({ deletedAt: null, active: true });
         const PaymentInitiatedCount = await Payment.countDocuments({
             bo_id: { $exists: true },
             payment_status: "Completed"
-        })
+        });
 
-        // total Procurment count
-        const totalProducments = await Payment.find(
-            { payment_status: "Completed" },
-            'qtyProcured'
-        );
+        const totalProducments = await Payment.find({ payment_status: "Completed" }, 'qtyProcured');
         const totalProcurementCount = totalProducments.reduce((sum, item) => {
             const qty = parseFloat(item.qtyProcured || 0);
-            const currentSum = sum + qty;
-            return currentSum;
+            return sum + qty;
         }, 0);
 
+        // Build filters
+        let query = [];
 
-        const records = {
-            farmerRegisteredCount,
-            procurementCenterCount,
-            warehouseCount,
-            PaymentInitiatedCount,
-            totalProcurementCount,
+        if (commodity) query.push({ "product.name": { $in: commodity.split(',') } });
+        if (season) query.push({ "product.season": { $in: season.split(',') } });
+        if (scheme) query.push({ "product.scheme": { $in: scheme.split(',') } });
 
-        };
+        // If filters applied, calculate filtered stats
+        if (query.length > 0) {
+            const filter = { $and: query };
 
+            // Get matching requests
+            const requests = await RequestModel.find(filter, { _id: 1 });
+            const requestIds = requests.map(obj => obj._id);
+
+            // Unique farmer count from Payment
+            const paymentObj = await Payment.find({ req_id: { $in: requestIds } });
+            const farmerIds = paymentObj.map(obj => obj.farmer_id);
+            const uniqueFarmerCount = [...new Set(farmerIds)].length;
+
+            // Warehouse and POC count from Batch
+            const wareHouseFilter = await Batch.find({ req_id: { $in: requestIds } });
+            const warehouseIDs = wareHouseFilter.map(obj => obj.warehousedetails_id);
+            const uniqueWarehouseCount = [...new Set(warehouseIDs)].length;
+
+            const pocIDs = wareHouseFilter.map(obj => obj.procurementCenter_id);
+            const uniquePOCCount = [...new Set(pocIDs)].length;
+
+            // Filtered completed payments
+            const completedPayments = await Payment.find({
+                req_id: { $in: requestIds },
+                payment_status: "Completed"
+            }, { _id: 1 });
+
+            const completedPaymentIds = completedPayments.map(p => p._id);
+
+            // Sum qtyProcured from related Batches (if needed)
+            const totalPOCQty = await Batch.find({ _id: { $in: completedPaymentIds } }, { qtyProcured: 1 });
+            const totalPOCqtyCount = totalPOCQty.reduce((sum, item) => {
+                const qty = parseFloat(item.qtyProcured || 0);
+                return sum + qty;
+            }, 0);
+
+            // Return filtered result
+            return res.send(new serviceResponse({
+                status: 200,
+                data: {
+                    farmerRegisteredCount: uniqueFarmerCount,
+                    procurementCenterCount: uniquePOCCount,
+                    warehouseCount: uniqueWarehouseCount,
+                    PaymentInitiatedCount: completedPaymentIds.length,
+                    totalProcurementCount: totalPOCqtyCount
+                },
+                message: _response_message.found("Filtered Dashboard Stats")
+            }));
+        }
+
+        // Return default result
         return res.send(new serviceResponse({
             status: 200,
-            data: records,
-            message: _response_message.found("Dashboard Stats")
+            data: {
+                farmerRegisteredCount,
+                procurementCenterCount,
+                warehouseCount,
+                PaymentInitiatedCount,
+                totalProcurementCount
+            },
+            message: _response_message.found("Default Dashboard Stats")
         }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
     }
 };
+
 
 // module.exports.getDashboardStats = async (req, res) => {
 
