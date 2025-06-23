@@ -1,13 +1,14 @@
 const ministrydashboardRoutes = require("express").Router();
 const { Auth } = require("@src/v1/middlewares/jwt")
 const { _middleware } = require("@src/v1/utils/constants/messages");
-const { getDashboardStats, monthlyLiftedTrends, getMonthlyPayments, stateWiseQuantity, stateWiseProcurementQuantity,
+const { getDashboardStats, filterWiseDashboardStats, monthlyLiftedTrends, getMonthlyPayments, stateWiseQuantity, stateWiseProcurementQuantity,
      stateWiseLiftingQuantity, warehouseList, poRaised, ongoingOrders, stateWiseAnalysis, getStateWishProjection, 
      paymentWithTenPercant, paymentWithHundredPercant
 } = require("./Controller");
 
 
 ministrydashboardRoutes.get("/", Auth, getDashboardStats);
+ministrydashboardRoutes.get("/filterWiseDashboardStats", Auth, filterWiseDashboardStats);
 ministrydashboardRoutes.get("/monthlyLiftedTrends", Auth, monthlyLiftedTrends);
 ministrydashboardRoutes.get("/monthlyPaymentRecieved", Auth, getMonthlyPayments);
 ministrydashboardRoutes.get("/stateWiseQuantity", Auth, stateWiseQuantity);
