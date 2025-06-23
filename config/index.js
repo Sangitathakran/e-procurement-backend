@@ -6,6 +6,16 @@ dotenv.config({
     path: path.resolve(__dirname, `../.env`)
 });
 
+const procurement_partners = {
+  Radiant: "Radiant",
+  Youkta: "Youkta",
+  Beam: "Beam",
+  Agribid: "Agribid",
+  Supplyvalid: "Supplyvalid",
+  NEML: "NEML",
+  Others: "Others"
+};
+
 module.exports = {
     // Server 
     NODE_ENV: process.env.NODE_ENV,
@@ -42,5 +52,6 @@ module.exports = {
     },
     logEmails: 'imran@radiantinfonet.com , maneesh@radiantinfonet.com ,ayush@navankur.org , dileep@radiantinfonet.com',
     AADHAR_SERVICE_PROVIDER_KEY: process.env.AADHAR_VERIFICATION_API_KEY,
-    AADHAR_SERVICE_PROVIDER: process.env.AADHAR_VERIFICATION_API_PROVIDER
+    AADHAR_SERVICE_PROVIDER: process.env.AADHAR_VERIFICATION_API_PROVIDER,
+    procurement_partners
 }

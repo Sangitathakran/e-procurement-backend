@@ -42,6 +42,7 @@ const {
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
+const { procurement_partners } = require("@config/index");
 
 /*
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
@@ -747,180 +748,205 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 // });
 
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
-
-  let { state, commodity,limit=10 } = req.query;
-  const page = parseInt(req.query.page) || 1
+  let { state, commodity, limit = 10 } = req.query;
+  const page = parseInt(req.query.page) || 1;
   const sortBy = "createdAt";
   const sortOrder = "asc";
   const isExport = 0;
 
-
+  // Parse query inputs
   try {
-    //state and commodity 
-    try {
-      if (typeof state === "string") state = JSON.parse(state);
-      if (typeof commodity === "string") commodity = JSON.parse(commodity);
-    } catch (err) {
-      return res.status(400).send(new serviceResponse({
-        status: 400,
-        message: "Invalid state or commodity format. Must be a valid JSON array of strings.",
-      }));
-    }
+    if (typeof state === "string") state = JSON.parse(state);
+    if (typeof commodity === "string") commodity = JSON.parse(commodity);
+  } catch {
+    return res.status(400).send(new serviceResponse({
+      status: 400,
+      message: "Invalid state or commodity format. Must be a valid JSON array of strings.",
+    }));
+  }
 
-    // Ensure values are arrays
-    const stateArray = Array.isArray(state) ? state : state ? [state] : [];
-    const commodityArray = Array.isArray(commodity) ? commodity : commodity ? [commodity] : [];
+  // Normalize filters
+  const stateArray = Array.isArray(state) ? state : state ? [state] : [];
+  const commodityArray = Array.isArray(commodity) ? commodity : commodity ? [commodity] : [];
 
-    const matchConditions = [];
-
-    // Apply filters
-    if (stateArray.length) {
-      matchConditions.push({
-        "addressDetails.state": { $in: stateArray }
-      });
-    }
-
-    const aggregationPipeline = [];
-
-    // Add initial $match if filters exist
-    if (matchConditions.length) {
-      aggregationPipeline.push({ $match: { $and: matchConditions } });
-    }
-
-
-    // Join with batchorderprocesses
-    aggregationPipeline.push(
-      {
-        $lookup: {
-          from: "batchorderprocesses",
-          localField: "_id",
-          foreignField: "warehouseId",
-          as: "batchOrders"
-        }
+  const dynamicMatch = {
+    procurement_partner: {
+      $in: [procurement_partners.Radiant, procurement_partners.Agribid],
+    },
+    ...(stateArray.length && {
+      "addressDetails.state.state_name": {
+        $in: stateArray.map(s => new RegExp(`^${s}$`, 'i')),
       },
-      {
-        $unwind: {
-          path: "$batchOrders",
-          preserveNullAndEmptyArrays: true
-        }
-      },
-      {
-        $lookup: {
-          from: "purchaseorders",
-          localField: "batchOrders.orderId",
-          foreignField: "_id",
-          as: "purchaseOrder"
-        }
-      },
-      {
-        $unwind: {
-          path: "$purchaseOrder",
-          preserveNullAndEmptyArrays: true
-        }
-      }
-    );
+    }),
+  };
 
-    // Filter by commodity
-    if (commodityArray.length > 0) {
-      aggregationPipeline.push({
-        $match: {
-          "purchaseOrder.product.name": { $in: commodityArray }
-        }
-      });
-    }
-    // Sorting and pagination
-    aggregationPipeline.push(
-      { $sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 } },
-      { $skip: (page - 1) * parseInt(limit) },
-      { $limit: parseInt(limit) }
-    );
+  const aggregationPipeline = [
+    { $match: dynamicMatch },
 
-    aggregationPipeline.push({
-      $project: {
-        _id: 1,
-        warehouseName: "$basicDetails.warehouseName",
-        inventory: 1,
-        procurement_partner: 1,
-        state: "$addressDetails.state",
-        district: "$addressDetails.district",
-        orderId: "$purchaseOrder._id",
-        poquantity: "$purchaseOrder.purchasedOrder.poQuantity",
-        commodity: {
-          $ifNull: ["$purchaseOrder.product.name", "NA"]
+    // Lookup batch orders
+    {
+      $lookup: {
+        from: "batchorderprocesses",
+        localField: "_id",
+        foreignField: "warehouseId",
+        as: "batchOrders",
+      },
+    },
+    { $unwind: { path: "$batchOrders", preserveNullAndEmptyArrays: true } },
+
+    // Lookup purchase orders
+    {
+      $lookup: {
+        from: "purchaseorders",
+        localField: "batchOrders.orderId",
+        foreignField: "_id",
+        as: "purchaseOrder",
+      },
+    },
+    { $unwind: { path: "$purchaseOrder", preserveNullAndEmptyArrays: true } },
+
+    // Lookup internal & external batches
+    {
+      $lookup: {
+        from: "externalbatches",
+        localField: "_id",
+        foreignField: "warehousedetails_id",
+        as: "externalBatches",
+      },
+    },
+    {
+      $lookup: {
+        from: "batches",
+        localField: "_id",
+        foreignField: "warehousedetails_id",
+        as: "internalBatches",
+      },
+    },
+
+   {
+  $addFields: {
+    totalProcuredQty: {
+      $round: [
+        {
+          $cond: {
+            if: { $eq: ["$procurement_partner", procurement_partners.Radiant] },
+            then: { $sum: "$internalBatches.qty" },
+            else: { $sum: "$externalBatches.inward_quantity" }
+          }
         },
-        active: 1,
-        "basicDetails.warehouseName": 1,
-        "addressDetails.state.state_name": 1,
-        "addressDetails.district.district_name": 1
-      }
+        2
+      ]
+    },
+    totalLiftedQty: {
+      $round: [
+        {
+          $cond: {
+            if: { $eq: ["$procurement_partner", procurement_partners.Radiant] },
+            then: { $sum: "$internalBatches.allotedQty" },
+            else: { $sum: "$externalBatches.outward_quantity" }
+          }
+        },
+        2
+      ]
+    }
+  }
+}
+
+  ];
+
+  // Optional filter by commodity
+  if (commodityArray.length > 0) {
+    aggregationPipeline.push({
+      $match: {
+        "purchaseOrder.product.name": { $in: commodityArray },
+      },
     });
+  }
 
-    let warehouses = await wareHouseDetails.aggregate(aggregationPipeline);
+  // Count warehouses
+  const totalWarehouses = await wareHouseDetails.countDocuments(dynamicMatch);
+  const activeWarehouses = await wareHouseDetails.countDocuments({
+    ...dynamicMatch,
+    active: true,
+  });
+  const inactiveWarehouses = totalWarehouses - activeWarehouses;
 
-    //count total warehouses 
-    const totalWarehouses = await wareHouseDetails.countDocuments(
-      stateArray.length ? { "addressDetails.state": { $in: stateArray } } : {}
-    );
-    const activeWarehouses = await wareHouseDetails.countDocuments({
-      active: true,
-      ...(stateArray.length ? { "addressDetails.state": { $in: stateArray } } : {})
-    });
-    const inactiveWarehouses = totalWarehouses - activeWarehouses;
+  // Add sorting and pagination
+  aggregationPipeline.push(
+    { $sort: { [sortBy]: sortOrder === "asc" ? 1 : -1 } },
+    { $skip: (page - 1) * parseInt(limit) },
+    { $limit: parseInt(limit) }
+  );
 
-    if (isExport == 1) {
-      const exportData = warehouses.map((item) => ({
-        "Warehouse ID": item._id,
-        "Warehouse Name": item.warehouseName || "NA",
-        City: item.district?.district_name || "NA",
-        State: item.state?.state_name || "NA",
-        Commodity: item.commodity || "NA",
-        Status: item.active ? "Active" : "Inactive",
-      }));
+  // Final projection
+  aggregationPipeline.push({
+    $project: {
+      _id: 1,
+      warehouseName: "$basicDetails.warehouseName",
+      inventory: 1,
+      procurement_partner: 1,
+      state: "$addressDetails.state",
+      district: "$addressDetails.district",
+      orderId: "$purchaseOrder._id",
+      poquantity: "$purchaseOrder.purchasedOrder.poQuantity",
+      commodity: {
+        $ifNull: ["$purchaseOrder.product.name", "NA"],
+      },
+      active: 1,
+      "basicDetails.warehouseName": 1,
+      "addressDetails.state.state_name": 1,
+      "addressDetails.district.district_name": 1,
+      totalProcuredQty: 1,
+      totalLiftedQty: 1,
+    },
+  });
 
-      if (exportData.length) {
-        return dumpJSONToExcel(req, res, {
-          data: exportData,
-          fileName: `Warehouse-List.xlsx`,
-          worksheetName: `Warehouses`,
-        });
-      }
+  const warehouses = await wareHouseDetails.aggregate(aggregationPipeline);
 
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          message: "No data available for export",
-        })
-      );
+  // Export Excel if needed
+  if (isExport === 1) {
+    const exportData = warehouses.map((item) => ({
+      "Warehouse ID": item._id,
+      "Warehouse Name": item.warehouseName || "NA",
+      City: item.district?.district_name || "NA",
+      State: item.state?.state_name || "NA",
+      Commodity: item.commodity || "NA",
+      Status: item.active ? "Active" : "Inactive",
+    }));
+
+    if (exportData.length) {
+      return dumpJSONToExcel(req, res, {
+        data: exportData,
+        fileName: `Warehouse-List.xlsx`,
+        worksheetName: `Warehouses`,
+      });
     }
 
-    // Return paginated result
     return res.status(200).send(
       new serviceResponse({
         status: 200,
-        data: {
-          records: warehouses,
-          page,
-          limit,
-          totalRecords: totalWarehouses,
-          activeRecords: activeWarehouses,
-          inactiveRecords: inactiveWarehouses,
-          pages: Math.ceil(totalWarehouses / limit),
-        },
-        message: "Warehouses fetched successfully",
-      })
-    );
-  } catch (error) {
-    console.error(error);
-    return res.status(500).send(
-      new serviceResponse({
-        status: 500,
-        message: "Error fetching warehouses",
-        error: error.message,
+        message: "No data available for export",
       })
     );
   }
-});
 
+  // Final response
+  return res.status(200).send(
+    new serviceResponse({
+      status: 200,
+      data: {
+        records: warehouses,
+        page,
+        limit,
+        totalRecords: totalWarehouses,
+        activeRecords: activeWarehouses,
+        inactiveRecords: inactiveWarehouses,
+        pages: Math.ceil(totalWarehouses / limit),
+      },
+      message: "Warehouses fetched successfully",
+    })
+  );
+});
 
 module.exports.getCompanyNames = async (req, res) => {
   try {
