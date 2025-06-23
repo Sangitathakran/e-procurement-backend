@@ -748,7 +748,7 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 // });
 
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
-  let { state, commodity, limit = 10 } = req.query;
+  let { state, commodity, limit, search = 10 } = req.query;
   const page = parseInt(req.query.page) || 1;
   const sortBy = "createdAt";
   const sortOrder = "asc";
@@ -770,15 +770,25 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
   const commodityArray = Array.isArray(commodity) ? commodity : commodity ? [commodity] : [];
 
   const dynamicMatch = {
-    procurement_partner: {
-      $in: [procurement_partners.Radiant, procurement_partners.Agribid],
+  procurement_partner: {
+    $in: [procurement_partners.Radiant, procurement_partners.Agribid],
+  },
+  ...(stateArray.length && {
+    "addressDetails.state.state_name": {
+      $in: stateArray.map((s) => new RegExp(`^${s}$`, "i")),
     },
-    ...(stateArray.length && {
-      "addressDetails.state.state_name": {
-        $in: stateArray.map(s => new RegExp(`^${s}$`, 'i')),
-      },
-    }),
-  };
+  }),
+};
+
+// Add search conditions if any
+if (search) {
+  dynamicMatch.$or = [
+    { procurement_partner: { $regex: search, $options: "i" } },
+    { "basicDetails.warehouseName": { $regex: search, $options: "i" } },
+    { "addressDetails.state.state_name": { $regex: search, $options: "i" } },
+    { "addressDetails.district.district_name": { $regex: search, $options: "i" } },
+  ];
+}
 
   const aggregationPipeline = [
     { $match: dynamicMatch },
