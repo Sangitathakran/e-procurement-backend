@@ -2,7 +2,7 @@ const ministrydashboardRoutes = require("express").Router();
 const { Auth } = require("@src/v1/middlewares/jwt")
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { getDashboardStats, monthlyLiftedTrends, getMonthlyPayments, stateWiseQuantity, stateWiseProcurementQuantity,
-     stateWiseLiftingQuantity, warehouseList, poRaised, ongoingOrders, stateWiseAnalysis, getStateWishProjection, 
+     stateWiseLiftingQuantity, warehouseList, poRaised, ongoingOrders, stateWiseAnalysis, getStateWishProjection,
      paymentWithTenPercant, paymentWithHundredPercant
 } = require("./Controller");
 
