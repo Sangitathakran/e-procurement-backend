@@ -97,10 +97,10 @@ module.exports.loginOrRegister = async (req, res) => {
             } else {
                 newUser.is_mobile_verified = true;
             }
-           
+
             userExist = await User.create(newUser);
         }
-        
+
         if (userExist.active == false) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "you are not an active user!" }] }));
         }
@@ -139,11 +139,20 @@ module.exports.saveAssociateDetails = async (req, res) => {
         }
         const decode = await decryptJwtToken(getToken);
         const userId = decode.data.user_id;
+        const { formName, ...formData } = req.body;
         const user = await User.findById(userId);
         if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         }
-        const { formName, ...formData } = req.body;
+
+        if (formData.organization_name&&formData.organization_name != user.basic_details.associate_details.organization_name) {
+            const isOrganizationName = await User.findOne({ 'basic_details.associate_details.organization_name': formData.organization_name });
+            if (isOrganizationName) {
+                return res.status(400).send(new serviceResponse({ status: 400, message: "You are already registered with this organization name." }));
+            }
+        }
+
+
         switch (formName) {
             case 'organization':
                 user.basic_details.associate_details.organization_name = formData.organization_name;
