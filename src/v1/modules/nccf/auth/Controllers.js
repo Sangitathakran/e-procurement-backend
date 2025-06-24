@@ -18,7 +18,7 @@ const { getPermission } = require("../../user-management/permission");
 
 const getIpAddress = require('@src/v1/utils/helpers/getIPAddress');
 const { _frontendLoginRoutes, _userTypeFrontendRouteMapping } = require('@src/v1/utils/constants');
-
+const logger = require('@common/logger/logger');
 
 module.exports.getNccf = async (req, res) => {
 
@@ -147,6 +147,7 @@ module.exports.changeStatus = async (req, res) => {
     }
 };
 
+/*
 module.exports.login = async (req, res) => {
     try {
 
@@ -208,5 +209,78 @@ module.exports.login = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+*/
 
+module.exports.login = async (req, res) => {
+    try {
+        const { email, password, portal_type } = req.body;
+
+        // Log login attempt
+        logger.info(`Login attempt - Email: ${email}, Portal: ${portal_type}`);
+
+        if (!email) {
+            logger.warn('Login failed - Email is required');
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Email') }] }));
+        }
+        if (!password) {
+            logger.warn('Login failed - Password is required');
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Password') }] }));
+        }
+
+        const user = await MasterUser.findOne({ email: email.trim() })
+            .populate([
+                { path: "userRole", select: "" },
+                { path: "portalId", select: "" }
+            ]);
+
+        if (!user) {
+            logger.warn(`Login failed - User not found for email: ${email}`);
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('User') }] }));
+        }
+
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+            logger.warn(`Login failed - Invalid password for email: ${email}`);
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('Credentials') }] }));
+        }
+
+        const portalTypeMapping = Object.fromEntries(
+            Object.entries(_userTypeFrontendRouteMapping).map(([key, value]) => [value, key])
+        );
+
+        const userType = _userTypeFrontendRouteMapping[portal_type];
+
+        if (user.user_type !== _userTypeFrontendRouteMapping.ministry) {
+            if (userType !== user.user_type) {
+                logger.warn(`Login failed - Unauthorized portal access attempt by user ${email}`);
+                return res.status(400).send(new serviceResponse({ status: 400, message: _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
+            }
+        }
+
+        const payload = {
+            email: user.email,
+            user_id: user?._id,
+            portalId: user?.portalId?._id,
+            user_type: user.user_type
+        };
+        const expiresIn = 24 * 60 * 60;
+        const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+
+        const typeData = await TypesModel.find();
+        const userData = await getPermission(user);
+
+        const data = {
+            token: token,
+            user: userData,
+            typeData: typeData
+        };
+
+        logger.info(`Login successful - User: ${email}, UserID: ${user._id}`);
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: data }));
+    } catch (error) {
+        logger.error(`Login error - ${error.message}`, { error });
+        _handleCatchErrors(error, res);
+    }
+};
 
