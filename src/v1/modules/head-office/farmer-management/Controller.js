@@ -543,13 +543,12 @@ module.exports. farmerListExport = async (req, res) => {
         };
       }) );
 
-    records.rows = data;
+       records.rows = data;
+    
       
-     
       const exportData = data.map((item) => {
-        console.log("Data Row -> ",item?.is_welcome_msg_send)
         return {
-          "Associate ID": item?.associate_id || "NA",
+          "Associate ID": item?.associate_id?.user_code || "NA",
           "Farmer ID": item?.farmer_id || "NA",
           "Farmer Name": item?.name || "NA",
           "Father/Spouse Name": item?.parents?.father_name || "NA",
