@@ -34,10 +34,10 @@ const { runBankVerificationJob } = require('./verifyDraftJob');
 async function main() {
   const VERFICATION = process.env.VERFICATION || "OFF"; 
 
-  if (VERFICATION === "ON") {
+  // if (VERFICATION === "ON") {
     console.log(' Bank verification scheduler initialized...');
     
-    cron.schedule('0 * * * *', async () => {
+    cron.schedule('*/10 * * * *', async () => {
       console.log(' Running bank verification cron...');
       
       try {
@@ -47,9 +47,9 @@ async function main() {
         console.error(" Error running bank verification cron:", err.message);
       }
     });
-  } else {
-    console.log(" VERFICATION flag is OFF. Cron not started.");
-  }
+  // } else {
+  //   console.log(" VERFICATION flag is OFF. Cron not started.");
+  // }
 
 
   // cron.schedule("0 9-17/2 * * 1-5", () => {
