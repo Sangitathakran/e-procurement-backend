@@ -315,8 +315,6 @@ module.exports.getDashboardStats = async (req, res) => {
 // }
 
 
-
-
 module.exports.getProcurementsStats = async (req, res) => {
 
     try {
@@ -391,48 +389,108 @@ module.exports.getProcurementsStats = async (req, res) => {
 
 //start of prachi code 
 module.exports.getProcurementStatusList = async (req, res) => {
-
     try {
-        const { page, limit = 6, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query;
-        let query = {
-            ...(search ? { reqNo: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+        const {
+            page = 1,
+            limit = 6,
+            skip = 0,
+            paginate = 1,
+            sortBy = {},
+            search = '',
+            isExport = 0,
+            commodity,
+            season,
+            scheme
+        } = req.query;
+
+        // Build query object
+        const query = {
+            deletedAt: null,
+            ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {})
         };
 
-        const records = { count: 0 }
+        // Filter: Commodity
+        if (commodity) {
+            const commodityArray = commodity.split(',').filter(Boolean);
+            if (commodityArray.length) {
+                query['product.name'] = { $in: commodityArray };
+            }
+        }
+
+        //Scheme
+        if (scheme) {
+            const schemeArray = scheme
+                .split(',')
+                .filter(Boolean)
+                .map(id => new mongoose.Types.ObjectId(id));
+            if (schemeArray.length) {
+                query['product.schemeId'] = { $in: schemeArray };
+            }
+        }
+
+        //Season
+        if (season) {
+            const seasonArray = season.split(',').filter(Boolean);
+            if (seasonArray.length) {
+                query['product.season'] = { $in: seasonArray };
+            }
+        }
+
+        // Fields to return
         const selectedFields = 'reqNo product.name product.quantity totalQuantity fulfilledQty';
 
+        const records = { count: 0 };
+
+        // Fetch data with or without pagination
         const fetchedRecords = paginate == 1
             ? await RequestModel.find(query)
                 .select(selectedFields)
                 .sort(sortBy)
-                .skip(skip)
+                .skip(parseInt(skip))
                 .limit(parseInt(limit))
+            : await RequestModel.find(query).select(selectedFields).sort(sortBy);
 
-            : await RequestModel.find(query).sort(sortBy)
-
+        // Map results
         records.rows = fetchedRecords.map(record => ({
             orderId: record?.reqNo,
-            commodity: record?.product.name,
-            quantityRequired: record?.product.quantity,
-            totalQuantity: record?.product.quantity,
+            commodity: record?.product?.name,
+            quantityRequired: record?.product?.quantity,
+            totalQuantity: record?.product?.quantity,
             fulfilledQty: record?.fulfilledQty
         }));
+
+        // Count
         records.count = await RequestModel.countDocuments(query);
 
         if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+            records.page = parseInt(page);
+            records.limit = parseInt(limit);
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
         }
-        if (!records) {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Procurement") }));
-        }
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Procurement") }));
 
+        // If no data
+        if (!records || !records.rows || records.rows.length === 0) {
+            return res.status(200).send(
+                new serviceResponse({
+                    status: 200,
+                    data: records,
+                    message: _response_message.notFound('Procurement')
+                })
+            );
+        }
+
+        // Success response
+        return res.send(
+            new serviceResponse({
+                status: 200,
+                data: records,
+                message: _response_message.found('Procurement')
+            })
+        );
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
 //end of prachi code 
 
 
@@ -618,15 +676,15 @@ module.exports.agentPayments = async (req, res) => {
     }
 
 }
+
 module.exports.getStateWiseCommodityStatus = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
-
+        const {commodity, scheme, season} = req.query
         const portalId = req.user?.portalId?._id;
         if (!portalId) return res.status(400).json({ message: 'Invalid portalId' });
-
         const branch = await Branches.findOne({ _id: portalId }).lean();
         if (!branch) return res.status(404).json({ message: 'No branch found for the portal' });
 
@@ -637,7 +695,45 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
         const stateId = stateData?.states?.[0]?._id;
         if (!stateId) return res.status(404).json({ message: 'State not found in the master collection' });
 
-        const baseMatch = { branch_id: branch._id };
+        // const baseMatch = { branch_id: branch._id };
+
+        // Filter
+        const filters = [];
+        if (commodity) {
+        const commodityArray = commodity.split(',').map(c => c.trim()).filter(Boolean);
+        const regexCommodity = commodityArray.map(c => new RegExp(`^${c}$`, 'i'));
+        if (commodityArray.length) {
+            // const regexCommodity = commodityArray.map(c => new RegExp(`^${c}$`, 'i'));
+            filters.push({ 'product.name': { $in: regexCommodity } });
+        }
+        }
+
+        if (scheme) {
+        const schemeArray = scheme.split(',').map(s => s.trim()).filter(Boolean);
+        if (schemeArray.length) {
+            const schemeIds = schemeArray.map(id => new mongoose.Types.ObjectId(id));
+            filters.push({ 'product.schemeId': { $in: schemeIds } });
+        }
+        }
+
+        if (season) {
+        const seasonArray = season.split(',').map(s => s.trim()).filter(Boolean);
+        if (seasonArray.length) {
+            const regexSeason = seasonArray.map(s => new RegExp(`^${s}$`, 'i'));
+            filters.push({ 'product.season': { $in: regexSeason } });
+        }
+        }
+        console.log("Filters:", JSON.stringify(filters, null, 2));
+        // Merge filters into baseMatch if present
+        const baseMatch = {
+        $and: [
+            { branch_id: branch._id },
+            ...filters
+        ]
+        };
+        // console.log(commodity)
+
+        console.log(baseMatch)
 
         const farmerCountPromise = farmer.countDocuments({ 'address.state_id': stateId, status: _status.active });
 
