@@ -147,7 +147,13 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const current = result[0].current[0] || { ongoingOrder: 0, paymentReceived: 0 };
     const last = result[0].previous[0] || { ongoingOrder: 0, paymentReceived: 0 };
 
-    const noOfDistiller = await Distiller.countDocuments({ is_approved: _userStatus.approved, source_by: { $in: finalCNA } });
+    const noOfDistiller = await Distiller.countDocuments({
+      is_approved: _userStatus.approved,
+      source_by: { $in: finalCNA },
+      ...(state && { "address.registered.state": state }),
+      ...(district && { "address.registered.district": district })
+    });
+
 
     const batchOrderLookups = [
       {
