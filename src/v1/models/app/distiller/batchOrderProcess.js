@@ -10,8 +10,8 @@ const batchOrderProcessSchema = new mongoose.Schema({
   warehouseOwnerId: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Warehouse },
   purchaseId: { type: String, required: true, immutable: true },
   quantityRequired: { type: Number, required: true },
-  scheduledPickupDate: { type: Date ,default:null},
-  actualPickupDate: { type: Date ,default:null},
+  scheduledPickupDate: { type: Date, default: null },
+  actualPickupDate: { type: Date, default: null },
   pickupStatus: { type: String, enum: Object.values(_poPickupStatus), default: _poPickupStatus.pending },
   status: { type: String, enum: Object.values(_poBatchStatus), default: _poBatchStatus.pending },
   comment: { type: String },
@@ -21,7 +21,7 @@ const batchOrderProcessSchema = new mongoose.Schema({
     amount: { type: Number, required: true },
     status: { type: String, enum: Object.values(_poBatchPaymentStatus), default: _poBatchPaymentStatus.pending },
     date: { type: Date, default: Date.now },
-    paymentProof : { type: String }
+    paymentProof: { type: String }
   },
 
   penaltyDetails: {
@@ -39,6 +39,7 @@ const batchOrderProcessSchema = new mongoose.Schema({
     placeOrder: { type: Boolean, default: false },
     viewDeliveryStatus: { type: Boolean, default: false }
   },
+  source_by: { type: String, default: "NCCF" },
   ..._commonKeys
 }, { timestamps: true });
 
