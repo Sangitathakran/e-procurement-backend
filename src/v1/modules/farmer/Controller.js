@@ -234,6 +234,7 @@ module.exports.getFarmerDetails = async (req, res) => {
     const { id } = req.params;
     //if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
 
+    let farmerDetails = {}, farmerAAdharInfo = {};
     const selectFields = screenName
       ? `${screenName} allStepsCompletedStatus `
       : null;
@@ -242,8 +243,13 @@ module.exports.getFarmerDetails = async (req, res) => {
       farmerDetails = await farmer.findOne({ _id: id }).select(
         selectFields
       ).lean();
+
+       farmerAAdharInfo = await Verifyfarmer.findOne( { farmer_id: farmerDetails._id} ).select('is_verify_aadhaar');
+      // console.log('farmerAAdharInfo',farmerAAdharInfo,  { farmer_id: farmerDetails._id})
     } else {
       farmerDetails = await farmer.findOne({ _id: id }).lean();
+      farmerAAdharInfo = await Verifyfarmer.findOne( { farmer_id: farmerDetails._id} ).select('is_verify_aadhaar');
+      // console.log('farmerAAdharInfo',farmerAAdharInfo,  { farmer_id: farmerDetails._id})
     }
 
     if (farmerDetails) {
@@ -257,7 +263,8 @@ module.exports.getFarmerDetails = async (req, res) => {
           address: {
             ...farmerDetails.address,
             state: state?.states[0]?.state_title,
-            district: districts?.district_title
+            district: districts?.district_title,
+            is_verify_aadhaar: farmerAAdharInfo?.is_verify_aadhaar || false
           }
         }
       }
