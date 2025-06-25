@@ -1068,11 +1068,7 @@ module.exports.stateWiseLiftingQuantity = asyncErrorHandler(async (req, res) => 
 
 module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit = 5, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
-
-    const commodityNames = typeof commodity === 'string' && commodity.length > 0
-      ? commodity.split(',').map(name => name.trim())
-      : [];
+    const { page = 1, limit = 5, skip = 0, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
 
     // Reject special characters in search
     if (/[.*+?^${}()|[\]\\]/.test(search)) {
@@ -1085,10 +1081,23 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
       });
     }
 
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0 ? commodity.split(',').map(name => name.trim()) : [];
+
+    const states = typeof state === 'string' && state.length > 0 ? state.split(',').map(s => s.trim()) : [];
+
+    const districts = typeof district === 'string' && district.length > 0 ? district.split(',').map(d => d.trim()) : [];
+
     const aggregationPipeline = [
       {
         $match: {
-          warehouseId: { $ne: null }
+          warehouseId: { $ne: null },
+          source_by: { $in: finalCNA },
         }
       },
       {
@@ -1115,10 +1124,17 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
           }
         }]
         : []),
-      ...(state
+      ...(states.length > 0
         ? [{
           $match: {
-            'warehouse.addressDetails.state.state_name': { $regex: state, $options: 'i' }
+            'warehouse.addressDetails.state.state_name': { $in: states }
+          }
+        }]
+        : []),
+      ...(districts.length > 0
+        ? [{
+          $match: {
+            'warehouse.addressDetails.district.district_name': { $in: districts }
           }
         }]
         : []),
@@ -1143,6 +1159,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
           }
         }]
         : []),
+
       {
         $group: {
           _id: "$warehouse.warehouseDetailsId",
