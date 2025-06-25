@@ -164,6 +164,7 @@ const purchaseOrderSchema = new mongoose.Schema(
     ],
     updatedBy: { type: mongoose.Schema.Types.ObjectId, default: null },
     createdBy: { type: mongoose.Schema.Types.ObjectId, default: null },
+    source_by: { type: String, default: "NCCF" }, // Source of the purchase order creation
     ..._commonKeys,
   },
   { timestamps: true }

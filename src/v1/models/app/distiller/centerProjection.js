@@ -19,15 +19,17 @@ const centerProjectionSchema = new mongoose.Schema({
     type: Number, // or String if it's not strictly numeric
     required: true,
   },
-   qty_booked: {
+  qty_booked: {
     type: Number, // or String if it's not strictly numeric
     required: false,
-  }
+  },
+  source_by: { type: String, default: "NCCF" },
+  ..._commonKeys,
 }, {
   timestamps: true,
 });
 
-const CenterProjection =mongoose.model(_collectionName.centerProjection, centerProjectionSchema);
+const CenterProjection = mongoose.model(_collectionName.centerProjection, centerProjectionSchema);
 
 
 module.exports = { CenterProjection };
