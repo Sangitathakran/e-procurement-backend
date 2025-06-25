@@ -118,7 +118,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     ];
 
     const result = await PurchaseOrderModel.aggregate([
-      ...branchLookup,
+      // ...branchLookup,
       {
         $facet: {
           current: [
@@ -186,7 +186,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     ];
 
     const batch = await BatchOrderProcess.aggregate([
-      ...batchOrderLookups,
+      // ...batchOrderLookups,
       {
         $facet: {
           current: [
@@ -231,7 +231,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     ]);
 
     const totalQtyDoc = await BatchOrderProcess.aggregate([
-      ...batchOrderLookups,
+      // ...batchOrderLookups,
       {
         $group: {
           _id: null,
