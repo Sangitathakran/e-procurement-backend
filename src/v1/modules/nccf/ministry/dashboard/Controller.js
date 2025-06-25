@@ -15,7 +15,21 @@ const { mongoose } = require("mongoose");
 
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF', filterType = 'month', startDate, endDate } = req.query;
+    const {
+      state = '',
+      district = '',
+      commodity = '',
+      cna = '',
+      filterType = 'month',
+      startDate,
+      endDate
+    } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
 
     const getDateRanges = (type, startDate, endDate) => {
       const now = new Date();
@@ -28,20 +42,17 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
           currentStart.setDate(now.getDate() - day);
           currentStart.setHours(0, 0, 0, 0);
           currentEnd = new Date(now);
-
           previousStart = new Date(currentStart);
           previousStart.setDate(currentStart.getDate() - 7);
           previousEnd = new Date(currentStart);
           previousEnd.setDate(currentStart.getDate() - 1);
           break;
-
         case 'year':
           currentStart = new Date(now.getFullYear(), 0, 1);
           currentEnd = now;
           previousStart = new Date(now.getFullYear() - 1, 0, 1);
           previousEnd = new Date(now.getFullYear() - 1, 11, 31);
           break;
-
         case 'range':
           if (!startDate || !endDate) throw new Error("Start date and end date are required for custom range");
           currentStart = new Date(startDate);
@@ -49,7 +60,6 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
           previousStart = null;
           previousEnd = null;
           break;
-
         case 'month':
         default:
           currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -75,10 +85,39 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
     const { currentStart, currentEnd, previousStart, previousEnd } = getDateRanges(filterType, startDate, endDate);
 
-    const matchCurrent = { createdAt: { $gte: currentStart, $lte: currentEnd } };
-    const matchPrevious = previousStart && previousEnd ? { createdAt: { $gte: previousStart, $lte: previousEnd } } : {};
+    const buildMatch = (start, end) => {
+      const match = {
+        createdAt: { $gte: start, $lte: end },
+        source_by: { $in: finalCNA }
+      };
+      if (commodity) match["purchasedOrder.commodity"] = commodity;
+      return match;
+    };
+
+    const matchCurrent = buildMatch(currentStart, currentEnd);
+    const matchPrevious = previousStart && previousEnd ? buildMatch(previousStart, previousEnd) : {};
+
+    const branchLookup = [
+      {
+        $lookup: {
+          from: "branches",
+          localField: "branch_id",
+          foreignField: "_id",
+          as: "branch"
+        }
+      },
+      { $unwind: { path: "$branch", preserveNullAndEmptyArrays: true } },
+      {
+        $match: {
+          "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+          ...(state && { "branch.state": state }),
+          ...(district && { "branch.district": district })
+        }
+      }
+    ];
 
     const result = await PurchaseOrderModel.aggregate([
+      ...branchLookup,
       {
         $facet: {
           current: [
@@ -108,13 +147,43 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const current = result[0].current[0] || { ongoingOrder: 0, paymentReceived: 0 };
     const last = result[0].previous[0] || { ongoingOrder: 0, paymentReceived: 0 };
 
-    const noOfDistiller = await Distiller.countDocuments({ is_approved: _userStatus.approved });
+    const noOfDistiller = await Distiller.countDocuments({ is_approved: _userStatus.approved, source_by: { $in: finalCNA } });
+
+    const batchOrderLookups = [
+      {
+        $lookup: {
+          from: "purchaseorders",
+          localField: "orderId",
+          foreignField: "_id",
+          as: "order"
+        }
+      },
+      { $unwind: { path: "$order", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "branches",
+          localField: "order.branch_id",
+          foreignField: "_id",
+          as: "branch"
+        }
+      },
+      { $unwind: { path: "$branch", preserveNullAndEmptyArrays: true } },
+      {
+        $match: {
+          "order.source_by": { $in: finalCNA },
+          ...(state && { "branch.state": state }),
+          ...(district && { "branch.district": district }),
+          ...(commodity && { "order.purchasedOrder.commodity": commodity })
+        }
+      }
+    ];
 
     const batch = await BatchOrderProcess.aggregate([
+      ...batchOrderLookups,
       {
         $facet: {
           current: [
-            { $match: matchCurrent },
+            { $match: { createdAt: { $gte: currentStart, $lte: currentEnd } } },
             {
               $group: {
                 _id: null,
@@ -128,7 +197,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
             }
           ],
           previous: [
-            { $match: matchPrevious },
+            { $match: { createdAt: { $gte: previousStart, $lte: previousEnd } } },
             {
               $group: {
                 _id: null,
@@ -155,6 +224,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     ]);
 
     const totalQtyDoc = await BatchOrderProcess.aggregate([
+      ...batchOrderLookups,
       {
         $group: {
           _id: null,
@@ -170,18 +240,18 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
     const quantityChangePercent = calculateChange(currentMonth.totalQuantityRequired, lastMonth.totalQuantityRequired);
     const completedChangePercent = calculateChange(currentMonth.completedQty, lastMonth.completedQty);
-
     const trendLifted = getTrend(currentMonth.totalQuantityRequired, lastMonth.totalQuantityRequired);
     const trendCompleted = getTrend(currentMonth.completedQty, lastMonth.completedQty);
 
     const totalQtyOrders = await PurchaseOrderModel.aggregate([
+      ...branchLookup,
       {
         $facet: {
           current: [
             {
               $match: {
-                'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
-                ...matchCurrent
+                ...matchCurrent,
+                'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid
               }
             },
             {
@@ -194,8 +264,8 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
           previous: [
             {
               $match: {
-                'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
-                ...matchPrevious
+                ...matchPrevious,
+                'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid
               }
             },
             {
@@ -208,7 +278,9 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
           total: [
             {
               $match: {
-                'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid
+                'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
+                source_by: { $in: finalCNA },
+                ...(commodity && { "purchasedOrder.commodity": commodity })
               }
             },
             {
@@ -228,9 +300,13 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const trendOrder = getTrend(currentMonthOrder, lastMonthOrder);
     const totalOrderPlace = totalQtyOrders[0].total[0]?.poQuantity || 0;
 
-    const getWarehouseStock = async () => {
-      const agg = await BatchOrderProcess.aggregate([
-        { $group: { _id: "$warehouseId" } },
+    const getWarehouseStock = async (matchDates) => {
+      const stockAgg = await BatchOrderProcess.aggregate([
+        ...batchOrderLookups,
+        ...(matchDates ? [{ $match: matchDates }] : []),
+        {
+          $group: { _id: "$warehouseId" }
+        },
         {
           $lookup: {
             from: "warehousedetails",
@@ -239,7 +315,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
             as: "warehousedetails"
           }
         },
-        { $unwind: { path: "$warehousedetails", preserveNullAndEmptyArrays: false } },
+        { $unwind: "$warehousedetails" },
         {
           $group: {
             _id: null,
@@ -247,20 +323,19 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
           }
         }
       ]);
-      return agg;
+      return stockAgg;
     };
 
-    const currentWarehouseStockAgg = await getWarehouseStock(matchCurrent);
-    const lastWarehouseStockAgg = await getWarehouseStock(matchPrevious);
+    const currentWarehouseStockAgg = await getWarehouseStock({ createdAt: { $gte: currentStart, $lte: currentEnd } });
+    const lastWarehouseStockAgg = await getWarehouseStock({ createdAt: { $gte: previousStart, $lte: previousEnd } });
 
     const currentWarehouseStock = currentWarehouseStockAgg[0]?.totalStock || 0;
     const lastWarehouseStock = lastWarehouseStockAgg[0]?.totalStock || 0;
-
     const warehouseStockChangePercent = calculateChange(currentWarehouseStock, lastWarehouseStock);
     const warehouseStockTrend = getTrend(currentWarehouseStock, lastWarehouseStock);
 
     const summary = {
-      noOfDistiller: noOfDistiller || 0,
+      noOfDistiller,
       orderPlaceQuantity: totalOrderPlace,
       orderPlaceQuantityChange: {
         percent: +orderChangePercent.toFixed(2),
@@ -309,10 +384,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   } catch (error) {
     _handleCatchErrors(error, res);
   }
-
-
 });
-
 
 
 module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
