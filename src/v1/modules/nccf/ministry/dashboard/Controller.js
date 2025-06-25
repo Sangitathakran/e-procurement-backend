@@ -1611,12 +1611,26 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
       search = '',
       state = '',
       district = '',
+      cna = '',
       isExport = 0,
     } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const sort = { state: 1 };
 
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0 ? commodity.split(',').map(name => name.trim()) : [];
+
+    const states = typeof state === 'string' && state.length > 0 ? state.split(',').map(s => s.trim()) : [];
+
+    const districts = typeof district === 'string' && district.length > 0 ? district.split(',').map(d => d.trim()) : [];
+
     const query = {};
+    query.source_by = { $in: finalCNA };
     if (search) {
       query.$or = [
         { state: { $regex: search, $options: 'i' } },
@@ -1624,12 +1638,13 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
         { center_location: { $regex: search, $options: 'i' } },
       ];
     }
-    if (state) {
-      query.state = { $regex: state, $options: 'i' };
+
+    if (states.length > 0) {
+      query.state = { $in: states };
     }
 
-    if (district) {
-      query.district = { $regex: district, $options: 'i' };
+    if (districts.length > 0) {
+      query.district = { $in: districts };
     }
 
     if (parseInt(isExport) === 1) {
@@ -1666,6 +1681,7 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
         .limit(parseInt(limit))
     ]);
     const pages = limit != 0 ? Math.ceil(total / limit) : 0;
+
     return res.status(200).json({
       status: 200,
       data,
