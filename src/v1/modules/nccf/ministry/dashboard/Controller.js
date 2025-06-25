@@ -814,8 +814,6 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   }
 });
 
-
-
 module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
   try {
     const { state = '', commodity = '', cna = 'NCCF' } = req.query;
@@ -1070,11 +1068,7 @@ module.exports.stateWiseLiftingQuantity = asyncErrorHandler(async (req, res) => 
 
 module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit = 5, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
-
-    const commodityNames = typeof commodity === 'string' && commodity.length > 0
-      ? commodity.split(',').map(name => name.trim())
-      : [];
+    const { page = 1, limit = 5, skip = 0, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
 
     // Reject special characters in search
     if (/[.*+?^${}()|[\]\\]/.test(search)) {
@@ -1087,10 +1081,23 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
       });
     }
 
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0 ? commodity.split(',').map(name => name.trim()) : [];
+
+    const states = typeof state === 'string' && state.length > 0 ? state.split(',').map(s => s.trim()) : [];
+
+    const districts = typeof district === 'string' && district.length > 0 ? district.split(',').map(d => d.trim()) : [];
+
     const aggregationPipeline = [
       {
         $match: {
-          warehouseId: { $ne: null }
+          warehouseId: { $ne: null },
+          source_by: { $in: finalCNA },
         }
       },
       {
@@ -1117,10 +1124,17 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
           }
         }]
         : []),
-      ...(state
+      ...(states.length > 0
         ? [{
           $match: {
-            'warehouse.addressDetails.state.state_name': { $regex: state, $options: 'i' }
+            'warehouse.addressDetails.state.state_name': { $in: states }
+          }
+        }]
+        : []),
+      ...(districts.length > 0
+        ? [{
+          $match: {
+            'warehouse.addressDetails.district.district_name': { $in: districts }
           }
         }]
         : []),
@@ -1145,6 +1159,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
           }
         }]
         : []),
+
       {
         $group: {
           _id: "$warehouse.warehouseDetailsId",
@@ -1241,9 +1256,10 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
   }
 })
 
+
 module.exports.poRaised = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { page = 1, limit, skip = 0, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
 
     // Reject special characters in search
     if (/[.*+?^${}()|[\]\\]/.test(search)) {
@@ -1256,9 +1272,17 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
       });
     }
 
-    const commodityNames = typeof commodity === 'string' && commodity.length > 0
-      ? commodity.split(',').map(name => name.trim())
-      : [];
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0 ? commodity.split(',').map(name => name.trim()) : [];
+
+    const states = typeof state === 'string' && state.length > 0 ? state.split(',').map(s => s.trim()) : [];
+
+    const districts = typeof district === 'string' && district.length > 0 ? district.split(',').map(d => d.trim()) : [];
 
     const pipeline = [
       {
@@ -1278,7 +1302,14 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
       ...(state
         ? [{
           $match: {
-            'distillers.address.registered.state': { $regex: state, $options: 'i' }
+            'distillers.address.registered.state': { $in: states }
+          }
+        }]
+        : []),
+      ...(districts.length > 0
+        ? [{
+          $match: {
+            'distillers.address.registered.district': { $in: districts }
           }
         }]
         : []),
@@ -1292,6 +1323,7 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
       {
         $match: {
           "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+          source_by: { $in: finalCNA },
           deletedAt: null
         }
       },
@@ -1355,9 +1387,10 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
   }
 });
 
+
 module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { page = 1, limit, skip = 0, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
 
     // Reject special characters in search
     if (/[.*+?^${}()|[\]\\]/.test(search)) {
@@ -1370,9 +1403,17 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
       });
     }
 
-    const commodityNames = typeof commodity === 'string' && commodity.length > 0
-      ? commodity.split(',').map(name => name.trim())
-      : [];
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0 ? commodity.split(',').map(name => name.trim()) : [];
+
+    const states = typeof state === 'string' && state.length > 0 ? state.split(',').map(s => s.trim()) : [];
+
+    const districts = typeof district === 'string' && district.length > 0 ? district.split(',').map(d => d.trim()) : [];
 
     const pipeline = [
       {
@@ -1389,10 +1430,17 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
           $match: { 'distillers.basic_details.distiller_details.organization_name': { $regex: search, $options: 'i' } }
         }]
         : []),
-      ...(state
+      ...(states.length > 0
         ? [{
           $match: {
-            'distillers.address.registered.state': { $regex: state, $options: 'i' }
+            'distillers.address.registered.state': { $in: states }
+          }
+        }]
+        : []),
+      ...(districts.length > 0
+        ? [{
+          $match: {
+            'distillers.address.registered.district': { $in: districts }
           }
         }]
         : []),
@@ -1406,6 +1454,7 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
       {
         $match: {
           "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+          source_by: { $in: finalCNA },
           deletedAt: null,
           status: { $ne: "Completed" }
         }
@@ -1562,12 +1611,26 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
       search = '',
       state = '',
       district = '',
+      cna = '',
       isExport = 0,
     } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const sort = { state: 1 };
 
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0 ? commodity.split(',').map(name => name.trim()) : [];
+
+    const states = typeof state === 'string' && state.length > 0 ? state.split(',').map(s => s.trim()) : [];
+
+    const districts = typeof district === 'string' && district.length > 0 ? district.split(',').map(d => d.trim()) : [];
+
     const query = {};
+    query.source_by = { $in: finalCNA };
     if (search) {
       query.$or = [
         { state: { $regex: search, $options: 'i' } },
@@ -1575,12 +1638,13 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
         { center_location: { $regex: search, $options: 'i' } },
       ];
     }
-    if (state) {
-      query.state = { $regex: state, $options: 'i' };
+
+    if (states.length > 0) {
+      query.state = { $in: states };
     }
 
-    if (district) {
-      query.district = { $regex: district, $options: 'i' };
+    if (districts.length > 0) {
+      query.district = { $in: districts };
     }
 
     if (parseInt(isExport) === 1) {
@@ -1617,6 +1681,7 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
         .limit(parseInt(limit))
     ]);
     const pages = limit != 0 ? Math.ceil(total / limit) : 0;
+
     return res.status(200).json({
       status: 200,
       data,
