@@ -814,8 +814,6 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   }
 });
 
-
-
 module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
   try {
     const { state = '', commodity = '', cna = 'NCCF' } = req.query;
@@ -1241,9 +1239,10 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
   }
 })
 
+
 module.exports.poRaised = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { page = 1, limit, skip = 0, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
 
     // Reject special characters in search
     if (/[.*+?^${}()|[\]\\]/.test(search)) {
@@ -1256,9 +1255,17 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
       });
     }
 
-    const commodityNames = typeof commodity === 'string' && commodity.length > 0
-      ? commodity.split(',').map(name => name.trim())
-      : [];
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0 ? commodity.split(',').map(name => name.trim()) : [];
+
+    const states = typeof state === 'string' && state.length > 0 ? state.split(',').map(s => s.trim()) : [];
+
+    const districts = typeof district === 'string' && district.length > 0 ? district.split(',').map(d => d.trim()) : [];
 
     const pipeline = [
       {
@@ -1278,7 +1285,14 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
       ...(state
         ? [{
           $match: {
-            'distillers.address.registered.state': { $regex: state, $options: 'i' }
+            'distillers.address.registered.state': { $in: states }
+          }
+        }]
+        : []),
+      ...(districts.length > 0
+        ? [{
+          $match: {
+            'distillers.address.registered.district': { $in: districts }
           }
         }]
         : []),
@@ -1292,6 +1306,7 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
       {
         $match: {
           "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+          source_by: { $in: finalCNA },
           deletedAt: null
         }
       },
@@ -1355,9 +1370,10 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
   }
 });
 
+
 module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { page = 1, limit, skip = 0, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
 
     // Reject special characters in search
     if (/[.*+?^${}()|[\]\\]/.test(search)) {
@@ -1370,9 +1386,17 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
       });
     }
 
-    const commodityNames = typeof commodity === 'string' && commodity.length > 0
-      ? commodity.split(',').map(name => name.trim())
-      : [];
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0 ? commodity.split(',').map(name => name.trim()) : [];
+
+    const states = typeof state === 'string' && state.length > 0 ? state.split(',').map(s => s.trim()) : [];
+
+    const districts = typeof district === 'string' && district.length > 0 ? district.split(',').map(d => d.trim()) : [];
 
     const pipeline = [
       {
@@ -1389,10 +1413,17 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
           $match: { 'distillers.basic_details.distiller_details.organization_name': { $regex: search, $options: 'i' } }
         }]
         : []),
-      ...(state
+      ...(states.length > 0
         ? [{
           $match: {
-            'distillers.address.registered.state': { $regex: state, $options: 'i' }
+            'distillers.address.registered.state': { $in: states }
+          }
+        }]
+        : []),
+      ...(districts.length > 0
+        ? [{
+          $match: {
+            'distillers.address.registered.district': { $in: districts }
           }
         }]
         : []),
@@ -1406,6 +1437,7 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
       {
         $match: {
           "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+          source_by: { $in: finalCNA },
           deletedAt: null,
           status: { $ne: "Completed" }
         }
