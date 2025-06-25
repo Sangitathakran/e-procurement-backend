@@ -90,7 +90,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
         createdAt: { $gte: start, $lte: end },
         source_by: { $in: finalCNA }
       };
-      if (commodity) match["purchasedOrder.commodity"] = commodity;
+      if (commodity) match["product.name"] = commodity;
       return match;
     };
 
@@ -111,7 +111,8 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
         $match: {
           "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
           ...(state && { "branch.state": state }),
-          ...(district && { "branch.district": district })
+          ...(district && { "branch.district": district }),
+          ...(commodity && { "product.name": commodity })
         }
       }
     ];
