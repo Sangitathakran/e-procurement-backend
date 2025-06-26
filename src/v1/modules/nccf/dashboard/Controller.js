@@ -121,12 +121,24 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const { user_id } = req;
     let { commodity, state } = req.query;
     let commodities = commodity?.split(",").map(c => c.trim().split(" ")[0]);
+    let states = state?.split(",")?.map( s => s.trim());
     let stock = 0; //Get realtimestock if commodity is passed
 
     // Initialize filters
     let poFilter = {};
     let distillerFilter = {};
     let matchQuery = {};
+
+    const getWarehouseProcurementStatsResult = await getWarehouseProcurementStats( {commodity: commodities, state: states} );
+    const totalsQuantity = getWarehouseProcurementStatsResult.reduce(
+      (acc, curr) => {
+        acc.totalProcuredQty += curr.totalProcuredQty || 0;
+        acc.totalAvailableQty += curr.totalAvailableQty || 0;
+        return acc;
+      },
+      { totalProcuredQty: 0, totalAvailableQty: 0 }
+    );
+
 
     // State filter
     if (state) {
@@ -304,15 +316,18 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const moU = await Distiller.countDocuments({ mou_approval: _userStatus.pending, ...stateFilter });
     const onBoarding = await Distiller.countDocuments({ is_approved: _userStatus.pending, ...stateFilter });
     const pending_request = await Distiller.countDocuments({ is_approved: "pending", ...stateFilter });
-
     const records = {
-      wareHouseCount: wareHouseCount ?? 0,
+      wareHouseCount: getWarehouseProcurementStatsResult?.length || 0, //wareHouseCount ?? 0,
       purchaseOrderCount,
       realTimeStock,
       moUCount: moU,
       onBoardingCount: onBoarding,
       totalRequest: pending_request,
       distillerCount,
+     
+      totalProcuredQty: totalsQuantity?.totalProcuredQty?.toFixed(2),
+      totalAvailableQty: totalsQuantity?.totalAvailableQty?.toFixed(2),
+      
     };
 
     return res.send(
@@ -322,7 +337,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
         message: _response_message.found("NCCF dashboard Stats"),
       })
     );
-  } catch (error) {
+  } catch (error){
     _handleCatchErrors(error, res);
   }
 });
@@ -1613,3 +1628,113 @@ module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
+
+
+ async function getWarehouseProcurementStats({ commodity = [], state = [] }) {
+  const matchConditions = {};
+
+  // Match multiple states (case-insensitive)
+  if (state.length > 0) {
+    matchConditions['warehouseDetails.addressDetails.state.state_name'] = {
+      $in: state.map(s => new RegExp(`^${s}$`, 'i')),
+    };
+  }
+
+  const pipeline = [
+    {
+      $lookup: {
+        from: 'warehousedetails',
+        localField: 'warehousedetails_id',
+        foreignField: '_id',
+        as: 'warehouseDetails',
+      },
+    },
+    { $unwind: '$warehouseDetails' },
+    {
+      $match: {
+        ...matchConditions,
+        'warehouseDetails.procurement_partner': {
+          $in: [procurement_partners.Radiant, procurement_partners.Agribid],
+        },
+      },
+    },
+
+    {
+      $lookup: {
+        from: 'requests',
+        localField: 'req_id',
+        foreignField: '_id',
+        as: 'requestDoc',
+      },
+    },
+    { $unwind: '$requestDoc' },
+
+    // Match multiple commodities (case-insensitive)
+    ...(commodity.length > 0
+      ? [{
+          $match: {
+            'requestDoc.product.name': {
+              $in: commodity.map(c => new RegExp(`^${c}$`, 'i')),
+            },
+          },
+        }]
+      : []),
+
+    {
+      $lookup: {
+        from: 'externalbatches',
+        localField: 'warehousedetails_id',
+        foreignField: 'warehousedetails_id',
+        as: 'externalBatches',
+      },
+    },
+
+    {
+      $group: {
+        _id: '$warehousedetails_id',
+        procurement_partner: {
+          $first: '$warehouseDetails.procurement_partner',
+        },
+        state_name: {
+          $first: '$warehouseDetails.addressDetails.state.state_name',
+        },
+        commodity: { $first: '$requestDoc.product.name' },
+
+        internalProcuredQty: { $sum: '$qty' },
+        internalAvailableQty: { $sum: '$available_qty' }, 
+        externalProcuredQty: {
+          $sum: { $sum: '$externalBatches.inward_quantity' },
+        },
+        externalAvailableQty: {
+          $sum: { $sum: '$externalBatches.remaining_quantity' },
+        },
+      },
+    },
+
+    {
+      $project: {
+        state: '$state_name',
+        commodity: 1,
+        procurement_partner: 1,
+        totalProcuredQty: {
+          $cond: [
+            { $eq: ['$procurement_partner', procurement_partners.Radiant] },
+            '$internalProcuredQty',
+            '$externalProcuredQty',
+          ],
+        },
+        totalAvailableQty: {
+          $cond: [
+            { $eq: ['$procurement_partner', procurement_partners.Radiant] },
+            '$internalAvailableQty',
+            '$externalAvailableQty',
+          ],
+        },
+      },
+    },
+  ];
+
+  const result = await Batch.aggregate(pipeline);
+  return result;
+}

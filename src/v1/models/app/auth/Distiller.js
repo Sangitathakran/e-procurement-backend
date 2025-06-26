@@ -126,6 +126,7 @@ const distillerSchema = new mongoose.Schema(
       default: _userStatus.pending,
     },
     active: { type: Boolean, default: true },
+    source_by: { type: String, default: "NCCF" },
     ..._commonKeys,
   },
   { timestamps: true }
