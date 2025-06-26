@@ -1,9 +1,3 @@
-const { Associate } = require("@src/v1/models/app/auth/Associate");
-const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
-// const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
-const { User } = require("@src/v1/models/app/auth/User");
-const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Commodity } = require("@src/v1/models/master/Commodity");
 const {
   commodityStandard,
@@ -12,10 +6,10 @@ const { Scheme } = require("@src/v1/models/master/Scheme");
 const {
   StateDistrictCity,
 } = require("@src/v1/models/master/StateDistrictCity");
-const UserRole = require("@src/v1/models/master/UserRole");
-const { sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { _response_message, _middleware, } = require("@src/v1/utils/constants/messages");
+const { sendResponse, serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { default: mongoose } = require("mongoose");
-
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
 
 module.exports.scheme = async (req, res) => {
   const query = { deletedAt: null, status: "active" };
@@ -196,11 +190,16 @@ module.exports.getDistrictsByState = async (req, res) => {
         message: "State code is required",
       });
     }
-  const district_list = await StateDistrictCity.aggregate([
+
+    const state_codes = typeof state_code === 'string'
+      ? state_code.split(',').map(code => code.trim().toUpperCase()).filter(Boolean)
+      : [];
+
+    const district_list = await StateDistrictCity.aggregate([
       { $unwind: "$states" },
       {
         $match: {
-          "states.state_code": state_code,
+          "states.state_code": { $in: state_codes },
           "states.status": "active",
         },
       },
@@ -218,18 +217,13 @@ module.exports.getDistrictsByState = async (req, res) => {
       },
     ]);
 
-    return sendResponse({
-      res,
-      message: "",
+    return res.status(200).send(new serviceResponse({
+      status: 200,
       data: district_list,
-    });
-  } catch (err) {
-    console.error("ERROR: ", err);
-    return sendResponse({
-      res,
-      status: 500,
-      message: err.message,
-    });
+      message: _response_message.found("State wise districts list"),
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
   }
 };
-

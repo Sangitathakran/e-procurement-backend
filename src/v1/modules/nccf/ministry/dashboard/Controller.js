@@ -596,9 +596,6 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       {
         $match: {
           "order.source_by": { $in: finalCNA },
-          // ...(state && { "branch.state": state }),
-          // ...(district && { "branch.district": district }),
-          // ...(commodity && { "order.purchasedOrder.commodity": commodity })
           ...(stateList.length > 0 && { "branch.state": { $in: stateList } }),
           ...(districtList.length > 0 && { "branch.district": { $in: districtList } }),
           ...(commodityList.length > 0 && { "order.purchasedOrder.commodity": { $in: commodityList } })
