@@ -8,9 +8,9 @@ const {
 } = require("./Controller");
 
 
-dashbaordRoutes.get("/widget-list", verifyAssociate, dashboardWidgetList);
-dashbaordRoutes.get("/mandiWiseProcurement", verifyAssociate, mandiWiseProcurement);
-dashbaordRoutes.get("/incidentalExpense", verifyAssociate, incidentalExpense);
+dashbaordRoutes.post("/widget-list", verifyAssociate, dashboardWidgetList);
+dashbaordRoutes.post("/mandiWiseProcurement", verifyAssociate, mandiWiseProcurement);
+dashbaordRoutes.post("/incidentalExpense", verifyAssociate, incidentalExpense);
 dashbaordRoutes.get("/purchaseLifingMandiWise", verifyAssociate, purchaseLifingMandiWise);
 dashbaordRoutes.get("/purchaseLifingMonthWise", verifyAssociate, purchaseLifingMonthWise);
 dashbaordRoutes.get("/state-wise-district", getDistrict)

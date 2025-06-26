@@ -21,6 +21,9 @@ const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/p
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 const { LexRuntimeV2 } = require("aws-sdk");
 const { escapeRegex } = require("@src/v1/utils/helpers/regex");
+const logger = require("@src/common/logger/logger")
+const { getDistrict } = require("@src/v1/utils/helpers/index");
+const { exist } = require("joi");
 //widget listss
 
 // module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
@@ -86,166 +89,145 @@ const { escapeRegex } = require("@src/v1/utils/helpers/regex");
 //   }
 // });
 
-
 module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   try {
     const { user_id } = req;
-    const { schemeName, commodity, district } = req.query;
+    const { schemeName, commodity, district } = req.body;
     const userObjectId = new mongoose.Types.ObjectId(user_id);
 
-    let widgetDetails = {};
-    
-    //filter
-    const commodityArray = commodity ? (Array.isArray(commodity) ? commodity : [commodity]) : [];
-    const regexCommodity = commodityArray.map(name => new RegExp(escapeRegex(name), 'i'));
+    logger.info(`[WidgetList] user_id: ${user_id}`);
+    logger.info(`[WidgetList] Query Params:`, { schemeName, commodity, district });
 
-    const schemeArray = schemeName ? (Array.isArray(schemeName) ? schemeName : [schemeName]) : [];
-    const objectIdArray = schemeArray
-      .map(id => (mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null))
-      .filter(id => id !== null);
+    // ========= Utility Function =========
+    const parseObjectIds = (input) => {
+      if (!input) return [];
+      const items = Array.isArray(input) ? input : JSON.parse(input);
+      return items
+        .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null)
+        .filter(Boolean);
+    };
 
-    const districtArray = district ? Array.isArray(district) ? district: district.split(',').map(d => d.trim()) : [];
-    const regexDistrict = districtArray.map(title => new RegExp(`^${title}$`, 'i'));
-    // console.log(regexDistrict)
+    const schemeIds = parseObjectIds(schemeName);
+    const commodityIds = parseObjectIds(commodity);
+    const districtIds = parseObjectIds(district);
 
-     let districtObjectIds = [];
-      if (districtArray.length) {
-      const districtDocs = await StateDistrictCity.aggregate([
-        { $unwind: "$states" },
-        { $unwind: "$states.districts" },
-        { $match: { "states.districts.district_title": { $in: regexDistrict } } },
-        { $project: { _id: "$states.districts._id" } }
-      ]);
-      districtObjectIds = districtDocs.map(d => d._id);
-    }
-// console.log(districtObjectIds)
-    //farmer count
+    logger.info(`[WidgetList] Parsed Filters`, {
+      schemeIds,
+      commodityIds,
+      districtIds
+    });
+
+    const widgetDetails = {};
+
+    // ========= Farmer Count =========
     const baseFarmerQuery = { associate_id: userObjectId };
-    if (districtArray.length || commodityArray.length || schemeArray.length) {
-      const requestFilter = {};
-      if (commodityArray.length) requestFilter['product.name'] = { $in: regexCommodity };
-      if (objectIdArray.length) requestFilter['product.schemeId'] = { $in: objectIdArray };
-      if (districtObjectIds.length) requestFilter['district_id'] = { $in: districtObjectIds };
+    const requestFilter = {};
 
-      const requestIds = await RequestModel.find(requestFilter).distinct('_id');
-      //const paymentFarmerIds = await Payment.find({ req_id: { $in: requestIds } }).distinct('farmer_id');
-      if (requestIds.length) {
-        const paymentFarmerIds = await Payment.find({ req_id: { $in: requestIds } }).distinct('farmer_id');
-        if (paymentFarmerIds.length) {
-          const farmerFilter = {
-            _id: { $in: paymentFarmerIds },
-          };
-          if (districtObjectIds.length) {
-            farmerFilter['address.district_id'] = { $in: districtObjectIds };
-          }
-          const filteredFarmerIds = await farmer.find(farmerFilter).distinct('_id');
-          baseFarmerQuery._id = { $in: filteredFarmerIds };
-        } else {
-          baseFarmerQuery._id = { $in: [] };
-        }
-      } else {
-        baseFarmerQuery._id = { $in: [] };
-      }
-    }
-    widgetDetails.farmertotal = await farmer.countDocuments(baseFarmerQuery);
+    if (commodityIds.length) requestFilter["product.commodity_id"] = { $in: commodityIds };
+    if (schemeIds.length) requestFilter["product.schemeId"] = { $in: schemeIds };
 
-      // const farmerFilterQuery = { _id: { $in: paymentFarmerIds } };
-      // const filteredFarmerIds = await farmer.find(farmerFilterQuery).distinct('_id');
-      // baseFarmerQuery._id = { $in: filteredFarmerIds };
+    logger.info(`[WidgetList] Request Filter:`, requestFilter);
 
-    //procurementcenter count
+    const requestIds = await RequestModel.find(requestFilter).distinct('_id');
+    logger.info(`[WidgetList] Matched Request IDs: ${requestIds.length}`);
+
+    widgetDetails.farmertotal = await farmerCount(req)
+    logger.info(`[WidgetList] Farmer Count: ${widgetDetails.farmertotal}`);
+
+    // ========= Procurement Center Count =========
+
+    if (districtIds.length) requestFilter["district_id"] = { $in: districtIds };
     const basePOCQuery = { user_id: userObjectId };
-    if (districtArray.length || commodityArray.length || schemeArray.length) {
-      const requestFilter = {};
-      if (commodityArray.length) requestFilter['product.name'] = { $in: regexCommodity };
-      if (objectIdArray.length) requestFilter['product.schemeId'] = { $in: objectIdArray };
-      if (districtObjectIds.length) requestFilter['address.district'] = { $in: districtObjectIds };
-      // console.log(districtObjectIds)
 
-      const requestIds = await RequestModel.find(requestFilter).distinct('_id');
-        if (requestIds.length) {
-          const batchPOCs = await Batch.find({ req_id: { $in: requestIds } }).distinct('procurementCenter_id');
-          basePOCQuery._id = { $in: batchPOCs };
-          if (districtObjectIds.length) {
-            basePOCQuery['address.district'] = { $in: districtObjectIds };
-          }
-        } else {
-          basePOCQuery._id = { $in: [] };
-        }
-      }
-    widgetDetails.procurementCenter = await ProcurementCenter.countDocuments(basePOCQuery);
-      // const batchPOCs = await Batch.find({ req_id: { $in: requestIds } }).distinct('procurementCenter_id');
-
-      // basePOCQuery._id = { $in: batchPOCs };
-      // if (districtArray.length) basePOCQuery['address.district'] = { $in: regexDistrict };
-    // TOTAL PURCHASED QUANTITY
-    const purchasedMatch = { seller_id: userObjectId };
-    if (commodityArray.length || schemeArray.length || districtArray.length) {
-      const requestFilter = {};
-      if (commodityArray.length) requestFilter['product.name'] = { $in: regexCommodity };
-      if (objectIdArray.length) requestFilter['product.schemeId'] = { $in: objectIdArray };
-      if (districtObjectIds.length) requestFilter['district_id'] = { $in: districtObjectIds };
-
-      const requestIds = await RequestModel.find(requestFilter).distinct('_id');
-      if (requestIds.length) {
-        purchasedMatch.req_id = { $in: requestIds };
-      } else {
-        purchasedMatch.req_id = { $in: [] };
-      }
+    if (requestIds.length) {
+      const batchPOCs = await Batch.find({ req_id: { $in: requestIds } }).distinct('procurementCenter_id');
+      basePOCQuery._id = { $in: batchPOCs };
+      console.log(districtIds)
+      let filterdata = await Promise.all(
+        districtIds.map(async (x) => {
+          return await getDistrict(x);
+        })
+      );
+      console.log(filterdata)
+      let findData = filterdata.map(x => { return x.district_title })
+      console.log("filterdata=================", findData)
+      if (districtIds.length) basePOCQuery['address.district'] = { $in: findData };
+    } else {
+      basePOCQuery._id = { $in: [] };
     }
+
+    widgetDetails.procurementCenter = await ProcurementCenter.countDocuments(basePOCQuery);
+    logger.info(`[WidgetList] Procurement Center Count: ${widgetDetails.procurementCenter}`);
+
+    // ========= Total Purchased Quantity =========
+    const purchasedMatch = {
+      seller_id: userObjectId,
+      req_id: requestIds.length ? { $in: requestIds } : { $in: [] }
+    };
 
     const purchase = await Batch.aggregate([
       { $match: purchasedMatch },
       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
     ]);
     widgetDetails.totalPurchased = purchase[0]?.totalQty ? Number(purchase[0].totalQty.toFixed(3)) : 0;
+    logger.info(`[WidgetList] Total Purchased Qty: ${widgetDetails.totalPurchased}`);
 
-    // TOTAL LIFTING QUANTITY
-    const liftingMatch = { seller_id: userObjectId, intransit: { $exists: true, $ne: null } };
-    if (commodityArray.length || schemeArray.length || districtArray.length) {
-      const requestFilter = {};
-      if (commodityArray.length) requestFilter['product.name'] = { $in: regexCommodity };
-      if (objectIdArray.length) requestFilter['product.schemeId'] = { $in: objectIdArray };
-      if (districtObjectIds.length) requestFilter['district_id'] = { $in: districtObjectIds };
-
-      const requestIds = await RequestModel.find(requestFilter).distinct('_id');
-      if (requestIds.length) {
-        liftingMatch.req_id = { $in: requestIds };
-      } else {
-        liftingMatch.req_id = { $in: [] };
-      }
-    }
+    // ========= Total Lifting Quantity =========
+    const liftingMatch = {
+      seller_id: userObjectId,
+      intransit: { $exists: true, $ne: null },
+      req_id: requestIds.length ? { $in: requestIds } : { $in: [] }
+    };
 
     const lifting = await Batch.aggregate([
       { $match: liftingMatch },
       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
     ]);
     widgetDetails.totalLifting = lifting[0]?.totalQty ? Number(lifting[0].totalQty.toFixed(3)) : 0;
+    logger.info(`[WidgetList] Total Lifting Qty: ${widgetDetails.totalLifting}`);
 
-    // TOTAL DAY PURCHASE & LIFTING (Today)
+    // ========= Today's Purchase & Lifting =========
     const now = new Date();
     const istOffset = 5.5 * 60 * 60 * 1000;
-    const utcMidnight = new Date(now.setUTCHours(0, 0, 0, 0));
-    const startOfDayIST = new Date(utcMidnight.getTime() - istOffset);
-    const endOfDayIST = new Date(startOfDayIST.getTime() + 24 * 60 * 60 * 1000 - 1);
+    const startOfDayIST = new Date(now.setUTCHours(0, 0, 0, 0) - istOffset);
+    const endOfDayIST = new Date(startOfDayIST.getTime() + 86400000 - 1);
 
     const dayPurchaseMatch = {
       seller_id: userObjectId,
       delivered: { $exists: true, $ne: null },
-      updatedAt: { $gte: startOfDayIST, $lt: endOfDayIST }
+      updatedAt: { $gte: startOfDayIST, $lt: endOfDayIST },
+      req_id: requestIds.length ? { $in: requestIds } : { $in: [] }
     };
+    console.log(dayPurchaseMatch)
     const dayPurchase = await Batch.aggregate([
       { $match: dayPurchaseMatch },
       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
     ]);
     widgetDetails.totalDayPurchase = dayPurchase[0]?.totalQty || 0;
+    logger.info(`[WidgetList] Today's Purchase Qty: ${widgetDetails.totalDayPurchase}`);
 
-    const todayLiftingBatches = await Batch.find({
-      seller_id: userObjectId,
-      intransit: { $exists: true, $ne: null },
-      updatedAt: { $gte: startOfDayIST, $lt: endOfDayIST }
-    }).select('qty');
-    widgetDetails.totalDaysLifting = todayLiftingBatches.reduce((sum, b) => sum + (b.qty || 0), 0);
+    const todayLifting = await Batch.aggregate([
+      {
+        $match: {
+          seller_id: userObjectId,
+          intransit: { $exists: true, $ne: null },
+          updatedAt: { $gte: startOfDayIST, $lt: endOfDayIST },
+          req_id: requestIds.length ? { $in: requestIds } : { $in: [] }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalQty: { $sum: "$qty" }
+        }
+      }
+    ]);
+
+    widgetDetails.totalDaysLifting = todayLifting[0]?.totalQty || 0;
+    logger.info(`[WidgetList] Today's Lifting Qty: ${widgetDetails.totalDaysLifting}`);
+
+    // ========= Final Response =========
+    logger.info(`[WidgetList] Widget details prepared successfully.`);
 
     return sendResponse({
       res,
@@ -253,8 +235,9 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       message: _query.get("Widget List"),
       data: widgetDetails
     });
+
   } catch (error) {
-    console.error("Error in widgetList:", error);
+    logger.error(`[WidgetList] Error: ${error.message}`, { stack: error.stack });
     return sendResponse({
       res,
       status: 500,
@@ -263,6 +246,81 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     });
   }
 });
+
+
+async function farmerCount(req) {
+  try {
+    const { user_id } = req;
+    const { schemeName, commodity, district } = req.body;
+    const userObjectId = new mongoose.Types.ObjectId(user_id);
+
+    logger.info(`[WidgetList] User ID: ${user_id}`);
+    logger.info(`[WidgetList] Query Params:`, { schemeName, commodity, district });
+
+    // Utility: safely parse ObjectId arrays from query
+    const parseObjectIds = (input) => {
+      if (!input) return [];
+      const values = Array.isArray(input) ? input : JSON.parse(input);
+      return values
+        .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null)
+        .filter(Boolean);
+    };
+
+    const schemeIds = parseObjectIds(schemeName);
+    const commodityIds = parseObjectIds(commodity);
+    const districtIds = parseObjectIds(district);
+
+    logger.info(`[WidgetList] Parsed Filters`, { schemeIds, commodityIds, districtIds });
+
+    let farmerQuery = { associate_id: userObjectId };
+    const hasCommodityOrScheme = commodityIds.length || schemeIds.length;
+    console.log(hasCommodityOrScheme)
+    if (hasCommodityOrScheme > 0) {
+      const requestFilter = {};
+      if (commodityIds.length) requestFilter['product.commodity_id'] = { $in: commodityIds };
+      if (schemeIds.length) requestFilter['product.schemeId'] = { $in: schemeIds };
+
+
+      logger.info(`[WidgetList] Request filter:`, requestFilter);
+
+      const requestIds = await RequestModel.find(requestFilter).distinct('_id');
+      logger.info(`[WidgetList] Matching Request IDs: ${requestIds.length}`);
+
+      if (requestIds.length) {
+        const paidFarmerIds = await Payment.find({ req_id: { $in: requestIds } }).distinct('farmer_id');
+        logger.info(`[WidgetList] Paid Farmer IDs: ${paidFarmerIds.length}`);
+
+        if (paidFarmerIds.length) {
+          const farmerFilter = { _id: { $in: paidFarmerIds } };
+          if (districtIds.length) {
+            farmerFilter['address.district_id'] = { $in: districtIds };
+          }
+          console.log(farmerFilter)
+          const finalFarmerIds = await farmer.find(farmerFilter).distinct('_id');
+          logger.info(`[WidgetList] Final Filtered Farmer IDs: ${finalFarmerIds.length}`);
+          farmerQuery._id = { $in: finalFarmerIds };
+        } else {
+          logger.warn(`[WidgetList] No farmers found after payment filtering.`);
+          farmerQuery._id = { $in: [] };
+        }
+      } else {
+        logger.warn(`[WidgetList] No request IDs matched filters.`);
+        farmerQuery._id = { $in: [] };
+      }
+    } else if (districtIds.length) {
+      farmerQuery['address.district_id'] = { $in: districtIds };
+      console.log(districtIds)
+      logger.info(`[WidgetList] Only District filter applied to farmer query.`);
+    }
+    console.log(farmerQuery)
+    const farmerCount = await farmer.countDocuments(farmerQuery);
+    logger.info(`[WidgetList] Farmer Count: ${farmerCount}`);
+    return farmerCount
+  } catch (error) {
+    logger.error(`[WidgetList] Error: ${error.message}`, { stack: error.stack });
+    return error.meesage
+  }
+}
 
 
 
@@ -490,530 +548,799 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 // }
 
 
+// module.exports.mandiWiseProcurement = async (req, res) => {
+//   try {
+//     const { user_id } = req;
+//     const { commodity, district, schemeName, search } = req.body;
+
+//     // Normalize query params to arrays or empty arrays
+//     const commodityArray = commodity
+//       ? Array.isArray(commodity)
+//         ? commodity
+//         : commodity.split(',').map((c) => c.trim())
+//       : [];
+//     const districtArray = district
+//       ? Array.isArray(district)
+//         ? district
+//         : district.split(',').map((d) => d.trim())
+//       : [];
+//     const schemeArray = schemeName
+//       ? Array.isArray(schemeName)
+//         ? schemeName
+//         : schemeName.split(',').map((s) => s.trim())
+//       : [];
+
+//     // Pagination
+//     let page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+//     const skip = (page - 1) * limit;
+//     const isExport = parseInt(req.query.isExport) === 1;
+//     const centerSearch = req.query.search?.trim();
+
+
+
+
+//     // Get payment batch IDs
+//     const payments = await Payment.find().lean();
+//     const batchIdSet = [...new Set(payments.map((p) => String(p.batch_id)).filter(Boolean))];
+
+
+//       const pipeline = [
+//           {
+//             $match: {
+//               _id: { $in: batchIdSet.map((id) => new mongoose.Types.ObjectId(id)) },
+//               seller_id: new mongoose.Types.ObjectId(user_id),
+//             },
+//           },
+//           {
+//             $lookup: {
+//               from: "users",
+//               localField: "seller_id",
+//               foreignField: "_id",
+//               as: "seller",
+//             },
+//           },
+//           { $unwind: "$seller" },
+//           {
+//             $lookup: {
+//               from: "procurementcenters",
+//               localField: "procurementCenter_id",
+//               foreignField: "_id",
+//               as: "center",
+//             },
+//           },
+//           { $unwind: "$center" },
+//           {
+//             $lookup: {
+//               from: "associateoffers",
+//               localField: "seller_id",
+//               foreignField: "seller_id",
+//               as: "associateOffer",
+//             },
+//           },
+//           {
+//             $unwind: {
+//               path: "$associateOffer",
+//               preserveNullAndEmptyArrays: true,
+//             },
+//           },
+//           {
+//             $lookup: {
+//               from: "requests",
+//               localField: "req_id",
+//               foreignField: "_id",
+//               as: "relatedRequest",
+//             },
+//           },
+//           {
+//             $unwind: {
+//               path: "$relatedRequest",
+//               preserveNullAndEmptyArrays: true,
+//             },
+//           },
+//           {
+//             $addFields: {
+//               liftedDataDays: {
+//                 $cond: [
+//                   { $and: ["$createdAt", "$relatedRequest.createdAt"] },
+//                   {
+//                     $dateDiff: {
+//                       startDate: "$relatedRequest.createdAt",
+//                       endDate: {
+//                         $cond: [
+//                           { $ifNull: ["$deliveryDate", false] },
+//                           "$deliveryDate",
+//                           "$updatedAt",
+//                         ],
+//                       },
+//                       unit: "day",
+//                     },
+//                   },
+//                   0,
+//                 ],
+//               },
+//               purchaseDays: {
+//                 $cond: [
+//                   { $and: ["$updatedAt", "$relatedRequest.createdAt"] },
+//                   {
+//                     $dateDiff: {
+//                       startDate: "$relatedRequest.createdAt",
+//                       endDate: "$updatedAt",
+//                       unit: "day",
+//                     },
+//                   },
+//                   0,
+//                 ],
+//               },
+
+//               liftedDataValid: {
+//                 $cond: [
+//                   { $and: ["$createdAt", "$relatedRequest.createdAt"] },
+//                   true,
+//                   false,
+//                 ],
+//               },
+
+//               purchaseDataValid: {
+//                 $cond: [
+//                   { $and: ["$updatedAt", "$relatedRequest.createdAt"] },
+//                   true,
+//                   false,
+//                 ],
+//               },
+
+//               liftedQty: {
+//                 $cond: [
+//                   { $ne: [{ $ifNull: ["$intransit", null] }, null] },
+//                   "$qty",
+//                   0,
+//                 ],
+//               },
+//             },
+//           },
+//           {
+//             $group: {
+//               _id: "$procurementCenter_id",
+//               centerName: { $first: "$center.center_name" },
+//               Status: { $first: "$center.active" },
+//               centerId: { $first: "$center._id" },
+//               district: { $first: "$center.address.district" },
+//               associate_name: {
+//                 $first: "$seller.basic_details.associate_details.associate_name",
+//               },
+//               offeredQty: {
+//                 $first: { $ifNull: ["$associateOffer.offeredQty", 0] },
+//               },
+//               productName: { $first: "$relatedRequest.product.name" },
+//               schemeId: { $first: "$relatedRequest.product.schemeId" },
+
+//               totalPurchaseQty: { $sum: "$qty" },
+//                totalLiftedQty: {
+//                 $sum: {
+//                   $cond: [
+//                     { $ne: [{ $ifNull: ["$intransit", null] }, null] },
+//                     "$qty",
+//                     0,
+//                   ],
+//                 },
+//               },
+//               liftedDataDays: {
+//                 $sum: {
+//                   $cond: [{ $eq: ["$liftedDataValid", true] }, "$qty", 0],
+//                 },
+//               },
+//               purchaseDays: {
+//                 $sum: {
+//                   $cond: [{ $eq: ["$purchaseDataValid", true] }, "$qty", 0],
+//                 },
+//               },
+//             },
+//           },
+//           {
+//             $addFields: {
+//               balanceMandi: { $subtract: ["$offeredQty", "$totalLiftedQty"] },
+//               liftingPercentage: {
+//                 $cond: {
+//                   if: { $gt: ["$offeredQty", 0] },
+//                   then: {
+//                     $round: [
+//                       {
+//                         $multiply: [
+//                           { $divide: ["$totalLiftedQty", "$offeredQty"] },
+//                           100,
+//                         ],
+//                       },
+//                       2,
+//                     ],
+//                   },
+//                   else: 0,
+//                 },
+//               },
+//             },
+//           },
+//         ];
+
+
+//     // Apply filters **after grouping** on grouped fields
+//     const filterMatch = {};
+//     if (districtArray.length > 0) {
+//       // filterMatch.district = { $in: districtArray };
+//     }
+
+//     if (commodityArray.length > 0) {
+//       filterMatch.productName =  {$in: commodityArray.map(name => new RegExp(escapeRegex(name), 'i'))}
+//     }
+
+//     if (schemeArray.length > 0) {
+//       filterMatch.schemeId = { $in: schemeArray };
+//     }
+
+//     if (Object.keys(filterMatch).length > 0) {
+//       pipeline.push({ $match: filterMatch });
+//     }
+
+//     // Center name search filter if any
+//     if (centerSearch && centerSearch.length > 0) {
+//       const searchRegex = new RegExp(centerSearch, "i");
+//       pipeline.push({
+//         // $match: { centerName: { $regex: centerSearch, $options: "i" } },
+//         $match: {
+//           $or: [
+//             { centerName: { $regex: searchRegex } },
+//             { productName: { $regex: searchRegex } },
+//             { district: { $regex: searchRegex } },
+//           ],
+//         },
+//       });
+//       page = 1;
+//     }
+
+//     pipeline.push({ $sort: { centerName: 1 } });
+//      console.log(pipeline)
+//     const aggregated = await Batch.aggregate(pipeline);
+
+//     // No records message
+//     if (aggregated.length === 0) {
+//     return res.status(200).json({
+//       status: 200,
+//        message: _response_message.notFound("data"),
+//       data: [],
+//       totalRecords: 0,
+//       totalPages: 0,
+//       currentPage: page,
+//       limit: 0,
+//     });
+//   }
+
+//     if (isExport) {
+//       const exportRows = aggregated.map((item) => ({
+//         "Center Name": item?.centerName || "NA",
+//         District: item?.district || "NA",
+//         "Associate Name": item?.associate_name || "NA",
+//         "Product Name": item?.productName || "NA",
+//         "Offered Qty": item?.offeredQty || 0,
+//         "Lifted Qty": item?.liftedQty || 0,
+//         "Balance Qty": item?.balanceMandi || 0,
+//         "Lifting %": item?.liftingPercentage + "%" || "0%",
+//         "Lifted Days": item?.liftedDataDays ?? "NA",
+//         "Purchase Days": item?.purchaseDays ?? "NA",
+//         Status: item?.Status ? "Active" : "Inactive",
+//       }));
+
+//       return dumpJSONToExcel(req, res, {
+//         data: exportRows,
+//         fileName: `MandiWiseProcurementData.xlsx`,
+//         worksheetName: `Mandi Data`,
+//       });
+//     }
+
+//     const totalRecords = aggregated.length;
+//     const totalPages = Math.ceil(totalRecords / limit);
+//     const paginatedData = aggregated.slice(skip, skip + limit);
+
+//     return res.status(200).json({
+//       status: 200,
+//       data: {
+//         page,
+//         limit,
+//         totalPages,
+//         totalRecords,
+//         data: paginatedData,
+//         message: "Mandi Procurement Data Fetched",
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error in mandiWiseProcurement:", error);
+//     return res.status(500).json({
+//       status: 500,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 module.exports.mandiWiseProcurement = async (req, res) => {
   try {
     const { user_id } = req;
-    const { commodity, district, schemeName, search } = req.query;
+    const { commodity = [], district = [], schemeName = [], page = 1, limit = 10, isExport = 11, search } = req.body;
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
 
-    // Normalize query params to arrays or empty arrays
-    const commodityArray = commodity
-      ? Array.isArray(commodity)
-        ? commodity
-        : commodity.split(',').map((c) => c.trim())
-      : [];
-    const districtArray = district
-      ? Array.isArray(district)
-        ? district
-        : district.split(',').map((d) => d.trim())
-      : [];
-    const schemeArray = schemeName
-      ? Array.isArray(schemeName)
-        ? schemeName
-        : schemeName.split(',').map((s) => s.trim())
-      : [];
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    // Normalize filters
+    const commodityArray = Array.isArray(commodity)
+      ? commodity
+      : String(commodity).split(",").map((id) => id.trim());
+    const schemeArray = Array.isArray(schemeName)
+      ? schemeName
+      : String(schemeName).split(",").map((id) => id.trim());
+    const districtArray = Array.isArray(district)
+      ? district
+      : String(district).split(",").map((d) => d.trim());
 
-    // Pagination
-    let page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-    const isExport = parseInt(req.query.isExport) === 1;
-    const centerSearch = req.query.search?.trim();
-
-
-    // Get payment batch IDs
-    const payments = await Payment.find().lean();
-    const batchIdSet = [...new Set(payments.map((p) => String(p.batch_id)).filter(Boolean))];
-  
-
-      const pipeline = [
-          {
-            $match: {
-              _id: { $in: batchIdSet.map((id) => new mongoose.Types.ObjectId(id)) },
-              seller_id: new mongoose.Types.ObjectId(user_id),
+    // Convert to ObjectIds
+    const commodityIds = commodityArray.filter(Boolean).map((id) => new mongoose.Types.ObjectId(id));
+    const schemeIds = schemeArray.filter(Boolean).map((id) => new mongoose.Types.ObjectId(id));
+    const pipeline = [
+      {
+        $match: {
+          seller_id: new mongoose.Types.ObjectId(user_id),
+        },
+      },
+      {
+        $lookup: {
+          from: "requests",
+          localField: "req_id",
+          foreignField: "_id",
+          as: "request",
+        },
+      },
+      { $unwind: "$request" },
+      {
+        $addFields: {
+          commodity_id: "$request.product.commodity_id",
+          schemeId: "$request.product.schemeId",
+        },
+      },
+      {
+        $lookup: {
+          from: "commodities",
+          localField: "commodity_id",
+          foreignField: "_id",
+          as: "commodityData",
+        },
+      },
+      { $unwind: "$commodityData" },
+      {
+        $addFields: {
+          isToday: {
+            $and: [
+              { $gte: ["$createdAt", startOfDay] },
+              { $lte: ["$createdAt", endOfDay] },
+            ],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$procurementCenter_id",
+          totalQty: { $sum: "$qty" },
+          todayQty: {
+            $sum: {
+              $cond: [{ $eq: ["$isToday", true] }, "$qty", 0],
             },
           },
-          {
-            $lookup: {
-              from: "users",
-              localField: "seller_id",
-              foreignField: "_id",
-              as: "seller",
+          totalLiftingQty: {
+            $sum: {
+              $cond: [{ $ne: ["$intransit", null] }, "$qty", 0],
             },
           },
-          { $unwind: "$seller" },
-          {
-            $lookup: {
-              from: "procurementcenters",
-              localField: "procurementCenter_id",
-              foreignField: "_id",
-              as: "center",
-            },
-          },
-          { $unwind: "$center" },
-          {
-            $lookup: {
-              from: "associateoffers",
-              localField: "seller_id",
-              foreignField: "seller_id",
-              as: "associateOffer",
-            },
-          },
-          {
-            $unwind: {
-              path: "$associateOffer",
-              preserveNullAndEmptyArrays: true,
-            },
-          },
-          {
-            $lookup: {
-              from: "requests",
-              localField: "req_id",
-              foreignField: "_id",
-              as: "relatedRequest",
-            },
-          },
-          {
-            $unwind: {
-              path: "$relatedRequest",
-              preserveNullAndEmptyArrays: true,
-            },
-          },
-          {
-            $addFields: {
-              liftedDataDays: {
-                $cond: [
-                  { $and: ["$createdAt", "$relatedRequest.createdAt"] },
-                  {
-                    $dateDiff: {
-                      startDate: "$relatedRequest.createdAt",
-                      endDate: {
-                        $cond: [
-                          { $ifNull: ["$deliveryDate", false] },
-                          "$deliveryDate",
-                          "$updatedAt",
-                        ],
-                      },
-                      unit: "day",
-                    },
-                  },
-                  0,
-                ],
-              },
-              purchaseDays: {
-                $cond: [
-                  { $and: ["$updatedAt", "$relatedRequest.createdAt"] },
-                  {
-                    $dateDiff: {
-                      startDate: "$relatedRequest.createdAt",
-                      endDate: "$updatedAt",
-                      unit: "day",
-                    },
-                  },
-                  0,
-                ],
-              },
-
-              liftedDataValid: {
-                $cond: [
-                  { $and: ["$createdAt", "$relatedRequest.createdAt"] },
-                  true,
-                  false,
-                ],
-              },
-
-              purchaseDataValid: {
-                $cond: [
-                  { $and: ["$updatedAt", "$relatedRequest.createdAt"] },
-                  true,
-                  false,
-                ],
-              },
-
-              liftedQty: {
-                $cond: [
-                  { $ne: [{ $ifNull: ["$intransit", null] }, null] },
-                  "$qty",
-                  0,
-                ],
-              },
-            },
-          },
-          {
-            $group: {
-              _id: "$procurementCenter_id",
-              centerName: { $first: "$center.center_name" },
-              Status: { $first: "$center.active" },
-              centerId: { $first: "$center._id" },
-              district: { $first: "$center.address.district" },
-              associate_name: {
-                $first: "$seller.basic_details.associate_details.associate_name",
-              },
-              offeredQty: {
-                $first: { $ifNull: ["$associateOffer.offeredQty", 0] },
-              },
-              productName: { $first: "$relatedRequest.product.name" },
-              schemeId: { $first: "$relatedRequest.product.schemeId" },
-
-              totalPurchaseQty: { $sum: "$qty" },
-               totalLiftedQty: {
-                $sum: {
-                  $cond: [
-                    { $ne: [{ $ifNull: ["$intransit", null] }, null] },
-                    "$qty",
-                    0,
+          todayLiftingQty: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: ["$intransit", null] },
+                    { $eq: ["$isToday", true] },
                   ],
                 },
-              },
-              liftedDataDays: {
-                $sum: {
-                  $cond: [{ $eq: ["$liftedDataValid", true] }, "$qty", 0],
-                },
-              },
-              purchaseDays: {
-                $sum: {
-                  $cond: [{ $eq: ["$purchaseDataValid", true] }, "$qty", 0],
-                },
-              },
+                "$qty",
+                0,
+              ],
             },
           },
-          {
-            $addFields: {
-              balanceMandi: { $subtract: ["$offeredQty", "$totalLiftedQty"] },
-              liftingPercentage: {
-                $cond: {
-                  if: { $gt: ["$offeredQty", 0] },
-                  then: {
-                    $round: [
-                      {
-                        $multiply: [
-                          { $divide: ["$totalLiftedQty", "$offeredQty"] },
-                          100,
-                        ],
-                      },
-                      2,
-                    ],
-                  },
-                  else: 0,
-                },
+          commodityName: { $first: "$commodityData.name" },
+          commodity_id: { $first: "$commodity_id" },
+          schemeId: { $first: "$schemeId" },
+        },
+      },
+      {
+        $lookup: {
+          from: "procurementcenters",
+          localField: "_id",
+          foreignField: "_id",
+          as: "procurementCenter",
+        },
+      },
+      { $unwind: "$procurementCenter" },
+      {
+        $addFields: {
+          balanceQty: { $subtract: ["$totalQty", "$totalLiftingQty"] },
+          liftingPercentage: {
+            $cond: [
+              { $gt: ["$totalQty", 0] },
+              {
+                $round: [
+                  { $multiply: [{ $divide: ["$totalLiftingQty", "$totalQty"] }, 100] },
+                  2,
+                ],
               },
-            },
+              0,
+            ],
           },
-        ];
+        },
+      },
+      {
+        $project: {
+          procurementCenter_id: "$_id",
+          procurementCenterName: "$procurementCenter.center_name",
+          district: "$procurementCenter.address.district",
+          commodityName: 1,
+          totalQty: 1,
+          todayQty: 1,
+          totalLiftingQty: 1,
+          todayLiftingQty: 1,
+          balanceQty: 1,
+          liftingPercentage: 1,
+          commodity_id: 1,
+          schemeId: 1,
+          _id: 0,
+        },
+      },
+    ];
 
 
-    // Apply filters **after grouping** on grouped fields
-    const filterMatch = {};
-    if (districtArray.length > 0) {
-      filterMatch.district = { $in: districtArray };
-    }
-
-    if (commodityArray.length > 0) {
-      filterMatch.productName =  {$in: commodityArray.map(name => new RegExp(escapeRegex(name), 'i'))}
-    }
-
-    if (schemeArray.length > 0) {
-      filterMatch.schemeId = { $in: schemeArray };
-    }
-
-    if (Object.keys(filterMatch).length > 0) {
-      pipeline.push({ $match: filterMatch });
-    }
-
-    // Center name search filter if any
-    if (centerSearch && centerSearch.length > 0) {
-      const searchRegex = new RegExp(centerSearch, "i");
+    if (districtArray.length) {
+      let filterdata = await Promise.all(districtArray.map(async (x) => { return await getDistrict(x) }));
+      let districtArrays = filterdata.map(x => { return x.district_title })
       pipeline.push({
-        // $match: { centerName: { $regex: centerSearch, $options: "i" } },
+        $match: {
+          district: { $in: districtArrays },
+        },
+      });
+    }
+
+    if (commodityIds.length) {
+      pipeline.push({
+        $match: {
+          commodity_id: { $in: commodityIds },
+        },
+      });
+    }
+
+    if (schemeIds.length) {
+      pipeline.push({
+        $match: {
+          schemeId: { $in: schemeIds },
+        },
+      });
+    }
+
+    if (isExport == 2) {
+      pipeline.push(
+        { $skip: (parseInt(page) - 1) * parseInt(limit) },
+        { $limit: parseInt(limit) }
+      );
+    }
+
+    if (search && typeof search === "string" && search.trim() !== "") {
+      pipeline.push({
         $match: {
           $or: [
-            { centerName: { $regex: searchRegex } },
-            { productName: { $regex: searchRegex } },
-            { district: { $regex: searchRegex } },
+            {
+              district: {
+                $regex: search,
+                $options: "i",
+              },
+            },
+            {
+              procurementCenterName: {
+                $regex: search,
+                $options: "i",
+              },
+            },
+            {
+              commodityName: {
+                $regex: search,
+                $options: "i",
+              },
+            },
           ],
         },
       });
-      page = 1;
     }
 
-    pipeline.push({ $sort: { centerName: 1 } });
-    const aggregated = await Batch.aggregate(pipeline);
+    const result = await Batch.aggregate(pipeline);
+    if (isExport == 2) {
+      exportMandiWiseProcurementData(req, res, result)
+    }
 
-    // No records message
-    if (aggregated.length === 0) {
-    return res.status(200).json({
-      status: 200,
-       message: _response_message.notFound("data"),
-      data: [],
-      totalRecords: 0,
-      totalPages: 0,
-      currentPage: page,
-      limit: 0,
-    });
-  }
-
-    if (isExport) {
-      const exportRows = aggregated.map((item) => ({
-        "Center Name": item?.centerName || "NA",
-        District: item?.district || "NA",
-        "Associate Name": item?.associate_name || "NA",
-        "Product Name": item?.productName || "NA",
-        "Offered Qty": item?.offeredQty || 0,
-        "Lifted Qty": item?.liftedQty || 0,
-        "Balance Qty": item?.balanceMandi || 0,
-        "Lifting %": item?.liftingPercentage + "%" || "0%",
-        "Lifted Days": item?.liftedDataDays ?? "NA",
-        "Purchase Days": item?.purchaseDays ?? "NA",
-        Status: item?.Status ? "Active" : "Inactive",
+    if (isExport == 2) {
+      const exportRows = result.map(item => ({
+        "Center Name": item?.procurementCenterName || 'NA',
+        "District": item?.district || 'NA',
+        "Product Name": item?.commodityName || 'NA',
+        "Offered Qty (MT)": item?.totalQty || 0,
+        "Lifted Qty (MT)": item?.totalLiftingQty || 0,
+        "Balance in Mandi (MT)": item?.balanceQty || 0,
+        "Lifting %": item?.liftingPercentage != null ? `${item.liftingPercentage}%` : '0%',
+        "Today Purchase Qty": item?.todayQty || 0,
+        "Today Lifted Qty": item?.todayLiftingQty || 0,
       }));
 
-      return dumpJSONToExcel(req, res, {
-        data: exportRows,
-        fileName: `MandiWiseProcurementData.xlsx`,
-        worksheetName: `Mandi Data`,
-      });
+      if (exportRows.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: exportRows,
+          fileName: `MandiWiseProcurement.xlsx`,
+          worksheetName: `Mandi Data`
+        });
+      } else {
+        return res.status(404).json(new serviceResponse({
+          status: 404,
+          message: _response_message.notFound("Mandi Procurement Not Found")
+        }));
+      }
+    }
+    if (!result || result.length === 0) {
+      return res.status(404).json(
+        new serviceResponse({
+          status: 404,
+          message: _response_message.notFound("Mandi Procurement Not Found"),
+        })
+      );
     }
 
-    const totalRecords = aggregated.length;
-    const totalPages = Math.ceil(totalRecords / limit);
-    const paginatedData = aggregated.slice(skip, skip + limit);
-
-    return res.status(200).json({
-      status: 200,
-      data: {
-        page,
-        limit,
-        totalPages,
-        totalRecords,
-        data: paginatedData,
-        message: "Mandi Procurement Data Fetched",
-      },
-    });
+    return res.status(200).json(
+      new serviceResponse({
+        status: 200,
+        message: "Mandi Procurement fetched successfully",
+        data: result,
+      })
+    );
   } catch (error) {
     console.error("Error in mandiWiseProcurement:", error);
-    return res.status(500).json({
-      status: 500,
-      message: "Internal Server Error",
-      error: error.message,
-    });
+    return res.status(500).json(
+      new serviceResponse({
+        status: 500,
+        message: _response_message.serverError("Mandi Procurement"),
+        error: error.message,
+      })
+    );
   }
 };
 
-module.exports.incidentalExpense = async (req, res) => {
-  try {
-    const {
-      search = '',
-      commodity = '',
-      state = '',
-      season = '',
-      district = '',
-      schemeName = '',
-    } = req.query;
-
-    const { user_id } = req;
-    let page = parseInt(req.query.page) || 1;
-    let limit = parseInt(req.query.limit) || 10;
-    let skip = (page - 1) * limit;
-
-    const filters = {};
-
-    if (user_id && mongoose.Types.ObjectId.isValid(user_id)) {
-      filters.associate_id = new mongoose.Types.ObjectId(user_id);
-    }
-
-    let payments = await Payment.find(filters)
-      .select({
-        batch_id: 1,
-        req_id: 1,
-        associate_id: 1,
-        amount: 1,
-        qtyProcured: 1,
-        payment_status: 1,
-      })
-      .populate({
-        path: 'batch_id',
-        select: 'batchId procurementCenter_id qty',
-        populate: {
-          path: 'procurementCenter_id',
-          select: 'center_name address.district address.state',
-        },
-      })
-      .populate({
-        path: 'req_id',
-        select: 'product.name product.season product.schemeId',
-      })
-      .sort({ createdAt: -1 });
-
-    if (search) {
-      const lowerSearch = search.toLowerCase();
-      payments = payments.filter((p) => {
-        const batchId = p.batch_id?.batchId?.toString().toLowerCase() || '';
-        const mandiName = p.batch_id?.procurementCenter_id?.center_name?.toLowerCase() || '';
-        const districtName = p.batch_id?.procurementCenter_id?.address?.district?.toLowerCase() || '';
-         const commodityName = p.req_id?.product?.name?.toLowerCase() || '';
-
-        //search by batchId, mandiName, district, commodity
-        return (
-          batchId.includes(lowerSearch) ||
-          mandiName.includes(lowerSearch) ||
-          districtName.includes(lowerSearch)||
-          commodityName.includes(lowerSearch)
-        );
-      });
-    }
-
-    if (state) {
-      const lowerState = state.toLowerCase();
-      payments = payments.filter((p) => {
-        const stateVal = p.batch_id?.procurementCenter_id?.address?.state?.toLowerCase() || '';
-        return stateVal.includes(lowerState);
-      });
-    }
-
-    if (commodity) {
-      const escapedCommodity = escapeRegex(commodity.toLowerCase());
-      const regex = new RegExp(escapedCommodity, 'i');
-
-      payments = payments.filter((p) => {
-        const comm = p.req_id?.product?.name || '';
-        return regex.test(comm);
-      });
-    }
-
-    if (season) {
-      const lowerSeason = season.toLowerCase();
-      payments = payments.filter((p) => {
-        const seasonVal = p.req_id?.product?.season?.toLowerCase() || '';
-        return seasonVal.includes(lowerSeason);
-      });
-    }
-
-    if (district) {
-      const lowerDistrict = district.toLowerCase();
-      payments = payments.filter((p) => {
-        const districtVal = p.batch_id?.procurementCenter_id?.address?.district?.toLowerCase() || '';
-        return districtVal.includes(lowerDistrict);
-      });
-    }
-
-    if (schemeName) {
-      const schemeArray = schemeName.split(',').map((s) => s.trim().toLowerCase());
-      payments = payments.filter((p) => {
-        const schemeId = p.req_id?.product?.schemeId;
-        if (!schemeId) return false;
-        const schemeIdStr = schemeId.toString().toLowerCase();
-        return schemeArray.includes(schemeIdStr);
-      });
-    }
-
-    const totals = payments.length;
-    const paymentPage = payments.slice(skip, skip + limit);
-
-    if (payments.length === 0) {
-    return res.status(200).json({
-      status: 200,
-      message: _response_message.notFound("data"),
-      data: [],
-      totalRecords: 0,
-      totalPages: 0,
-      currentPage: page,
-      limit: 0,
-    });
-  }
-
-    const batchIdNumbers = paymentPage
-      .map((p) => Number(p.batch_id?.batchId))
-      .filter((n) => !isNaN(n));
-
-    //Extracting batchId from payment whose ekhrid_payment exit true
-    const batchIDEkhrid = await Payment.find({
-      ekhrid_payment: { $exists: true }
-    }).select('batch_id');
-
-    const batchIdArray = batchIDEkhrid
-    .map(doc => doc.batch_id?.toString()) 
-    .filter((id, index, self) => id && self.indexOf(id) === index) 
-    .map(id => new mongoose.Types.ObjectId(id)); 
-    
-    const commisionCost = await Batch.find({
-      '_id' : {$in:batchIdArray}
-    })
-    .select({
-      _id: 1,
-      'dispatched.bills.commission':1
-    })
-    .lean();
-    
-    const result = commisionCost.map(doc => ({
-      batchId: doc._id,
-      commission: doc?.dispatched?.bills?.commission ?? 0
-    }));
-    const ekharidList = await eKharidHaryanaProcurementModel.find({
-      'warehouseData.exitGatePassId': { $in: batchIdNumbers },
-    })
-      .select({
-        'warehouseData.exitGatePassId': 1,
-        'procurementDetails.incidentalExpenses': 1,
-        'procurementDetails.laborCharges': 1,
-        'procurementDetails.laborChargesPayableDate': 1,
-        'procurementDetails.commissionCharges': 1,
-        'procurementDetails.commissionChargesPayableDate': 1,
-      })
-      .lean();
-
-    // Seelcted commission for ekhrid_payment true (payment collection)
-    const batchCommissionMap = new Map();
-      result.forEach((item) => {
-        batchCommissionMap.set(item.batchId.toString(), item.commission);
-      });
-    const ekharidMap = new Map();
-    ekharidList.forEach((e) => {
-      ekharidMap.set(Number(e.warehouseData.exitGatePassId), e);
-    });
 
 
-    const finalData = paymentPage.map((p) => {
-    const batchCode = Number(p.batch_id?.batchId);
-    const batchMongoId = p.batch_id?._id?.toString();
-    const ekharidRecord = ekharidMap.get(batchCode);
 
-    const commissionFromEkharid = ekharidRecord?.procurementDetails?.commissionCharges;
-    const commissionFromBatch = batchCommissionMap.get(batchMongoId) ?? 0;
 
-      return {
-        batchId: p.batch_id?.batchId || null,
-        commodity: p.req_id?.product?.name || 'NA',
-        amount: p.amount,
-        quantity: p.qtyProcured,
-        mandiName: p.batch_id?.procurementCenter_id?.center_name || 'NA',
-        district: p.batch_id?.procurementCenter_id?.address?.district || 'NA',
-        actualIncidentCost: ekharidRecord?.procurementDetails?.incidentalExpenses || 0,
-        incidentCostRecieved: ekharidRecord?.procurementDetails?.incidentalExpenses || 0,
-        actualLaborCharges: ekharidRecord?.procurementDetails?.laborCharges || 0,
-        laborChargeRecieved: ekharidRecord?.procurementDetails?.laborCharges || 0,
-        laborChargesPayableDate: ekharidRecord?.procurementDetails?.laborChargesPayableDate || 'NA',
-        commissionRecieved: commissionFromEkharid ?? commissionFromBatch,
-        commissionChargesPayableDate: ekharidRecord?.procurementDetails?.commissionChargesPayableDate || 'NA',
-        status: p.payment_status || 'NA',
-      };
-    });
 
-    return res.status(200).json({
-      data: finalData,
-      status: 200,
-      totalRecords: totals,
-      totalPages: Math.ceil(totals / limit),
-      currentPage: page,
-      limit: finalData.length,
-    });
-  } catch (err) {
-    console.error('Error in incidentalExpense:', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: err.message,
-    });
-  }
-};
+// module.exports.incidentalExpense = async (req, res) => {
+//   try {
+//     const {
+//       search = '',
+//       commodity = '',
+//       state = '',
+//       season = '',
+//       district = '',
+//       schemeName = '',
+//     } = req.query;
+
+//     const { user_id } = req;
+//     let page = parseInt(req.query.page) || 1;
+//     let limit = parseInt(req.query.limit) || 10;
+//     let skip = (page - 1) * limit;
+
+//     const filters = {};
+
+//     if (user_id && mongoose.Types.ObjectId.isValid(user_id)) {
+//       filters.associate_id = new mongoose.Types.ObjectId(user_id);
+//     }
+
+//     let payments = await Payment.find(filters)
+//       .select({
+//         batch_id: 1,
+//         req_id: 1,
+//         associate_id: 1,
+//         amount: 1,
+//         qtyProcured: 1,
+//         payment_status: 1,
+//       })
+//       .populate({
+//         path: 'batch_id',
+//         select: 'batchId procurementCenter_id qty',
+//         populate: {
+//           path: 'procurementCenter_id',
+//           select: 'center_name address.district address.state',
+//         },
+//       })
+//       .populate({
+//         path: 'req_id',
+//         select: 'product.name product.season product.schemeId',
+//       })
+//       .sort({ createdAt: -1 });
+
+//     if (search) {
+//       const lowerSearch = search.toLowerCase();
+//       payments = payments.filter((p) => {
+//         const batchId = p.batch_id?.batchId?.toString().toLowerCase() || '';
+//         const mandiName = p.batch_id?.procurementCenter_id?.center_name?.toLowerCase() || '';
+//         const districtName = p.batch_id?.procurementCenter_id?.address?.district?.toLowerCase() || '';
+//         const commodityName = p.req_id?.product?.name?.toLowerCase() || '';
+
+//         //search by batchId, mandiName, district, commodity
+//         return (
+//           batchId.includes(lowerSearch) ||
+//           mandiName.includes(lowerSearch) ||
+//           districtName.includes(lowerSearch) ||
+//           commodityName.includes(lowerSearch)
+//         );
+//       });
+//     }
+
+//     if (state) {
+//       const lowerState = state.toLowerCase();
+//       payments = payments.filter((p) => {
+//         const stateVal = p.batch_id?.procurementCenter_id?.address?.state?.toLowerCase() || '';
+//         return stateVal.includes(lowerState);
+//       });
+//     }
+
+//     if (commodity) {
+//       const escapedCommodity = escapeRegex(commodity.toLowerCase());
+//       const regex = new RegExp(escapedCommodity, 'i');
+
+//       payments = payments.filter((p) => {
+//         const comm = p.req_id?.product?.name || '';
+//         return regex.test(comm);
+//       });
+//     }
+
+//     if (season) {
+//       const lowerSeason = season.toLowerCase();
+//       payments = payments.filter((p) => {
+//         const seasonVal = p.req_id?.product?.season?.toLowerCase() || '';
+//         return seasonVal.includes(lowerSeason);
+//       });
+//     }
+
+//     if (district) {
+//       const lowerDistrict = district.toLowerCase();
+//       payments = payments.filter((p) => {
+//         const districtVal = p.batch_id?.procurementCenter_id?.address?.district?.toLowerCase() || '';
+//         return districtVal.includes(lowerDistrict);
+//       });
+//     }
+
+//     if (schemeName) {
+//       const schemeArray = schemeName.split(',').map((s) => s.trim().toLowerCase());
+//       payments = payments.filter((p) => {
+//         const schemeId = p.req_id?.product?.schemeId;
+//         if (!schemeId) return false;
+//         const schemeIdStr = schemeId.toString().toLowerCase();
+//         return schemeArray.includes(schemeIdStr);
+//       });
+//     }
+
+//     const totals = payments.length;
+//     const paymentPage = payments.slice(skip, skip + limit);
+
+//     if (payments.length === 0) {
+//       return res.status(200).json({
+//         status: 200,
+//         message: _response_message.notFound("data"),
+//         data: [],
+//         totalRecords: 0,
+//         totalPages: 0,
+//         currentPage: page,
+//         limit: 0,
+//       });
+//     }
+
+//     const batchIdNumbers = paymentPage
+//       .map((p) => Number(p.batch_id?.batchId))
+//       .filter((n) => !isNaN(n));
+
+//     //Extracting batchId from payment whose ekhrid_payment exit true
+//     const batchIDEkhrid = await Payment.find({
+//       ekhrid_payment: { $exists: true }
+//     }).select('batch_id');
+
+//     const batchIdArray = batchIDEkhrid
+//       .map(doc => doc.batch_id?.toString())
+//       .filter((id, index, self) => id && self.indexOf(id) === index)
+//       .map(id => new mongoose.Types.ObjectId(id));
+
+//     const commisionCost = await Batch.find({
+//       '_id': { $in: batchIdArray }
+//     })
+//       .select({
+//         _id: 1,
+//         'dispatched.bills.commission': 1
+//       })
+//       .lean();
+
+//     const result = commisionCost.map(doc => ({
+//       batchId: doc._id,
+//       commission: doc?.dispatched?.bills?.commission ?? 0
+//     }));
+//     const ekharidList = await eKharidHaryanaProcurementModel.find({
+//       'warehouseData.exitGatePassId': { $in: batchIdNumbers },
+//     })
+//       .select({
+//         'warehouseData.exitGatePassId': 1,
+//         'procurementDetails.incidentalExpenses': 1,
+//         'procurementDetails.laborCharges': 1,
+//         'procurementDetails.laborChargesPayableDate': 1,
+//         'procurementDetails.commissionCharges': 1,
+//         'procurementDetails.commissionChargesPayableDate': 1,
+//       })
+//       .lean();
+
+//     // Seelcted commission for ekhrid_payment true (payment collection)
+//     const batchCommissionMap = new Map();
+//     result.forEach((item) => {
+//       batchCommissionMap.set(item.batchId.toString(), item.commission);
+//     });
+//     const ekharidMap = new Map();
+//     ekharidList.forEach((e) => {
+//       ekharidMap.set(Number(e.warehouseData.exitGatePassId), e);
+//     });
+
+
+//     const finalData = paymentPage.map((p) => {
+//       const batchCode = Number(p.batch_id?.batchId);
+//       const batchMongoId = p.batch_id?._id?.toString();
+//       const ekharidRecord = ekharidMap.get(batchCode);
+
+//       const commissionFromEkharid = ekharidRecord?.procurementDetails?.commissionCharges;
+//       const commissionFromBatch = batchCommissionMap.get(batchMongoId) ?? 0;
+
+//       return {
+//         batchId: p.batch_id?.batchId || null,
+//         commodity: p.req_id?.product?.name || 'NA',
+//         amount: p.amount,
+//         quantity: p.qtyProcured,
+//         mandiName: p.batch_id?.procurementCenter_id?.center_name || 'NA',
+//         district: p.batch_id?.procurementCenter_id?.address?.district || 'NA',
+//         actualIncidentCost: ekharidRecord?.procurementDetails?.incidentalExpenses || 0,
+//         incidentCostRecieved: ekharidRecord?.procurementDetails?.incidentalExpenses || 0,
+//         actualLaborCharges: ekharidRecord?.procurementDetails?.laborCharges || 0,
+//         laborChargeRecieved: ekharidRecord?.procurementDetails?.laborCharges || 0,
+//         laborChargesPayableDate: ekharidRecord?.procurementDetails?.laborChargesPayableDate || 'NA',
+//         commissionRecieved: commissionFromEkharid ?? commissionFromBatch,
+//         commissionChargesPayableDate: ekharidRecord?.procurementDetails?.commissionChargesPayableDate || 'NA',
+//         status: p.payment_status || 'NA',
+//       };
+//     });
+
+//     return res.status(200).json({
+//       data: finalData,
+//       status: 200,
+//       totalRecords: totals,
+//       totalPages: Math.ceil(totals / limit),
+//       currentPage: page,
+//       limit: finalData.length,
+//     });
+//   } catch (err) {
+//     console.error('Error in incidentalExpense:', err);
+//     return res.status(500).json({
+//       success: false,
+//       message: 'Server error',
+//       error: err.message,
+//     });
+//   }
+// };
 
 
 
@@ -1085,6 +1412,149 @@ module.exports.incidentalExpense = async (req, res) => {
 // }
 
 
+module.exports.incidentalExpense = async (req, res) => {
+  try {
+    const {
+      commodity = [],
+      district = [],
+      schemeName = [],
+      page = 1,
+      limit = 10,
+      search = '',
+    } = req.body;
+
+    const { user_id } = req;
+    const filters = {};
+
+    if (user_id && mongoose.Types.ObjectId.isValid(user_id)) {
+      filters.seller_id = new mongoose.Types.ObjectId(user_id);
+    }
+
+    const pipeline = [
+      { $match: filters },
+      {
+        $lookup: {
+          from: "requests",
+          localField: "req_id",
+          foreignField: "_id",
+          as: "request",
+        },
+      },
+      { $unwind: "$request" },
+
+      {
+        $addFields: {
+          commodity_id: "$request.product.commodity_id",
+          schemeId: "$request.product.schemeId",
+          commodityName: "$request.product.name",
+          isDispatched: { $ne: ["$dispatched.dispatched_at", null] },
+        },
+      },
+
+      {
+        $match: {
+          $or: [
+            { ekhridBatch: true },
+            { ekhridBatch: false, isDispatched: true },
+          ],
+        },
+      },
+
+      {
+        $lookup: {
+          from: "procurementcenters",
+          localField: "procurementCenter_id",
+          foreignField: "_id",
+          as: "procurementCenter",
+        },
+      },
+      { $unwind: "$procurementCenter" },
+      {
+        $facet: {
+          data: [
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
+            {
+              $project: {
+                batchId: { $ifNull: ["$batchId", "NA"] },
+                commodity: { $ifNull: ["$commodityName", "NA"] },
+                amount: { $ifNull: ["$totalPrice", 0] },
+                quantity: { $ifNull: ["$qty", 0] },
+                mandiName: { $ifNull: ["$procurementCenter.center_name", "NA"] },
+                district: { $ifNull: ["$procurementCenter.address.district", "NA"] },
+                actualIncidentCost: { $literal: 0 },
+                incidentCostRecieved: { $literal: 0 },
+                actualLaborCharges: { $literal: 0 },
+                laborChargeRecieved: { $literal: 0 },
+                laborChargesPayableDate: { $literal: "NA" },
+                commissionRecieved: { $literal: 0 },
+                commissionChargesPayableDate: { $literal: "NA" },
+                status: { $ifNull: ["$payment_status", "NA"] },
+              },
+            },
+          ],
+          totalCount: [{ $count: "count" }],
+        },
+      }
+    ];
+
+    // Conditionally push commodity filter
+    if (commodity.length > 0) {
+      pipeline.push({
+        $match: {
+          commodity_id: {
+            $in: commodity.map(id => new mongoose.Types.ObjectId(id)),
+          },
+        },
+      });
+    }
+
+    // Conditionally push schemeName filter
+    if (schemeName.length > 0) {
+      pipeline.push({
+        $match: {
+          schemeId: {
+            $in: schemeName.map(id => new mongoose.Types.ObjectId(id)),
+          },
+        },
+      });
+    }
+
+    // Conditionally push district filter
+    if (district.length > 0) {
+      pipeline.push({
+        $match: {
+          "procurementCenter.address.district": { $in: district },
+        },
+      });
+    }
+
+    const result = await Batch.aggregate(pipeline);
+    const data = result[0]?.data || [];
+    const total = result[0]?.totalCount?.[0]?.count || 0;
+
+    return res.status(200).json({
+      data,
+      totalRecords: total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      limit: data.length,
+    });
+  } catch (err) {
+    console.error("Error in incidentalExpense:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message,
+    });
+  }
+};
+
+
+
+
+
+
 module.exports.purchaseLifingMandiWise = async (req, res) => {
   try {
     const { user_id } = req;
@@ -1121,7 +1591,7 @@ module.exports.purchaseLifingMandiWise = async (req, res) => {
       const batchSchemeId = batch.req_id?.product?.schemeId?.toString().toLowerCase();
 
       //skip unmatch batche by commodity, state, district
-     if (commodity) {
+      if (commodity) {
         const escapedCommodity = escapeRegex(commodity.toLowerCase());
         const regex = new RegExp(escapedCommodity, 'i');
 
