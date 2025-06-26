@@ -297,7 +297,7 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
           _id: 0,
           distillerId: '$_id.distillerId',
           state: '$_id.state',
-          distillerName: '$_id.organizationName',
+          distillerName: '$_id.distillerName',
           poQuantity: 1,
           maizeRequirement: 1,
           thirtyPercentMonthlyRequirement: 1,
@@ -308,8 +308,7 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
           procurementDoneFromFarmer: 1,
           noOfFarmerBeficated: 1,
         }
-      },
-      { $sort: { organizationName: 1 } },
+      }
     ];
 
     // Count before pagination
