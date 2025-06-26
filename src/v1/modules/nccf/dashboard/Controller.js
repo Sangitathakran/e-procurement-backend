@@ -121,12 +121,24 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const { user_id } = req;
     let { commodity, state } = req.query;
     let commodities = commodity?.split(",").map(c => c.trim().split(" ")[0]);
+    let states = state?.split(",")?.map(s => s.trim());
     let stock = 0; //Get realtimestock if commodity is passed
 
     // Initialize filters
     let poFilter = {};
     let distillerFilter = {};
     let matchQuery = {};
+
+    const getWarehouseProcurementStatsResult = await getWarehouseProcurementStats({ commodity: commodities, state: states });
+    const totalsQuantity = getWarehouseProcurementStatsResult.reduce(
+      (acc, curr) => {
+        acc.totalProcuredQty += curr.totalProcuredQty || 0;
+        acc.totalAvailableQty += curr.totalAvailableQty || 0;
+        return acc;
+      },
+      { totalProcuredQty: 0, totalAvailableQty: 0 }
+    );
+
 
     // State filter
     if (state) {
@@ -167,26 +179,26 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const finalMatchQuery = Object.keys(matchQuery).length > 0 ? { ...baseMatch, ...matchQuery } : baseMatch;
 
     //const wareHouseCount = await wareHouseDetails.countDocuments(finalMatchQuery);
-        let wareHouseCount = 0;
-        let matchedBatches = []
-        if (commodity) {
-          const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
-          const regexCommodities = commodityArray.map(name => new RegExp(name, "i"));
+    let wareHouseCount = 0;
+    let matchedBatches = []
+    if (commodity) {
+      const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
+      const regexCommodities = commodityArray.map(name => new RegExp(name, "i"));
 
-          const matchedRequestIds = await RequestModel.find({
-            $or: regexCommodities.map(regex => ({ 'product.name': { $regex: regex } }))
-          }).distinct('_id');
+      const matchedRequestIds = await RequestModel.find({
+        $or: regexCommodities.map(regex => ({ 'product.name': { $regex: regex } }))
+      }).distinct('_id');
 
-           matchedBatches = await Batch.find({
-            req_id: { $in: matchedRequestIds }
-          }).distinct('warehousedetails_id');
+      matchedBatches = await Batch.find({
+        req_id: { $in: matchedRequestIds }
+      }).distinct('warehousedetails_id');
 
-          wareHouseCount = await wareHouseDetails.countDocuments({
-            _id: { $in: matchedBatches }
-          });
-        } else {
-          wareHouseCount = await wareHouseDetails.countDocuments(finalMatchQuery);
-        }
+      wareHouseCount = await wareHouseDetails.countDocuments({
+        _id: { $in: matchedBatches }
+      });
+    } else {
+      wareHouseCount = await wareHouseDetails.countDocuments(finalMatchQuery);
+    }
     // Purchase Order aggregation
     const purchaseOrderPipeline = [
       {
@@ -269,11 +281,11 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
           'product.name': { $in: regexCommodities }
         }
       });
-       const wareHouseArr = await wareHouseDetails.find({
-            _id: { $in: matchedBatches }
-          }, { inventory: 1});
+      const wareHouseArr = await wareHouseDetails.find({
+        _id: { $in: matchedBatches }
+      }, { inventory: 1 });
 
-          stock = wareHouseArr.reduce( (acc, curr) => acc+curr?.inventory?.stock || 0 , 0);
+      stock = wareHouseArr.reduce((acc, curr) => acc + curr?.inventory?.stock || 0, 0);
     }
 
     stockPipeline.push(
@@ -297,22 +309,25 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     );
 
     const result = await wareHouseDetails.aggregate(stockPipeline);
-    const realTimeStock = commodity ? stock: (result.length > 0 ? result[0].totalStock : 0);
+    const realTimeStock = commodity ? stock : (result.length > 0 ? result[0].totalStock : 0);
 
     // Other filtered counts
     const stateFilter = state ? { 'address.registered.state': { $in: [new RegExp(state, "i")] } } : {};
     const moU = await Distiller.countDocuments({ mou_approval: _userStatus.pending, ...stateFilter });
     const onBoarding = await Distiller.countDocuments({ is_approved: _userStatus.pending, ...stateFilter });
     const pending_request = await Distiller.countDocuments({ is_approved: "pending", ...stateFilter });
-
     const records = {
-      wareHouseCount: wareHouseCount ?? 0,
+      wareHouseCount: getWarehouseProcurementStatsResult?.length || 0, //wareHouseCount ?? 0,
       purchaseOrderCount,
       realTimeStock,
       moUCount: moU,
       onBoardingCount: onBoarding,
       totalRequest: pending_request,
       distillerCount,
+
+      totalProcuredQty: totalsQuantity?.totalProcuredQty?.toFixed(2),
+      totalAvailableQty: totalsQuantity?.totalAvailableQty?.toFixed(2),
+
     };
 
     return res.send(
@@ -748,7 +763,7 @@ module.exports.getpenaltyStatus = asyncErrorHandler(async (req, res) => {
 // });
 
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
-  let { state, commodity, limit = 10 } = req.query;
+  let { state, commodity, limit = 10, search = '' } = req.query;
   const page = parseInt(req.query.page) || 1;
   const sortBy = "createdAt";
   const sortOrder = "asc";
@@ -775,10 +790,20 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
     },
     ...(stateArray.length && {
       "addressDetails.state.state_name": {
-        $in: stateArray.map(s => new RegExp(`^${s}$`, 'i')),
+        $in: stateArray.map((s) => new RegExp(`^${s}$`, "i")),
       },
     }),
   };
+
+  // Add search conditions if any
+  if (search) {
+    dynamicMatch.$or = [
+      { procurement_partner: { $regex: search, $options: "i" } },
+      { "basicDetails.warehouseName": { $regex: search, $options: "i" } },
+      { "addressDetails.state.state_name": { $regex: search, $options: "i" } },
+      { "addressDetails.district.district_name": { $regex: search, $options: "i" } },
+    ];
+  }
 
   const aggregationPipeline = [
     { $match: dynamicMatch },
@@ -823,34 +848,34 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
       },
     },
 
-   {
-  $addFields: {
-    totalProcuredQty: {
-      $round: [
-        {
-          $cond: {
-            if: { $eq: ["$procurement_partner", procurement_partners.Radiant] },
-            then: { $sum: "$internalBatches.qty" },
-            else: { $sum: "$externalBatches.inward_quantity" }
-          }
+    {
+      $addFields: {
+        totalProcuredQty: {
+          $round: [
+            {
+              $cond: {
+                if: { $eq: ["$procurement_partner", procurement_partners.Radiant] },
+                then: { $sum: "$internalBatches.qty" },
+                else: { $sum: "$externalBatches.inward_quantity" }
+              }
+            },
+            2
+          ]
         },
-        2
-      ]
-    },
-    totalLiftedQty: {
-      $round: [
-        {
-          $cond: {
-            if: { $eq: ["$procurement_partner", procurement_partners.Radiant] },
-            then: { $sum: "$internalBatches.allotedQty" },
-            else: { $sum: "$externalBatches.outward_quantity" }
-          }
-        },
-        2
-      ]
+        totalLiftedQty: {
+          $round: [
+            {
+              $cond: {
+                if: { $eq: ["$procurement_partner", procurement_partners.Radiant] },
+                then: { $sum: "$internalBatches.allotedQty" },
+                else: { $sum: "$externalBatches.outward_quantity" }
+              }
+            },
+            2
+          ]
+        }
+      }
     }
-  }
-}
 
   ];
 
@@ -947,7 +972,6 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
     })
   );
 });
-
 
 module.exports.getCompanyNames = async (req, res) => {
   try {
@@ -1604,3 +1628,113 @@ module.exports.getDistillerWisePayment = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
+
+
+async function getWarehouseProcurementStats({ commodity = [], state = [] }) {
+  const matchConditions = {};
+
+  // Match multiple states (case-insensitive)
+  if (state.length > 0) {
+    matchConditions['warehouseDetails.addressDetails.state.state_name'] = {
+      $in: state.map(s => new RegExp(`^${s}$`, 'i')),
+    };
+  }
+
+  const pipeline = [
+    {
+      $lookup: {
+        from: 'warehousedetails',
+        localField: 'warehousedetails_id',
+        foreignField: '_id',
+        as: 'warehouseDetails',
+      },
+    },
+    { $unwind: '$warehouseDetails' },
+    {
+      $match: {
+        ...matchConditions,
+        'warehouseDetails.procurement_partner': {
+          $in: [procurement_partners.Radiant, procurement_partners.Agribid],
+        },
+      },
+    },
+
+    {
+      $lookup: {
+        from: 'requests',
+        localField: 'req_id',
+        foreignField: '_id',
+        as: 'requestDoc',
+      },
+    },
+    { $unwind: '$requestDoc' },
+
+    // Match multiple commodities (case-insensitive)
+    ...(commodity.length > 0
+      ? [{
+        $match: {
+          'requestDoc.product.name': {
+            $in: commodity.map(c => new RegExp(`^${c}$`, 'i')),
+          },
+        },
+      }]
+      : []),
+
+    {
+      $lookup: {
+        from: 'externalbatches',
+        localField: 'warehousedetails_id',
+        foreignField: 'warehousedetails_id',
+        as: 'externalBatches',
+      },
+    },
+
+    {
+      $group: {
+        _id: '$warehousedetails_id',
+        procurement_partner: {
+          $first: '$warehouseDetails.procurement_partner',
+        },
+        state_name: {
+          $first: '$warehouseDetails.addressDetails.state.state_name',
+        },
+        commodity: { $first: '$requestDoc.product.name' },
+
+        internalProcuredQty: { $sum: '$qty' },
+        internalAvailableQty: { $sum: '$available_qty' },
+        externalProcuredQty: {
+          $sum: { $sum: '$externalBatches.inward_quantity' },
+        },
+        externalAvailableQty: {
+          $sum: { $sum: '$externalBatches.remaining_quantity' },
+        },
+      },
+    },
+
+    {
+      $project: {
+        state: '$state_name',
+        commodity: 1,
+        procurement_partner: 1,
+        totalProcuredQty: {
+          $cond: [
+            { $eq: ['$procurement_partner', procurement_partners.Radiant] },
+            '$internalProcuredQty',
+            '$externalProcuredQty',
+          ],
+        },
+        totalAvailableQty: {
+          $cond: [
+            { $eq: ['$procurement_partner', procurement_partners.Radiant] },
+            '$internalAvailableQty',
+            '$externalAvailableQty',
+          ],
+        },
+      },
+    },
+  ];
+
+  const result = await Batch.aggregate(pipeline);
+  return result;
+}

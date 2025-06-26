@@ -10,6 +10,7 @@ const { nccfPaymentRoutes } = require("./payment/Routes");
 const { nccfDashboardRoutes } = require("./dashboard/Router");
 const { nccfCenterProjectionRoutes } = require("./projection/Router");
 const { dropDownRoutes } = require("./dropDown/Routes");
+const { ministryRoutes } = require("./ministry/Routes");
 const nccfRoutes = express.Router();
 
 nccfRoutes.use("/auth", nccfAuthRoutes);
@@ -22,5 +23,6 @@ nccfRoutes.use("/payment", nccfPaymentRoutes);
 nccfRoutes.use("/dashboard", nccfDashboardRoutes);
 nccfRoutes.use("/center-projection", nccfCenterProjectionRoutes);
 nccfRoutes.use("/dropDown", dropDownRoutes);
+nccfRoutes.use("/ministry", ministryRoutes);
 
 module.exports = { nccfRoutes }; 

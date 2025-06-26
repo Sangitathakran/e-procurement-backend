@@ -59,7 +59,13 @@
   "_moduleAliases": {
     "@root": ".",
     "@src": "./src",
-    "@config": "./config"
+    "@config": "./config",
+    "@middlewares": "src/v1/middlewares",
+    "@models": "src/v1/models",
+    "@modules": "src/v1/modules",
+    "@utils": "src/v1/utils",
+    "@views": "src/v1/views",
+    "@common": "src/common"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",

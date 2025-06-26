@@ -188,7 +188,8 @@ const _userType = {
     agent: "6",
     warehouse: "7",
     distiller: "8",
-    nccf:"9"
+    nccf:"9",
+    ministry:"11"
 }
 
 const _userStatus = {
@@ -459,7 +460,8 @@ const _userTypeFrontendRouteMapping = {
     "agent": "6",
     "head-office": "2",
     "branch-office": "3",
-    "NccfAdmin": "9"
+    "NccfAdmin": "9",
+    "ministry": "11"
 }
 
 const _poRequestStatus = {
