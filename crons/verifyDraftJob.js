@@ -42,7 +42,7 @@ const runBankVerificationJob = async () => {
         },
       },
       { $unwind: "$farmer" },
-      { $limit: 100 },
+      { $limit: 20 },
       {
         $project: {
           _id: 1,
