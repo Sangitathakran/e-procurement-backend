@@ -80,7 +80,7 @@ const warehouseDetailsSchema = new mongoose.Schema(
         aadhar_front: { type: String, trim: true },
         panNumber: { type: String },
         panImage: { type: String, trim: true },
-      
+
       },
     },
     bankDetails: {
@@ -108,6 +108,8 @@ const warehouseDetailsSchema = new mongoose.Schema(
     active: { type: Boolean, default: true },
     procurement_partner: { type: String, enum: ["Radiant", "Youkta", "Beam", "Agribid", "Supplyvalid", "NEML", "Others"], default: "Radiant" },
     wareHouse_code: { type: String, unique: true },
+    source_by: { type: String, default: "NCCF" },
+    ..._commonKeys,
   },
   { timestamps: true }
 );

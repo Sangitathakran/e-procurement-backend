@@ -813,9 +813,21 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
 module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
 
     const monthlySummary = await BatchOrderProcess.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+        }
+      },
       {
         $group: {
           _id: {
@@ -868,9 +880,20 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
 
 module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
 
     const monthlyPayments = await PurchaseOrderModel.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+        }
+      },
       {
         $group: {
           _id: {
@@ -922,9 +945,20 @@ module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
 
 module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
 
     const result = await PurchaseOrderModel.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA }
+        }
+      },
       // Lookup to get branch details including state
       {
         $lookup: {
@@ -975,13 +1009,24 @@ module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
 
 module.exports.stateWiseProcurementQuantity = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
 
     const { sort = 'desc' } = req.query;
 
     const sortOrder = sort === 'asc' ? 1 : -1;
 
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
     const result = await BatchOrderProcess.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+        }
+      },
       {
         $lookup: {
           from: 'warehousedetails', // Make sure the collection name is correct in MongoDB
@@ -1020,13 +1065,25 @@ module.exports.stateWiseProcurementQuantity = asyncErrorHandler(async (req, res)
 
 module.exports.stateWiseLiftingQuantity = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
 
     const { sort = 'desc' } = req.query;
 
     const sortOrder = sort === 'asc' ? 1 : -1;
 
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
     const result = await BatchOrderProcess.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA }
+        }
+      },
       {
         $lookup: {
           from: 'warehousedetails', // Make sure the collection name is correct in MongoDB
@@ -1253,7 +1310,6 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
   }
 })
 
-
 module.exports.poRaised = asyncErrorHandler(async (req, res) => {
   try {
     const { page = 1, limit, skip = 0, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
@@ -1383,7 +1439,6 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
-
 
 module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
   try {
@@ -1523,12 +1578,32 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
 module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
   try {
     // 1. Distiller counts
+    const { page = 1, limit, skip = 0, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
     const distillerState = Distiller.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+          is_approved: _userStatus.approved,
+        }
+      },
       { $group: { _id: '$address.registered.state', distillerCount: { $sum: 1 } } }
     ]);
 
     // 2. Warehouse counts and requiredStock
     const warehouseState = wareHouseDetails.aggregate([
+      {
+        $match:{
+          source_by: { $in: finalCNA },
+          active:true
+        }
+      },
       {
         $group: {
           _id: '$addressDetails.state.state_name',
@@ -1540,6 +1615,11 @@ module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
 
     // 3. Batch-order stats via PurchaseOrder → Distiller → State
     const batchState = BatchOrderProcess.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA }
+        }
+      },
       { $lookup: { from: 'purchaseorders', localField: 'orderId', foreignField: '_id', as: 'po' } },
       { $unwind: '$po' },
       { $lookup: { from: 'distillers', localField: 'po.distiller_id', foreignField: '_id', as: 'dist' } },
@@ -1554,8 +1634,8 @@ module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
     ]);
 
     // 4. Totals
-    const totalDistillers = Distiller.countDocuments();
-    const totalWarehouses = wareHouseDetails.countDocuments();
+    const totalDistillers = Distiller.countDocuments({ source_by: { $in: finalCNA }, is_approved: _userStatus.approved });
+    const totalWarehouses = wareHouseDetails.countDocuments({ source_by: { $in: finalCNA }, active: true });
 
     const [dState, wState, bState, totalD, totalW] = await Promise.all([
       distillerState, warehouseState, batchState, totalDistillers, totalWarehouses
@@ -1586,8 +1666,6 @@ module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
       totalWarehouses: totalW,
       stateWiseStats: Object.values(map),
     };
-
-    // res.status(200).json({ success: true, data: response });
 
     return res.status(200).send(new serviceResponse({
       status: 200,
@@ -1700,13 +1778,21 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
 
 module.exports.paymentWithTenPercant = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = '' } = req.query;
+
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
 
     const pipeline = [
       {
         $match: {
           "paymentInfo.token": { $in: [10] },
-          deletedAt: null
+          deletedAt: null,
+          source_by: { $in: finalCNA }
         }
       },
       {
@@ -1753,13 +1839,20 @@ module.exports.paymentWithTenPercant = asyncErrorHandler(async (req, res) => {
 
 module.exports.paymentWithHundredPercant = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
 
     const pipeline = [
       {
         $match: {
           "paymentInfo.token": { $in: [100] },
-          deletedAt: null
+          deletedAt: null,
+          source_by: { $in: finalCNA }
         }
       },
       {
