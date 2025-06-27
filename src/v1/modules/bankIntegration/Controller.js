@@ -24,7 +24,7 @@ const {
   BatchOrderProcess,
 } = require("@src/v1/models/app/distiller/batchOrderProcess.js");
 
-const {REDIRECT_URL,APP_URL ,CANCEL_URL,PG_ENV, MERCHANT_ID,ACCESS_CODE, WORKING_KEY,} = require("@config/index.js")
+const {REDIRECT_URL,APP_URL,SCCUESS_URL ,CANCEL_URL,PG_ENV, MERCHANT_ID,ACCESS_CODE, WORKING_KEY,} = require("@config/index.js")
 var workingKey = WORKING_KEY, //Put in the 32-Bit key shared by CCAvenues.
   accessCode = ACCESS_CODE, //Put in the Access Code shared by CCAvenues.
   encRequest = "";
@@ -85,7 +85,7 @@ module.exports.paymentStatus = async (req, res) => {
       order_id = "",
       amount = "",
       merchant_param1: paymentSection = "",
-      cancel_url = "https://testing.distiller.khetisauda.com/distiller/myorders",
+      cancel_url = FRONTEND_URL,
     } = responseParams;
 
     if (paymentStatus === "Success") {
@@ -142,7 +142,7 @@ module.exports.paymentStatus = async (req, res) => {
     });
 
     // Determine the frontend redirect URL
-    let redirectUrlFE = cancel_url;
+    let redirectUrlFE = SCCUESS_URL;
 
     res.send(`
                 <!DOCTYPE html>
