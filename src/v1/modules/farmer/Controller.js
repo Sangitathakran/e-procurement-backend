@@ -58,6 +58,9 @@ const parseExcelOrCsvFile = require('@src/common/services/parseExcelOrCsvFile');
 const { verfiyfarmer } = require('@src/v1/models/app/farmerDetails/verfiyFarmer');
 const logger = require('@common/logger/logger');
 const { VerificationType } = require('@common/enum');
+const {paginate} = require('@src/v1/utils/helpers');
+
+
 module.exports.sendOTP = async (req, res) => {
   try {
     const { mobileNumber, acceptTermCondition } = req.body;
@@ -4329,4 +4332,149 @@ module.exports.farmerCount = async (req, res) => {
   }
 };
 
+
+
+
+module.exports.farmerVerfiedData = async (req, res) => {
+  try {
+    logger.info("[farmerVerfiedData] Fetching verified farmers with filters and pagination", {
+      query: req.query,
+    });
+
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      state_id,
+      associate_id = "",
+      commodityName
+    } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const matchStage = {};
+
+    // Unified search across mobile, name, farmer_id
+    if (search) {
+      const searchRegex = new RegExp(search, "i");
+      matchStage.$or = [
+        { "farmer_details.mobile_no": searchRegex },
+        { "farmer_id": searchRegex },
+        { "farmer_details.name": searchRegex }
+      ];
+    }
+
+    if (state_id) {
+      matchStage["farmer_details.address.state_id"] = new mongoose.Types.ObjectId(state_id);
+    }
+
+    if (commodityName) {
+      matchStage["farmer_detaiilsCrop.crop_name"] = new RegExp(commodityName, "i");
+    }
+
+    if (associate_id && mongoose.Types.ObjectId.isValid(associate_id)) {
+      matchStage["associate_id"] = new mongoose.Types.ObjectId(associate_id);
+    }
+
+    const pipeline = [
+      {
+        $lookup: {
+          from: "farmers",
+          localField: "farmer_id",
+          foreignField: "_id",
+          as: "farmer_details"
+        }
+      },
+      { $unwind: "$farmer_details" },
+      {
+        $lookup: {
+          from: "users",
+          localField: "associate_id",
+          foreignField: "_id",
+          as: "associate_details"
+        }
+      },
+      {
+        $unwind: {
+          path: "$associate_details",
+        }
+      },
+      {
+        $lookup: {
+          from: "crops",
+          localField: "farmer_details._id",
+          foreignField: "farmer_id",
+          as: "farmer_detaiilsCrop"
+        }
+      },
+      {
+        $unwind: { path: "$farmer_detaiilsCrop" }
+      },
+      { $match: matchStage },
+      {
+        $project: {
+          _id: 0,
+          farmer_id: "$farmer_details.farmer_id",
+          commodityName: "$farmer_detaiilsCrop.crop_name",
+          associate_id: 1,
+          is_verify_aadhaar: 1,
+          is_verify_bank: 1,
+          state_id: "$farmer_details.address.state_id",
+          name: "$farmer_details.name",
+          mobile: "$farmer_details.mobile_no",
+          address: "$farmer_details.address.address_line_1",
+          aadhar_no: "$farmer_details.proof.aadhar_no",
+          account_no: "$farmer_details.bank_details.account_no",
+          bank_name: "$farmer_details.bank_details.bank_name",
+          branch_name: "$farmer_details.bank_details.branch_name",
+          ifsc_code: "$farmer_details.bank_details.ifsc_code",
+          organization_name: "$associate_details.basic_details.associate_details.organization_name"
+        }
+      },
+      {
+        $facet: {
+          totalCount: [{ $count: "count" }],
+          data: [
+            { $skip: skip },
+            { $limit: parseInt(limit) }
+          ]
+        }
+      }
+    ];
+
+    logger.info("[farmerVerfiedData] Running aggregation pipeline", {
+      matchStage,
+      skip,
+      limit: parseInt(limit)
+    });
+
+    const result = await verfiyfarmer.aggregate(pipeline);
+    const total = result[0].totalCount[0]?.count || 0;
+    const data = result[0].data || [];
+
+    logger.info("[farmerVerfiedData] Aggregation successful", {
+      totalResults: total,
+      returnedCount: data.length
+    });
+
+    return sendResponse({
+      res,
+      message: "Verified farmers fetched successfully",
+      data: {
+        total,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        farmers: data
+      }
+    });
+
+  } catch (error) {
+    logger.error("[farmerVerfiedData] Error fetching verified farmers", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Failed to fetch verified farmers",
+      errors: error.message
+    });
+  }
+};
 

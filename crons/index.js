@@ -12,7 +12,7 @@ const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const xlsx = require("xlsx");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { _paymentstatus } = require("@src/v1/utils/constants");
-
+const logger = require('@src/common/logger/logger');
 // variables for e-kharid
 const mongoose = require("mongoose");
 const BASE_URL = "http://localhost:4001/v1/ekhrid/batch";
@@ -22,9 +22,6 @@ const seller_ids = [
   "67e38f0516a8db907254c63a",
   "67ee2a3e07654b69eabda370",
 ];
-
-
-
 main().catch((err) => console.log(err));
 const { runBankVerificationJob } = require('./verifyDraftJob');
 
@@ -32,24 +29,27 @@ const { runBankVerificationJob } = require('./verifyDraftJob');
 
 //update
 async function main() {
-  const VERFICATION = process.env.VERFICATION || "OFF"; 
+  const VERFICATIONS = VERFICATION || "OFF";
 
-  // if (VERFICATION === "ON") {
-    console.log(' Bank verification scheduler initialized...');
-    
-    cron.schedule('*/10 * * * *', async () => {
-      console.log(' Running bank verification cron...');
-      
+  if (VERFICATIONS === "ON") {
+    logger.info("[Cron Init] Bank verification scheduler initialized...");
+
+    cron.schedule("*/10 * * * *", async () => {
+      logger.info("[Cron Start] Running bank verification cron...");
       try {
         await runBankVerificationJob();
-        console.log(" Bank verification cron finished.");
+        logger.info("[Cron Success] Bank verification cron finished.");
       } catch (err) {
-        console.error(" Error running bank verification cron:", err.message);
+        logger.error("[Cron Error] Error running bank verification cron:", {
+          message: err.message,
+          stack: err.stack,
+        });
       }
     });
-  // } else {
-  //   console.log(" VERFICATION flag is OFF. Cron not started.");
-  // }
+  } else {
+    logger.warn("[Cron Skipped] VERFICATION flag is OFF. Cron not started.");
+  }
+
 
 
   // cron.schedule("0 9-17/2 * * 1-5", () => {
