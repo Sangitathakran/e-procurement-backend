@@ -11,7 +11,7 @@ async function getVerifiedAadharInfo(uidai_aadharNo, farmer_id) {
       {
         "aadhaar_details.uidai_aadharNo": uidai_aadharNo,
         is_verify_aadhaar: true,
-       // farmer_id: new mongoose.Types.ObjectId(farmer_id)
+        farmer_id: new mongoose.Types.ObjectId(farmer_id)
       },
       { aadhaar_details: 1, farmer_id: 1 }
     ).lean();
