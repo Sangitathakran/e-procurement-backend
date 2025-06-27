@@ -106,6 +106,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 
     const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
     const { user_id, portalId } = req;
+   // console.log( { user_id, portalId} );
     let {
       schemeName = [],
       commodityName = [],
@@ -127,6 +128,15 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       ho_id: { $in: [user_id, portalId] },
       payment_status: _paymentstatus.completed,
     };
+
+    let start_date = null, end_date= null;
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange);
+      start_date = startDate, end_date = endDate
+      paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
+    }
+
+
     let widgetDetails = {
       branchOffice: { total: 0 },
       farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0, distillerTotal: 0 },
@@ -177,12 +187,12 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     // widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
     // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     //start of prachi code
+
     const {farmersCount, associateCount, distillerCount} = await getFarmersCount( { commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName} );
 
-//console.time('getBenifittedFarmers');
-    const {benifittedFarmersCount, totalProcurement, totalPaymentInitiated, todaysQtyProcured } = await getBenifittedFarmers({ hoId: hoId, commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName });
-   // console.timeEnd('getBenifittedFarmers');
-    const { branchOfficeCount, wareHouseCount } = await getBOWarehouseCount( { hoId:hoId, commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName} );
+    const {benifittedFarmersCount, totalProcurement, totalPaymentInitiated, todaysQtyProcured } = await getBenifittedFarmers({ hoId: hoId, commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName, start_date: start_date, end_date: end_date });
+
+    const { branchOfficeCount, wareHouseCount } = await getBOWarehouseCount( { hoId:hoId, commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName, start_date, end_date} );
      widgetDetails.farmerRegistration.distillerTotal = distillerCount; //await Distiller.countDocuments({ is_approved: _userStatus.approved });
     // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     widgetDetails.farmerRegistration.farmertotal = farmersCount; //await farmer.countDocuments({});
@@ -195,10 +205,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     // if (schemeName.length) {
     //   scheme = await Scheme.findOne({ schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) } }).select("_id").lean();
     // }
-    // if (dateRange) {
-    //   const { startDate, endDate } = parseDateRange(dateRange);
-    //   paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
-    // }
+   
 
     // const payments = await Payment.find(paymentFilter)
     //   .select("qtyProcured createdAt amount")
@@ -353,15 +360,19 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 
 //end of prachi code
 */
-function parseDateRange(rangeStr) {
-  const [startStr, endStr] = rangeStr.split(" - ");
-  const [startDay, startMonth, startYear] = startStr.split("/");
-  const [endDay, endMonth, endYear] = endStr.split("/");
+function parseDateRange(dateRange) {
+  //console.log(dateRange) // 13/06/2025 - 25/06/2025
+  const [startStr, endStr] = dateRange.split(" - ").map(s => s.trim());
+
+  const [startDay, startMonth, startYear] = startStr.split('/');
+  const [endDay, endMonth, endYear] = endStr.split('/');
 
   const startDate = new Date(`${startYear}-${startMonth}-${startDay}T00:00:00.000Z`);
   const endDate = new Date(`${endYear}-${endMonth}-${endDay}T23:59:59.999Z`);
+//console.log( {startDate, endDate} ) //{ startDate: 2025-06-13T00:00:00.000Z, endDate: 2025-06-25T23:59:59.999Z }
   return { startDate, endDate };
 }
+
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   const hoId = new mongoose.Types.ObjectId(req.portalId);
 
@@ -2479,6 +2490,8 @@ async function getFarmersCount({
   state = [],
   season = [],
   scheme = [],
+  start_date,
+  end_date
 }) {
   let farmersCount = 0;
   let associateCount = 0;
@@ -2486,17 +2499,22 @@ async function getFarmersCount({
 
   if (commodity.length || season.length || scheme.length || state.length) {
     let filter = {};
+     let dateFilter = {};
+
+    if (start_date instanceof Date && end_date instanceof Date) {
+      dateFilter.createdAt = { $gte: start_date, $lte: end_date };
+    }
 
     if (Array.isArray(commodity) && commodity.length > 0) {
       filter['product.name'] = {
-        $in: commodity.map(c => new RegExp(`^${c}$`, 'i')),
+        $in: commodity.map(c => new RegExp(c, 'i')),
       };
     }
 
     // Season filter
     if (Array.isArray(season) && season.length > 0) {
       // Convert season values to case-insensitive regex patterns
-      const seasonRegexes = season.map(s => new RegExp(`^${s}$`, 'i'));
+      const seasonRegexes = season.map(s => new RegExp(s, 'i'));
 
       // Step 1: Find Scheme IDs matching the desired seasons
       const matchingSchemes = await Scheme.find(
@@ -2533,7 +2551,7 @@ async function getFarmersCount({
       let farmersIds = new Set(paymentObj.map(el => String(el.farmer_id)));
       let associateIds = new Set(paymentObj.map(el => String(el.associate_id)));
 
-      const stateRegex = state.map(s => new RegExp(`^${s}$`, 'i')); // case-insensitive exact match
+      const stateRegex = state.map(s => new RegExp(s, 'i')); // case-insensitive exact match
 
       const filteredAssociates = await User.find(
         {
@@ -2551,7 +2569,7 @@ async function getFarmersCount({
         .size;
 
       const matchingAssociates = await User.find(
-        { 'address.registered.state': { $in: stateRegex } },
+        { 'address.registered.state': { $in: stateRegex }, ...dateFilter },
         { _id: 1 }
       ).lean();
 
@@ -2573,6 +2591,7 @@ async function getFarmersCount({
                 id => new mongoose.Types.ObjectId(id)
               ),
             },
+            ...dateFilter,
           },
           { _id: 1 }
         )
@@ -2581,9 +2600,9 @@ async function getFarmersCount({
       farmersCount = new Set(filteredFarmers.map(f => String(f._id))).size;
 
       // ✅ DISTILLER COUNT based on commodity and/or state
-      const commodityRegex = commodity.map(c => new RegExp(`^${c}$`, 'i'));
+      const commodityRegex = commodity.map(c => new RegExp(c, 'i'));
 
-      let distillerFilter = { is_approved: _userStatus.approved };
+      let distillerFilter = { is_approved: _userStatus.approved, ...dateFilter };
 
       let poDistillerIds = [];
 
@@ -2620,7 +2639,7 @@ async function getFarmersCount({
 
       // DISTILLER COUNT only by commodity (no state filter)
       if (commodity.length) {
-        const commodityRegex = commodity.map(c => new RegExp(`^${c}$`, 'i'));
+        const commodityRegex = commodity.map(c => new RegExp(c, 'i'));
 
         const poDistillerIds = await PurchaseOrderModel.distinct(
           'distiller_id',
@@ -2648,22 +2667,29 @@ async function getFarmersCount({
   return { farmersCount, associateCount, distillerCount };
 }
 
-
 async function getBenifittedFarmers({
   hoId,
   commodity = [],
   state = [],
   season = [],
   scheme = [],
+  start_date,
+  end_date
 }) {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
+  let dateFilter = {};
+
+    if (start_date instanceof Date && end_date instanceof Date) {
+      dateFilter.createdAt = { $gte: start_date, $lte: end_date };
+    }
 
   const pipeline = [
     {
       $match: {
         payment_status: _paymentstatus.completed, 
         ho_id: hoId,
+        ...dateFilter
       },
     },
     {
@@ -2721,7 +2747,7 @@ async function getBenifittedFarmers({
         ],
       },
     },
-    { $unwind: '$farmer' },
+     { $unwind: '$farmer' },
     {
       $lookup: {
         from: 'users',
@@ -2744,38 +2770,25 @@ async function getBenifittedFarmers({
         preserveNullAndEmptyArrays: true,
       },
     },
+     // 6. Now apply all filters together
     {
       $match: {
-        ...(commodity.length && {
-          'request.product.name': {
-            $in: commodity.map(c => new RegExp(`^${c}$`, 'i')),
-          },
+        ...(commodity.length > 0 && {
+          'request.product.name': { $in: commodity.map(c => new RegExp(c, 'i')) }
         }),
-        ...(season.length && {
+        ...(season.length > 0 && {
           $or: [
-            {
-              'request.product.season': {
-                $in: season.map(s => new RegExp(`^${s}$`, 'i')),
-              },
-            },
-            {
-              'scheme.season': {
-                $in: season.map(s => new RegExp(`^${s}$`, 'i')),
-              },
-            },
-          ],
+            { 'request.product.season': { $in: season.map(s => new RegExp(s, 'i')) } },
+            { 'scheme.season': { $in: season.map(s => new RegExp(s, 'i')) } }
+          ]
         }),
-        ...(scheme.length && {
-          'request.product.schemeId': {
-            $in: scheme.map(id => mongoose.Types.ObjectId(id)),
-          },
+        ...(scheme.length > 0 && {
+          'request.product.schemeId': { $in: scheme.map(id => new mongoose.Types.ObjectId(id)) }
         }),
-        ...(state.length && {
-          'associate.address.registered.state': {
-            $in: state.map(s => new RegExp(`^${s}$`, 'i')),
-          },
+        ...(state.length > 0 && {
+          'associate.address.registered.state': { $in: state.map(s => new RegExp(s, 'i')) }
         }),
-      },
+      }
     },
     {
       $addFields: {
@@ -2828,9 +2841,8 @@ async function getBenifittedFarmers({
       },
     },
   ];
-
   const result = await Payment.aggregate(pipeline);
-
+//console.log('>>>>>>>>>>>>>>>>',result)
   if (result.length > 0) {
     return result[0];
   }
@@ -2844,34 +2856,43 @@ async function getBenifittedFarmers({
 }
 
 async function getBOWarehouseCount({
-  hoId: hoId,
+  hoId,
   commodity = [],
   state = [],
   season = [],
-  scheme = []
- }) {
+  scheme = [],
+  start_date,
+  end_date,
+}) {
   try {
     // Build the match criteria based on provided filters
-    const matchCriteria = {};
+    const matchCriteria = {
+      head_office_id: hoId,
+    };
+    let dateFilter = {};
+
+    if (start_date instanceof Date && end_date instanceof Date) {
+      dateFilter.createdAt = { $gte: start_date, $lte: end_date };
+    }
 
     if (commodity.length) {
       matchCriteria['product.name'] = {
-        $in: commodity.map((c) => new RegExp(`^${c}$`, 'i')),
+        $in: commodity.map(c => new RegExp(c, 'i')),
       };
     }
 
     if (season.length) {
       matchCriteria['product.season'] = {
-        $in: season.map((s) => new RegExp(`^${s}$`, 'i')),
+        $in: season.map(s => new RegExp(s, 'i')),
       };
     }
 
     if (scheme.length) {
       matchCriteria['product.schemeId'] = {
-        $in: scheme.map((id) => mongoose.Types.ObjectId(id)),
+        $in: scheme.map(id => mongoose.Types.ObjectId(id)),
       };
     }
-
+    // console.log('>>>>>>>>>>>>>>>>>>', matchCriteria);
     // Aggregate to get unique branch and warehouse IDs from requests
     const aggregationPipeline = [
       { $match: matchCriteria },
@@ -2891,18 +2912,19 @@ async function getBOWarehouseCount({
     }
 
     const { branchIds, warehouseIds } = aggregationResult[0];
-    // console.log( {branchIds, warehouseIds} );
+    //console.log({ branchIds, warehouseIds });
+
     // Build state filter if provided
     const stateFilter = state.length
-      ? { state: { $in: state.map((s) => new RegExp(`^${s}$`, 'i')) } }
+      ? { state: { $in: state.map(s => new RegExp(s, 'i')) } }
       : {};
 
     // Count unique branches matching the state filter
     const branchOfficeCount = await Branches.countDocuments({
-      status: "active",
+      status: 'active',
       _id: { $in: branchIds },
-      // headOfficeId: hoId,
-      // ...stateFilter,
+      ...stateFilter,
+      ...dateFilter,
     });
 
     // // Count unique warehouses matching the state filter
@@ -2916,21 +2938,25 @@ async function getBOWarehouseCount({
 
     // Construct the state filter only if the state array is not empty
     const WRstateFilter = state.length
-  ? { 'addressDetails.state.state_name': { $in: state.map(s => new RegExp(`^${s}$`, 'i')) } }
-  : {};
+      ? {
+          'addressDetails.state.state_name': {
+            $in: state.map(s => new RegExp(s, 'i')),
+          },
+        }
+      : {};
 
-// Count unique warehouses matching the state filter
+    // Count unique warehouses matching the state filter
     const wareHouseCount = await wareHouseDetails.countDocuments({
       active: true,
       // _id: { $in: warehouseIds },
-      // ...WRstateFilter,
+      ...WRstateFilter,
+      ...dateFilter,
     });
 
-//console.log( { branchOfficeCount, wareHouseCount })
+    //console.log( { branchOfficeCount, wareHouseCount })
     return { branchOfficeCount, wareHouseCount };
   } catch (error) {
     console.error('Error in getBOWarehouseCount:', error);
     return { branchOfficeCount: 0, wareHouseCount: 0 };
   }
 }
-
