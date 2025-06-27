@@ -813,9 +813,21 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
 module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
 
     const monthlySummary = await BatchOrderProcess.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+        }
+      },
       {
         $group: {
           _id: {
@@ -866,11 +878,125 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
   }
 });
 
+module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
+  try {
+    // 1. Distiller counts
+    const { page = 1, limit, skip = 0, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const distillerState = Distiller.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+          is_approved: _userStatus.approved,
+        }
+      },
+      { $group: { _id: '$address.registered.state', distillerCount: { $sum: 1 } } }
+    ]);
+
+    // 2. Warehouse counts and requiredStock
+    const warehouseState = wareHouseDetails.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+          active: true
+        }
+      },
+      {
+        $group: {
+          _id: '$addressDetails.state.state_name',
+          warehouseCount: { $sum: 1 },
+          totalRequiredStock: { $sum: '$inventory.requiredStock' }
+        }
+      }
+    ]);
+
+    // 3. Batch-order stats via PurchaseOrder → Distiller → State
+    const batchState = BatchOrderProcess.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA }
+        }
+      },
+      { $lookup: { from: 'purchaseorders', localField: 'orderId', foreignField: '_id', as: 'po' } },
+      { $unwind: '$po' },
+      { $lookup: { from: 'distillers', localField: 'po.distiller_id', foreignField: '_id', as: 'dist' } },
+      { $unwind: '$dist' },
+      {
+        $group: {
+          _id: '$dist.address.registered.state',
+          batchCount: { $sum: 1 },
+          totalBatchQty: { $sum: '$quantityRequired' }
+        }
+      }
+    ]);
+
+    // 4. Totals
+    const totalDistillers = Distiller.countDocuments({ source_by: { $in: finalCNA }, is_approved: _userStatus.approved });
+    const totalWarehouses = wareHouseDetails.countDocuments({ source_by: { $in: finalCNA }, active: true });
+
+    const [dState, wState, bState, totalD, totalW] = await Promise.all([
+      distillerState, warehouseState, batchState, totalDistillers, totalWarehouses
+    ]);
+
+    // Combine all states into one map
+    const map = {};
+
+    dState.forEach(d => {
+      const state = d._id || 'Unknown';
+      map[state] = { state, distillerCount: d.distillerCount, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
+    });
+    wState.forEach(w => {
+      const state = w._id || 'Unknown';
+      if (!map[state]) map[state] = { state, distillerCount: 0, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
+      map[state].warehouseCount = w.warehouseCount;
+      map[state].totalRequiredStock = w.totalRequiredStock;
+    });
+    bState.forEach(b => {
+      const state = b._id || 'Unknown';
+      if (!map[state]) map[state] = { state, distillerCount: 0, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
+      map[state].batchOrderCount = b.batchCount;
+      map[state].totalBatchQty = b.totalBatchQty;
+    });
+
+    const response = {
+      totalDistillers: totalD,
+      totalWarehouses: totalW,
+      stateWiseStats: Object.values(map),
+    };
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: response,
+      message: _response_message.found("State wise analysis"),
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
 module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
 
     const monthlyPayments = await PurchaseOrderModel.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+        }
+      },
       {
         $group: {
           _id: {
@@ -922,9 +1048,20 @@ module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
 
 module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
 
     const result = await PurchaseOrderModel.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA }
+        }
+      },
       // Lookup to get branch details including state
       {
         $lookup: {
@@ -958,6 +1095,9 @@ module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
       // Sort by totalQuantity descending
       {
         $sort: { totalQuantity: -1 }
+      },
+      {
+        $limit: 5
       }
     ]);
 
@@ -975,13 +1115,24 @@ module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
 
 module.exports.stateWiseProcurementQuantity = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
 
     const { sort = 'desc' } = req.query;
 
     const sortOrder = sort === 'asc' ? 1 : -1;
 
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
     const result = await BatchOrderProcess.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+        }
+      },
       {
         $lookup: {
           from: 'warehousedetails', // Make sure the collection name is correct in MongoDB
@@ -1004,6 +1155,9 @@ module.exports.stateWiseProcurementQuantity = asyncErrorHandler(async (req, res)
           quantityProcured: sortOrder,
         },
       },
+      {
+        $limit: 5
+      }
     ]);
 
     return res.status(200).send(
@@ -1020,13 +1174,25 @@ module.exports.stateWiseProcurementQuantity = asyncErrorHandler(async (req, res)
 
 module.exports.stateWiseLiftingQuantity = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
 
     const { sort = 'desc' } = req.query;
 
     const sortOrder = sort === 'asc' ? 1 : -1;
 
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
     const result = await BatchOrderProcess.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA }
+        }
+      },
       {
         $lookup: {
           from: 'warehousedetails', // Make sure the collection name is correct in MongoDB
@@ -1049,6 +1215,9 @@ module.exports.stateWiseLiftingQuantity = asyncErrorHandler(async (req, res) => 
           liftingQuantity: sortOrder,
         },
       },
+      {
+        $limit: 5
+      }
     ]);
 
     return res.status(200).send(
@@ -1058,6 +1227,127 @@ module.exports.stateWiseLiftingQuantity = asyncErrorHandler(async (req, res) => 
         message: _response_message.found("State-wise lifting quantity")
       })
     );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+module.exports.paymentWithTenPercant = asyncErrorHandler(async (req, res) => {
+  try {
+    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = '' } = req.query;
+
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const pipeline = [
+      {
+        $match: {
+          "paymentInfo.token": { $in: [10] },
+          deletedAt: null,
+          source_by: { $in: finalCNA }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            token: "$paymentInfo.token"
+          },
+          totalPOQuantity: { $sum: "$purchasedOrder.poQuantity" },
+          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
+          distillerIds: { $addToSet: "$distiller_id" }
+        }
+      },
+      {
+        $addFields: {
+          totalDistillers: { $size: "$distillerIds" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          token: "$_id.token",
+          totalPOQuantity: 1,
+          totalPaidAmount: 1,
+          totalDistillers: 1
+        }
+      },
+      {
+        $sort: { token: 1 }
+      }
+    ];
+
+    const result = await PurchaseOrderModel.aggregate(pipeline);
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: result,
+      message: _response_message.found("PO Raised"),
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+module.exports.paymentWithHundredPercant = asyncErrorHandler(async (req, res) => {
+  try {
+    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const pipeline = [
+      {
+        $match: {
+          "paymentInfo.token": { $in: [100] },
+          deletedAt: null,
+          source_by: { $in: finalCNA }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            token: "$paymentInfo.token"
+          },
+          totalPOQuantity: { $sum: "$purchasedOrder.poQuantity" },
+          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
+          distillerIds: { $addToSet: "$distiller_id" }
+        }
+      },
+      {
+        $addFields: {
+          totalDistillers: { $size: "$distillerIds" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          token: "$_id.token",
+          totalPOQuantity: 1,
+          totalPaidAmount: 1,
+          totalDistillers: 1
+        }
+      },
+      {
+        $sort: { token: 1 }
+      }
+    ];
+
+    const result = await PurchaseOrderModel.aggregate(pipeline);
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: result,
+      message: _response_message.found("Token-wise PO Summary"),
+    }));
+
   } catch (error) {
     _handleCatchErrors(error, res);
   }
@@ -1253,7 +1543,6 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
   }
 })
 
-
 module.exports.poRaised = asyncErrorHandler(async (req, res) => {
   try {
     const { page = 1, limit, skip = 0, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
@@ -1383,7 +1672,6 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
-
 
 module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
   try {
@@ -1520,87 +1808,8 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
   }
 });
 
-module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
-  try {
-    // 1. Distiller counts
-    const distillerState = Distiller.aggregate([
-      { $group: { _id: '$address.registered.state', distillerCount: { $sum: 1 } } }
-    ]);
-
-    // 2. Warehouse counts and requiredStock
-    const warehouseState = wareHouseDetails.aggregate([
-      {
-        $group: {
-          _id: '$addressDetails.state.state_name',
-          warehouseCount: { $sum: 1 },
-          totalRequiredStock: { $sum: '$inventory.requiredStock' }
-        }
-      }
-    ]);
-
-    // 3. Batch-order stats via PurchaseOrder → Distiller → State
-    const batchState = BatchOrderProcess.aggregate([
-      { $lookup: { from: 'purchaseorders', localField: 'orderId', foreignField: '_id', as: 'po' } },
-      { $unwind: '$po' },
-      { $lookup: { from: 'distillers', localField: 'po.distiller_id', foreignField: '_id', as: 'dist' } },
-      { $unwind: '$dist' },
-      {
-        $group: {
-          _id: '$dist.address.registered.state',
-          batchCount: { $sum: 1 },
-          totalBatchQty: { $sum: '$quantityRequired' }
-        }
-      }
-    ]);
-
-    // 4. Totals
-    const totalDistillers = Distiller.countDocuments();
-    const totalWarehouses = wareHouseDetails.countDocuments();
-
-    const [dState, wState, bState, totalD, totalW] = await Promise.all([
-      distillerState, warehouseState, batchState, totalDistillers, totalWarehouses
-    ]);
-
-    // Combine all states into one map
-    const map = {};
-
-    dState.forEach(d => {
-      const state = d._id || 'Unknown';
-      map[state] = { state, distillerCount: d.distillerCount, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
-    });
-    wState.forEach(w => {
-      const state = w._id || 'Unknown';
-      if (!map[state]) map[state] = { state, distillerCount: 0, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
-      map[state].warehouseCount = w.warehouseCount;
-      map[state].totalRequiredStock = w.totalRequiredStock;
-    });
-    bState.forEach(b => {
-      const state = b._id || 'Unknown';
-      if (!map[state]) map[state] = { state, distillerCount: 0, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
-      map[state].batchOrderCount = b.batchCount;
-      map[state].totalBatchQty = b.totalBatchQty;
-    });
-
-    const response = {
-      totalDistillers: totalD,
-      totalWarehouses: totalW,
-      stateWiseStats: Object.values(map),
-    };
-
-    // res.status(200).json({ success: true, data: response });
-
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      data: response,
-      message: _response_message.found("State wise analysis"),
-    }));
-
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
-});
-
-module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
+/*
+module.exports.getStateWiseProjection = asyncErrorHandler(async (req, res) => {
   try {
     let {
       page = 1,
@@ -1609,7 +1818,7 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
       state = '',
       district = '',
       cna = '',
-      isExport = 0,
+      isExport = 0
     } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const sort = { state: 1 };
@@ -1658,8 +1867,8 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
       if (formattedData.length > 0) {
         return dumpJSONToExcel(req, res, {
           data: formattedData,
-          fileName: `Center-Projections-${new Date().toISOString().split('T')[0]}.xlsx`,
-          worksheetName: "Center Projections",
+          fileName: `State-Wise-Projections-${new Date().toISOString().split('T')[0]}.xlsx`,
+          worksheetName: "State Wise Projections",
         });
       } else {
         return res.status(200).json({
@@ -1697,109 +1906,133 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
     });
   }
 });
+*/
 
-module.exports.paymentWithTenPercant = asyncErrorHandler(async (req, res) => {
+module.exports.getStateWiseProjection = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
+    let {
+      page = 1,
+      limit = 10,
+      search = '',
+      state = '',
+      district = '',
+      cna = '',
+      isExport = 0,
+      startDate = '',
+      endDate = ''
+    } = req.query;
 
-    const pipeline = [
-      {
-        $match: {
-          "paymentInfo.token": { $in: [10] },
-          deletedAt: null
-        }
-      },
-      {
-        $group: {
-          _id: {
-            token: "$paymentInfo.token"
-          },
-          totalPOQuantity: { $sum: "$purchasedOrder.poQuantity" },
-          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
-          distillerIds: { $addToSet: "$distiller_id" }
-        }
-      },
-      {
-        $addFields: {
-          totalDistillers: { $size: "$distillerIds" }
-        }
-      },
-      {
-        $project: {
-          _id: 0,
-          token: "$_id.token",
-          totalPOQuantity: 1,
-          totalPaidAmount: 1,
-          totalDistillers: 1
-        }
-      },
-      {
-        $sort: { token: 1 }
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sort = { state: 1 };
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0
+      ? commodity.split(',').map(name => name.trim())
+      : [];
+
+    const states = typeof state === 'string' && state.length > 0
+      ? state.split(',').map(s => s.trim())
+      : [];
+
+    const districts = typeof district === 'string' && district.length > 0
+      ? district.split(',').map(d => d.trim())
+      : [];
+
+    const query = {};
+    query.source_by = { $in: finalCNA };
+
+    if (search) {
+      query.$or = [
+        { state: { $regex: search, $options: 'i' } },
+        { district: { $regex: search, $options: 'i' } },
+        { center_location: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    if (states.length > 0) {
+      query.state = { $in: states };
+    }
+
+    if (districts.length > 0) {
+      query.district = { $in: districts };
+    }
+
+    // Add date range filter
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    if (parseInt(isExport) === 1) {
+      const exportData = await CenterProjection.find(query).sort(sort);
+
+      const formattedData = exportData.map((item) => ({
+        "Center Location": item.center_location || "NA",
+        "State": item.state || "NA",
+        "District": item.district || "NA",
+        "Center Projection": item.current_projection || "NA",
+        "Qty Booked": item.qty_booked || "NA",
+      }));
+
+      if (formattedData.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: formattedData,
+          fileName: `State-Wise-Projections-${new Date().toISOString().split('T')[0]}.xlsx`,
+          worksheetName: "State Wise Projections",
+        });
+      } else {
+        return res.status(200).json({
+          status: 400,
+          message: "No Center Projection data found to export.",
+          data: [],
+        });
       }
-    ];
+    }
 
-    const result = await PurchaseOrderModel.aggregate(pipeline);
+    // const [total, data] = await Promise.all([
+    //   CenterProjection.countDocuments(query),
+    //   CenterProjection.find(query)
+    //     .sort(sort)
+    //     .skip(skip)
+    //     .limit(parseInt(limit))
+    // ]);
 
-    return res.status(200).send(new serviceResponse({
+    const [total, data, lastUpdatedDoc] = await Promise.all([
+      CenterProjection.countDocuments(query),
+      CenterProjection.find(query)
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      CenterProjection.findOne(query).sort({ updatedAt: -1 }).select('updatedAt')
+    ]);
+
+    const lastUpdatedAt = lastUpdatedDoc?.updatedAt || null;
+
+    const pages = limit != 0 ? Math.ceil(total / limit) : 0;
+
+    return res.status(200).json({
       status: 200,
-      data: result,
-      message: _response_message.found("PO Raised"),
-    }));
+      data,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      pages,
+      lastUpdatedAt,
+      message: "Center Projections fetched successfully"
+    });
 
   } catch (error) {
-    _handleCatchErrors(error, res);
-  }
-});
-
-module.exports.paymentWithHundredPercant = asyncErrorHandler(async (req, res) => {
-  try {
-    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
-
-    const pipeline = [
-      {
-        $match: {
-          "paymentInfo.token": { $in: [100] },
-          deletedAt: null
-        }
-      },
-      {
-        $group: {
-          _id: {
-            token: "$paymentInfo.token"
-          },
-          totalPOQuantity: { $sum: "$purchasedOrder.poQuantity" },
-          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
-          distillerIds: { $addToSet: "$distiller_id" }
-        }
-      },
-      {
-        $addFields: {
-          totalDistillers: { $size: "$distillerIds" }
-        }
-      },
-      {
-        $project: {
-          _id: 0,
-          token: "$_id.token",
-          totalPOQuantity: 1,
-          totalPaidAmount: 1,
-          totalDistillers: 1
-        }
-      },
-      {
-        $sort: { token: 1 }
-      }
-    ];
-
-    const result = await PurchaseOrderModel.aggregate(pipeline);
-
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      data: result,
-      message: _response_message.found("Token-wise PO Summary"),
-    }));
-
-  } catch (error) {
-    _handleCatchErrors(error, res);
+    return res.status(500).json({
+      status: 500,
+      message: "Error fetching center projections",
+      error: error.message
+    });
   }
 });
