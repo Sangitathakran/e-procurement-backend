@@ -16,10 +16,22 @@ const runBankVerificationJob = async () => {
     const records = await verfiyfarmer.aggregate([
       {
         $match: {
-          $or: [{ request_for_bank: true },{ request_for_aadhaar: true }],
-          $or: [{ is_verify_bank: false },{ is_verify_bank: false }],
-          createdAt: { $gte: startOfDay, $lte: endOfDay },
-        },
+          $and: [
+            {
+              $or: [
+                { request_for_bank: true },
+                { request_for_aadhaar: true }
+              ]
+            },
+            {
+              $or: [
+                { is_verify_bank: false },
+                { is_verify_aadhaar: false }
+              ]
+            }
+          ]
+        }
+
       },
       {
         $lookup: {
@@ -49,7 +61,7 @@ const runBankVerificationJob = async () => {
     ]);
 
     logger.info(`📦 Total records fetched for verification: ${records.length}`);
-
+    console.log(records)
     for (const record of records) {
       await processSingleFarmerRecord(record);
     }
@@ -64,9 +76,10 @@ const processSingleFarmerRecord = async (record) => {
   try {
     logger.info(`🔍 Verifying record ID: ${record._id}`);
 
-    // Bank Verification
+    // ----------------- Bank Verification -----------------
     if (record?.request_for_bank === true) {
       const { account_no, ifsc_code } = record?.bank_details || {};
+
       if (account_no && ifsc_code) {
         const bankRes = await bankVerfiycation(account_no, ifsc_code);
         logger.info(`🏦 Bank API Response for ${record.farmer_id}: ${JSON.stringify(bankRes)}`);
@@ -96,33 +109,33 @@ const processSingleFarmerRecord = async (record) => {
           await farmer.findByIdAndUpdate(record.farmer_id, {
             $set: {
               "bank_details.is_verified": true,
-              "bank_details.is_verfiy_bank_date": timestamp,
+              "bank_details.is_verify_bank_date": timestamp,
             },
           });
 
           logger.info(`✅ Bank verified for farmer ${record.farmer_id}`);
         } else {
           await verfiyfarmer.findByIdAndUpdate(record._id, {
-            verified_at: timestamp,
-            is_verfiy_bank: false,
             bank_details: {
-              name: bankRes.name,
+              name: bankRes?.name,
               code: bankRes?.data?.code,
-              bank_name: bankRes.bank_name,
-              branch: bankRes.branch,
+              bank_name: bankRes?.bank_name,
+              branch: bankRes?.branch,
               account_number: bankRes?.account_number,
               ifsc: bankRes?.ifsc_code,
               verified_at: timestamp,
               request_id: bankRes?.request_id,
               transaction_id: bankRes?.transaction_id,
             },
+            is_verify_bank: false,
+            is_verify_bank_date: timestamp,
             request_for_bank: false,
           });
 
           await farmer.findByIdAndUpdate(record.farmer_id, {
             $set: {
               "bank_details.is_verified": false,
-              "bank_details.is_verfiy_bank_date": timestamp,
+              "bank_details.is_verify_bank_date": timestamp,
             },
           });
 
@@ -131,18 +144,18 @@ const processSingleFarmerRecord = async (record) => {
       }
     }
 
-    // Aadhaar Verification
+    // ----------------- Aadhaar Verification -----------------
     if (record?.request_for_aadhaar === true) {
       const aadhaarNo = record?.proof?.aadhar_no;
+
       if (aadhaarNo) {
         const aadherRes = await aadherVerfiycation(aadhaarNo);
         logger.info(`🆔 Aadhaar API Response for ${record.farmer_id}: ${JSON.stringify(aadherRes)}`);
 
         const timestamp = new Date(aadherRes?.timestamp || Date.now());
-
         const aadherData = aadherRes.data?.aadhaar_data;
 
-        if (aadherRes?.data?.code == "1018") {
+        if (aadherRes?.data?.code === "1018") {
           await verfiyfarmer.findByIdAndUpdate(record._id, {
             aadhaar_details: {
               code: aadherRes?.data?.code,
@@ -158,12 +171,14 @@ const processSingleFarmerRecord = async (record) => {
           await farmer.findByIdAndUpdate(record.farmer_id, {
             $set: {
               "proof.is_verified": true,
-              "proof.is_verfiy_aadhar_date": timestamp,
+              "proof.is_verify_aadhaar_date": timestamp,
             },
           });
 
           logger.info(`✅ Aadhaar verified for farmer ${record.farmer_id}`);
         } else {
+          logger.warn(`⚠️ Aadhaar verification failed for ${aadhaarNo}: Third party API call failed`);
+
           await verfiyfarmer.findByIdAndUpdate(record._id, {
             aadhaar_details: {
               code: aadherRes?.data?.code,
@@ -171,15 +186,15 @@ const processSingleFarmerRecord = async (record) => {
               request_id: aadherRes?.request_id,
               transaction_id: aadherRes?.transaction_id,
             },
-            is_verfiy_aadhaar_date: timestamp,
-            is_verfiy_aadhaar: false,
+            is_verify_aadhaar: false,
+            is_verify_aadhaar_date: timestamp,
             request_for_aadhaar: false,
           });
 
           await farmer.findByIdAndUpdate(record.farmer_id, {
             $set: {
               "proof.is_verified": false,
-              "proof.is_verfiy_aadhar_date": timestamp,
+              "proof.is_verify_aadhaar_date": timestamp,
             },
           });
 
@@ -187,9 +202,11 @@ const processSingleFarmerRecord = async (record) => {
         }
       }
     }
+
   } catch (error) {
     logger.error(`❌ Error verifying record ID: ${record._id} - ${error.message}`);
   }
 };
+
 
 module.exports = { runBankVerificationJob };
