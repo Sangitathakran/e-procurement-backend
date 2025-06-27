@@ -1411,6 +1411,205 @@ module.exports.mandiWiseProcurement = async (req, res) => {
 
 // }
 
+// module.exports.incidentalExpense = async (req, res) => {
+//   try {
+//     const {
+//       commodity = [],
+//       district = [],
+//       schemeName = [],
+//       page = 1,
+//       limit = 10,
+//       search = '',
+//     } = req.body;
+
+//     const { user_id } = req;
+//     const filters = {};
+
+//     if (user_id && mongoose.Types.ObjectId.isValid(user_id)) {
+//       filters.seller_id = new mongoose.Types.ObjectId("67e38f0516a8db907254c63a");
+//     }
+
+//     const pipeline = [
+//       { $match: filters },
+//       {
+//         $lookup: {
+//           from: "requests",
+//           localField: "req_id",
+//           foreignField: "_id",
+//           as: "request",
+//         },
+//       },
+//       { $unwind: "$request" },
+//       {
+//         $addFields: {
+//           commodity_id: "$request.product.commodity_id",
+//           schemeId: "$request.product.schemeId",
+//           commodityName: "$request.product.name",
+//           isDispatched: { $ne: ["$dispatched.dispatched_at", null] },
+//         },
+//       },
+//       {
+//         $match: {
+//           $or: [
+//             { ekhridBatch: true },
+//             { ekhridBatch: false, isDispatched: true },
+//           ],
+//         },
+//       },
+//       {
+//         $lookup: {
+//           from: "procurementcenters",
+//           localField: "procurementCenter_id",
+//           foreignField: "_id",
+//           as: "procurementCenter",
+//         },
+//       },
+//       { $unwind: "$procurementCenter" },
+//     ];
+
+//     if (commodity.length > 0) {
+//       pipeline.push({
+//         $match: {
+//           commodity_id: {
+//             $in: commodity.map(id => new mongoose.Types.ObjectId(id)),
+//           },
+//         },
+//       });
+//     }
+
+//     if (schemeName.length > 0) {
+//       pipeline.push({
+//         $match: {
+//           schemeId: {
+//             $in: schemeName.map(id => new mongoose.Types.ObjectId(id)),
+//           },
+//         },
+//       });
+//     }
+
+//     if (district.length > 0) {
+//       let filterdata = await Promise.all(
+//         district.map(async (x) => {
+//           return await getDistrict(x);
+//         })
+//       );
+//       let findDistrict = filterdata.map(x => { return x.district_title })
+//       pipeline.push({
+//         $match: {
+//           "procurementCenter.address.district": { $in: findDistrict },
+//         },
+//       });
+//     }
+
+//     pipeline.push({
+//       $facet: {
+//         data: [
+//           { $skip: (page - 1) * limit },
+//           { $limit: limit },
+//           {
+//             $project: {
+//               batchId: { $ifNull: ["$batchId", "NA"] },
+//               ekhridBatch: { $ifNull: ["$ekhridBatch", false] },
+//               commodity_id: { $ifNull: ["$commodity_id", false] },
+//               schemeId: { $ifNull: ["$schemeId", false] },
+//               commodity: { $ifNull: ["$commodityName", "NA"] },
+//               amount: { $ifNull: ["$totalPrice", 0] },
+//               quantity: { $ifNull: ["$qty", 0] },
+//               mandiName: { $ifNull: ["$procurementCenter.center_name", "NA"] },
+//               district: { $ifNull: ["$procurementCenter.address.district", "NA"] },
+//               status: { $ifNull: ["$payment_status", "NA"] },
+//             },
+//           },
+//         ],
+//         totalCount: [{ $count: "count" }],
+//       },
+//     });
+
+//     const result = await Batch.aggregate(pipeline);
+//     const data = result[0]?.data || [];
+//     const total = result[0]?.totalCount?.[0]?.count || 0;
+
+//     const batchIds = data.map(item => +item.batchId).filter(id => id && id !== 'NA');
+//     console.log(batchIds)
+//     const summaryList = await eKharidHaryanaProcurementModel.aggregate([
+//       {
+//         $match: {
+//           "warehouseData.exitGatePassId": { $in: batchIds }
+//         }
+//       },
+//       {
+//         $group: {
+//           _id: "$warehouseData.exitGatePassId",
+//           totalIncidentalExpenses: { $sum: "$procurementDetails.incidentalExpenses" },
+//           totalLaborCharges: { $sum: "$procurementDetails.laborCharges" },
+//           totalCommissionCharges: { $sum: "$procurementDetails.commissionCharges" },
+//           laborChargesPayableDate: { $first: "$procurementDetails.laborChargesPayableDate" },
+//           commissionChargesPayableDate: { $first: "$procurementDetails.commissionChargesPayableDate" },
+//         }
+//       },
+//       {
+//         $project: {
+//           batchId: "$_id",
+//           _id: 0,
+//           totalIncidentalExpenses: 1,
+//           totalLaborCharges: 1,
+//           totalCommissionCharges: 1,
+//           laborChargesPayableDate: 1,
+//           commissionChargesPayableDate: 1
+//         }
+//       }
+//     ]);
+
+//     console.log(summaryList)
+//     const summaryMap = {};
+//     summaryList.forEach(item => {
+//       summaryMap[item.batchId] = item;
+//     });
+
+//     const finalData = data.map(item => {
+//       const summary = summaryMap[item.batchId?.toString()] || {};
+
+//       return {
+//         batchId: item.batchId || null,
+//         commodity: item.commodity || 'NA',
+//         commodityId: item.commodity_id || null,
+//         schemeId: item.schemeId || null,
+//         district: item.district || 'NA',
+//         amount: item.amount || 0,
+//         quantity: item.quantity || 0,
+//         mandiName: item.mandiName || 'NA',
+//         actualIncidentCost: summary.totalIncidentalExpenses || 0,
+//         incidentCostRecieved: summary.totalIncidentalExpenses || 0,
+//         actualLaborCharges: summary.totalLaborCharges || 0,
+//         laborChargeRecieved: summary.totalLaborCharges || 0,
+//         laborChargesPayableDate: summary.laborChargesPayableDate
+//           ? new Date(summary.laborChargesPayableDate).toLocaleString("en-IN")
+//           : "NA",
+//         commissionRecieved: summary.totalCommissionCharges || 0,
+//         commissionChargesPayableDate: summary.commissionChargesPayableDate
+//           ? new Date(summary.commissionChargesPayableDate).toLocaleString("en-IN")
+//           : "NA",
+//         status: item.status || 'NA',
+//       };
+//     });
+
+//     return res.status(200).json({
+//       data: finalData,
+//       totalRecords: total,
+//       totalPages: Math.ceil(total / limit),
+//       currentPage: page,
+//       limit: finalData.length,
+//     });
+//   } catch (err) {
+//     console.error("Error in incidentalExpense:", err);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: err.message,
+//     });
+//   }
+// };
+
 
 module.exports.incidentalExpense = async (req, res) => {
   try {
@@ -1441,7 +1640,6 @@ module.exports.incidentalExpense = async (req, res) => {
         },
       },
       { $unwind: "$request" },
-
       {
         $addFields: {
           commodity_id: "$request.product.commodity_id",
@@ -1450,7 +1648,6 @@ module.exports.incidentalExpense = async (req, res) => {
           isDispatched: { $ne: ["$dispatched.dispatched_at", null] },
         },
       },
-
       {
         $match: {
           $or: [
@@ -1459,7 +1656,6 @@ module.exports.incidentalExpense = async (req, res) => {
           ],
         },
       },
-
       {
         $lookup: {
           from: "procurementcenters",
@@ -1469,36 +1665,8 @@ module.exports.incidentalExpense = async (req, res) => {
         },
       },
       { $unwind: "$procurementCenter" },
-      {
-        $facet: {
-          data: [
-            { $skip: (page - 1) * limit },
-            { $limit: limit },
-            {
-              $project: {
-                batchId: { $ifNull: ["$batchId", "NA"] },
-                commodity: { $ifNull: ["$commodityName", "NA"] },
-                amount: { $ifNull: ["$totalPrice", 0] },
-                quantity: { $ifNull: ["$qty", 0] },
-                mandiName: { $ifNull: ["$procurementCenter.center_name", "NA"] },
-                district: { $ifNull: ["$procurementCenter.address.district", "NA"] },
-                actualIncidentCost: { $literal: 0 },
-                incidentCostRecieved: { $literal: 0 },
-                actualLaborCharges: { $literal: 0 },
-                laborChargeRecieved: { $literal: 0 },
-                laborChargesPayableDate: { $literal: "NA" },
-                commissionRecieved: { $literal: 0 },
-                commissionChargesPayableDate: { $literal: "NA" },
-                status: { $ifNull: ["$payment_status", "NA"] },
-              },
-            },
-          ],
-          totalCount: [{ $count: "count" }],
-        },
-      }
     ];
 
-    // Conditionally push commodity filter
     if (commodity.length > 0) {
       pipeline.push({
         $match: {
@@ -1509,7 +1677,6 @@ module.exports.incidentalExpense = async (req, res) => {
       });
     }
 
-    // Conditionally push schemeName filter
     if (schemeName.length > 0) {
       pipeline.push({
         $match: {
@@ -1520,28 +1687,142 @@ module.exports.incidentalExpense = async (req, res) => {
       });
     }
 
-    // Conditionally push district filter
     if (district.length > 0) {
-      pipeline.push({
-        $match: {
-          "procurementCenter.address.district": { $in: district },
-        },
-      });
+      const filterdata = await Promise.all(
+        district.map(async (x) => {
+          try {
+            const districtData = await getDistrict(x);
+            if (!districtData) {
+              logger.warn(`[IncidentalExpense] District not found for ID: ${x}`);
+              return null;
+            }
+            return districtData;
+          } catch (err) {
+            logger.error(`[IncidentalExpense] Error fetching district for ID ${x}: ${err.message}`);
+            return null;
+          }
+        })
+      );
+
+      const findDistrict = filterdata
+        .filter(x => x && x.district_title)
+        .map(x => x.district_title);
+
+      logger.info(`[IncidentalExpense] Filtered Districts: ${findDistrict.join(', ')}`);
+
+      if (findDistrict.length > 0) {
+        pipeline.push({
+          $match: {
+            "procurementCenter.address.district": { $in: findDistrict },
+          },
+        });
+      }
     }
+
+    pipeline.push({
+      $facet: {
+        data: [
+          { $skip: (page - 1) * limit },
+          { $limit: limit },
+          {
+            $project: {
+              batchId: { $ifNull: ["$batchId", "NA"] },
+              ekhridBatch: { $ifNull: ["$ekhridBatch", false] },
+              commodity_id: { $ifNull: ["$commodity_id", null] },
+              schemeId: { $ifNull: ["$schemeId", null] },
+              commodity: { $ifNull: ["$commodityName", "NA"] },
+              amount: { $ifNull: ["$totalPrice", 0] },
+              quantity: { $ifNull: ["$qty", 0] },
+              mandiName: { $ifNull: ["$procurementCenter.center_name", "NA"] },
+              district: { $ifNull: ["$procurementCenter.address.district", "NA"] },
+              status: { $ifNull: ["$payment_status", "NA"] },
+            },
+          },
+        ],
+        totalCount: [{ $count: "count" }],
+      },
+    });
 
     const result = await Batch.aggregate(pipeline);
     const data = result[0]?.data || [];
     const total = result[0]?.totalCount?.[0]?.count || 0;
 
+    const batchIds = data.map(item => +item.batchId).filter(id => id && id !== 'NA');
+    logger.info(`[IncidentalExpense] Batch IDs: ${batchIds.join(', ')}`);
+
+    const summaryList = await eKharidHaryanaProcurementModel.aggregate([
+      {
+        $match: {
+          "warehouseData.exitGatePassId": { $in: batchIds }
+        }
+      },
+      {
+        $group: {
+          _id: "$warehouseData.exitGatePassId",
+          totalIncidentalExpenses: { $sum: "$procurementDetails.incidentalExpenses" },
+          totalLaborCharges: { $sum: "$procurementDetails.laborCharges" },
+          totalCommissionCharges: { $sum: "$procurementDetails.commissionCharges" },
+          laborChargesPayableDate: { $first: "$procurementDetails.laborChargesPayableDate" },
+          commissionChargesPayableDate: { $first: "$procurementDetails.commissionChargesPayableDate" },
+        }
+      },
+      {
+        $project: {
+          batchId: "$_id",
+          _id: 0,
+          totalIncidentalExpenses: 1,
+          totalLaborCharges: 1,
+          totalCommissionCharges: 1,
+          laborChargesPayableDate: 1,
+          commissionChargesPayableDate: 1
+        }
+      }
+    ]);
+
+    logger.info(`[IncidentalExpense] Summary list: ${JSON.stringify(summaryList)}`);
+
+    const summaryMap = {};
+    summaryList.forEach(item => {
+      summaryMap[item.batchId] = item;
+    });
+
+    const finalData = data.map(item => {
+      const summary = summaryMap[item.batchId?.toString()] || {};
+
+      return {
+        batchId: item.batchId || null,
+        commodity: item.commodity || 'NA',
+        commodityId: item.commodity_id || null,
+        schemeId: item.schemeId || null,
+        district: item.district || 'NA',
+        amount: item.amount || 0,
+        quantity: item.quantity || 0,
+        mandiName: item.mandiName || 'NA',
+        actualIncidentCost: summary.totalIncidentalExpenses || 0,
+        incidentCostRecieved: summary.totalIncidentalExpenses || 0,
+        actualLaborCharges: summary.totalLaborCharges || 0,
+        laborChargeRecieved: summary.totalLaborCharges || 0,
+        laborChargesPayableDate: summary.laborChargesPayableDate
+          ? new Date(summary.laborChargesPayableDate).toLocaleString("en-IN")
+          : "NA",
+        commissionRecieved: summary.totalCommissionCharges || 0,
+        commissionChargesPayableDate: summary.commissionChargesPayableDate
+          ? new Date(summary.commissionChargesPayableDate).toLocaleString("en-IN")
+          : "NA",
+        status: item.status || 'NA',
+      };
+    });
+
     return res.status(200).json({
-      data,
+      data: finalData,
       totalRecords: total,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
-      limit: data.length,
+      limit: finalData.length,
     });
+
   } catch (err) {
-    console.error("Error in incidentalExpense:", err);
+    logger.error(`[IncidentalExpense] Server error: ${err.message}`, err);
     return res.status(500).json({
       success: false,
       message: "Server error",
@@ -1549,7 +1830,6 @@ module.exports.incidentalExpense = async (req, res) => {
     });
   }
 };
-
 
 
 
