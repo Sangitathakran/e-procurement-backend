@@ -2490,6 +2490,8 @@ async function getFarmersCount({
   state = [],
   season = [],
   scheme = [],
+  start_date,
+  end_date
 }) {
   let farmersCount = 0;
   let associateCount = 0;
@@ -2497,17 +2499,22 @@ async function getFarmersCount({
 
   if (commodity.length || season.length || scheme.length || state.length) {
     let filter = {};
+     let dateFilter = {};
+
+    if (start_date instanceof Date && end_date instanceof Date) {
+      dateFilter.createdAt = { $gte: start_date, $lte: end_date };
+    }
 
     if (Array.isArray(commodity) && commodity.length > 0) {
       filter['product.name'] = {
-        $in: commodity.map(c => new RegExp(`^${c}$`, 'i')),
+        $in: commodity.map(c => new RegExp(c, 'i')),
       };
     }
 
     // Season filter
     if (Array.isArray(season) && season.length > 0) {
       // Convert season values to case-insensitive regex patterns
-      const seasonRegexes = season.map(s => new RegExp(`^${s}$`, 'i'));
+      const seasonRegexes = season.map(s => new RegExp(s, 'i'));
 
       // Step 1: Find Scheme IDs matching the desired seasons
       const matchingSchemes = await Scheme.find(
@@ -2544,7 +2551,7 @@ async function getFarmersCount({
       let farmersIds = new Set(paymentObj.map(el => String(el.farmer_id)));
       let associateIds = new Set(paymentObj.map(el => String(el.associate_id)));
 
-      const stateRegex = state.map(s => new RegExp(`^${s}$`, 'i')); // case-insensitive exact match
+      const stateRegex = state.map(s => new RegExp(s, 'i')); // case-insensitive exact match
 
       const filteredAssociates = await User.find(
         {
@@ -2562,7 +2569,7 @@ async function getFarmersCount({
         .size;
 
       const matchingAssociates = await User.find(
-        { 'address.registered.state': { $in: stateRegex } },
+        { 'address.registered.state': { $in: stateRegex }, ...dateFilter },
         { _id: 1 }
       ).lean();
 
@@ -2584,6 +2591,7 @@ async function getFarmersCount({
                 id => new mongoose.Types.ObjectId(id)
               ),
             },
+            ...dateFilter,
           },
           { _id: 1 }
         )
@@ -2592,9 +2600,9 @@ async function getFarmersCount({
       farmersCount = new Set(filteredFarmers.map(f => String(f._id))).size;
 
       // ✅ DISTILLER COUNT based on commodity and/or state
-      const commodityRegex = commodity.map(c => new RegExp(`^${c}$`, 'i'));
+      const commodityRegex = commodity.map(c => new RegExp(c, 'i'));
 
-      let distillerFilter = { is_approved: _userStatus.approved };
+      let distillerFilter = { is_approved: _userStatus.approved, ...dateFilter };
 
       let poDistillerIds = [];
 
@@ -2631,7 +2639,7 @@ async function getFarmersCount({
 
       // DISTILLER COUNT only by commodity (no state filter)
       if (commodity.length) {
-        const commodityRegex = commodity.map(c => new RegExp(`^${c}$`, 'i'));
+        const commodityRegex = commodity.map(c => new RegExp(c, 'i'));
 
         const poDistillerIds = await PurchaseOrderModel.distinct(
           'distiller_id',
