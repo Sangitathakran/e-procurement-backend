@@ -1808,106 +1808,6 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
   }
 });
 
-/*
-module.exports.getStateWiseProjection = asyncErrorHandler(async (req, res) => {
-  try {
-    let {
-      page = 1,
-      limit = 10,
-      search = '',
-      state = '',
-      district = '',
-      cna = '',
-      isExport = 0
-    } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const sort = { state: 1 };
-
-    const finalCNA = cna
-      ? Array.isArray(cna)
-        ? cna
-        : cna.split(',').map(str => str.trim())
-      : ['NCCF'];
-
-    const commodityNames = typeof commodity === 'string' && commodity.length > 0 ? commodity.split(',').map(name => name.trim()) : [];
-
-    const states = typeof state === 'string' && state.length > 0 ? state.split(',').map(s => s.trim()) : [];
-
-    const districts = typeof district === 'string' && district.length > 0 ? district.split(',').map(d => d.trim()) : [];
-
-    const query = {};
-    query.source_by = { $in: finalCNA };
-    if (search) {
-      query.$or = [
-        { state: { $regex: search, $options: 'i' } },
-        { district: { $regex: search, $options: 'i' } },
-        { center_location: { $regex: search, $options: 'i' } },
-      ];
-    }
-
-    if (states.length > 0) {
-      query.state = { $in: states };
-    }
-
-    if (districts.length > 0) {
-      query.district = { $in: districts };
-    }
-
-    if (parseInt(isExport) === 1) {
-      const exportData = await CenterProjection.find(query).sort(sort);
-
-      const formattedData = exportData.map((item) => ({
-        "Center Location": item.center_location || "NA",
-        "State": item.state || "NA",
-        "District": item.district || "NA",
-        "Center Projection": item.current_projection || "NA",
-        "Qty Booked": item.qty_booked || "NA",
-      }));
-
-      if (formattedData.length > 0) {
-        return dumpJSONToExcel(req, res, {
-          data: formattedData,
-          fileName: `State-Wise-Projections-${new Date().toISOString().split('T')[0]}.xlsx`,
-          worksheetName: "State Wise Projections",
-        });
-      } else {
-        return res.status(200).json({
-          status: 400,
-          message: "No Center Projection data found to export.",
-          data: [],
-        });
-      }
-    }
-
-    const [total, data] = await Promise.all([
-      CenterProjection.countDocuments(query),
-      CenterProjection.find(query)
-        .sort(sort)
-        .skip(skip)
-        .limit(parseInt(limit))
-    ]);
-    const pages = limit != 0 ? Math.ceil(total / limit) : 0;
-
-    return res.status(200).json({
-      status: 200,
-      data,
-      total,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      pages,
-      message: "Center Projections fetched successfully"
-    });
-
-  } catch (error) {
-    return res.status(500).json({
-      status: 500,
-      message: "Error fetching center projections ",
-      error: error.message
-    });
-  }
-});
-*/
-
 module.exports.getStateWiseProjection = asyncErrorHandler(async (req, res) => {
   try {
     let {
@@ -1995,14 +1895,6 @@ module.exports.getStateWiseProjection = asyncErrorHandler(async (req, res) => {
         });
       }
     }
-
-    // const [total, data] = await Promise.all([
-    //   CenterProjection.countDocuments(query),
-    //   CenterProjection.find(query)
-    //     .sort(sort)
-    //     .skip(skip)
-    //     .limit(parseInt(limit))
-    // ]);
 
     const [total, data, lastUpdatedDoc] = await Promise.all([
       CenterProjection.countDocuments(query),
