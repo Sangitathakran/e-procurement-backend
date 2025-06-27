@@ -3,13 +3,15 @@ const AgristackFarmerDetails = require("@src/v1/models/app/farmerDetails/src/v1/
 const {
   Verifyfarmer,
 } = require("@src/v1/models/app/farmerDetails/verifyFarmer");
+const { default: mongoose } = require("mongoose");
 
-async function getVerifiedAadharInfo(uidai_aadharNo) {
+async function getVerifiedAadharInfo(uidai_aadharNo, farmer_id) {
   try {
     const adharDetails = await Verifyfarmer.findOne(
       {
         "aadhaar_details.uidai_aadharNo": uidai_aadharNo,
         is_verify_aadhaar: true,
+       // farmer_id: new mongoose.Types.ObjectId(farmer_id)
       },
       { aadhaar_details: 1, farmer_id: 1 }
     ).lean();
@@ -30,10 +32,11 @@ async function getVerifiedAadharInfo(uidai_aadharNo) {
 }
 
 
-async function getAgristackFarmerByAadhar(uidai_aadharNo) {
+async function getAgristackFarmerByAadhar(uidai_aadharNo, farmer_id) {
   try {
     const farmerObj = await farmer.findOne(
       {
+        _id: new mongoose.Types.ObjectId(farmer_id),
         $or: [
           { "proof.aadhar_no": uidai_aadharNo },
           { "documents.aadhar_number": uidai_aadharNo }

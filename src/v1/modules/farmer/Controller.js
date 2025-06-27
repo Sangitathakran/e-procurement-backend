@@ -3000,12 +3000,15 @@ const generateFarmerCode = (state, mobile_no, name) => {
 
 module.exports.getVerifiedAdharDetails = async (req, res) => {
   try {
-    const { uidai_aadharNo } = req.body;
+    const { uidai_aadharNo, farmer_id } = req.body;
 
+    if( !uidai_aadharNo || !farmer_id){
+      return res.send( { status: 400, message: 'uidai_aadharNo and farmer_id are mandatory field'} );
+    }
     // Run both queries in parallel for better performance
     const [adharDetails, agristackFarmerDetails] = await Promise.all([
-      getVerifiedAadharInfo(uidai_aadharNo),
-      getAgristackFarmerByAadhar(uidai_aadharNo),
+      getVerifiedAadharInfo(uidai_aadharNo, farmer_id),
+      getAgristackFarmerByAadhar(uidai_aadharNo, farmer_id),
     ]);
 
     // Return 404 if both are null
