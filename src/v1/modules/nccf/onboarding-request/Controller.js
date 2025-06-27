@@ -302,94 +302,111 @@ module.exports.updateApprovalStatus = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.getPendingMouList = asyncErrorHandler(async (req, res) => {
+  const {
+    page = 1,
+    limit = 10,
+    skip = 0,
+    paginate = 1,
+    sortBy = "_id",
+    search = '',
+    isExport = 0
+  } = req.query;
 
-    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = '', isExport = 0 } = req.query;
+  // Base match condition
+  let matchStage = {
+    is_approved: _userStatus.approved,
+    deletedAt: null,
+  };
 
-    let matchStage = {
-        is_approved: _userStatus.approved,
-        deletedAt: null,
-    };
-
-    if (search) {
-        matchStage["$or"] = [
-            {user_code : { $regex: search, $options: "i" }},
-            {"basic_details.distiller_details.organization_name" : { $regex: search, $options: "i" }}
-        ];
-    }
-
-
-    let aggregationPipeline = [
-        { $match: matchStage },
-        { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
-        {
-            $project: {
-                _id: 1,
-                'distiller_id': '$user_code',
-                'distiller_name': '$basic_details.distiller_details.organization_name',
-                'poc': '$basic_details.point_of_contact.name',
-                'poc_email': '$basic_details.point_of_contact.email',
-                'poc_mobile': '$basic_details.point_of_contact.mobile',
-                'address': '$address.registered',
-                'request_date': '$createdAt',
-                'status': '$mou_approval',
-                'hard_copy': '$mou',
-            }
-        },
+  // Search filters
+  if (search) {
+    matchStage["$or"] = [
+      { user_code: { $regex: search, $options: "i" } },
+      { "basic_details.distiller_details.organization_name": { $regex: search, $options: "i" } }
     ];
-    const withoutPaginationAggregationPipeline = [...aggregationPipeline];
-    if (!isExport) {
-        aggregationPipeline.push(
-            { $skip: parseInt(skip) },
-            { $limit: parseInt(limit) }
-        );
+  }
+
+  // Projection stage
+  const projectionStage = {
+    $project: {
+      _id: 1,
+      'distiller_id': '$user_code',
+      'distiller_name': '$basic_details.distiller_details.organization_name',
+      'poc': '$basic_details.point_of_contact.name',
+      'poc_email': '$basic_details.point_of_contact.email',
+      'poc_mobile': '$basic_details.point_of_contact.mobile',
+      'address': '$address.registered',
+      'request_date': '$createdAt',
+      'status': '$mou_approval',
+      'hard_copy': '$mou',
     }
+  };
 
-    const records = { count: 0 };
-    withoutPaginationAggregationPipeline.push({$count: "count"})
-    records.rows = await Distiller.aggregate(aggregationPipeline);
-    records.count = await Distiller.countDocuments(withoutPaginationAggregationPipeline);
-    records.page = page;
-    records.limit = limit;
-    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-    
+  // Aggregation for data rows
+  const aggregationPipeline = [
+    { $match: matchStage },
+    { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
+    projectionStage
+  ];
 
-    // return res.status(200).send(new serviceResponse({
-    //     status: 200,
-    //     data: records,
-    //     message: _response_message.found("Distiller MOU")
-    // }));
+  // Pagination for non-export requests
+  if (!isExport) {
+    aggregationPipeline.push(
+      { $skip: parseInt(skip) },
+      { $limit: parseInt(limit) }
+    );
+  }
 
-    // Export functionality
-    if (isExport == 1) {
-        const record = records.rows.map((item) => {
+  // Run aggregation for rows
+  const rows = await Distiller.aggregate(aggregationPipeline);
 
-            return {
-                "Distiller Id": item?.distiller_id || 'NA',
-                "Distiller Name": item?.distiller_name || 'NA',
-                "POC": item?.poc ?? 'NA',
-                "POC Email": item?.poc_email ?? 'NA',
-                "POC Mobile": item?.poc_mobile || 'NA',
-                "Address": item?.address ?? 'NA',
-                "Request date": item?.request_date ?? 'NA',
-                "hard copy": item?.mou ?? 'NA',
-                "Status": item?.status ?? 'NA'
-            };
+  // Accurate count using only $match
+  const count = await Distiller.countDocuments(matchStage);
 
-        });
+  // Pagination info
+  const records = {
+    count,
+    rows,    
+    page: parseInt(page),
+    limit: parseInt(limit),
+    pages: limit != 0 ? Math.ceil(count / limit) : 0
+  };
 
-        if (record.length > 0) {
-            dumpJSONToExcel(req, res, {
-                data: record,
-                fileName: `Distiller-MOU-List.xlsx`,
-                worksheetName: `Distiller-MOU-List`
-            });
-        } else {
-            return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Distiller MOU") }));
-        }
+  // Excel export
+  if (isExport == 1) {
+    const record = rows.map((item) => ({
+      "Distiller Id": item?.distiller_id || 'NA',
+      "Distiller Name": item?.distiller_name || 'NA',
+      "POC": item?.poc ?? 'NA',
+      "POC Email": item?.poc_email ?? 'NA',
+      "POC Mobile": item?.poc_mobile || 'NA',
+      "Address": item?.address ?? 'NA',
+      "Request date": item?.request_date ?? 'NA',
+      "Hard copy": item?.hard_copy ?? 'NA',
+      "Status": item?.status ?? 'NA'
+    }));
+
+    if (record.length > 0) {
+      return dumpJSONToExcel(req, res, {
+        data: record,
+        fileName: `Distiller-MOU-List.xlsx`,
+        worksheetName: `Distiller-MOU-List`
+      });
     } else {
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Distiller MOU") }));
+      return res.send(new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("Distiller MOU")
+      }));
     }
+  }
 
+  // Final API response
+  return res.send(new serviceResponse({
+    status: 200,
+    data: records,
+    message: _response_message.found("Distiller MOU")
+  }));
 });
 
 module.exports.updateMouApprovalStatus = asyncErrorHandler(async (req, res) => {
