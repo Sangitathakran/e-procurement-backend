@@ -409,8 +409,9 @@ module.exports. farmerList = async (req, res) => {
           farmer_id: item?.farmer_id,
           father_spouse_name:
             item?.parents?.father_name || item?.parents?.mother_name || null,
-          is_aadhar_verified: item?.proof?.is_verified,
-          is_bank_verified: item?.bank_details?.is_verified,
+          bank_details: item?.bank_details,
+          proof: item?.proof,
+
           createdAt: item?.createdAt || null,
         };
       })
