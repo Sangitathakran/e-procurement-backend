@@ -13,6 +13,6 @@ dashboardRoutes.get("/pending-precurement-list", Auth, getPendingOffersCountByRe
 dashboardRoutes.get("/farmer-payment", Auth, farmerPayments);
 dashboardRoutes.get("/agent-req", agentPayments);
 dashboardRoutes.get("/state-wise-commodity", Auth, getStateWiseCommodityStatus);
-dashboardRoutes.get("/state-wise-district", getDistrict) //**statewise district */
+dashboardRoutes.get("/state-wise-district",Auth, getDistrict) //**statewise district */
 
 module.exports = { dashboardRoutes }; 

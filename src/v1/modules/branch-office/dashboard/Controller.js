@@ -126,14 +126,12 @@ module.exports.getDashboardStats = async (req, res) => {
         //resolve stateId from branch
         const userDetails = await Branches.findOne({ _id: boId });
         const stateName = userDetails?.state?.trim();
-
         const stateDoc = await StateDistrictCity.aggregate([
             { $unwind: "$states" },
             { $match: { "states.state_title": stateName } },
             { $project: { _id: 0, state_id: "$states._id" } }
         ]);
         const stateId = stateDoc[0]?.state_id;
-
         //default stats 
         const farmerRegisteredCount = await farmer.countDocuments({ "address.state_id": stateId });
         const warehouseCount = await wareHouseDetails.countDocuments({ active: true });
@@ -1451,60 +1449,88 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
 // State wise district
 module.exports.getDistrict = async (req, res) => {
   try {
-    const { state_title, district_titles } = req.query;
+    const { district_titles } = req.query;
 
-    if (!state_title) {
+    //get boId
+    const boId = new mongoose.Types.ObjectId(req.portalId);
+    const branch = await Branches.findOne({ _id: boId });
+
+
+    if (!branch || !branch.state) {
       return sendResponse({
         res,
         status: 400,
-        message: "State title is required",
+        message: "Invalid portalId or state not found in Branch data",
       });
     }
 
-    //district_titles it can be array or comma-separated string
-    let districtArray = [];
+    const stateName = branch.state.trim();
+
+    //stateId from StateDistrictCity using state Name
+    const stateData = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      { $match: { "states.state_title": stateName } },
+      { $project: { state_id: "$states._id", _id: 0 } }
+    ]);
+
+    const stateId = stateData[0]?.state_id;
+
+    if (!stateId) {
+      return sendResponse({
+        res,
+        status: 400,
+        message: "State not found in StateDistrictCity collection",
+      });
+    }
+
+   let districtArray = [];
     if (district_titles) {
       districtArray = Array.isArray(district_titles)
         ? district_titles
         : district_titles.split(',').map(d => d.trim());
     }
 
+    //get districts for particular stated on basis of boId
     const pipeline = [
       { $unwind: "$states" },
-      {
-        $match: {
-          "states.state_title": state_title,
-          "states.status": "active",
-        },
-      },
+      { $match: { "states._id": stateId, "states.status": "active" } },
       { $unwind: "$states.districts" },
       {
         $match: {
           "states.districts.status": "active",
           ...(districtArray.length > 0 && {
-            "states.districts.district_title": { $in: districtArray },
-            "states.districts._id": { $in: districtArray }
-          }),
-        },
+            $or: [
+              { "states.districts.district_title": { $in: districtArray } },
+              {
+                "states.districts._id": {
+                  $in: districtArray
+                    .filter(id => mongoose.Types.ObjectId.isValid(id))
+                    .map(id => new mongoose.Types.ObjectId(id))
+                }
+              }
+            ]
+          })
+        }
       },
       {
         $project: {
           _id: 0,
-          district_title: "$states.districts.district_title",
-          district_id: "$states.districts._id"
-        },
-      },
+          district_id: "$states.districts._id",
+          district_title: "$states.districts.district_title"
+        }
+      }
     ];
 
     const district_list = await StateDistrictCity.aggregate(pipeline);
 
     return sendResponse({
       res,
-      message: "",
+      message: "Districts fetched successfully",
       data: district_list,
     });
+
   } catch (err) {
-    console.error("ERROR: ", err);
+    console.error("ERROR in getDistrict: ", err);
     return sendResponse({
       res,
       status: 500,
@@ -1512,8 +1538,6 @@ module.exports.getDistrict = async (req, res) => {
     });
   }
 };
-
-
 
 
 
