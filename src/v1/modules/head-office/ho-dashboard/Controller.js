@@ -188,7 +188,7 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     //start of prachi code
 
-    const {farmersCount, associateCount, distillerCount} = await getFarmersCount( { commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName} );
+    const {farmersCount, associateCount, distillerCount} = await getFarmersCount( { commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName, start_date: start_date, end_date: end_date} );
 
     const {benifittedFarmersCount, totalProcurement, totalPaymentInitiated, todaysQtyProcured } = await getBenifittedFarmers({ hoId: hoId, commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName, start_date: start_date, end_date: end_date });
 
