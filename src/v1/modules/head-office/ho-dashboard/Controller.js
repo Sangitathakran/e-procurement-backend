@@ -2889,7 +2889,7 @@ async function getBOWarehouseCount({
 
     if (scheme.length) {
       matchCriteria['product.schemeId'] = {
-        $in: scheme.map(id => mongoose.Types.ObjectId(id)),
+        $in: scheme.map(id => new mongoose.Types.ObjectId(id)),
       };
     }
     // console.log('>>>>>>>>>>>>>>>>>>', matchCriteria);
