@@ -11,7 +11,6 @@ const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { PaymentLogs } = require("@src/v1/models/app/procurement/PaymentLogs");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
-
 module.exports.payment = async (req, res) => {
 
     try {
@@ -24,13 +23,25 @@ module.exports.payment = async (req, res) => {
 
         let paymentIds = tab == 0 ? (await Payment.find({ associate_id: user_id })).map(i => i.req_id) : (await AssociateInvoice.find({ associate_id: user_id })).map(i => i.req_id)
 
-        let query = search ? {
-            _id: { $in: paymentIds },
-            $or: [
-                { "product.name": { $regex: search, $options: 'i' } },
-                { "reqNo": { $regex: search, $options: 'i' } }
-            ]
-        } : {};
+       let query = {};
+
+if (search) {
+  query = {
+    $and: [
+      { _id: { $in: paymentIds } },
+      {
+        $or: [
+          { "product.name": { $regex: search, $options: "i" } },
+          { "reqNo": { $regex: search, $options: "i" } },
+        ],
+      },
+    ],
+  };
+} else {
+  query = { _id: { $in: paymentIds } };
+}
+
+
 
         const aggregationPipeline = [
             // { $match: { _id: { $in: paymentIds } } },
