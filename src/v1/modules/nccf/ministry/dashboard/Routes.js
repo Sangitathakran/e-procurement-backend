@@ -3,7 +3,7 @@ const { Auth } = require("@src/v1/middlewares/jwt")
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { getDashboardStats, monthlyLiftedTrends, getMonthlyPayments, stateWiseQuantity, stateWiseProcurementQuantity,
      stateWiseLiftingQuantity, warehouseList, poRaised, ongoingOrders, stateWiseAnalysis, getStateWiseProjection,
-     paymentWithTenPercant, paymentWithHundredPercant
+     paymentWithTenPercant, paymentWithHundredPercant, performanceByDistiller
 } = require("./Controller");
 
 
@@ -20,4 +20,6 @@ ministrydashboardRoutes.get("/getCenterProjections", Auth, getStateWiseProjectio
 ministrydashboardRoutes.get("/warehouseList", Auth, warehouseList);
 ministrydashboardRoutes.get("/poRaised", Auth, poRaised);
 ministrydashboardRoutes.get("/ongoingOrders", Auth, ongoingOrders);
+ministrydashboardRoutes.get("/performanceByDistiller", Auth, performanceByDistiller);
+
 module.exports = { ministrydashboardRoutes }; 
