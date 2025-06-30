@@ -11,7 +11,7 @@ const {
 dashbaordRoutes.post("/widget-list", verifyAssociate, dashboardWidgetList);
 dashbaordRoutes.post("/mandiWiseProcurement", verifyAssociate, mandiWiseProcurement);
 dashbaordRoutes.post("/incidentalExpense", verifyAssociate, incidentalExpense);
-dashbaordRoutes.get("/purchaseLifingMandiWise", verifyAssociate, purchaseLifingMandiWise);
+dashbaordRoutes.post("/purchaseLifingMandiWise", verifyAssociate, purchaseLifingMandiWise);
 dashbaordRoutes.get("/purchaseLifingMonthWise", verifyAssociate, purchaseLifingMonthWise);
 dashbaordRoutes.get("/state-wise-district", getDistrict)
 module.exports = { dashbaordRoutes };

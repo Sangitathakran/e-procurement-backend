@@ -861,27 +861,31 @@ async function farmerCount(req) {
 
 module.exports.mandiWiseProcurement = async (req, res) => {
   try {
+    logger.info("[mandiWiseProcurement] Request received", { body: req.body });
+
     const { user_id } = req;
-    const { commodity = [], district = [], schemeName = [], page = 1, limit = 10, isExport = 11, search } = req.body;
+    const {
+      commodity = [],
+      district = [],
+      schemeName = [],
+      page = 1,
+      limit = 10,
+      isExport = 1,
+      search,
+    } = req.body;
+
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
-
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
-    // Normalize filters
-    const commodityArray = Array.isArray(commodity)
-      ? commodity
-      : String(commodity).split(",").map((id) => id.trim());
-    const schemeArray = Array.isArray(schemeName)
-      ? schemeName
-      : String(schemeName).split(",").map((id) => id.trim());
-    const districtArray = Array.isArray(district)
-      ? district
-      : String(district).split(",").map((d) => d.trim());
 
-    // Convert to ObjectIds
+    const commodityArray = Array.isArray(commodity) ? commodity : String(commodity).split(",").map((id) => id.trim());
+    const schemeArray = Array.isArray(schemeName) ? schemeName : String(schemeName).split(",").map((id) => id.trim());
+    const districtArray = Array.isArray(district) ? district : String(district).split(",").map((d) => d.trim());
+
     const commodityIds = commodityArray.filter(Boolean).map((id) => new mongoose.Types.ObjectId(id));
     const schemeIds = schemeArray.filter(Boolean).map((id) => new mongoose.Types.ObjectId(id));
+
     const pipeline = [
       {
         $match: {
@@ -1000,13 +1004,13 @@ module.exports.mandiWiseProcurement = async (req, res) => {
       },
     ];
 
-
+    // Apply filters
     if (districtArray.length) {
-      let filterdata = await Promise.all(districtArray.map(async (x) => { return await getDistrict(x) }));
-      let districtArrays = filterdata.map(x => { return x.district_title })
+      const filterdata = await Promise.all(districtArray.map(async (x) => await getDistrict(x)));
+      const districtTitles = filterdata.map((x) => x.district_title);
       pipeline.push({
         $match: {
-          district: { $in: districtArrays },
+          district: { $in: districtTitles },
         },
       });
     }
@@ -1027,45 +1031,34 @@ module.exports.mandiWiseProcurement = async (req, res) => {
       });
     }
 
-    if (isExport == 2) {
+    if (search && typeof search === "string" && search.trim() !== "") {
+      pipeline.push({
+        $match: {
+          $or: [
+            { district: { $regex: search, $options: "i" } },
+            { procurementCenterName: { $regex: search, $options: "i" } },
+            { commodityName: { $regex: search, $options: "i" } },
+          ],
+        },
+      });
+    }
+
+    // Clone pipeline before pagination for counting total
+    const totalPipeline = [...pipeline];
+    const totalData = await Batch.aggregate(totalPipeline);
+    const total = totalData.length;
+
+    // Apply pagination if not export
+    if (isExport != 2) {
       pipeline.push(
         { $skip: (parseInt(page) - 1) * parseInt(limit) },
         { $limit: parseInt(limit) }
       );
     }
 
-    if (search && typeof search === "string" && search.trim() !== "") {
-      pipeline.push({
-        $match: {
-          $or: [
-            {
-              district: {
-                $regex: search,
-                $options: "i",
-              },
-            },
-            {
-              procurementCenterName: {
-                $regex: search,
-                $options: "i",
-              },
-            },
-            {
-              commodityName: {
-                $regex: search,
-                $options: "i",
-              },
-            },
-          ],
-        },
-      });
-    }
-
     const result = await Batch.aggregate(pipeline);
-    if (isExport == 2) {
-      exportMandiWiseProcurementData(req, res, result)
-    }
 
+    // Export to Excel
     if (isExport == 2) {
       const exportRows = result.map(item => ({
         "Center Name": item?.procurementCenterName || 'NA',
@@ -1086,42 +1079,41 @@ module.exports.mandiWiseProcurement = async (req, res) => {
           worksheetName: `Mandi Data`
         });
       } else {
-        return res.status(404).json(new serviceResponse({
-          status: 404,
-          message: _response_message.notFound("Mandi Procurement Not Found")
-        }));
+        return sendResponse({
+          res,
+          status: 200,
+          data: [],
+          message: "Mandi Procurement Not Found"
+        });
       }
     }
-    if (!result || result.length === 0) {
-      return res.status(404).json(
-        new serviceResponse({
-          status: 404,
-          message: _response_message.notFound("Mandi Procurement Not Found"),
-        })
-      );
-    }
 
-    return res.status(200).json(
-      new serviceResponse({
-        status: 200,
-        message: "Mandi Procurement fetched successfully",
-        data: result,
-      })
-    );
+    logger.info("[mandiWiseProcurement] Successfully fetched data", { total });
+
+    return sendResponse({
+      res,
+      status: 200,
+       data: {
+        record: result,
+        totalRecords: total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: Number(page),
+        limit: Number(limit),
+      },
+      message: "Mandi Procurement List",
+    });
   } catch (error) {
-    console.error("Error in mandiWiseProcurement:", error);
-    return res.status(500).json(
-      new serviceResponse({
+    logger.error("[mandiWiseProcurement] Error occurred", { error: error.message });
+
+    return sendResponse({
+        res,
         status: 500,
-        message: _response_message.serverError("Mandi Procurement"),
+        data:[],
+        message:error.message || "Internal Server Error",
         error: error.message,
       })
-    );
   }
 };
-
-
-
 
 
 
@@ -1610,7 +1602,6 @@ module.exports.mandiWiseProcurement = async (req, res) => {
 //   }
 // };
 
-
 module.exports.incidentalExpense = async (req, res) => {
   try {
     const {
@@ -1620,11 +1611,12 @@ module.exports.incidentalExpense = async (req, res) => {
       page = 1,
       limit = 10,
       search = '',
+      isExport = 1,
     } = req.body;
 
     const { user_id } = req;
-    const filters = {};
 
+    const filters = {};
     if (user_id && mongoose.Types.ObjectId.isValid(user_id)) {
       filters.seller_id = new mongoose.Types.ObjectId(user_id);
     }
@@ -1668,23 +1660,13 @@ module.exports.incidentalExpense = async (req, res) => {
     ];
 
     if (commodity.length > 0) {
-      pipeline.push({
-        $match: {
-          commodity_id: {
-            $in: commodity.map(id => new mongoose.Types.ObjectId(id)),
-          },
-        },
-      });
+      const validCommodities = commodity.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
+      pipeline.push({ $match: { commodity_id: { $in: validCommodities } } });
     }
 
     if (schemeName.length > 0) {
-      pipeline.push({
-        $match: {
-          schemeId: {
-            $in: schemeName.map(id => new mongoose.Types.ObjectId(id)),
-          },
-        },
-      });
+      const validSchemes = schemeName.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
+      pipeline.push({ $match: { schemeId: { $in: validSchemes } } });
     }
 
     if (district.length > 0) {
@@ -1692,64 +1674,81 @@ module.exports.incidentalExpense = async (req, res) => {
         district.map(async (x) => {
           try {
             const districtData = await getDistrict(x);
-            if (!districtData) {
-              logger.warn(`[IncidentalExpense] District not found for ID: ${x}`);
-              return null;
-            }
-            return districtData;
+            return districtData?.district_title || null;
           } catch (err) {
             logger.error(`[IncidentalExpense] Error fetching district for ID ${x}: ${err.message}`);
             return null;
           }
         })
       );
-
-      const findDistrict = filterdata
-        .filter(x => x && x.district_title)
-        .map(x => x.district_title);
-
-      logger.info(`[IncidentalExpense] Filtered Districts: ${findDistrict.join(', ')}`);
-
-      if (findDistrict.length > 0) {
+      const validDistricts = filterdata.filter(Boolean);
+      if (validDistricts.length) {
         pipeline.push({
           $match: {
-            "procurementCenter.address.district": { $in: findDistrict },
+            "procurementCenter.address.district": { $in: validDistricts },
           },
         });
       }
     }
 
-    pipeline.push({
-      $facet: {
-        data: [
-          { $skip: (page - 1) * limit },
-          { $limit: limit },
-          {
-            $project: {
-              batchId: { $ifNull: ["$batchId", "NA"] },
-              ekhridBatch: { $ifNull: ["$ekhridBatch", false] },
-              commodity_id: { $ifNull: ["$commodity_id", null] },
-              schemeId: { $ifNull: ["$schemeId", null] },
-              commodity: { $ifNull: ["$commodityName", "NA"] },
-              amount: { $ifNull: ["$totalPrice", 0] },
-              quantity: { $ifNull: ["$qty", 0] },
-              mandiName: { $ifNull: ["$procurementCenter.center_name", "NA"] },
-              district: { $ifNull: ["$procurementCenter.address.district", "NA"] },
-              status: { $ifNull: ["$payment_status", "NA"] },
+    if (search?.trim()) {
+      const regex = new RegExp(search.trim(), "i");
+      pipeline.push({
+        $match: {
+          $or: [
+            { commodityName: { $regex: regex } },
+            { "procurementCenter.center_name": { $regex: regex } },
+            { batchId: { $regex: regex } },
+          ],
+        },
+      });
+    }
+
+    if (isExport == 2) {
+      pipeline.push({
+        $project: {
+          batchId: { $toString: "$batchId" },
+          commodity_id: 1,
+          schemeId: 1,
+          commodity: { $ifNull: ["$commodityName", "NA"] },
+          amount: { $ifNull: ["$totalPrice", 0] },
+          quantity: { $ifNull: ["$qty", 0] },
+          mandiName: { $ifNull: ["$procurementCenter.center_name", "NA"] },
+          district: { $ifNull: ["$procurementCenter.address.district", "NA"] },
+          status: { $ifNull: ["$payment_status", "NA"] },
+        },
+      });
+    } else {
+      pipeline.push({
+        $facet: {
+          data: [
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
+            {
+              $project: {
+                batchId: { $toString: "$batchId" },
+                commodity_id: 1,
+                schemeId: 1,
+                commodity: { $ifNull: ["$commodityName", "NA"] },
+                amount: { $ifNull: ["$totalPrice", 0] },
+                quantity: { $ifNull: ["$qty", 0] },
+                mandiName: { $ifNull: ["$procurementCenter.center_name", "NA"] },
+                district: { $ifNull: ["$procurementCenter.address.district", "NA"] },
+                status: { $ifNull: ["$payment_status", "NA"] },
+              },
             },
-          },
-        ],
-        totalCount: [{ $count: "count" }],
-      },
-    });
+          ],
+          totalCount: [{ $count: "count" }],
+        },
+      });
+    }
 
     const result = await Batch.aggregate(pipeline);
-    const data = result[0]?.data || [];
-    const total = result[0]?.totalCount?.[0]?.count || 0;
 
-    const batchIds = data.map(item => +item.batchId).filter(id => id && id !== 'NA');
-    logger.info(`[IncidentalExpense] Batch IDs: ${batchIds.join(', ')}`);
+    const data = isExport == 2 ? result : result[0]?.data || [];
+    const total = isExport == 2 ? data.length : result[0]?.totalCount?.[0]?.count || 0;
 
+    const batchIds = data.map(item => +item.batchId).filter(Boolean);
     const summaryList = await eKharidHaryanaProcurementModel.aggregate([
       {
         $match: {
@@ -1779,25 +1778,22 @@ module.exports.incidentalExpense = async (req, res) => {
       }
     ]);
 
-    logger.info(`[IncidentalExpense] Summary list: ${JSON.stringify(summaryList)}`);
-
     const summaryMap = {};
     summaryList.forEach(item => {
       summaryMap[item.batchId] = item;
     });
 
     const finalData = data.map(item => {
-      const summary = summaryMap[item.batchId?.toString()] || {};
-
+      const summary = summaryMap[+item.batchId] || {};
       return {
-        batchId: item.batchId || null,
-        commodity: item.commodity || 'NA',
-        commodityId: item.commodity_id || null,
-        schemeId: item.schemeId || null,
-        district: item.district || 'NA',
-        amount: item.amount || 0,
-        quantity: item.quantity || 0,
-        mandiName: item.mandiName || 'NA',
+        batchId: item.batchId,
+        commodity: item.commodity,
+        commodityId: item.commodity_id,
+        schemeId: item.schemeId,
+        district: item.district,
+        amount: item.amount,
+        quantity: item.quantity,
+        mandiName: item.mandiName,
         actualIncidentCost: summary.totalIncidentalExpenses || 0,
         incidentCostRecieved: summary.totalIncidentalExpenses || 0,
         actualLaborCharges: summary.totalLaborCharges || 0,
@@ -1809,29 +1805,57 @@ module.exports.incidentalExpense = async (req, res) => {
         commissionChargesPayableDate: summary.commissionChargesPayableDate
           ? new Date(summary.commissionChargesPayableDate).toLocaleString("en-IN")
           : "NA",
-        status: item.status || 'NA',
+        status: item.status || false,
       };
     });
 
-    return res.status(200).json({
-      data: finalData,
-      totalRecords: total,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      limit: finalData.length,
+    if (isExport == 2) {
+      const exportRows = finalData.map(row => ({
+        "Batch ID": row.batchId,
+        "Commodity": row.commodity,
+        "District": row.district,
+        "Mandi Name": row.mandiName,
+        "Quantity (MT)": row.quantity,
+        "Amount": row.amount,
+        "Actual Incident Cost": row.actualIncidentCost,
+        "Labor Charges": row.actualLaborCharges,
+        "Commission Charges": row.commissionRecieved,
+        "Labor Charges Payable Date": row.laborChargesPayableDate,
+        "Commission Charges Payable Date": row.commissionChargesPayableDate,
+        "Payment Status": row.status || false,
+      }));
+
+      logger.info(`[IncidentalExpense] Exporting ${exportRows.length} rows`);
+      return dumpJSONToExcel(req, res, {
+        data: exportRows,
+        fileName: `IncidentalExpense.xlsx`,
+        worksheetName: `Incidental Expenses`,
+      });
+    }
+
+    return sendResponse({
+      res,
+      status: 200,
+      data: {
+        data: finalData,
+        totalRecords: total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        limit: finalData.length,
+      },
+      message: "Incidental expenses fetched successfully"
     });
 
   } catch (err) {
-    logger.error(`[IncidentalExpense] Server error: ${err.message}`, err);
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: err.message,
+    logger.error(`[IncidentalExpense] Error: ${err.message}`, err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Server error while fetching incidental expenses",
+      errors: err.message
     });
   }
 };
-
-
 
 
 
@@ -1935,6 +1959,8 @@ module.exports.purchaseLifingMandiWise = async (req, res) => {
 
 
 
+
+
 // module.exports.purchaseLifingMonthWise = async (req, res) => {
 //   try {
 //     const { user_id } = req;
@@ -2008,6 +2034,117 @@ module.exports.purchaseLifingMandiWise = async (req, res) => {
 //   }
 
 // }
+
+
+
+module.exports.purchaseLifingMandiWise = async (req, res) => {
+  try {
+    const { user_id } = req;
+    const { commodity = [], district = [], schemeName = [] } = req.body;
+
+    logger.info("[purchaseLifingMandiWise] Fetching mandi-wise data", {
+      user_id,
+      commodity,
+      district,
+      schemeName,
+    });
+
+    const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id) })
+      .populate({
+        path: 'procurementCenter_id',
+        select: 'center_name address',
+      })
+      .populate({
+        path: 'req_id',
+        select: 'product',
+        populate: { path: 'product', select: 'name schemeId' }
+      })
+      .select('qty procurementCenter_id req_id intransit')
+      .lean();
+
+    let districtNames = [];
+    if (district.length > 0) {
+      const districtData = await Promise.all(
+        district.map(async (id) => {
+          try {
+            const data = await getDistrict(id);
+            return data?.district_title;
+          } catch (err) {
+            logger.error(`[purchaseLifingMandiWise] District fetch failed for ${id}: ${err.message}`);
+            return null;
+          }
+        })
+      );
+      districtNames = districtData.filter(Boolean).map(d => d.toLowerCase());
+    }
+    const commodityLower = commodity.map(c => c.toLowerCase());
+    const schemeLower = schemeName.map(s => s.toLowerCase());
+
+    const centerGroups = {};
+
+    for (const batch of batches) {
+      const center = batch.procurementCenter_id;
+      const product = batch.req_id?.product;
+
+      if (!center || !product) continue;
+
+      const mandiName = center.center_name;
+      const districtName = center.address?.district?.toLowerCase();
+      const districtId = center.address?.district_id;
+      const commodityName = product.name?.toLowerCase();
+      const schemeIdStr = String(product.schemeId || "").toLowerCase();
+
+      // Apply filters
+      if (commodityLower.length && (!commodityName || !commodityLower.includes(commodityName))) continue;
+      if (districtNames.length && (!districtName || !districtNames.includes(districtName))) continue;
+      if (schemeLower.length && (!schemeIdStr || !schemeLower.includes(schemeIdStr))) continue;
+
+      const purchaseQty = batch.qty || 0;
+      const liftedQty = batch.intransit ? purchaseQty : 0;
+
+      if (!centerGroups[mandiName]) {
+        centerGroups[mandiName] = {
+          center_name: mandiName,
+          purchaseQty: 0,
+          liftedQty: 0,
+          balanceQty: 0,
+          district: center.address?.district || 'NA',
+        };
+      }
+
+      centerGroups[mandiName].purchaseQty += purchaseQty;
+      centerGroups[mandiName].liftedQty += liftedQty;
+    }
+
+    const result = Object.values(centerGroups).map(entry => ({
+      ...entry,
+       purchaseQty: entry.purchaseQty.toFixed(2),
+      liftedQty: entry.liftedQty.toFixed(2),
+      balanceQty: (entry.purchaseQty - entry.liftedQty).toFixed(2),
+    }));
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: result.length > 0
+        ? "Purchase Lifting Mandi Wise data fetched successfully"
+        : "No data found for given filters",
+      data: result,
+    });
+
+  } catch (error) {
+    logger.error("[purchaseLifingMandiWise] Error:", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Server error while fetching Mandi-wise lifting",
+      errors: error.message,
+    });
+  }
+};
+
+
+
 
 
 module.exports.purchaseLifingMonthWise = async (req, res) => {
@@ -2101,7 +2238,8 @@ module.exports.purchaseLifingMonthWise = async (req, res) => {
 
 
 
-// State wise Ditrict
+
+
 module.exports.getDistrict = async (req, res) => {
   try {
     const { state_title, district_titles } = req.query;
