@@ -175,7 +175,7 @@ module.exports.getStates = async (req, res) => {
       },
       {
         $project: {
-          _id: 0,
+          _id: 1,
           state_title: "$states.state_title",
           state_code: "$states.state_code"
         }
