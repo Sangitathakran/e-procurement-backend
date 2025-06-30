@@ -2142,7 +2142,7 @@ module.exports.performanceByDistiller = asyncErrorHandler(async (req, res) => {
       distillerMatchStage["distiller.address.registered.district"] = { $in: districts };
     }
     if (search) {
-      distillerMatchStage["basic_details.distiller_details.organization_name"] = {
+      distillerMatchStage["distiller.basic_details.distiller_details.organization_name"] = {
         $regex: search,
         $options: "i"
       };
