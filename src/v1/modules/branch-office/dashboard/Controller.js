@@ -720,7 +720,7 @@ module.exports.farmerPayments = async (req, res) => {
         const commodityArray = parseArray(commodity);
         const seasonArray = parseArray(season);
         const schemeArray = parseArray(scheme);
-        console.log(commodityArray, commodity)
+        // console.log(commodityArray, commodity)
         //Base query
         let query = {
             deletedAt: null,
