@@ -1,5 +1,5 @@
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
@@ -1448,7 +1448,70 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
 
 
 
+// State wise district
+module.exports.getDistrict = async (req, res) => {
+  try {
+    const { state_title, district_titles } = req.query;
 
+    if (!state_title) {
+      return sendResponse({
+        res,
+        status: 400,
+        message: "State title is required",
+      });
+    }
+
+    //district_titles it can be array or comma-separated string
+    let districtArray = [];
+    if (district_titles) {
+      districtArray = Array.isArray(district_titles)
+        ? district_titles
+        : district_titles.split(',').map(d => d.trim());
+    }
+
+    const pipeline = [
+      { $unwind: "$states" },
+      {
+        $match: {
+          "states.state_title": state_title,
+          "states.status": "active",
+        },
+      },
+      { $unwind: "$states.districts" },
+      {
+        $match: {
+          "states.districts.status": "active",
+          ...(districtArray.length > 0 && {
+            "states.districts.district_title": { $in: districtArray },
+            "states.districts._id": { $in: districtArray }
+          }),
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          district_title: "$states.districts.district_title",
+          district_id: "$states.districts._id"
+        },
+      },
+    ];
+
+    const district_list = await StateDistrictCity.aggregate(pipeline);
+
+    return sendResponse({
+      res,
+      message: "",
+      data: district_list,
+    });
+  } catch (err) {
+    console.error("ERROR: ", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: err.message,
+    });
+  }
+};
 
 
 
