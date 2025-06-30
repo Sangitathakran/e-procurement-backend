@@ -860,9 +860,6 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const warehouseStockTrend = getTrend(currentWarehouseStock, lastWarehouseStock);
 
 
-
-
-
     const summary = {
       noOfDistiller,
       noOfDistillerChange: {
@@ -874,11 +871,11 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
         percent: +distillerPlaceOrderPercent.toFixed(2),
         trend: trendDistillerPlaceOrder
       },
-      // orderPlaceQuantity: totalOrderPlace,
-      // orderPlaceQuantityChange: {
-      //   percent: +orderChangePercent.toFixed(2),
-      //   trend: trendOrder
-      // },
+      orderPlaceQuantity: totalOrderPlace,
+      orderPlaceQuantityChange: {
+        percent: +orderChangePercent.toFixed(2),
+        trend: trendOrder
+      },
       completedOrderQuantity: currentMonth.completedQty,
       completedOrderChange: {
         percent: +completedChangePercent.toFixed(2),
