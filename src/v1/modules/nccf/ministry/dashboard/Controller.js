@@ -875,7 +875,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
           ...(stateList.length > 0 && { "warehouse.addressDetails.state.state_name": { $in: stateList } }),
           ...(districtList.length > 0 && { "warehouse.addressDetails.district.district_name": { $in: districtList } }),
           source_by: { $in: finalCNA },
-          createdAt: { $gte: currentStart, $lte: currentEnd }
+          // createdAt: { $gte: currentStart, $lte: currentEnd }
         }
       },
       {
