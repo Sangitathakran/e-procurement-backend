@@ -12,95 +12,182 @@ const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType, _userStatus, _status, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
+const { commodity } = require("../../dropDown/Controller");
 
 
+
+
+//start of prachi code
 module.exports.getDashboardStats = async (req, res) => {
-
     try {
-
         const currentDate = new Date();
         const startOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
         const startOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
         const endOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
 
-        const lastMonthBo = await User.countDocuments({
-            user_type: _userType.bo,
-            is_form_submitted: true,
-            is_approved: _userStatus.approved,
-            createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
-        });
+        const [
+            lastMonthBo,
+            currentMonthAssociates,
+            lastMonthFarmers,
+            currentMonthFarmers,
+            branchOfficeCount,
+            associateCount,
+            procurementCenterCount,
+            farmerCount
+        ] = await Promise.all([
+            User.countDocuments({
+                user_type: _userType.bo,
+                is_form_submitted: true,
+                is_approved: _userStatus.approved,
+                createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
+            }),
+            User.countDocuments({
+                user_type: _userType.associate,
+                is_form_submitted: true,
+                is_approved: _userStatus.approved,
+                createdAt: { $gte: startOfCurrentMonth }
+            }),
+            farmer.countDocuments({
+                status: _status.active,
+                createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
+            }),
+            farmer.countDocuments({
+                status: _status.active,
+                createdAt: { $gte: startOfCurrentMonth }
+            }),
+            Branches.countDocuments({ status: _status.active }),
+            User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved }),
+            ProcurementCenter.countDocuments({ deletedAt: null }),
+            farmer.countDocuments({ status: _status.active })
+        ]);
 
-        const currentMonthAssociates = await User.countDocuments({
-            user_type: _userType.associate,
-            is_form_submitted: true,
-            is_approved: _userStatus.approved,
-            createdAt: { $gte: startOfCurrentMonth }
-        });
-
-        const difference = currentMonthAssociates - lastMonthBo;
-        const status = difference >= 0 ? 'increased' : 'decreased';
-
-        let differencePercentage = 0;
-        if (lastMonthBo > 0) {
-            differencePercentage = (difference / lastMonthBo) * 100;
-        }
-
-        // Farmers stats for last month and current month
-        const lastMonthFarmers = await farmer.countDocuments({
-            status: _status.active,
-            createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
-        });
-
-        const currentMonthFarmers = await farmer.countDocuments({
-            status: _status.active,
-            createdAt: { $gte: startOfCurrentMonth }
-        });
-
-        // Difference and percentage for farmers
+        const associateDifference = currentMonthAssociates - lastMonthBo;
+        const associateStatus = associateDifference >= 0 ? 'increased' : 'decreased';
+        const associateDifferencePercentage = lastMonthBo > 0
+            ? ((associateDifference / lastMonthBo) * 100).toFixed(2) + '%'
+            : '0%';
         const farmerDifference = currentMonthFarmers - lastMonthFarmers;
         const farmerStatus = farmerDifference >= 0 ? 'increased' : 'decreased';
-
-        let farmerDifferencePercentage = 0;
-        if (lastMonthFarmers > 0) {
-            farmerDifferencePercentage = (farmerDifference / lastMonthFarmers) * 100;
-        }
-
-        const branchOfficeCount = (await Branches.countDocuments({ status: _status.active })) ?? 0;
-        const associateCount = (await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true })) ?? 0;
-        const procurementCenterCount = (await ProcurementCenter.countDocuments({ active: true })) ?? 0;
-        const farmerCount = (await farmer.countDocuments({ status: _status.active })) ?? 0;
-
-        const associateStats = {
-            totalAssociates: associateCount,
-            currentMonthAssociates,
-            lastMonthBo,
-            difference,
-            differencePercentage: differencePercentage.toFixed(2) + '%',
-            status: status,
-        };
-
-        const farmerStats = {
-            totalFarmers: farmerCount,
-            currentMonthFarmers,
-            lastMonthFarmers,
-            difference: farmerDifference,
-            differencePercentage: farmerDifferencePercentage.toFixed(2) + '%',
-            status: farmerStatus,
-        };
+        const farmerDifferencePercentage = lastMonthFarmers > 0
+            ? ((farmerDifference / lastMonthFarmers) * 100).toFixed(2) + '%'
+            : '0%';
 
         const records = {
             branchOfficeCount,
-            associateStats,
-            procurementCenterCount,
-            farmerStats
+            associateStats: {
+                totalAssociates: associateCount,
+                currentMonthAssociates,
+                lastMonthBo,
+                difference: associateDifference,
+                differencePercentage: associateDifferencePercentage,
+                status: associateStatus
+            },
+	    procurementCenterCount,
+            farmerStats: {
+                totalFarmers: farmerCount,
+                currentMonthFarmers,
+                lastMonthFarmers,
+                difference: farmerDifference,
+                differencePercentage: farmerDifferencePercentage,
+                status: farmerStatus
+            }
         };
 
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Dashboard Stats") }));
-
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
+// module.exports.getDashboardStats = async (req, res) => {
+
+//     try {
+
+//         const currentDate = new Date();
+//         const startOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+//         const startOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+//         const endOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
+
+//         const lastMonthBo = await User.countDocuments({
+//             user_type: _userType.bo,
+//             is_form_submitted: true,
+//             is_approved: _userStatus.approved,
+//             createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
+//         });
+
+//         const currentMonthAssociates = await User.countDocuments({
+//             user_type: _userType.associate,
+//             is_form_submitted: true,
+//             is_approved: _userStatus.approved,
+//             createdAt: { $gte: startOfCurrentMonth }
+//         });
+
+//         const difference = currentMonthAssociates - lastMonthBo;
+//         const status = difference >= 0 ? 'increased' : 'decreased';
+
+//         let differencePercentage = 0;
+//         if (lastMonthBo > 0) {
+//             differencePercentage = (difference / lastMonthBo) * 100;
+//         }
+
+//         // Farmers stats for last month and current month
+//         const lastMonthFarmers = await farmer.countDocuments({
+//             status: _status.active,
+//             createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
+//         });
+
+//         const currentMonthFarmers = await farmer.countDocuments({
+//             status: _status.active,
+//             createdAt: { $gte: startOfCurrentMonth }
+//         });
+
+//         // Difference and percentage for farmers
+//         const farmerDifference = currentMonthFarmers - lastMonthFarmers;
+//         const farmerStatus = farmerDifference >= 0 ? 'increased' : 'decreased';
+
+//         let farmerDifferencePercentage = 0;
+//         if (lastMonthFarmers > 0) {
+//             farmerDifferencePercentage = (farmerDifference / lastMonthFarmers) * 100;
+//         }
+
+//         const branchOfficeCount = (await Branches.countDocuments({ status: _status.active })) ?? 0;
+//         const associateCount = (await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved})) ?? 0;
+//         const procurementCenterCount = (await ProcurementCenter.countDocuments({deletedAt: null})) ?? 0;
+//         const farmerCount = (await farmer.countDocuments({ status: _status.active })) ?? 0;
+
+//         const associateStats = {
+//             totalAssociates: associateCount,
+//             currentMonthAssociates,
+//             lastMonthBo,
+//             difference,
+//             differencePercentage: differencePercentage.toFixed(2) + '%',
+//             status: status,
+//         };
+
+//         const farmerStats = {
+//             totalFarmers: farmerCount,
+//             currentMonthFarmers,
+//             lastMonthFarmers,
+//             difference: farmerDifference,
+//             differencePercentage: farmerDifferencePercentage.toFixed(2) + '%',
+//             status: farmerStatus,
+//         };
+
+//         const records = {
+//             branchOfficeCount,
+//             associateStats,
+//             procurementCenterCount,
+//             farmerStats
+//         };
+
+//         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Dashboard Stats") }));
+
+//     } catch (error) {
+//         _handleCatchErrors(error, res);
+//     }
+// }
+
+
+
 
 module.exports.getProcurementsStats = async (req, res) => {
 
@@ -174,51 +261,52 @@ module.exports.getProcurementsStats = async (req, res) => {
     }
 }
 
-module.exports.getProcurementStatusList = async (req, res) => {
-
-    try {
-        const { page, limit = 6, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-        
-        let query = {
-            ...(search ? { reqNo: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+//start of prachi code 
+module.exports.getProcurementStatusList = async (req, res)=>{
+    
+    try{
+        const {page, limit=6, skip, paginate=1, sortBy, search='', isExport=0}= req.query;
+        let query={
+            ...(search ? {reqNo: {$regex:search, $options:"i"}, deletedAt:null}:{deletedAt:null})
         };
-        const records = { count: 0 };
+
+        const records = { count: 0 }
         const selectedFields = 'reqNo product.name product.quantity totalQuantity fulfilledQty';
-        const fetchedRecords = paginate == 1
+
+        const fetchedRecords =  paginate==1
             ? await RequestModel.find(query)
                 .select(selectedFields)
                 .sort(sortBy)
                 .skip(skip)
                 .limit(parseInt(limit))
 
-            : await RequestModel.find(query).sort(sortBy);
+            : await RequestModel.find(query).sort(sortBy)
 
         records.rows = fetchedRecords.map(record => ({
             orderId: record?.reqNo,
             commodity: record?.product.name,
             quantityRequired: record?.product.quantity,
-            totalQuantity: record?.product.quantity,
+            totalQuantity:record?.product.quantity,
             fulfilledQty: record?.fulfilledQty
         }));
-
         records.count = await RequestModel.countDocuments(query);
-
+        
         if (paginate == 1) {
             records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
-
         if (!records) {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Procurement") }));
         }
         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Procurement") }));
 
-    } catch (error) {
+    }catch(error){
         _handleCatchErrors(error, res);
     }
-
 }
+//end of prachi code 
+
 
 module.exports.getPendingOffersCountByRequestId = async (req, res) => {
 
@@ -288,7 +376,6 @@ module.exports.farmerPayments = async (req, res) => {
         let query = {
             ...(search ? { reqNo: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
-
         const records = { count: 0 };
         const selectedFields = 'reqNo product.name product.quantity deliveryDate fulfilledQty';
         const fetchedRecords = paginate == 1
@@ -310,21 +397,21 @@ module.exports.farmerPayments = async (req, res) => {
 
             if (batchIds && batchIds.length > 0) {
                 farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
-                let query = { farmer_id: { $in: farmerOrderIdsOnly } };
+                let query = { _id: { $in: farmerOrderIdsOnly } };
                 requestCount = await FarmerOrders.countDocuments(query);
-                // console.log(query);
+               // console.log(query);
             }
             return {
                 'orderId': record?.reqNo,
                 'quantityRequired': record?.product.quantity,
                 'deliveryDate': record?.deliveryDate,
-                'requestCount': requestCount?.requestCount
+                'requestCount': requestCount
             }
             // return { ...record.toObject(), branchDetails }
         }));
 
         records.count = await RequestModel.countDocuments(query);
-
+      //  console.log(records)
         if (paginate == 1) {
             records.page = page
             records.limit = limit
@@ -347,7 +434,7 @@ module.exports.agentPayments = async (req, res) => {
     try {
 
         const { page, limit = 5, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-
+       
         let query = search ? {
             $or: [
                 { "req_id.reqNo": { $regex: search, $options: 'i' } },
@@ -357,26 +444,40 @@ module.exports.agentPayments = async (req, res) => {
         } : {};
 
         const records = { count: 0 };
-
-        fetchedRecords = paginate == 1 ? await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
-            .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product deliveryDate quotedPrice reqNo" }])
+       
+        const fetchedRecords = paginate == 1 ? await AgentInvoice.find(query)
+            .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
+            .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product.name deliveryDate quotedPrice reqNo" }])
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await AgentInvoice.find(query).select({ "qtyProcured": 1, "payment_status": 1, "bill": 1 })
-                .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "reqNo product.name" }])
+            .limit(parseInt(limit)) 
+            
+            : await AgentInvoice.find(query)
+            .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
+                .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product.name deliveryDate quotedPrice reqNo" }])
                 .sort(sortBy)
 
-        records.rows = fetchedRecords.map(record => ({
-            orderId: record?.req_id.reqNo,
-            qtyProcured: record?.qtyProcured,
-            billingDate: record.req_id.deliveryDate,
-            paymentStatus: record?.payment_status
-        }));
+        // records.rows = fetchedRecords.map(record => ({
+        //     orderId: record?.req_id?.reqNo || null,
+        //     qtyProcured: record?.qtyProcured,
+        //     billingDate: record?.req_id?.deliveryDate || null,
+        //     paymentStatus: record?.payment_status
+        // })).filter(row => row.orderId !== null);
+
+         records.rows = fetchedRecords
+            .filter(record => record.req_id) // only include records where req_id is not null
+            .map(record => ({
+                orderId: record.req_id.reqNo,
+                qtyProcured: record.qtyProcured,
+                billingDate: record.req_id.deliveryDate,
+                paymentStatus: record.payment_status
+            }));
 
         records.count = await AgentInvoice.countDocuments(query);
+       // console.log(records)
 
         if (paginate == 1) {
-            records.page = page
+            records.page = parseInt(page)
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
