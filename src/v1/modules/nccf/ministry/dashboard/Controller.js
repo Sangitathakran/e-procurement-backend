@@ -573,6 +573,43 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       });
     }
 
+    let previousNoOfDistiller = 0;
+
+    if (commodityList.length > 0) {
+      const previousMatchingDistillers = await PurchaseOrderModel.aggregate([
+        {
+          $match: {
+            source_by: { $in: finalCNA },
+            "product.name": { $in: commodityList },
+            createdAt: { $gte: previousStart, $lte: previousEnd }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            distillerIds: { $addToSet: "$distiller_id" }
+          }
+        }
+      ]);
+
+      const prevDistillerIds = previousMatchingDistillers[0]?.distillerIds || [];
+
+      previousNoOfDistiller = await Distiller.countDocuments({
+        _id: { $in: prevDistillerIds },
+        is_approved: _userStatus.approved,
+        source_by: { $in: finalCNA },
+        ...(stateList.length > 0 && { "address.registered.state": { $in: stateList } }),
+        ...(districtList.length > 0 && { "address.registered.district": { $in: districtList } })
+      });
+    } else {
+      previousNoOfDistiller = await Distiller.countDocuments({
+        is_approved: _userStatus.approved,
+        source_by: { $in: finalCNA },
+        createdAt: { $gte: previousStart, $lte: previousEnd },
+        ...(stateList.length > 0 && { "address.registered.state": { $in: stateList } }),
+        ...(districtList.length > 0 && { "address.registered.district": { $in: districtList } })
+      });
+    }
 
     const batchOrderLookups = [
       {
@@ -719,8 +756,71 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       }
     ]);
 
+    const distillerPlaceOrder = await PurchaseOrderModel.aggregate([
+      // Include any branch or join lookups here
+      ...branchLookup,
+      {
+        $facet: {
+          current: [
+            {
+              $match: {
+                ...matchCurrent,
+              }
+            },
+            {
+              $group: {
+                _id: "$created_by" // or "$distiller_id" if different
+              }
+            },
+            {
+              $count: "uniqueDistillerCount"
+            }
+          ],
+          previous: [
+            {
+              $match: {
+                ...matchPrevious,
+              }
+            },
+            {
+              $group: {
+                _id: "$created_by"
+              }
+            },
+            {
+              $count: "uniqueDistillerCount"
+            }
+          ],
+          total: [
+            {
+              $match: {
+                source_by: { $in: finalCNA },
+                ...(commodity && { "purchasedOrder.commodity": commodity })
+              }
+            },
+            {
+              $group: {
+                _id: "$distiller_id"
+              }
+            },
+            {
+              $count: "uniqueDistillerCount"
+            }
+          ]
+        }
+      }
+    ]);
+
+    const currentCount = distillerPlaceOrder[0]?.current?.[0]?.uniqueDistillerCount || 0;
+    const previousCount = distillerPlaceOrder[0]?.previous?.[0]?.uniqueDistillerCount || 0;
+
+    const distillerPlaceOrderPercent = calculateChange(currentCount, previousCount);
+    const trendDistillerPlaceOrder = getTrend(currentCount, previousCount);
+    const totalDistillerPlaceOrder = distillerPlaceOrder[0]?.total?.[0]?.uniqueDistillerCount || 0;
+
     const currentMonthOrder = totalQtyOrders[0].current[0]?.poQuantity || 0;
     const lastMonthOrder = totalQtyOrders[0].previous[0]?.poQuantity || 0;
+
     const orderChangePercent = calculateChange(currentMonthOrder, lastMonthOrder);
     const trendOrder = getTrend(currentMonthOrder, lastMonthOrder);
     const totalOrderPlace = totalQtyOrders[0].total[0]?.poQuantity || 0;
@@ -759,13 +859,26 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const warehouseStockChangePercent = calculateChange(currentWarehouseStock, lastWarehouseStock);
     const warehouseStockTrend = getTrend(currentWarehouseStock, lastWarehouseStock);
 
+
+
+
+
     const summary = {
       noOfDistiller,
-      orderPlaceQuantity: totalOrderPlace,
-      orderPlaceQuantityChange: {
-        percent: +orderChangePercent.toFixed(2),
-        trend: trendOrder
+      noOfDistillerChange: {
+        percent: +calculateChange(noOfDistiller, previousNoOfDistiller).toFixed(2),
+        trend: getTrend(noOfDistiller, previousNoOfDistiller)
       },
+      distillerPlaceOrder: totalDistillerPlaceOrder,
+      distillerPlaceOrderChange: {
+        percent: +distillerPlaceOrderPercent.toFixed(2),
+        trend: trendDistillerPlaceOrder
+      },
+      // orderPlaceQuantity: totalOrderPlace,
+      // orderPlaceQuantityChange: {
+      //   percent: +orderChangePercent.toFixed(2),
+      //   trend: trendOrder
+      // },
       completedOrderQuantity: currentMonth.completedQty,
       completedOrderChange: {
         percent: +completedChangePercent.toFixed(2),
@@ -795,6 +908,28 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       warehouseStockChange: {
         percent: +warehouseStockChangePercent.toFixed(2),
         trend: warehouseStockTrend
+      },
+      balanceLiftedQty: totalQty - currentMonth.completedQty,
+      balanceLiftedQtyChange: {
+        percent: +calculateChange(
+          totalQty - currentMonth.completedQty,
+          totalQty - lastMonth.completedQty
+        ).toFixed(2),
+        trend: getTrend(
+          totalQty - currentMonth.completedQty,
+          totalQty - lastMonth.completedQty
+        )
+      },
+      qtyBalanceInStock: totalQty - currentWarehouseStock,
+      qtyBalanceInStockChange: {
+        percent: +calculateChange(
+          totalQty - currentWarehouseStock,
+          totalQty - lastWarehouseStock
+        ).toFixed(2),
+        trend: getTrend(
+          totalQty - currentWarehouseStock,
+          totalQty - lastWarehouseStock
+        )
       }
     };
 
