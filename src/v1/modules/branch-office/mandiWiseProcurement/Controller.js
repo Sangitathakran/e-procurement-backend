@@ -350,7 +350,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
 
     if (commodityArray.length > 0) {
       const regexCommodity = commodityArray.map(
-        name => new RegExp(`^${name}$`, 'i')
+        name => new RegExp(name, 'i')
       );
       query.push({ 'product.name': { $in: regexCommodity } });
     }
@@ -366,7 +366,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
 
     if (seasonArray.length > 0) {
       const regexSeason = seasonArray.map(
-        name => new RegExp(`^${name}$`, 'i')
+        name => new RegExp(name, 'i')
       );
       query.push({ 'product.season': { $in: regexSeason } });
     }
@@ -386,7 +386,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
       {
         $match: {
           _id: { $in: batchIds.map(id => new mongoose.Types.ObjectId(id)) },
-          ...(requestIds.length ? { req_id: { $in: requestIds } } : {}),
+         // ...(requestIds.length ? { req_id: { $in: requestIds } } : {}),
         },
       },
       {
@@ -435,6 +435,17 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
           preserveNullAndEmptyArrays: true
         }
       },
+      // add filter for season, schemeId here
+     {
+  $match: {
+    ...(seasonArray.length > 0 && { "relatedRequest.product.season": { $in: seasonArray } }),
+    ...(schemeArray.length > 0 && { "relatedRequest.product.schemeId": { $in: schemeArray } }),
+    ...(commodityArray.length > 0 && { "relatedRequest.product.name": { $in: commodityArray } }),
+
+  }
+},
+
+
       {
         $addFields: {
           liftedDataDays: {
@@ -481,7 +492,8 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
           },
           liftedDataDays: { $first: '$liftedDataDays' },
           purchaseDays: { $first: '$purchaseDays' },
-          productName: { $first: '$relatedRequest.product.name' }
+          season: { $first: '$relatedRequest.product.season' },
+          schemeId: { $first: '$relatedRequest.product.schemeId' }
         }
       },
       {
