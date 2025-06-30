@@ -573,6 +573,44 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       });
     }
 
+    let previousNoOfDistiller = 0;
+
+    if (commodityList.length > 0) {
+      const previousMatchingDistillers = await PurchaseOrderModel.aggregate([
+        {
+          $match: {
+            source_by: { $in: finalCNA },
+            "product.name": { $in: commodityList },
+            createdAt: { $gte: previousStart, $lte: previousEnd }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            distillerIds: { $addToSet: "$distiller_id" }
+          }
+        }
+      ]);
+
+      const prevDistillerIds = previousMatchingDistillers[0]?.distillerIds || [];
+
+      previousNoOfDistiller = await Distiller.countDocuments({
+        _id: { $in: prevDistillerIds },
+        is_approved: _userStatus.approved,
+        source_by: { $in: finalCNA },
+        ...(stateList.length > 0 && { "address.registered.state": { $in: stateList } }),
+        ...(districtList.length > 0 && { "address.registered.district": { $in: districtList } })
+      });
+    } else {
+      previousNoOfDistiller = await Distiller.countDocuments({
+        is_approved: _userStatus.approved,
+        source_by: { $in: finalCNA },
+        createdAt: { $gte: previousStart, $lte: previousEnd },
+        ...(stateList.length > 0 && { "address.registered.state": { $in: stateList } }),
+        ...(districtList.length > 0 && { "address.registered.district": { $in: districtList } })
+      });
+    }
+
     const batchOrderLookups = [
       {
         $lookup: {
@@ -827,6 +865,10 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
     const summary = {
       noOfDistiller,
+      noOfDistillerChange: {
+        percent: +calculateChange(noOfDistiller, previousNoOfDistiller).toFixed(2),
+        trend: getTrend(noOfDistiller, previousNoOfDistiller)
+      },
       distillerPlaceOrder: totalDistillerPlaceOrder,
       distillerPlaceOrderChange: {
         percent: +distillerPlaceOrderPercent.toFixed(2),
