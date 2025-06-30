@@ -29,6 +29,14 @@ const {
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { router } = require("./src/v1/routes");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err.stack || err);
+  process.exit(1);
+});
+ 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection:', reason);
+});
 // application level middlewares
 app.use(helmet());
 app.use(
