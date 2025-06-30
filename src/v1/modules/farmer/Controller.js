@@ -58,7 +58,7 @@ const parseExcelOrCsvFile = require('@src/common/services/parseExcelOrCsvFile');
 const { verfiyfarmer } = require('@src/v1/models/app/farmerDetails/verfiyFarmer');
 const logger = require('@common/logger/logger');
 const { VerificationType } = require('@common/enum');
-const {paginate} = require('@src/v1/utils/helpers');
+const { paginate } = require('@src/v1/utils/helpers');
 
 
 module.exports.sendOTP = async (req, res) => {
@@ -4347,7 +4347,9 @@ module.exports.farmerVerfiedData = async (req, res) => {
       search = "",
       state_id,
       associate_id = "",
-      commodityName
+      commodityName,
+      isExport=1
+
     } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -4429,8 +4431,11 @@ module.exports.farmerVerfiedData = async (req, res) => {
           ifsc_code: "$farmer_details.bank_details.ifsc_code",
           organization_name: "$associate_details.basic_details.associate_details.organization_name"
         }
-      },
-      {
+      }
+    ];
+
+    if (isExport != 2 || isExport !== "2") {
+      pipeline.push({
         $facet: {
           totalCount: [{ $count: "count" }],
           data: [
@@ -4438,23 +4443,66 @@ module.exports.farmerVerfiedData = async (req, res) => {
             { $limit: parseInt(limit) }
           ]
         }
-      }
-    ];
+      });
+    }
+
 
     logger.info("[farmerVerfiedData] Running aggregation pipeline", {
       matchStage,
       skip,
-      limit: parseInt(limit)
+      limit: parseInt(limit),
+      isExport,
     });
 
     const result = await verfiyfarmer.aggregate(pipeline);
-    const total = result[0].totalCount[0]?.count || 0;
-    const data = result[0].data || [];
+
+    let total = 0;
+    let data = [];
+
+    if (isExport == 2 || isExport === "2") {
+      data = result;
+      total = result.length;
+    } else {
+      total = result[0]?.totalCount[0]?.count || 0;
+      data = result[0]?.data || [];
+    }
 
     logger.info("[farmerVerfiedData] Aggregation successful", {
       totalResults: total,
       returnedCount: data.length
     });
+
+    if (isExport == 2 || isExport === "2") {
+      const exportRows = data.map((item) => ({
+        "Farmer ID": item.farmer_id || "NA",
+        "Farmer Name": item.name || "NA",
+        "Mobile": item.mobile || "NA",
+        "Commodity": item.commodityName || "NA",
+        "Aadhaar Verified": item.is_verify_aadhaar ? "Yes" : "No",
+        "Bank Verified": item.is_verify_bank ? "Yes" : "No",
+        "Aadhaar No": item.aadhar_no || "NA",
+        "Account No": item.account_no || "NA",
+        "Bank Name": item.bank_name || "NA",
+        "Branch Name": item.branch_name || "NA",
+        "IFSC Code": item.ifsc_code || "NA",
+        "Address": item.address || "NA",
+        "Organization": item.organization_name || "NA"
+      }));
+
+      if (exportRows.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: exportRows,
+          fileName: `Verified_Farmers_${new Date().toISOString().slice(0, 10)}.xlsx`,
+          worksheetName: `Farmers`
+        });
+      } else {
+        return sendResponse({
+          res,
+          status: 400,
+          message: "No farmer data found to export"
+        });
+      }
+    }
 
     return sendResponse({
       res,
