@@ -22,19 +22,19 @@ const { Query } = require("mongoose");
 //         ? req.query.districtNames
 //         : req.query.districtNames.split(',').map(c => c.trim())
 //       : null;
- 
+
 //     // Filter
 //     let query = [];
- 
+
 //     if (commodity) {
 //       const rawArray = Array.isArray(commodity)
 //         ? commodity
 //         : commodity.split(',');
- 
+
 //       const commodityArray = rawArray
 //         .map(s => String(s).trim())
 //         .filter(s => s.length > 0);
- 
+
 //       if (commodityArray.length > 0) {
 //         const regexCommodity = commodityArray.map(
 //           name => new RegExp(`^${name}$`, 'i')
@@ -48,7 +48,7 @@ const { Query } = require("mongoose");
 //         );
 //       }
 //     }
- 
+
 //     if (scheme) {
 //       const schemeArray = scheme
 //         .split(',')
@@ -58,7 +58,7 @@ const { Query } = require("mongoose");
 //         query.push({ 'product.schemeId': { $in: schemeArray } });
 //       }
 //     }
- 
+
 //     if (season) {
 //       const seasonArray = season.split(',').filter(Boolean);
 //       if (seasonArray.length) {
@@ -68,19 +68,19 @@ const { Query } = require("mongoose");
 //         query.push({ 'product.season': { $in: regexSeason } });
 //       }
 //     }
- 
+
 //     const filter = { $and: query };
 //     //console.dir( filter, { depth: null});
- 
+
 //     const requests = await RequestModel.find(filter, { _id: 1 }).lean();
 //     const requestIds = requests.map(r => r._id);
- 
+
 //     const paymentQuery = { bo_id: portalId };
 //     const payments = await Payment.find(paymentQuery).lean();
 //     const batchIdSet = [
 //       ...new Set(payments.map(p => String(p.batch_id)).filter(Boolean)),
 //     ];
- 
+
 //     const pipeline = [
 //       {
 //         $match: {
@@ -222,7 +222,7 @@ const { Query } = require("mongoose");
 //         })
 //       );
 //     }
- 
+
 //     if (searchDistrict) {
 //       pipeline.push({
 //         $match: {
@@ -232,7 +232,7 @@ const { Query } = require("mongoose");
 //       //   page = 1;
 //       //   skip = 0;
 //     }
- 
+
 //     if (centerNames?.length) {
 //       pipeline.push({
 //         $match: {
@@ -242,11 +242,11 @@ const { Query } = require("mongoose");
 //       page = 1;
 //       skip = 0;
 //     }
- 
+
 //     pipeline.push({ $sort: { centerName: 1 } });
- 
+
 //     const aggregated = await Batch.aggregate(pipeline);
- 
+
 //     if (isExport) {
 //       const exportRows = aggregated.map(item => ({
 //         'Center Name': item?.centerName || 'NA',
@@ -261,7 +261,7 @@ const { Query } = require("mongoose");
 //         'Purchase Days': item?.purchaseDays ?? 'NA',
 //         Status: item?.Status ? 'Active' : 'Inactive',
 //       }));
- 
+
 //       if (exportRows.length > 0) {
 //         return dumpJSONToExcel(req, res, {
 //           data: exportRows,
@@ -280,7 +280,7 @@ const { Query } = require("mongoose");
 //     const totalRecords = aggregated.length;
 //     const totalPages = Math.ceil(totalRecords / limit);
 //     const paginatedData = aggregated.slice(skip, skip + limit);
- 
+
 //     return res.status(200).json(
 //       new serviceResponse({
 //         status: 200,
@@ -350,7 +350,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
 
     if (commodityArray.length > 0) {
       const regexCommodity = commodityArray.map(
-        name => new RegExp(`^${name}$`, 'i')
+        name => new RegExp(name, 'i')
       );
       query.push({ 'product.name': { $in: regexCommodity } });
     }
@@ -366,14 +366,14 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
 
     if (seasonArray.length > 0) {
       const regexSeason = seasonArray.map(
-        name => new RegExp(`^${name}$`, 'i')
+        name => new RegExp(name, 'i')
       );
       query.push({ 'product.season': { $in: regexSeason } });
     }
 
-    const baseMatch = query.length ? { $and: query } : {};
-    const requestDocs = await RequestModel.find(baseMatch, { _id: 1 }).lean();
-    const requestIds = requestDocs.map(doc => doc._id);
+    // const baseMatch = query.length ? { $and: query } : {};
+    // const requestDocs = await RequestModel.find(baseMatch, { _id: 1 }).lean();
+    // const requestIds = requestDocs.map(doc => doc._id);
 
     const payments = await Payment.find({ bo_id: portalId }).lean();
     const batchIds = [
@@ -386,7 +386,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
       {
         $match: {
           _id: { $in: batchIds.map(id => new mongoose.Types.ObjectId(id)) },
-          ...(requestIds.length ? { req_id: { $in: requestIds } } : {}),
+          // ...(requestIds.length ? { req_id: { $in: requestIds } } : {}),
         },
       },
       {
@@ -435,6 +435,29 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
           preserveNullAndEmptyArrays: true
         }
       },
+      // add filter for season, schemeId here
+      {
+        $match: {
+          ...(seasonArray.length > 0 && {
+            "relatedRequest.product.season": {
+              $in: seasonArray.map(name => new RegExp(name, 'i'))
+            }
+          }),
+          ...(schemeArray.length > 0 && {
+            "relatedRequest.product.schemeId": {
+              $in: schemeArray
+                .filter(mongoose.Types.ObjectId.isValid)
+                .map(id => new mongoose.Types.ObjectId(id))
+            }
+          }),
+          ...(commodityArray.length > 0 && {
+            "relatedRequest.product.name": {
+              $in: commodityArray.map(name => new RegExp(name, 'i'))
+            }
+          }),
+        }
+      },
+
       {
         $addFields: {
           liftedDataDays: {
@@ -481,7 +504,9 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
           },
           liftedDataDays: { $first: '$liftedDataDays' },
           purchaseDays: { $first: '$purchaseDays' },
-          productName: { $first: '$relatedRequest.product.name' }
+          productName: { $first: '$relatedRequest.product.name' },
+          season: { $first: '$relatedRequest.product.season' },
+          schemeId: { $first: '$relatedRequest.product.schemeId' }
         }
       },
       {
@@ -524,6 +549,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
     pipeline.push({ $sort: { centerName: 1 } });
 
     const aggregated = await Batch.aggregate(pipeline);
+    // console.log(">>>>>>>>>>", aggregated)
 
     //Handle export
     if (isExportFlag) {
