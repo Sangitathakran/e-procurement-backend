@@ -874,7 +874,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
         $match: {
           ...(stateList.length > 0 && { "warehouse.addressDetails.state.state_name": { $in: stateList } }),
           ...(districtList.length > 0 && { "warehouse.addressDetails.district.district_name": { $in: districtList } }),
-          // source_by: { $in: finalCNA },
+          source_by: { $in: finalCNA },
           createdAt: { $gte: currentStart, $lte: currentEnd }
         }
       },
@@ -2084,6 +2084,195 @@ module.exports.getStateWiseProjection = asyncErrorHandler(async (req, res) => {
       lastUpdatedAt,
       message: "Center Projections fetched successfully"
     });
+
+  } catch (error) {
+    return res.status(500).json({
+      status: 500,
+      message: "Error fetching center projections",
+      error: error.message
+    });
+  }
+});
+
+module.exports.performanceByDistiller = asyncErrorHandler(async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
+
+    // Reject special characters in search
+    if (/[.*+?^${}()|[\]\\]/.test(search)) {
+      return sendResponse({
+        res,
+        status: 400,
+        errorCode: 400,
+        errors: [{ message: "Do not use any special character" }],
+        message: "Do not use any special character"
+      });
+    }
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0 ? commodity.split(',').map(name => name.trim()) : [];
+
+    const states = typeof state === 'string' && state.length > 0 ? state.split(',').map(s => s.trim()) : [];
+
+    const districts = typeof district === 'string' && district.length > 0 ? district.split(',').map(d => d.trim()) : [];
+
+    const matchStage = {
+      "paymentInfo.token": { $in: [10, 100] },
+      "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+      source_by: { $in: finalCNA },
+      deletedAt: null,
+    };
+
+
+    if (commodityNames.length > 0) {
+      matchStage["product.name"] = { $in: commodityNames };
+    }
+
+    const distillerMatchStage = {};
+    if (states.length > 0) {
+      console.log(states);
+      distillerMatchStage["distiller.address.registered.state"] = { $in: states };
+    }
+    if (districts.length > 0) {
+      distillerMatchStage["distiller.address.registered.district"] = { $in: districts };
+    }
+    if (search) {
+      distillerMatchStage["basic_details.distiller_details.organization_name"] = {
+        $regex: search,
+        $options: "i"
+      };
+    }
+
+    const aggregationPipeline = [
+      // Filter for tokens 10 or 100
+      { $match: matchStage },
+      // Lookup Distiller
+      {
+        $lookup: {
+          from: "distillers", // your collection name
+          localField: "distiller_id",
+          foreignField: "_id",
+          as: "distiller"
+        }
+      },
+      { $unwind: "$distiller" },
+      // Apply distiller filters
+      { $match: distillerMatchStage },
+      // Lookup BatchOrderProcess to calculate date gap
+      {
+        $lookup: {
+          from: "batchorderprocesses", // your collection name
+          localField: "_id",
+          foreignField: "orderId",
+          as: "batches"
+        }
+      },
+      {
+        $addFields: {
+          avgPickupGap: {
+            $avg: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$batches",
+                    as: "batch",
+                    cond: { $eq: ["$$batch.pickupStatus", "completed"] }
+                  }
+                },
+                as: "completedBatch",
+                in: {
+                  $divide: [
+                    {
+                      $subtract: [
+                        "$$completedBatch.actualPickupDate",
+                        "$createdAt"
+                      ]
+                    },
+                    1000 * 60 * 60 * 24 // convert ms to days
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$distiller._id",
+          distillerName: { $first: "$distiller.basic_details.distiller_details.organization_name" },
+          distillerState: { $first: "$distiller.address.registered.state" },
+          qtyToken10: {
+            $sum: {
+              $cond: [{ $eq: ["$paymentInfo.token", 10] }, "$purchasedOrder.poQuantity", 0]
+            }
+          },
+          qtyToken100: {
+            $sum: {
+              $cond: [{ $eq: ["$paymentInfo.token", 100] }, "$purchasedOrder.poQuantity", 0]
+            }
+          },
+          averagePickupGapInDays: { $avg: "$avgPickupGap" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          distillerName: 1,
+          distillerState: 1,
+          qtyToken10: 1,
+          qtyToken100: 1,
+          averagePickupGapInDays: {
+            $round: ["$averagePickupGapInDays", 2]
+          }
+        }
+      }
+    ]
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
+    const skip = (pageNumber - 1) * pageSize;
+
+    // const result = await PurchaseOrderModel.aggregate();
+    // return res.status(200).json(new serviceResponse({ status: 200, data: result }));
+
+
+    // Add pagination using $facet
+    const finalResult = await PurchaseOrderModel.aggregate([
+      {
+        $facet: {
+          paginatedData: [
+            ...aggregationPipeline,
+            { $skip: skip },
+            { $limit: pageSize }
+          ],
+          totalCount: [
+            ...aggregationPipeline,
+            { $count: "count" }
+          ]
+        }
+      }
+    ]);
+
+    const rows = finalResult[0].paginatedData;
+    const count = finalResult[0].totalCount[0]?.count || 0;
+    const pages = Math.ceil(count / pageSize);
+
+    return res.status(200).json(
+      new serviceResponse({
+        status: 200,
+        data: {
+          count,
+          rows,
+          pages,
+          page: pageNumber,
+          limit: pageSize
+        }
+      })
+    );
 
   } catch (error) {
     return res.status(500).json({
