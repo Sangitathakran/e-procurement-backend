@@ -11,6 +11,7 @@ const { CenterProjection } = require("@src/v1/models/app/distiller/centerProject
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 const { mongoose } = require("mongoose");
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
 /*
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
@@ -859,9 +860,33 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const warehouseStockChangePercent = calculateChange(currentWarehouseStock, lastWarehouseStock);
     const warehouseStockTrend = getTrend(currentWarehouseStock, lastWarehouseStock);
 
+    const procurementQtyAgg = await Batch.aggregate([
+      {
+        $lookup: {
+          from: "warehousedetails",
+          localField: "warehousedetails_id",
+          foreignField: "_id",
+          as: "warehouse"
+        }
+      },
+      { $unwind: { path: "$warehouse", preserveNullAndEmptyArrays: true } },
+      {
+        $match: {
+          ...(stateList.length > 0 && { "warehouse.addressDetails.state.state_name": { $in: stateList } }),
+          ...(districtList.length > 0 && { "warehouse.addressDetails.district.district_name": { $in: districtList } }),
+          // source_by: { $in: finalCNA },
+          createdAt: { $gte: currentStart, $lte: currentEnd }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalProcurementQty: { $sum: "$qty" }
+        }
+      }
+    ]);
 
-
-
+    const procurementQuantity = procurementQtyAgg[0]?.totalProcurementQty || 0;
 
     const summary = {
       noOfDistiller,
@@ -874,11 +899,11 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
         percent: +distillerPlaceOrderPercent.toFixed(2),
         trend: trendDistillerPlaceOrder
       },
-      // orderPlaceQuantity: totalOrderPlace,
-      // orderPlaceQuantityChange: {
-      //   percent: +orderChangePercent.toFixed(2),
-      //   trend: trendOrder
-      // },
+      orderPlaceQuantity: totalOrderPlace,
+      orderPlaceQuantityChange: {
+        percent: +orderChangePercent.toFixed(2),
+        trend: trendOrder
+      },
       completedOrderQuantity: currentMonth.completedQty,
       completedOrderChange: {
         percent: +completedChangePercent.toFixed(2),
@@ -894,10 +919,15 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
         percent: +calculateChange(current.ongoingOrder, last.ongoingOrder).toFixed(2),
         trend: getTrend(current.ongoingOrder, last.ongoingOrder)
       },
-      procurementQuantity: totalOrderPlace,
+      // procurementQuantity: totalOrderPlace,
+      // procurementChange: {
+      //   percent: +orderChangePercent.toFixed(2),
+      //   trend: trendOrder
+      // },
+      procurementQuantity: procurementQuantity,
       procurementChange: {
-        percent: +orderChangePercent.toFixed(2),
-        trend: trendOrder
+        percent: +calculateChange(procurementQuantity, 0).toFixed(2),
+        trend: getTrend(procurementQuantity, 0)
       },
       quantityLifted: totalQty,
       quantityLiftedChange: {
