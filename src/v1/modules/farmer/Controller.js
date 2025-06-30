@@ -4498,7 +4498,7 @@ module.exports.farmerVerfiedData = async (req, res) => {
       } else {
         return sendResponse({
           res,
-          status: 400,
+          status: 200,
           message: "No farmer data found to export"
         });
       }
