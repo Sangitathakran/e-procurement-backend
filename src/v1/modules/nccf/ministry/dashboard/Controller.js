@@ -11,6 +11,7 @@ const { CenterProjection } = require("@src/v1/models/app/distiller/centerProject
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 const { mongoose } = require("mongoose");
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
 /*
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
@@ -573,6 +574,43 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       });
     }
 
+    let previousNoOfDistiller = 0;
+
+    if (commodityList.length > 0) {
+      const previousMatchingDistillers = await PurchaseOrderModel.aggregate([
+        {
+          $match: {
+            source_by: { $in: finalCNA },
+            "product.name": { $in: commodityList },
+            createdAt: { $gte: previousStart, $lte: previousEnd }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            distillerIds: { $addToSet: "$distiller_id" }
+          }
+        }
+      ]);
+
+      const prevDistillerIds = previousMatchingDistillers[0]?.distillerIds || [];
+
+      previousNoOfDistiller = await Distiller.countDocuments({
+        _id: { $in: prevDistillerIds },
+        is_approved: _userStatus.approved,
+        source_by: { $in: finalCNA },
+        ...(stateList.length > 0 && { "address.registered.state": { $in: stateList } }),
+        ...(districtList.length > 0 && { "address.registered.district": { $in: districtList } })
+      });
+    } else {
+      previousNoOfDistiller = await Distiller.countDocuments({
+        is_approved: _userStatus.approved,
+        source_by: { $in: finalCNA },
+        createdAt: { $gte: previousStart, $lte: previousEnd },
+        ...(stateList.length > 0 && { "address.registered.state": { $in: stateList } }),
+        ...(districtList.length > 0 && { "address.registered.district": { $in: districtList } })
+      });
+    }
 
     const batchOrderLookups = [
       {
@@ -719,8 +757,71 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       }
     ]);
 
+    const distillerPlaceOrder = await PurchaseOrderModel.aggregate([
+      // Include any branch or join lookups here
+      ...branchLookup,
+      {
+        $facet: {
+          current: [
+            {
+              $match: {
+                ...matchCurrent,
+              }
+            },
+            {
+              $group: {
+                _id: "$created_by" // or "$distiller_id" if different
+              }
+            },
+            {
+              $count: "uniqueDistillerCount"
+            }
+          ],
+          previous: [
+            {
+              $match: {
+                ...matchPrevious,
+              }
+            },
+            {
+              $group: {
+                _id: "$created_by"
+              }
+            },
+            {
+              $count: "uniqueDistillerCount"
+            }
+          ],
+          total: [
+            {
+              $match: {
+                source_by: { $in: finalCNA },
+                ...(commodity && { "purchasedOrder.commodity": commodity })
+              }
+            },
+            {
+              $group: {
+                _id: "$distiller_id"
+              }
+            },
+            {
+              $count: "uniqueDistillerCount"
+            }
+          ]
+        }
+      }
+    ]);
+
+    const currentCount = distillerPlaceOrder[0]?.current?.[0]?.uniqueDistillerCount || 0;
+    const previousCount = distillerPlaceOrder[0]?.previous?.[0]?.uniqueDistillerCount || 0;
+
+    const distillerPlaceOrderPercent = calculateChange(currentCount, previousCount);
+    const trendDistillerPlaceOrder = getTrend(currentCount, previousCount);
+    const totalDistillerPlaceOrder = distillerPlaceOrder[0]?.total?.[0]?.uniqueDistillerCount || 0;
+
     const currentMonthOrder = totalQtyOrders[0].current[0]?.poQuantity || 0;
     const lastMonthOrder = totalQtyOrders[0].previous[0]?.poQuantity || 0;
+
     const orderChangePercent = calculateChange(currentMonthOrder, lastMonthOrder);
     const trendOrder = getTrend(currentMonthOrder, lastMonthOrder);
     const totalOrderPlace = totalQtyOrders[0].total[0]?.poQuantity || 0;
@@ -759,8 +860,45 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const warehouseStockChangePercent = calculateChange(currentWarehouseStock, lastWarehouseStock);
     const warehouseStockTrend = getTrend(currentWarehouseStock, lastWarehouseStock);
 
+    const procurementQtyAgg = await Batch.aggregate([
+      {
+        $lookup: {
+          from: "warehousedetails",
+          localField: "warehousedetails_id",
+          foreignField: "_id",
+          as: "warehouse"
+        }
+      },
+      { $unwind: { path: "$warehouse", preserveNullAndEmptyArrays: true } },
+      {
+        $match: {
+          ...(stateList.length > 0 && { "warehouse.addressDetails.state.state_name": { $in: stateList } }),
+          ...(districtList.length > 0 && { "warehouse.addressDetails.district.district_name": { $in: districtList } }),
+          source_by: { $in: finalCNA },
+          createdAt: { $gte: currentStart, $lte: currentEnd }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalProcurementQty: { $sum: "$qty" }
+        }
+      }
+    ]);
+
+    const procurementQuantity = procurementQtyAgg[0]?.totalProcurementQty || 0;
+
     const summary = {
       noOfDistiller,
+      noOfDistillerChange: {
+        percent: +calculateChange(noOfDistiller, previousNoOfDistiller).toFixed(2),
+        trend: getTrend(noOfDistiller, previousNoOfDistiller)
+      },
+      distillerPlaceOrder: totalDistillerPlaceOrder,
+      distillerPlaceOrderChange: {
+        percent: +distillerPlaceOrderPercent.toFixed(2),
+        trend: trendDistillerPlaceOrder
+      },
       orderPlaceQuantity: totalOrderPlace,
       orderPlaceQuantityChange: {
         percent: +orderChangePercent.toFixed(2),
@@ -781,10 +919,15 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
         percent: +calculateChange(current.ongoingOrder, last.ongoingOrder).toFixed(2),
         trend: getTrend(current.ongoingOrder, last.ongoingOrder)
       },
-      procurementQuantity: totalOrderPlace,
+      // procurementQuantity: totalOrderPlace,
+      // procurementChange: {
+      //   percent: +orderChangePercent.toFixed(2),
+      //   trend: trendOrder
+      // },
+      procurementQuantity: procurementQuantity,
       procurementChange: {
-        percent: +orderChangePercent.toFixed(2),
-        trend: trendOrder
+        percent: +calculateChange(procurementQuantity, 0).toFixed(2),
+        trend: getTrend(procurementQuantity, 0)
       },
       quantityLifted: totalQty,
       quantityLiftedChange: {
@@ -795,6 +938,28 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       warehouseStockChange: {
         percent: +warehouseStockChangePercent.toFixed(2),
         trend: warehouseStockTrend
+      },
+      balanceLiftedQty: totalQty - currentMonth.completedQty,
+      balanceLiftedQtyChange: {
+        percent: +calculateChange(
+          totalQty - currentMonth.completedQty,
+          totalQty - lastMonth.completedQty
+        ).toFixed(2),
+        trend: getTrend(
+          totalQty - currentMonth.completedQty,
+          totalQty - lastMonth.completedQty
+        )
+      },
+      qtyBalanceInStock: totalQty - currentWarehouseStock,
+      qtyBalanceInStockChange: {
+        percent: +calculateChange(
+          totalQty - currentWarehouseStock,
+          totalQty - lastWarehouseStock
+        ).toFixed(2),
+        trend: getTrend(
+          totalQty - currentWarehouseStock,
+          totalQty - lastWarehouseStock
+        )
       }
     };
 
@@ -813,9 +978,21 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
 module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
 
     const monthlySummary = await BatchOrderProcess.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+        }
+      },
       {
         $group: {
           _id: {
@@ -866,11 +1043,125 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
   }
 });
 
+module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
+  try {
+    // 1. Distiller counts
+    const { page = 1, limit, skip = 0, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const distillerState = Distiller.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+          is_approved: _userStatus.approved,
+        }
+      },
+      { $group: { _id: '$address.registered.state', distillerCount: { $sum: 1 } } }
+    ]);
+
+    // 2. Warehouse counts and requiredStock
+    const warehouseState = wareHouseDetails.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+          active: true
+        }
+      },
+      {
+        $group: {
+          _id: '$addressDetails.state.state_name',
+          warehouseCount: { $sum: 1 },
+          totalRequiredStock: { $sum: '$inventory.requiredStock' }
+        }
+      }
+    ]);
+
+    // 3. Batch-order stats via PurchaseOrder → Distiller → State
+    const batchState = BatchOrderProcess.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA }
+        }
+      },
+      { $lookup: { from: 'purchaseorders', localField: 'orderId', foreignField: '_id', as: 'po' } },
+      { $unwind: '$po' },
+      { $lookup: { from: 'distillers', localField: 'po.distiller_id', foreignField: '_id', as: 'dist' } },
+      { $unwind: '$dist' },
+      {
+        $group: {
+          _id: '$dist.address.registered.state',
+          batchCount: { $sum: 1 },
+          totalBatchQty: { $sum: '$quantityRequired' }
+        }
+      }
+    ]);
+
+    // 4. Totals
+    const totalDistillers = Distiller.countDocuments({ source_by: { $in: finalCNA }, is_approved: _userStatus.approved });
+    const totalWarehouses = wareHouseDetails.countDocuments({ source_by: { $in: finalCNA }, active: true });
+
+    const [dState, wState, bState, totalD, totalW] = await Promise.all([
+      distillerState, warehouseState, batchState, totalDistillers, totalWarehouses
+    ]);
+
+    // Combine all states into one map
+    const map = {};
+
+    dState.forEach(d => {
+      const state = d._id || 'Unknown';
+      map[state] = { state, distillerCount: d.distillerCount, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
+    });
+    wState.forEach(w => {
+      const state = w._id || 'Unknown';
+      if (!map[state]) map[state] = { state, distillerCount: 0, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
+      map[state].warehouseCount = w.warehouseCount;
+      map[state].totalRequiredStock = w.totalRequiredStock;
+    });
+    bState.forEach(b => {
+      const state = b._id || 'Unknown';
+      if (!map[state]) map[state] = { state, distillerCount: 0, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
+      map[state].batchOrderCount = b.batchCount;
+      map[state].totalBatchQty = b.totalBatchQty;
+    });
+
+    const response = {
+      totalDistillers: totalD,
+      totalWarehouses: totalW,
+      stateWiseStats: Object.values(map),
+    };
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: response,
+      message: _response_message.found("State wise analysis"),
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
 module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
 
     const monthlyPayments = await PurchaseOrderModel.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+        }
+      },
       {
         $group: {
           _id: {
@@ -922,9 +1213,20 @@ module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
 
 module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
 
     const result = await PurchaseOrderModel.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA }
+        }
+      },
       // Lookup to get branch details including state
       {
         $lookup: {
@@ -958,6 +1260,9 @@ module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
       // Sort by totalQuantity descending
       {
         $sort: { totalQuantity: -1 }
+      },
+      {
+        $limit: 5
       }
     ]);
 
@@ -975,13 +1280,24 @@ module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
 
 module.exports.stateWiseProcurementQuantity = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
 
     const { sort = 'desc' } = req.query;
 
     const sortOrder = sort === 'asc' ? 1 : -1;
 
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
     const result = await BatchOrderProcess.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA },
+        }
+      },
       {
         $lookup: {
           from: 'warehousedetails', // Make sure the collection name is correct in MongoDB
@@ -1004,6 +1320,9 @@ module.exports.stateWiseProcurementQuantity = asyncErrorHandler(async (req, res)
           quantityProcured: sortOrder,
         },
       },
+      {
+        $limit: 5
+      }
     ]);
 
     return res.status(200).send(
@@ -1020,13 +1339,25 @@ module.exports.stateWiseProcurementQuantity = asyncErrorHandler(async (req, res)
 
 module.exports.stateWiseLiftingQuantity = asyncErrorHandler(async (req, res) => {
   try {
-    const { state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { state = '', commodity = '', cna = '' } = req.query;
 
     const { sort = 'desc' } = req.query;
 
     const sortOrder = sort === 'asc' ? 1 : -1;
 
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
     const result = await BatchOrderProcess.aggregate([
+      {
+        $match: {
+          source_by: { $in: finalCNA }
+        }
+      },
       {
         $lookup: {
           from: 'warehousedetails', // Make sure the collection name is correct in MongoDB
@@ -1049,6 +1380,9 @@ module.exports.stateWiseLiftingQuantity = asyncErrorHandler(async (req, res) => 
           liftingQuantity: sortOrder,
         },
       },
+      {
+        $limit: 5
+      }
     ]);
 
     return res.status(200).send(
@@ -1058,6 +1392,127 @@ module.exports.stateWiseLiftingQuantity = asyncErrorHandler(async (req, res) => 
         message: _response_message.found("State-wise lifting quantity")
       })
     );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+module.exports.paymentWithTenPercant = asyncErrorHandler(async (req, res) => {
+  try {
+    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = '' } = req.query;
+
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const pipeline = [
+      {
+        $match: {
+          "paymentInfo.token": { $in: [10] },
+          deletedAt: null,
+          source_by: { $in: finalCNA }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            token: "$paymentInfo.token"
+          },
+          totalPOQuantity: { $sum: "$purchasedOrder.poQuantity" },
+          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
+          distillerIds: { $addToSet: "$distiller_id" }
+        }
+      },
+      {
+        $addFields: {
+          totalDistillers: { $size: "$distillerIds" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          token: "$_id.token",
+          totalPOQuantity: 1,
+          totalPaidAmount: 1,
+          totalDistillers: 1
+        }
+      },
+      {
+        $sort: { token: 1 }
+      }
+    ];
+
+    const result = await PurchaseOrderModel.aggregate(pipeline);
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: result,
+      message: _response_message.found("PO Raised"),
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+module.exports.paymentWithHundredPercant = asyncErrorHandler(async (req, res) => {
+  try {
+    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = '' } = req.query;
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const pipeline = [
+      {
+        $match: {
+          "paymentInfo.token": { $in: [100] },
+          deletedAt: null,
+          source_by: { $in: finalCNA }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            token: "$paymentInfo.token"
+          },
+          totalPOQuantity: { $sum: "$purchasedOrder.poQuantity" },
+          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
+          distillerIds: { $addToSet: "$distiller_id" }
+        }
+      },
+      {
+        $addFields: {
+          totalDistillers: { $size: "$distillerIds" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          token: "$_id.token",
+          totalPOQuantity: 1,
+          totalPaidAmount: 1,
+          totalDistillers: 1
+        }
+      },
+      {
+        $sort: { token: 1 }
+      }
+    ];
+
+    const result = await PurchaseOrderModel.aggregate(pipeline);
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: result,
+      message: _response_message.found("Token-wise PO Summary"),
+    }));
+
   } catch (error) {
     _handleCatchErrors(error, res);
   }
@@ -1253,7 +1708,6 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
   }
 })
 
-
 module.exports.poRaised = asyncErrorHandler(async (req, res) => {
   try {
     const { page = 1, limit, skip = 0, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
@@ -1383,7 +1837,6 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
-
 
 module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
   try {
@@ -1520,87 +1973,7 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
   }
 });
 
-module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
-  try {
-    // 1. Distiller counts
-    const distillerState = Distiller.aggregate([
-      { $group: { _id: '$address.registered.state', distillerCount: { $sum: 1 } } }
-    ]);
-
-    // 2. Warehouse counts and requiredStock
-    const warehouseState = wareHouseDetails.aggregate([
-      {
-        $group: {
-          _id: '$addressDetails.state.state_name',
-          warehouseCount: { $sum: 1 },
-          totalRequiredStock: { $sum: '$inventory.requiredStock' }
-        }
-      }
-    ]);
-
-    // 3. Batch-order stats via PurchaseOrder → Distiller → State
-    const batchState = BatchOrderProcess.aggregate([
-      { $lookup: { from: 'purchaseorders', localField: 'orderId', foreignField: '_id', as: 'po' } },
-      { $unwind: '$po' },
-      { $lookup: { from: 'distillers', localField: 'po.distiller_id', foreignField: '_id', as: 'dist' } },
-      { $unwind: '$dist' },
-      {
-        $group: {
-          _id: '$dist.address.registered.state',
-          batchCount: { $sum: 1 },
-          totalBatchQty: { $sum: '$quantityRequired' }
-        }
-      }
-    ]);
-
-    // 4. Totals
-    const totalDistillers = Distiller.countDocuments();
-    const totalWarehouses = wareHouseDetails.countDocuments();
-
-    const [dState, wState, bState, totalD, totalW] = await Promise.all([
-      distillerState, warehouseState, batchState, totalDistillers, totalWarehouses
-    ]);
-
-    // Combine all states into one map
-    const map = {};
-
-    dState.forEach(d => {
-      const state = d._id || 'Unknown';
-      map[state] = { state, distillerCount: d.distillerCount, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
-    });
-    wState.forEach(w => {
-      const state = w._id || 'Unknown';
-      if (!map[state]) map[state] = { state, distillerCount: 0, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
-      map[state].warehouseCount = w.warehouseCount;
-      map[state].totalRequiredStock = w.totalRequiredStock;
-    });
-    bState.forEach(b => {
-      const state = b._id || 'Unknown';
-      if (!map[state]) map[state] = { state, distillerCount: 0, warehouseCount: 0, totalRequiredStock: 0, batchOrderCount: 0, totalBatchQty: 0 };
-      map[state].batchOrderCount = b.batchCount;
-      map[state].totalBatchQty = b.totalBatchQty;
-    });
-
-    const response = {
-      totalDistillers: totalD,
-      totalWarehouses: totalW,
-      stateWiseStats: Object.values(map),
-    };
-
-    // res.status(200).json({ success: true, data: response });
-
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      data: response,
-      message: _response_message.found("State wise analysis"),
-    }));
-
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
-});
-
-module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
+module.exports.getStateWiseProjection = asyncErrorHandler(async (req, res) => {
   try {
     let {
       page = 1,
@@ -1610,7 +1983,10 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
       district = '',
       cna = '',
       isExport = 0,
+      startDate = '',
+      endDate = ''
     } = req.query;
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const sort = { state: 1 };
 
@@ -1620,14 +1996,21 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
         : cna.split(',').map(str => str.trim())
       : ['NCCF'];
 
-    const commodityNames = typeof commodity === 'string' && commodity.length > 0 ? commodity.split(',').map(name => name.trim()) : [];
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0
+      ? commodity.split(',').map(name => name.trim())
+      : [];
 
-    const states = typeof state === 'string' && state.length > 0 ? state.split(',').map(s => s.trim()) : [];
+    const states = typeof state === 'string' && state.length > 0
+      ? state.split(',').map(s => s.trim())
+      : [];
 
-    const districts = typeof district === 'string' && district.length > 0 ? district.split(',').map(d => d.trim()) : [];
+    const districts = typeof district === 'string' && district.length > 0
+      ? district.split(',').map(d => d.trim())
+      : [];
 
     const query = {};
     query.source_by = { $in: finalCNA };
+
     if (search) {
       query.$or = [
         { state: { $regex: search, $options: 'i' } },
@@ -1644,6 +2027,14 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
       query.district = { $in: districts };
     }
 
+    // Add date range filter
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
     if (parseInt(isExport) === 1) {
       const exportData = await CenterProjection.find(query).sort(sort);
 
@@ -1658,8 +2049,8 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
       if (formattedData.length > 0) {
         return dumpJSONToExcel(req, res, {
           data: formattedData,
-          fileName: `Center-Projections-${new Date().toISOString().split('T')[0]}.xlsx`,
-          worksheetName: "Center Projections",
+          fileName: `State-Wise-Projections-${new Date().toISOString().split('T')[0]}.xlsx`,
+          worksheetName: "State Wise Projections",
         });
       } else {
         return res.status(200).json({
@@ -1670,13 +2061,17 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
       }
     }
 
-    const [total, data] = await Promise.all([
+    const [total, data, lastUpdatedDoc] = await Promise.all([
       CenterProjection.countDocuments(query),
       CenterProjection.find(query)
         .sort(sort)
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(parseInt(limit)),
+      CenterProjection.findOne(query).sort({ updatedAt: -1 }).select('updatedAt')
     ]);
+
+    const lastUpdatedAt = lastUpdatedDoc?.updatedAt || null;
+
     const pages = limit != 0 ? Math.ceil(total / limit) : 0;
 
     return res.status(200).json({
@@ -1686,120 +2081,204 @@ module.exports.getStateWishProjection = asyncErrorHandler(async (req, res) => {
       page: parseInt(page),
       limit: parseInt(limit),
       pages,
+      lastUpdatedAt,
       message: "Center Projections fetched successfully"
     });
 
   } catch (error) {
     return res.status(500).json({
       status: 500,
-      message: "Error fetching center projections ",
+      message: "Error fetching center projections",
       error: error.message
     });
   }
 });
 
-module.exports.paymentWithTenPercant = asyncErrorHandler(async (req, res) => {
+module.exports.performanceByDistiller = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { page = 1, limit = 10, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
 
-    const pipeline = [
+    // Reject special characters in search
+    if (/[.*+?^${}()|[\]\\]/.test(search)) {
+      return sendResponse({
+        res,
+        status: 400,
+        errorCode: 400,
+        errors: [{ message: "Do not use any special character" }],
+        message: "Do not use any special character"
+      });
+    }
+
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    const commodityNames = typeof commodity === 'string' && commodity.length > 0 ? commodity.split(',').map(name => name.trim()) : [];
+
+    const states = typeof state === 'string' && state.length > 0 ? state.split(',').map(s => s.trim()) : [];
+
+    const districts = typeof district === 'string' && district.length > 0 ? district.split(',').map(d => d.trim()) : [];
+
+    const matchStage = {
+      "paymentInfo.token": { $in: [10, 100] },
+      "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+      source_by: { $in: finalCNA },
+      deletedAt: null,
+    };
+
+
+    if (commodityNames.length > 0) {
+      matchStage["product.name"] = { $in: commodityNames };
+    }
+
+    const distillerMatchStage = {};
+    if (states.length > 0) {
+      console.log(states);
+      distillerMatchStage["distiller.address.registered.state"] = { $in: states };
+    }
+    if (districts.length > 0) {
+      distillerMatchStage["distiller.address.registered.district"] = { $in: districts };
+    }
+    if (search) {
+      distillerMatchStage["distiller.basic_details.distiller_details.organization_name"] = {
+        $regex: search,
+        $options: "i"
+      };
+    }
+
+    const aggregationPipeline = [
+      // Filter for tokens 10 or 100
+      { $match: matchStage },
+      // Lookup Distiller
       {
-        $match: {
-          "paymentInfo.token": { $in: [10] },
-          deletedAt: null
+        $lookup: {
+          from: "distillers", // your collection name
+          localField: "distiller_id",
+          foreignField: "_id",
+          as: "distiller"
         }
       },
+      { $unwind: "$distiller" },
+      // Apply distiller filters
+      { $match: distillerMatchStage },
+      // Lookup BatchOrderProcess to calculate date gap
       {
-        $group: {
-          _id: {
-            token: "$paymentInfo.token"
-          },
-          totalPOQuantity: { $sum: "$purchasedOrder.poQuantity" },
-          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
-          distillerIds: { $addToSet: "$distiller_id" }
+        $lookup: {
+          from: "batchorderprocesses", // your collection name
+          localField: "_id",
+          foreignField: "orderId",
+          as: "batches"
         }
       },
       {
         $addFields: {
-          totalDistillers: { $size: "$distillerIds" }
+          avgPickupGap: {
+            $avg: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$batches",
+                    as: "batch",
+                    cond: { $eq: ["$$batch.pickupStatus", "completed"] }
+                  }
+                },
+                as: "completedBatch",
+                in: {
+                  $divide: [
+                    {
+                      $subtract: [
+                        "$$completedBatch.actualPickupDate",
+                        "$createdAt"
+                      ]
+                    },
+                    1000 * 60 * 60 * 24 // convert ms to days
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$distiller._id",
+          distillerName: { $first: "$distiller.basic_details.distiller_details.organization_name" },
+          distillerState: { $first: "$distiller.address.registered.state" },
+          qtyToken10: {
+            $sum: {
+              $cond: [{ $eq: ["$paymentInfo.token", 10] }, "$purchasedOrder.poQuantity", 0]
+            }
+          },
+          qtyToken100: {
+            $sum: {
+              $cond: [{ $eq: ["$paymentInfo.token", 100] }, "$purchasedOrder.poQuantity", 0]
+            }
+          },
+          averagePickupGapInDays: { $avg: "$avgPickupGap" }
         }
       },
       {
         $project: {
           _id: 0,
-          token: "$_id.token",
-          totalPOQuantity: 1,
-          totalPaidAmount: 1,
-          totalDistillers: 1
+          distillerName: 1,
+          distillerState: 1,
+          qtyToken10: 1,
+          qtyToken100: 1,
+          averagePickupGapInDays: {
+            $round: ["$averagePickupGapInDays", 2]
+          }
         }
-      },
-      {
-        $sort: { token: 1 }
       }
-    ];
+    ]
+    const pageNumber = parseInt(page);
+    const pageSize = parseInt(limit);
+    const skip = (pageNumber - 1) * pageSize;
 
-    const result = await PurchaseOrderModel.aggregate(pipeline);
+    // const result = await PurchaseOrderModel.aggregate();
+    // return res.status(200).json(new serviceResponse({ status: 200, data: result }));
 
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      data: result,
-      message: _response_message.found("PO Raised"),
-    }));
+
+    // Add pagination using $facet
+    const finalResult = await PurchaseOrderModel.aggregate([
+      {
+        $facet: {
+          paginatedData: [
+            ...aggregationPipeline,
+            { $skip: skip },
+            { $limit: pageSize }
+          ],
+          totalCount: [
+            ...aggregationPipeline,
+            { $count: "count" }
+          ]
+        }
+      }
+    ]);
+
+    const rows = finalResult[0].paginatedData;
+    const count = finalResult[0].totalCount[0]?.count || 0;
+    const pages = Math.ceil(count / pageSize);
+
+    return res.status(200).json(
+      new serviceResponse({
+        status: 200,
+        data: {
+          count,
+          rows,
+          pages,
+          page: pageNumber,
+          limit: pageSize
+        }
+      })
+    );
 
   } catch (error) {
-    _handleCatchErrors(error, res);
-  }
-});
-
-module.exports.paymentWithHundredPercant = asyncErrorHandler(async (req, res) => {
-  try {
-    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
-
-    const pipeline = [
-      {
-        $match: {
-          "paymentInfo.token": { $in: [100] },
-          deletedAt: null
-        }
-      },
-      {
-        $group: {
-          _id: {
-            token: "$paymentInfo.token"
-          },
-          totalPOQuantity: { $sum: "$purchasedOrder.poQuantity" },
-          totalPaidAmount: { $sum: "$paymentInfo.paidAmount" },
-          distillerIds: { $addToSet: "$distiller_id" }
-        }
-      },
-      {
-        $addFields: {
-          totalDistillers: { $size: "$distillerIds" }
-        }
-      },
-      {
-        $project: {
-          _id: 0,
-          token: "$_id.token",
-          totalPOQuantity: 1,
-          totalPaidAmount: 1,
-          totalDistillers: 1
-        }
-      },
-      {
-        $sort: { token: 1 }
-      }
-    ];
-
-    const result = await PurchaseOrderModel.aggregate(pipeline);
-
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      data: result,
-      message: _response_message.found("Token-wise PO Summary"),
-    }));
-
-  } catch (error) {
-    _handleCatchErrors(error, res);
+    return res.status(500).json({
+      status: 500,
+      message: "Error fetching center projections",
+      error: error.message
+    });
   }
 });

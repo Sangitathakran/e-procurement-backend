@@ -219,7 +219,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     purchaseOrderPipeline.push({ $count: "count" });
 
     const purchaseOrderAggregate = await PurchaseOrderModel.aggregate(purchaseOrderPipeline);
-    const DistillertotalCount = await Distiller.countDocuments();
+    const DistillertotalCount = await Distiller.countDocuments({is_approved: _userStatus.approved, ...distillerFilter});
     const purchaseOrderCount = purchaseOrderAggregate.length > 0 ? purchaseOrderAggregate[0].count : 0;
 
     // Distiller aggregation
