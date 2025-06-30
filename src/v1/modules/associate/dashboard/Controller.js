@@ -2147,98 +2147,213 @@ module.exports.purchaseLifingMandiWise = async (req, res) => {
 
 
 
+// module.exports.purchaseLifingMonthWise = async (req, res) => {
+//   try {
+//     const { user_id } = req;
+//     const { commodity, state, district, schemeName } = req.query;
+
+//     //scheme filter array
+//     let schemeArray = [];
+//     if (schemeName) {
+//       schemeArray = schemeName.split(',').map(s => s.trim().toLowerCase());
+//     }
+
+//     const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id) })
+//       .populate({
+//         path: 'req_id',
+//         select: 'product',
+//         populate: {
+//           path: 'product',
+//           select: 'name schemeId'
+//         }
+//       })
+//       .populate({
+//         path: 'procurementCenter_id',
+//         select: 'center_name address',
+//       })
+//       .populate({
+//         path: 'associateOffer_id',
+//         select: 'offeredQty',
+//       })
+//       .select('qty associateOffer_id procurementCenter_id req_id intransit createdAt')
+//       .lean();
+
+//     const monthGroups = {};
+
+//     for (const batch of batches) {
+//       const batchCommodity = batch.req_id?.product?.name?.toLowerCase();
+//       const batchState = batch.procurementCenter_id?.address?.state?.toLowerCase();
+//       const batchDistrict = batch.procurementCenter_id?.address?.district?.toLowerCase();
+//       const batchSchemeId = batch.req_id?.product?.schemeId?.toString().toLowerCase();
+
+//       //Filter applied here
+//       if (commodity && (!batchCommodity || !batchCommodity.includes(commodity.toLowerCase()))) continue;
+//       if (state && (!batchState || !batchState.includes(state.toLowerCase()))) continue;
+//       if (district && (!batchDistrict || !batchDistrict.includes(district.toLowerCase()))) continue;
+//       if (schemeArray.length > 0 && (!batchSchemeId || !schemeArray.includes(batchSchemeId))) continue;
+
+//       const purchaseQty = batch.qty || 0;
+//       const liftedQty = batch.intransit ? purchaseQty : 0;
+//       const month = moment(batch.createdAt).format('MMMM YYYY');
+
+//       if (!monthGroups[month]) {
+//         monthGroups[month] = {
+//           month,
+//           purchaseQty: 0,
+//           liftedQty: 0,
+//           balanceQty: 0,
+//         };
+//       }
+
+//       monthGroups[month].purchaseQty += purchaseQty;
+//       monthGroups[month].liftedQty += liftedQty;
+//     }
+
+//     const result = Object.values(monthGroups).map(entry => ({
+//       ...entry,
+//       balanceQty: entry.purchaseQty - entry.liftedQty,
+//     }));
+
+//     if (result.length === 0) {
+//       return sendResponse({
+//         res,
+//         status: 200,
+//         message: 'No data found for given filters',
+//         data: [],
+//       });
+//     }
+
+//     return sendResponse({
+//       res,
+//       status: 200,
+//       message: _query.get("Purchase Lifting Month Wise"),
+//       data: result,
+//     });
+
+//   } catch (error) {
+//     console.error('Error in purchaseLifingMonthWise:', error);
+//     return res.status(500).json({ message: 'Internal Server Error' });
+//   }
+// };
+
 module.exports.purchaseLifingMonthWise = async (req, res) => {
   try {
     const { user_id } = req;
-    const { commodity, state, district, schemeName } = req.query;
+    const {
+      commodity = [],
+      district = [],
+      schemeName = []
+    } = req.body;
 
-    //scheme filter array
-    let schemeArray = [];
-    if (schemeName) {
-      schemeArray = schemeName.split(',').map(s => s.trim().toLowerCase());
+    logger.info("[purchaseLifingMonthWise] Filters received", {
+      user_id,
+      commodity,
+      district,
+      schemeName,
+    });
+
+    const commodityIds = commodity.map((id) => String(id));
+    const schemeIds = schemeName.map((id) => String(id));
+
+    // Convert district IDs to names
+    let districtTitles = [];
+    if (district.length > 0) {
+      const districtData = await Promise.all(
+        district.map(async (id) => {
+          try {
+            const result = await getDistrict(id);
+            return result?.district_title;
+          } catch (err) {
+            logger.error(`[purchaseLifingMonthWise] getDistrict failed for ${id}: ${err.message}`);
+            return null;
+          }
+        })
+      );
+      districtTitles = districtData.filter(Boolean).map((d) => d.toLowerCase());
     }
 
-    const batches = await Batch.find({ seller_id: new mongoose.Types.ObjectId(user_id) })
+    const batches = await Batch.find({
+      seller_id: new mongoose.Types.ObjectId(user_id),
+    })
       .populate({
         path: 'req_id',
         select: 'product',
-        populate: {
-          path: 'product',
-          select: 'name schemeId'
-        }
       })
       .populate({
         path: 'procurementCenter_id',
         select: 'center_name address',
       })
-      .populate({
-        path: 'associateOffer_id',
-        select: 'offeredQty',
-      })
-      .select('qty associateOffer_id procurementCenter_id req_id intransit createdAt')
+      .select('qty procurementCenter_id req_id intransit createdAt')
       .lean();
 
     const monthGroups = {};
 
     for (const batch of batches) {
-      const batchCommodity = batch.req_id?.product?.name?.toLowerCase();
-      const batchState = batch.procurementCenter_id?.address?.state?.toLowerCase();
-      const batchDistrict = batch.procurementCenter_id?.address?.district?.toLowerCase();
-      const batchSchemeId = batch.req_id?.product?.schemeId?.toString().toLowerCase();
+      const center = batch.procurementCenter_id;
+      const product = batch.req_id?.product;
 
-      //Filter applied here
-      if (commodity && (!batchCommodity || !batchCommodity.includes(commodity.toLowerCase()))) continue;
-      if (state && (!batchState || !batchState.includes(state.toLowerCase()))) continue;
-      if (district && (!batchDistrict || !batchDistrict.includes(district.toLowerCase()))) continue;
-      if (schemeArray.length > 0 && (!batchSchemeId || !schemeArray.includes(batchSchemeId))) continue;
+      if (!product || !center?.address) continue;
+
+      const districtName = center.address.district?.toLowerCase();
+      const batchDistrictMatch =
+        districtTitles.length === 0 || (districtName && districtTitles.includes(districtName));
+
+      // Ensure product is single object (not array)
+      const schemeIdStr = String(product.schemeId);
+      const commodityIdStr = String(product.commodity_id);
+
+      const schemeMatch = schemeIds.length === 0 || schemeIds.includes(schemeIdStr);
+      const commodityMatch = commodityIds.length === 0 || commodityIds.includes(commodityIdStr);
+
+      if (!batchDistrictMatch || !schemeMatch || !commodityMatch) continue;
 
       const purchaseQty = batch.qty || 0;
       const liftedQty = batch.intransit ? purchaseQty : 0;
-      const month = moment(batch.createdAt).format('MMMM YYYY');
+      const monthKey = moment(batch.createdAt).format('YYYY-MM'); // Sortable key
+      const monthLabel = moment(batch.createdAt).format('MMMM YYYY'); // Display label
 
-      if (!monthGroups[month]) {
-        monthGroups[month] = {
-          month,
+      if (!monthGroups[monthKey]) {
+        monthGroups[monthKey] = {
+          month: monthLabel,
           purchaseQty: 0,
           liftedQty: 0,
           balanceQty: 0,
         };
       }
 
-      monthGroups[month].purchaseQty += purchaseQty;
-      monthGroups[month].liftedQty += liftedQty;
+      monthGroups[monthKey].purchaseQty += purchaseQty;
+      monthGroups[monthKey].liftedQty += liftedQty;
     }
 
-    const result = Object.values(monthGroups).map(entry => ({
-      ...entry,
-      balanceQty: entry.purchaseQty - entry.liftedQty,
-    }));
-
-    if (result.length === 0) {
-      return sendResponse({
-        res,
-        status: 200,
-        message: 'No data found for given filters',
-        data: [],
-      });
-    }
+    const result = Object.values(monthGroups)
+      .map(entry => ({
+        ...entry,
+        purchaseQty: entry.purchaseQty.toFixed(2),
+        liftedQty: entry.liftedQty.toFixed(2),
+        balanceQty: (entry.purchaseQty - entry.liftedQty).toFixed(2),
+      }))
+      .sort((a, b) =>
+        moment(a.month, "MMMM YYYY").toDate() - moment(b.month, "MMMM YYYY").toDate()
+      );
 
     return sendResponse({
       res,
       status: 200,
-      message: _query.get("Purchase Lifting Month Wise"),
+      message: result.length > 0
+        ? "Purchase Lifting Month Wise fetched successfully."
+        : "No data found for given filters.",
       data: result,
     });
-
   } catch (error) {
-    console.error('Error in purchaseLifingMonthWise:', error);
-    return res.status(500).json({ message: 'Internal Server Error' });
+    logger.error("[purchaseLifingMonthWise] Error:", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Server error while fetching Month-wise lifting",
+      errors: error.message,
+    });
   }
 };
-
-
-
-
 
 module.exports.getDistrict = async (req, res) => {
   try {
