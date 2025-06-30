@@ -43,117 +43,124 @@ if (search) {
 
 
 
-        const aggregationPipeline = [
-            // { $match: { _id: { $in: paymentIds } } },
-            { $match: query },
-            {
-                $lookup: {
-                    from: 'batches',
-                    localField: '_id',
-                    foreignField: 'req_id',
-                    as: 'batches',
-                    pipeline: [{
-                        $lookup: {
-                            from: 'payments',
-                            localField: '_id',
-                            foreignField: 'batch_id',
-                            as: 'payment',
-                        }
-                    }],
+        const basePipeline = [
+  { $match: query },
+  {
+    $lookup: {
+      from: 'batches',
+      localField: '_id',
+      foreignField: 'req_id',
+      as: 'batches',
+      pipeline: [
+        {
+          $lookup: {
+            from: 'payments',
+            localField: '_id',
+            foreignField: 'batch_id',
+            as: 'payment',
+          }
+        }
+      ]
+    }
+  },
+  {
+    $match: {
+      batches: { $ne: [] }
+    }
+  },
+  {
+    $addFields: {
+      approval_status: {
+        $cond: {
+          if: {
+            $anyElementTrue: {
+              $map: {
+                input: '$batches',
+                as: 'batch',
+                in: {
+                  $or: [
+                    { $not: { $ifNull: ['$$batch.bo_approval_at', true] } },
+                    { $eq: ['$$batch.bo_approval_at', null] }
+                  ]
                 }
-            },
-            {
-                $match: {
-                    batches: { $ne: [] }
-                }
-            },
-            {
-                $addFields: {
-                    approval_status: {
-                        $cond: {
-                            if: {
-                                $anyElementTrue: {
-                                    $map: {
-                                        input: '$batches',
-                                        as: 'batch',
-                                        in: {
-                                            $or: [
-                                                { $not: { $ifNull: ['$$batch.bo_approval_at', true] } },  // Check if the field is missing
-                                                { $eq: ['$$batch.bo_approval_at', null] },  // Check for null value
-                                            ]
-                                        }
-                                    }
-                                }
-                            },
-                            then: 'Pending',
-                            else: 'Approved'
-                        }
-                    },
-                    qtyPurchased: {
-                        $reduce: {
-                            input: '$batches',
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this.qty'] }  // Sum of qty from batches
-                        }
-                    },
-                    amountPayable: {
-                        $reduce: {
-                            input: '$batches',
-                            initialValue: 0,
-                            in: { $add: ['$$value', '$$this.totalPrice'] }  // Sum of totalPrice from batches
-                        }
-                    },
-                    payment_status: {
-                        $cond: {
-                            if: {
-                                $anyElementTrue: {
-                                    $map: {
-                                        input: '$batches',
-                                        as: 'batch',
-                                        in: {
-                                            $anyElementTrue: {
-                                                $map: {
-                                                    input: '$$batch.payment',
-                                                    as: 'pay',
-                                                    in: {
-                                                        $eq: ['$$pay.payment_status', 'Pending']  // Assuming status field exists in payments
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            then: 'Pending',
-                            else: 'Approved'
-                        }
-                    }
-                }
-            },
-            {
-                $project: {
-                    _id: 1,
-                    reqNo: 1,
-                    product: 1,
-                    approval_status: 1,
-                    qtyPurchased: 1,
-                    amountPayable: 1,
-                    payment_status: 1
-                }
-            },
-            { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } },
-            // { $skip: skip },
-            // { $limit: parseInt(limit) }
-        ];
-        const records = await RequestModel.aggregate([
-            ...aggregationPipeline,
-            {
-                $facet: {
-                    data: [...aggregationPipeline, { $skip: calculatedSkip }, { $limit: parseInt(limit) }],
-                    totalCount: [{ $match: query },{ $count: 'count' }] // Count the documents
-                }
+              }
             }
-        ]);
+          },
+          then: 'Pending',
+          else: 'Approved'
+        }
+      },
+      qtyPurchased: {
+        $reduce: {
+          input: '$batches',
+          initialValue: 0,
+          in: { $add: ['$$value', '$$this.qty'] }
+        }
+      },
+      amountPayable: {
+        $reduce: {
+          input: '$batches',
+          initialValue: 0,
+          in: { $add: ['$$value', '$$this.totalPrice'] }
+        }
+      },
+      payment_status: {
+        $cond: {
+          if: {
+            $anyElementTrue: {
+              $map: {
+                input: '$batches',
+                as: 'batch',
+                in: {
+                  $anyElementTrue: {
+                    $map: {
+                      input: '$$batch.payment',
+                      as: 'pay',
+                      in: {
+                        $eq: ['$$pay.payment_status', 'Pending']
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          then: 'Pending',
+          else: 'Approved'
+        }
+      }
+    }
+  },
+  {
+    $group: {
+      _id: '$reqNo',
+      doc: { $first: '$$ROOT' }
+    }
+  },
+  { $replaceRoot: { newRoot: '$doc' } },
+  {
+    $project: {
+      _id: 1,
+      reqNo: 1,
+      product: 1,
+      approval_status: 1,
+      qtyPurchased: 1,
+      amountPayable: 1,
+      payment_status: 1
+    }
+  },
+  { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } }
+];
+
+       const records = await RequestModel.aggregate([
+  {
+    $facet: {
+      data: [...basePipeline, { $skip: calculatedSkip }, { $limit: parseInt(limit) }],
+      totalCount: [...basePipeline, { $count: 'count' }]
+    }
+  }
+]);
+
 
         const response = {
             count: records[0]?.totalCount[0]?.count || 0,
