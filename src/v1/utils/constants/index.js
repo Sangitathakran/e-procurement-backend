@@ -71,8 +71,10 @@ const _collectionName = {
     SchemeAssign: "SchemeAssign",
     ClientToken : "ClientToken",
     centerProjection: "centerProjection",
-    statewisemanditax:"statewisemanditax"
-    
+    statewisemanditax:"statewisemanditax",
+    eKharidHaryana:"eKharidProcurement",
+    AgristackFarmerDetail: 'AgristackFarmerDetails',
+
 }
 
 const _userType_Feature_Collection = {
@@ -645,6 +647,13 @@ const _ccAvenuePaymentStatus = {
     FAILURE : "Failure"
 }
 
+const _verificationStatus = {
+    pending: 1,
+    succeed: 2,
+    failed: 3
+}
+
+
 module.exports = {
     _userAction,
     _farmerType,
@@ -718,5 +727,6 @@ module.exports = {
     _centralNodalAgency,
     _schemeName,
     _ccAvenuePaymentStatus,
-    _statesAndUTs
+    _statesAndUTs,
+    _verificationStatus
 }

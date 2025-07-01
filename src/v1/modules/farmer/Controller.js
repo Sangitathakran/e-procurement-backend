@@ -8,7 +8,7 @@ const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { User } = require("@src/v1/models/app/auth/User");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
-const { _response_message } = require("@src/v1/utils/constants/messages");
+const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const Readable = require('stream').Readable;
@@ -25,7 +25,6 @@ const fs = require('fs');
 const axios = require('axios');
 const moment = require('moment');
 const mongoose = require('mongoose');
-const { setCache, getCache } = require("@src/v1/utils/cache");
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -288,11 +287,17 @@ module.exports.submitForm = async (req, res) => {
 
     const farmerDetails = await farmer.findById(id)
 
-
-
-    const state = await getState(farmerDetails.address.state_id);
-    const district = await getDistrict(farmerDetails.address.district_id);
-
+    if(!farmerDetails){
+      return res.json( new serviceResponse( { status: 400, message: _response_message.notFound('farmerDetails')} ) );
+    }
+    const state = await getState(farmerDetails?.address?.state_id); 
+    const district = await getDistrict(farmerDetails?.address?.district_id); 
+    if(!state){
+      return res.json( { status: 400, message: 'State not found '} );
+    }
+    if(!district){
+      return res.json( { status: 400, message: 'district not found '} );
+    }
     let obj = {
       _id: farmerDetails._id,
       address: {
@@ -300,7 +305,6 @@ module.exports.submitForm = async (req, res) => {
         district: district,
       }
     };
-
     const farmer_id = await generateFarmerId(obj);
 
     if (farmer_id == null) {
@@ -1613,6 +1617,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const long = rec["LONGITUDE"] ? rec["LONGITUDE"] : null;
       const mobile_no = rec["MOBILE NO*"];
       const email = rec["EMAIL ID"] ? rec["EMAIL ID"] : null;
+      const  source_by = rec["SOURCE BY"] ? rec["SOURCE BY"] : null;
       const warehouse = rec["WAREHOUSE"] && rec["WAREHOUSE"].toLowerCase() === 'yes' ? 'yes' : 'no';
 
       const cold_storage = rec["COLD STORAGE"] && rec["COLD STORAGE"].toLowerCase() === 'yes' ? 'yes' : 'no';
@@ -1800,7 +1805,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         } else {
           // Insert new farmer record
           farmerRecord = await insertNewFarmerRecord({
-            associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
+            associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, source_by, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
           });
           await insertNewRelatedRecords(farmerRecord._id, {
             total_area, khasra_number, land_name, cultivation_area, area_unit, khata_number, land_type, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, landvillage, LandBlock, landPincode, expected_production, soil_type, soil_tested, soil_testing_agencies, upload_geotag, sowing_date, harvesting_date, crop_name, production_quantity, selling_price, yield, insurance_company, insurance_worth, crop_season, crop_land_name, crop_growth_stage, crop_disease, crop_rotation, previous_crop_session, previous_crop_name, crop_sold, quantity_sold, average_selling_price,
@@ -2146,41 +2151,65 @@ const getAddress = async (item) => {
   }
 }
 
+// const getDistrict = async (districtId) => {
+  
+//   const district = await StateDistrictCity.aggregate([
+//     {
+//       $match: {}
+//     },
+//     {
+//       $unwind: "$states"
+//     },
+//     {
+//       $unwind: "$states.districts"
+//     },
+//     {
+//       $match: { "states.districts._id": districtId }
+//     },
+//     {
+//       $project: {
+//         _id: 1,
+//         district: "$states.districts.district_title"
+//       }
+//     }
+
+
+//   ])
+//   console.log('IIIIIIIIIIIIIIIIIIIIIIIIIIII',district, { districtId})
+//   return district[0].district
+
+// }
+
 const getDistrict = async (districtId) => {
-  const district = await StateDistrictCity.aggregate([
-    {
-      $match: {}
-    },
-    {
-      $unwind: "$states"
-    },
-    {
-      $unwind: "$states.districts"
-    },
-    {
-      $match: { "states.districts._id": districtId }
-    },
-    {
-      $project: {
-        _id: 1,
-        district: "$states.districts.district_title"
-      }
-    }
+  if (!mongoose.Types.ObjectId.isValid(districtId)) {
+    throw new Error('Invalid districtId');
+  }
+  const objId = new mongoose.Types.ObjectId(districtId);
 
+  const res = await StateDistrictCity.aggregate([
+    { $unwind: '$states' },
+    { $unwind: '$states.districts' },
+    { $match: { 'states.districts._id': objId } },
+    { $project: { _id: 0, district: '$states.districts.district_title' } }
+  ]);
 
-  ])
-  return district[0].district
+  if (res.length === 0) {
+    console.warn(`District not found for id ${districtId}`);
+    return null;
+  }
+  return res[0].district;
+};
 
-}
 
 const getState = async (stateId) => {
-  const state = await StateDistrictCity.aggregate([
-    {
-      $match: {}
-    },
+  if (!mongoose.Types.ObjectId.isValid(stateId)) {
+    throw new Error(`Invalid stateId: ${stateId}`);
+  }
+  const objectId = new mongoose.Types.ObjectId(stateId);
+
+  const result = await StateDistrictCity.aggregate([
     {
       $project: {
-        _id: 1,
         state: {
           $arrayElemAt: [
             {
@@ -2188,23 +2217,23 @@ const getState = async (stateId) => {
                 input: {
                   $filter: {
                     input: "$states",
-                    as: 'item',
-                    cond: { $eq: ['$$item._id', stateId] }
+                    as: "s",
+                    cond: { $eq: ["$$s._id", objectId] }
                   }
                 },
-                as: "filterState",
-                in: "$$filterState.state_title"
+                as: "matched",
+                in: "$$matched.state_title"
               }
             },
             0
           ]
-
         }
       }
     }
-  ])
-  return state[0].state
-}
+  ]);
+
+  return result.length > 0 ? result[0].state : null;
+};
 
 module.exports.makeAssociateFarmer = async (req, res) => {
   try {

@@ -104,6 +104,7 @@ const batchsSchema = new mongoose.Schema({
         rejected_reason: { type: String, trim: true },
     },
     receiving_details: {
+        qty: { type: Number, default: 0},
         quantity_received: { type: String, trim: true },
         no_of_bags: { type: String, trim: true },
         bag_weight_per_kg: { type: String, trim: true },

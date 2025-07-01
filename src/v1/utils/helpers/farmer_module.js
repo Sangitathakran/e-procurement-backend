@@ -31,6 +31,7 @@ exports.insertNewFarmerRecord = async (data) => {
         proof: { type: data.type, aadhar_no: data.aadhar_no },
         marital_status: data.marital_status,
         religion: data.religion,
+        source_by: data.source_by,
         education: {
           highest_edu: data.highest_edu,
           edu_details: data.edu_details,
