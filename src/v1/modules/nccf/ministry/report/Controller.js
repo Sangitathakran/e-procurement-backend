@@ -176,6 +176,7 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
   }
 });
 
+/*
 module.exports.omcReport = asyncErrorHandler(async (req, res) => {
   try {
     
@@ -326,6 +327,266 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
     ];
 
     // Paginate
+    const paginatedPipeline = [...basePipeline, { $skip: skip }, { $limit: parseInt(limit) }];
+
+    const [rows, countRes, totalRes] = await Promise.all([
+      PurchaseOrderModel.aggregate(paginatedPipeline),
+      PurchaseOrderModel.aggregate(countPipeline),
+      PurchaseOrderModel.aggregate(totalAmountPipeline),
+    ]);
+
+    const result = {
+      rows,
+      count: countRes[0]?.count || 0,
+      totalPoAmount: totalRes[0]?.totalPoAmount || 0,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      pages: limit != 0 ? Math.ceil((countRes[0]?.count || 0) / limit) : 0
+    };
+
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: result,
+      message: _response_message.found("OMC Report"),
+    }));
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+*/
+
+module.exports.omcReport = asyncErrorHandler(async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = "createdAt",
+      search = '',
+      state = '',
+      startDate = '',
+      endDate = '',
+      cna = 'NCCF',
+    } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const searchRegex = new RegExp(search, 'i');
+
+    const matchConditions = {};
+
+    if (state) {
+      matchConditions['distiller.address.registered.state'] = state;
+    }
+
+    if (search) {
+      matchConditions['distiller.basic_details.distiller_details.organization_name'] = searchRegex;
+    }
+
+    if (startDate && endDate) {
+      matchConditions['createdAt'] = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    const basePipeline = [
+      {
+        $lookup: {
+          from: 'distillers',
+          localField: 'distiller_id',
+          foreignField: '_id',
+          as: 'distiller',
+        },
+      },
+      { $unwind: '$distiller' },
+      { $match: matchConditions },
+      {
+        $lookup: {
+          from: 'batchorderprocesses',
+          localField: 'orderId',
+          foreignField: '_id',
+          as: 'batchorderprocesses',
+        },
+      },
+      {
+        $group: {
+          _id: {
+            distillerId: '$distiller._id',
+            state: '$distiller.address.registered.state',
+            distillerName: '$distiller.basic_details.distiller_details.organization_name',
+          },
+          poQuantity: { $sum: '$purchasedOrder.poQuantity' },
+          poDate: { $first: '$createdAt' },
+          deliveryScheduleDate: { $first: { $arrayElemAt: ['$batchorderprocesses.scheduledPickupDate', 0] } },
+        },
+      },
+
+      // Fetch maize POs of the same distiller
+      {
+        $lookup: {
+          from: 'purchaseorders',
+          let: { distillerId: '$_id.distillerId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$distiller_id', '$$distillerId'] },
+                    { $regexMatch: { input: '$product.name', regex: /maize/i } }
+                  ]
+                }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                totalMaizeRequirement: { $sum: '$purchasedOrder.poQuantity' }
+              }
+            }
+          ],
+          as: 'maizePOs'
+        }
+      },
+
+      // Fetch maize Procurement of the same state
+      // {
+      //   $lookup: {
+      //     from: 'requests',
+      //     pipeline: [
+      //       {
+      //         $match: {
+      //           'product.name': { $regex: /maize/i }
+      //         }
+      //       },
+      //       {
+      //         $project: {
+      //           _id: 1,
+      //           quantity: '$product.quantity',
+      //         }
+      //       }
+      //     ],
+      //     as: 'maizeRequests'
+      //   }
+      // },
+      {
+        $lookup: {
+          from: 'requests',
+          let: { distillerState: '$_id.state' },
+          pipeline: [
+            {
+              $lookup: {
+                from: 'branches',
+                localField: 'branch_id',
+                foreignField: '_id',
+                as: 'branchOffice'
+              }
+            },
+            { $unwind: '$branchOffice' },
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $regexMatch: { input: '$product.name', regex: /maize/i } },
+                    { $eq: ['$branchOffice.state', '$$distillerState'] }
+                  ]
+                }
+              }
+            },
+            {
+              $project: {
+                _id: 1,
+                quantity: '$product.quantity'
+              }
+            }
+          ],
+          as: 'maizeRequests'
+        }
+      },
+      {
+        $lookup: {
+          from: 'payments',
+          let: { maizeReqIds: '$maizeRequests._id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $in: ['$req_id', '$$maizeReqIds'] }
+              }
+            }
+          ],
+          as: 'paymentsForMaize'
+        }
+      },
+
+      {
+        $addFields: {
+          maizeRequirement: {
+            $ifNull: [{ $arrayElemAt: ['$maizePOs.totalMaizeRequirement', 0] }, 0]
+          },
+          thirtyPercentMonthlyRequirement: {
+            $round: [{
+              $multiply: [
+                { $ifNull: [{ $arrayElemAt: ['$maizePOs.totalMaizeRequirement', 0] }, 0] },
+                0.3
+              ]
+            }, 2]
+          },
+          maizeProcurement: {
+            $sum: '$maizeRequests.quantity'
+          },
+          procurementDoneFromFarmer: {
+            $sum: {
+              $map: {
+                input: '$paymentsForMaize',
+                as: 'p',
+                in: {
+                  $convert: {
+                    input: '$$p.qtyProcured',
+                    to: 'double',
+                    onError: 0,
+                    onNull: 0
+                  }
+                }
+              }
+            }
+          },
+          noOfFarmerBenefited: {
+            $size: '$paymentsForMaize'
+          },
+          cna: cna
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          distillerId: '$_id.distillerId',
+          state: '$_id.state',
+          distillerName: '$_id.distillerName',
+          poQuantity: 1,
+          maizeRequirement: 1,
+          thirtyPercentMonthlyRequirement: 1,
+          cna: 1,
+          poDate: 1,
+          deliveryScheduleDate: 1,
+          maizeProcurement: 1,
+          procurementDoneFromFarmer: 1,
+          noOfFarmerBenefited: 1,
+        }
+      }
+    ];
+
+    // Count before pagination
+    const countPipeline = [...basePipeline, { $count: 'count' }];
+
+    // Total sum of poQuantity
+    const totalAmountPipeline = [
+      ...basePipeline,
+      {
+        $group: {
+          _id: null,
+          totalPoAmount: { $sum: '$poQuantity' }
+        }
+      }
+    ];
+
     const paginatedPipeline = [...basePipeline, { $skip: skip }, { $limit: parseInt(limit) }];
 
     const [rows, countRes, totalRes] = await Promise.all([
