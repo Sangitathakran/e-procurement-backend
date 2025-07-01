@@ -3926,7 +3926,7 @@ module.exports.getStatesByPincode = async (req, res) => {
     );
     //console.log(">>>>>>>>>>>>>>>>>>>>>>>>", pincode_data, states);
     return res.send(
-      new serviceResponse({ message: "OK", data: filteredState || states })
+      new serviceResponse({ message: "OK", data: { states: [filteredState] || states }  })
     );
   } catch (err) {
     _handleCatchErrors(err, res);
@@ -3980,7 +3980,7 @@ module.exports.getDistrictsByState = async (req, res) => {
     return res.send(
       new serviceResponse({
         message: _query.get("districts"),
-        data: { villages, districts: filteredDistricts || districts },
+        data: { villages, districts: [filteredDistricts] || districts },
       })
     );
   } catch (err) {
