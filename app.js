@@ -76,7 +76,7 @@ app.get(
 /* Handle errors */
 //app.use(handleCatchError)
 app.all("*", handleRouteNotFound);
-console.log("PORT:", PORT);
+
 // Listner server
 app.listen(PORT, async () => {
   console.log("E-procurement server is running on PORT:", PORT);

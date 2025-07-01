@@ -121,20 +121,20 @@ module.exports.cna_list = async (req, res) => {
   }
 };
 
-// module.exports.sla_list = async (req, res) => {
-//   const query = { deletedAt: null, status: "active" };
-//   try {
-//     const sla_list = await SLAManagement.aggregate([
-//       { $match: query },
-//       { $project: { name: "$basic_details.name" } },
-//     ]);
+module.exports.sla_list = async (req, res) => {
+  const query = { deletedAt: null, status: "active" };
+  try {
+    const sla_list = await SLAManagement.aggregate([
+      { $match: query },
+      { $project: { name: "$basic_details.name" } },
+    ]);
 
-//     return sendResponse({ res, message: "", data: sla_list });
-//   } catch (err) {
-//     console.log("ERROR: ", err);
-//     return sendResponse({ status: 500, message: err.message });
-//   }
-// };
+    return sendResponse({ res, message: "", data: sla_list });
+  } catch (err) {
+    console.log("ERROR: ", err);
+    return sendResponse({ status: 500, message: err.message });
+  }
+};
 
 module.exports.getStates = async (req, res) => {
   try {

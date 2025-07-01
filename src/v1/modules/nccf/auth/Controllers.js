@@ -18,7 +18,8 @@ const { getPermission } = require("../../user-management/permission");
 
 const getIpAddress = require('@src/v1/utils/helpers/getIPAddress');
 const { _frontendLoginRoutes, _userTypeFrontendRouteMapping } = require('@src/v1/utils/constants');
-const logger = require('@common/logger/logger');
+const logger = require('@src/common/logger/logger');
+
 
 module.exports.getNccf = async (req, res) => {
 
