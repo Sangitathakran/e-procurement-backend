@@ -1,5 +1,15 @@
 // Path Alias
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+});
+//require('newrelic');
 require("module-alias/register");
+
 // import modules
 const express = require("express");
 const app = express();
@@ -14,8 +24,9 @@ const swaggerDocument = require("./src/v1/utils/swagger/swagger-output.json");
 require("@src/v1/utils/websocket/server");
 
 const { PORT, apiVersion } = require("./config/index");
-require('newrelic');
+
 require("./config/database");
+// require('newrelic');
 // require('./config/redis')
 const {
   handleCatchError,
@@ -65,7 +76,7 @@ app.get(
 /* Handle errors */
 //app.use(handleCatchError)
 app.all("*", handleRouteNotFound);
-
+console.log("PORT:", PORT);
 // Listner server
 app.listen(PORT, async () => {
   console.log("E-procurement server is running on PORT:", PORT);

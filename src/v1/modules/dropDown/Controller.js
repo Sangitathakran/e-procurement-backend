@@ -1,6 +1,4 @@
-const { Associate } = require("@src/v1/models/app/auth/Associate");
 const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
-const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 const { User } = require("@src/v1/models/app/auth/User");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
@@ -123,20 +121,20 @@ module.exports.cna_list = async (req, res) => {
   }
 };
 
-module.exports.sla_list = async (req, res) => {
-  const query = { deletedAt: null, status: "active" };
-  try {
-    const sla_list = await SLAManagement.aggregate([
-      { $match: query },
-      { $project: { name: "$basic_details.name" } },
-    ]);
+// module.exports.sla_list = async (req, res) => {
+//   const query = { deletedAt: null, status: "active" };
+//   try {
+//     const sla_list = await SLAManagement.aggregate([
+//       { $match: query },
+//       { $project: { name: "$basic_details.name" } },
+//     ]);
 
-    return sendResponse({ res, message: "", data: sla_list });
-  } catch (err) {
-    console.log("ERROR: ", err);
-    return sendResponse({ status: 500, message: err.message });
-  }
-};
+//     return sendResponse({ res, message: "", data: sla_list });
+//   } catch (err) {
+//     console.log("ERROR: ", err);
+//     return sendResponse({ status: 500, message: err.message });
+//   }
+// };
 
 module.exports.getStates = async (req, res) => {
   try {
@@ -321,6 +319,7 @@ module.exports.getAssociates = async (req, res) => {
       {
         $project: {
           name: "$basic_details.associate_details.associate_name",
+          organization_name: "$basic_details.associate_details.organization_name",
         },
       },
     ]);

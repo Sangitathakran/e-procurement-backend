@@ -57,12 +57,14 @@ const _collectionName = {
     ExternalOrder: "ExternalOrder",
     Scheme: "Scheme",
     SLA: "SLA",
-    commodityStandard: "commodityStandard",
-    SchemeAssign: "SchemeAssign",
     CCAvenueResponse: "CCAvenueResponse",
     PaymentLogsHistory: "PaymentLogsHistory",
     eKharidHaryana: "ekharidprocurements",
     agristackLog:"agristackLog",
+    commodityStandard:"commodityStandard",
+    SchemeAssign: "SchemeAssign",
+    ClientToken : "ClientToken",
+    centerProjection: "centerProjection",
 
 }
 
@@ -84,7 +86,8 @@ const _featureType = {
     agency: "Agency",
     associate: "Associate",
     distiller: "Distiller",
-    SLA:"SLA"
+    SLA:"SLA",
+    warehouse: "Warehouse"
 }
 
 const _status = {
@@ -193,6 +196,7 @@ const _userType = {
     distiller: "8",
     nccf: "9",
     admin: "10",
+    ministry:"11"
 }
 
 const _userStatus = {
@@ -469,7 +473,7 @@ const _userTypeFrontendRouteMapping = {
     "branch-office": "3",
     "NccfAdmin": "9",
     "admin": "10",
-
+    "ministry": "11"
 }
 
 const _poRequestStatus = {

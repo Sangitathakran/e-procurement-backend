@@ -132,6 +132,7 @@ module.exports.saveHeadOffice = async (req, res) => {
             address,
             authorised,
         });
+        
         // checking the existing user in Master User collection
         const isUserAlreadyExist = await MasterUser.findOne(
             { $or: [{ mobile: { $exists: true, $eq: authorised?.mobile?.trim() } }, { email: { $exists: true, $eq: authorised.email.trim() } }] });

@@ -1,7 +1,11 @@
 const mongoose = require('mongoose');
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { _query, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
+const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod, _userType } = require("@src/v1/utils/constants");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { ExternalBatch } = require("@src/v1/models/app/procurement/ExternalBatch");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
@@ -22,7 +26,7 @@ const PaymentLogsHistory = require('@src/v1/models/app/procurement/PaymentLogsHi
 //         }
 
 //         const decode = await decryptJwtToken(getToken);
-//         const UserId = decode.data.user_id;
+//         const UserId = decode.data.organization_id;
 
 //         if (!mongoose.Types.ObjectId.isValid(UserId)) {
 //             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -119,7 +123,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
         }
 
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -247,7 +251,72 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
 
        //console.log(JSON.stringify(pipeline, null, 2)) 
         const rows = await Batch.aggregate(pipeline);
-        const totalCount = rows.length;
+
+
+        const totalCountPipeline = [
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    localField: 'warehousedetails_id',
+                    foreignField: '_id',
+                    as: 'warehousedetails_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'procurementcenters',
+                    localField: 'procurementCenter_id',
+                    foreignField: '_id',
+                    as: 'procurementCenter_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'seller_id',
+                    foreignField: '_id',
+                    as: 'seller_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'requests',
+                    localField: 'req_id',
+                    foreignField: '_id',
+                    as: 'req_id'
+                }
+            },
+            { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
+            {
+                $match: {
+                    "warehousedetails_id._id": { $in: finalwarehouseIds },
+                    ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+                    wareHouse_approve_status: 'Received',
+                    ...(search && searchRegex && {
+                        $or: [
+                            { batchId: { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+                            { "procurementCenter_id.center_name": { $regex: searchRegex } },
+                            { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+                        ]
+                    }),
+                    ...(status && {
+                        "final_quality_check.status": status  // This checks the status field for exact match
+                    }),
+                    ...(productName && { "req_id.product.name": productName })
+                }
+            },
+            { $count: "totalCount" } // This will count all matching documents
+        ];
+        
+        const totalCountResult = await Batch.aggregate(totalCountPipeline);
+        const totalCount = totalCountResult.length > 0 ? totalCountResult[0].totalCount : 0;
+        
+       // const totalCount = rows.length;
        
         const query = {
             "warehousedetails_id._id": { $in: finalwarehouseIds },
@@ -331,7 +400,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
 //         }
 
 //         const decode = await decryptJwtToken(getToken);
-//         const UserId = decode.data.user_id;
+//         const UserId = decode.data.organization_id;
 
 //         if (!mongoose.Types.ObjectId.isValid(UserId)) {
 //             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -429,7 +498,7 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
         }
 
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -557,10 +626,72 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
         
         const rows = await Batch.aggregate(pipeline);
 
-        const totalCount = rows.length;
-
-
         
+        const totalCountPipeline = [
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    localField: 'warehousedetails_id',
+                    foreignField: '_id',
+                    as: 'warehousedetails_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'procurementcenters',
+                    localField: 'procurementCenter_id',
+                    foreignField: '_id',
+                    as: 'procurementCenter_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'seller_id',
+                    foreignField: '_id',
+                    as: 'seller_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'requests',
+                    localField: 'req_id',
+                    foreignField: '_id',
+                    as: 'req_id'
+                }
+            },
+            { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
+            {
+                $match: {
+                    "warehousedetails_id._id": { $in: finalwarehouseIds },
+                    ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+                    wareHouse_approve_status: 'Pending',
+                    ...(search && searchRegex && {
+                        $or: [
+                            { batchId: { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+                            { "procurementCenter_id.center_name": { $regex: searchRegex } },
+                            { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+                        ]
+                    }),
+                    ...(status && {
+                        "final_quality_check.status": status  // This checks the status field for exact match
+                    }),
+                    ...(productName && { "req_id.product.name": productName })
+                }
+            },
+            { $count: "totalCount" } // This will count all matching documents
+        ];
+        
+        const totalCountResult = await Batch.aggregate(totalCountPipeline);
+        const totalCount = totalCountResult.length > 0 ? totalCountResult[0].totalCount : 0;
+
+       // const totalCount = rows.length;
+
         // Modify the query object for consistent filters
 const baseQuery = {
     "warehousedetails_id._id": { $in: finalwarehouseIds },
@@ -656,7 +787,7 @@ module.exports.batchApproveOrReject = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         // Find the batch that is not already approved
         const record = await Batch.findOne({
@@ -895,8 +1026,9 @@ module.exports.batchMarkDelivered = async (req, res) => {
             truck_photo,
             vehicle_details,
             document_pictures,
+            weight_slip = [], qc_report = [], data, paymentIsApprove = 0 
         } = req.body;
-        
+        const { user_id, user_type } = req;
         const requiredFields = [
             'quantity_received',
             'no_of_bags',
@@ -930,6 +1062,79 @@ module.exports.batchMarkDelivered = async (req, res) => {
                 message: `Missing required fields: ${missingFields.join(', ')}`,
             }));
         }
+
+        const record = await Batch.findOne({ _id: batchId }).populate("req_id").populate("seller_id");
+   
+        if (!record) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        }
+
+        // if (document_pictures.product_images.length > 0) {
+        //     record.dispatched.material_img.received.push(...document_pictures.product_images.map(i => { return { img: i, on: moment() } }))
+        // }
+        // if (qc_report.length > 0) {
+            record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+            record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
+
+            const { farmerOrderIds } = record;
+
+            const paymentRecords = [];
+
+            const request = await RequestModel.findOne({ _id: record?.req_id });
+            // console.log('req_id',record.req_id);return false;
+            for (let farmer of farmerOrderIds) {
+
+                const farmerData = await FarmerOrders.findOne({ _id: farmer?.farmerOrder_id });
+
+                const paymentData = {
+                    req_id: request?._id,
+                    farmer_id: farmerData.farmer_id,
+                    farmer_order_id: farmer.farmerOrder_id,
+                    associate_id: record?.seller_id,
+                    ho_id: request?.head_office_id,
+                    bo_id: request?.branch_id,
+                    associateOffers_id: farmerData?.associateOffers_id,
+                    batch_id: record?._id,
+                    qtyProcured: farmer.qty,
+                    amount: farmer.amt,
+                    initiated_at: new Date(),
+                    payment_method: _paymentmethod.bank_transfer
+                }
+
+                paymentRecords.push(paymentData);
+            }
+
+            await Payment.insertMany(paymentRecords);
+
+            record.delivered.proof_of_delivery = document_pictures.proof_of_delivery;
+            record.delivered.weigh_bridge_slip = document_pictures.weigh_bridge_slip;
+            record.delivered.receiving_copy = document_pictures.receiving_copy;
+            record.delivered.truck_photo = truck_photo;
+            record.delivered.loaded_vehicle_weight = vehicle_details.loaded_vehicle_weight;
+            record.delivered.tare_weight = vehicle_details.tare_weight;
+            record.delivered.net_weight = vehicle_details.net_weight;
+            record.delivered.delivered_at = new Date();
+            record.delivered.delivered_by = user_id;
+    
+            record.status = _batchStatus.delivered;
+        // }
+
+        // if (weight_slip.length > 0) {
+            record.dispatched.weight_slip.received.push(...weight_slip.map(i => { return { img: i, on: moment() } }))
+        // }
+        
+        
+        record.payement_approval_at = new Date();
+        record.payment_approve_by = user_id;
+        await record.save();
+
+
+
+
+
+
+
+
 
         const batchData = await Batch.findById(batchId);
         if (!batchData) {
@@ -978,7 +1183,7 @@ module.exports.batchStatsData = async (req, res) => {
         }
 
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -1001,6 +1206,12 @@ module.exports.batchStatsData = async (req, res) => {
         const query = {"warehousedetails_id": { $in: finalwarehouseIds }};
 
         const rows = await Batch.find(query);
+
+        //////// for external batches
+
+        const externalBatchrows = await ExternalBatch.countDocuments({"warehousedetails_id": { $in: finalwarehouseIds }});
+        
+
         let totalBatches = 0;
         let approvedQC = 0;
         let rejectedQC = 0;
@@ -1045,6 +1256,7 @@ module.exports.batchStatsData = async (req, res) => {
             pendingBatch,
             // rejectedBatch,
             // approvedBatch
+            externalBatch : externalBatchrows
         };
         return res.status(200).send(new serviceResponse({
             status: 200,
@@ -1080,7 +1292,7 @@ module.exports.getFilterBatchList = async (req, res) => {
         }
 
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -1155,7 +1367,8 @@ module.exports.createExternalBatch = async (req, res) => {
             procurementCenter, 
             inward_quantity: inward_quantity || 0,
             commodity : commodity || 'Maize',
-            warehousedetails_id
+            warehousedetails_id,
+            remaining_quantity : inward_quantity
         });
 
         const response = await externalBatchData.save();
