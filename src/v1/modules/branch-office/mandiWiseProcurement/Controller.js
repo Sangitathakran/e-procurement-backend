@@ -451,8 +451,10 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
             }
           }),
           ...(commodityArray.length > 0 && {
-            "relatedRequest.product.name": {
-              $in: commodityArray.map(name => new RegExp(name, 'i'))
+            "relatedRequest.product.commodity_id": {
+              $in: commodityArray 
+                .filter(mongoose.Types.ObjectId.isValid)
+                .map(id => new mongoose.Types.ObjectId(id))
             }
           }),
         }
@@ -491,6 +493,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
       {
         $group: {
           _id: '$procurementCenter_id',
+          req_No : { $first : "$relatedRequest.product.reqNo"},
           centerName: { $first: '$center.center_name' },
           Status: { $first: '$center.active' },
           centerId: { $first: '$center._id' },
@@ -506,7 +509,8 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
           purchaseDays: { $first: '$purchaseDays' },
           productName: { $first: '$relatedRequest.product.name' },
           season: { $first: '$relatedRequest.product.season' },
-          schemeId: { $first: '$relatedRequest.product.schemeId' }
+          schemeId: { $first: '$relatedRequest.product.schemeId' },
+          commodity_id : { $first :"$relatedRequest.product.commodity_id"}
         }
       },
       {

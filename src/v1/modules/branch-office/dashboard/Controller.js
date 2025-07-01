@@ -118,12 +118,128 @@ const totalPaymentAmount = PaymentCompletedSumAgg[0]?.totalAmount || 0;
 };
 */
 
+// module.exports.getDashboardStats = async (req, res) => {
+//     try {
+//         const boId = new mongoose.Types.ObjectId(req.portalId);
+//         const {  commodity, season, scheme } = req.query;
+
+//         //resolve stateId from branch
+//         const userDetails = await Branches.findOne({ _id: boId });
+//         const stateName = userDetails?.state?.trim();
+//         const stateDoc = await StateDistrictCity.aggregate([
+//             { $unwind: "$states" },
+//             { $match: { "states.state_title": stateName } },
+//             { $project: { _id: 0, state_id: "$states._id" } }
+//         ]);
+//         const stateId = stateDoc[0]?.state_id;
+//         //default stats 
+//         const farmerRegisteredCount = await farmer.countDocuments({ "address.state_id": stateId });
+//         const warehouseCount = await wareHouseDetails.countDocuments({ active: true });
+//         const procurementCenterCount = await ProcurementCenter.countDocuments({ deletedAt: null, active: true });
+//         const PaymentInitiatedCount = await Payment.countDocuments({
+//             bo_id: { $exists: true },
+//             payment_status: "Completed"
+//         });
+
+//         const totalProducments = await Payment.find({ payment_status: "Completed" }, 'qtyProcured');
+//         const totalProcurementCount = totalProducments.reduce((sum, item) => {
+//             const qty = parseFloat(item.qtyProcured || 0);
+//             return sum + qty;
+//         }, 0);
+
+//         //if no filters passed
+//         if (!commodity && !season && !scheme) {
+//             return res.send(new serviceResponse({
+//                 status: 200,
+//                 data: {
+//                     farmerRegisteredCount,
+//                     warehouseCount,
+//                     procurementCenterCount,
+//                     PaymentInitiatedCount,
+//                     totalProcurementCount
+//                 },
+//                 message: _response_message.found("Default Dashboard Stats")
+//             }));
+//         }
+
+//         //filter count
+
+//         const filters = [];
+//         if (commodity) {
+//             const array = commodity.split(',').filter(Boolean).map(id => new mongoose.Types.ObjectId(id));
+//             if (array.length) filters.push({ "product.commodity_id": { $in: array } });
+//         }
+//         if (scheme) {
+//             const array = scheme.split(',').filter(Boolean).map(id => new mongoose.Types.ObjectId(id));
+//             if (array.length) filters.push({ "product.schemeId": { $in: array } });
+//         }
+//         if (season) {
+//             const array = season.split(',').filter(Boolean);
+//             if (array.length) filters.push({ "product.season": { $in: array } });
+//         }
+
+//         const filterQuery = filters.length ? { $and: filters } : {};
+//         console.log(">>>>>>>>>>>>>>>>>")
+//         console.log(filterQuery)
+//         if (matchedRequests.length === 0) {
+//             //filters applied but no match then give zero
+//             return res.send(new serviceResponse({
+//                 status: 200,
+//                 data: {
+//                     farmerRegisteredCount: 0,
+//                     warehouseCount: 0,
+//                     procurementCenterCount: 0,
+//                     PaymentInitiatedCount: 0,
+//                     totalProcurementCount: 0
+//                 },
+//                 message: _response_message.notFound("Filtered Dashboard Stats")
+//             }));
+//         }
+
+//         const requestIds = matchedRequests.map(r => r._id);
+
+//         //filtered value
+//         const payments = await Payment.find({
+//             req_id: { $in: requestIds },
+//             payment_status: "Completed"
+//         });
+
+//         const farmerIds = payments.map(p => p.farmer_id?.toString());
+//         const uniqueFarmerCount = [...new Set(farmerIds)].length;
+
+//         const batchDocs = await Batch.find({ req_id: { $in: requestIds } });
+//         const warehouseIds = [...new Set(batchDocs.map(b => b.warehousedetails_id?.toString()))];
+//         const pocIds = [...new Set(batchDocs.map(b => b.procurementCenter_id?.toString()))];
+
+//         const totalFilteredQty = payments.reduce((sum, p) => {
+//             return sum + parseFloat(p.qtyProcured || 0);
+//         }, 0);
+
+//         //final filter response
+//         return res.send(new serviceResponse({
+//             status: 200,
+//             data: {
+//                 farmerRegisteredCount: uniqueFarmerCount,
+//                 warehouseCount: warehouseIds.length,
+//                 procurementCenterCount: pocIds.length,
+//                 PaymentInitiatedCount: payments.length,
+//                 totalProcurementCount: totalFilteredQty
+//             },
+//             message: _response_message.found("Filtered Dashboard Stats")
+//         }));
+
+//     } catch (error) {
+//         _handleCatchErrors(error, res);
+//     }
+// };
+
+
 module.exports.getDashboardStats = async (req, res) => {
     try {
         const boId = new mongoose.Types.ObjectId(req.portalId);
         const { commodity, season, scheme } = req.query;
 
-        //resolve stateId from branch
+        // resolve stateId from branch
         const userDetails = await Branches.findOne({ _id: boId });
         const stateName = userDetails?.state?.trim();
         const stateDoc = await StateDistrictCity.aggregate([
@@ -132,41 +248,12 @@ module.exports.getDashboardStats = async (req, res) => {
             { $project: { _id: 0, state_id: "$states._id" } }
         ]);
         const stateId = stateDoc[0]?.state_id;
-        //default stats 
-        const farmerRegisteredCount = await farmer.countDocuments({ "address.state_id": stateId });
-        const warehouseCount = await wareHouseDetails.countDocuments({ active: true });
-        const procurementCenterCount = await ProcurementCenter.countDocuments({ deletedAt: null, active: true });
-        const PaymentInitiatedCount = await Payment.countDocuments({
-            bo_id: { $exists: true },
-            payment_status: "Completed"
-        });
 
-        const totalProducments = await Payment.find({ payment_status: "Completed" }, 'qtyProcured');
-        const totalProcurementCount = totalProducments.reduce((sum, item) => {
-            const qty = parseFloat(item.qtyProcured || 0);
-            return sum + qty;
-        }, 0);
-
-        //if no filters passed
-        if (!commodity && !season && !scheme) {
-            return res.send(new serviceResponse({
-                status: 200,
-                data: {
-                    farmerRegisteredCount,
-                    warehouseCount,
-                    procurementCenterCount,
-                    PaymentInitiatedCount,
-                    totalProcurementCount
-                },
-                message: _response_message.found("Default Dashboard Stats")
-            }));
-        }
-
-        //filter count
+        // Build filters
         const filters = [];
         if (commodity) {
-            const array = commodity.split(',').filter(Boolean);
-            if (array.length) filters.push({ "product.name": { $in: array } });
+            const array = commodity.split(',').filter(Boolean).map(id => new mongoose.Types.ObjectId(id));
+            if (array.length) filters.push({ "product.commodity_id": { $in: array } });
         }
         if (scheme) {
             const array = scheme.split(',').filter(Boolean).map(id => new mongoose.Types.ObjectId(id));
@@ -178,10 +265,10 @@ module.exports.getDashboardStats = async (req, res) => {
         }
 
         const filterQuery = filters.length ? { $and: filters } : {};
-
         const matchedRequests = await RequestModel.find(filterQuery, { _id: 1 });
-        if (matchedRequests.length === 0) {
-            //filters applied but no match then give zero
+
+        // if filters applied but no match found
+        if (filters.length && matchedRequests.length === 0) {
             return res.send(new serviceResponse({
                 status: 200,
                 data: {
@@ -195,9 +282,38 @@ module.exports.getDashboardStats = async (req, res) => {
             }));
         }
 
+        // if no filters applied, return default stats
+        if (!filters.length) {
+            const farmerRegisteredCount = await farmer.countDocuments({ "address.state_id": stateId });
+            const warehouseCount = await wareHouseDetails.countDocuments({ active: true });
+            const procurementCenterCount = await ProcurementCenter.countDocuments({ deletedAt: null, active: true });
+            const PaymentInitiatedCount = await Payment.countDocuments({
+                bo_id: { $exists: true },
+                payment_status: "Completed"
+            });
+
+            const totalProducments = await Payment.find({ payment_status: "Completed" }, 'qtyProcured');
+            const totalProcurementCount = totalProducments.reduce((sum, item) => {
+                const qty = parseFloat(item.qtyProcured || 0);
+                return sum + qty;
+            }, 0);
+
+            return res.send(new serviceResponse({
+                status: 200,
+                data: {
+                    farmerRegisteredCount,
+                    warehouseCount,
+                    procurementCenterCount,
+                    PaymentInitiatedCount,
+                    totalProcurementCount
+                },
+                message: _response_message.found("Default Dashboard Stats")
+            }));
+        }
+
+        // filtered sum
         const requestIds = matchedRequests.map(r => r._id);
 
-        //filtered value
         const payments = await Payment.find({
             req_id: { $in: requestIds },
             payment_status: "Completed"
@@ -207,6 +323,7 @@ module.exports.getDashboardStats = async (req, res) => {
         const uniqueFarmerCount = [...new Set(farmerIds)].length;
 
         const batchDocs = await Batch.find({ req_id: { $in: requestIds } });
+
         const warehouseIds = [...new Set(batchDocs.map(b => b.warehousedetails_id?.toString()))];
         const pocIds = [...new Set(batchDocs.map(b => b.procurementCenter_id?.toString()))];
 
@@ -214,7 +331,6 @@ module.exports.getDashboardStats = async (req, res) => {
             return sum + parseFloat(p.qtyProcured || 0);
         }, 0);
 
-        //final filter response
         return res.send(new serviceResponse({
             status: 200,
             data: {
@@ -233,94 +349,6 @@ module.exports.getDashboardStats = async (req, res) => {
 };
 
 
-
-// module.exports.getDashboardStats = async (req, res) => {
-
-//     try {
-
-//         const currentDate = new Date();
-//         const startOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-//         const startOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-//         const endOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
-
-//         const lastMonthBo = await User.countDocuments({
-//             user_type: _userType.bo,
-//             is_form_submitted: true,
-//             is_approved: _userStatus.approved,
-//             createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
-//         });
-
-//         const currentMonthAssociates = await User.countDocuments({
-//             user_type: _userType.associate,
-//             is_form_submitted: true,
-//             is_approved: _userStatus.approved,
-//             createdAt: { $gte: startOfCurrentMonth }
-//         });
-
-//         const difference = currentMonthAssociates - lastMonthBo;
-//         const status = difference >= 0 ? 'increased' : 'decreased';
-
-//         let differencePercentage = 0;
-//         if (lastMonthBo > 0) {
-//             differencePercentage = (difference / lastMonthBo) * 100;
-//         }
-
-//         // Farmers stats for last month and current month
-//         const lastMonthFarmers = await farmer.countDocuments({
-//             status: _status.active,
-//             createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }
-//         });
-
-//         const currentMonthFarmers = await farmer.countDocuments({
-//             status: _status.active,
-//             createdAt: { $gte: startOfCurrentMonth }
-//         });
-
-//         // Difference and percentage for farmers
-//         const farmerDifference = currentMonthFarmers - lastMonthFarmers;
-//         const farmerStatus = farmerDifference >= 0 ? 'increased' : 'decreased';
-
-//         let farmerDifferencePercentage = 0;
-//         if (lastMonthFarmers > 0) {
-//             farmerDifferencePercentage = (farmerDifference / lastMonthFarmers) * 100;
-//         }
-
-//         const branchOfficeCount = (await Branches.countDocuments({ status: _status.active })) ?? 0;
-//         const associateCount = (await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved})) ?? 0;
-//         const procurementCenterCount = (await ProcurementCenter.countDocuments({deletedAt: null})) ?? 0;
-//         const farmerCount = (await farmer.countDocuments({ status: _status.active })) ?? 0;
-
-//         const associateStats = {
-//             totalAssociates: associateCount,
-//             currentMonthAssociates,
-//             lastMonthBo,
-//             difference,
-//             differencePercentage: differencePercentage.toFixed(2) + '%',
-//             status: status,
-//         };
-
-//         const farmerStats = {
-//             totalFarmers: farmerCount,
-//             currentMonthFarmers,
-//             lastMonthFarmers,
-//             difference: farmerDifference,
-//             differencePercentage: farmerDifferencePercentage.toFixed(2) + '%',
-//             status: farmerStatus,
-//         };
-
-//         const records = {
-//             branchOfficeCount,
-//             associateStats,
-//             procurementCenterCount,
-//             farmerStats
-//         };
-
-//         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Dashboard Stats") }));
-
-//     } catch (error) {
-//         _handleCatchErrors(error, res);
-//     }
-// }
 
 
 module.exports.getProcurementsStats = async (req, res) => {
@@ -396,124 +424,245 @@ module.exports.getProcurementsStats = async (req, res) => {
 }
 
 
+// module.exports.getProcurementStatusList = async (req, res) => {
+//     try {
+//         let {
+//             page = 1,
+//             limit = 6,
+//             skip = 0,
+//             paginate = 1,
+//             sortBy = {},
+//             search = '',
+//             isExport = 0,
+//             commodity,
+//             season,
+//             scheme
+//         } = req.query;
+
+//         page = parseInt(page);
+//         limit = parseInt(limit);
+//         skip = parseInt(skip);
+
+//         //Multiselect parse
+//        const parseArray = (param) => {
+//             if (!param) return [];
+//             if (Array.isArray(param)) return param;
+//             try {
+//                 const parsed = JSON.parse(param);
+//                 return Array.isArray(parsed) ? parsed : [parsed];
+//             } catch {
+//                 return param.split(',').map(item => item.trim()).filter(Boolean);
+//             }
+//         };
+
+//         const commodityArray = parseArray(commodity);
+//         const seasonArray = parseArray(season);
+//         const schemeArray = parseArray(scheme);
+
+//         //query
+//         const query = {
+//             deletedAt: null,
+//             ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {})
+//         };
+
+//          // Filter: commodity _id
+//         if (commodityArray.length > 0) {
+//             const validCommodityIds = commodityArray.filter(mongoose.Types.ObjectId.isValid);
+//             if (validCommodityIds.length) {
+//                 query['product.commodity_id'] = {
+//                     $in: validCommodityIds.map(id => new mongoose.Types.ObjectId(id))
+//                 };
+//             }
+//         }
+
+//         // Filter: schemeId
+//         if (schemeArray.length > 0) {
+//             const validSchemeIds = schemeArray.filter(mongoose.Types.ObjectId.isValid);
+//             if (validSchemeIds.length) {
+//                 query['product.schemeId'] = {
+//                     $in: validSchemeIds.map(id => new mongoose.Types.ObjectId(id))
+//                 };
+//             }
+//         }
+
+//          // Filter: season (string match)
+//         if (seasonArray.length > 0) {
+//             query['product.season'] = {
+//                 $in: seasonArray.map(season => new RegExp(`^${season}$`, 'i'))
+//             };
+//         }
+
+
+//         const selectedFields = 'reqNo product.name product.quantity totalQuantity fulfilledQty product.commodity_id product.schemeId season';
+//         const records = { count: 0 };
+
+//         // Fetch data
+//         const fetchedRecords = paginate == 1
+//             ? await RequestModel.find(query)
+//                 .select(selectedFields)
+//                 .sort(sortBy)
+//                 .skip(skip)
+//                 .limit(limit)
+//             : await RequestModel.find(query)
+//                 .select(selectedFields)
+//                 .sort(sortBy);
+
+//         //results
+//         records.rows = fetchedRecords.map(record => ({
+//             orderId: record?.reqNo,
+//             commodity: record?.product?.name,
+//             quantityRequired: record?.product?.quantity,
+//             totalQuantity: record?.product?.quantity,
+//             fulfilledQty: record?.fulfilledQty,
+//             commodity_id: record?.product?.commodity_id || null,
+//             scheme_id: record?.product?.schemeId || null,
+//             season: record?.product?.season || null
+//         }));
+
+//         //pagination
+//         records.count = await RequestModel.countDocuments(query);
+
+//         if (paginate == 1) {
+//             records.page = page;
+//             records.limit = limit;
+//             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+//         }
+
+//         //Empty check
+//         if (!records?.rows?.length) {
+//             return res.status(200).send(
+//                 new serviceResponse({
+//                     status: 200,
+//                     data: records,
+//                     message: _response_message.notFound('Procurement')
+//                 })
+//             );
+//         }
+
+
+//         return res.status(200).send(
+//             new serviceResponse({
+//                 status: 200,
+//                 data: records,
+//                 message: _response_message.found('Procurement')
+//             })
+//         );
+//     } catch (error) {
+//         _handleCatchErrors(error, res);
+//     }
+// };
+
 module.exports.getProcurementStatusList = async (req, res) => {
-  try {
-    let {
-      page = 1,
-      limit = 6,
-      skip = 0,
-      paginate = 1,
-      sortBy = {},
-      search = '',
-      isExport = 0,
-      commodity,
-      season,
-      scheme
-    } = req.query;
+    try {
+        let {
+            page = 1,
+            limit = 6,
+            skip = 0,
+            paginate = 1,
+            sortBy = {},
+            search = '',
+            isExport = 0,
+            commodity,
+            season,
+            scheme
+        } = req.query;
 
-    page = parseInt(page);
-    limit = parseInt(limit);
-    skip = parseInt(skip);
+        page = parseInt(page);
+        limit = parseInt(limit);
+        skip = parseInt(skip);
 
-    //Multiselect parse
-    const parseArray = (param) => {
-      if (!param) return [];
-      if (Array.isArray(param)) return param;
-      try {
-        const parsed = JSON.parse(param);
-        return Array.isArray(parsed) ? parsed : [parsed];
-      } catch {
-        return param.split(',').map(item => item.trim()).filter(Boolean);
-      }
-    };
-
-    const commodityArray = parseArray(commodity);
-    const seasonArray = parseArray(season);
-    const schemeArray = parseArray(scheme);
-
-    //query
-    const query = {
-      deletedAt: null,
-      ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {})
-    };
-
-    if (commodityArray.length > 0) {
-      query['product.name'] = {
-        $in: commodityArray.map(name => new RegExp(`^${name}$`, 'i'))
-      };
-    }
-
-    if (seasonArray.length > 0) {
-      query['product.season'] = {
-        $in: seasonArray.map(season => new RegExp(`^${season}$`, 'i'))
-      };
-    }
-
-    if (schemeArray.length > 0) {
-      const validSchemeIds = schemeArray.filter(mongoose.Types.ObjectId.isValid);
-      if (validSchemeIds.length) {
-        query['product.schemeId'] = {
-          $in: validSchemeIds.map(id => new mongoose.Types.ObjectId(id))
+        const parseArray = (param) => {
+            if (!param) return [];
+            if (Array.isArray(param)) return param;
+            try {
+                const parsed = JSON.parse(param);
+                return Array.isArray(parsed) ? parsed : [parsed];
+            } catch {
+                return param.split(',').map(item => item.trim()).filter(Boolean);
+            }
         };
-      }
+
+        const commodityArray = parseArray(commodity);
+        const seasonArray = parseArray(season);
+        const schemeArray = parseArray(scheme);
+
+        const query = {
+            deletedAt: null,
+            ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {})
+        };
+
+        let isAnyFilterApplied = false;
+
+        // Commodity filter
+        const validCommodityIds = commodityArray.filter(mongoose.Types.ObjectId.isValid);
+        if (validCommodityIds.length > 0) {
+            query['product.commodity_id'] = { $in: validCommodityIds.map(id => new mongoose.Types.ObjectId(id)) };
+            isAnyFilterApplied = true;
+        }
+
+        // Scheme filter
+        const validSchemeIds = schemeArray.filter(mongoose.Types.ObjectId.isValid);
+        if (validSchemeIds.length > 0) {
+            query['product.schemeId'] = { $in: validSchemeIds.map(id => new mongoose.Types.ObjectId(id)) };
+            isAnyFilterApplied = true;
+        }
+
+        // Season filter
+        if (seasonArray.length > 0) {
+            query['product.season'] = { $in: seasonArray.map(season => new RegExp(`^${season}$`, 'i')) };
+            isAnyFilterApplied = true;
+        }
+
+        const selectedFields = 'reqNo product.name product.quantity totalQuantity fulfilledQty product.commodity_id product.schemeId product.season';
+        const records = { count: 0 };
+
+        const fetchedRecords = paginate == 1
+            ? await RequestModel.find(query).select(selectedFields).sort(sortBy).skip(skip).limit(limit)
+            : await RequestModel.find(query).select(selectedFields).sort(sortBy);
+
+        records.rows = fetchedRecords.map(record => ({
+            orderId: record?.reqNo,
+            commodity: record?.product?.name,
+            quantityRequired: record?.product?.quantity,
+            totalQuantity: record?.product?.quantity,
+            fulfilledQty: record?.fulfilledQty,
+            commodity_id: record?.product?.commodity_id || null,
+            scheme_id: record?.product?.schemeId || null,
+            season: record?.product?.season || null
+        }));
+
+        records.count = await RequestModel.countDocuments(query);
+
+        if (paginate == 1) {
+            records.page = page;
+            records.limit = limit;
+            records.pages = limit !== 0 ? Math.ceil(records.count / limit) : 0;
+        }
+
+        if (!records?.rows?.length) {
+            return res.status(200).send(
+                new serviceResponse({
+                    status: 200,
+                    data: records,
+                    message: isAnyFilterApplied
+                        ? _response_message.notFound('No Request Found matching filters')
+                        : _response_message.notFound('No Request Found')
+                })
+            );
+        }
+
+        return res.status(200).send(
+            new serviceResponse({
+                status: 200,
+                data: records,
+                message: _response_message.found('Procurement')
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
     }
-
-  
-    const selectedFields = 'reqNo product.name product.quantity totalQuantity fulfilledQty';
-    const records = { count: 0 };
-
-    // Fetch data
-    const fetchedRecords = paginate == 1
-      ? await RequestModel.find(query)
-          .select(selectedFields)
-          .sort(sortBy)
-          .skip(skip)
-          .limit(limit)
-      : await RequestModel.find(query)
-          .select(selectedFields)
-          .sort(sortBy);
-
-    //results
-    records.rows = fetchedRecords.map(record => ({
-      orderId: record?.reqNo,
-      commodity: record?.product?.name,
-      quantityRequired: record?.product?.quantity,
-      totalQuantity: record?.product?.quantity,
-      fulfilledQty: record?.fulfilledQty
-    }));
-
-    //pagination
-    records.count = await RequestModel.countDocuments(query);
-
-    if (paginate == 1) {
-      records.page = page;
-      records.limit = limit;
-      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-    }
-
-    //Empty check
-    if (!records?.rows?.length) {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: records,
-          message: _response_message.notFound('Procurement')
-        })
-      );
-    }
-
- 
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.found('Procurement')
-      })
-    );
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
 };
+
 
 
 module.exports.getPendingOffersCountByRequestId = async (req, res) => {
@@ -868,127 +1017,127 @@ module.exports.farmerPayments = async (req, res) => {
 // }
 
 module.exports.agentPayments = async (req, res) => {
-  try {
-    const {
-      page = 1,
-      limit = 5,
-      skip = 0,
-      paginate = 1,
-      sortBy = {},
-      search = '',
-      isExport = 0,
-      commodity,
-      season,
-      scheme
-    } = req.query;
+    try {
+        const {
+            page = 1,
+            limit = 5,
+            skip = 0,
+            paginate = 1,
+            sortBy = {},
+            search = '',
+            isExport = 0,
+            commodity,
+            season,
+            scheme
+        } = req.query;
 
-    //multi select filter
-    const parseArray = (param) => {
-      if (!param) return [];
-      if (Array.isArray(param)) return param;
-      try {
-        const parsed = JSON.parse(param);
-        return Array.isArray(parsed) ? parsed : [parsed];
-      } catch {
-        return param.split(',').map(item => item.trim()).filter(Boolean);
-      }
-    };
-
-    const commodityArray = parseArray(commodity);
-    const seasonArray = parseArray(season);
-    const schemeArray = parseArray(scheme);
-
-    //filter Request ID first
-    const requestFilter = {};
-    if (commodityArray.length > 0)
-      requestFilter['product.name'] = { $in: commodityArray };
-
-    if (seasonArray.length > 0)
-      requestFilter['product.season'] = { $in: seasonArray };
-
-    if (schemeArray.length > 0) {
-      const validSchemeIds = schemeArray.filter(id => mongoose.Types.ObjectId.isValid(id));
-      if (validSchemeIds.length)
-        requestFilter['product.schemeId'] = {
-          $in: validSchemeIds.map(id => new mongoose.Types.ObjectId(id))
+        //multi select filter
+        const parseArray = (param) => {
+            if (!param) return [];
+            if (Array.isArray(param)) return param;
+            try {
+                const parsed = JSON.parse(param);
+                return Array.isArray(parsed) ? parsed : [parsed];
+            } catch {
+                return param.split(',').map(item => item.trim()).filter(Boolean);
+            }
         };
+
+        const commodityArray = parseArray(commodity);
+        const seasonArray = parseArray(season);
+        const schemeArray = parseArray(scheme);
+
+        //filter Request ID first
+        const requestFilter = {};
+        if (commodityArray.length > 0)
+            requestFilter['product.name'] = { $in: commodityArray };
+
+        if (seasonArray.length > 0)
+            requestFilter['product.season'] = { $in: seasonArray };
+
+        if (schemeArray.length > 0) {
+            const validSchemeIds = schemeArray.filter(id => mongoose.Types.ObjectId.isValid(id));
+            if (validSchemeIds.length)
+                requestFilter['product.schemeId'] = {
+                    $in: validSchemeIds.map(id => new mongoose.Types.ObjectId(id))
+                };
+        }
+
+        let validRequestIds = [];
+        if (Object.keys(requestFilter).length > 0) {
+            const matchingRequests = await RequestModel.find(requestFilter, { _id: 1 });
+            validRequestIds = matchingRequests.map(req => req._id);
+        }
+
+        //build AgentInvoice query
+        const query = {};
+
+        if (validRequestIds.length > 0) {
+            query.req_id = { $in: validRequestIds };
+        }
+
+        if ((commodityArray.length || seasonArray.length || schemeArray.length) && validRequestIds.length === 0) {
+            // Filters applied but no matching Request found
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: { rows: [], count: 0, page, limit, pages: 0 },
+                message: "No Payment data found"
+            }));
+        }
+
+        //apply search
+        if (search) {
+            query.$or = [
+                { "req_id.reqNo": { $regex: search, $options: 'i' } },
+                { "bo_id.branchId": { $regex: search, $options: 'i' } },
+                { "req_id.product.name": { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        // fetch and populate
+        const baseQuery = AgentInvoice.find(query)
+            .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
+            .populate([
+                { path: "bo_id", select: "branchId" },
+                { path: "req_id", select: "product.name product.season product.schemeId deliveryDate quotedPrice reqNo" }
+            ])
+            .sort(sortBy);
+
+        const fetchedRecords = paginate == 1
+            ? await baseQuery.skip(parseInt(skip)).limit(parseInt(limit))
+            : await baseQuery;
+
+        const rows = fetchedRecords
+            .filter(record => record.req_id)
+            .map(record => ({
+                orderId: record.req_id.reqNo,
+                qtyProcured: record.qtyProcured,
+                billingDate: record.req_id.deliveryDate,
+                paymentStatus: record.payment_status
+            }));
+
+        const totalCount = await AgentInvoice.countDocuments(query);
+
+        const response = {
+            rows,
+            count: totalCount,
+        };
+
+        if (paginate == 1) {
+            response.page = parseInt(page);
+            response.limit = limit;
+            response.pages = limit != 0 ? Math.ceil(totalCount / limit) : 0;
+        }
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: response,
+            message: _query.get("Payment")
+        }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
     }
-
-    let validRequestIds = [];
-    if (Object.keys(requestFilter).length > 0) {
-      const matchingRequests = await RequestModel.find(requestFilter, { _id: 1 });
-      validRequestIds = matchingRequests.map(req => req._id);
-    }
-
-    //build AgentInvoice query
-    const query = {};
-
-    if (validRequestIds.length > 0) {
-      query.req_id = { $in: validRequestIds };
-    }
-
-    if ((commodityArray.length || seasonArray.length || schemeArray.length) && validRequestIds.length === 0) {
-      // Filters applied but no matching Request found
-      return res.status(200).send(new serviceResponse({
-        status: 200,
-        data: { rows: [], count: 0, page, limit, pages: 0 },
-        message: "No Payment data found"
-      }));
-    }
-
-    //apply search
-    if (search) {
-      query.$or = [
-        { "req_id.reqNo": { $regex: search, $options: 'i' } },
-        { "bo_id.branchId": { $regex: search, $options: 'i' } },
-        { "req_id.product.name": { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    // fetch and populate
-    const baseQuery = AgentInvoice.find(query)
-      .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
-      .populate([
-        { path: "bo_id", select: "branchId" },
-        { path: "req_id", select: "product.name product.season product.schemeId deliveryDate quotedPrice reqNo" }
-      ])
-      .sort(sortBy);
-
-    const fetchedRecords = paginate == 1
-      ? await baseQuery.skip(parseInt(skip)).limit(parseInt(limit))
-      : await baseQuery;
-
-    const rows = fetchedRecords
-      .filter(record => record.req_id)
-      .map(record => ({
-        orderId: record.req_id.reqNo,
-        qtyProcured: record.qtyProcured,
-        billingDate: record.req_id.deliveryDate,
-        paymentStatus: record.payment_status
-      }));
-
-    const totalCount = await AgentInvoice.countDocuments(query);
-
-    const response = {
-      rows,
-      count: totalCount,
-    };
-
-    if (paginate == 1) {
-      response.page = parseInt(page);
-      response.limit = limit;
-      response.pages = limit != 0 ? Math.ceil(totalCount / limit) : 0;
-    }
-
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      data: response,
-      message: _query.get("Payment")
-    }));
-
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
 };
 
 // module.exports.getStateWiseCommodityStatus = async (req, res) => {
@@ -1244,7 +1393,7 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
             const commodityArray = (Array.isArray(commodity) ? commodity : commodity.split(',')).map(s => s.trim()).filter(Boolean);
             if (commodityArray.length) {
                 filtersApplied = true;
-                const regexCommodity = commodityArray.map(name => new RegExp(`^${name}$`, 'i'));
+                const regexCommodity = commodityArray.map(name => new RegExp(name, 'i'));
                 query.push({ 'product.name': { $in: regexCommodity } });
             }
         }
@@ -1261,7 +1410,7 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
             const seasonArray = season.split(',').filter(Boolean);
             if (seasonArray.length) {
                 filtersApplied = true;
-                const regexSeason = seasonArray.map(name => new RegExp(`^${name}$`, 'i'));
+                const regexSeason = seasonArray.map(name => new RegExp(name, 'i'));
                 query.push({ 'product.season': { $in: regexSeason } });
             }
         }
@@ -1408,6 +1557,9 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
             },
             { $count: 'total' }
         ];
+        // console.log("aggregationPipeline", aggregationPipeline)
+        // console.log(">>>>>>>",)
+        // console.log("countPipeline", countPipeline)
 
         const [result, countResult, farmerCount] = await Promise.all([
             RequestModel.aggregate(aggregationPipeline).allowDiskUse(true),
@@ -1448,95 +1600,95 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
 
 // State wise district
 module.exports.getDistrict = async (req, res) => {
-  try {
-    const { district_titles } = req.query;
+    try {
+        const { district_titles } = req.query;
 
-    //get boId
-    const boId = new mongoose.Types.ObjectId(req.portalId);
-    const branch = await Branches.findOne({ _id: boId });
+        //get boId
+        const boId = new mongoose.Types.ObjectId(req.portalId);
+        const branch = await Branches.findOne({ _id: boId });
 
 
-    if (!branch || !branch.state) {
-      return sendResponse({
-        res,
-        status: 400,
-        message: "Invalid portalId or state not found in Branch data",
-      });
-    }
+        if (!branch || !branch.state) {
+            return sendResponse({
+                res,
+                status: 400,
+                message: "Invalid portalId or state not found in Branch data",
+            });
+        }
 
-    const stateName = branch.state.trim();
+        const stateName = branch.state.trim();
 
-    //stateId from StateDistrictCity using state Name
-    const stateData = await StateDistrictCity.aggregate([
-      { $unwind: "$states" },
-      { $match: { "states.state_title": stateName } },
-      { $project: { state_id: "$states._id", _id: 0 } }
-    ]);
+        //stateId from StateDistrictCity using state Name
+        const stateData = await StateDistrictCity.aggregate([
+            { $unwind: "$states" },
+            { $match: { "states.state_title": stateName } },
+            { $project: { state_id: "$states._id", _id: 0 } }
+        ]);
 
-    const stateId = stateData[0]?.state_id;
+        const stateId = stateData[0]?.state_id;
 
-    if (!stateId) {
-      return sendResponse({
-        res,
-        status: 400,
-        message: "State not found in StateDistrictCity collection",
-      });
-    }
+        if (!stateId) {
+            return sendResponse({
+                res,
+                status: 400,
+                message: "State not found in StateDistrictCity collection",
+            });
+        }
 
-   let districtArray = [];
-    if (district_titles) {
-      districtArray = Array.isArray(district_titles)
-        ? district_titles
-        : district_titles.split(',').map(d => d.trim());
-    }
+        let districtArray = [];
+        if (district_titles) {
+            districtArray = Array.isArray(district_titles)
+                ? district_titles
+                : district_titles.split(',').map(d => d.trim());
+        }
 
-    //get districts for particular stated on basis of boId
-    const pipeline = [
-      { $unwind: "$states" },
-      { $match: { "states._id": stateId, "states.status": "active" } },
-      { $unwind: "$states.districts" },
-      {
-        $match: {
-          "states.districts.status": "active",
-          ...(districtArray.length > 0 && {
-            $or: [
-              { "states.districts.district_title": { $in: districtArray } },
-              {
-                "states.districts._id": {
-                  $in: districtArray
-                    .filter(id => mongoose.Types.ObjectId.isValid(id))
-                    .map(id => new mongoose.Types.ObjectId(id))
+        //get districts for particular stated on basis of boId
+        const pipeline = [
+            { $unwind: "$states" },
+            { $match: { "states._id": stateId, "states.status": "active" } },
+            { $unwind: "$states.districts" },
+            {
+                $match: {
+                    "states.districts.status": "active",
+                    ...(districtArray.length > 0 && {
+                        $or: [
+                            { "states.districts.district_title": { $in: districtArray } },
+                            {
+                                "states.districts._id": {
+                                    $in: districtArray
+                                        .filter(id => mongoose.Types.ObjectId.isValid(id))
+                                        .map(id => new mongoose.Types.ObjectId(id))
+                                }
+                            }
+                        ]
+                    })
                 }
-              }
-            ]
-          })
-        }
-      },
-      {
-        $project: {
-          _id: 0,
-          district_id: "$states.districts._id",
-          district_title: "$states.districts.district_title"
-        }
-      }
-    ];
+            },
+            {
+                $project: {
+                    _id: 0,
+                    district_id: "$states.districts._id",
+                    district_title: "$states.districts.district_title"
+                }
+            }
+        ];
 
-    const district_list = await StateDistrictCity.aggregate(pipeline);
+        const district_list = await StateDistrictCity.aggregate(pipeline);
 
-    return sendResponse({
-      res,
-      message: "Districts fetched successfully",
-      data: district_list,
-    });
+        return sendResponse({
+            res,
+            message: "Districts fetched successfully",
+            data: district_list,
+        });
 
-  } catch (err) {
-    console.error("ERROR in getDistrict: ", err);
-    return sendResponse({
-      res,
-      status: 500,
-      message: err.message,
-    });
-  }
+    } catch (err) {
+        console.error("ERROR in getDistrict: ", err);
+        return sendResponse({
+            res,
+            status: 500,
+            message: err.message,
+        });
+    }
 };
 
 
