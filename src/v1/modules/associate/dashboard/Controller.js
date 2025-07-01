@@ -1799,6 +1799,8 @@ module.exports.incidentalExpense = async (req, res) => {
                 mandiName: { $ifNull: ["$procurementCenter.center_name", "NA"] },
                 district: { $ifNull: ["$procurementCenter.address.district", "NA"] },
                 status: { $ifNull: ["$payment_status", "NA"] },
+                dispatched: "$dispatched.bills" ,
+                ekhridBatch: "$ekhridBatch"
               },
             },
           ],
@@ -1806,12 +1808,11 @@ module.exports.incidentalExpense = async (req, res) => {
         },
       });
     }
-
     const result = await Batch.aggregate(pipeline);
+    
 
     const data = isExport == 2 ? result : result[0]?.data || [];
     const total = isExport == 2 ? data.length : result[0]?.totalCount?.[0]?.count || 0;
-
     const batchIds = data.map(item => +item.batchId).filter(Boolean);
     const summaryList = await eKharidHaryanaProcurementModel.aggregate([
       {
@@ -1865,7 +1866,7 @@ module.exports.incidentalExpense = async (req, res) => {
         laborChargesPayableDate: summary.laborChargesPayableDate
           ? new Date(summary.laborChargesPayableDate).toLocaleString("en-IN")
           : "NA",
-        commissionRecieved: summary.totalCommissionCharges || 0,
+        commissionRecieved: item.ekhridBatch == true ? summary.totalCommissionCharges : item?.dispatched?.commission,
         commissionChargesPayableDate: summary.commissionChargesPayableDate
           ? new Date(summary.commissionChargesPayableDate).toLocaleString("en-IN")
           : "NA",
