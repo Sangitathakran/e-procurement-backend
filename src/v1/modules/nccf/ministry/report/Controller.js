@@ -178,7 +178,6 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
 
 module.exports.omcReport = asyncErrorHandler(async (req, res) => {
   try {
-    
     const {
       page = 1,
       limit = 10,
@@ -241,19 +240,82 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
           deliveryScheduleDate: { $first: { $arrayElemAt: ['$batchorderprocesses.scheduledPickupDate', 0] } },
         },
       },
+
+      // Fetch maize POs of the same distiller
       {
         $lookup: {
-          from: 'requests',
+          from: 'purchaseorders',
+          let: { distillerId: '$_id.distillerId' },
           pipeline: [
             {
               $match: {
-                'product.name': { $regex: /maize/i }
+                $expr: {
+                  $and: [
+                    { $eq: ['$distiller_id', '$$distillerId'] },
+                    { $regexMatch: { input: '$product.name', regex: /maize/i } }
+                  ]
+                }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                totalMaizeRequirement: { $sum: '$purchasedOrder.poQuantity' }
+              }
+            }
+          ],
+          as: 'maizePOs'
+        }
+      },
+
+      // Fetch maize Procurement of the same state
+      // {
+      //   $lookup: {
+      //     from: 'requests',
+      //     pipeline: [
+      //       {
+      //         $match: {
+      //           'product.name': { $regex: /maize/i }
+      //         }
+      //       },
+      //       {
+      //         $project: {
+      //           _id: 1,
+      //           quantity: '$product.quantity',
+      //         }
+      //       }
+      //     ],
+      //     as: 'maizeRequests'
+      //   }
+      // },
+      {
+        $lookup: {
+          from: 'requests',
+          let: { distillerState: '$_id.state' },
+          pipeline: [
+            {
+              $lookup: {
+                from: 'branches',
+                localField: 'branch_id',
+                foreignField: '_id',
+                as: 'branchOffice'
+              }
+            },
+            { $unwind: '$branchOffice' },
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $regexMatch: { input: '$product.name', regex: /maize/i } },
+                    { $eq: ['$branchOffice.state', '$$distillerState'] }
+                  ]
+                }
               }
             },
             {
               $project: {
                 _id: 1,
-                quantity: '$product.quantity',
+                quantity: '$product.quantity'
               }
             }
           ],
@@ -274,19 +336,40 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
           as: 'paymentsForMaize'
         }
       },
+
       {
         $addFields: {
-          maizeRequirement: 2000,
+          maizeRequirement: {
+            $ifNull: [{ $arrayElemAt: ['$maizePOs.totalMaizeRequirement', 0] }, 0]
+          },
           thirtyPercentMonthlyRequirement: {
-            $round: [{ $multiply: [2000, 0.3] }, 2]
+            $round: [{
+              $multiply: [
+                { $ifNull: [{ $arrayElemAt: ['$maizePOs.totalMaizeRequirement', 0] }, 0] },
+                0.3
+              ]
+            }, 2]
           },
           maizeProcurement: {
             $sum: '$maizeRequests.quantity'
           },
           procurementDoneFromFarmer: {
-            $sum: '$maizeRequests.quantity'
+            $sum: {
+              $map: {
+                input: '$paymentsForMaize',
+                as: 'p',
+                in: {
+                  $convert: {
+                    input: '$$p.qtyProcured',
+                    to: 'double',
+                    onError: 0,
+                    onNull: 0
+                  }
+                }
+              }
+            }
           },
-          noOfFarmerBeficated: {
+          noOfFarmerBenefited: {
             $size: '$paymentsForMaize'
           },
           cna: cna
@@ -306,7 +389,7 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
           deliveryScheduleDate: 1,
           maizeProcurement: 1,
           procurementDoneFromFarmer: 1,
-          noOfFarmerBeficated: 1,
+          noOfFarmerBenefited: 1,
         }
       }
     ];
@@ -320,12 +403,11 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
       {
         $group: {
           _id: null,
-          totalPoQuantity: { $sum: '$totalPoQuantity' }
+          totalPoAmount: { $sum: '$poQuantity' }
         }
       }
     ];
 
-    // Paginate
     const paginatedPipeline = [...basePipeline, { $skip: skip }, { $limit: parseInt(limit) }];
 
     const [rows, countRes, totalRes] = await Promise.all([
