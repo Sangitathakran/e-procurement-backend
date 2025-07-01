@@ -61,7 +61,6 @@ const _collectionName = {
     commodityStandard:"commodityStandard",
     SchemeAssign: "SchemeAssign",
     ClientToken:"ClientToken",
-    
     Scheme: "Scheme",
     SLA: "SLA",
     CCAvenueResponse: "CCAvenueResponse",
@@ -72,7 +71,8 @@ const _collectionName = {
     SchemeAssign: "SchemeAssign",
     ClientToken : "ClientToken",
     centerProjection: "centerProjection",
-
+    statewisemanditax:"statewisemanditax"
+    
 }
 
 const _userType_Feature_Collection = {
@@ -587,24 +587,6 @@ const _schemeName = {
     Open: "Open"
 }
 
-const _ccAvenuePaymentStatus = {
-    SUCCESS: "Success",
-    DECLINED: "Unsuccessful",
-    ABORTED_SYSTEM: "Aborted/ Transaction aborted by system",
-    ABORTED_BANK: "Aborted/ Transaction aborted at the bank end",
-    ABORTED_CLIENT: "Aborted/Browser closed/Cancel reason is not specified by the customer",
-    ABORTED_CLIENT: "Aborted/Browser closed/Cancel reason is not specified by the customer",
-    INITIATED: "Initiated",
-    AUTO_CANCELLED: "Auto-Cancelled",
-    AUTO_REVERSED: "Auto-Reversed",
-    AWAITED: "Awaited",
-    INVALID: "Invalid",
-    CANCELLED: "Cancelled",
-    SHIPPED: "Shipped",
-    TIMEOUT: "Timeout",
-    UNKNOWN: "Unknown",
-    FAILURE: "Failure"
-}
 const _statesAndUTs = [
     { name: "Andaman and Nicobar Islands", code: "AN" },
     { name: "Andhra Pradesh", code: "AP" },
@@ -644,6 +626,24 @@ const _statesAndUTs = [
     { name: "West Bengal", code: "WB" }
   ];
   
+const _ccAvenuePaymentStatus = {
+    SUCCESS : "Success",
+    DECLINED : "Unsuccessful",
+    ABORTED_SYSTEM : "Aborted/ Transaction aborted by system",
+    ABORTED_BANK : "Aborted/ Transaction aborted at the bank end",
+    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    INITIATED : "Initiated",
+    AUTO_CANCELLED : "Auto-Cancelled",
+    AUTO_REVERSED : "Auto-Reversed",
+    AWAITED : "Awaited",
+    INVALID : "Invalid",
+    CANCELLED : "Cancelled",
+    SHIPPED : "Shipped",
+    TIMEOUT : "Timeout",
+    UNKNOWN : "Unknown",
+    FAILURE : "Failure"
+}
 
 module.exports = {
     _userAction,

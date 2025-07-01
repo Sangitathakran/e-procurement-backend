@@ -24,6 +24,10 @@ module.exports = {
     webSocketPort: process.env.WEBSOCKETPORT || 8080,
     rootDir: path.resolve('./'),
     apiVersion: process.env.API_VERSION,
+    APP_URL:process.env.APP_URL,
+    REDIRECT_URL :`${process.env.APP_URL}/v1/bank/payment-status`,
+    CANCEL_URL :`${process.env.FRONTEND_URL}/distiller/penaltyorders`,
+    SCCUESS_URL :`${process.env.FRONTEND_URL}/distiller/purchaseOrder/myorders`,
     // Default Secret Key For Auth Token
     JWT_SECRET_KEY: process.env.SECRET_KEY,
     THIRD_PARTY_JWT_SECRET: process.env.THIRD_PARTY_JWT_SECRET,
@@ -55,8 +59,10 @@ module.exports = {
         bucketName: process.env.BUCKET_NAME
     },
     logEmails: 'imran@radiantinfonet.com , maneesh@radiantinfonet.com ,ayush@navankur.org , dileep@radiantinfonet.com',
-
     AADHAR_SERVICE_PROVIDER_KEY: process.env.AADHAR_VERIFICATION_API_KEY,
     AADHAR_SERVICE_PROVIDER: process.env.AADHAR_VERIFICATION_API_PROVIDER,
-    procurement_partners
+    PG_ENV:process.env.PG_ENV,
+    MERCHANT_ID:process.env.MERCHANT_ID,
+    ACCESS_CODE:process.env.ACCESS_CODE,
+    WORKING_KEY:process.env.WORKING_KEY,
 }

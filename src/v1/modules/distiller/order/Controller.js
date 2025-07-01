@@ -1,4 +1,4 @@
-const { _generateOrderNumber, dumpJSONToExcel, handleDecimal, _distillerMsp, _taxValue, _handleCatchErrors } = require("@src/v1/utils/helpers")
+const { _generateOrderNumber, dumpJSONToExcel, handleDecimal, _distillerMsp, _mandiTax, _handleCatchErrors } = require("@src/v1/utils/helpers")
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { _webSocketEvents, _status, _poAdvancePaymentStatus, _poBatchPaymentStatus, _poPaymentStatus, _poBatchStatus } = require('@src/v1/utils/constants');
@@ -10,12 +10,13 @@ const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrd
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 const { mongoose } = require("mongoose");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { calculateAmount } = require("@src/v1/utils/helpers/amountCalculation");
 
 
 module.exports.getOrder = asyncErrorHandler(async (req, res) => {
     try {
         const { page, limit, skip, sortBy, search = '', isExport = 0 } = req.query
-        const { user_id } = req;
+        const { user_id, organization_id } = req;
         if (/[.*+?^${}()|[\]\\]/.test(search)) {
             return sendResponse({ res, status: 400, errorCode: 400, errors: [{ message: "Do not use any special character" }], message: "Do not use any special character" })
         }
@@ -33,7 +34,7 @@ module.exports.getOrder = asyncErrorHandler(async (req, res) => {
             {
                 $match: {
                     "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
-                    distiller_id: new mongoose.Types.ObjectId(user_id),
+                    distiller_id: new mongoose.Types.ObjectId(organization_id._id),
                     deletedAt: null, // Ensures only active records
                     ...(search
                         ? {
@@ -109,7 +110,7 @@ module.exports.getOrder = asyncErrorHandler(async (req, res) => {
 
 module.exports.getOrderById = asyncErrorHandler(async (req, res) => {
     const { id } = req.params;
-    const record = await PurchaseOrderModel.findOne({ _id: id });
+    const record = await PurchaseOrderModel.findOne({ _id: new mongoose.Types.ObjectId(id) });
 
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
@@ -137,8 +138,9 @@ module.exports.deleteOrder = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.deleted("Requirement") }));
 });
 
+/*
 module.exports.createBatch = asyncErrorHandler(async (req, res) => {
-    const { user_id, user_type } = req;
+    const { user_id, user_type, organization_id } = req;
     const { warehouseId, orderId, quantityRequired } = req.body;
 
     if (user_type && user_type != _userType.distiller) {
@@ -158,7 +160,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceed PO Qty." }] }))
     }
 
-    const existBatch = await BatchOrderProcess.find({ distiller_id: user_id, orderId });
+    const existBatch = await BatchOrderProcess.find({ distiller_id: organization_id._id, orderId });
 
     if (existBatch) {
         const addedQty = existBatch.reduce((quantityRequired, existBatch) => quantityRequired + existBatch.quantityRequired, 0);
@@ -174,20 +176,29 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         }
     }
 
-    // const msp = 24470;
     const msp = _distillerMsp();
     const totalAmount = handleDecimal(paymentInfo.totalAmount);
     const tokenAmount = handleDecimal(paymentInfo.advancePayment);
     const remainingAmount = handleDecimal(paymentInfo.balancePayment);
+    const paidAmount = handleDecimal(paymentInfo.paidAmount);
 
     let amountToBePaid = ''
-
-    if (existBatch.length > 0) {
-        amountToBePaid = handleDecimal(msp * quantityRequired);
+    console.log(paymentInfo.token);
+    if (paymentInfo.token == 100) {
+        amountToBePaid = 0;
     } else {
-        amountToBePaid = handleDecimal((msp * quantityRequired) - tokenAmount);
-
+        if (existBatch.length > 0) {
+            amountToBePaid = handleDecimal(msp * quantityRequired);
+        } else {
+            amountToBePaid = handleDecimal((msp * quantityRequired) - tokenAmount);
+        }
     }
+    // if (existBatch.length > 0) {
+    //     amountToBePaid = handleDecimal(msp * quantityRequired);
+    // } else {
+    //     amountToBePaid = handleDecimal((msp * quantityRequired) - tokenAmount);
+
+    // }
 
     let randomVal;
 
@@ -205,7 +216,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
     let currentDate = new Date(); // Get the current date
 
     const record = await BatchOrderProcess.create({
-        distiller_id: user_id,
+        distiller_id: organization_id._id,
         warehouseId,
         warehouseOwnerId: warehouseOwner_Id,
         orderId,
@@ -213,7 +224,7 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
         quantityRequired: handleDecimal(quantityRequired),
         'payment.amount': amountToBePaid,
         // scheduledPickupDate: currentDate.setDate(currentDate.getDate() + 7),
-        // 'payment.status': _poBatchPaymentStatus.paid,
+        'payment.status': _poBatchPaymentStatus.paid,
         createdBy: user_id
     });
 
@@ -231,6 +242,113 @@ module.exports.createBatch = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("PO Batch") }));
 });
+*/
+
+module.exports.createBatch = asyncErrorHandler(async (req, res) => {
+    const { user_id, user_type, organization_id } = req;
+    const { warehouseId, orderId, quantityRequired } = req.body;
+
+    if (user_type && user_type != _userType.distiller) {
+        return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
+    }
+
+    const poRecord = await PurchaseOrderModel.findOne({ _id: orderId, deletedAt: null });
+    const wareHouseOwnerDetails = await wareHouseDetails.findOne({ _id: warehouseId }).select({ 'warehouseOwnerId': 1, _id: 0 });
+    const warehouseOwner_Id = wareHouseOwnerDetails.warehouseOwnerId;
+
+    if (!poRecord) {
+        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound("PO") }));
+    }
+
+    const { branch_id, purchasedOrder, fulfilledQty, paymentInfo } = poRecord;
+
+    if (quantityRequired > purchasedOrder.poQuantity) {
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceed PO Qty." }] }));
+    }
+
+    const existBatch = await BatchOrderProcess.find({ distiller_id: organization_id._id, orderId });
+
+    if (existBatch.length > 0) {
+        const addedQty = existBatch.reduce((sum, b) => sum + b.quantityRequired, 0);
+        if (addedQty >= purchasedOrder.poQuantity) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Cannot create more Batch, Qty already fulfilled." }] }));
+        }
+        const remainingQty = handleDecimal(purchasedOrder.poQuantity - addedQty);
+        if (quantityRequired > remainingQty) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Quantity should not exceed PO Remaining Qty." }] }));
+        }
+    }
+
+    const msp = _distillerMsp();
+    const totalAmount = handleDecimal(paymentInfo.totalAmount);
+    const tokenAmount = handleDecimal(paymentInfo.advancePayment);
+    const remainingAmount = handleDecimal(paymentInfo.balancePayment);
+    const paidAmount = handleDecimal(paymentInfo.paidAmount);
+
+    let amountToBePaid = 0;
+    let batchPaymentStatus = _poBatchPaymentStatus.pending;
+
+    const addedQty = existBatch.reduce((sum, b) => sum + b.quantityRequired, 0);
+    const newFulfilledQty = handleDecimal(addedQty + quantityRequired);
+    const isLastBatch = newFulfilledQty === purchasedOrder.poQuantity;
+
+    if (paymentInfo.token == 100) {
+        amountToBePaid = 0;
+        batchPaymentStatus = _poBatchPaymentStatus.paid
+
+    } else {
+        amountToBePaid = handleDecimal(msp * quantityRequired);
+        // Calculate amounts
+        const { stateWiseMandiTax } = await calculateAmount(paymentInfo.token, quantityRequired, branch_id);
+
+        if (existBatch.length === 0) {
+            amountToBePaid = handleDecimal(amountToBePaid - tokenAmount);
+        }
+
+        if (paymentInfo.token == 10 && isLastBatch) {
+            const mandiTaxAmount = handleDecimal((totalAmount * stateWiseMandiTax) / 100);
+            amountToBePaid = handleDecimal(amountToBePaid + mandiTaxAmount);
+        }
+
+    }
+   
+    // Generate purchaseId
+    let randomVal;
+    const lastOrder = await BatchOrderProcess.findOne().sort({ createdAt: -1 }).select("purchaseId").lean();
+    if (lastOrder && lastOrder?.purchaseId) {
+        const lastNumber = parseInt(lastOrder.purchaseId.replace(/\D/g, ''), 10);
+        randomVal = `PO${lastNumber + 1}`;
+    } else {
+        randomVal = "PO1001";
+    }
+
+    const record = await BatchOrderProcess.create({
+        distiller_id: organization_id._id,
+        warehouseId,
+        warehouseOwnerId: warehouseOwner_Id,
+        orderId,
+        purchaseId: randomVal,
+        quantityRequired: handleDecimal(quantityRequired),
+        'payment.amount': amountToBePaid,
+        'payment.status': batchPaymentStatus,
+        createdBy: user_id
+    });
+console.log("poRecord", poRecord._id);
+    // Update PO record
+    poRecord.fulfilledQty = handleDecimal(fulfilledQty + quantityRequired);
+    poRecord.paymentInfo.paidAmount = handleDecimal(poRecord.paymentInfo.paidAmount + amountToBePaid);
+    poRecord.paymentInfo.balancePayment = handleDecimal(poRecord.paymentInfo.totalAmount - poRecord.paymentInfo.paidAmount);
+
+    if (poRecord.paymentInfo.totalAmount === poRecord.paymentInfo.paidAmount) {
+        poRecord.payment_status = _poPaymentStatus.paid;
+    }
+
+    await poRecord.save();
+    eventEmitter.emit(_webSocketEvents.procurement, { ...record, method: "created" });
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.created("PO Batch") }));
+});
+
 
 module.exports.deliveryScheduledBatchList = asyncErrorHandler(async (req, res) => {
     try {
@@ -311,15 +429,15 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
     try {
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-        const { user_id } = req;
+        const { user_id, organization_id } = req;
 
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("orderId") }] }));
         }
-
+        // console.log("order_id", order_id); console.log("organization_id", organization_id._id);
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
-            distiller_id: new mongoose.Types.ObjectId(user_id),
+            distiller_id: new mongoose.Types.ObjectId(organization_id._id),
             status: _poBatchStatus.accepted,
             ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
@@ -405,21 +523,24 @@ module.exports.batchPayNow = asyncErrorHandler(async (req, res) => {
         if (!record) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
         }
-       
+
         if (record.payment.status == _poBatchPaymentStatus.paid) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.allReadyUpdated("Batch") }] }));
         }
 
-        const amountToBePaid = handleDecimal(amount);
+        // const amountToBePaid = handleDecimal(amount);
 
-        record.payment.status = _poBatchPaymentStatus.paid;
-        record.payment.amount = amountToBePaid;
-        record.payment.paymentId = transactionId;
-        record.payment.paymentProof= paymentProof;
+        // record.payment.status = _poBatchPaymentStatus.paid;
+        // record.payment.amount = amountToBePaid;
+        // record.payment.paymentId = transactionId;
+        // record.payment.paymentProof= paymentProof;
 
-        await record.save();
+        // await record.save();
 
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("Batch") }));
+        // Above code is commented because we've now moved to real-time payment gateway
+        // All these changes will be done post successful payment
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Batch") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);

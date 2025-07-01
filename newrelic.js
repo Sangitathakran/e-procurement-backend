@@ -12,6 +12,7 @@ exports.config = {
   app_name: [app_name],
   license_key: license_key,
   /* ... rest of configuration .. */
+<<<<<<< HEAD
 }
 'use strict'
 
@@ -27,4 +28,6 @@ exports.config = {
   app_name: [app_name],
   license_key: license_key,
   /* ... rest of configuration .. */
+=======
+>>>>>>> 7f4067260012b59e8fe4a67f094ad6bb1836675d
 }

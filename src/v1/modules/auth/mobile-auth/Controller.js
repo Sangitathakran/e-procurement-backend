@@ -11,12 +11,11 @@ const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { smsService } = require("@src/v1/utils/third_party/SMSservices");
 const OTP = require("@src/v1/models/app/auth/OTP");
 const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
-const { _userType } = require("@src/v1/utils/constants");
+const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { TypesModel } = require("@src/v1/models/master/Types");
 const { getPermission } = require("../../user-management/permission");
 
 const { Distiller } = require("@src/v1/models/app/auth/Distiller")
-
 
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
@@ -184,6 +183,7 @@ module.exports.loginOrRegister = async (req, res) => {
                 });
 
                 return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist, masterUserCreated } }));
+
             }
 
         }
@@ -222,7 +222,8 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
         if (user) {
 
             if (user?.user_type === "8") {
-                const payload = { user: { _id: user._id, user_type: user?.user_type, portalId: user.portalId._id }, userInput: userInput, user_id: user._id, organization_id: user.portalId._id, user_type: user?.user_type }
+                const payload = { user: { _id: user._id, user_type: user?.user_type, portalId: user.portalId }, userInput: userInput, user_id: user._id, organization_id: user.portalId, user_type: user?.user_type }
+
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
                 const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
@@ -281,7 +282,6 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                     }))
                 }
 
-
                 const newUser = {
                     client_id: isEmailInput ? '1243' : '9876',
                     basic_details: isEmailInput
@@ -289,6 +289,7 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                         : { distiller_details: { phone: userInput } },
                     term_condition: true,
                     user_type: _userType.distiller,
+                    is_approved: _userStatus.approved,
                 };
                 if (isEmailInput) {
                     newUser.is_email_verified = true;
@@ -313,10 +314,21 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
 
                 const masterUserCreated = await masterUser.save();
 
+                // const payload = {
+                //     user: { _id: masterUserCreated._id, user_type: masterUserCreated?.user_type, portalId: masterUserCreated.portalId },
+                //     userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type
+                // }
+
+                const user = await MasterUser.findOne({ mobile: userInput.trim() })
+                    .populate([
+                        { path: "userRole", select: "" },
+                        { path: "portalId", select: "organization_name _id email phone" }
+                    ])
                 const payload = {
-                    user: { _id: masterUserCreated._id, user_type: masterUserCreated?.user_type, portalId: masterUserCreated.portalId },
-                    userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type
+                    user: { _id: user._id, user_type: user?.user_type, portalId: user.portalId },
+                    userInput: userInput, user_id: user._id, organization_id: user.portalId, user_type: user?.user_type
                 }
+               
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
                 const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
@@ -335,7 +347,71 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                 return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist, userWithPermission: masterUserCreated } }));
 
             }
+            // start of sangita code
+            else {
 
+                const newUser = {
+                    client_id: isEmailInput ? '1243' : '9876',
+                    basic_details: isEmailInput
+                        ? { distiller_details: { email: userInput } }
+                        : { distiller_details: { phone: userInput } },
+                    term_condition: true,
+                    user_type: _userType.distiller,
+                    is_approved: _userStatus.approved,
+                };
+                if (isEmailInput) {
+                    newUser.is_email_verified = true;
+                } else {
+                    newUser.is_mobile_verified = true;
+                }
+
+                ownerExist = await Distiller.create(newUser);
+                // warehouse type colllection
+                const type = await TypesModel.findOne({ _id: "67addcb11bdf461a3a7fcca6" })
+
+
+                const masterUser = new MasterUser({
+
+                    isAdmin: true,
+                    mobile: userInput.trim(),
+                    user_type: type.user_type,
+                    userRole: [type.adminUserRoleId],
+                    portalId: ownerExist._id,
+                    ipAddress: getIpAddress(req)
+                });
+
+                const masterUserCreated = await masterUser.save();
+
+                const user = await MasterUser.findOne({ mobile: userInput.trim() })
+                    .populate([
+                        { path: "userRole", select: "" },
+                        { path: "portalId", select: "organization_name _id email phone" }
+                    ])
+
+                const payload = {
+                    user: { _id: user._id, user_type: user?.user_type, portalId: user.portalId },
+                    userInput: userInput, user_id: user._id, organization_id: user.portalId, user_type: user?.user_type
+                }
+               
+                const expiresIn = 24 * 60 * 60; // 24 hour in seconds
+                const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+
+                res.cookie('token', token, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
+                    maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+                });
+
+                ownerExist = {
+                    ...JSON.parse(JSON.stringify(ownerExist)),
+                    onboarding: (ownerExist?.basic_details?.distiller_details?.organization_name && ownerExist?.basic_details?.point_of_contact && ownerExist.address && ownerExist.company_details && ownerExist.authorised && ownerExist.bank_details && ownerExist.is_form_submitted == 'true') ? true : false
+                }
+
+
+                return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist, userWithPermission: masterUserCreated } }));
+
+            }
+            // end of sangita code
         }
 
 

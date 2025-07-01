@@ -25,7 +25,7 @@
             "@views/*": [
                 "./src/v1/views/*"
             ],
-            "@common/*": [
+             "@common/*": [
                 "./src/common/*"
             ]
         }

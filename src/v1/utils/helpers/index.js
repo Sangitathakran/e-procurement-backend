@@ -13,6 +13,7 @@ const ExcelJS = require('exceljs');
 const { Console } = require("console");
 const PDFDocument = require('pdfkit');
 const FileCounter = require("@src/v1/models/app/payment/fileCounter");
+
 /**
  * 
  * @param {any} error 
@@ -462,8 +463,9 @@ exports._distillerMsp = () => {
   const msp = 24470;
   return msp;
 }
+
 exports._mandiTax = (amount) => {
-  
+
  const tax =  (amount * 1.2) / 100;
   return tax;
 }
@@ -479,8 +481,13 @@ exports.formatDate = (timestamp, format = "DD/MM/YYYY") => {
 
   return `${day}/${month}/${year}`;
 }
-exports.makeSearchQuery = (searchFields,search) => ({
+exports.makeSearchQuery = (searchFields, search) => ({
   $or: searchFields.map(item => ({
-      [item]: { $regex: search, $options: 'i' }
+    [item]: { $regex: search, $options: 'i' }
   }))
 });
+
+exports._advancePayment = () => {
+  const percentage = 10;
+  return percentage;
+}
