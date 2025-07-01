@@ -147,9 +147,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
             // orderId: order_id,
             // branch_id: branch.branch_id
           },
-        },
-      
-        { $sort: { [sortBy]: 1 } },
+        },         { $sort: { createdAt: -1, _id: -1 } }
       ];
       
       if (!isExport) {

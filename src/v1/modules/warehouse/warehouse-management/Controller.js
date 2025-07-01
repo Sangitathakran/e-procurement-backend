@@ -9,6 +9,7 @@ const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { wareHousev2 } = require('@src/v1/models/app/warehouse/warehousev2Schema');
 const { PurchaseOrderModel } = require('@src/v1/models/app/distiller/purchaseOrder');
+const { BatchOrderProcess } = require('@src/v1/models/app/distiller/batchOrderProcess');
 
 
 module.exports.saveWarehouseDetails = async (req, res) => {
@@ -26,7 +27,7 @@ module.exports.saveWarehouseDetails = async (req, res) => {
 
         // Decrypt and verify the token
         const decode = await decryptJwtToken(getToken);
-        const ownerId = decode.data.user_id; // Extract owner ID from token
+        const ownerId = decode.data.organization_id; // Extract owner ID from token
 
         // Extract warehouse data from the request body
         const {
@@ -115,7 +116,7 @@ module.exports.getWarehouseList = async (req, res) => {
         }
 
         const decoded = await decryptJwtToken(token);
-        const userId = decoded.data.user_id;
+        const userId = decoded.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -198,7 +199,7 @@ module.exports.editWarehouseDetails = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).json({ status: 400, message: "Invalid user ID in token" });
@@ -264,28 +265,76 @@ module.exports.updateWarehouseStatus = async (req, res) => {
     }
 }
 
+/*
 module.exports.getWarehouseDashboardStats = async (req, res) => {
     try {
-        const { user_id } = req;
+        const { user_id, organization_id } = req;
+        const {limit, skip, paginate = 1, sortBy, search = ''} = req.query
+        let record = { count: 0 };
+          const warehouseTotalCount = (await wareHouseDetails.countDocuments({warehouseOwnerId:organization_id})) ?? 0;
         
-        const warehouseTotalCount = (await wareHouseDetails.countDocuments()) ?? 0;
-        
-
           const wareHouseActiveCount =
-          (await wareHouseDetails.countDocuments({active:true})) ?? 0;  
+          (await wareHouseDetails.countDocuments({$and:[{active:true},{warehouseOwnerId:organization_id}]})) ?? 0;  
 
           const wareHouseInactiveCount =
-          (await wareHouseDetails.countDocuments({active:false})) ?? 0;  
+          (await wareHouseDetails.countDocuments({$and:[{active:false},{warehouseOwnerId:organization_id}]})) ?? 0;  
 
-          const outwardBatchCount =
-          (await PurchaseOrderModel.countDocuments({})) ?? 0;  
-    
+        //   const outwardBatchCount =
+        //   (await BatchOrderProcess.countDocuments({warehouseOwnerId:user_id})) ?? 0;  
+
+       // Define query with optional search filter
+let query = {
+    ...(search
+      ? { orderId: { $regex: search, $options: "i" }, deletedAt: null }
+      : { deletedAt: null })
+  };
+ 
+  
+record.rows = paginate == 1 ? await PurchaseOrderModel.find(query).select('product.name purchasedOrder.poQuantity purchasedOrder.poNo createdAt')
+        .sort(sortBy)
+        .skip(skip)
+        .populate({ path: "distiller_id", select: "basic_details.distiller_details.organization_name " })
+        //.populate({ path: "branch_id", select: "_id branchName branchId" })
+        .limit(parseInt(limit)) 
+        : await PurchaseOrderModel.find(query)
+             
+  record.rows = await Promise.all(
+      record.rows.map(async (item) => {
+          console.log(item._id)
+          let batchOrderProcess = await BatchOrderProcess.findOne({
+              warehouseOwnerId: organization_id,
+              orderId: item._id,
+          }).select('warehouseId orderId');
+
+          return batchOrderProcess ? item : null; // Return the item if found, otherwise null
+      })
+  );
+  // Filter out null values
+  record.rows = record.rows.filter((item) => item !== null);
+  const outwardBatchCount = record.rows.length;
+        
+
+        const warehouseDetails = await wareHouseDetails.find(
+            { warehouseOwnerId: new mongoose.Types.ObjectId(organization_id) }, 
+            { _id: 1 } // Only fetch `_id` field
+          );
+          
+          const ownerwarehouseIds = warehouseDetails.map(wh => wh._id); // Extract `_id` array
+            
           const inwardBatchCount =
-          (await Batch.countDocuments({})) ?? 0;  
-    
+            (await Batch.countDocuments({
+              $and: [
+                { warehousedetails_id: { $in: ownerwarehouseIds } },
+                { wareHouse_approve_status: "Received" }
+              ]
+            })) ?? 0;
         
          // Total warehouse capacity
     const totalCapacityResult = await wareHouseDetails.aggregate([
+        {
+            $match:{_id: { $in: ownerwarehouseIds } }
+
+        },
         {
           $group: {
             _id: null,
@@ -293,7 +342,7 @@ module.exports.getWarehouseDashboardStats = async (req, res) => {
           },
         },
       ]);
-  
+
       const totalWarehouseCapacity =
         totalCapacityResult.length > 0 ? totalCapacityResult[0].totalCapacity : 0;
 
@@ -322,6 +371,115 @@ module.exports.getWarehouseDashboardStats = async (req, res) => {
       }
     
 }
+*/
+
+module.exports.getWarehouseDashboardStats = async (req, res) => {
+  try {
+    const { user_id, organization_id } = req;
+    const { limit, skip, paginate = 1, sortBy = { createdAt: -1 }, search = '' } = req.query;
+
+    // Ensure limit and skip are parsed safely
+    const parsedLimit = parseInt(limit) || 10;
+    const parsedSkip = parseInt(skip) || 0;
+
+    const record = { count: 0 };
+
+    // --- Warehouse counts ---
+    const [warehouseTotalCount, wareHouseActiveCount, wareHouseInactiveCount] = await Promise.all([
+      wareHouseDetails.countDocuments({ warehouseOwnerId: organization_id }),
+      wareHouseDetails.countDocuments({ active: true, warehouseOwnerId: organization_id }),
+      wareHouseDetails.countDocuments({ active: false, warehouseOwnerId: organization_id }),
+    ]);
+
+    const wareHouseCount = {
+      warehouseTotalCount,
+      wareHouseActiveCount,
+      wareHouseInactiveCount
+    };
+
+    // --- Inward Batch Count ---
+    const warehouseDetails = await wareHouseDetails.find(
+      { warehouseOwnerId: new mongoose.Types.ObjectId(organization_id) },
+      { _id: 1 }
+    ).lean();
+
+    const ownerWarehouseIds = warehouseDetails.map(wh => wh._id);
+
+    const inwardBatchCount = await Batch.countDocuments({
+      warehousedetails_id: { $in: ownerWarehouseIds },
+      wareHouse_approve_status: "Received"
+    });
+
+    // --- Total Warehouse Capacity ---
+    const totalCapacityResult = await wareHouseDetails.aggregate([
+      { $match: { _id: { $in: ownerWarehouseIds } } },
+      {
+        $group: {
+          _id: null,
+          totalCapacity: { $sum: "$basicDetails.warehouseCapacity" }
+        }
+      }
+    ]);
+
+    const totalWarehouseCapacity = totalCapacityResult.length > 0
+      ? totalCapacityResult[0].totalCapacity
+      : 0;
+
+    // --- Outward Batch Count (Filtered Purchase Orders) ---
+    if (paginate != 1) {
+      return res.status(400).send(new serviceResponse({
+        status: 400,
+        message: "Unpaginated fetch not allowed for performance reasons",
+      }));
+    }
+
+    const purchaseQuery = {
+      ...(search
+        ? { orderId: { $regex: search, $options: "i" }, deletedAt: null }
+        : { deletedAt: null })
+    };
+
+    const purchaseOrders = await PurchaseOrderModel.find(purchaseQuery)
+      .select('product.name purchasedOrder.poQuantity purchasedOrder.poNo createdAt')
+      .sort(sortBy)
+      .skip(parsedSkip)
+      .limit(parsedLimit)
+      .populate({ path: "distiller_id", select: "basic_details.distiller_details.organization_name" })
+      .lean();
+
+    const orderIds = purchaseOrders.map(order => order._id);
+    const batchProcesses = await BatchOrderProcess.find({
+      warehouseOwnerId: organization_id,
+      orderId: { $in: orderIds }
+    }).select('orderId').lean();
+
+    const validOrderIds = new Set(batchProcesses.map(bp => bp.orderId.toString()));
+    const filteredOrders = purchaseOrders.filter(order => validOrderIds.has(order._id.toString()));
+    const outwardBatchCount = filteredOrders.length;
+
+    // --- Final Response ---
+    const records = {
+      wareHouseCount,
+      inwardBatchCount,
+      outwardBatchCount,
+      totalWarehouseCapacity,
+    };
+
+    return res.send(
+      new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("Dashboard Stats"),
+      })
+    );
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+
+
+
 
 module.exports.warehouseFilterList = async (req, res) => {
     const { sortBy = 'createdAt', sortOrder = 'asc' } = req.query;
@@ -334,7 +492,7 @@ module.exports.warehouseFilterList = async (req, res) => {
         }
 
         const decoded = await decryptJwtToken(token);
-        const userId = decoded.data.user_id;
+        const userId = decoded.data.organization_id;
 
         // Construct query for filtering warehouses
         const query = {

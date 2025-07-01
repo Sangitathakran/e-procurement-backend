@@ -14,12 +14,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: _collectionName.Distiller,
     },
-    // warehouseId: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Warehouse },
-    // head_office_id: {
-    //   type: mongoose.Schema.Types.ObjectId,
-    //   ref: _collectionName.HeadOffice,
-    // },
-    branch_id: { 
+    branch_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: _collectionName.Branch,
       required: true,
@@ -33,8 +28,8 @@ const purchaseOrderSchema = new mongoose.Schema(
       quantityDuration: { type: String, required: false },
     },
 
-    manufacturingLocation: { type: String, required: true },
-    storageLocation: { type: String, required: true },
+    manufacturingLocation: { type: String, required: false },
+    storageLocation: { type: String, required: false },
     deliveryLocation: {
       location: { type: String },
       lat: { type: String },
@@ -43,6 +38,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       locationDetails: { type: Object },
     },
     paymentInfo: {
+      token:{ type: Number, default: 10 }, // Unique token for payment processing
       totalAmount: { type: Number, required: true }, // Assume this is calculated during the first step
       advancePayment: { type: Number, required: true }, // Auto-calculated: 3% of totalAmount
       advancePaymentStatus: {
@@ -56,20 +52,20 @@ const purchaseOrderSchema = new mongoose.Schema(
       balancePaymentDate: { type: Date },
       paidAmount: { type: Number, default: 0 },
       tax: { type: Number, default: 0 },
-      mandiTax: {type: Number, default: 0 },
+      mandiTax: { type: Number, default: 0 },
       penaltyAmount: { type: Number, default: 0 },
       penaltyStaus: {
         type: String,
         enum: Object.values(_penaltypaymentStatus),
         default: _penaltypaymentStatus.NA,
       },
-      payment_proof:{ type: String },
+      payment_proof: { type: String },
     },
 
     companyDetails: {
       companyName: { type: String, trim: true },
       registeredAddress: { type: String },
-      phone: { type: String },  
+      phone: { type: String },
       faxNo: { type: String },
       email: { type: String },
       pan: { type: String },
@@ -125,7 +121,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       enum: Object.values(_poRequestStatus),
       default: _poRequestStatus.pending,
     },
-    
+
     payment_status: {
       type: String,
       enum: Object.values(_poPaymentStatus),
@@ -168,6 +164,7 @@ const purchaseOrderSchema = new mongoose.Schema(
     ],
     updatedBy: { type: mongoose.Schema.Types.ObjectId, default: null },
     createdBy: { type: mongoose.Schema.Types.ObjectId, default: null },
+    source_by: { type: String, default: "NCCF" }, // Source of the purchase order creation
     ..._commonKeys,
   },
   { timestamps: true }

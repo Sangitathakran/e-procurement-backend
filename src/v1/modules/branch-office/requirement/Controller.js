@@ -53,12 +53,22 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     records.rows = paginate == 1 ? await RequestModel.find(query).select(selectValues)
         .populate({ path: "branch_id", select: "_id branchName branchId" })
         .populate({ path: "head_office_id", select: "_id company_details.name" })
-        .populate({ path: "product.schemeId", select: "_id schemeId schemeName season status" })
+        .populate({ path: "product.schemeId", select: "_id schemeId schemeName season status period" })
         .populate({ path: "product.commodity_id", select: "_id name" })
         .populate({ path: "sla_id", select: "_id basic_details.name" })
         .sort(sortBy)
         .skip(skip)
         .limit(parseInt(limit)) : await RequestModel.find(query).select(selectValues).sort(sortBy);
+
+        records.rows = records.rows.map((doc) => {
+            const obj = doc.toObject();
+            const commdityName = obj?.product?.name || '';
+            const schemeName= obj?.product?.schemeId?.schemeName || '';
+            const season= obj?.product?.schemeId?.season || '';
+            const period= obj?.product?.schemeId?.period || '';
+            obj.scheme_name = `${schemeName} ${commdityName} ${season} ${period}`;
+            return obj;
+        });
 
     records.count = records.rows.length;
 
@@ -97,125 +107,140 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
 
 
 module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
-    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query;
+    const {
+        page = 1,
+        limit = 10,
+        skip = 0,
+        paginate = 1,
+        sortBy,
+        search = '',
+        req_id,
+        isExport = 0
+    } = req.query;
 
     let matchQuery = { req_id: new mongoose.Types.ObjectId(req_id) };
 
-    let aggregationPipeline = [
+    let basePipeline = [
         { $match: matchQuery },
 
-        // Lookup seller details
         {
             $lookup: {
-                from: "users", 
+                from: "users",
                 localField: "seller_id",
                 foreignField: "_id",
-                pipeline : [
-                    { $project : { "basic_details.associate_details.organization_name":1, "basic_details.associate_details.associate_name": 1 } }
+                pipeline: [
+                    {
+                        $project: {
+                            "basic_details.associate_details.organization_name": 1,
+                            "basic_details.associate_details.associate_name": 1
+                        }
+                    }
                 ],
-        
-                as: "seller_id",
-            },
+                as: "seller_id"
+            }
         },
         { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
 
-        // Lookup procurement center details
         {
             $lookup: {
-                from: "procurementcenters", 
+                from: "procurementcenters",
                 localField: "procurementCenter_id",
                 foreignField: "_id",
                 pipeline: [
-                    { $project: { center_name: 1}}
+                    { $project: { center_name: 1 } }
                 ],
-                as: "procurementCenter_id",
-            },
+                as: "procurementCenter_id"
+            }
         },
         { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
 
-        // Lookup request details
         {
             $lookup: {
-                from: "requests", 
+                from: "requests",
                 localField: "req_id",
                 foreignField: "_id",
-                pipeline : [
-                    { $project : { "address.deliveryLocation":1 } }
+                pipeline: [
+                    { $project: { "address.deliveryLocation": 1 } }
                 ],
-                as: "req_id",
-            },
+                as: "req_id"
+            }
         },
         { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
 
-        // Add  searchable fields
         {
             $addFields: {
                 associateName: "$seller_id.basic_details.associate_details.associate_name",
+                organizationName: "$seller_id.basic_details.associate_details.organization_name",
                 procurementCenterName: "$procurementCenter_id.center_name",
-                deliveryLocation: "$req_id.address.deliveryLocation",
-            },
-        },
+                deliveryLocation: "$req_id.address.deliveryLocation"
+            }
+        }
     ];
 
-    // Apply search filter
     if (search.trim()) {
         const escapeRegex = (text) => text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
         const searchTerm = escapeRegex(search.trim());
 
-        aggregationPipeline.push({
+        basePipeline.push({
             $match: {
                 $or: [
                     { batchId: { $regex: searchTerm, $options: "i" } },
                     { associateName: { $regex: searchTerm, $options: "i" } },
+                    { organizationName: { $regex: searchTerm, $options: "i" } },
                     { procurementCenterName: { $regex: searchTerm, $options: "i" } },
-                   // { deliveryLocation: { $regex: searchTerm, $options: "i" } },
-                ],
-            },
+                    // { deliveryLocation: { $regex: searchTerm, $options: "i" } },
+                ]
+            }
         });
     }
 
-    // Final projection
-    aggregationPipeline.push({
-        $project: {
-            _id: 1,
-            batchId: 1,
-            associateName: 1,
-            procurementCenterName: 1,
-            qty: 1,
-            delivered_at: "$delivered.delivered_at",
-            status: 1,
-            dispatched: 1,
-            intransit: 1,
-            delivered: 1,
-            final_quality_check: 1,
-            receiving_details: 1,
-            seller_id: 1,
-            procurementCenter_id:1,
-            req_id: 1,
-            farmerOrderIds:1,
-            qty: 1,
-            goodsPrice: 1,
-            totalPrice: 1,
-            bo_approve_status: 1,
-            payement_approval_at: 1,
-            payment_approve_by: 1,
-            ho_approval_at: 1,
-            ho_approve_by: 1,
-            ho_approve_status: 1,
-            payment_by: 1,
-            payment_at: 1,
-            status: 1,
-            agent_approve_status: 1,
-            warehousedetails_id: 1,
-            wareHouse_approve_at: 1,
-            wareHouse_approve_status: 1,
-            allotedQty: 1,
-            available_qty: 1,
-            createdAt: 1,
-            updatedAt: 1
+    // Clone basePipeline for count before adding pagination/sorting
+    const countPipeline = [...basePipeline, { $count: "total" }];
+
+    // Projection + Pagination
+    const aggregationPipeline = [...basePipeline,
+        {
+            $project: {
+                _id: 1,
+                batchId: 1,
+                associateName: 1,
+                procurementCenterName: 1,
+                qty: 1,
+                delivered_at: "$delivered.delivered_at",
+                status: 1,
+                dispatched: 1,
+                intransit: 1,
+                delivered: 1,
+                final_quality_check: 1,
+                receiving_details: 1,
+                seller_id: 1,
+                procurementCenter_id: 1,
+                req_id: 1,
+                farmerOrderIds: 1,
+                qty: 1,
+                goodsPrice: 1,
+                totalPrice: 1,
+                bo_approve_status: 1,
+                payement_approval_at: 1,
+                payment_approve_by: 1,
+                ho_approval_at: 1,
+                ho_approve_by: 1,
+                ho_approve_status: 1,
+                payment_by: 1,
+                payment_at: 1,
+                status: 1,
+                agent_approve_status: 1,
+                warehousedetails_id: 1,
+                wareHouse_approve_at: 1,
+                wareHouse_approve_status: 1,
+                allotedQty: 1,
+                available_qty: 1,
+                createdAt: 1,
+                updatedAt: 1
+            }
         }
-    });
-    
+    ];
+
     if (paginate == 1) {
         aggregationPipeline.push(
             { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
@@ -226,13 +251,12 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
         aggregationPipeline.push({ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } });
     }
 
-    const rows = await Batch.aggregate(aggregationPipeline);
+    const [rows, countResult] = await Promise.all([
+        Batch.aggregate(aggregationPipeline),
+        Batch.aggregate(countPipeline)
+    ]);
 
-    // Count Query
-    const countPipeline = [...aggregationPipeline.slice(0, -1), { $count: "total" }];
-    const countResult = await Batch.aggregate(countPipeline);
     const count = countResult[0]?.total || 0;
-
     const records = { rows, count };
 
     if (paginate == 1) {
@@ -248,21 +272,29 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
             "Procurement Center": item?.procurementCenterName || "NA",
             "Quantity Procured": item?.qty || "NA",
             "Delivered On": item?.delivered_at ?? "NA",
-            "Batch Status": item?.status ?? "NA",
+            "Batch Status": item?.status ?? "NA"
         }));
 
         if (record.length > 0) {
-            dumpJSONToExcel(req, res, {
+            return dumpJSONToExcel(req, res, {
                 data: record,
                 fileName: `Requirement-Batch-record.xlsx`,
-                worksheetName: `Requirement-Batch-record`,
+                worksheetName: `Requirement-Batch-record`
             });
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: records,
+                message: _response_message.found("requirement")
+            }));
         }
-    } else {
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
     }
+
+    return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("requirement")
+    }));
 });
 
 

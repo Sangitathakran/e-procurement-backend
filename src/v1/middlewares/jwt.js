@@ -18,6 +18,7 @@ const { User } = require('../models/app/auth/User');
  * @param {import('express').NextFunction} next 
  * @returns 
  */
+
 const Auth = function (req, res, next) {
   let { token } = req.headers;
   if (token) {
@@ -33,9 +34,7 @@ const Auth = function (req, res, next) {
           console.log("route", route);
           
           const user_type = decoded.user_type
-          console.log("decode", user_type);
-
-
+          
           const routeCheck = checkUser(route, user_type)
           if (!routeCheck) {
             return sendResponse({ res, status: 403, message: "error while routecheck decode", errors: _auth_module.unAuth });
@@ -46,6 +45,9 @@ const Auth = function (req, res, next) {
           })
           if (decoded.email) {
             const user = await MasterUser.findOne({ email: decoded.email.trim() }).populate("portalId")
+            req.user = user
+          }else{ 
+            const user = await MasterUser.findOne({ mobile: decoded.userInput.trim() }).populate("portalId")
             req.user = user
           }
 
@@ -67,7 +69,11 @@ const checkUser = (route, user_type) => {
   }
   if (_userType[route] == user_type) {
     return true;
-  } else {
+  } 
+  else if(user_type == 11){
+    return true;
+  }
+  else {
     const routeList = ['aws', 'master', 'modules', 'agent', 'helper', 'user', 'associate', 'farmer', 'ho', 'bo', 'auth',]
     if (routeList.includes(route)) {
       return true

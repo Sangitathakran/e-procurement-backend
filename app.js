@@ -1,5 +1,15 @@
 // Path Alias
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+});
+//require('newrelic');
 require("module-alias/register");
+
 // import modules
 const express = require("express");
 const app = express();
@@ -12,9 +22,11 @@ const cookieParser = require("cookie-parser");
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./src/v1/utils/swagger/swagger-output.json");
 require("@src/v1/utils/websocket/server");
-// configs
+
 const { PORT, apiVersion } = require("./config/index");
+require('newrelic');
 require("./config/database");
+// require('newrelic');
 // require('./config/redis')
 const {
   handleCatchError,
@@ -60,6 +72,11 @@ app.get(
     );
   })
 );
+
+// const used = process.memoryUsage();
+// for (let key in used) {
+//   console.log(`${key} ${Math.round(used[key] / 1024 / 1024 * 100) / 100} MB`);
+// }
 
 /* Handle errors */
 //app.use(handleCatchError)

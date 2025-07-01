@@ -130,7 +130,7 @@ exports.resetPassword = async (req, res) => {
 
       return res.status(200).send(new serviceResponse({ status: 200, message: "Password changed successfully" }))
 
-    }else{ ;
+    }else{ 
       return res.status(400).send(new serviceResponse({ status: 400, message: "Unauthorized access" }))
     } 
 

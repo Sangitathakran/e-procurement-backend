@@ -13,6 +13,7 @@ const ExcelJS = require('exceljs');
 const { Console } = require("console");
 const PDFDocument = require('pdfkit');
 const FileCounter = require("@src/v1/models/app/payment/fileCounter");
+
 /**
  * 
  * @param {any} error 
@@ -187,15 +188,31 @@ const farmerIdGenerator = async (obj) => {
 
 exports.generateFarmerId = async (obj) => {
   let farmerId;
-
-  while (true) {
-    farmerId = await farmerIdGenerator(obj);
-    const existingFarmer = await farmer.findOne({ farmer_id: farmerId });
-    if (!existingFarmer) {
-      return farmerId;
-    }
+ try{ while (true) {
+  farmerId = await farmerIdGenerator(obj);
+  const existingFarmer = await farmer.findOne({ farmer_id: farmerId });
+  if (!existingFarmer) {
+    return farmerId;
   }
+}}catch(err){
+  console.log('ERROR IN GENERATE FARMER ID', err);
+}
 };
+
+// exports.generateFarmerId = async obj => {
+//   let farmerId;
+//   try {
+//     while (true) {
+//       farmerId = await farmerIdGenerator(obj);
+//       const existingFarmer = await farmer.find({}, { farmer_id: 1});
+//       if (!existingFarmer.includes(farmerId)) {
+//         return farmerId;
+//       }
+//     }
+//   } catch (err) {
+//     console.log('ERROR IN GENERATE FARMER ID', err);
+//   }
+// };
 
 exports.generateFileName = async (clientCode) => {
 
@@ -462,8 +479,9 @@ exports._distillerMsp = () => {
   const msp = 24470;
   return msp;
 }
+
 exports._mandiTax = (amount) => {
-  
+
  const tax =  (amount * 1.2) / 100;
   return tax;
 }
@@ -479,8 +497,13 @@ exports.formatDate = (timestamp, format = "DD/MM/YYYY") => {
 
   return `${day}/${month}/${year}`;
 }
-exports.makeSearchQuery = (searchFields,search) => ({
+exports.makeSearchQuery = (searchFields, search) => ({
   $or: searchFields.map(item => ({
-      [item]: { $regex: search, $options: 'i' }
+    [item]: { $regex: search, $options: 'i' }
   }))
 });
+
+exports._advancePayment = () => {
+  const percentage = 10;
+  return percentage;
+}

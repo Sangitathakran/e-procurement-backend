@@ -2571,11 +2571,8 @@ module.exports.qcReport = async (req, res) => {
 module.exports.agentDashboardAssociateList = async (req, res) => {
     try {
         const { sortBy = { createdAt: -1 } } = req.query;
-
-        const paymentIds = (await Payment.find()).map(i => i.req_id);
-
+        const paymentIds = await Payment.distinct("req_id");
         const query = { _id: { $in: paymentIds } };
-
         const records = {};
 
         const pipeline = [
@@ -2645,8 +2642,7 @@ module.exports.agentDashboardAssociateList = async (req, res) => {
 module.exports.agentDashboardPaymentList = async (req, res) => {
     try {
         const { sortBy = { createdAt: -1 } } = req.query;
-
-        const paymentIds = (await Payment.find()).map(i => i.req_id);
+        const paymentIds = await Payment.distinct("req_id");
         const query = { req_id: { $in: paymentIds } };
 
         const records = {};

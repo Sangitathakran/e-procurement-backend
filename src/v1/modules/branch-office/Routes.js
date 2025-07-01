@@ -9,6 +9,7 @@ const { assignSchemeRoutes } = require("./assignScheme/Routes");
 const { slaRoute } = require("./sla-management/Routes");
 const branchOfficeoRoutes = express.Router();
 const { Auth } = require("@src/v1/middlewares/jwt");
+const {dropDownRoute} = require("./dropdown/Routes")
 
 
 branchOfficeoRoutes.use("/payment", paymentRoutes);
@@ -18,5 +19,6 @@ branchOfficeoRoutes.use("/req", requirementRoutes);
 branchOfficeoRoutes.use("/dashboard", dashboardRoutes);
 branchOfficeoRoutes.use("/assignScheme", assignSchemeRoutes);
 branchOfficeoRoutes.use("/sla", Auth, slaRoute);
+branchOfficeoRoutes.use("/dropdown", Auth, dropDownRoute);
 
 module.exports = { branchOfficeoRoutes };
