@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 'use strict'
  
 const { app_name, license_key } = require("./config")
@@ -13,12 +13,8 @@ exports.config = {
   app_name: [app_name],
   license_key: license_key,
   /* ... rest of configuration .. */
-<<<<<<< HEAD
 }
 'use strict'
-=======
-    'use strict'
->>>>>>> 589499fc419ab250de349b8c6a2d7e069faa4c9c
 
 const { app_name, license_key } = require("./config")
 
@@ -32,9 +28,4 @@ exports.config = {
   app_name: [app_name],
   license_key: license_key,
   /* ... rest of configuration .. */
-<<<<<<< HEAD
-=======
->>>>>>> 7f4067260012b59e8fe4a67f094ad6bb1836675d
-=======
->>>>>>> 589499fc419ab250de349b8c6a2d7e069faa4c9c
 }

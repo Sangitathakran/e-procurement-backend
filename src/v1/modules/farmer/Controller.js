@@ -25,6 +25,9 @@ const fs = require('fs');
 const axios = require('axios');
 const moment = require('moment');
 const mongoose = require('mongoose');
+const { setCache, getCache } = require("@src/v1/utils/cache");
+const { Verifyfarmer } = require("@src/v1/models/app/farmerDetails/verifyFarmer");
+const { getVerifiedAadharInfo, getAgristackFarmerByAadhar } = require("./Services");
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -2912,3 +2915,39 @@ const generateFarmerCode = (state, mobile_no, name) => {
 
   return `${stateCode}${mobileCode}${farmerName}`;
 };
+
+
+module.exports.getVerifiedAdharDetails = async (req, res) => {
+  try {
+    const { uidai_aadharNo } = req.body;
+
+    // Run both queries in parallel for better performance
+    const [adharDetails, agristackFarmerDetails] = await Promise.all([
+      getVerifiedAadharInfo(uidai_aadharNo),
+      getAgristackFarmerByAadhar(uidai_aadharNo),
+    ]);
+
+    // Return 404 if both are null
+    if (!adharDetails && !agristackFarmerDetails) {
+      return res.status(200).json({
+        status: 200,
+        message: _query.notFound('aadhar'),
+      });
+    }
+
+    return res.json(
+      new serviceResponse({
+        status: 200,
+        message: _query.get('aadhar'),
+        data: {
+          adharDetails,
+          agristackFarmerDetails,
+        },
+      })
+    );
+  } catch (err) {
+    console.error('Error in getVerifiedAadharDetails:', err);
+    _handleCatchErrors(err, res);
+  }
+};
+

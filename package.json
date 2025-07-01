@@ -44,10 +44,7 @@
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
     "newrelic": "^12.21.0",
-<<<<<<< HEAD
     "node-cache": "^5.1.2",
-=======
->>>>>>> 589499fc419ab250de349b8c6a2d7e069faa4c9c
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.9",
     "path-to-regexp": "^8.2.0",
