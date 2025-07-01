@@ -401,7 +401,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       state = '',
       district = '',
       commodity = '',
-      filterType = 'month',
+      filterType = '',
       startDate,
       endDate
     } = req.query;
@@ -859,7 +859,6 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     const lastWarehouseStock = lastWarehouseStockAgg[0]?.totalStock || 0;
     const warehouseStockChangePercent = calculateChange(currentWarehouseStock, lastWarehouseStock);
     const warehouseStockTrend = getTrend(currentWarehouseStock, lastWarehouseStock);
-
     const procurementQtyAgg = await Batch.aggregate([
       {
         $lookup: {
