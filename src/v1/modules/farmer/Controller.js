@@ -234,19 +234,20 @@ module.exports.saveFarmerDetails = async (req, res) => {
       if (screenName == "address") {
         let { state, district } = req.body[screenName];
 
-        const isStateExist = await isStateAvailable(state);
-        const isDistrictExist = await isDistrictAvailable(state, district);
+      //   const isStateExist = await isStateAvailable(state);
+      //  // console.log({isStateExist})
+      //   const isDistrictExist = await isDistrictAvailable(state, district);
 
-        if (!isStateExist) {
-          return res.status(400).send({ message: "State not available" });
-        }
+      //   if (!isStateExist) {
+      //     return res.status(400).send({ message: "State not available" });
+      //   }
 
-        if (!isDistrictExist) {
-          await updateDistrict(state, district);
-        }
+      //   if (!isDistrictExist) {
+      //     await updateDistrict(state, district);
+      //   }
 
-        const state_id = await getStateId(state);
-        const district_id = await getDistrictId(district);
+        const state_id = state //await getStateId(state);
+        const district_id = district//await getDistrictId(district);
 
         farmerDetails[screenName] = {
           ...req.body[screenName],
@@ -1936,10 +1937,18 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         ? rec["FARMER CATEGORY"]
         : null;
       const gender = toLowerCaseIfExists(rec["GENDER*"]);
-      const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS"]) ? toLowerCaseIfExists(rec["MARITAL STATUS"]) : 'N/A';
-      const religion = toLowerCaseIfExists(rec["RELIGION"]) ? toLowerCaseIfExists(rec["RELIGION"]) : 'N/A';
-      const category = toLowerCaseIfExists(rec["CATEGORY"]) ? toLowerCaseIfExists(rec["CATEGORY"]) : 'N/A';
-      const highest_edu = rec["EDUCATION LEVEL"]? rec["EDUCATION LEVEL"] : null;
+      const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS"])
+        ? toLowerCaseIfExists(rec["MARITAL STATUS"])
+        : "N/A";
+      const religion = toLowerCaseIfExists(rec["RELIGION"])
+        ? toLowerCaseIfExists(rec["RELIGION"])
+        : "N/A";
+      const category = toLowerCaseIfExists(rec["CATEGORY"])
+        ? toLowerCaseIfExists(rec["CATEGORY"])
+        : "N/A";
+      const highest_edu = rec["EDUCATION LEVEL"]
+        ? rec["EDUCATION LEVEL"]
+        : null;
       const edu_details = rec["EDU DETAILS"] ? rec["EDU DETAILS"] : null;
       const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"]);
       const aadhar_no = rec["AADHAR NUMBER*"];
@@ -2291,7 +2300,46 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         } else {
           // Insert new farmer record
           farmerRecord = await insertNewFarmerRecord({
-            associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
+            associate_id: associateId,
+            name,
+            father_name,
+            mother_name,
+            dob: date_of_birth,
+            age: null,
+            gender,
+            farmer_category,
+            aadhar_no,
+            type,
+            marital_status,
+            religion,
+            category,
+            highest_edu,
+            edu_details,
+            address_line,
+            country,
+            state_id,
+            district_id,
+            tahshil,
+            block,
+            village,
+            pinCode,
+            lat,
+            long,
+            mobile_no,
+            email,
+            bank_name,
+            account_no,
+            branch_name,
+            ifsc_code,
+            account_holder_name,
+            warehouse,
+            cold_storage,
+            processing_unit,
+            transportation_facilities,
+            credit_facilities,
+            source_of_credit,
+            financial_challenges,
+            support_required,
           });
           await insertNewRelatedRecords(farmerRecord._id, {
             total_area,
@@ -3851,18 +3899,26 @@ const generateFarmerCode = (state, mobile_no, name) => {
 
 module.exports.getVerifiedAdharDetails = async (req, res) => {
   try {
-    const { uidai_aadharNo, farmer_id } = req.body;
+    const { uidai_aadharNo, farmer_id, cpmu_farmer_id } = req.body;
 
-    if (!uidai_aadharNo || !farmer_id) {
+    if(!farmer_id){
       return res.send({
         status: 400,
-        message: "uidai_aadharNo and farmer_id are mandatory field",
+        message: _middleware.require('farmer_id'),
+      });
+    }
+    if (!uidai_aadharNo && !cpmu_farmer_id) {
+      return res.send({
+        status: 400,
+        message: "Either cpmu_farmer_id or uidai_aadharNo is required !",
       });
     }
     // Run both queries in parallel for better performance
     const [adharDetails, agristackFarmerDetails] = await Promise.all([
-      getVerifiedAadharInfo(uidai_aadharNo, farmer_id),
-      getAgristackFarmerByAadhar(uidai_aadharNo, farmer_id),
+      uidai_aadharNo
+        ? getVerifiedAadharInfo(uidai_aadharNo, farmer_id)
+        : Promise.resolve(null),
+      getAgristackFarmerByAadhar(uidai_aadharNo, farmer_id, cpmu_farmer_id),
     ]);
 
     // Return 404 if both are null
@@ -3926,7 +3982,10 @@ module.exports.getStatesByPincode = async (req, res) => {
     );
     //console.log(">>>>>>>>>>>>>>>>>>>>>>>>", pincode_data, states);
     return res.send(
-      new serviceResponse({ message: "OK", data: { states: [filteredState] || states }  })
+      new serviceResponse({
+        message: "OK",
+        data: { states: [filteredState] || states },
+      })
     );
   } catch (err) {
     _handleCatchErrors(err, res);
@@ -3975,7 +4034,8 @@ module.exports.getDistrictsByState = async (req, res) => {
     let districts = await getDistrictsByStateId(stateId);
     let filteredDistricts = districts.find(
       (obj) =>
-        obj.district_title.toLowerCase() === pincode_data.PostOffice[0].District.toLowerCase()
+        obj.district_title.toLowerCase() ===
+        pincode_data.PostOffice[0].District.toLowerCase()
     );
     return res.send(
       new serviceResponse({

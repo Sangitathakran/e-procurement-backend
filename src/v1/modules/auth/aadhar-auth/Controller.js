@@ -294,6 +294,17 @@ module.exports.verifyAadharOTP = async (req, res) => {
       }
     );
 
+    await farmer.findByIdAndUpdate(
+      new mongoose.Types.ObjectId(farmer_id),
+      {
+        $set: {
+          "proof.aadhar_no": uidai_aadharNo,
+          "proof.is_verified": true
+        }
+      },
+      { new: true } // optional: returns the updated document
+    );
+
 
       return res.status(200).send(
         new serviceResponse({
