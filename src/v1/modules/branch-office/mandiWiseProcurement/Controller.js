@@ -318,7 +318,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
       commodity,
       scheme,
       season,
-      search: centerNames,
+      centerNames,
       districtNames,
       page = 1,
       limit = 10,
@@ -432,7 +432,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
       {
         $unwind: {
           path: '$relatedRequest',
-          preserveNullAndEmptyArrays: true
+          preserveNullAndEmptyArrays: false
         }
       },
       // add filter for season, schemeId here
@@ -491,27 +491,51 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
         }
       },
       {
+        // $group: {
+        //   _id: '$procurementCenter_id',
+        //   req_No : { $first : "$relatedRequest.reqNo"},
+        //   centerName: { $first: '$center.center_name' },
+        //   Status: { $first: '$center.active' },
+        //   centerId: { $first: '$center._id' },
+        //   district: { $first: '$seller.address.registered.district' },
+        //   associate_name: {
+        //     $first: '$seller.basic_details.associate_details.associate_name'
+        //   },
+        //   liftedQty: { $sum: '$qty' },
+        //   offeredQty: {
+        //     $first: { $ifNull: ['$associateOffer.offeredQty', 0] }
+        //   },
+        //   liftedDataDays: { $first: '$liftedDataDays' },
+        //   purchaseDays: { $first: '$purchaseDays' },
+        //   productName: { $first: '$relatedRequest.product.name' },
+        //  season: { $first: '$relatedRequest.product.season' },
+        //   schemeId: { $first: '$relatedRequest.product.schemeId' },
+        //   commodity_id: { $first: '$relatedRequest.product.commodity_id' }
+        // }
+
         $group: {
-          _id: '$procurementCenter_id',
-          req_No : { $first : "$relatedRequest.product.reqNo"},
-          centerName: { $first: '$center.center_name' },
-          Status: { $first: '$center.active' },
-          centerId: { $first: '$center._id' },
-          district: { $first: '$seller.address.registered.district' },
-          associate_name: {
-            $first: '$seller.basic_details.associate_details.associate_name'
-          },
-          liftedQty: { $sum: '$qty' },
-          offeredQty: {
-            $first: { $ifNull: ['$associateOffer.offeredQty', 0] }
-          },
-          liftedDataDays: { $first: '$liftedDataDays' },
-          purchaseDays: { $first: '$purchaseDays' },
-          productName: { $first: '$relatedRequest.product.name' },
-          season: { $first: '$relatedRequest.product.season' },
-          schemeId: { $first: '$relatedRequest.product.schemeId' },
-          commodity_id : { $first :"$relatedRequest.product.commodity_id"}
-        }
+  _id: {
+    procurementCenter_id: '$procurementCenter_id',
+    req_id: '$req_id'
+  },
+  req_No: { $first: '$relatedRequest.reqNo' },
+  centerName: { $first: '$center.center_name' },
+  Status: { $first: '$center.active' },
+  centerId: { $first: '$center._id' },
+  district: { $first: '$seller.address.registered.district' },
+  associate_name: {
+    $first: '$seller.basic_details.associate_details.associate_name'
+  },
+  liftedQty: { $sum: '$qty' },
+  offeredQty: { $first: { $ifNull: ['$associateOffer.offeredQty', 0] } },
+  liftedDataDays: { $first: '$liftedDataDays' },
+  purchaseDays: { $first: '$purchaseDays' },
+  productName: { $first: '$relatedRequest.product.name' },
+  season: { $first: '$relatedRequest.product.season' },
+  schemeId: { $first: '$relatedRequest.product.schemeId' },
+  commodity_id: { $first: '$relatedRequest.product.commodity_id' }
+}
+
       },
       {
         $addFields: {
@@ -534,7 +558,28 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
             }
           }
         }
-      }
+      },
+     {
+       $project: {
+  req_No: 1,
+  centerName: 1,
+  Status: 1,
+  centerId: 1,
+  district: 1,
+  associate_name: 1,
+  liftedQty: 1,
+  offeredQty: 1,
+  liftedDataDays: 1,
+  purchaseDays: 1,
+  productName: 1,
+  season: 1,
+  schemeId: 1,
+  commodity_id: 1,
+  balanceMandi: 1,
+  liftingPercentage: 1,
+}
+     }
+
     ];
 
     // Apply district and center search filters
