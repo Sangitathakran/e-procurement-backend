@@ -1,7 +1,7 @@
 const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel, isStateAvailable, isDistrictAvailable, updateDistrict, generateFarmerId, calculateAge } = require("@src/v1/utils/helpers")
 const { _userType } = require('@src/v1/utils/constants');
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
-const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
+const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords, insertNewHaryanaFarmerRecord, insertNewHaryanaRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
@@ -2802,26 +2802,38 @@ module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
       if (!Object.values(_proofType).includes(type)) {
         errors.push({ record: rec, error: `Invalid Proof type: ${type}. Valid options: ${Object.values(_proofType).join(', ')}` });
       }
+      if (area_unit && !Object.values(_areaUnit).includes(area_unit)) {
+        errors.push({ record: rec, error: `Invalid Area Unit: ${area_unit}. Valid options: ${Object.values(_areaUnit).join(', ')}` });
+      }
+      if (!Object.values(_seasons).includes(crop_season)) {
+        errors.push({ record: rec, error: `Invalid Crop Season: ${crop_season}. Valid options: ${Object.values(_seasons).join(', ')}` });
+      }
+      if (!Object.values(_yesNo).includes(soil_tested)) {
+        errors.push({ record: rec, error: `Invalid Yes No: ${soil_tested}. Valid options: ${Object.values(_yesNo).join(', ')}` });
+      }
+
+
       if (errors.length > 0) return { success: false, errors };
-      // const calulateage = calculateAge(date_of_birth);
       try {
         const state_id = await getStateId(stateName);
         const district_id = await getDistrictId(district_name);
-        // const processedDateOfBirth = parseDateOfBirth(date_of_birth);
+        const land_state_id = await getStateId(state);
+        const land_district_id = await getDistrictId(district);
+        const uniqueFarmerCode = generateFarmerCode(state_name, mobile_no, name);
 
-        let associateId = user_id;
-        if (!user_id) {
-          const associate = await User.findOne({ 'basic_details.associate_details.organization_name': fpo_name });
-          associateId = associate ? associate._id : null;
-        }
-        let farmerRecord = await farmer.findOne({ 'proof.aadhar_no': aadhar_no });
+        let farmerRecord = await farmer.findOne({ 'mobile_no': mobile_no });
         if (farmerRecord) {
-          return { success: false, errors: [{ record: rec, error: `Farmer  with Aadhar No. ${aadhar_no} already registered.` }] };
-
-          // });
+          return { success: false, errors: [{ record: rec, error: `Farmer  with Mobile No. ${mobile_no} already registered.` }] };
+          
         } else {
-          farmerRecord = await insertNewFarmerRecord({
-            associate_id: associateId, farmer_tracent_code, name, father_name, mother_name, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name,
+          // Insert new farmer record
+          farmerRecord = await insertNewHaryanaFarmerRecord({
+            name, father_name, uniqueFarmerCode, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, pan_number, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
+          });
+          await insertNewHaryanaRelatedRecords(farmerRecord._id, {
+            total_area, khasra_number, land_name, cultivation_area, area_unit, khata_number, land_type, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, landvillage, LandBlock, landPincode, expected_production, soil_type, soil_tested, soil_testing_agencies, upload_geotag, crop_name, production_quantity, selling_price, ghat_number,
+            khewat_number, karnal_number, murla_number, revenue_area_karnal, revenue_area_murla, sow_area_karnal, sow_area_murla, yield, insurance_company, insurance_worth, crop_season, crop_land_name, crop_growth_stage, crop_disease, crop_rotation, previous_crop_session, previous_crop_name, crop_sold, quantity_sold, average_selling_price,
+            marketing_channels_used, challenges_faced, insurance_premium, insurance_start_date, insurance_end_date, crop_variety,
           });
         }
 
@@ -2860,14 +2872,14 @@ module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+const generateFarmerCode = (state, mobile_no, name) => {
+  if (!state || !mobile_no || !name) {
+      throw new Error('State Mobile number and Name are required to generate code');
+  }
+ const farmerName = name.substring(0, 3).toUpperCase();
+  const stateCode = state.substring(0, 3).toUpperCase();
 
+  const mobileCode = String(mobile_no).slice(-4);
 
-
-
-
-
-
-
-function generateCacheKey(prefix, params) {
-  return `${prefix}:${Object.entries(params).sort().map(([k, v]) => `${k}=${v}`).join('&')}`;
+  return `${stateCode}${mobileCode}${farmerName}`;
 };

@@ -11,6 +11,8 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const jwt = require('jsonwebtoken');
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+
 const { generateApiKey, generateApiSecret } = require("../utils/GenerateCred");
 const { ClientToken } = require("@src/v1/models/app/warehouse/ClientToken");
 const crypto = require("crypto");
@@ -132,7 +134,7 @@ module.exports.listExternalBatchList = async (req, res) => {
             records.rows = await ExternalBatch.find(query)
                 .populate({
                     path: "warehousedetails_id",
-                    select: "basicDetails.warehouseName",
+                    select: "basicDetails.warehouseName basicDetails.warehouseCapacity",
                 })
                 .sort(sortBy)
                 .skip(parseInt(skip))
@@ -143,10 +145,10 @@ module.exports.listExternalBatchList = async (req, res) => {
             records.limit = parseInt(limit);
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
         } else {
-            records.rows = await ExternalOrder.find(query)
+            records.rows = await ExternalBatch.find(query)
                 .populate({
                     path: "warehousedetails_id",
-                    select: "basicDetails.warehouseName",
+                    select: "basicDetails.warehouseName basicDetails.warehouseCapacity",
                 })
                 .sort(sortBy);
         }
@@ -318,3 +320,669 @@ module.exports.saveWarehouseOwner= async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.listWarehouseOwner = async (req, res) => {
+    try {
+        const {_id} = req.client;
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
+
+        let query = {third_party_client:_id};
+        if (search) {
+            query["companyDetails.name"] = { $regex: search, $options: "i" };
+        }
+
+        const records = { count: 0, rows: [] };
+
+        if (paginate == 1) {
+            records.rows = await wareHousev2.find(query)
+                .populate({
+                    path: "third_party_client",
+                    select: "name",
+                })
+                .sort(sortBy)
+                .skip(parseInt(skip))
+                .limit(parseInt(limit));
+
+            records.count = await wareHousev2.countDocuments(query);
+            records.page = parseInt(page);
+            records.limit = parseInt(limit);
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        } else {
+            records.rows = await wareHousev2.find(query)
+                .populate({
+                    path: "third_party_client",
+                    select: "name",
+                })
+                .sort(sortBy);
+        }
+
+        return res.status(200).send(
+            new serviceResponse({ status: 200, data: records, message: _response_message.found("Warehouse Owner") })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.saveWarehouseDetails = async (req, res) => {
+    try {
+        const { warehouseOwnerId, basicDetails, addressDetails, inventory, documents, authorizedPerson, bankDetails, servicePricing, procurement_partner } = req.body;
+        const {_id} = req.client;
+        if (!warehouseOwnerId || !basicDetails || !addressDetails) {
+            return res.status(400).json(new serviceResponse({ 
+                success: false, 
+                message: "Missing required fields" 
+            }));
+        }
+
+        const warehouseData = new wareHouseDetails({
+            warehouseOwnerId,
+            basicDetails,
+            addressDetails,
+            inventory,
+            documents,
+            authorizedPerson,
+            bankDetails,
+            servicePricing,
+            procurement_partner,
+            third_party_client : _id
+        });
+        const savedWarehouse = await warehouseData.save();
+        
+        return res.status(200).send(new serviceResponse({ message: _query.add('Warehouse Details'), data: savedWarehouse }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.listWarehouseDetails = async (req, res) => {
+    try {
+        const {_id} = req.client;
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
+
+        let query = {third_party_client:_id};
+        if (search) {
+            query["basicDetails.warehouseName"] = { $regex: search, $options: "i" };
+        }
+
+        const records = { count: 0, rows: [] };
+
+        if (paginate == 1) {
+            records.rows = await wareHouseDetails.find(query)
+                .populate({
+                    path: "third_party_client",
+                    select: "name",
+                })
+                .sort(sortBy)
+                .skip(parseInt(skip))
+                .limit(parseInt(limit));
+
+            records.count = await wareHouseDetails.countDocuments(query);
+            records.page = parseInt(page);
+            records.limit = parseInt(limit);
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        } else {
+            records.rows = await wareHouseDetails.find(query)
+                .populate({
+                    path: "third_party_client",
+                    select: "name",
+                })
+                .sort(sortBy);
+        }
+
+        return res.status(200).send(
+            new serviceResponse({ status: 200, data: records, message: _response_message.found("Warehouse Details") })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.saveAgribidDetails = async (req, res) => {
+    try {
+        const warehouses = req.body;
+        const { _id } = req.client;
+
+        const uniqueCapacities = [...new Set(warehouses.map(w => w.capacityInQTL))];
+
+        if (uniqueCapacities.length > 1) {
+            return res.status(400).send(new serviceResponse({ 
+                status: 400, 
+                message: "All batches must have the same capacityInQTL value." 
+            }));
+        }
+
+        const totalProcuredQtyInQTL = warehouses.reduce((sum, w) => sum + (w.procuredQtyInQTL || 0), 0);
+        const totalCapacityInQTL = uniqueCapacities[0];
+
+        if (totalProcuredQtyInQTL > totalCapacityInQTL) {
+            const exceedingWarehouses = warehouses
+                .filter(w => (w.procuredQtyInQTL || 0) > 0)
+                .map(w => w.name)
+                .join(', ');
+
+            return res.status(400).send(new serviceResponse({ 
+                status: 400, 
+                message: `Total procuredQty across all batches exceeds warehouse capacity. Warehouses: ${exceedingWarehouses}` 
+            }));
+        }
+
+
+        const savedWarehouses = [];
+
+        for (const warehouseData of warehouses) {
+            const { 
+                warehouseName, 
+                commodityName, 
+                capacityInQTL, 
+                procuredQtyInQTL, 
+                dispatchQtyInQTL, 
+                remainingQtyInQTL, 
+                warehouseAddress, 
+                state, 
+                district,
+                city,
+                villageName,
+                pinCode,
+                latitude,
+                longitude,
+                procurementPartner, 
+                season,
+            } = warehouseData;
+
+            
+
+            const existingWarehouse = await wareHouseDetails.findOne({ warehouseName });
+            if (existingWarehouse) {
+                return res.status(400).send(new serviceResponse({ 
+                    status: 400, 
+                    message: `Warehouse with the name ${warehouseName} already exists.`
+                }));
+            }
+
+            const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, remainingQtyInQTL, warehouseAddress, state, district, city, villageName, pinCode, procurementPartner };
+
+            for (const [key, value] of Object.entries(requiredFields)) {
+                if (key !== "remainingQtyInQTL" && !value) {
+                    return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require(key.replace(/_/g, ' ')) }));
+                }
+            }
+
+            if (remainingQtyInQTL === null || remainingQtyInQTL === undefined || remainingQtyInQTL === '') {  
+                return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('remaining quantity in QTL') }));
+            }
+
+            if (capacityInQTL <= 0 || procuredQtyInQTL <= 0) {
+                return res.status(400).send(new serviceResponse({ 
+                    status: 400, 
+                    message: "Capacity, Procured Quantity, and Dispatch Quantity must be greater than zero." 
+                }));
+            }
+
+            const capacityInMT = capacityInQTL ? capacityInQTL * 0.1 : 0;
+            const procuredQtyInMT = procuredQtyInQTL ? procuredQtyInQTL * 0.1 : 0;
+            const dispatchQtyInMT = dispatchQtyInQTL ? dispatchQtyInQTL * 0.1 : 0;
+            const remainingQtyInMT = remainingQtyInQTL ? remainingQtyInQTL * 0.1 : 0;
+
+            if (procuredQtyInQTL > capacityInQTL) {
+                return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "Procured Quantity must be less than or equal to warehouse capacity." }] }));
+            }
+
+            const warehouse = new wareHouseDetails({
+                warehouseOwnerId: "67a9f35a617e73a4055c6614",
+                basicDetails: {
+                    warehouseName: warehouseName,
+                    warehouseCapacity: capacityInMT,
+                    quantityType: "MT",
+                    weighBridge: true,
+                    storageType: "Dry"
+                },
+                addressDetails: {
+                    addressLine1: warehouseAddress,
+                    addressLine2: villageName,
+                    pincode: pinCode,
+                    city: city,
+                    tehsil: "Tehsil A",
+                    location_url: "https://maps.google.com/?q=28.7041,77.1025",
+                    lat: latitude,
+                    long: longitude,
+                    state: {
+                        state_name: state,
+                        lat: latitude,
+                        long: longitude,
+                        locationUrl: `https://maps.google.com/?q=${latitude},${longitude}`
+                    },
+                    district: {
+                        district_name: district,
+                        lat: latitude,
+                        long: longitude,
+                        locationUrl: `https://maps.google.com/?q=${latitude},${longitude}`
+                    }
+                },
+                inventory: {
+                    stock: 2000,
+                    requiredStock: 500,
+                    warehouse_timing: "9 AM - 6 PM"
+                },
+                documents: {
+                    licenseNumber: "LIC123456",
+                    insuranceNumber: "INS789101",
+                    insurancePhoto: "https://example.com/insurance.jpg",
+                    ownershipType: "Owner",
+                    ownershipProof: "https://example.com/ownership_proof.jpg"
+                },
+                authorizedPerson: {
+                    name: "Rajesh Kumar",
+                    designation: "Manager",
+                    mobile: "9876543210",
+                    email: "rajesh.kumar@example.com",
+                    aadharNumber: "123412341234",
+                    aadhar_back: "https://example.com/aadhar_back.jpg",
+                    aadhar_front: "https://example.com/aadhar_front.jpg",
+                    panNumber: "ABCDE1234F",
+                    panImage: "https://example.com/pan.jpg",
+                    pointOfContactSame: false,
+                    pointOfContact: {
+                        name: "Suresh Gupta",
+                        designation: "Assistant Manager",
+                        mobileNumber: "9123456789",
+                        email: "suresh.gupta@example.com",
+                        aadharNumber: "432143214321",
+                        aadhar_back: "https://example.com/poc_aadhar_back.jpg",
+                        aadhar_front: "https://example.com/poc_aadhar_front.jpg",
+                        panNumber: "FGHIJ5678K",
+                        panImage: "https://example.com/poc_pan.jpg"
+                    }
+                },
+                bankDetails: {
+                    bankName: "HDFC Bank",
+                    branchName: "Connaught Place",
+                    accountHolderName: "Rajesh Kumar",
+                    accountNumber: "123456789012",
+                    ifscCode: "HDFC0000123",
+                    passbookProof: "https://example.com/passbook.jpg"
+                },
+                servicePricing: [
+                    {
+                        area: 1000,
+                        unit: "Sq. Ft.",
+                        price: 5000
+                    }
+                ],
+                procurement_partner: procurementPartner,
+                third_party_client: _id
+            });
+
+            const savedWarehouse = await warehouse.save();
+            savedWarehouses.push(savedWarehouse);
+
+            const externalBatchData = new ExternalBatch({ 
+                batchName: "Test Batch", 
+                associate_name: "RajKumar", 
+                procurementCenter: "Center A", 
+                inward_quantity: procuredQtyInMT || 0,
+                commodity: commodityName,
+                warehousedetails_id: savedWarehouse._id,
+                remaining_quantity: remainingQtyInMT,
+                third_party_client: _id,
+                season : season,
+            });
+            await externalBatchData.save();
+
+            const batchExists = await ExternalBatch.findById(externalBatchData._id);
+            if (!batchExists) {
+                return res.status(404).json(new serviceResponse({
+                    status: 404,
+                    message: "External Batch not found"
+                }));
+            }
+
+            batchExists.outward_quantity += dispatchQtyInMT;
+            batchExists.remaining_quantity = batchExists.inward_quantity - batchExists.outward_quantity;
+            await batchExists.save();
+
+            const orderData = {
+                commodity: commodityName,
+                quantity: dispatchQtyInMT,
+                external_batch_id: externalBatchData._id,
+                warehousedetails_id: savedWarehouse._id,
+                third_party_client: _id,
+                basic_details: {
+                    buyer_name: "Test Buyer",
+                    email: "test@gmail.com",
+                    phone: "+918789878987",
+                    cin_number: "L12345DL2023PLC678901",
+                    gst_number: "22AAAAA0000A1Z5",
+                },
+                address: {
+                    line1: "123, Warehouse Road",
+                    line2: "Near Industrial Area",
+                    state: "Maharashtra",
+                    district: "Pune",
+                    city: "Pune",
+                    tehsil: "Haveli",
+                    pinCode: "411001"
+                },
+            };
+
+            const newExternalOrder = new ExternalOrder(orderData);
+            await newExternalOrder.save();
+        }
+
+        return res.status(200).send(new serviceResponse({ message: _query.add('Warehouse Details'), data: savedWarehouses }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.createbatchAcrossWarehouse = async (req, res) => {
+    try {
+        const warehouses = req.body;
+        const { _id } = req.client;
+
+        const uniqueCapacities = [...new Set(warehouses.map(w => w.capacityInQTL))];
+
+        if (uniqueCapacities.length > 1) {
+            return res.status(400).send(new serviceResponse({ 
+                status: 400, 
+                message: "All batches must have the same capacityInQTL value." 
+            }));
+        }
+
+        const totalProcuredQtyInQTL = warehouses.reduce((sum, w) => sum + (w.procuredQtyInQTL || 0), 0);
+        const totalCapacityInQTL = uniqueCapacities[0];
+
+        if (totalProcuredQtyInQTL > totalCapacityInQTL) {
+            const exceedingWarehouses = warehouses
+                .filter(w => (w.procuredQtyInQTL || 0) > 0)
+                .map(w => w.name)
+                .join(', ');
+            
+            return res.status(400).send(new serviceResponse({ 
+                status: 400, 
+                message: `procuredQty exceeds warehouse capacity.` 
+            }));
+        }
+
+        for (const warehouseData of warehouses) {
+            const { warehouseId, warehouseName, capacityInQTL, remainingQtyInQTL } = warehouseData;
+
+            const capacityInMTVal = capacityInQTL ? capacityInQTL * 0.1 : 0;
+            const remainingMTVal = remainingQtyInQTL ? remainingQtyInQTL * 0.1 : 0;
+
+            const findTotalBatch = await ExternalBatch.find({ warehousedetails_id: warehouseId });
+            const totalRemainingBatch = findTotalBatch.reduce((acc, batch) => acc + batch.remaining_quantity, 0);
+
+            if (totalRemainingBatch + remainingMTVal > capacityInMTVal) {
+                return res.status(400).send(new serviceResponse({
+                    status: 400,
+                    message: `Total remaining quantity for warehouse Name ${warehouseName} exceeds its capacity.`
+                }));
+            }
+        }
+
+        const allSavedBatches = [];
+        for (const warehouseData of warehouses) {
+            const { 
+                warehouseName, 
+                warehouseId,
+                commodityName, 
+                batchName,
+                capacityInQTL, 
+                procuredQtyInQTL, 
+                dispatchQtyInQTL, 
+                remainingQtyInQTL, 
+                warehouseAddress, 
+                state, 
+                district,
+                city,
+                villageName,
+                pinCode,
+                latitude,
+                longitude,
+                procurementPartner, 
+                season,
+            } = warehouseData;
+
+            const existingWarehouse = await wareHouseDetails.findById(warehouseId);
+            
+            if (!existingWarehouse) {
+                return res.status(400).send(new serviceResponse({ 
+                    status: 400, 
+                    message: `Warehouse with the name ${warehouseName} not exists.`
+                }));
+            }
+
+            const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, remainingQtyInQTL, warehouseAddress, state, district, city, villageName, pinCode, procurementPartner };
+
+            for (const [key, value] of Object.entries(requiredFields)) {
+                if (key !== "remainingQtyInQTL" && !value) {
+                    return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require(key.replace(/_/g, ' ')) }));
+                }
+            }
+
+            if (remainingQtyInQTL === null || remainingQtyInQTL === undefined || remainingQtyInQTL === '') {  
+                return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('remaining quantity in QTL') }));
+            }
+
+            if (capacityInQTL <= 0 || procuredQtyInQTL <= 0) {
+                return res.status(400).send(new serviceResponse({ 
+                    status: 400, 
+                    message: "Capacity, Procured Quantity, and Dispatch Quantity must be greater than zero." 
+                }));
+            }
+
+            const capacityInMT = capacityInQTL ? capacityInQTL * 0.1 : 0;
+            const procuredQtyInMT = procuredQtyInQTL ? procuredQtyInQTL * 0.1 : 0;
+            const dispatchQtyInMT = dispatchQtyInQTL ? dispatchQtyInQTL * 0.1 : 0;
+            const remainingQtyInMT = remainingQtyInQTL ? remainingQtyInQTL * 0.1 : 0;
+
+            if (procuredQtyInQTL > capacityInQTL) {
+                return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "Procured Quantity must be less than or equal to warehouse capacity." }] }));
+            }
+
+            const externalBatchData = new ExternalBatch({ 
+                batchName: batchName || 'Test Batch', 
+                associate_name: "RajKumar", 
+                procurementCenter: "Center A", 
+                inward_quantity: procuredQtyInMT || 0,
+                commodity: commodityName,
+                warehousedetails_id: warehouseId,
+                remaining_quantity: remainingQtyInMT,
+                third_party_client: _id,
+                season : season,
+            });
+            const externalBatchDataSave = await externalBatchData.save();
+            allSavedBatches.push(externalBatchDataSave);
+
+            const batchExists = await ExternalBatch.findById(externalBatchData._id);
+            if (!batchExists) {
+                return res.status(404).json(new serviceResponse({
+                    status: 404,
+                    message: "External Batch not found"
+                }));
+            }
+
+            batchExists.outward_quantity += dispatchQtyInMT;
+            batchExists.remaining_quantity = batchExists.inward_quantity - batchExists.outward_quantity;
+            await batchExists.save();
+
+            const orderData = {
+                commodity: commodityName,
+                quantity: dispatchQtyInMT,
+                external_batch_id: externalBatchData._id,
+                warehousedetails_id: warehouseId,
+                third_party_client: _id,
+                basic_details: {
+                    buyer_name: "Test Buyer",
+                    email: "test@gmail.com",
+                    phone: "+918789878987",
+                    cin_number: "L12345DL2023PLC678901",
+                    gst_number: "22AAAAA0000A1Z5",
+                },
+                address: {
+                    line1: "123, Warehouse Road",
+                    line2: "Near Industrial Area",
+                    state: "Maharashtra",
+                    district: "Pune",
+                    city: "Pune",
+                    tehsil: "Haveli",
+                    pinCode: "411001"
+                },
+            };
+
+            const newExternalOrder = new ExternalOrder(orderData);
+            await newExternalOrder.save();
+        }
+
+        return res.status(200).send(new serviceResponse({ message: _query.add('Batch '), data: allSavedBatches }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.updateAgribidDetails = async (req, res) => {
+    try {
+        const updates = req.body;
+        const { _id } = req.client;
+        const results = [];
+        const errors = [];
+
+        const uniqueCapacities = [...new Set(updates.map(w => w.capacityInQTL))];
+
+        if (uniqueCapacities.length > 1) {
+            return res.status(400).send(new serviceResponse({ 
+                status: 400, 
+                message: "All batches must have the same capacityInQTL value." 
+            }));
+        }
+
+        const totalProcuredQtyInQTL = updates.reduce((sum, w) => sum + (w.procuredQtyInQTL || 0), 0);
+        const totalCapacityInQTL = uniqueCapacities[0];
+
+        if (totalProcuredQtyInQTL > totalCapacityInQTL) {
+            const exceedingWarehouses = updates
+                .filter(w => (w.procuredQtyInQTL || 0) > 0)
+                .map(w => w.name)
+                .join(', ');
+
+            return res.status(400).send(new serviceResponse({ 
+                status: 400, 
+                message: `Total procuredQty across all batches exceeds warehouse capacity. Warehouses: ${exceedingWarehouses}` 
+            }));
+        }
+
+        for (const update of updates) {
+            const {
+                warehouseName,
+                commodityName,
+                capacityInQTL,
+                procuredQtyInQTL,
+                dispatchQtyInQTL,
+                remainingQtyInQTL,
+                warehouseAddress,
+                state,
+                district,
+                city,
+                villageName,
+                pinCode,
+                latitude,
+                longitude,
+                procurementPartner,
+                external_batch_id,
+                season
+            } = update;
+
+            const requiredFields = { warehouseName, commodityName, capacityInQTL, procuredQtyInQTL, warehouseAddress, state, district, city, villageName, pinCode, procurementPartner, external_batch_id };
+
+            for (const [key, value] of Object.entries(requiredFields)) {
+                if (!value) {
+                    errors.push({ message: _middleware.require(key.replace(/_/g, ' ')), item: update });
+                    continue;
+                }
+            }
+            if (procuredQtyInQTL > capacityInQTL) {
+                errors.push({ message: "Procured quantity cannot be greater than capacity", item: update });
+                continue;
+            }
+            const wareHouseExists = await wareHouseDetails.findOne({'basicDetails.warehouseName' : warehouseName });
+           
+            const getWarehouseCapacity = wareHouseExists.basicDetails.warehouseCapacity;
+            
+            const capacityInMT = capacityInQTL ? capacityInQTL * 0.1 : 0;
+            const procuredQtyInMT = procuredQtyInQTL ? procuredQtyInQTL * 0.1 : 0;
+            const dispatchQtyInMT = dispatchQtyInQTL ? dispatchQtyInQTL * 0.1 : 0;
+            const remainingQtyInMT = remainingQtyInQTL ? remainingQtyInQTL * 0.1 : 0;
+
+            const batchExists = await ExternalBatch.findById(external_batch_id);
+            // console.log('batchExists',batchExists);return false;
+            if (!batchExists) {
+                errors.push({ message: "External Batch not found", item: update });
+                continue;
+            }
+
+            let itemErrors = [];
+
+            // if (dispatchQtyInMT <= 0) {
+            //     itemErrors.push("Quantity must be greater than zero");
+            // }
+            if (batchExists.remaining_quantity <= 0) {
+                itemErrors.push("No remaining quantity available for this batch");
+            }
+            if (dispatchQtyInMT > batchExists.remaining_quantity) {
+                itemErrors.push("Quantity must be less than remaining_quantity");
+            }
+            if (itemErrors.length > 0) {
+                errors.push({ message: itemErrors.join(", "), item: update });
+                continue;
+            }
+
+            batchExists.outward_quantity += dispatchQtyInMT;
+            batchExists.remaining_quantity = batchExists.inward_quantity - batchExists.outward_quantity;
+            batchExists.season = season,
+            await batchExists.save();
+
+            const orderData = {
+                commodity: commodityName,
+                quantity: dispatchQtyInMT || 0,
+                external_batch_id: external_batch_id,
+                warehousedetails_id: batchExists.warehousedetails_id,
+                third_party_client: _id,
+                basic_details: {
+                    buyer_name: "Test Buyer",
+                    email: "test@gmail.com",
+                    phone: "+918789878987",
+                    cin_number: "L12345DL2023PLC678901",
+                    gst_number: "22AAAAA0000A1Z5",
+                },
+                address: {
+                    line1: "123, Warehouse Road",
+                    line2: "Near Industrial Area",
+                    state: "Maharashtra",
+                    district: "Pune",
+                    city: "Pune",
+                    tehsil: "Haveli",
+                    pinCode: "411001"
+                },
+            };
+
+            const newExternalOrder = new ExternalOrder(orderData);
+            const savedOrder = await newExternalOrder.save();
+            results.push(savedOrder);
+        }
+
+        if (errors.length > 0) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "Some items failed to update",
+                errors: errors,
+                data: results
+            }));
+        }
+
+        return res.status(200).send(new serviceResponse({ message: _query.update('Updated'), data: results }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+

@@ -109,6 +109,7 @@ const warehouseDetailsSchema = new mongoose.Schema(
     procurement_partner: { type: String, enum: ["Radiant", "Youkta", "Beam", "Agribid", "Supplyvalid", "NEML", "Others"], default: "Radiant" },
     wareHouse_code: { type: String, unique: true },
     source_by: { type: String, default: "NCCF" },
+    third_party_client :  { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ClientToken },
     ..._commonKeys,
   },
   { timestamps: true }

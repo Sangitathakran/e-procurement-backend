@@ -9,7 +9,7 @@ const farmerSchema = new mongoose.Schema({
     is_verify_otp: { type: Boolean, default: false },
     farmer_id: { type: String, default: null, index: true },
     is_welcome_msg_send: { type: Boolean, default: false },
-
+    harynaNewFarmer_code: { type: String, default: null },
     farmer_type: {
         type: String,
         enum: ['Individual', 'Associate'],

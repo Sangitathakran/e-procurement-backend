@@ -12,7 +12,8 @@ const {
     batchStatsData,
     getFilterBatchList ,
     createExternalBatch,
-    listExternalBatchList
+    listExternalBatchList,
+    whrReceiptImageUpdate
 } = require("./Controller");
 const { verifyWarehouseOwner } = require("../utils/verifyWarehouseOwner");
 const { Auth } = require("@src/v1/middlewares/jwt")
@@ -21,6 +22,8 @@ const { Auth } = require("@src/v1/middlewares/jwt")
 const wareHouseInwardRoutes = express.Router();
 
 wareHouseInwardRoutes.get("/received-batch-list", getReceivedBatchesByWarehouse);
+wareHouseInwardRoutes.put("/whr_receipt_image-update/:batchId", whrReceiptImageUpdate);
+
 wareHouseInwardRoutes.get("/pending-batch-list", getPendingBatchesByWarehouse);
 wareHouseInwardRoutes.put("/batch-approval", verifyWarehouseOwner, batchApproveOrReject);
 wareHouseInwardRoutes.get("/lot-list", verifyWarehouseOwner, lot_list);

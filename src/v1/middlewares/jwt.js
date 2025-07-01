@@ -46,6 +46,9 @@ const Auth = function (req, res, next) {
           if (decoded.email) {
             const user = await MasterUser.findOne({ email: decoded.email.trim() }).populate("portalId")
             req.user = user
+          }else{ 
+            const user = await MasterUser.findOne({ mobile: decoded.userInput.trim() }).populate("portalId")
+            req.user = user
           }
 
           next();

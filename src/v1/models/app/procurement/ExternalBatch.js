@@ -6,6 +6,7 @@ const externalBatchsSchema = new mongoose.Schema({
     warehousedetails_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.WarehouseDetails },
     batchName: { type: String, trim: true,required:true},
     associate_name: { type: String, trim: true, required: true },
+    season: { type: String, trim: true },
     procurementCenter: { type: String, required:true, trim: true },
     inward_quantity: { type: Number, default: 0 },
     outward_quantity: { type: Number, default: 0 },

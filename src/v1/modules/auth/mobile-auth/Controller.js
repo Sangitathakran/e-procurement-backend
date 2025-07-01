@@ -1,6 +1,5 @@
-
-const {wareHousev2} = require("@src/v1/models/app/warehouse/warehousev2Schema")
-const {MasterUser} = require("@src/v1/models/master/MasterUser");
+const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema")
+const { MasterUser } = require("@src/v1/models/master/MasterUser");
 const { _auth_module, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
@@ -16,7 +15,7 @@ const { _userType } = require("@src/v1/utils/constants");
 const { TypesModel } = require("@src/v1/models/master/Types");
 const { getPermission } = require("../../user-management/permission");
 
-const {Distiller} = require("@src/v1/models/app/auth/Distiller")
+const { Distiller } = require("@src/v1/models/app/auth/Distiller")
 
 
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
@@ -83,62 +82,66 @@ module.exports.loginOrRegister = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
         }
 
-        const user = await MasterUser.findOne({mobile:userInput.trim()})
-          .populate([
-            {path: "userRole", select: ""},
-            {path: "portalId", select: "organization_name _id email phone"}
-        ])
+        const user = await MasterUser.findOne({ mobile: userInput.trim() })
+            .populate([
+                { path: "userRole", select: "" },
+                { path: "portalId", select: "organization_name _id email phone" }
+            ])
 
-        if(user){
+        if (user) {
 
-            if(user?.user_type==="7"){
-                const payload = { user: {_id:user._id, user_type:user?.user_type, portalId: user.portalId._id },userInput: userInput, user_id: user._id, organization_id: user.portalId._id, user_type: user?.user_type }
+            if (user?.user_type === "7") {
+                const payload = { user: { _id: user._id, user_type: user?.user_type, portalId: user.portalId._id }, userInput: userInput, user_id: user._id, organization_id: user.portalId._id, user_type: user?.user_type }
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
                 const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
-        
+
                 res.cookie('token', token, {
                     httpOnly: true,
                     secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
                     maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
                 });
-    
+
                 let ownerExist = null
-                if(user.isAdmin){
-                     ownerExist = await wareHousev2.findOne(query)
-                }else{ 
-                    ownerExist = await wareHousev2.findOne({_id: user.portalId._id})
+                if (user.isAdmin) {
+                    ownerExist = await wareHousev2.findOne(query)
+                } else {
+                    ownerExist = await wareHousev2.findOne({ _id: user.portalId._id })
                 }
-    
+
                 console.log('already available user')
-    
+
                 const userWithPermission = await getPermission(user)
-        
-                return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: { token, ownerExist , userWithPermission} }));
+
+                return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: { token, ownerExist, userWithPermission } }));
             }
-            else{ 
-           
-                    return res.send(new serviceResponse({ status: 400, message: `already existed with this mobile number in Master(${user.user_type})`, 
-                        errors: [{ message: `already existed with this mobile number in Master(${user.user_type})` }] }))
-                
+            else {
+
+                return res.send(new serviceResponse({
+                    status: 400, message: `already existed with this mobile number in Master(${user.user_type})`,
+                    errors: [{ message: `already existed with this mobile number in Master(${user.user_type})` }]
+                }))
+
             }
 
-        }else{ 
+        } else {
 
             let ownerExist = await wareHousev2.findOne(query)
 
 
 
             if (!user || !ownerExist) {
-    
+
                 // checking user in master user collection
-                const isUserAlreadyExist = await MasterUser.findOne({mobile:userInput.trim()});
-        
-                if(isUserAlreadyExist){
-                    return res.send(new serviceResponse({ status: 400, message: "already existed with this mobile number in Master", 
-                        errors: [{ message: _response_message.allReadyExist("already existed with this mobile number in Master") }] }))
+                const isUserAlreadyExist = await MasterUser.findOne({ mobile: userInput.trim() });
+
+                if (isUserAlreadyExist) {
+                    return res.send(new serviceResponse({
+                        status: 400, message: "already existed with this mobile number in Master",
+                        errors: [{ message: _response_message.allReadyExist("already existed with this mobile number in Master") }]
+                    }))
                 }
-    
-    
+
+
                 const newUser = {
                     ownerDetails: isEmailInput
                         ? { email: userInput }
@@ -149,50 +152,41 @@ module.exports.loginOrRegister = async (req, res) => {
                 if (!isEmailInput) {
                     newUser.is_mobile_verified = true;
                 }
-    
+
                 ownerExist = await wareHousev2.create(newUser);
                 // warehouse type colllection
                 const type = await TypesModel.findOne({ _id: "67a5ae6df95d35a6da591454" })
-            
-        
+
+
                 const masterUser = new MasterUser({
-    
-                    isAdmin : true,
-                    mobile : userInput.trim(),
+
+                    isAdmin: true,
+                    mobile: userInput.trim(),
                     user_type: type.user_type,
                     userRole: [type.adminUserRoleId],
                     portalId: ownerExist._id,
                     ipAddress: getIpAddress(req)
                 });
-        
+
                 const masterUserCreated = await masterUser.save();
-    
-                const payload = { user: {_id:masterUserCreated._id, user_type:masterUserCreated?.user_type, portalId: masterUserCreated.portalId},
-                userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type }
+
+                const payload = {
+                    user: { _id: masterUserCreated._id, user_type: masterUserCreated?.user_type, portalId: masterUserCreated.portalId },
+                    userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type
+                }
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
                 const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
-        
+
                 res.cookie('token', token, {
                     httpOnly: true,
                     secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
                     maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
                 });
-        
-                return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist , masterUserCreated} }));
-    
+
+                return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist, masterUserCreated } }));
             }
 
         }
-        
-       
-
-
-        
-        
-       
-
-     
-
     } catch (error) {
         _handleCatchErrors(error, res);
     }
@@ -219,70 +213,75 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
         }
 
-        const user = await MasterUser.findOne({mobile:userInput.trim()})
-          .populate([
-            {path: "userRole", select: ""},
-            {path: "portalId", select: "organization_name _id email phone"}
-        ])
+        const user = await MasterUser.findOne({ mobile: userInput.trim() })
+            .populate([
+                { path: "userRole", select: "" },
+                { path: "portalId", select: "organization_name _id email phone" }
+            ])
 
-        if(user){
+        if (user) {
 
-            if(user?.user_type==="8"){
-                const payload = { user: {_id:user._id, user_type:user?.user_type, portalId: user.portalId._id },userInput: userInput, user_id: user._id, organization_id: user.portalId._id, user_type: user?.user_type }
+            if (user?.user_type === "8") {
+                const payload = { user: { _id: user._id, user_type: user?.user_type, portalId: user.portalId._id }, userInput: userInput, user_id: user._id, organization_id: user.portalId._id, user_type: user?.user_type }
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
                 const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
-        
+
                 res.cookie('token', token, {
                     httpOnly: true,
                     secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
                     maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
                 });
-    
+
                 let ownerExist = null
-                if(user.isAdmin){
-                     ownerExist = await Distiller.findOne(query)
+                if (user.isAdmin) {
+                    ownerExist = await Distiller.findOne(query)
                 }
-                else{ 
-                    ownerExist = await Distiller.findOne({_id: user.portalId._id})
+                else {
+                    ownerExist = await Distiller.findOne({ _id: user.portalId._id })
                 }
-    
-    
+
+
                 console.log('already available user')
-    
+
                 const userWithPermission = await getPermission(user)
 
-              
-                ownerExist = {...JSON.parse(JSON.stringify(ownerExist)),
+
+                ownerExist = {
+                    ...JSON.parse(JSON.stringify(ownerExist)),
                     onboarding: (ownerExist?.basic_details?.distiller_details?.organization_name && ownerExist?.basic_details?.point_of_contact && ownerExist.address && ownerExist.company_details && ownerExist.authorised && ownerExist.bank_details && ownerExist.is_form_submitted == 'true') ? true : false
                 }
-   
-        
-                return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: { token, ownerExist , userWithPermission} }));
+
+
+                return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: { token, ownerExist, userWithPermission } }));
             }
-            else{ 
-           
-                    return res.send(new serviceResponse({ status: 400, message: `already existed with this mobile number in Master(${user.user_type})`, 
-                        errors: [{ message: `already existed with this mobile number in Master(${user.user_type})` }] }))
-                
+            else {
+
+                return res.send(new serviceResponse({
+                    status: 400, message: `already existed with this mobile number in Master(${user.user_type})`,
+                    errors: [{ message: `already existed with this mobile number in Master(${user.user_type})` }]
+                }))
+
             }
 
-        }else{ 
+        } else {
 
             let ownerExist = await Distiller.findOne(query)
 
 
 
             if (!ownerExist) {
-    
+
                 // checking user in master user collection
-                const isUserAlreadyExist = await MasterUser.findOne({mobile:userInput.trim()});
-        
-                if(isUserAlreadyExist){
-                    return res.send(new serviceResponse({ status: 400, message: "already existed with this mobile number in Master", 
-                        errors: [{ message: _response_message.allReadyExist("already existed with this mobile number in Master") }] }))
+                const isUserAlreadyExist = await MasterUser.findOne({ mobile: userInput.trim() });
+
+                if (isUserAlreadyExist) {
+                    return res.send(new serviceResponse({
+                        status: 400, message: "already existed with this mobile number in Master",
+                        errors: [{ message: _response_message.allReadyExist("already existed with this mobile number in Master") }]
+                    }))
                 }
-    
-    
+
+
                 const newUser = {
                     client_id: isEmailInput ? '1243' : '9876',
                     basic_details: isEmailInput
@@ -296,46 +295,49 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                 } else {
                     newUser.is_mobile_verified = true;
                 }
-    
+
                 ownerExist = await Distiller.create(newUser);
                 // warehouse type colllection
                 const type = await TypesModel.findOne({ _id: "67addcb11bdf461a3a7fcca6" })
-            
-        
+
+
                 const masterUser = new MasterUser({
-    
-                    isAdmin : true,
-                    mobile : userInput.trim(),
+
+                    isAdmin: true,
+                    mobile: userInput.trim(),
                     user_type: type.user_type,
                     userRole: [type.adminUserRoleId],
                     portalId: ownerExist._id,
                     ipAddress: getIpAddress(req)
                 });
-        
+
                 const masterUserCreated = await masterUser.save();
-    
-                const payload = { user: {_id:masterUserCreated._id, user_type:masterUserCreated?.user_type, portalId: masterUserCreated.portalId},
-                userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type }
+
+                const payload = {
+                    user: { _id: masterUserCreated._id, user_type: masterUserCreated?.user_type, portalId: masterUserCreated.portalId },
+                    userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type
+                }
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
                 const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
-        
+
                 res.cookie('token', token, {
                     httpOnly: true,
                     secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
                     maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
                 });
 
-                ownerExist = {...JSON.parse(JSON.stringify(ownerExist)),
+                ownerExist = {
+                    ...JSON.parse(JSON.stringify(ownerExist)),
                     onboarding: (ownerExist?.basic_details?.distiller_details?.organization_name && ownerExist?.basic_details?.point_of_contact && ownerExist.address && ownerExist.company_details && ownerExist.authorised && ownerExist.bank_details && ownerExist.is_form_submitted == 'true') ? true : false
                 }
-   
-        
-                return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist , userWithPermission: masterUserCreated} }));
-    
+
+
+                return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist, userWithPermission: masterUserCreated } }));
+
             }
 
         }
-     
+
 
     } catch (error) {
         _handleCatchErrors(error, res);
