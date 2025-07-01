@@ -1,6 +1,6 @@
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-const { _response_message, _middleware, } = require("@src/v1/utils/constants/messages");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { _response_message, _middleware,  } = require("@src/v1/utils/constants/messages");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType, _poAdvancePaymentStatus, _userStatus, _poBatchStatus } = require("@src/v1/utils/constants");
 const { asyncErrorHandler, } = require("@src/v1/utils/helpers/asyncErrorHandler");
@@ -1842,7 +1842,7 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
     const { page = 1, limit, skip = 0, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
 
     // Reject special characters in search
-    if (/[.*+?^${}()|[\]\\]/.test(search)) {
+    if (/[*+?^${}()|[\]\\]/.test(search)) {
       return sendResponse({
         res,
         status: 400,
