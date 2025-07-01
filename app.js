@@ -24,7 +24,6 @@ const swaggerDocument = require("./src/v1/utils/swagger/swagger-output.json");
 require("@src/v1/utils/websocket/server");
 
 const { PORT, apiVersion } = require("./config/index");
-
 require("./config/database");
 // require('newrelic');
 // require('./config/redis')

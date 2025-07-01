@@ -30,7 +30,7 @@ module.exports = {
     THIRD_PARTY_API_KEY: process.env.THIRD_PARTY_API_KEY,
     connection_string: process.env.CONNECTION_STRING,
     platform_org: process.env.PLATFORM_ORG,
-     app_name: process.env.APP_NAME,
+    app_name: process.env.APP_NAME,
     license_key: process.env.LICENSE_KEY,
 
     app_name: process.env.APP_NAME,

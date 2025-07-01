@@ -40,4 +40,14 @@ connection.once('open', function (error) {
         console.log("Connected MongoDB Successfully...!", connection._connectionString)
     }
 })
-module.exports = { connection };
+async function fetchFromCollection(collectionName, query = {}, projection = {}) {
+    try {
+        const collection = connection.collection(collectionName);
+        const results = await collection.find(query, { projection }).toArray();
+        return results || []; // Ensure it returns an array
+    } catch (error) {
+        console.error(`❌ Failed to fetch from ${collectionName}:`, error);
+        return []; // Return empty array on error to avoid crashing
+    }
+}
+module.exports = { connection, fetchFromCollection };

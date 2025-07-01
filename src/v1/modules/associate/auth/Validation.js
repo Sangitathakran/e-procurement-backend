@@ -123,10 +123,7 @@ const addressSchema = Joi.object({
 });
 
 const companyDetailsSchema = Joi.object({
-    cin_number: Joi.string().trim().required().pattern(/^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/).messages({
-        'string.empty': _middleware.require('CIN number'),
-        'string.pattern.base': _response_message.invalid('CIN number format'),
-    }),
+    cin_number: Joi.string().trim(),
     cin_image: Joi.string().trim().required().messages({
         'string.empty': _middleware.require('CIN image'),
     }),

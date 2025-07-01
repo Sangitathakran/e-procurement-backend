@@ -41,10 +41,8 @@ module.exports.sendAadharOTP = async (req, res) => {
       aadhaar_number: uidai_aadharNo,
       consent: "Y",
     };
-
     const response = await axios.post(apiUrl, payload, { headers });
-    const { status, error } = response || {};
-
+    const { status, error } = response || { };
     if (status != 200 && !response?.data?.transaction_id) {
       return res.status(200).send(
         new serviceResponse({
@@ -70,21 +68,34 @@ module.exports.sendAadharOTP = async (req, res) => {
         })
       );
     } else if (status === 400) {
-    }
+    }else {
+  return res.status(200).send(
+    new serviceResponse({
+      status: 400,
+      message: "Unexpected response from Aadhar service provider",
+      errors: {
+        message: "Unable to generate OTP at this moment. Please try again later.",
+      },
+    })
+  );
+}
+
   } catch (error) {
-    const { status } = error?.response;
-    console.log("error========>", error?.response);
-    return res.status(200).send(
-      new serviceResponse({
-        status,
-        message: _query.invalid("response from service provider"),
-        errors: error?.response?.data?.error?.metadata?.fields ||
-          error?.response?.data || {
-            message: "Something went wrong, please try again later",
-          },
-      })
-    );
-  }
+  const status = error?.response?.status || 500; 
+
+  return res.status(200).send(
+    new serviceResponse({
+      status,
+      message: _query.invalid("response from service provider"),
+      errors:
+        error?.response?.data?.error?.metadata?.fields ||
+        error?.response?.data || {
+          message: "Something went wrong, please try again later",
+        },
+    })
+  );
+}
+
 };
 module.exports.verifyAadharOTP = async (req, res) => {
   try {
