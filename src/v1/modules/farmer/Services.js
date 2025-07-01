@@ -35,34 +35,97 @@ async function getVerifiedAadharInfo(uidai_aadharNo, farmer_id) {
   }
 }
 
-async function getAgristackFarmerByAadhar(uidai_aadharNo, farmer_id) {
+// async function getAgristackFarmerByAadhar(
+//   uidai_aadharNo,
+//   farmer_id,
+//   cpmu_farmer_id
+// ) {
+//   try {
+//     const farmerObj = await farmer.findOne(
+//       {
+//         _id: new mongoose.Types.ObjectId(farmer_id),
+//         $or: [
+//           { "proof.aadhar_no": uidai_aadharNo },
+//           { "documents.aadhar_number": uidai_aadharNo },
+//         ],
+//       },
+//       { _id: 1 }
+//     );
+
+//     // If no farmer is found, skip Agristack lookup
+//     if (!farmerObj) return null;
+
+//     const agristackFarmerObj = await AgristackFarmerDetails.findOne({
+//       $or: [
+//         {
+//           farmer_id: farmerObj._id,
+//           isAgristackVerified: true,
+//         },
+//         {
+//           cpmu_farmer_id: cpmu_farmer_id,
+//         },
+//       ],
+//     }).lean();
+
+//     return agristackFarmerObj;
+//   } catch (err) {
+//     console.log(err);
+//     throw new Error(err.message);
+//   }
+// }
+
+async function getAgristackFarmerByAadhar(
+  uidai_aadharNo,
+  farmer_id,
+  cpmu_farmer_id
+) {
   try {
-    const farmerObj = await farmer.findOne(
-      {
-        _id: new mongoose.Types.ObjectId(farmer_id),
-        $or: [
-          { "proof.aadhar_no": uidai_aadharNo },
-          { "documents.aadhar_number": uidai_aadharNo },
-        ],
-      },
-      { _id: 1 }
-    );
+    let farmerObj = null;
 
-    // If no farmer is found, skip Agristack lookup
-    if (!farmerObj) return null;
+    // Try finding the farmer by ID and Aadhaar (if provided)
+    const farmerMatch = {
+      _id: new mongoose.Types.ObjectId(farmer_id),
+    };
 
-    // Lookup verified Agristack farmer data
+    if (uidai_aadharNo) {
+      farmerMatch.$or = [
+        { "proof.aadhar_no": uidai_aadharNo },
+        { "documents.aadhar_number": uidai_aadharNo },
+      ];
+    }
+
+    if (farmer_id && mongoose.Types.ObjectId.isValid(farmer_id)) {
+      farmerObj = await farmer.findOne(farmerMatch, { _id: 1 });
+    }
+
+    // Build dynamic OR query for Agristack lookup
+    const agristackOrConditions = [];
+
+    if (farmerObj) {
+      agristackOrConditions.push({
+        farmer_id: farmerObj._id,
+        isAgristackVerified: true,
+      });
+    }
+
+    if (cpmu_farmer_id) {
+      agristackOrConditions.push({ cpmu_farmer_id });
+    }
+
+    // If neither farmer nor CPMU ID is present, return null
+    if (agristackOrConditions.length === 0) return null;
+
     const agristackFarmerObj = await AgristackFarmerDetails.findOne({
-      farmer_id: farmerObj._id,
-      isAgristackVerified: true,
+      $or: agristackOrConditions,
     }).lean();
 
     return agristackFarmerObj;
   } catch (err) {
-    console.log(err);
+    console.error("Error in getAgristackFarmerByAadhar:", err);
     throw new Error(err.message);
   }
 }
+
 
 async function getAddressByPincode({ pincode }) {
   try {
@@ -93,7 +156,7 @@ async function getAllStates() {
 
 async function getDistrictsByStateId(stateId) {
   try {
-    if (! mongoose.Types.ObjectId.isValid(stateId)) {
+    if (!mongoose.Types.ObjectId.isValid(stateId)) {
       throw new Error("Invalid stateId");
     }
 
