@@ -318,8 +318,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
       commodity,
       scheme,
       season,
-      centerNames,
-      districtNames,
+      search,
       page = 1,
       limit = 10,
       isExport = 0
@@ -345,7 +344,6 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
     const commodityArray = parseArray(commodity);
     const schemeArray = parseArray(scheme);
     const seasonArray = parseArray(season);
-    const searchDistrict = parseArray(districtNames);
     const query = [];
 
     if (commodityArray.length > 0) {
@@ -488,27 +486,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
         }
       },
       {
-        // $group: {
-        //   _id: '$procurementCenter_id',
-        //   req_No : { $first : "$relatedRequest.reqNo"},
-        //   centerName: { $first: '$center.center_name' },
-        //   Status: { $first: '$center.active' },
-        //   centerId: { $first: '$center._id' },
-        //   district: { $first: '$seller.address.registered.district' },
-        //   associate_name: {
-        //     $first: '$seller.basic_details.associate_details.associate_name'
-        //   },
-        //   liftedQty: { $sum: '$qty' },
-        //   offeredQty: {
-        //     $first: { $ifNull: ['$associateOffer.offeredQty', 0] }
-        //   },
-        //   liftedDataDays: { $first: '$liftedDataDays' },
-        //   purchaseDays: { $first: '$purchaseDays' },
-        //   productName: { $first: '$relatedRequest.product.name' },
-        //  season: { $first: '$relatedRequest.product.season' },
-        //   schemeId: { $first: '$relatedRequest.product.schemeId' },
-        //   commodity_id: { $first: '$relatedRequest.product.commodity_id' }
-        // }
+       
 
         $group: {
   _id: {
@@ -578,18 +556,18 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
 
     ];
 
-    // Apply district and center search filters
-    if (searchDistrict.length > 0) {
-      pipeline.push({ $match: { district: { $in: searchDistrict } } });
+    if (search?.trim()) {
+  const searchRegex = new RegExp(search, 'i');
+  pipeline.push({
+    $match: {
+      $or: [
+        { district: searchRegex },
+        { centerName: searchRegex }
+      ]
     }
+  });
+}
 
-    if (centerNames?.length) {
-      pipeline.push({
-        $match: {
-          centerName: { $regex: centerNames, $options: 'i' }
-        }
-      });
-    }
 
     pipeline.push({ $sort: { centerName: 1 } });
 
