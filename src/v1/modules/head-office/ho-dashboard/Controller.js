@@ -2865,95 +2865,138 @@ async function getBOWarehouseCount({
   end_date,
 }) {
   try {
-    // Build the match criteria based on provided filters
-    const matchCriteria = {
-      head_office_id: hoId,
+    const commodityRegex = commodity.map(c => new RegExp(c, 'i'));
+    const seasonRegex = season.map(s => new RegExp(s, 'i'));
+    const schemeIds = scheme
+      .filter(mongoose.Types.ObjectId.isValid)
+      .map(id => new mongoose.Types.ObjectId(id));
+
+    const dateMatch =
+      start_date && end_date ? { $gte: start_date, $lte: end_date } : null;
+
+    // BRANCH COUNT
+    const isRequestFilterActive =
+      commodity.length > 0 ||
+      season.length > 0 ||
+      scheme.length > 0 ||
+      (start_date && end_date);
+
+    const branchMatch = {
+      headOfficeId: hoId,
+     // status: 'active',
+      ...(state.length && {
+        state: { $in: state.map(s => new RegExp(s, 'i')) },
+      }),
+      ...(start_date &&
+        end_date && { createdAt: { $gte: start_date, $lte: end_date } }),
     };
-    let dateFilter = {};
 
-    if (start_date instanceof Date && end_date instanceof Date) {
-      dateFilter.createdAt = { $gte: start_date, $lte: end_date };
+    let branchOfficeCount;
+
+    if (!isRequestFilterActive) {
+      // No filters on requests, count directly
+      branchOfficeCount = await Branches.countDocuments(branchMatch);
+    } else {
+      const pipeline = [
+        { $match: branchMatch },
+        {
+          $lookup: {
+            from: 'requests',
+            localField: '_id',
+            foreignField: 'branch_id',
+            as: 'relatedRequests',
+          },
+        },
+        {
+          $unwind: {
+            path: '$relatedRequests',
+            preserveNullAndEmptyArrays: true,
+          },  
+        },
+        {
+          $match: {
+            ...(commodity.length && {
+              'relatedRequests.product.name': {
+                $in: commodity.map(c => new RegExp(c, 'i')),
+              },
+            }),
+            ...(season.length && {
+              'relatedRequests.product.season': {
+                $in: season.map(s => new RegExp(s, 'i')),
+              },
+            }),
+            ...(scheme.length && {
+              'relatedRequests.product.schemeId': {
+                $in: scheme
+                  .filter(mongoose.Types.ObjectId.isValid)
+                  .map(id => new mongoose.Types.ObjectId(id)),
+              },
+            }),
+            ...(start_date &&
+              end_date && {
+                'relatedRequests.createdAt': {
+                  $gte: start_date,
+                  $lte: end_date,
+                },
+              }),
+          },
+        },
+        { $group: { _id: '$_id' } },
+      ];
+
+      const result = await Branches.aggregate(pipeline);
+      branchOfficeCount = result.length;
     }
 
-    if (commodity.length) {
-      matchCriteria['product.name'] = {
-        $in: commodity.map(c => new RegExp(c, 'i')),
-      };
-    }
-
-    if (season.length) {
-      matchCriteria['product.season'] = {
-        $in: season.map(s => new RegExp(s, 'i')),
-      };
-    }
-
-    if (scheme.length) {
-      matchCriteria['product.schemeId'] = {
-        $in: scheme.map(id => new mongoose.Types.ObjectId(id)),
-      };
-    }
-    // console.log('>>>>>>>>>>>>>>>>>>', matchCriteria);
-    // Aggregate to get unique branch and warehouse IDs from requests
-    const aggregationPipeline = [
-      { $match: matchCriteria },
+    // WAREHOUSE COUNT
+    const warehousePipeline = [
+      {
+        $match: {
+          active: true,
+          ...(state.length && {
+            'addressDetails.state.state_name': {
+              $in: state.map(s => new RegExp(s, 'i')),
+            },
+          }),
+          ...(dateMatch && { createdAt: dateMatch }), // apply on parent
+        },
+      },
+      {
+        $lookup: {
+          from: 'requests',
+          localField: '_id',
+          foreignField: 'warehouse_id',
+          as: 'relatedRequests',
+        },
+      },
+      {
+        $unwind: { path: '$relatedRequests', preserveNullAndEmptyArrays: true },
+      },
+      {
+        $match: {
+          ...(commodity.length && {
+            'relatedRequests.product.name': { $in: commodityRegex },
+          }),
+          ...(season.length && {
+            'relatedRequests.product.season': { $in: seasonRegex },
+          }),
+          ...(schemeIds.length && {
+            'relatedRequests.product.schemeId': { $in: schemeIds },
+          }),
+          ...(dateMatch && {
+            'relatedRequests.createdAt': dateMatch,
+          }),
+        },
+      },
       {
         $group: {
-          _id: null,
-          branchIds: { $addToSet: '$branch_id' },
-          warehouseIds: { $addToSet: '$warehouse_id' },
+          _id: '$_id',
         },
       },
     ];
-
-    const aggregationResult = await RequestModel.aggregate(aggregationPipeline);
-
-    if (!aggregationResult.length) {
-      return { branchOfficeCount: 0, wareHouseCount: 0 };
-    }
-
-    const { branchIds, warehouseIds } = aggregationResult[0];
-    //console.log({ branchIds, warehouseIds });
-
-    // Build state filter if provided
-    const stateFilter = state.length
-      ? { state: { $in: state.map(s => new RegExp(s, 'i')) } }
-      : {};
-
-    // Count unique branches matching the state filter
-    const branchOfficeCount = await Branches.countDocuments({
-      status: 'active',
-      _id: { $in: branchIds },
-      ...stateFilter,
-      ...dateFilter,
-    });
-
-    // // Count unique warehouses matching the state filter
-    // const wareHouseCount = await wareHouseDetails.countDocuments({
-    //   active: true,
-    //   _id: { $in: warehouseIds },
-    //    'addressDetails.state.state_name': {
-    //     $in: state.map((s) => new RegExp(`^${s}$`, 'i')),
-    //   },
-    // });
-
-    // Construct the state filter only if the state array is not empty
-    const WRstateFilter = state.length
-      ? {
-          'addressDetails.state.state_name': {
-            $in: state.map(s => new RegExp(s, 'i')),
-          },
-        }
-      : {};
-
-    // Count unique warehouses matching the state filter
-    const wareHouseCount = await wareHouseDetails.countDocuments({
-      active: true,
-      // _id: { $in: warehouseIds },
-      ...WRstateFilter,
-      ...dateFilter,
-    });
-
-    //console.log( { branchOfficeCount, wareHouseCount })
+    const wareHouseCount = (await wareHouseDetails.aggregate(warehousePipeline))
+      .length;
+   // console.log({ branchOfficeCount, wareHouseCount, hoId });
     return { branchOfficeCount, wareHouseCount };
   } catch (error) {
     console.error('Error in getBOWarehouseCount:', error);
