@@ -1,4 +1,13 @@
 // Path Alias
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+});
+
 require("module-alias/register");
 // import modules
 const express = require("express");
@@ -12,9 +21,9 @@ const cookieParser = require("cookie-parser");
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./src/v1/utils/swagger/swagger-output.json");
 require("@src/v1/utils/websocket/server");
+// require('newrelic');
 // configs
 const { PORT, apiVersion } = require("./config/index");
-require('newrelic');
 require("./config/database");
 // require('./config/redis')
 const {
@@ -38,9 +47,11 @@ app.use(
     methods: ["POST", "GET", "PUT", "DELETE", "OPTIONS", "PATCH"],
   })
 );
+
+
 app.use(morgan('dev'));
 app.use(morgan("combined", { stream: combinedLogStream }));
-app.use(express.json( { limit: "50mb" }));
+app.use(express.json( { limit: "50mb"} ));
 app.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(compression());

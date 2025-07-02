@@ -1,0 +1,20 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\manish kumar\\Desktop\\live_projects\\procurement_admin_apis\\config\\logs\\.d74fc8d0ab5af1902b7f6ce56beb3afc182d90ea-audit.json",
+    "files": [
+        {
+            "date": 1750154785696,
+            "name": "C:\\Users\\manish kumar\\Desktop\\live_projects\\procurement_admin_apis\\config\\logs\\app-2025-06-17.log",
+            "hash": "a2399a66c138437ba6dc620dfefd31ce45fb761c3f233840f135eae79e8c35ce"
+        },
+        {
+            "date": 1750398354590,
+            "name": "C:\\Users\\manish kumar\\Desktop\\live_projects\\procurement_admin_apis\\config\\logs\\app-2025-06-20.log",
+            "hash": "82ba8dd5eb3a4407aeeeee38e3f739813bcde935dc3a8c72413e4c884d36c9e5"
+        }
+    ],
+    "hashType": "sha256"
+}

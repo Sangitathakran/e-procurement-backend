@@ -120,15 +120,25 @@ module.exports.getHoProcurementCenter = async (req, res) => {
 
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', associateName, state, city, isExport=0 } = req.query
-        let query = {
-            ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
-        };
+        // let query = {
+        //     ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+        // };
+        let query = { deletedAt: null };
+
+      if (search) {
+        query["$or"] = [
+        { "center_name": { $regex: search, $options: "i" } },
+        { "center_code": { $regex: search, $options: "i" } },
+        { "center_type": { $regex: search, $options: "i" } },
+           ];
+           }
         if (associateName) {
             query["point_of_contact.name"] = { $regex: associateName, $options: "i" };
         }
         if (state) {
             query["address.state"] = { $regex: state, $options: "i" };
         }
+        console.log("query",query);
 
         // City filter
         if (city) {

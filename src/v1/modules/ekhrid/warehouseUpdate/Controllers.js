@@ -192,12 +192,20 @@ module.exports.getBatchesIds = async (req, res) => {
 
         // Fetch procurement entries
         const ekharidWarehouse = await eKharidHaryanaProcurementModel
-            .find({ 'procurementDetails.gatePassID': { $in: gatePassIds } })
-            .select("warehouseData.warehouseName procurementDetails.gatePassID -_id")
+            .find({ 'warehouseData.exitGatePassId': { $in: gatePassIds } })
+            .select("warehouseData.warehouseName warehouseData.exitGatePassId -_id")
             .lean();
-
+        const uniqueEkharidWarehouse =[] 
+        if(ekharidWarehouse.length > 0) {
+            ekharidWarehouse.forEach((item) => {
+                const existingItem = uniqueEkharidWarehouse.find((uniqueItem) => uniqueItem.warehouseData.exitGatePassId === item.warehouseData.exitGatePassId);
+                if (!existingItem) {
+                    uniqueEkharidWarehouse.push(item);
+                }
+            });
+        }
         // Get unique warehouse names
-        const warehouseNames = [...new Set(ekharidWarehouse.map(w => w.warehouseData?.warehouseName))].filter(Boolean);
+        const warehouseNames = [...new Set(uniqueEkharidWarehouse.map(w => w.warehouseData?.warehouseName))].filter(Boolean);
 
         // Fetch all matching warehouse details in one go
         const warehouseDetailsList = await wareHouseDetails
@@ -211,15 +219,15 @@ module.exports.getBatchesIds = async (req, res) => {
         );
 
         // Append warehouseId to each result
-        ekharidWarehouse.forEach(warehouse => {
+        uniqueEkharidWarehouse.forEach(warehouse => {
             const warehouseName = warehouse?.warehouseData?.warehouseName;
             warehouse.warehouseData.warehouseId = warehouseNameToIdMap.get(warehouseName) || null;
             delete warehouse?.warehouseData?.warehouseName
         });
 
         const record = {
-            count: ekharidWarehouse.length,
-            data: ekharidWarehouse
+            count: uniqueEkharidWarehouse.length,
+            data: uniqueEkharidWarehouse
         };
 
         return res.status(200).json({ status: 200, data: record, message: "Batches fetched successfully" });
@@ -237,9 +245,9 @@ module.exports.updateBatchWarehouseBulks = async (req, res) => {
     }
     const bulkOperations = ekharidWarehouse.map(batch=>({
         updateOne:{
-            filter:{batchId:batch.procurementDetails.gatePassID},
+            filter:{batchId:batch.warehouseData.exitGatePassId},
             update:{$set:{warehousedetails_id:batch.warehouseData.warehouseId,
-                warehouseUpdatedAt:batch.warehouseData.warehouseId?new Date():null,
+                warehouseUpdatedAt:batch.warehouseData.warehouseId? new Date():null,
             }}
         }
     }));
