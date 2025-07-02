@@ -203,7 +203,7 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({
       status: 200,
       data: result,
-      message: _response_message.found("PO Raised"),
+      message: _response_message.found("Order Summary"),
     }));
 
   } catch (error) {
