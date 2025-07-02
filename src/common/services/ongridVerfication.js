@@ -52,11 +52,12 @@ const aadherVerfiycation = async (aadhaar_number) => {
 
   try {
     const response = await retryAsync(requestFn, 2);
-    logger.info(`✅ Aadhaar verification successful for: ${aadhaar_number}`);
+    logger.info(` Aadhaar verification successful for: ${aadhaar_number}`);
     return response;
   } catch (error) {
-    logger.error(`❌ Aadhaar verification failed for ${aadhaar_number}: ${error?.response?.data?.error?.message || error.message}`);
-    throw new Error("Aadhaar verification failed. Please try again later.");
+    logger.error(` Aadhaar verification failed for ${aadhaar_number}: ${error?.response?.data?.error?.message || error.message}`);
+    console.log(error)
+    return error?.response?.data
   }
 };
 
@@ -85,10 +86,10 @@ const bankVerfiycation = async (account_number, ifsc) => {
 
   try {
     const response = await retryAsync(requestFn, 2);
-    logger.info(`✅ Bank verification successful for: ${account_number}/${ifsc}`);
+    logger.info(` Bank verification successful for: ${account_number}/${ifsc}`);
     return response;
   } catch (error) {
-    logger.error(`❌ Bank verification failed for ${account_number}/${ifsc}: ${error?.response?.data?.error?.message || error.message}`);
+    logger.error(` Bank verification failed for ${account_number}/${ifsc}: ${error?.response?.data?.error?.message || error.message}`);
     return {
       success: false,
       message: "Bank verification failed after retries.",

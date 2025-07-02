@@ -60,21 +60,21 @@ const runBankVerificationJob = async () => {
       },
     ]);
 
-    logger.info(`📦 Total records fetched for verification: ${records.length}`);
+    logger.info(` Total records fetched for verification: ${records.length}`);
     console.log(records)
     for (const record of records) {
       await processSingleFarmerRecord(record);
     }
 
-    logger.info(`✅ Completed processing ${records.length} verification record(s).`);
+    logger.info(` Completed processing ${records.length} verification record(s).`);
   } catch (error) {
-    logger.error("❌ Cron error during verification process: " + error.message);
+    logger.error(" Cron error during verification process: " + error.message);
   }
 };
 
 const processSingleFarmerRecord = async (record) => {
   try {
-    logger.info(`🔍 Verifying record ID: ${record._id}`);
+    logger.info(` Verifying record ID: ${record._id}`);
 
     // ----------------- Bank Verification -----------------
     if (record?.request_for_bank === true) {
@@ -150,7 +150,7 @@ const processSingleFarmerRecord = async (record) => {
 
       if (aadhaarNo) {
         const aadherRes = await aadherVerfiycation(aadhaarNo);
-        logger.info(`🆔 Aadhaar API Response for ${record.farmer_id}: ${JSON.stringify(aadherRes)}`);
+        logger.info(` Aadhaar API Response for ${record.farmer_id}: ${JSON.stringify(aadherRes)}`);
 
         const timestamp = new Date(aadherRes?.timestamp || Date.now());
         const aadherData = aadherRes.data?.aadhaar_data;
@@ -175,11 +175,11 @@ const processSingleFarmerRecord = async (record) => {
             },
           });
 
-          logger.info(`✅ Aadhaar verified for farmer ${record.farmer_id}`);
+          logger.info(` Aadhaar verified for farmer ${record.farmer_id}`);
         } else {
-          logger.warn(`⚠️ Aadhaar verification failed for ${aadhaarNo}: Third party API call failed`);
+          logger.warn(` Aadhaar verification failed for ${aadhaarNo}: Third party API call failed`);
 
-          await verfiyfarmer.findByIdAndUpdate(record._id, {
+          await verfiyfarmer.findByIdAndUpdate({_id: record._id}, {
             aadhaar_details: {
               code: aadherRes?.data?.code,
               ...aadherData,
@@ -198,13 +198,13 @@ const processSingleFarmerRecord = async (record) => {
             },
           });
 
-          logger.warn(`⚠️ Aadhaar verification failed for farmer ${record.farmer_id}`);
+          logger.warn(` Aadhaar verification failed for farmer ${record.farmer_id}`);
         }
       }
     }
 
   } catch (error) {
-    logger.error(`❌ Error verifying record ID: ${record._id} - ${error.message}`);
+    logger.error(` Error verifying record ID: ${record._id} - ${error.message}`);
   }
 };
 
