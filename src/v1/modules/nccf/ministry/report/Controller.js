@@ -15,7 +15,8 @@ const { mongoose } = require("mongoose");
 
 module.exports.summary = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', commodity = '', cna = 'NCCF' } = req.query;
+    const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', district = '', commodity = '', cna = '', startDate = '',
+      endDate = '' } = req.query;
 
     // Reject special characters in search
     if (/[.*+?^${}()|[\]\\]/.test(search)) {
@@ -28,8 +29,22 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
       });
     }
 
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
     const commodityNames = typeof commodity === 'string' && commodity.length > 0
       ? commodity.split(',').map(name => name.trim())
+      : [];
+
+    const states = typeof state === 'string' && state.length > 0
+      ? state.split(',').map(s => s.trim())
+      : [];
+
+    const districts = typeof district === 'string' && district.length > 0
+      ? district.split(',').map(d => d.trim())
       : [];
 
     const pipeline = [
@@ -47,10 +62,17 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
           $match: { 'distillers.basic_details.distiller_details.organization_name': { $regex: search, $options: 'i' } }
         }]
         : []),
-      ...(state
+      ...(states.length > 0
         ? [{
           $match: {
-            'distillers.address.registered.state': { $regex: state, $options: 'i' }
+            'distillers.address.registered.state': { $in: states }
+          }
+        }]
+        : []),
+      ...(districts.length > 0
+        ? [{
+          $match: {
+            'distillers.address.registered.district': { $in: districts }
           }
         }]
         : []),
@@ -61,9 +83,20 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
           }
         }]
         : []),
+      ...(startDate && endDate
+        ? [{
+          $match: {
+            createdAt: {
+              $gte: new Date(startDate),
+              $lte: new Date(endDate)
+            }
+          }
+        }]
+        : []),
       {
         $match: {
           "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
+          source_by: { $in: finalCNA },
           deletedAt: null,
           status: { $ne: "Completed" }
         }
@@ -90,6 +123,7 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
       {
         $addFields: {
           liftedQuantity: { $sum: "$acceptedBatches.quantityRequired" },
+          liftedDate: { $first: "$batchorderprocesses.updatedAt" },
           balanceQuantity: {
             $subtract: [
               "$purchasedOrder.poQuantity",
@@ -103,19 +137,20 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
       {
         $project: {
           _id: 0,
-          orderId: "$purchasedOrder.poNo",
+          cna: "$source_by",          
           distillerName: "$distillers.basic_details.distiller_details.organization_name",
           address: "$distillers.address.registered",
           bankDetails: "$distillers.bank_details",
+          orderId: "$purchasedOrder.poNo",
           poDate: '$createdAt',
           poToken: "$paymentInfo.token",
           mandiTax: "$paymentInfo.mandiTax",
           commodity: "$product.name",
           poQuantity: "$purchasedOrder.poQuantity",
-          poAmount: "$paymentInfo.totalAmount",
-          liftedDate: "$batchorderprocesses.updatedAt",
+          poAmount: "$paymentInfo.totalAmount",          
           projectProcurement: "",
           liftedQuantity: 1,
+          liftedDate: 1,
           balanceQuantity: 1,
           warehouse: 1,
           warehouseAddress: 1,
@@ -123,7 +158,7 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
           remainingAmount: "$paymentInfo.balancePayment",
           state: "$distillers.address.registered.state",
           district: "$distillers.address.registered.district",
-          state: "$poStatus"
+          remarks: "$poStatus",         
         }
       },
       {
@@ -168,7 +203,7 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({
       status: 200,
       data: result,
-      message: _response_message.found("PO Raised"),
+      message: _response_message.found("Order Summary"),
     }));
 
   } catch (error) {
