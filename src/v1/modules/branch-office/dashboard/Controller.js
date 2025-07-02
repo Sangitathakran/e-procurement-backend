@@ -1437,10 +1437,7 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
             'address.state_id': stateId,
             status: _status.active
         });
-        // console.log(">>>>>>>>>>>>>")
-        // console.log(commodity)
-        // console.log(">>>>>>>>>>>>>")
-        // console.log(query)
+
         //If filters are applied and no request matches, return zero stats
         if (filtersApplied && requestIds.length === 0) {
             const farmerCount = await farmerCountPromise;
@@ -1575,10 +1572,6 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
             },
             { $count: 'total' }
         ];
-        // console.log("aggregationPipeline", aggregationPipeline)
-        // console.log(">>>>>>>",)
-        // console.log("countPipeline", countPipeline)
-
         const [result, countResult, farmerCount] = await Promise.all([
             RequestModel.aggregate(aggregationPipeline).allowDiskUse(true),
             RequestModel.aggregate(countPipeline),
