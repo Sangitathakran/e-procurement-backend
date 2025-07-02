@@ -4348,8 +4348,7 @@ module.exports.farmerVerfiedData = async (req, res) => {
       state_id,
       associate_id = "",
       commodityName,
-      isExport=1
-
+      isExport = 1
     } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -4357,10 +4356,10 @@ module.exports.farmerVerfiedData = async (req, res) => {
 
     // Unified search across mobile, name, farmer_id
     if (search) {
-      const searchRegex = new RegExp(search, "i");
+      const searchRegex = new RegExp(search.trim(), "i");
       matchStage.$or = [
         { "farmer_details.mobile_no": searchRegex },
-        { "farmer_id": searchRegex },
+        { "farmer_details.farmer_id": searchRegex },
         { "farmer_details.name": searchRegex }
       ];
     }
@@ -4370,7 +4369,7 @@ module.exports.farmerVerfiedData = async (req, res) => {
     }
 
     if (commodityName) {
-      matchStage["farmer_detaiilsCrop.crop_name"] = new RegExp(commodityName, "i");
+      matchStage["farmer_detailsCrop.crop_name"] = new RegExp(commodityName, "i");
     }
 
     if (associate_id && mongoose.Types.ObjectId.isValid(associate_id)) {
@@ -4403,20 +4402,27 @@ module.exports.farmerVerfiedData = async (req, res) => {
       {
         $lookup: {
           from: "crops",
-          localField: "farmer_details._id",
-          foreignField: "farmer_id",
-          as: "farmer_detaiilsCrop"
+          let: { farmerId: "$farmer_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$farmer_id", "$$farmerId"] } } },
+            { $sort: { createdAt: -1 } }, 
+            { $limit: 1 }
+          ],
+          as: "farmer_detailsCrop"
         }
       },
       {
-        $unwind: { path: "$farmer_detaiilsCrop" }
+        $unwind: {
+          path: "$farmer_detailsCrop",
+          preserveNullAndEmptyArrays: true
+        }
       },
       { $match: matchStage },
       {
         $project: {
           _id: 0,
           farmer_id: "$farmer_details.farmer_id",
-          commodityName: "$farmer_detaiilsCrop.crop_name",
+          commodityName: "$farmer_detailsCrop.crop_name",
           associate_id: 1,
           is_verify_aadhaar: 1,
           is_verify_bank: 1,
@@ -4434,7 +4440,7 @@ module.exports.farmerVerfiedData = async (req, res) => {
       }
     ];
 
-    if (isExport != 2 || isExport !== "2") {
+    if (isExport != 2 && isExport !== "2") {
       pipeline.push({
         $facet: {
           totalCount: [{ $count: "count" }],
@@ -4446,15 +4452,16 @@ module.exports.farmerVerfiedData = async (req, res) => {
       });
     }
 
-
     logger.info("[farmerVerfiedData] Running aggregation pipeline", {
       matchStage,
       skip,
       limit: parseInt(limit),
       isExport,
     });
-
+    console.log("Aggregation Pipeline:", JSON.stringify(pipeline, null, 2));
     const result = await verfiyfarmer.aggregate(pipeline);
+    const count = await verfiyfarmer.countDocuments(); // optional: base count
+    console.log("MongoDB Count:", count);
 
     let total = 0;
     let data = [];
@@ -4472,6 +4479,7 @@ module.exports.farmerVerfiedData = async (req, res) => {
       returnedCount: data.length
     });
 
+    // Export to Excel
     if (isExport == 2 || isExport === "2") {
       const exportRows = data.map((item) => ({
         "Farmer ID": item.farmer_id || "NA",
@@ -4525,4 +4533,5 @@ module.exports.farmerVerfiedData = async (req, res) => {
     });
   }
 };
+
 

@@ -31,10 +31,10 @@ const { runBankVerificationJob } = require('./verifyDraftJob');
 async function main() {
   const VERFICATIONS = VERFICATION || "OFF";
 
-  if (VERFICATIONS === "ON") {
+  // if (VERFICATIONS === "ON") {
     logger.info("[Cron Init] Bank verification scheduler initialized...");
 
-    cron.schedule("*/10 * * * *", async () => {
+    cron.schedule("*/5 * * * *", async () => {
       logger.info("[Cron Start] Running bank verification cron...");
       try {
         await runBankVerificationJob();
@@ -46,9 +46,9 @@ async function main() {
         });
       }
     });
-  } else {
-    logger.warn("[Cron Skipped] VERFICATION flag is OFF. Cron not started.");
-  }
+  // } else {
+  //   logger.warn("[Cron Skipped] VERFICATION flag is OFF. Cron not started.");
+  // }
 
 
 
