@@ -186,7 +186,7 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
       state = '',
       startDate = '',
       endDate = '',
-      cna = 'NCCF',
+      cna = '',
     } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -194,6 +194,13 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
 
     const matchConditions = {};
 
+    const finalCNA = cna
+      ? Array.isArray(cna)
+        ? cna
+        : cna.split(',').map(str => str.trim())
+      : ['NCCF'];
+
+    matchConditions.source_by = { $in: finalCNA };
     if (state) {
       matchConditions['distiller.address.registered.state'] = state;
     }
