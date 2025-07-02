@@ -879,7 +879,10 @@ module.exports.farmerPayments = async (req, res) => {
 
         //Apply filters
         if (commodityArray.length > 0) {
-            query['product.name'] = { $in: commodityArray };
+            const validIds = commodityArray.filter(id => mongoose.Types.ObjectId.isValid(id));
+            if (validIds.length) {
+                query['product.commodity_id'] = { $in: validIds.map(id => new mongoose.Types.ObjectId(id)) };
+            }
         }
 
         if (seasonArray.length > 0) {
@@ -894,7 +897,7 @@ module.exports.farmerPayments = async (req, res) => {
         }
 
         //Fetch data
-        const selectedFields = 'reqNo product.name product.quantity deliveryDate fulfilledQty';
+        const selectedFields = 'reqNo product.name product.quantity deliveryDate fulfilledQty product.commodity_id product.schemeId product.season';
         const fetchedRecords = paginate == 1
             ? await RequestModel.find(query)
                 .select(selectedFields)
@@ -931,7 +934,10 @@ module.exports.farmerPayments = async (req, res) => {
                 orderId: record?.reqNo,
                 quantityRequired: record?.product?.quantity,
                 deliveryDate: record?.deliveryDate,
-                requestCount: requestCount
+                requestCount: requestCount,
+                commodity_id: record?.product.commodity_id,
+                schemeId : record?.product.schemeId,
+                season : record?.product.season
             };
         }));
 
@@ -1049,9 +1055,13 @@ module.exports.agentPayments = async (req, res) => {
 
         //filter Request ID first
         const requestFilter = {};
-        if (commodityArray.length > 0)
-            requestFilter['product.name'] = { $in: commodityArray };
-
+        if (commodityArray.length > 0){
+            const validSchemeIds = commodityArray.filter(id => mongoose.Types.ObjectId.isValid(id));
+            if (validSchemeIds.length)
+                requestFilter['product.commodity_id'] = {
+                    $in: validSchemeIds.map(id => new mongoose.Types.ObjectId(id))
+                };
+        }
         if (seasonArray.length > 0)
             requestFilter['product.season'] = { $in: seasonArray };
 
@@ -1099,7 +1109,7 @@ module.exports.agentPayments = async (req, res) => {
             .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
             .populate([
                 { path: "bo_id", select: "branchId" },
-                { path: "req_id", select: "product.name product.season product.schemeId deliveryDate quotedPrice reqNo" }
+                { path: "req_id", select: "product.name product.season product.schemeId deliveryDate quotedPrice reqNo product.commodity_id " }
             ])
             .sort(sortBy);
 
@@ -1113,7 +1123,11 @@ module.exports.agentPayments = async (req, res) => {
                 orderId: record.req_id.reqNo,
                 qtyProcured: record.qtyProcured,
                 billingDate: record.req_id.deliveryDate,
-                paymentStatus: record.payment_status
+                paymentStatus: record.payment_status,
+                commodityName : record.req_id.product.name || null,
+                commodity_id : record.req_id.product.commodity_id || null,
+                schemeId : record.req_id.product.schemeId || null,
+                season : record.req_id.product.season || null
             }));
 
         const totalCount = await AgentInvoice.countDocuments(query);
