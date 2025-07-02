@@ -1383,7 +1383,7 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
 
-        const { commodity, scheme, season } = req.query;
+        const { commodity, scheme, season, search } = req.query;
         const portalId = req.user?.portalId?._id;
         if (!portalId) return res.status(400).json({ message: 'Invalid portalId' });
 
@@ -1519,6 +1519,12 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
                 }
             },
             { $unwind: '$commodity' },
+            ...(search ? [{
+  $match: {
+    'commodity.name': { $regex: search, $options: 'i' }
+  }
+}] : []),
+
             {
                 $group: {
                     _id: {
@@ -1558,20 +1564,85 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
             { $limit: limit }
         ];
 
-        const countPipeline = [
-            {
-                $match: {
-                    ...baseMatch,
-                    ...(filtersApplied ? { _id: { $in: requestIds } } : {})
+       const countPipeline = [
+  {
+    $match: {
+      ...baseMatch,
+      ...(filtersApplied ? { _id: { $in: requestIds } } : {})
+    }
+  },
+  {
+    $lookup: {
+      from: 'associateoffers',
+      let: { reqId: '$_id' },
+      pipeline: [
+        { $match: { $expr: { $eq: ['$req_id', '$$reqId'] } } },
+        {
+          $lookup: {
+            from: 'farmerorders',
+            let: { offerId: '$_id' },
+            pipeline: [
+              { $match: { $expr: { $eq: ['$associateOffers_id', '$$offerId'] } } },
+              {
+                $lookup: {
+                  from: 'farmers',
+                  localField: 'farmer_id',
+                  foreignField: '_id',
+                  as: 'farmerInfo'
                 }
-            },
-            {
-                $group: {
-                    _id: branch.state
+              },
+              { $unwind: '$farmerInfo' },
+              {
+                $project: {
+                  offeredQty: 1,
+                  farmer_id: 1,
+                  associate_id: '$farmerInfo.associate_id'
                 }
-            },
-            { $count: 'total' }
-        ];
+              }
+            ],
+            as: 'farmerOrders'
+          }
+        },
+        { $unwind: '$farmerOrders' },
+        {
+          $project: {
+            farmer_id: '$farmerOrders.farmer_id',
+            offeredQty: '$farmerOrders.offeredQty',
+            associate_id: '$farmerOrders.associate_id'
+          }
+        }
+      ],
+      as: 'offers'
+    }
+  },
+  { $unwind: '$offers' },
+  {
+    $lookup: {
+      from: 'commodities',
+      localField: 'product.commodity_id',
+      foreignField: '_id',
+      as: 'commodity'
+    }
+  },
+  { $unwind: '$commodity' },
+
+  // ✅ Apply optional search on commodity name
+  ...(search ? [{
+    $match: {
+      'commodity.name': { $regex: search, $options: 'i' }
+    }
+  }] : []),
+
+  {
+    $group: {
+      _id: branch.state // or '$branch.state' if it's embedded in the doc
+    }
+  },
+  {
+    $count: 'total'
+  }
+];
+
         const [result, countResult, farmerCount] = await Promise.all([
             RequestModel.aggregate(aggregationPipeline).allowDiskUse(true),
             RequestModel.aggregate(countPipeline),
