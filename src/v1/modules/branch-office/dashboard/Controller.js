@@ -1404,11 +1404,10 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
         let filtersApplied = false;
 
         if (commodity) {
-            const commodityArray = (Array.isArray(commodity) ? commodity : commodity.split(',')).map(s => s.trim()).filter(Boolean);
+            const commodityArray = commodity.split(',').filter(Boolean).map(id => new mongoose.Types.ObjectId(id));
             if (commodityArray.length) {
                 filtersApplied = true;
-                const regexCommodity = commodityArray.map(name => new RegExp(name, 'i'));
-                query.push({ 'product.name': { $in: regexCommodity } });
+                query.push({ 'product.commodity_id': { $in: commodityArray } });
             }
         }
 
@@ -1438,7 +1437,10 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
             'address.state_id': stateId,
             status: _status.active
         });
-
+        // console.log(">>>>>>>>>>>>>")
+        // console.log(commodity)
+        // console.log(">>>>>>>>>>>>>")
+        // console.log(query)
         //If filters are applied and no request matches, return zero stats
         if (filtersApplied && requestIds.length === 0) {
             const farmerCount = await farmerCountPromise;
@@ -1524,7 +1526,9 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
                 $group: {
                     _id: {
                         commodityId: '$commodity._id',
-                        name: '$commodity.name'
+                        name: '$commodity.name',
+                        scheme : '$product.schemeId',
+                        season:"$product.season"
                     },
                     totalQtyPurchased: { $sum: '$offers.offeredQty' },
                     farmerSet: { $addToSet: '$offers.farmer_id' },
