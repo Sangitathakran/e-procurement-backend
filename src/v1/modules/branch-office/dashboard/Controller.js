@@ -1404,11 +1404,10 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
         let filtersApplied = false;
 
         if (commodity) {
-            const commodityArray = (Array.isArray(commodity) ? commodity : commodity.split(',')).map(s => s.trim()).filter(Boolean);
+            const commodityArray = commodity.split(',').filter(Boolean).map(id => new mongoose.Types.ObjectId(id));
             if (commodityArray.length) {
                 filtersApplied = true;
-                const regexCommodity = commodityArray.map(name => new RegExp(name, 'i'));
-                query.push({ 'product.name': { $in: regexCommodity } });
+                query.push({ 'product.commodity_id': { $in: commodityArray } });
             }
         }
 
@@ -1524,7 +1523,9 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
                 $group: {
                     _id: {
                         commodityId: '$commodity._id',
-                        name: '$commodity.name'
+                        name: '$commodity.name',
+                        scheme : '$product.schemeId',
+                        season:"$product.season"
                     },
                     totalQtyPurchased: { $sum: '$offers.offeredQty' },
                     farmerSet: { $addToSet: '$offers.farmer_id' },
@@ -1571,10 +1572,6 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
             },
             { $count: 'total' }
         ];
-        // console.log("aggregationPipeline", aggregationPipeline)
-        // console.log(">>>>>>>",)
-        // console.log("countPipeline", countPipeline)
-
         const [result, countResult, farmerCount] = await Promise.all([
             RequestModel.aggregate(aggregationPipeline).allowDiskUse(true),
             RequestModel.aggregate(countPipeline),
