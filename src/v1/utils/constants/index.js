@@ -591,6 +591,7 @@ const _ccAvenuePaymentStatus = {
     UNKNOWN: "Unknown",
     FAILURE: "Failure"
 }
+  
 
 const _statesAndUTs = [
     { name: "Andaman and Nicobar Islands", code: "AN" },

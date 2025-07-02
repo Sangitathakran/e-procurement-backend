@@ -371,9 +371,7 @@ module.exports.associateOrders = async (req, res) => {
       isExport = 0,
     } = req.query;
 
-    const paymentIds = (await Payment.find({ req_id })).map(
-      (i) => i.associateOffers_id
-    );
+        const paymentIds = (await Payment.find({ req_id })).map(i => i.associateOffers_id);
 
     let query = {
       _id: { $in: paymentIds },
@@ -398,7 +396,7 @@ module.exports.associateOrders = async (req, res) => {
       status: 1,
     });
 
-    const reqDetailsObj = records.reqDetails.toObject();
+        const reqDetailsObj = records.reqDetails.toObject();
 
     if (
       reqDetailsObj?.address?.deliveryLocation &&
@@ -462,34 +460,23 @@ module.exports.associateOrders = async (req, res) => {
         "Quantity Purchased": item?.offeredQty || "NA",
       }));
 
-      if (record.length > 0) {
-        dumpJSONToExcel(req, res, {
-          data: record,
-          fileName: `Associate Orders-Associate Orders.xlsx`,
-          worksheetName: `Associate Orders-record-Associate Orders`,
-        });
-        return;
-      } else {
-        return res.status(400).send(
-          new serviceResponse({
-            status: 400,
-            data: records,
-            message: _response_message.notFound("Associate Orders"),
-          })
-        );
-      }
-    }
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Associate Orders-Associate Orders.xlsx`,
+                    worksheetName: `Associate Orders-record-Associate Orders`
+                });
+                return;
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }));
+            }
+        }
 
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.found("Payment"),
-      })
-    );
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
+        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
 };
 
 /*

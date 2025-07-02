@@ -15,6 +15,7 @@ require("@src/v1/utils/websocket/server");
 require('newrelic');
 // configs
 const { PORT, apiVersion } = require("./config/index");
+require('newrelic');
 require("./config/database");
 // require('./config/redis')
 const {
