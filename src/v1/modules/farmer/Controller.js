@@ -4437,6 +4437,9 @@ module.exports.farmerVerfiedData = async (req, res) => {
           ifsc_code: "$farmer_details.bank_details.ifsc_code",
           organization_name: "$associate_details.basic_details.associate_details.organization_name"
         }
+      },
+      {
+        $sort: { createdAt: -1 } // Sort by creation date, most recent first
       }
     ];
 
