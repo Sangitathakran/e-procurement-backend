@@ -371,9 +371,6 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
       query.push({ 'product.season': { $in: regexSeason } });
     }
 
-    // const baseMatch = query.length ? { $and: query } : {};
-    // const requestDocs = await RequestModel.find(baseMatch, { _id: 1 }).lean();
-    // const requestIds = requestDocs.map(doc => doc._id);
 
     const payments = await Payment.find({ bo_id: portalId }).lean();
     const batchIds = [
@@ -535,7 +532,6 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
   schemeId: { $first: '$relatedRequest.product.schemeId' },
   commodity_id: { $first: '$relatedRequest.product.commodity_id' }
 }
-
       },
       {
         $addFields: {
