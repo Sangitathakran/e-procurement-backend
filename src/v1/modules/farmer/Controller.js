@@ -4439,7 +4439,8 @@ module.exports.farmerVerfiedData = async (req, res) => {
           bank_name: "$farmer_details.bank_details.bank_name",
           branch_name: "$farmer_details.bank_details.branch_name",
           ifsc_code: "$farmer_details.bank_details.ifsc_code",
-          organization_name: "$associate_details.basic_details.associate_details.organization_name"
+          organization_name: "$associate_details.basic_details.associate_details.organization_name",
+          createdAt: "$farmer_details.createdAt"
         }
       },
       {
@@ -4478,7 +4479,31 @@ module.exports.farmerVerfiedData = async (req, res) => {
       total = result.length;
     } else {
       total = result[0]?.totalCount[0]?.count || 0;
-      data = result[0]?.data || [];
+      // data = result[0]?.data || [];
+      data = (result[0]?.data || []).map((item) => ({
+        farmer_id: item.farmer_id || "NA",
+        name: item.name || "NA",
+        mobile: item.mobile || "NA",
+        commodityName: item.commodityName || "NA",
+        aadhar_no: item.aadhar_no || "NA",
+        account_no: item.account_no || "NA",
+        bank_name: item.bank_name || "NA",
+        branch_name: item.branch_name || "NA",
+        ifsc_code: item.ifsc_code || "NA",
+        address: item.address || "NA",
+        is_verify_aadhaar:
+          typeof item.is_verify_aadhaar === "boolean"
+            ? item.is_verify_aadhaar ? "true" : "false"
+            : "NA",
+        is_verify_bank:
+          typeof item.is_verify_bank === "boolean"
+            ? item.is_verify_bank ? "true" : "true"
+            : "NA",
+        organization_name: item.organization_name || "NA",
+        state_id: item.state_id || "NA",
+        associate_id: item.associate_id || "NA",
+        createdAt: item.createdAt || "NA"
+       }));
     }
 
     logger.info("[farmerVerfiedData] Aggregation successful", {
