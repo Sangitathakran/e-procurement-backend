@@ -4096,17 +4096,17 @@ async function mapToVerifyFarmerModel(rows, request_for_verfication) {
       if (existingVerification) {
         logger.info(`Farmer already verified with ID: ${farmerData._id}`);
         continue;
+      } else {
+        const data = {
+          farmer_id: new ObjectId(farmerData._id),
+          associate_id: farmerData?.associate_id ? new ObjectId(farmerData.associate_id) : null,
+          aadhar_number: farmerData?.proof?.aadhar_no || null,
+          request_for_aadhaar,
+          request_for_bank
+        };
+
+        result.push(data);
       }
-
-      const data = {
-        farmer_id: new ObjectId(farmerData._id),
-        associate_id: farmerData?.associate_id ? new ObjectId(farmerData.associate_id) : null,
-        aadhar_number: farmerData?.proof?.aadhar_no || null,
-        request_for_aadhaar,
-        request_for_bank
-      };
-
-      result.push(data);
 
     } catch (err) {
       logger.error(`Error processing row with ID ${row._id}`, err);
@@ -4173,6 +4173,86 @@ module.exports.uploadFarmerForVerfication = async (req, res) => {
       res,
       message: "Farmers imported successfully",
       data: { count: formattedRows.length }
+    });
+  } catch (error) {
+    logger.error("Error during farmer data import", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Failed to import data",
+      errors: error.message
+    });
+  }
+};
+
+
+module.exports.requestforVerification = async (req, res) => {
+  try {
+    let { farmerId, request_for_verfication } = req.body;
+    request_for_verfication = +request_for_verfication
+    logger.info("Starting upload of farmer data for verification.");
+
+    if (!Object.values(VerificationType).includes(request_for_verfication)) {
+      logger.warn("Invalid or missing request_for_verfication value", { request_for_verfication });
+
+      return sendResponse({
+        res,
+        status: 400,
+        message: "Invalid or missing value: request_for_verfication"
+      });
+    }
+
+    if (!farmerId || !Array.isArray(farmerId) || !farmerId.length) {
+      logger.warn("Missing or invalid farmerIds array in request body.");
+      return sendResponse({
+        res,
+        status: 400,
+        message: "Missing or invalid farmerIds array"
+      });
+    }
+
+    for (let i = 0; i < farmerId.length; i++) {
+      let findFarmer = await farmer.findOne({ farmer_id: farmerId[i] });
+      if (!findFarmer) {
+        logger.warn(`Farmer not found with ID: ${farmerId[i]}`);
+        return sendResponse({
+          res,
+          status: 404,
+          message: `Farmer not found with ID: ${farmerId[i]}`
+        });
+      }
+      let existingVerification = await verfiyfarmer.findOne({ farmer_id: findFarmer._id });
+      if (existingVerification) {
+        logger.info(`Farmer already verified with ID: ${findFarmer._id}`);
+
+        await verfiyfarmer.findOneAndUpdate(
+          { farmer_id: findFarmer._id },
+          {
+            $set: {
+              request_for_aadhaar:
+                !existingVerification.is_verify_aadhaar &&
+                (request_for_verfication === VerificationType.AADHAAR || request_for_verfication === VerificationType.BOTH),
+              request_for_bank:
+                !existingVerification.is_verify_bank &&
+                (request_for_verfication === VerificationType.BANK || request_for_verfication === VerificationType.BOTH),
+            },
+          }
+        );
+      } else {
+        const data = {
+          farmer_id: new ObjectId(findFarmer._id),
+          associate_id: findFarmer?.associate_id ? new ObjectId(findFarmer?.associate_id) : null,
+          aadhar_number: findFarmer?.proof?.aadhar_no || null,
+          request_for_aadhaar: request_for_verfication === VerificationType.AADHAAR || request_for_verfication === VerificationType.BOTH,
+          request_for_bank: request_for_verfication === VerificationType.BANK || request_for_verfication === VerificationType.BOTH
+        };
+        await verfiyfarmer.create(data);
+      }
+    }
+
+    return sendResponse({
+      res,
+      message: "Farmers insert successfully",
     });
   } catch (error) {
     logger.error("Error during farmer data import", error);
@@ -4333,8 +4413,6 @@ module.exports.farmerCount = async (req, res) => {
 };
 
 
-
-
 module.exports.farmerVerfiedData = async (req, res) => {
   try {
     logger.info("[farmerVerfiedData] Fetching verified farmers with filters and pagination", {
@@ -4373,11 +4451,11 @@ module.exports.farmerVerfiedData = async (req, res) => {
     }
 
     if (associate_id && mongoose.Types.ObjectId.isValid(associate_id)) {
-       matchStage["$or"] = [
+      matchStage["$or"] = [
         { associate_id: new mongoose.Types.ObjectId(associate_id) },
         { associate_id: null }
       ];
-     }
+    }
 
     const pipeline = [
       {
@@ -4409,7 +4487,7 @@ module.exports.farmerVerfiedData = async (req, res) => {
           let: { farmerId: "$farmer_id" },
           pipeline: [
             { $match: { $expr: { $eq: ["$farmer_id", "$$farmerId"] } } },
-            { $sort: { createdAt: -1 } }, 
+            { $sort: { createdAt: -1 } },
             { $limit: 1 }
           ],
           as: "farmer_detailsCrop"
@@ -4491,13 +4569,13 @@ module.exports.farmerVerfiedData = async (req, res) => {
         branch_name: item.branch_name || "NA",
         ifsc_code: item.ifsc_code || "NA",
         address: item.address || "NA",
-        is_verify_aadhaar:item.is_verify_aadhaar,
-        is_verify_bank:item.is_verify_bank ,
+        is_verify_aadhaar: item.is_verify_aadhaar,
+        is_verify_bank: item.is_verify_bank,
         organization_name: item.organization_name || "NA",
         state_id: item.state_id || "NA",
         associate_id: item.associate_id || "NA",
         createdAt: item.createdAt || "NA"
-       }));
+      }));
     }
 
     logger.info("[farmerVerfiedData] Aggregation successful", {
