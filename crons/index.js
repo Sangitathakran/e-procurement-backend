@@ -49,9 +49,6 @@ async function main() {
   // } else {
   //   logger.warn("[Cron Skipped] VERFICATION flag is OFF. Cron not started.");
   // }
-
-
-
   // cron.schedule("0 9-17/2 * * 1-5", () => {
   //   sendLog();
   // });
