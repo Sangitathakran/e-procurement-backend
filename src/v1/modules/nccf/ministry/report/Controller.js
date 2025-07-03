@@ -16,7 +16,7 @@ const { mongoose } = require("mongoose");
 module.exports.summary = asyncErrorHandler(async (req, res) => {
   try {
     const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', district = '', commodity = '', cna = '', startDate = '',
-      endDate = '' } = req.query;
+      endDate = '', isExport = 0 } = req.query;
 
     // Reject special characters in search
     if (/[.*+?^${}()|[\]\\]/.test(search)) {
@@ -137,7 +137,7 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
       {
         $project: {
           _id: 0,
-          cna: "$source_by",          
+          cna: "$source_by",
           distillerName: "$distillers.basic_details.distiller_details.organization_name",
           address: "$distillers.address.registered",
           bankDetails: "$distillers.bank_details",
@@ -147,7 +147,7 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
           mandiTax: "$paymentInfo.mandiTax",
           commodity: "$product.name",
           poQuantity: "$purchasedOrder.poQuantity",
-          poAmount: "$paymentInfo.totalAmount",          
+          poAmount: "$paymentInfo.totalAmount",
           projectProcurement: "",
           liftedQuantity: 1,
           liftedDate: 1,
@@ -158,7 +158,7 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
           remainingAmount: "$paymentInfo.balancePayment",
           state: "$distillers.address.registered.state",
           district: "$distillers.address.registered.district",
-          remarks: "$poStatus",         
+          remarks: "$poStatus",
         }
       },
       {
@@ -169,10 +169,17 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
     const withoutPaginationPipeline = [...pipeline];
 
     // Pagination
-    pipeline.push(
-      { $skip: parseInt(skip) },
-      { $limit: parseInt(limit) }
-    );
+    // pipeline.push(
+    //   { $skip: parseInt(skip) },
+    //   { $limit: parseInt(limit) }
+    // );
+
+    if (parseInt(isExport) !== 1) {
+      pipeline.push(
+        { $skip: parseInt(skip) },
+        { $limit: parseInt(limit) }
+      );
+    }
 
     // Count total documents
     const countPipeline = [...withoutPaginationPipeline, { $count: "count" }];
@@ -200,11 +207,67 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
     result.limit = parseInt(limit);
     result.pages = limit != 0 ? Math.ceil(result.count / limit) : 0;
 
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      data: result,
-      message: _response_message.found("Order Summary"),
-    }));
+    // return res.status(200).send(new serviceResponse({
+    //   status: 200,
+    //   data: result,
+    //   message: _response_message.found("Order Summary"),
+    // }));
+
+    if (isExport == 1) {
+      const exportData = result.rows.map(item => ({
+        "CNA": item.cna,
+        "Distiller name": item.distillerName,
+        "Address - Line 1": item.address?.line1 || "",
+        "Address - Line 2": item.address?.line2 || "",
+        "Village": item.address?.village || "",
+        "Taluka": item.address?.taluka || "",
+        "District": item.address?.district || "",
+        "State": item.address?.state || "",
+        "Pincode": item.address?.pinCode || "",
+        "Bank Name": item.bankDetails?.bank_name || "",
+        "Branch Name": item.bankDetails?.branch_name || "",
+        "Account Holder": item.bankDetails?.account_holder_name || "",
+        "Account Number": item.bankDetails?.account_number || "",
+        "IFSC Code": item.bankDetails?.ifsc_code || "",
+        "PO Date": item.poDate,
+        "PO (%)": item.poToken,
+        "Mandi Tax": item.mandiTax,
+        "Commodity": item.commodity,
+        "PO Quantity": item.poQuantity,
+        "PO Amount": item.poAmount,
+        "Project Procurement": item.projectProcurement,
+        "Lifted Quantity": item.liftedQuantity,
+        "Lifted Date": item.liftedDate,
+        "Remaining Quantity": item.remainingQuantity,
+        "Warehouse": item.warehouse,
+        "Warehouse Address": item.warehouseAddress,
+        "Payment Debited": item.paymentDebited,
+        "Remaining Amount": item.remainingAmount,
+        "Remarks": item.remarks,
+
+      }));
+
+
+      if (exportData.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: exportData,
+          fileName: `Order-summary.xlsx`,
+          worksheetName: `Order-summary`
+        });
+      } else {
+        return res.status(404).send(new serviceResponse({
+          status: 404,
+          message: _response_message.notFound("Order summary"),
+        }));
+      }
+
+    } else {
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: result,
+        message: _response_message.found("Order Summary"),
+      }));
+    }
 
   } catch (error) {
     _handleCatchErrors(error, res);
@@ -222,6 +285,7 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
       startDate = '',
       endDate = '',
       cna = '',
+      isExport = 0
     } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -450,7 +514,15 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
       }
     ];
 
-    const paginatedPipeline = [...basePipeline, { $skip: skip }, { $limit: parseInt(limit) }];
+    // const paginatedPipeline = [...basePipeline, { $skip: skip }, { $limit: parseInt(limit) }];
+
+    const paginatedPipeline = [...basePipeline];
+    if (parseInt(isExport) !== 1) {
+      paginatedPipeline.push(
+        { $skip: parseInt(skip) },
+        { $limit: parseInt(limit) }
+      );
+    }
 
     const [rows, countRes, totalRes] = await Promise.all([
       PurchaseOrderModel.aggregate(paginatedPipeline),
@@ -467,11 +539,48 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
       pages: limit != 0 ? Math.ceil((countRes[0]?.count || 0) / limit) : 0
     };
 
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      data: result,
-      message: _response_message.found("OMC Report"),
-    }));
+    // return res.status(200).send(new serviceResponse({
+    //   status: 200,
+    //   data: result,
+    //   message: _response_message.found("OMC Report"),
+    // }));
+
+    if (isExport == 1) {
+      const exportData = result.rows.map(item => ({
+        "CNA": item.cna,
+        "State": item.state,
+        "Distiller under OMC contract": item.distillerName || "",
+        "Maize Requirement (MT)": item.maizeRequirement || "",
+        "30% of Monthly Requirement (MT)": item.thirtyPercentMonthlyRequirement || "",
+        "Delivery Schedule Date": item.deliveryScheduleDate || "",
+        "Maize Procurement (MT)": item.maizeProcurement || "",
+        "Procurement done from farmer": item.procurementDoneFromFarmer || "",
+        "No. of farmers benefitted": item.noOfFarmerBenefited || "",
+      }));
+
+
+      if (exportData.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: exportData,
+          fileName: `OMC-Report.xlsx`,
+          worksheetName: `OMC-Report`
+        });
+      } else {
+        return res.status(404).send(new serviceResponse({
+          status: 404,
+          message: _response_message.notFound("OMC Report"),
+        }));
+      }
+
+    } else {
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: result,
+        message: _response_message.found("OMC Report"),
+      }));
+    }
+
+
   } catch (error) {
     _handleCatchErrors(error, res);
   }

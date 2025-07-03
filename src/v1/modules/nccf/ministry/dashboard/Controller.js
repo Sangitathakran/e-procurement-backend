@@ -631,10 +631,9 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
 
     let result = {};
 
-
     // Build dynamic date filter
     const baseMatch = {
-      source_by: { $in: finalCNA },
+      source_by: { $in: finalCNA }
     };
 
     if (commodityNames.length > 0) {
@@ -651,7 +650,7 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
         $gte: new Date(`${currentYear}-01-01T00:00:00.000Z`),
         $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
       };
-    } 
+    }
 
     // ======================= BATCH ORDER PROCESS =======================
     result.monthlyLiftingSummary = await BatchOrderProcess.aggregate([
@@ -700,8 +699,13 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
     ]);
 
     // ======================= PURCHASE ORDER =======================
+    baseMatch["paymentInfo.advancePaymentStatus"] = _poAdvancePaymentStatus.paid
+   
     result.monthlyOrderSummary = await PurchaseOrderModel.aggregate([
-      { $match: baseMatch },
+      {
+        $match: baseMatch
+      },
+
       {
         $group: {
           _id: filterType === 'year'
