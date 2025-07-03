@@ -16,7 +16,7 @@ const { mongoose } = require("mongoose");
 module.exports.summary = asyncErrorHandler(async (req, res) => {
   try {
     const { page = 1, limit, skip = 0, sortBy = "createdAt", search = '', state = '', district = '', commodity = '', cna = '', startDate = '',
-      endDate = '' } = req.query;
+      endDate = '', isExport = 0 } = req.query;
 
     // Reject special characters in search
     if (/[.*+?^${}()|[\]\\]/.test(search)) {
@@ -137,7 +137,7 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
       {
         $project: {
           _id: 0,
-          cna: "$source_by",          
+          cna: "$source_by",
           distillerName: "$distillers.basic_details.distiller_details.organization_name",
           address: "$distillers.address.registered",
           bankDetails: "$distillers.bank_details",
@@ -147,7 +147,7 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
           mandiTax: "$paymentInfo.mandiTax",
           commodity: "$product.name",
           poQuantity: "$purchasedOrder.poQuantity",
-          poAmount: "$paymentInfo.totalAmount",          
+          poAmount: "$paymentInfo.totalAmount",
           projectProcurement: "",
           liftedQuantity: 1,
           liftedDate: 1,
@@ -158,7 +158,7 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
           remainingAmount: "$paymentInfo.balancePayment",
           state: "$distillers.address.registered.state",
           district: "$distillers.address.registered.district",
-          remarks: "$poStatus",         
+          remarks: "$poStatus",
         }
       },
       {
@@ -200,11 +200,57 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
     result.limit = parseInt(limit);
     result.pages = limit != 0 ? Math.ceil(result.count / limit) : 0;
 
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      data: result,
-      message: _response_message.found("Order Summary"),
-    }));
+    // return res.status(200).send(new serviceResponse({
+    //   status: 200,
+    //   data: result,
+    //   message: _response_message.found("Order Summary"),
+    // }));
+
+    if (isExport == 1) {
+      const exportData = result.rows.map(item => ({
+        "CNA": item.cna,
+        "Distiller name": item.distillerName,
+        "Address": item.address,
+        "Bank details": item.bankDetails,
+        "PO Date": item.poDate,
+        "PO (%)": item.poToken,
+        "Mandi Tax": item.mandiTax,
+        "Commodity": item.commodity,  
+        "PO Quantity": item.poQuantity,
+        "PO Amount": item.poAmount,
+        "Project Procurement": item.projectProcurement,
+        "Lifted Quantity": item.liftedQuantity,
+        "Lifted Date": item.liftedDate,
+        "Remaining Quantity": item.remainingQuantity,
+        "Warehouse": item.warehouse,
+        "Warehouse Address": item.warehouseAddress,
+        "Payment Debited": item.paymentDebited,
+        "Remaining Amount": item.remainingAmount,      
+        "Remarks": item.remarks,
+
+      }));
+
+
+      if (exportData.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: exportData,
+          fileName: `Order-summary.xlsx`,
+          worksheetName: `Order-summary`
+        });
+      } else {
+        return res.status(404).send(new serviceResponse({
+          status: 404,
+          message: _response_message.notFound("Distiller records"),
+        }));
+      }
+
+    } else {
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: result,
+        message: _response_message.found("Order Summary"),
+      }));
+    }
 
   } catch (error) {
     _handleCatchErrors(error, res);
