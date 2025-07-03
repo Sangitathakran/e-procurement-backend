@@ -11,7 +11,63 @@ const { paginate } = require('@src/v1/utils/helpers');
 const { ObjectId } = require("mongodb");
 const mongoose = require("mongoose");
 
+function generateCacheKey(prefix, params) {
+  return `${prefix}:${Object.entries(params)
+    .sort()
+    .map(([k, v]) => `${k}=${v}`)
+    .join("&")}`;
+}
 
+async function mapToVerifyFarmerModel(rows, request_for_verfication) {
+  const result = [];
+  let request_for_aadhaar = false
+  let request_for_bank = false
+
+  switch (request_for_verfication) {
+    case VerificationType.BANK:
+      request_for_bank = true;
+      break;
+    case VerificationType.AADHAAR:
+      request_for_aadhaar = true;
+      break;
+    case VerificationType.BOTH:
+      request_for_bank = true;
+      request_for_aadhaar = true;
+      break;
+  }
+
+  for (const row of rows) {
+    try {
+      const farmerData = await farmer.findOne({ farmer_id: row["Farmer ID"] });
+      if (!farmerData) {
+        logger.warn(`Farmer not found with ID: ${row._id}`);
+        continue;
+      }
+
+      const existingVerification = await verfiyfarmer.findOne({ farmer_id: farmerData._id });
+      if (existingVerification) {
+        logger.info(`Farmer already verified with ID: ${farmerData._id}`);
+        continue;
+      } else {
+        const data = {
+          farmer_id: new ObjectId(farmerData._id),
+          associate_id: farmerData?.associate_id ? new ObjectId(farmerData.associate_id) : null,
+          aadhar_number: farmerData?.proof?.aadhar_no || null,
+          request_for_aadhaar,
+          request_for_bank
+        };
+
+        result.push(data);
+      }
+
+    } catch (err) {
+      logger.error(`Error processing row with ID ${row._id}`, err);
+      continue;
+    }
+  }
+
+  return result;
+}
 
 
 
@@ -389,7 +445,7 @@ module.exports.farmerCount = async (req, res) => {
     });
 
   } catch (error) {
-    logger.error("❌ Error while fetching farmer count", error);
+    logger.error(" Error while fetching farmer count", error);
     return sendResponse({
       res,
       status: 500,
