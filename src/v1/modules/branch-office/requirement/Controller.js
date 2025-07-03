@@ -72,29 +72,30 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
 
     records.count = records.rows.length;
 
-    if (paginate == 1) {
+    if (paginate == 1 & isExport != 1) {
         records.page = parseInt(page);
         records.limit = parseInt(limit);
         records.pages = limit !== 0 ? Math.ceil(records.count / limit) : 0;
     }
 
     if (isExport == 1) {
-        const record = rows.map((item) => ({
-            "Order ID": item.reqNo || "NA",
-            "Commodity": item["product.name"] || "NA",
-            "Quantity": item["product.quantity"] || "NA",
-            "MSP": item.quotedPrice || "NA",
-            "Created On": item.createdAt || "NA",
-            "Expected Procurement": item.expectedProcurementDate || "NA",
-            "Expected Delivery Date": item.deliveryDate || "NA",
-            "Delivery Location": item["address.deliveryLocation"] || "NA",
+        const record = records.rows.map((item) => ({
+            "Order ID": item?.reqNo || "NA",
+            "SLA": item?.sla_name || "NA",
+            "SCHEME": item?.scheme_name || "NA",
+            "Commodity": item?.product?.name || "NA",
+            "Quantity": item?.product?.quantity || "NA",
+            "MSP": item?.quotedPrice || "NA",
+            "EST DELIVERY": item?.deliveryDate || "NA",
+            "COMPLETION": item?.expectedProcurementDate || "NA",
+            "CREATED DATE": item?.createdAt || "NA",
         }));
 
         if (record.length > 0) {
             dumpJSONToExcel(req, res, {
                 data: record,
-                fileName: Requirement-record.xlsx,
-                worksheetName: Requirement-record,
+                fileName: `Requirement-record.xlsx`,
+                worksheetName: `Requirement-record`,
             });
         } else {
             return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("requirement") }));
