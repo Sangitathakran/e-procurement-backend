@@ -4491,14 +4491,8 @@ module.exports.farmerVerfiedData = async (req, res) => {
         branch_name: item.branch_name || "NA",
         ifsc_code: item.ifsc_code || "NA",
         address: item.address || "NA",
-        is_verify_aadhaar:
-          typeof item.is_verify_aadhaar === "boolean"
-            ? item.is_verify_aadhaar ? "true" : "false"
-            : "NA",
-        is_verify_bank:
-          typeof item.is_verify_bank === "boolean"
-            ? item.is_verify_bank ? "true" : "true"
-            : "NA",
+        is_verify_aadhaar:item.is_verify_aadhaar,
+        is_verify_bank:item.is_verify_bank ,
         organization_name: item.organization_name || "NA",
         state_id: item.state_id || "NA",
         associate_id: item.associate_id || "NA",
