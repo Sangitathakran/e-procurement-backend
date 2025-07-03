@@ -4373,8 +4373,11 @@ module.exports.farmerVerfiedData = async (req, res) => {
     }
 
     if (associate_id && mongoose.Types.ObjectId.isValid(associate_id)) {
-      matchStage["associate_id"] = new mongoose.Types.ObjectId(associate_id);
-    }
+       matchStage["$or"] = [
+        { associate_id: new mongoose.Types.ObjectId(associate_id) },
+        { associate_id: null }
+      ];
+     }
 
     const pipeline = [
       {
@@ -4397,6 +4400,7 @@ module.exports.farmerVerfiedData = async (req, res) => {
       {
         $unwind: {
           path: "$associate_details",
+          preserveNullAndEmptyArrays: true
         }
       },
       {
