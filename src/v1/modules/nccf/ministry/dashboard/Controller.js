@@ -658,7 +658,7 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
       { $match: baseMatch },
       {
         $group: {
-          _id: filterType === 'yearly'
+          _id: filterType === 'year'
             ? { year: { $year: "$createdAt" } }
             : {
               year: { $year: "$createdAt" },
@@ -671,14 +671,14 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
       {
         $sort: {
           "_id.year": -1,
-          ...(filterType !== 'yearly' && { "_id.month": -1 })
+          ...(filterType !== 'year' && { "_id.month": -1 })
         }
       },
       {
         $project: {
           _id: 0,
           year: "$_id.year",
-          ...(filterType !== 'yearly' && {
+          ...(filterType !== 'year' && {
             month: {
               $let: {
                 vars: {
@@ -704,7 +704,7 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
       { $match: baseMatch },
       {
         $group: {
-          _id: filterType === 'yearly'
+          _id: filterType === 'year'
             ? { year: { $year: "$createdAt" } }
             : {
               year: { $year: "$createdAt" },
@@ -717,14 +717,14 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
       {
         $sort: {
           "_id.year": -1,
-          ...(filterType !== 'yearly' && { "_id.month": -1 })
+          ...(filterType !== 'year' && { "_id.month": -1 })
         }
       },
       {
         $project: {
           _id: 0,
           year: "$_id.year",
-          ...(filterType !== 'yearly' && {
+          ...(filterType !== 'year' && {
             month: {
               $let: {
                 vars: {
