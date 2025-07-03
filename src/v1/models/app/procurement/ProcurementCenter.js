@@ -14,6 +14,8 @@ const ProcurementCenterSchema = new mongoose.Schema({
         line2: { type: String,trim: true },
         country: { type: String, required: true, trim: true },
         state: { type: String, required: true, trim: true },
+        state_id: { type: mongoose.Schema.Types.ObjectId },
+        district_id: { type: mongoose.Schema.Types.ObjectId},
         district: { type: String, required: true, trim: true },
         city: { type: String, required: true, trim: true },
         postalCode: { type: String, required: true, trim: true },
