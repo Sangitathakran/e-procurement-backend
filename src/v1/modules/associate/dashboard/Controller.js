@@ -92,13 +92,12 @@ const { exist } = require("joi");
 module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   try {
     const { user_id } = req;
-    const { schemeName, commodity, district } = req.body;
+    const { schemeName, commodity, district = [] } = req.body;
     const userObjectId = new mongoose.Types.ObjectId(user_id);
 
     logger.info(`[WidgetList] user_id: ${user_id}`);
     logger.info(`[WidgetList] Query Params:`, { schemeName, commodity, district });
 
-    // ========= Utility Function =========
     const parseObjectIds = (input) => {
       if (!input) return [];
       const items = Array.isArray(input) ? input : JSON.parse(input);
@@ -111,82 +110,121 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     const commodityIds = parseObjectIds(commodity);
     const districtIds = parseObjectIds(district);
 
-    logger.info(`[WidgetList] Parsed Filters`, {
-      schemeIds,
-      commodityIds,
-      districtIds
-    });
-
     const widgetDetails = {};
 
-    // ========= Farmer Count =========
-    const baseFarmerQuery = { associate_id: userObjectId };
-    const requestFilter = {};
+    // ========== Get district titles ==========
+   let validDistrictTitles = [];
 
+if (districtIds.length) {
+  const filterdata = await Promise.all(
+    districtIds.map(async (x) => {
+      try {
+        const districtData = await getDistrict(x);
+        return districtData?.district_title || null;
+      } catch (err) {
+        logger.error(`[WidgetList] Error fetching district for ID ${x}: ${err.message}`);
+        return null;
+      }
+    })
+  );
+
+  validDistrictTitles = filterdata.filter(Boolean);
+
+  if (validDistrictTitles.length === 0) {
+    logger.warn(`[WidgetList] No valid district titles found for given IDs:`, district);
+    return sendResponse({
+      res,
+      status: 400,
+      message: "Invalid district(s) provided. No matching districts found.",
+      error: "Districts not found"
+    });
+  }
+}
+
+
+    // ========== Farmer Count ==========
+    const requestFilter = {};
     if (commodityIds.length) requestFilter["product.commodity_id"] = { $in: commodityIds };
     if (schemeIds.length) requestFilter["product.schemeId"] = { $in: schemeIds };
 
-    logger.info(`[WidgetList] Request Filter:`, requestFilter);
-
     const requestIds = await RequestModel.find(requestFilter).distinct('_id');
-    logger.info(`[WidgetList] Matched Request IDs: ${requestIds.length}`);
+    widgetDetails.farmertotal = await farmerCount(req);
 
-    widgetDetails.farmertotal = await farmerCount(req)
-    logger.info(`[WidgetList] Farmer Count: ${widgetDetails.farmertotal}`);
+    // ========== Procurement Center Count ==========
+    const batchPOCIds = requestIds.length
+      ? await Batch.find({ req_id: { $in: requestIds } }).distinct('procurementCenter_id')
+      : [];
 
-    // ========= Procurement Center Count =========
-
-    if (districtIds.length) requestFilter["district_id"] = { $in: districtIds };
-    const basePOCQuery = { user_id: userObjectId };
-
-    if (requestIds.length) {
-      const batchPOCs = await Batch.find({ req_id: { $in: requestIds } }).distinct('procurementCenter_id');
-      basePOCQuery._id = { $in: batchPOCs };
-      console.log(districtIds)
-      let filterdata = await Promise.all(
-        districtIds.map(async (x) => {
-          return await getDistrict(x);
-        })
-      );
-      console.log(filterdata)
-      let findData = filterdata.map(x => { return x.district_title })
-      console.log("filterdata=================", findData)
-      if (districtIds.length) basePOCQuery['address.district'] = { $in: findData };
-    } else {
-      basePOCQuery._id = { $in: [] };
+    const procurementCenterQuery = {
+      user_id: userObjectId,
+      _id: { $in: batchPOCIds },
+    };
+    if (validDistrictTitles.length) {
+      procurementCenterQuery['address.district'] = { $in: validDistrictTitles };
     }
 
-    widgetDetails.procurementCenter = await ProcurementCenter.countDocuments(basePOCQuery);
-    logger.info(`[WidgetList] Procurement Center Count: ${widgetDetails.procurementCenter}`);
+    widgetDetails.procurementCenter = await ProcurementCenter.countDocuments(procurementCenterQuery);
 
-    // ========= Total Purchased Quantity =========
+    // ========== Total Purchased Quantity ==========
     const purchasedMatch = {
       seller_id: userObjectId,
-      req_id: requestIds.length ? { $in: requestIds } : { $in: [] }
+      req_id: { $in: requestIds },
     };
+    if (validDistrictTitles.length) {
+      purchasedMatch['$expr'] = {
+        $in: [
+          "$procurementCenter.address.district",
+          validDistrictTitles
+        ]
+      };
+    }
 
     const purchase = await Batch.aggregate([
+      {
+        $lookup: {
+          from: "procurementcenters",
+          localField: "procurementCenter_id",
+          foreignField: "_id",
+          as: "procurementCenter"
+        }
+      },
+      { $unwind: "$procurementCenter" },
       { $match: purchasedMatch },
       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
     ]);
     widgetDetails.totalPurchased = purchase[0]?.totalQty ? Number(purchase[0].totalQty.toFixed(3)) : 0;
-    logger.info(`[WidgetList] Total Purchased Qty: ${widgetDetails.totalPurchased}`);
 
-    // ========= Total Lifting Quantity =========
+    // ========== Total Lifting Quantity ==========
     const liftingMatch = {
       seller_id: userObjectId,
       intransit: { $exists: true, $ne: null },
-      req_id: requestIds.length ? { $in: requestIds } : { $in: [] }
+      req_id: { $in: requestIds },
     };
+    if (validDistrictTitles.length) {
+      liftingMatch['$expr'] = {
+        $in: [
+          "$procurementCenter.address.district",
+          validDistrictTitles
+        ]
+      };
+    }
 
     const lifting = await Batch.aggregate([
+      {
+        $lookup: {
+          from: "procurementcenters",
+          localField: "procurementCenter_id",
+          foreignField: "_id",
+          as: "procurementCenter"
+        }
+      },
+      { $unwind: "$procurementCenter" },
       { $match: liftingMatch },
       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
     ]);
     widgetDetails.totalLifting = lifting[0]?.totalQty ? Number(lifting[0].totalQty.toFixed(3)) : 0;
-    logger.info(`[WidgetList] Total Lifting Qty: ${widgetDetails.totalLifting}`);
 
-    // ========= Today's Purchase & Lifting =========
+    // ========== Today's Purchase & Lifting ==========
     const now = new Date();
     const istOffset = 5.5 * 60 * 60 * 1000;
     const startOfDayIST = new Date(now.setUTCHours(0, 0, 0, 0) - istOffset);
@@ -196,39 +234,63 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       seller_id: userObjectId,
       delivered: { $exists: true, $ne: null },
       updatedAt: { $gte: startOfDayIST, $lt: endOfDayIST },
-      req_id: requestIds.length ? { $in: requestIds } : { $in: [] }
+      req_id: { $in: requestIds }
     };
-    console.log(dayPurchaseMatch)
+    if (validDistrictTitles.length) {
+      dayPurchaseMatch['$expr'] = {
+        $in: [
+          "$procurementCenter.address.district",
+          validDistrictTitles
+        ]
+      };
+    }
+
     const dayPurchase = await Batch.aggregate([
+      {
+        $lookup: {
+          from: "procurementcenters",
+          localField: "procurementCenter_id",
+          foreignField: "_id",
+          as: "procurementCenter"
+        }
+      },
+      { $unwind: "$procurementCenter" },
       { $match: dayPurchaseMatch },
       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
     ]);
     widgetDetails.totalDayPurchase = dayPurchase[0]?.totalQty || 0;
-    logger.info(`[WidgetList] Today's Purchase Qty: ${widgetDetails.totalDayPurchase}`);
+
+    const dayLiftingMatch = {
+      seller_id: userObjectId,
+      intransit: { $exists: true, $ne: null },
+      updatedAt: { $gte: startOfDayIST, $lt: endOfDayIST },
+      req_id: { $in: requestIds }
+    };
+    if (validDistrictTitles.length) {
+      dayLiftingMatch['$expr'] = {
+        $in: [
+          "$procurementCenter.address.district",
+          validDistrictTitles
+        ]
+      };
+    }
 
     const todayLifting = await Batch.aggregate([
       {
-        $match: {
-          seller_id: userObjectId,
-          intransit: { $exists: true, $ne: null },
-          updatedAt: { $gte: startOfDayIST, $lt: endOfDayIST },
-          req_id: requestIds.length ? { $in: requestIds } : { $in: [] }
+        $lookup: {
+          from: "procurementcenters",
+          localField: "procurementCenter_id",
+          foreignField: "_id",
+          as: "procurementCenter"
         }
       },
-      {
-        $group: {
-          _id: null,
-          totalQty: { $sum: "$qty" }
-        }
-      }
+      { $unwind: "$procurementCenter" },
+      { $match: dayLiftingMatch },
+      { $group: { _id: null, totalQty: { $sum: "$qty" } } }
     ]);
-
     widgetDetails.totalDaysLifting = todayLifting[0]?.totalQty || 0;
-    logger.info(`[WidgetList] Today's Lifting Qty: ${widgetDetails.totalDaysLifting}`);
 
-    // ========= Final Response =========
-    logger.info(`[WidgetList] Widget details prepared successfully.`);
-
+    // ========== Final Response ==========
     return sendResponse({
       res,
       status: 200,
@@ -246,6 +308,8 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
     });
   }
 });
+
+
 
 
 async function farmerCount(req) {
@@ -274,7 +338,7 @@ async function farmerCount(req) {
 
     let farmerQuery = { associate_id: userObjectId };
     const hasCommodityOrScheme = commodityIds.length || schemeIds.length;
-    console.log(hasCommodityOrScheme)
+
     if (hasCommodityOrScheme > 0) {
       const requestFilter = {};
       if (commodityIds.length) requestFilter['product.commodity_id'] = { $in: commodityIds };
@@ -1093,7 +1157,7 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     return sendResponse({
       res,
       status: 200,
-       data: {
+      data: {
         record: result,
         totalRecords: total,
         totalPages: Math.ceil(total / limit),
@@ -1106,12 +1170,12 @@ module.exports.mandiWiseProcurement = async (req, res) => {
     logger.error("[mandiWiseProcurement] Error occurred", { error: error.message });
 
     return sendResponse({
-        res,
-        status: 500,
-        data:[],
-        message:error.message || "Internal Server Error",
-        error: error.message,
-      })
+      res,
+      status: 500,
+      data: [],
+      message: error.message || "Internal Server Error",
+      error: error.message,
+    })
   }
 };
 
@@ -1735,6 +1799,8 @@ module.exports.incidentalExpense = async (req, res) => {
                 mandiName: { $ifNull: ["$procurementCenter.center_name", "NA"] },
                 district: { $ifNull: ["$procurementCenter.address.district", "NA"] },
                 status: { $ifNull: ["$payment_status", "NA"] },
+                dispatched: "$dispatched.bills" ,
+                ekhridBatch: "$ekhridBatch"
               },
             },
           ],
@@ -1742,12 +1808,11 @@ module.exports.incidentalExpense = async (req, res) => {
         },
       });
     }
-
     const result = await Batch.aggregate(pipeline);
+    
 
     const data = isExport == 2 ? result : result[0]?.data || [];
     const total = isExport == 2 ? data.length : result[0]?.totalCount?.[0]?.count || 0;
-
     const batchIds = data.map(item => +item.batchId).filter(Boolean);
     const summaryList = await eKharidHaryanaProcurementModel.aggregate([
       {
@@ -1801,7 +1866,7 @@ module.exports.incidentalExpense = async (req, res) => {
         laborChargesPayableDate: summary.laborChargesPayableDate
           ? new Date(summary.laborChargesPayableDate).toLocaleString("en-IN")
           : "NA",
-        commissionRecieved: summary.totalCommissionCharges || 0,
+        commissionRecieved: item.ekhridBatch == true ? summary.totalCommissionCharges : item?.dispatched?.commission,
         commissionChargesPayableDate: summary.commissionChargesPayableDate
           ? new Date(summary.commissionChargesPayableDate).toLocaleString("en-IN")
           : "NA",
@@ -2118,7 +2183,7 @@ module.exports.purchaseLifingMandiWise = async (req, res) => {
 
     const result = Object.values(centerGroups).map(entry => ({
       ...entry,
-       purchaseQty: entry.purchaseQty.toFixed(2),
+      purchaseQty: entry.purchaseQty.toFixed(2),
       liftedQty: entry.liftedQty.toFixed(2),
       balanceQty: (entry.purchaseQty - entry.liftedQty).toFixed(2),
     }));
