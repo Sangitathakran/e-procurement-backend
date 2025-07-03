@@ -220,7 +220,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
     }
 
     let matchQuery = {
-      _id: new mongoose.Types.ObjectId(scheme_id),
+      scheme_id: new mongoose.Types.ObjectId(scheme_id),
       bo_id: { $exists: true, $ne: null }
     };
 
