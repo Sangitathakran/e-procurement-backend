@@ -1,6 +1,6 @@
 const express = require("express");
 const hoDashboardRoutes = express.Router();
-
+const { Auth } = require("@src/v1/middlewares/jwt");
 const {
   widgetList,
   farmerPayments,
@@ -17,8 +17,13 @@ const {
   dashboardWidgetList,
   farmerPendingPayments,
   farmerPendingApproval,
-  satewiseProcurement
+  satewiseProcurement,
+  getcommodity,
+  getAssignedSchemes,
+  stateWiseCommodityDetail,
+  getStateWiseCommodityStats
 } = require("./Controller");
+
 
 hoDashboardRoutes.get("/widget-list", widgetList);
 hoDashboardRoutes.get("/ho-widget-list", dashboardWidgetList);
@@ -40,5 +45,9 @@ hoDashboardRoutes.get("/payment-activity",paymentActivity)
 hoDashboardRoutes.get("/farmer-pending-payments", farmerPendingPayments);
 hoDashboardRoutes.get("/farmer-pending-approval", farmerPendingApproval);
 hoDashboardRoutes.get("/statewise-procurement", satewiseProcurement);
+hoDashboardRoutes.get("/commodity", Auth, getcommodity);
+hoDashboardRoutes.get("/getscheme", Auth, getAssignedSchemes);
+hoDashboardRoutes.get("/statewise-commodity", getStateWiseCommodityStats);
+
 
 module.exports = { hoDashboardRoutes };

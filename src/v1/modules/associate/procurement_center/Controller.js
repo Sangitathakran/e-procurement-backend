@@ -115,89 +115,186 @@ module.exports.getProcurementCenter = async (req, res) => {
     }
 }
 
-
+//start of prachi code
 module.exports.getHoProcurementCenter = async (req, res) => {
-
     try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', associateName, state, city, isExport=0 } = req.query
-        // let query = {
-        //     ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
-        // };
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateName, state, city, isExport = 0 } = req.query;
         let query = { deletedAt: null };
+        if (search) query.center_name = { $regex: search, $options: "i" };
+        if (associateName) query["point_of_contact.name"] = { $regex: associateName, $options: "i" };
+        if (state) query["address.state"] = { $regex: state, $options: "i" };
+        if (city) query["address.city"] = { $regex: city, $options: "i" };
 
-      if (search) {
-        query["$or"] = [
-        { "center_name": { $regex: search, $options: "i" } },
-        { "center_code": { $regex: search, $options: "i" } },
-        { "center_type": { $regex: search, $options: "i" } },
-           ];
-           }
-        if (associateName) {
-            query["point_of_contact.name"] = { $regex: associateName, $options: "i" };
-        }
-        if (state) {
-            query["address.state"] = { $regex: state, $options: "i" };
-        }
-        console.log("query",query);
-
-        // City filter
-        if (city) {
-            query["address.city"] = { $regex: city, $options: "i" };
-        }
         const records = { count: 0 };
-        records.rows = paginate == 1 ? await ProcurementCenter.find(query)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit)) : await ProcurementCenter.find(query).sort(sortBy);
 
+        // Populates user_id with only bank_details
+        const baseQuery = ProcurementCenter.find(query)
+            .populate('user_id', 'bank_details')
+            .sort(sortBy);
+
+        if (paginate == 1) {
+            baseQuery.skip(Number(skip)).limit(Number(limit));
+        }
+
+        records.rows = await baseQuery.lean();
         records.count = await ProcurementCenter.countDocuments(query);
 
         if (paginate == 1) {
-            records.page = page
-            records.limit = limit
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+            records.page = page;
+            records.limit = limit;
+            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
         }
 
-        // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement center") }));
-
+        // Export to Excel
         if (isExport == 1) {
+            const exportData = records.rows.map(item => ({
+                "Address Line 1": item?.address?.line1 || 'NA',
+                "Address Line 2": item?.address?.line2 || 'NA',
+                "Country": item?.address?.country || 'NA',
+                "State": item?.address?.state || 'NA',
+                "District": item?.address?.district || 'NA',
+                "City": item?.address?.city || 'NA',
+                "PIN Code": item?.address?.postalCode || 'NA',
+                "Name": item?.point_of_contact?.name || 'NA',
+                "Email": item?.point_of_contact?.email || 'NA',
+                "Mobile": item?.point_of_contact?.mobile || 'NA',
+                "Designation": item?.point_of_contact?.designation || 'NA',
+                "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
+                "Bank Name": item?.user_id?.bank_details?.bank_name || 'NA',
+                "Branch Name": item?.user_id?.bank_details?.branch_name || 'NA',
+                "Account Holder": item?.user_id?.bank_details?.account_holder_name || 'NA',
+                "IFSC Code": item?.user_id?.bank_details?.ifsc_code || 'NA',
+                "Account Number": item?.user_id?.bank_details?.account_number || 'NA'
+            }));
 
-            const record = records.rows.map((item) => {
-                return {
-                    "Address Line 1": item?.address?.line1 || 'NA',
-                    "Address Line 2": item?.address?.line2 || 'NA',
-                    "Country": item?.address?.country || 'NA',
-                    "State": item?.address?.country || 'NA',
-                    "District": item?.address?.district || 'NA',
-                    "City": item?.address?.city || 'NA',
-                    "PIN Code": item?.address?.postalCode || 'NA',
-                    "Name": item?.point_of_contact?.name || 'NA',
-                    "Email": item?.point_of_contact?.email || 'NA',
-                    "Mobile": item?.point_of_contact?.mobile || 'NA',
-                    "Designation": item?.point_of_contact?.designation || 'NA',
-                    "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
-                }
-            })
-                      
-            if (record.length > 0) {
-                dumpJSONToExcel(req, res, {
-                    data: record,
+            if (exportData.length > 0) {
+                return dumpJSONToExcel(req, res, {
+                    data: exportData,
                     fileName: `collection-center.xlsx`,
                     worksheetName: `collection-center`
                 });
-
             } else {
-                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Batch") }))
+                return res.status(400).send(new serviceResponse({
+                    status: 400,
+                    data: records,
+                    message: _response_message.notFound("Batch")
+                }));
             }
-
-        } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
         }
-        
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: records,
+            message: _response_message.found("collection center")
+        }));
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }
 }
+
+
+// module.exports.getHoProcurementCenter = async (req, res) => {
+
+//     try {
+//         const { page, limit, skip, paginate = 1, sortBy, search = '', associateName, state, city, isExport=0 } = req.query
+//         // let query = {
+//         //     ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+//         // };
+//         let query = { deletedAt: null };
+
+//       if (search) {
+//         query["$or"] = [
+//         { "center_name": { $regex: search, $options: "i" } },
+//         { "center_code": { $regex: search, $options: "i" } },
+//         { "center_type": { $regex: search, $options: "i" } },
+//            ];
+//            }
+//         if (associateName) {
+//             query["point_of_contact.name"] = { $regex: associateName, $options: "i" };
+//         }
+//         if (state) {
+//             query["address.state"] = { $regex: state, $options: "i" };
+//         }
+//         console.log("query",query);
+
+//         // City filter
+//         if (city) {
+//             query["address.city"] = { $regex: city, $options: "i" };
+//         }
+//         const records = { count: 0 };
+//         records.rows = (paginate == 1 && isExport != 1)  ? await ProcurementCenter.find(query)
+//             .sort(sortBy)
+//             .skip(skip)
+//             .limit(parseInt(limit)) : await ProcurementCenter.find(query).sort(sortBy);
+
+//         records.count = await ProcurementCenter.countDocuments(query);
+
+//         if (paginate == 1 && isExport != 1) {
+//             records.page = page
+//             records.limit = limit
+//             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
+//         }
+
+//         // return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("procurement center") }));
+
+//         if (isExport == 1) {
+
+//             // const record = records.rows.map((item) => {
+//             //     return {
+//             //         "Address Line 1": item?.address?.line1 || 'NA',
+//             //         "Address Line 2": item?.address?.line2 || 'NA',
+//             //         "Country": item?.address?.country || 'NA',
+//             //         "State": item?.address?.country || 'NA',
+//             //         "District": item?.address?.district || 'NA',
+//             //         "City": item?.address?.city || 'NA',
+//             //         "PIN Code": item?.address?.postalCode || 'NA',
+//             //         "Name": item?.point_of_contact?.name || 'NA',
+//             //         "Email": item?.point_of_contact?.email || 'NA',
+//             //         "Mobile": item?.point_of_contact?.mobile || 'NA',
+//             //         "Designation": item?.point_of_contact?.designation || 'NA',
+//             //         "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
+//             //     }
+//             // })
+
+//             const record = records.rows.map((item) => {
+//                 return {
+//                   "CENTER ID": item?.center_code || "NA",
+//                   "CENTER TYPE": item?.center_code || "NA",
+//                   "CENTER NAME": item?.center_code || "NA",
+//                   CONTACT: item?.point_of_contact?.mobile || "NA",
+//                   EMAIL: item?.point_of_contact?.email || "NA",
+//                   State: item?.address?.country || "NA",
+//                   City: item?.address?.city || "NA",
+//                   "POINT OF CONTACT": item?.point_of_contact?.name || "NA",
+//                   // "Address Line 1": item?.address?.line1 || "NA",
+//                   // "Address Line 2": item?.address?.line2 || "NA",
+//                   // Country: item?.address?.country || "NA",
+//                   // District: item?.address?.district || "NA",
+//                   // "PIN Code": item?.address?.postalCode || "NA",
+//                   // Designation: item?.point_of_contact?.designation || "NA",
+//                   // "Aadhar Number": item?.point_of_contact?.aadhar_number || "NA",
+//                 };
+//               });
+                      
+//             if (record.length > 0) {
+//                 dumpJSONToExcel(req, res, {
+//                     data: record,
+//                     fileName: `collection-center.xlsx`,
+//                     worksheetName: `collection-center`
+//                 });
+
+//             } else {
+//                 return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Batch") }))
+//             }
+
+//         } else {
+//             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
+//         }
+        
+//     } catch (error) {
+//         _handleCatchErrors(error, res);
+//     }
+// }
 
 module.exports.ImportProcurementCenter = async (req, res) => {
     try {

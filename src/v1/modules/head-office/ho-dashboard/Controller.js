@@ -24,6 +24,9 @@ const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
+const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
+const { Scheme } = require("@src/v1/models/master/Scheme");
+const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
@@ -101,6 +104,27 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 
     const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
     const { user_id, portalId } = req;
+    let {
+      schemeName = [],
+      commodityName = [],
+      dateRange,
+      sessionName = [],
+      stateName = []
+    } = req.query;
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+  if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
+
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
+  if (!Array.isArray(stateName)) stateName = [stateName];
+
+    const paymentFilter = {
+      ho_id: { $in: [user_id, portalId] },
+      payment_status: _paymentstatus.completed,
+    };
     let widgetDetails = {
       branchOffice: { total: 0 },
       farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0, distillerTotal: 0 },
@@ -112,19 +136,88 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       todaysQtyProcured: 0,
     };
 
+    if (commodityName.length) {
+      const matchedRequests = await RequestModel.find({
+        "product.name":  { $in: commodityName.map(name => new RegExp(name, "i")) },
+        warehouse_id: { $ne: null },
+        branch_id: { $ne: null }
+      }).select("warehouse_id branch_id").lean();
+     
+    
+      const warehouseIds = [...new Set(matchedRequests.map(req => req.warehouse_id?.toString()).filter(Boolean))];
+      const branchIds = [...new Set(matchedRequests.map(req => req.branch_id?.toString()).filter(Boolean))];
+
+      if (warehouseIds.length === 0) {
+        widgetDetails.wareHouse.total = 0;
+      } else {
+        const warehouseFilter = { _id: { $in: warehouseIds } };
+        widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments(warehouseFilter);
+      }
+    
+      if (branchIds.length === 0) {
+        widgetDetails.branchOffice.total = 0;
+      } else {
+        const branchFilter = { 
+          _id: { $in: branchIds },
+           headOfficeId: hoId
+          };
+        widgetDetails.branchOffice.total = await Branches.countDocuments(branchFilter);
+      }
+    
+    } else {
+      // 🧾 No commodity filter, fallback to default counts
+      widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({});
+      widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    }
+
     // Get counts safely
-    widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
-    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    // widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
+    // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     //start of prachi code
 
     widgetDetails.farmerRegistration.distillerTotal = await Distiller.countDocuments({ is_approved: _userStatus.approved });
-    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
     widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
     widgetDetails.farmerRegistration.totalRegistration = (widgetDetails.farmerRegistration.farmertotal + widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal);
     widgetDetails.farmerBenifitted = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
    
-    const payments = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: _paymentstatus.completed, }).select("qtyProcured createdAt amount").lean();
+    let scheme = null;
+    if (schemeName.length) {
+      scheme = await Scheme.findOne({ schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) } }).select("_id").lean();
+    }
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange);
+      paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
+    }
+    
+    const payments = await Payment.find(paymentFilter)
+    .select("qtyProcured createdAt amount")
+    .populate({
+      path: "req_id",
+      select: "product.name product.schemeId product.season",
+      match: {
+       ...(commodityName.length && { "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) } }),
+          ...(scheme && { "product.schemeId": scheme._id }),
+          ...(sessionName.length && { "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) } })
+        }
+      })
+      .populate({
+        path: "batch_id",
+        select: "seller_id",
+        populate: {
+          path: "seller_id",
+          select: "address.registered.state",
+          ...(stateName.length && {
+            match: {
+              "address.registered.state": {
+                $in: stateName.map(name => new RegExp(name, "i")),
+              },
+            },
+          }),
+        }
+      })
+      .lean();
 
     let grandTotalQtyProcured = 0;
     let todaysQtyProcured = 0;
@@ -251,21 +344,100 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 
 //end of prachi code
 */
+function parseDateRange(rangeStr) {
+  const [startStr, endStr] = rangeStr.split(" - ");
+  const [startDay, startMonth, startYear] = startStr.split("/");
+  const [endDay, endMonth, endYear] = endStr.split("/");
 
+  const startDate = new Date(`${startYear}-${startMonth}-${startDay}T00:00:00.000Z`);
+  const endDate = new Date(`${endYear}-${endMonth}-${endDay}T23:59:59.999Z`);
+  return { startDate, endDate };
+}
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   const hoId = new mongoose.Types.ObjectId(req.portalId);
 
-  const { limit = 10, page = 1 } = req.query;
+  let { limit = 10, page = 1, commodityName = [],
+    schemeName = [],
+    sessionName = [], dateRange, stateName = [] } = req.query;
   const { user_id, portalId } = req;
   const skip = (page - 1) * limit;
 
-  let pendingPaymentDetails = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: 'Pending' })
-    .select('req_id qtyProcured amount payment_status')
-    .populate({ path: "req_id", select: "reqNo" })
-    .skip(skip)
-    .limit(limit)
-    .lean();
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+  if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
 
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
+  if (!Array.isArray(stateName)) stateName = [stateName];
+
+  const paymentFilter = {
+    ho_id: portalId,
+    payment_status: 'Pending'
+  };
+
+  // const scheme = schemeName
+  //   ? await Scheme.findOne({
+  //       schemeName: { $regex: new RegExp(schemeName, "i") },
+  //     }).select("_id").lean()
+  //   : null;
+
+  // if (schemeName && !scheme) {
+  //   return sendResponse({
+  //     res,
+  //     status: 200,
+  //     message: "Scheme not found",
+  //     data: { rows: [], totalCount: 0, totalPages: 0, limit, page },
+  //   });
+  // }
+  let schemeIds = [];
+  if (schemeName.length) {
+    const schemes = await Scheme.find({
+      schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+    }).select("_id").lean();
+    schemeIds = schemes.map(s => s._id);
+  }
+  
+  if (dateRange) {
+    const { startDate, endDate } = parseDateRange(dateRange);
+    paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
+  }
+  let pendingPaymentDetails = await Payment.find(paymentFilter)
+  .populate({
+    path: "req_id",
+    select: "reqNo product.name product.schemeId product.season batch_id",
+    match: {
+      ...(commodityName.length && {
+        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+      }),
+       ...(schemeIds.length && {
+          "product.schemeId": { $in: schemeIds },
+        }),
+     ...(sessionName.length && {
+          "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+        }),
+    },
+  })
+  .populate({
+    path: "batch_id",
+    select: "seller_id",
+    populate: {
+      path: "seller_id",
+      select: "address.registered.state",
+      match: stateName.length
+        ? {
+            "address.registered.state": {
+              $in: stateName.map(name => new RegExp(name, "i")),
+            },
+          }
+        : undefined,
+    },
+  })
+  .select("req_id qtyProcured amount payment_status")
+  .skip(skip)
+  .limit(limit)
+  .lean();
   // Filter out payments where reqNo is missing
   pendingPaymentDetails = pendingPaymentDetails.filter(payment => payment.req_id && payment.req_id.reqNo);
 
@@ -273,6 +445,7 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   pendingPaymentDetails = pendingPaymentDetails.map(payment => ({
     ...payment,
     reqNo: payment.req_id.reqNo,
+    commodityName: payment.req_id?.product?.name || null
   }));
 
   // Note: Count still includes all "Pending" payments regardless of reqNo presence.
@@ -294,19 +467,86 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
-  const { limit = 10, page = 1 } = req.query;
+  let { limit = 10, page = 1, commodityName = [],
+    schemeName = [],
+    sessionName = [], dateRange, stateName = [] } = req.query;
   const skip = (page - 1) * limit;
   const { user_id, portalId } = req;
 
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+  if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
+
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
+  if (!Array.isArray(stateName)) stateName = [stateName];
+
+  const paymentFilter = {
+    ho_id: portalId,
+    ho_approve_status: 'Pending'
+  };
+
+  let schemeIds = [];
+  if (schemeName.length) {
+    const schemes = await Scheme.find({
+      schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+    }).select("_id").lean();
+    schemeIds = schemes.map(s => s._id);
+  }
+
+  if (dateRange) {
+    const { startDate, endDate } = parseDateRange(dateRange);
+    paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
+  }
+
   // Fetch all relevant records for this page
-  let pendingApprovalDetails = await Payment.find({
-    ho_id: { $in: [user_id, portalId] },
-    ho_approve_status: "Pending"
+  // let pendingApprovalDetails = await Payment.find(paymentFilter)
+  //   .populate({ path: "req_id", select: "reqNo deliveryDate product.name",
+  //     ...(commodityName && {
+  //       match: {
+  //         "product.name": { $regex: new RegExp(commodityName, "i") }
+  //       }
+  //     })
+  //   })
+  //   .select("req_id qtyProcured amountPaid ho_approve_status")
+  //   .skip(skip)
+  //   .limit(limit);
+  let pendingApprovalDetails = await Payment.find(paymentFilter)
+  .populate({
+    path: "req_id",
+    select: "reqNo deliveryDate product.name product.season batch_id",
+    match: {
+       ...(commodityName.length && {
+        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+      }),
+       ...(schemeIds.length && {
+          "product.schemeId": { $in: schemeIds },
+        }),
+     ...(sessionName.length && {
+          "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+        }),
+    },
+     })
+  .populate({
+    path: "batch_id",
+    select: "seller_id",
+    populate: {
+      path: "seller_id",
+      select: "address.registered.state",
+      match: stateName.length
+        ? {
+            "address.registered.state": {
+              $in: stateName.map(name => new RegExp(name, "i")),
+            },
+          }
+        : undefined,
+    },
   })
-    .populate({ path: "req_id", select: "reqNo deliveryDate" })
-    .select("req_id qtyProcured amountPaid ho_approve_status")
-    .skip(skip)
-    .limit(limit);
+  .select("req_id qtyProcured amountPaid ho_approve_status createdAt")
+  .skip(skip)
+  .limit(limit);
 
   // Filter out records without reqNo and compute paymentDueDate using reduce
   const modifiedDetails = pendingApprovalDetails.reduce((acc, doc) => {
@@ -337,43 +577,178 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
   });
 });
 
+// module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
+//   const { page = 1, limit = 10 } = req.query;
+//   const skip = (page - 1) * limit;
+
+//   const paymentDetails = await Payment.find({ ho_id: req.portalId })
+//     .select("initiated_at req_id ho_approve_by ho_approve_at")
+//     .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
+//     .populate({
+//       path: "req_id",
+//       select: "reqNo"
+//     })
+//     .populate({ path: "req_id", select: "reqNo" })
+//     .sort({ createdAt: -1 })
+//     .skip(skip)
+//     .limit(limit);
+
+//   const totalCount = await Payment.countDocuments({ ho_id: req.portalId });
+
+//   return sendResponse({
+//     res,
+//     status: 200,
+//     message: _query.get("PaymentActivity"),
+//     data: {
+//       paymentDetails,
+//       totalCount,
+//       pages: Math.ceil(totalCount / limit),
+//       limit: limit,
+//       page: page,
+//     },
+//   });
+// });
 module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
+  let { page = 1, limit = 10, commodityName = [], schemeName = [], dateRange,sessionName = [], stateName = [] } = req.query;
+  page = Number(page);
+  limit = Number(limit);
   const skip = (page - 1) * limit;
+  const filter = { ho_id: req.portalId };
 
-  const paymentDetails = await Payment.find({ ho_id: req.portalId })
-    .select("initiated_at req_id ho_approve_by ho_approve_at")
-    .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
-    .populate({
-      path: "req_id",
-      select: "reqNo"
-    })
-    .populate({ path: "req_id", select: "reqNo" })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit);
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+  if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
 
-  const totalCount = await Payment.countDocuments({ ho_id: req.portalId });
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
+  if (!Array.isArray(stateName)) stateName = [stateName];
+  // Apply date range filter
+  if (dateRange) {
+    const { startDate, endDate } = parseDateRange(dateRange);
+    filter.createdAt = { $gte: startDate, $lte: endDate };
+  }
+
+  // Scheme filter - find scheme ID if schemeName is passed
+  let schemeIds = [];
+  if (schemeName.length) {
+    const schemes = await Scheme.find({
+      schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+    }).select("_id").lean();
+    schemeIds = schemes.map(s => s._id);
+  }
+
+  // const paymentDetails = await Payment.find(filter)
+  //   .select("initiated_at req_id ho_approve_by ho_approve_at")
+  //   .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
+  //   .populate({
+  //     path: "req_id",
+  //     select: "reqNo product.name product.schemeId",
+  //     match: {
+  //      ...(commodityName.length && {
+  //       "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+  //     }),
+  //      ...(schemeIds.length && {
+  //         "product.schemeId": { $in: schemeIds },
+  //       }),
+  //    ...(sessionName.length && {
+  //         "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+  //       }),
+  //   },
+  //   populate: {
+  //     path: "batch_id",
+  //     select: "seller_id",
+  //     populate: {
+  //       path: "seller_id",
+  //       select: "address.registered.state",
+  //       ...(stateName.length && {
+  //         match: {
+  //           "address.registered.state": {
+  //               $in: stateName.map(name => new RegExp(name, "i")),
+  //           },
+  //         },
+  //       }),
+  //     },
+  //   },
+  // })
+  //   .sort({ createdAt: -1 });
+
+ const paymentDetails = await Payment.find(filter)
+  .select("initiated_at req_id ho_approve_by ho_approve_at batch_id")
+  .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
+  .populate({
+    path: "req_id",
+    select: "reqNo product.name product.schemeId product.season",
+    match: {
+      ...(commodityName.length && {
+        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+      }),
+      ...(schemeIds.length && {
+        "product.schemeId": { $in: schemeIds },
+      }),
+      ...(sessionName.length && {
+        "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+      }),
+    },
+  })
+  .populate({
+    path: "batch_id",
+    select: "seller_id",
+    populate: {
+      path: "seller_id",
+      select: "address.registered.state",
+      match: stateName.length
+        ? {
+            "address.registered.state": {
+              $in: stateName.map(name => new RegExp(name, "i")),
+            },
+          }
+        : undefined,
+    },
+  })
+
+  .sort({ createdAt: -1 });
+    // .populate({ path: "req_id", select: "reqNo" })
+    // .sort({ createdAt: -1 })
+    // .skip(skip)
+    // .limit(limit);
+    const filteredPayments = paymentDetails.filter(p => p.req_id);
+
+    // Pagination manually
+    const paginated = filteredPayments.slice(skip, skip + limit);
+
+  // const totalCount = await Payment.countDocuments({ ho_id: req.portalId });
 
   return sendResponse({
     res,
     status: 200,
     message: _query.get("PaymentActivity"),
     data: {
-      paymentDetails,
-      totalCount,
-      pages: Math.ceil(totalCount / limit),
+      paymentDetails: paginated,
+      totalCount: filteredPayments.length,
+      pages: Math.ceil(filteredPayments.length / limit),
       limit: limit,
       page: page,
     },
   });
 });
 
-
 module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
   try {
     const hoId = new mongoose.Types.ObjectId(req.portalId);
     const { user_id, portalId } = req;
+    let { commodityName = [],
+    schemeName = [],
+    sessionName = [], dateRange } = req.query;
+
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
 
     // Step 1: Fetch all states from the only StateDistrictCity document
     const stateContainer = await StateDistrictCity.findOne().lean();
@@ -391,16 +766,49 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
     for (const state of stateContainer.states) {
       stateMap[state._id.toString()] = state.state_title;
     }
+   let schemeIds = [];
+  if (schemeName.length) {
+    const schemes = await Scheme.find({
+      schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+    }).select("_id").lean();
+    schemeIds = schemes.map(s => s._id);
+  }
 
-    // Step 3: Fetch payments and populate farmer (only getting state_id in address)
-    const payments = await Payment.find({
+
+    const paymentFilter = {
       ho_id: { $in: [user_id, portalId] },
       payment_status: _paymentstatus.completed,
-    })
+    };
+
+    // Step 5: Add date range filter
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange); // You must have this helper function defined
+      paymentFilter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+    // Step 3: Fetch payments and populate farmer (only getting state_id in address)
+    const payments = await Payment.find(paymentFilter)
       .select("qtyProcured farmer_id")
       .populate({
         path: "farmer_id",
         select: "address.state_id",
+      })
+      .populate({
+        path: "req_id",
+        select: "product.name product.schemeId",
+        match: {
+         ...(commodityName.length && {
+        "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+      }),
+       ...(schemeIds.length && {
+          "product.schemeId": { $in: schemeIds },
+        }),
+     ...(sessionName.length && {
+          "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+        }),
+    },
       })
       .lean();
 
@@ -457,6 +865,354 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
     });
   }
 });
+module.exports.stateWiseCommodityDetail = asyncErrorHandler(async (req, res) => {
+  try {
+    // STEP 1: STATE MAP
+    const stateDoc = await StateDistrictCity.findOne().lean();
+    if (!stateDoc || !Array.isArray(stateDoc.states)) {
+      return sendResponse({
+        res,
+        status: 500,
+        message: "StateDistrictCity not configured properly",
+      });
+    }
+
+    const stateMap = {};
+    for (const state of stateDoc.states) {
+      stateMap[state._id.toString()] = state.state_title;
+    }
+
+    // STEP 2: AGGREGATION
+    const result = await Crop.aggregate([
+      // JOIN FARMER (PROJECT ONLY NEEDED FIELDS)
+      {
+        $lookup: {
+          from: "farmers",
+          localField: "farmer_id",
+          foreignField: "_id",
+          as: "farmer",
+          pipeline: [
+            { $project: { _id: 1, associate_id: 1, address: 1 } }
+          ]
+        }
+      },
+      { $unwind: "$farmer" },
+
+      // JOIN ASSOCIATE (PROJECT ONLY NEEDED FIELDS)
+      {
+        $lookup: {
+          from: "users",
+          localField: "farmer.associate_id",
+          foreignField: "_id",
+          as: "associate",
+          pipeline: [
+            {
+              $project: {
+                _id: 1,
+                associate_type: 1,
+                "basic_details.associate_details.associate_type": 1
+              }
+            }
+          ]
+        }
+      },
+      { $unwind: { path: "$associate", preserveNullAndEmptyArrays: true } },
+
+      // ADD associate_type
+      {
+        $addFields: {
+          associate_type: {
+            $ifNull: [
+              "$associate.basic_details.associate_details.associate_type",
+              "$associate.associate_type"
+            ]
+          }
+        }
+      },
+
+      // JOIN PAYMENTS (WITHOUT $expr)
+      {
+        $lookup: {
+          from: "payments",
+          localField: "farmer._id",
+          foreignField: "farmer_id",
+          as: "completedPaymentsRaw"
+        }
+      },
+      {
+        $addFields: {
+          completedPayments: {
+            $filter: {
+              input: "$completedPaymentsRaw",
+              as: "p",
+              cond: { $eq: ["$$p.payment_status", "Completed"] }
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          completedPaymentsRaw: 0
+        }
+      },
+
+      // GROUP BY STATE + CROP
+      {
+        $group: {
+          _id: {
+            state_id: "$farmer.address.state_id",
+            crop_name: "$crop_name",
+          },
+          uniqueFarmerIds: { $addToSet: "$farmer._id" },
+          fpoOrPacsAssociates: {
+            $addToSet: {
+              $cond: [
+                { $in: ["$associate_type", ["PACS", "FPO"]] },
+                "$associate._id",
+                "$$REMOVE"
+              ]
+            }
+          },
+          benefitedFarmerIds: {
+            $addToSet: {
+              $cond: [
+                { $gt: [{ $size: "$completedPayments" }, 0] },
+                "$farmer._id",
+                "$$REMOVE"
+              ]
+            }
+          },
+          totalQtyProcured: {
+            $sum: {
+              $reduce: {
+                input: "$completedPayments",
+                initialValue: 0,
+                in: {
+                  $add: [
+                    "$$value",
+                    {
+                      $ifNull: [
+                        { $toDouble: "$$this.qtyProcured" },
+                        0
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+
+      // FINAL PROJECT
+      {
+        $project: {
+          state_id: "$_id.state_id",
+          crop_name: "$_id.crop_name",
+          totalFarmers: { $size: "$uniqueFarmerIds" },
+          totalAssociates: { $size: "$fpoOrPacsAssociates" },
+          totalBenefitedFarmers: { $size: "$benefitedFarmerIds" },
+          totalQuantityPurchased: "$totalQtyProcured"
+        }
+      }
+    ]);
+
+    // STEP 3: GROUP STATE → CROPS[]
+    const stateWiseData = {};
+
+    for (const item of result) {
+      const stateId = item.state_id?.toString();
+      if (!stateId || !item.crop_name) continue;
+
+      if (!stateWiseData[stateId]) {
+        stateWiseData[stateId] = {
+          state_id: stateId,
+          state_name: stateMap[stateId] || "Unknown",
+          crops: [],
+        };
+      }
+
+      stateWiseData[stateId].crops.push({
+        crop_name: item.crop_name,
+        totalFarmers: item.totalFarmers,
+        totalAssociates: item.totalAssociates,
+        totalBenefitedFarmers: item.totalBenefitedFarmers,
+        totalQuantityPurchased: item.totalQuantityPurchased,
+      });
+    }
+
+    const finalResult = Object.values(stateWiseData);
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: "State-wise commodity farmer + associate count fetched successfully",
+      data: finalResult,
+    });
+
+  } catch (error) {
+    console.error("Error in stateCommodityFarmerCount:", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+});
+
+
+module.exports.getStateWiseCommodityStats = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+ 
+    const data = await User.aggregate([
+      {
+        $lookup: {
+          from: 'associateoffers',
+          localField: '_id',
+          foreignField: 'seller_id',
+          as: 'offers'
+        }
+      },
+      { $unwind: '$offers' },
+ 
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'offers.req_id',
+          foreignField: '_id',
+          as: 'request'
+        }
+      },
+      { $unwind: '$request' },
+ 
+      {
+        $lookup: {
+          from: 'commodities',
+          localField: 'request.product.commodity_id',
+          foreignField: '_id',
+          as: 'commodity'
+        }
+      },
+      { $unwind: '$commodity' },
+ 
+      {
+        $lookup: {
+          from: 'farmerorders',
+          localField: 'offers._id',
+          foreignField: 'associateOffers_id',
+          as: 'farmerOrders'
+        }
+      },
+      { $unwind: { path: '$farmerOrders', preserveNullAndEmptyArrays: true } },
+ 
+      {
+        $lookup: {
+          from: 'farmers',
+          localField: 'farmerOrders.farmer_id',
+          foreignField: '_id',
+          as: 'farmerInfo'
+        }
+      },
+      { $unwind: { path: '$farmerInfo', preserveNullAndEmptyArrays: true } },
+ 
+      {
+        $addFields: {
+          farmerId: '$farmerOrders.farmer_id',
+          associateId: '$farmerInfo.associate_id',
+          offeredQty: '$farmerOrders.offeredQty'
+        }
+      },
+ 
+      {
+        $group: {
+          _id: {
+            state: '$address.registered.state',
+            commodityId: '$commodity._id',
+            commodityName: '$commodity.name'
+          },
+          totalOffers: { $sum: 1 },
+          uniqueFarmers: { $addToSet: '$_id' },
+          totalQtyPurchased: { $sum: '$offeredQty' },
+          allBenefittedFarmers: { $addToSet: '$farmerId' },
+          allRegisteredPacs: { $addToSet: '$associateId' }
+        }
+      },
+ 
+      {
+        $project: {
+          state: '$_id.state',
+          commodity: {
+            _id: '$_id.commodityId',
+            name: '$_id.commodityName',
+            quantityPurchased: { $ifNull: ['$totalQtyPurchased', 0] },
+            farmersBenefitted: {
+              $size: { $setUnion: ['$allBenefittedFarmers', []] }
+            },
+            registeredPacs: {
+              $size: { $setUnion: ['$allRegisteredPacs', []] }
+            }
+          },
+          _id: 0
+        }
+      },
+ 
+      {
+        $group: {
+          _id: '$state',
+          commodities: { $push: '$commodity' }
+        }
+      },
+ 
+      {
+        $project: {
+          state: '$_id',
+          commodities: 1,
+          _id: 0
+        }
+      },
+ 
+      { $sort: { state: 1 } },
+ 
+      // Pagination using $facet
+      {
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [{ $skip: skip }, { $limit: limit }]
+        }
+      },
+ 
+      // Format final result
+      {
+        $unwind: "$metadata"
+      },
+      {
+        $project: {
+          total: "$metadata.total",
+          page: { $literal: page },
+          pageSize: { $literal: limit },
+          data: 1
+        }
+      }
+    ]);
+ 
+    res.status(200).json(data[0] || {
+      total: 0,
+      page,
+      pageSize: limit,
+      data: []
+    });
+  } catch (err) {
+    console.error('Error generating stats:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+
+
 
 
 
@@ -1314,5 +2070,54 @@ module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
     status: 200,
     message: _query.get("ProcurementOnTime"),
     data: data,
+  });
+});
+module.exports.getcommodity = asyncErrorHandler(async (req, res) => {
+  const hoId =  new mongoose.Types.ObjectId(req.user.portalId);
+  console.log("hoid", hoId)
+  const { name } = req.query;
+
+  if (!name) {
+    return res.status(400).json({
+      success: false,
+      message: "Commodity name is required in query parameter"
+    });
+  }
+
+  const filteredRequests = await RequestModel.find({
+    head_office_id: hoId,
+    "product.name": { $regex: new RegExp(name, "i") } 
+  })
+    .select("product.name product.grade product.quantity product.commodityImage status expectedProcurementDate deliveryDate")
+    .lean();
+
+  res.status(200).json({
+    success: true,
+    data: filteredRequests
+  });
+});
+
+module.exports.getAssignedSchemes = asyncErrorHandler(async (req, res) => {
+  const hoId = new mongoose.Types.ObjectId(req.user.portalId);
+  console.log("hoId",hoId)
+  const { schemeName } = req.query;
+
+  const assignedSchemes = await SchemeAssign.find({ ho_id: hoId })
+    .populate({
+      path: 'scheme_id',
+      model: _collectionName.Scheme,
+      // match: schemeName
+      //   ? {
+      //       schemeName: new RegExp("^" + schemeName.trim(), "i"),
+      //     }
+        // : {},
+    })
+    .lean();
+
+  const filtered = assignedSchemes.filter(item => item.scheme_id !== null);
+
+  res.status(200).json({
+    success: true,
+    data: filtered,
   });
 });

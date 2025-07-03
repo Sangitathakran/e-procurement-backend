@@ -12,8 +12,11 @@ const { warehouseRoutes } = require("./warehouse/Route");
 const { paymentRoutes } = require("./payment/Routes");
 const { schemeRoutes } = require("./scheme/Routes");
 const { slaRoute } = require("./ho-sla-management/Routes");
+const { associateMngmntRoutes } = require("./associate-management/Routes");
+const {dropDownRoute} = require("./ho-dropdwon/Routes")
 
 headOfficeRoutes.use("/auth", hoAuthRoutes)
+headOfficeRoutes.use("/associate", associateMngmntRoutes);
 headOfficeRoutes.use("/branch", Auth, hoBranchRoutes)
 headOfficeRoutes.use("/dashboard", Auth, hoDashboardRoutes)
 headOfficeRoutes.use("/requirement", Auth, requireMentRoutes)
@@ -22,6 +25,7 @@ headOfficeRoutes.use("/warehouse", Auth, warehouseRoutes)
 headOfficeRoutes.use("/payment", Auth, paymentRoutes)
 headOfficeRoutes.use("/schemeAssigned", Auth, schemeRoutes)
 headOfficeRoutes.use("/sla", Auth, slaRoute)
+headOfficeRoutes.use("/dropdown", Auth ,dropDownRoute )
 
 
 module.exports = { headOfficeRoutes }

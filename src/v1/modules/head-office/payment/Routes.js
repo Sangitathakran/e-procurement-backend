@@ -4,7 +4,7 @@ const { payment, associateOrders, batchList, batchApprove, qcReport, lot_list, a
     paymentWithoutAgreegation, batchListWithoutAggregation, proceedToPaybatchListWithoutAggregation,
     batchListWOAggregation,
     getTotalSuccessfulPaidAmount,
-    proceedToPayPaymentWOAggregation} = require("./Controller");
+    proceedToPayPaymentWOAggregation,exportFarmerPayments} = require("./Controller");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
 const paymentRoutes = express.Router();
@@ -48,7 +48,8 @@ paymentRoutes.put("/bill-reject", Auth, hoBillRejection)
 
 // ****************************** API WITHOUT AGGREGATION   *******************************
 //paymentRoutes.get("/", Auth, paymentWithoutAgreegation);
-//paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPaymentWOAggregation);
+// paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPaymentWOAggregation);
+paymentRoutes.get("/proceed-to-pay-export", Auth, exportFarmerPayments);
 
 
 
