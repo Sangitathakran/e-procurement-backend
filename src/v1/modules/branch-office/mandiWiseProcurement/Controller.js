@@ -318,6 +318,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
       commodity,
       scheme,
       season,
+      districts,
       search,
       page = 1,
       limit = 10,
@@ -344,6 +345,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
     const commodityArray = parseArray(commodity);
     const schemeArray = parseArray(scheme);
     const seasonArray = parseArray(season);
+    const districtArray = parseArray(districts);
     const query = [];
 
     if (commodityArray.length > 0) {
@@ -368,7 +370,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
       );
       query.push({ 'product.season': { $in: regexSeason } });
     }
-
+    
 
     const payments = await Payment.find({ bo_id: portalId }).lean();
     const batchIds = [
@@ -452,6 +454,13 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
                 .map(id => new mongoose.Types.ObjectId(id))
             }
           }),
+           ...(districtArray.length > 0 && {
+            "center.address.district_id": {
+              $in: districtArray 
+                .filter(mongoose.Types.ObjectId.isValid)
+                .map(id => new mongoose.Types.ObjectId(id))
+            }
+          }),
         }
       },
 
@@ -497,7 +506,10 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
   centerName: { $first: '$center.center_name' },
   Status: { $first: '$center.active' },
   centerId: { $first: '$center._id' },
-  district: { $first: '$seller.address.registered.district' },
+  state: { $first: "$center.address.state"},
+  state_id: { $first: "$center.address.state_id" },
+  district: { $first: '$center.address.district' },
+  district_id: { $first: '$center.address.district_id' },
   associate_name: {
     $first: '$seller.basic_details.associate_details.associate_name'
   },
@@ -539,7 +551,10 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
   centerName: 1,
   Status: 1,
   centerId: 1,
+  state: 1,
+  state_id: 1,
   district: 1,
+  district_id: 1,
   associate_name: 1,
   liftedQty: 1,
   offeredQty: 1,

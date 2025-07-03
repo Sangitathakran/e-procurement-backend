@@ -1,5 +1,5 @@
 const express = require('express');
-const { scheme, commodity, commodity_standard, bo_list, cna_list, sla_list, getStates, getRoles, getCitiesByState, getAssociates, getWarehouses } = require('./Controller');
+const { scheme, commodity, commodity_standard, bo_list, cna_list, sla_list, getStates, getRoles, getCitiesByState, getAssociates, getWarehouses, updateProcurementCenters } = require('./Controller');
 
 const dropDownRoutes = express.Router();
 
@@ -14,6 +14,9 @@ dropDownRoutes.get('/roles', getRoles);
 dropDownRoutes.get('/cities', getCitiesByState);
 dropDownRoutes.get('/associates', getAssociates);
 dropDownRoutes.get('/warehouses', getWarehouses);
+
+// this is sseder api
+dropDownRoutes.patch('/updateProcurementCenters', updateProcurementCenters);
 
 
 
