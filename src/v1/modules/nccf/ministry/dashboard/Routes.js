@@ -16,10 +16,10 @@ ministrydashboardRoutes.get("/stateWiseProcurementQuantity", Auth, stateWiseProc
 ministrydashboardRoutes.get("/stateWiseLiftingQuantity", Auth, stateWiseLiftingQuantity);
 ministrydashboardRoutes.get("/paymentWithTenPercant", Auth, paymentWithTenPercant);
 ministrydashboardRoutes.get("/paymentWithHundredPercant", Auth, paymentWithHundredPercant);
-ministrydashboardRoutes.get("/getCenterProjections", Auth, getStateWiseProjection);
 ministrydashboardRoutes.get("/warehouseList", Auth, warehouseList);
 ministrydashboardRoutes.get("/poRaised", Auth, poRaised);
 ministrydashboardRoutes.get("/ongoingOrders", Auth, ongoingOrders);
 ministrydashboardRoutes.get("/performanceByDistiller", Auth, performanceByDistiller);
+ministrydashboardRoutes.get("/getCenterProjections", Auth, getStateWiseProjection);
 
 module.exports = { ministrydashboardRoutes }; 

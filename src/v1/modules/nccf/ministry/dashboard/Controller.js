@@ -1718,7 +1718,6 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
   }
 });
 
-
 module.exports.performanceByDistiller = asyncErrorHandler(async (req, res) => {
   try {
     const { page = 1, limit = 10, search = '', state = '', district = '', commodity = '', cna = '' } = req.query;
@@ -1907,7 +1906,6 @@ module.exports.performanceByDistiller = asyncErrorHandler(async (req, res) => {
     });
   }
 });
-
 
 module.exports.getStateWiseProjection = asyncErrorHandler(async (req, res) => {
   try {
