@@ -1,6 +1,8 @@
 const { JWT_SECRET_KEY, THIRD_PARTY_JWT_SECRET } = require('@config/index');
 const { wareHousev2 } = require('@src/v1/models/app/warehouse/warehousev2Schema');
 const { _userType, _userStatus } = require('@src/v1/utils/constants');
+const { sendResponse } = require('@src/v1/utils/helpers/api_response');
+const { _auth_module } = require('@src/v1/utils/constants/messages');
 const { serviceResponse } = require('@src/v1/utils/helpers/api_response');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
 const jwt = require('jsonwebtoken');
@@ -9,7 +11,7 @@ const { _response_message, _middleware } = require("@src/v1/utils/constants/mess
 const { ClientToken } = require("@src/v1/models/app/warehouse/ClientToken");
 const bcrypt = require("bcryptjs");
 const { MasterUser } = require('@src/v1/models/master/MasterUser');
-
+const { LoginHistory } = require("@src/v1/models/master/loginHistery");
 const tokenBlacklist = [];
 
 exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
@@ -19,8 +21,8 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
     // console.log("token : >>> "  , token ) ;  
     // console.log("toke type" , !token) ;
     // Check if token exists
-    if (!token) { 
-        console.log("entered if") ;
+    if (!token) {
+        console.log("entered if");
         return res.status(403).send(new serviceResponse({
             status: 403,
             errors: [{ message: _response_message.Unauthorized() }]
@@ -38,7 +40,7 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
     // Verify the token
     jwt.verify(token, JWT_SECRET_KEY, async function (err, decodedToken) {
         if (err) {
-            console.log('error',err)
+            console.log('error', err)
             if (err.name === 'TokenExpiredError') {
                 return res.status(401).send(new serviceResponse({
                     status: 401,
@@ -51,20 +53,27 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             }));
         }
 
-     
+
+        let loginHistory = await LoginHistory.findOne({ token: token, logged_out_at: null }).sort({ createdAt: -1 });
+
+        if (!loginHistory) {
+            return sendResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
+        }
 
         const masterUserExist = await MasterUser.findOne({ _id: decodedToken.user_id });
 
-        if(!masterUserExist){
-            return res.send(new serviceResponse({ status: 400, message: _response_message.notFound("User"), 
-                errors: [{ message:  _response_message.notFound("User") }] }))
+        if (!masterUserExist) {
+            return res.send(new serviceResponse({
+                status: 400, message: _response_message.notFound("User"),
+                errors: [{ message: _response_message.notFound("User") }]
+            }))
         }
 
 
         // Check if the warehouse exists
         const warehouseExist = await wareHousev2.findOne({ _id: masterUserExist.portalId });
 
-        
+
 
         if (!warehouseExist) {
             return res.status(401).send(new serviceResponse({
@@ -136,7 +145,7 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
             '/batch-order-stats',
             '/mark-delivered',
             '/batch-status-update'
-            
+
         ];
 
         const currentUrl = req.url.split('?')[0];
@@ -145,7 +154,7 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
 
         if (isAllowedUrl) {
             next();
-        } else { 
+        } else {
             console.log("entered else ")
             return res.status(401).send(new serviceResponse({
                 status: 401,
@@ -156,16 +165,16 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
 });
 
 
-exports.apiKeyAuth = async(req, res, next) => {
+exports.apiKeyAuth = async (req, res, next) => {
     try {
         const apiKey = req.headers["x-api-key"];
         const apiSecret = req.headers["x-api-secret"];
         if (!apiKey || !apiSecret) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('API Key and Secret') }));
         }
-        
+
         const client = await ClientToken.findOne({ apiKey, isActive: true });
-        
+
         if (!client) {
             return res.status(403).send(new serviceResponse({
                 status: 403,

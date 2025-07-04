@@ -16,33 +16,108 @@ AWS.config.update({
 const S3 = new AWS.S3();
 
 const uploadToS3 = async (req, res) => {
-    try {
-        // #swagger.tags = ['aws']
-        let { folder_name } = req.body
-        let { files } = req
+  try {
+    // #swagger.tags = ['aws']
+    let { folder_name } = req.body;
+    let { files } = req;
 
-        if (files.length == 0) {
-            return sendResponse({res, status: 400, errors: [{ message: `Attachment file is required` }] });
-        }
-        let paths = []
-        for (const file of files) {
-            let filename = uuidv4() + `_${file.originalname}`
-            const key = folder_name ? (folder_name + "/" + filename) : filename;
-            const uploadParams = {
-                Bucket: config.s3Config.bucketName,
-                Key: key,
-                Body: file.buffer || file,
-            };
-            let s3Resp = await S3.upload(uploadParams).promise();
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/jpg',
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel' // .xls
+    ];
+    const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB
 
-            paths.push(`/${s3Resp.Key}`)
-        }
-        return sendResponse({ res,status: 201, data: { count: paths.length, rows: paths }, message: _response_message.uploaded() });
-    } catch (err) {
-        console.error("Error while upload_to_s3, reason >> ", err.message)
-        return sendResponse({res, status: 500, errors: [{ message: `Error while upload to s3` }] });
+    if (!files || files.length === 0) {
+      return sendResponse({
+        res,
+        status: 400,
+        errors: [{ message: `Attachment file is required` }]
+      });
     }
-}
+
+    let paths = [];
+
+    for (const file of files) {
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        return sendResponse({
+          res,
+          status: 400,
+          errors: [{ message: `${file.originalname} exceeds the 3MB size limit` }]
+        });
+      }
+
+      // Validate file type
+      if (!allowedTypes.includes(file.mimetype)) {
+        return sendResponse({
+          res,
+          status: 400,
+          errors: [{ message: `${file.originalname} has an unsupported file type` }]
+        });
+      }
+
+      let filename = uuidv4() + `_${file.originalname}`;
+      const key = folder_name ? `${folder_name}/${filename}` : filename;
+
+      const uploadParams = {
+        Bucket: config.s3Config.bucketName,
+        Key: key,
+        Body: file.buffer || file,
+      };
+
+      let s3Resp = await S3.upload(uploadParams).promise();
+      paths.push(`/${s3Resp.Key}`);
+    }
+
+    return sendResponse({
+      res,
+      status: 201,
+      data: { count: paths.length, rows: paths },
+      message: _response_message.uploaded()
+    });
+
+  } catch (err) {
+    console.error("Error while upload_to_s3, reason >>", err.message);
+    return sendResponse({
+      res,
+      status: 500,
+      message: _response_message.error("upload to S3"),
+      errors: { message: `Error while upload to S3` }
+    });
+  }
+};
+
+
+// const uploadToS3 = async (req, res) => {
+//     try {
+//         // #swagger.tags = ['aws']
+//         let { folder_name } = req.body
+//         let { files } = req
+
+//         if (files.length == 0) {
+//             return sendResponse({res, status: 400, errors: [{ message: `Attachment file is required` }] });
+//         }
+//         let paths = []
+//         for (const file of files) {
+//             let filename = uuidv4() + `_${file.originalname}`
+//             const key = folder_name ? (folder_name + "/" + filename) : filename;
+//             const uploadParams = {
+//                 Bucket: config.s3Config.bucketName,
+//                 Key: key,
+//                 Body: file.buffer || file,
+//             };
+//             let s3Resp = await S3.upload(uploadParams).promise();
+
+//             paths.push(`/${s3Resp.Key}`)
+//         }
+//         return sendResponse({ res,status: 201, data: { count: paths.length, rows: paths }, message: _response_message.uploaded() });
+//     } catch (err) {
+//         console.error("Error while upload_to_s3, reason >> ", err.message)
+//         return sendResponse({res, status: 500, errors: [{ message: `Error while upload to s3` }] });
+//     }
+// }
 
 const deleteFromS3 = async (req, res) => {
     try {

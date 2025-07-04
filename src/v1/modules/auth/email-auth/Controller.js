@@ -11,6 +11,9 @@ const { TypesModel } = require("@src/v1/models/master/Types");
 const { _userTypeFrontendRouteMapping } = require("@src/v1/utils/constants");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { getPermission } = require("../../user-management/permission");
+const {LoginHistory}= require("@src/v1/models/master/loginHistery");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
+const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
 module.exports.login = async (req, res) => {
     try {
@@ -18,10 +21,10 @@ module.exports.login = async (req, res) => {
         const { email, password, portal_type } = req.body;
         
         if (!email) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Email') }] }));
+          return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Email') }] }));
         }
         if (!password) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Password') }] }));
+          return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Password') }] }));
         }
 
         const user = await MasterUser.findOne({ email: email.trim() })
@@ -38,23 +41,24 @@ module.exports.login = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('Credentials') }] }));
         }
 
-        
         const portalTypeMapping = Object.fromEntries(
           Object.entries(_userTypeFrontendRouteMapping).map(([key, value]) => [value, key])
         );
-        console.log("portal", portalTypeMapping);
 
         const userType = _userTypeFrontendRouteMapping[portal_type];
-        console.log("user", userType);
         
         if (userType !== user.user_type) {
           return res.status(400).send(new serviceResponse({ status: 400, message :  _auth_module.Unauthorized(portalTypeMapping[user.user_type]), errors: [{ message: _auth_module.unAuth }] }));
         }
 
+       
+
 
         const payload = { email: user.email,user_id: user?._id, portalId: user?.portalId?._id, user_type:user.user_type }
         const expiresIn = 24 * 60 * 60;
-        const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+        const token = await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+        await LoginHistory.deleteMany({ master_id: user._id, user_type: user.user_type });
+        await LoginHistory.create({ token: token, user_type: user.user_type, master_id: user._id, ipAddress: getIpAddress(req) });
 
         const typeData = await TypesModel.find()
         const userData = await getPermission(user)
@@ -63,8 +67,8 @@ module.exports.login = async (req, res) => {
             token: token,
             user: userData,
             typeData: typeData
-
         }
+
         return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: data }));
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -84,7 +88,7 @@ module.exports.forgetPassword = async (req, res) => {
 
     const payload = { email: user.email,user_id: user?._id, portalId: user?.portalId?._id, user_type:user.user_type }
     const expiresIn = 24 * 60 * 60;
-    const resetToken = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+    const resetToken = await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
     const emailData = { 
       resetToken:resetToken,
@@ -96,7 +100,7 @@ module.exports.forgetPassword = async (req, res) => {
     user.isPasswordChangeEmailSend = true
     await user.save()
 
-    res.status(200).send(new serviceResponse({ status: 200, message: `Forget password email send successfully to ${user.email}` }));
+     res.status(200).send(new serviceResponse({ status: 200, message: `Forget password email send successfully to ${user.email}` }));
 
   } catch (error) {
     _handleCatchErrors(error, res)
@@ -140,3 +144,42 @@ exports.resetPassword = async (req, res) => {
     }
 };
 
+
+
+module.exports.logout = async (req, res) => {
+  try {
+    const token = req.headers.token;
+
+    if (!token) {
+      return sendResponse({
+        res,
+        status: 401,
+        message: "Token is required in headers"
+      });
+    }
+
+    const result = await LoginHistory.findOneAndUpdate({ token :token },{ logged_out_at: new Date() });
+
+    if (!result) {
+      return sendResponse({
+        res,
+        status: 404,
+        message: "Active session not found or already logged out"
+      });
+    }
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: "Logout successful"
+    });
+
+  } catch (err) {
+    console.error("Logout error:", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Internal server error"
+    });
+  }
+};

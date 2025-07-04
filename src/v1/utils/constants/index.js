@@ -74,6 +74,8 @@ const _collectionName = {
     statewisemanditax:"statewisemanditax",
     eKharidHaryana:"eKharidProcurement",
     AgristackFarmerDetail: 'AgristackFarmerDetails',
+    LoginHistory: "loginhistory",
+    loginAttempt: "loginAttempt",
 
 }
 

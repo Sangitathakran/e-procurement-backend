@@ -5,7 +5,7 @@ const { JWT_SECRET_KEY } = require('@config/index');
 const { _userType } = require('@src/v1/utils/constants/index');
 const { MasterUser } = require('@src/v1/models/master/MasterUser');
 const { User } = require('../models/app/auth/User');
-
+const {LoginHistory} = require('@src/v1/models/master/loginHistery');
 
 
 
@@ -19,20 +19,70 @@ const { User } = require('../models/app/auth/User');
  * @returns 
  */
 
-const Auth = function (req, res, next) {
+
+
+const authorizeRoles = (...allowedRoles) => {
+  return (req, res, next) => {
+    const user = req.user;
+
+    if (!user || !allowedRoles.includes(user.userType)) {
+      return res.status(403).json({ message: "Access denied. Unauthorized role." });
+    }
+
+    next();
+  };
+};
+
+const authenticateUser = async (req, res, next) => {
+  const { token } = req.headers;
+
+  if (!token) {
+    return sendResponse({
+      res,
+      status: 401,
+      message: "Token required",
+      errors: _auth_module.unAuth,
+    });
+  }
+
+  await jwt.verify(token, JWT_SECRET_KEY, (err, decoded) => {
+    if (err) {
+      console.log("JWT decode error:", err);
+      return sendResponse({
+        res,
+        status: 403,
+        data:[],
+        message: "Invalid or expired token",
+        errors: _auth_module.unAuth,
+      });
+    }
+
+    req.user = decoded; // Attach decoded payload (must include userType, etc.)
+    next();
+  });
+};
+
+
+
+const Auth = async function (req, res, next) {
   let { token } = req.headers;
   if (token) {
 
-    jwt.verify(token, JWT_SECRET_KEY, async function (err, decoded) {
+    await jwt.verify(token, JWT_SECRET_KEY, async function (err, decoded) {
       if (err) {
-        console.log("err-->", err)
         return sendResponse({ res, status: 403, message: "error while token decode", errors: _auth_module.unAuth });
       }
       else {
+        // Login History 
+        let loginHistory = await LoginHistory.findOne({token:token,logged_out_at:null }).sort({ createdAt: -1 });
+
+        if (!loginHistory){ 
+          return sendResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
+        }
+
         if (decoded) {
           const route = req.baseUrl.split("/")[2]
-          console.log("route", route);
-          
+
           const user_type = decoded.user_type
           
           const routeCheck = checkUser(route, user_type)
@@ -50,6 +100,8 @@ const Auth = function (req, res, next) {
             const user = await MasterUser.findOne({ mobile: decoded.userInput.trim() }).populate("portalId")
             req.user = user
           }
+
+
 
           next();
         } else {
@@ -143,8 +195,10 @@ async function verifyJwtToken(req, res, next) {
   }
 }
 
+
+
 module.exports = {
   verifyJwtToken,
   verifyBasicAuth,
-  Auth
+  Auth, authenticateUser,authorizeRoles
 }

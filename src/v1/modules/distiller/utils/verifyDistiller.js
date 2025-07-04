@@ -4,8 +4,12 @@ const { _userType, _userStatus } = require('@src/v1/utils/constants');
 const { _response_message } = require('@src/v1/utils/constants/messages');
 const { serviceResponse } = require('@src/v1/utils/helpers/api_response');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
+const {LoginHistory} = require('@src/v1/models/master/loginHistery');
+const {sendResponse} = require('@src/v1/utils/helpers/api_response');
+const { _auth_module } = require('@src/v1/utils/constants/messages');
 const jwt = require('jsonwebtoken');
 
+const { loginHistory } = require('@src/v1/models/master/loginHistery');
 const tokenBlacklist = [];
 
 
@@ -30,9 +34,14 @@ exports.verifyDistiller = asyncErrorHandler(async (req, res, next) => {
 
         }
 
-        
+        let loginHistory = await LoginHistory.findOne({ token: token, logged_out_at: null }).sort({ createdAt: -1 });
+
+        if (!loginHistory) {
+            return sendResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
+        }
+
         // const userExist = await Distiller.findOne({ _id: decodedToken.organization_id })
-         const userExist = await Distiller.findOne({ _id: decodedToken.user.portalId })
+        const userExist = await Distiller.findOne({ _id: decodedToken.user.portalId })
         //  const userExist = await Distiller.findOne({ _id: decodedToken.user_id })
         if (!userExist) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("User") }] }));

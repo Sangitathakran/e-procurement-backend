@@ -14,7 +14,7 @@ const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { TypesModel } = require("@src/v1/models/master/Types");
 const { getPermission } = require("../../user-management/permission");
-
+const {LoginHistory}= require("@src/v1/models/master/loginHistery");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller")
 
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
@@ -76,7 +76,6 @@ module.exports.loginOrRegister = async (req, res) => {
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
 
-        // if ((!userOTP || inputOTP !== userOTP.otp)) {
         if ((!userOTP || inputOTP !== userOTP.otp) && inputOTP !== staticOTP) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
         }
@@ -87,13 +86,16 @@ module.exports.loginOrRegister = async (req, res) => {
                 { path: "portalId", select: "organization_name _id email phone" }
             ])
 
+        console.log("user ============", user);
+
         if (user) {
 
             if (user?.user_type === "7") {
                 const payload = { user: { _id: user._id, user_type: user?.user_type, portalId: user.portalId._id }, userInput: userInput, user_id: user._id, organization_id: user.portalId._id, user_type: user?.user_type }
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
-                const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
-
+                const token = await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+                await LoginHistory.deleteMany({ master_id: user._id, user_type: user.user_type });
+                await LoginHistory.create({ token: token, user_type: user.user_type, master_id: user._id, ipAddress: getIpAddress(req) });
                 res.cookie('token', token, {
                     httpOnly: true,
                     secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
@@ -107,7 +109,6 @@ module.exports.loginOrRegister = async (req, res) => {
                     ownerExist = await wareHousev2.findOne({ _id: user.portalId._id })
                 }
 
-                console.log('already available user')
 
                 const userWithPermission = await getPermission(user)
 
@@ -125,9 +126,6 @@ module.exports.loginOrRegister = async (req, res) => {
         } else {
 
             let ownerExist = await wareHousev2.findOne(query)
-
-
-
             if (!user || !ownerExist) {
 
                 // checking user in master user collection
@@ -174,7 +172,9 @@ module.exports.loginOrRegister = async (req, res) => {
                     userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type
                 }
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
-                const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+                const token =  await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+
+                await LoginHistory.create({ token: token, user_type: masterUserCreated.user_type, master_id: masterUserCreated._id, ipAddress: getIpAddress(req) });
 
                 res.cookie('token', token, {
                     httpOnly: true,
@@ -207,8 +207,6 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
 
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
-
-        // if ((!userOTP || inputOTP !== userOTP.otp)) {
         if ((!userOTP || inputOTP !== userOTP.otp) && inputOTP !== staticOTP) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
         }
@@ -225,7 +223,9 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                 const payload = { user: { _id: user._id, user_type: user?.user_type, portalId: user.portalId }, userInput: userInput, user_id: user._id, organization_id: user.portalId, user_type: user?.user_type }
 
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
-                const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+                const token = await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+                await LoginHistory.deleteMany({ master_id: user._id, user_type: user.user_type });
+                await LoginHistory.create({ token: token, user_type: user.user_type, master_id: user._id, ipAddress: getIpAddress(req) });
 
                 res.cookie('token', token, {
                     httpOnly: true,
@@ -241,17 +241,12 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                     ownerExist = await Distiller.findOne({ _id: user.portalId._id })
                 }
 
-
-                console.log('already available user')
-
                 const userWithPermission = await getPermission(user)
-
 
                 ownerExist = {
                     ...JSON.parse(JSON.stringify(ownerExist)),
                     onboarding: (ownerExist?.basic_details?.distiller_details?.organization_name && ownerExist?.basic_details?.point_of_contact && ownerExist.address && ownerExist.company_details && ownerExist.authorised && ownerExist.bank_details && ownerExist.is_form_submitted == 'true') ? true : false
                 }
-
 
                 return res.status(200).send(new serviceResponse({ status: 200, message: _auth_module.login('Account'), data: { token, ownerExist, userWithPermission } }));
             }
@@ -261,14 +256,11 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                     status: 400, message: `already existed with this mobile number in Master(${user.user_type})`,
                     errors: [{ message: `already existed with this mobile number in Master(${user.user_type})` }]
                 }))
-
             }
 
         } else {
 
             let ownerExist = await Distiller.findOne(query)
-
-
 
             if (!ownerExist) {
 
@@ -298,10 +290,7 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                 }
 
                 ownerExist = await Distiller.create(newUser);
-                // warehouse type colllection
                 const type = await TypesModel.findOne({ _id: "67addcb11bdf461a3a7fcca6" })
-
-
                 const masterUser = new MasterUser({
 
                     isAdmin: true,
@@ -314,11 +303,6 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
 
                 const masterUserCreated = await masterUser.save();
 
-                // const payload = {
-                //     user: { _id: masterUserCreated._id, user_type: masterUserCreated?.user_type, portalId: masterUserCreated.portalId },
-                //     userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type
-                // }
-
                 const user = await MasterUser.findOne({ mobile: userInput.trim() })
                     .populate([
                         { path: "userRole", select: "" },
@@ -330,7 +314,9 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                 }
                
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
-                const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+                const token = await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+                await LoginHistory.deleteMany({ master_id: user._id, user_type: user.user_type });
+                await LoginHistory.create({ token: token, user_type: user.user_type, master_id: user._id, ipAddress: getIpAddress(req) });
 
                 res.cookie('token', token, {
                     httpOnly: true,
@@ -394,7 +380,9 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                 }
                
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
-                const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+                const token = await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+                await LoginHistory.deleteMany({ master_id: user._id, user_type: user.user_type });
+                await LoginHistory.create({ token: token, user_type: user.user_type, master_id: user._id, ipAddress: getIpAddress(req) });
 
                 res.cookie('token', token, {
                     httpOnly: true,
