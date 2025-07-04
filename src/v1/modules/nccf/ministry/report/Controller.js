@@ -344,6 +344,7 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
           poQuantity: { $sum: '$purchasedOrder.poQuantity' },
           poDate: { $first: '$createdAt' },
           deliveryScheduleDate: { $first: { $arrayElemAt: ['$batchorderprocesses.scheduledPickupDate', 0] } },
+          cna: { $first: "$source_by" },
         },
       },
 
@@ -478,7 +479,7 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
           noOfFarmerBenefited: {
             $size: '$paymentsForMaize'
           },
-          cna: cna
+          
         }
       },
       {
@@ -495,7 +496,7 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
           deliveryScheduleDate: 1,
           maizeProcurement: 1,
           procurementDoneFromFarmer: 1,
-          noOfFarmerBenefited: 1,
+          noOfFarmerBenefited: 1
         }
       }
     ];
@@ -538,12 +539,6 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
       limit: parseInt(limit),
       pages: limit != 0 ? Math.ceil((countRes[0]?.count || 0) / limit) : 0
     };
-
-    // return res.status(200).send(new serviceResponse({
-    //   status: 200,
-    //   data: result,
-    //   message: _response_message.found("OMC Report"),
-    // }));
 
     if (isExport == 1) {
       const exportData = result.rows.map(item => ({
