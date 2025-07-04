@@ -553,7 +553,7 @@ module.exports.farmerVerfiedData = async (req, res) => {
           is_verify_bank: 1,
           state_id: "$farmer_details.address.state_id",
           name: "$farmer_details.name",
-          mobile: "$farmer_details.mobile_no",
+          mobile: "$farmer_details.basic_details.mobile_no",
           address: "$farmer_details.address.address_line_1",
           aadhar_no: "$farmer_details.proof.aadhar_no",
           account_no: "$farmer_details.bank_details.account_no",
