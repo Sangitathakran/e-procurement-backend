@@ -555,7 +555,14 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       //   percent: +orderChangePercent.toFixed(2),
       //   trend: trendOrder
       // },
-      warehouseStock: currentWarehouseStock === 0 ? 5050.14 : currentWarehouseStock,
+      // warehouseStock: currentWarehouseStock === 0 ? 5050.14 : currentWarehouseStock,
+      // warehouseStockChange: {
+      //   percent: +warehouseStockChangePercent.toFixed(2),
+      //   trend: warehouseStockTrend
+      // },
+      warehouseStock: (finalCNA.length === 1 && finalCNA[0] === 'NAFED')
+        ? 0
+        : (currentWarehouseStock === 0 ? 5050.14 : currentWarehouseStock),
       warehouseStockChange: {
         percent: +warehouseStockChangePercent.toFixed(2),
         trend: warehouseStockTrend
@@ -588,17 +595,37 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
         )
       },
       // qtyBalanceInStock: totalQty - currentWarehouseStock,
-      qtyBalanceInStock: currentWarehouseStock === 0 ? "5050.14" : (totalQty - currentMonth.completedQty),
-      qtyBalanceInStockChange: {
-        percent: +calculateChange(
-          totalQty - currentWarehouseStock,
-          totalQty - lastWarehouseStock
-        ).toFixed(2),
-        trend: getTrend(
-          totalQty - currentWarehouseStock,
-          totalQty - lastWarehouseStock
-        )
-      }
+      // qtyBalanceInStock: currentWarehouseStock === 0 ? "5050.14" : (totalQty - currentMonth.completedQty),
+      // qtyBalanceInStockChange: {
+      //   percent: +calculateChange(
+      //     totalQty - currentWarehouseStock,
+      //     totalQty - lastWarehouseStock
+      //   ).toFixed(2),
+      //   trend: getTrend(
+      //     totalQty - currentWarehouseStock,
+      //     totalQty - lastWarehouseStock
+      //   )
+      // }
+      qtyBalanceInStock: (finalCNA.length === 1 && finalCNA[0] === 'NAFED')
+        ? 0
+        : (currentWarehouseStock === 0 ? "5050.14" : (totalQty - currentMonth.completedQty)),
+
+      qtyBalanceInStockChange: (finalCNA.length === 1 && finalCNA[0] === 'NAFED')
+        ? {
+          percent: 0,
+          trend: "no change"
+        }
+        : {
+          percent: +calculateChange(
+            totalQty - currentWarehouseStock,
+            totalQty - lastWarehouseStock
+          ).toFixed(2),
+          trend: getTrend(
+            totalQty - currentWarehouseStock,
+            totalQty - lastWarehouseStock
+          )
+        }
+
     };
 
     return res.status(200).send(
@@ -700,7 +727,7 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
 
     // ======================= PURCHASE ORDER =======================
     baseMatch["paymentInfo.advancePaymentStatus"] = _poAdvancePaymentStatus.paid
-   
+
     result.monthlyOrderSummary = await PurchaseOrderModel.aggregate([
       {
         $match: baseMatch
