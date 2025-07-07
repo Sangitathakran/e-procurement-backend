@@ -4680,9 +4680,9 @@ module.exports.proceedToPaybatchListWithoutAggregation = async (req, res) => {
         return {
           batchId: batch.batchId,
           batch_id: batch._id,
-          amountPayable: batch.totalPrice,
-          qtyPurchased: batch.qty,
-          amountProposed: batch.goodsPrice,
+          amountPayable: (batch.totalPrice || 0).toFixed(3),
+          qtyPurchased: (batch.qty || 0).toFixed(3),
+          amountProposed:  (batch.goodsPrice || 0).toFixed(3),
           associateName:
             batch.seller_id?.basic_details?.associate_details?.associate_name,
           organisationName:
