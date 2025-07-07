@@ -17,6 +17,7 @@ const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity")
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const mongoose = require("mongoose");
+const { Scheme } = require("@src/v1/models/master/Scheme");
 
 /*
 //start of prachi code
@@ -250,7 +251,7 @@ module.exports.getDashboardStats = async (req, res) => {
         const stateId = stateDoc[0]?.state_id;
 
         // Build filters
-        const filters = [];
+        const filters = [], seasonFilter = {};
         if (commodity) {
             const array = commodity.split(',').filter(Boolean).map(id => new mongoose.Types.ObjectId(id));
             if (array.length) filters.push({ "product.commodity_id": { $in: array } });
@@ -260,12 +261,20 @@ module.exports.getDashboardStats = async (req, res) => {
             if (array.length) filters.push({ "product.schemeId": { $in: array } });
         }
         if (season) {
-            const array = season.split(',').filter(Boolean);
-            if (array.length) filters.push({ "product.season": { $in: array } });
+          const array = season.split(',').filter(Boolean);
+          if (array.length) {
+                seasonFilter['season'] = {
+                    $in: array.map(s => new RegExp(s, 'i')),
+                }
+          }
         }
+        let scheme_ids =  (await Scheme.find( seasonFilter, {_id: 1})).map(obj => obj._id);
 
+       // console.log('scheme_ids', scheme_ids);
         const filterQuery = filters.length ? { $and: filters } : {};
-        const matchedRequests = await RequestModel.find(filterQuery, { _id: 1 });
+        let matchedRequests = await RequestModel.find(filterQuery, { _id: 1, "product.schemeId": 1 });
+        matchedRequests = scheme_ids.length ? matchedRequests.filter(obj => scheme_ids.includes(obj.product.schemeId)): matchedRequests;
+        
 
         // if filters applied but no match found
         if (filters.length && matchedRequests.length === 0) {
@@ -287,16 +296,18 @@ module.exports.getDashboardStats = async (req, res) => {
             const farmerRegisteredCount = await farmer.countDocuments({ "address.state_id": stateId });
             const warehouseCount = await wareHouseDetails.countDocuments({ active: true });
             const procurementCenterCount = await ProcurementCenter.countDocuments({ deletedAt: null, active: true });
-            const PaymentInitiatedCount = await Payment.countDocuments({
+            const PaymentInitiatedData = await Payment.find({
                 bo_id: { $exists: true },
                 payment_status: "Completed"
-            });
+            }, { amount: 1});
 
             const totalProducments = await Payment.find({ payment_status: "Completed" }, 'qtyProcured');
             const totalProcurementCount = totalProducments.reduce((sum, item) => {
                 const qty = parseFloat(item.qtyProcured || 0);
                 return sum + qty;
             }, 0);
+            const totalAmount = PaymentInitiatedData.reduce((acc, item) => acc + item.amount, 0);
+
 
             return res.send(new serviceResponse({
                 status: 200,
@@ -304,8 +315,8 @@ module.exports.getDashboardStats = async (req, res) => {
                     farmerRegisteredCount,
                     warehouseCount,
                     procurementCenterCount,
-                    PaymentInitiatedCount,
-                    totalProcurementCount
+                    PaymentInitiatedCount: Number(totalAmount.toFixed(3)),
+                    totalProcurementCount: Number(totalProcurementCount.toFixed(3)),
                 },
                 message: _response_message.found("Default Dashboard Stats")
             }));
