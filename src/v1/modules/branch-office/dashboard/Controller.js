@@ -251,7 +251,7 @@ module.exports.getDashboardStats = async (req, res) => {
         const stateId = stateDoc[0]?.state_id;
 
         // Build filters
-        const filters = [], seasonFilter = {};
+        const filters = [];
         if (commodity) {
             const array = commodity.split(',').filter(Boolean).map(id => new mongoose.Types.ObjectId(id));
             if (array.length) filters.push({ "product.commodity_id": { $in: array } });
@@ -262,19 +262,20 @@ module.exports.getDashboardStats = async (req, res) => {
         }
         if (season) {
           const array = season.split(',').filter(Boolean);
+          let seasonFilter = {}
           if (array.length) {
                 seasonFilter['season'] = {
                     $in: array.map(s => new RegExp(s, 'i')),
                 }
           }
+          let scheme_ids =  (await Scheme.find( seasonFilter, {_id: 1})).map(obj => obj._id);
+
+           if (array.length) filters.push({ "product.schemeId": { $in: scheme_ids } });
         }
-        let scheme_ids =  (await Scheme.find( seasonFilter, {_id: 1})).map(obj => obj._id);
 
        // console.log('scheme_ids', scheme_ids);
         const filterQuery = filters.length ? { $and: filters } : {};
-        let matchedRequests = await RequestModel.find(filterQuery, { _id: 1, "product.schemeId": 1 });
-        matchedRequests = scheme_ids.length ? matchedRequests.filter(obj => scheme_ids.includes(obj.product.schemeId)): matchedRequests;
-        
+        let matchedRequests = await RequestModel.find(filterQuery, { _id: 1, "product.schemeId": 1 });        
 
         // if filters applied but no match found
         if (filters.length && matchedRequests.length === 0) {
@@ -321,7 +322,6 @@ module.exports.getDashboardStats = async (req, res) => {
                 message: _response_message.found("Default Dashboard Stats")
             }));
         }
-
         // filtered sum
         const requestIds = matchedRequests.map(r => r._id);
 
