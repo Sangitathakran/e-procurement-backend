@@ -17,7 +17,8 @@ module.exports = {
     JWT_SECRET_KEY: process.env.SECRET_KEY,
     connection_string: process.env.CONNECTION_STRING,
     platform_org: process.env.PLATFORM_ORG,
-
+    app_name: process.env.APP_NAME,
+    license_key: process.env.LICENSE_KEY,
     mailer: {
         service: 'gmail',
         host: 'smtp.mailtrap.io',
@@ -39,5 +40,18 @@ module.exports = {
     },
     logEmails: 'imran@radiantinfonet.com , maneesh@radiantinfonet.com ,ayush@navankur.org , dileep@radiantinfonet.com',
     AADHAR_SERVICE_PROVIDER_KEY : process.env.AADHAR_VERIFICATION_API_KEY,
-    AADHAR_SERVICE_PROVIDER : process.env.AADHAR_VERIFICATION_API_PROVIDER
+    AADHAR_SERVICE_PROVIDER : process.env.AADHAR_VERIFICATION_API_PROVIDER,
+    app_name: process.env.APP_NAME,
+    license_key: process.env.LICENSE_KEY,
+    UPAG_BASE_URL: process.env.UPAG_BASE_URL,
+    UPAG_CLIENT_ID:process.env.UPAG_CLIENT_ID,
+    UPAG_CLIENT_SECRET: process.env.UPAG_CLIENT_SECRET,
+    UPAG_EMAIL: process.env.UPAG_EMAIL,
+    UPAG_PASSWORD: process.env.UPAG_PASSWORD,
+     // adher servcies
+    AADHAR_VERIFICATION_API_KEY:process.env.AADHAR_VERIFICATION_API_KEY,
+    BANK_VERIFICATION_API_KEY:process.env.BANK_VERIFICATION_API_KEY,
+    ON_GRID_BASE_URL:process.env.ON_GRID_BASE_URL,
+    VERFICATION:process.env.VERFICATION
+
 }

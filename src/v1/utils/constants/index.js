@@ -63,6 +63,7 @@ const _collectionName = {
     PaymentLogsHistory: "PaymentLogsHistory",
     eKharidHaryana: "ekharidprocurements",
     agristackLog:"agristackLog",
+    verfiyFarmer: "verfiyfarmer",
 }
 
 const _userType_Feature_Collection = {
@@ -112,6 +113,15 @@ const _orderStatus = {
     failed: "failed",
     drop: "drop"
 }
+
+
+const _verfiycationStatus = {
+    pending: 1,
+    succeed: 2,
+    failed: 3
+}
+
+
 
 const _farmingType = {
     natural: 'Natural',
@@ -581,6 +591,46 @@ const _ccAvenuePaymentStatus = {
     UNKNOWN: "Unknown",
     FAILURE: "Failure"
 }
+  
+
+const _statesAndUTs = [
+    { name: "Andaman and Nicobar Islands", code: "AN" },
+    { name: "Andhra Pradesh", code: "AP" },
+    { name: "Arunachal Pradesh", code: "AR" },
+    { name: "Assam", code: "AS" },
+    { name: "Bihar", code: "BR" },
+    { name: "Chandigarh", code: "CH" },
+    { name: "Chhattisgarh", code: "CG" },
+    { name: "Dadra and Nagar Haveli and Daman and Diu", code: "DN" },
+    { name: "Delhi", code: "DL" },
+    { name: "Goa", code: "GA" },
+    { name: "Gujarat", code: "GJ" },
+    { name: "Haryana", code: "HR" },
+    { name: "Himachal Pradesh", code: "HP" },
+    { name: "Jammu and Kashmir", code: "JK" },
+    { name: "Jharkhand", code: "JH" },
+    { name: "Karnataka", code: "KA" },
+    { name: "Kerala", code: "KL" },
+    { name: "Ladakh", code: "LA" },
+    { name: "Lakshadweep", code: "LD" },
+    { name: "Madhya Pradesh", code: "MP" },
+    { name: "Maharashtra", code: "MH" },
+    { name: "Manipur", code: "MN" },
+    { name: "Meghalaya", code: "ML" },
+    { name: "Mizoram", code: "MZ" },
+    { name: "Nagaland", code: "NL" },
+    { name: "Odisha", code: "OD" },
+    { name: "Puducherry", code: "PY" },
+    { name: "Punjab", code: "PB" },
+    { name: "Rajasthan", code: "RJ" },
+    { name: "Sikkim", code: "SK" },
+    { name: "Tamil Nadu", code: "TN" },
+    { name: "Telangana", code: "TS" },
+    { name: "Tripura", code: "TR" },
+    { name: "Uttar Pradesh", code: "UP" },
+    { name: "Uttarakhand", code: "UK" },
+    { name: "West Bengal", code: "WB" }
+  ];
 
 module.exports = {
     _userAction,
@@ -653,5 +703,7 @@ module.exports = {
     _period,
     _centralNodalAgency,
     _schemeName,
-    _ccAvenuePaymentStatus
+    _verfiycationStatus,
+    _ccAvenuePaymentStatus,
+    _statesAndUTs
 }

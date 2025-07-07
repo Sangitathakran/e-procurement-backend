@@ -2,25 +2,53 @@ const cron = require("node-cron");
 const { sendLog } = require("./sendLogs");
 const { default: axios } = require("axios");
 const fs = require("fs");
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-
-const {
-  AgentPaymentFile,
-} = require("@src/v1/models/app/payment/agentPaymentFile");
-const {
-  FarmerPaymentFile,
-} = require("@src/v1/models/app/payment/farmerPaymentFile");
+const path = require("path");
+const { v4: uuidv4 } = require("uuid");
+const { VERFICATION } = require("@config/index");
+const { AgentPaymentFile,} = require("@src/v1/models/app/payment/agentPaymentFile");
+const { FarmerPaymentFile} = require("@src/v1/models/app/payment/farmerPaymentFile");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const xlsx = require("xlsx");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { _paymentstatus } = require("@src/v1/utils/constants");
-
-
+const logger = require('@src/common/logger/logger');
+// variables for e-kharid
+const mongoose = require("mongoose");
+const BASE_URL = "http://localhost:4001/v1/ekhrid/batch";
+const req_id = new mongoose.Types.ObjectId("67e1524fad7ee1581f97ac64");
+const seller_ids = [
+  "67e3dcfc16a8db907254eaec",
+  "67e38f0516a8db907254c63a",
+  "67ee2a3e07654b69eabda370",
+];
 main().catch((err) => console.log(err));
+const { runBankVerificationJob } = require('./verifyDraftJob');
+
+
+
 //update
 async function main() {
+  const VERFICATIONS = VERFICATION || "OFF";
+
+  if (VERFICATIONS === "ON") {
+    logger.info("[Cron Init] Bank verification scheduler initialized...");
+
+    cron.schedule("*/5 * * * *", async () => {
+      logger.info("[Cron Start] Running bank verification cron...");
+      try {
+        await runBankVerificationJob();
+        logger.info("[Cron Success] Bank verification cron finished.");
+      } catch (err) {
+        logger.error("[Cron Error] Error running bank verification cron:", {
+          message: err.message,
+          stack: err.stack,
+        });
+      }
+    });
+  } else {
+    logger.warn("[Cron Skipped] VERFICATION flag is OFF. Cron not started.");
+  }
   // cron.schedule("0 9-17/2 * * 1-5", () => {
   //   sendLog();
   // });
@@ -41,26 +69,27 @@ async function main() {
   //   await downloadFarmerFile();
   // });
 
-  //  cron.schedule("55 17 * * *", async () => {
-  //   await fetchAndCreateOrders();
-  // });
-
-
   //await downloadFarmerFile();
+
+  // cron.schedule("* * * * *", async () => {
+  //   for (const seller_id of seller_ids) {
+  //     // await fetchAndProcessBatches(
+  //     //   req_id,
+  //     //   new mongoose.Types.ObjectId(seller_id)
+  //     // );
+  //   }
+  // });
 
 }
 
 async function downloadAgentFile() {
-
   try {
-
     console.log("Agent file download running");
 
     let fileDetails = await AgentPaymentFile.find({ file_status: "upload" });
 
     for (let item of fileDetails) {
       try {
-
         const url = `https://testbank.navbazar.com/v1/download-file?fileName=R_${item.fileName}`; // Replace with your URL
 
         const response = await axios.get(url, {
@@ -86,10 +115,11 @@ async function downloadAgentFile() {
 
           const workbook = xlsx.readFile(filePath);
           const sheetName = workbook.SheetNames[0];
-          const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+          const sheetData = xlsx.utils.sheet_to_json(
+            workbook.Sheets[sheetName]
+          );
 
           let rowsDetails = [];
-
 
           for (let item2 of sheetData) {
             rowsDetails.push({ ...item2 });
@@ -105,26 +135,21 @@ async function downloadAgentFile() {
         } else {
           console.error(`Error at index `, err.message);
         }
-        continue
+        continue;
       }
     }
-
   } catch (err) {
-    console.log('error', err)
+    console.log("error", err);
   }
 }
 
-
 async function downloadFarmerFile() {
-
   console.log("farmer file download running");
 
   let fileDetails = await FarmerPaymentFile.find({ file_status: "upload" });
 
   for (let item of fileDetails) {
-
     try {
-
       const url = `https://testbank.navbazar.com/v1/download-file?fileName=R_${item.fileName}`;
 
       const response = await axios.get(url, {
@@ -137,7 +162,7 @@ async function downloadFarmerFile() {
       const filePath = `./src/v1/download/R_${item.fileName}`;
 
       if (!fs.existsSync(filePath)) {
-        console.error('File does not exist:', filePath);
+        console.error("File does not exist:", filePath);
       }
 
       // Check if the directory exists, and create it if not
@@ -157,117 +182,129 @@ async function downloadFarmerFile() {
       const workbook = xlsx.readFile(filePath);
       const sheetName = workbook.SheetNames[0];
 
-          const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
-          // this sheetData will contain json of all the payment status of each farmer
-          // this file have real time payment status from bank [Reverse File]
-          let rowsDetails = []
+      const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+      // this sheetData will contain json of all the payment status of each farmer
+      // this file have real time payment status from bank [Reverse File]
+      let rowsDetails = [];
 
       await Promise.all(
         sheetData.map(async (item2) => {
-
-          let paymentDetails = await Payment.findById(item2.SENDER_TO_RECEIVER_INFO1).populate("farmer_id");
+          let paymentDetails = await Payment.findById(
+            item2.SENDER_TO_RECEIVER_INFO1
+          ).populate("farmer_id");
 
           rowsDetails.push({ ...item2 });
 
           if (
-            item2.ADDR_5 === "Paid" || item2.LIQ_STATUS === "Paid" &&
-            paymentDetails?.farmer_id?.bank_details?.account_no.toString() === item2.BENEF_ACCOUNT_NMBR.toString()
+            item2.ADDR_5 === "Paid" ||
+            (item2.LIQ_STATUS === "Paid" &&
+              paymentDetails?.farmer_id?.bank_details?.account_no.toString() ===
+              item2.BENEF_ACCOUNT_NMBR.toString())
           ) {
-            console.log('item2.SENDER_TO_RECEIVER_INFO1 Paid-->', item2.SENDER_TO_RECEIVER_INFO1)
+            console.log(
+              "item2.SENDER_TO_RECEIVER_INFO1 Paid-->",
+              item2.SENDER_TO_RECEIVER_INFO1
+            );
             paymentDetails.payment_status = _paymentstatus.completed;
-            paymentDetails.transaction_id = item2.SENDER_TO_RECEIVER_INFO1
+            paymentDetails.transaction_id = item2.SENDER_TO_RECEIVER_INFO1;
           }
 
-          // open status case handling 
+          // open status case handling
           else if (
-            item2.ADDR_5 === "Open" || item2.LIQ_STATUS === "Open" &&
-            paymentDetails?.farmer_id?.bank_details?.account_no.toString() === item2.BENEF_ACCOUNT_NMBR.toString()
+            item2.ADDR_5 === "Open" ||
+            (item2.LIQ_STATUS === "Open" &&
+              paymentDetails?.farmer_id?.bank_details?.account_no.toString() ===
+              item2.BENEF_ACCOUNT_NMBR.toString())
           ) {
-
-
-            paymentDetails.transaction_id = item2.SENDER_TO_RECEIVER_INFO1
-          }
-
-          else {
-
+            paymentDetails.transaction_id = item2.SENDER_TO_RECEIVER_INFO1;
+          } else {
             paymentDetails.payment_status = _paymentstatus.rejected;
-            paymentDetails.transaction_id = item2.SENDER_TO_RECEIVER_INFO1
+            paymentDetails.transaction_id = item2.SENDER_TO_RECEIVER_INFO1;
           }
           await paymentDetails.save();
 
-          const farmerOrder = await FarmerOrders.findById(paymentDetails.farmer_order_id);
+          const farmerOrder = await FarmerOrders.findById(
+            paymentDetails.farmer_order_id
+          );
           if (farmerOrder) {
             farmerOrder.payment_status = paymentDetails.payment_status;
-            farmerOrder.payment_date = item2.INST_DATE
+            farmerOrder.payment_date = item2.INST_DATE;
             await farmerOrder.save();
           }
         })
       );
 
-      item.file_status = "download"
+      item.file_status = "download";
       item.received_file_details = rowsDetails;
       await item.save();
-
     } catch (err) {
       if (err.response && err.response.status === 400) {
         console.error(`Error Skipping to next index.`);
       } else {
         console.error(`Error at`, err.message);
       }
-      continue
+      continue;
     }
-
   }
 }
 
-const BASE_URL = 'http://localhost:4001/v1/ekhrid/order';
-const req_id = '67e1524fad7ee1581f97ac64';
-const seller_ids = ['67e3dcfc16a8db907254eaec', '67e38f0516a8db907254c63a', '67ee2a3e07654b69eabda370'];
- 
-async function fetchAndCreateOrders() {
-  for (const seller_id of seller_ids) {
-    let loop = true;
-    let totalBatches = 0;
- 
-    while (loop) {
-      try {
-        const getResponse = await axios.get(`${BASE_URL}/getBatches`, {
-          data: { req_id, seller_id },
-          headers: { 'Content-Type': 'application/json' }
-        });
- 
-        const batchIds = getResponse.data?.data?.data || [];
- 
-        if (batchIds.length > 0) {
-          console.log(`Found ${batchIds.length} batches for seller ${seller_id}. Creating order...`);
-          totalBatches += batchIds.length;
- 
-          const postResponse = await axios.post(`${BASE_URL}/create-order`, {
-            req_id,
-            seller_id,
+async function fetchAndProcessBatches(req_id, seller_id) {
+  let loop = true;
+  let totalOrders = 0;
+
+  while (loop) {
+    try {
+      // Call GET API with query parameters
+      const getResponse = await axios.get(`${BASE_URL}/getFarmerOrders`, {
+        params: { req_id: req_id.toString(), seller_id: seller_id.toString() },
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const batch = getResponse.data?.data?.[0];
+      if (batch && batch.farmerData && batch.farmerData.length > 0) {
+        console.log(
+          `Found ${batch.farmerData.length} farmer orders for seller ${seller_id}. Creating batch...`
+        );
+        totalOrders += batch.farmerData.length;
+
+        // Call POST API
+        const postResponse = await axios.post(
+          `${BASE_URL}/create-batch`,
+          {
+            req_id: batch.req_id,
+            seller_id: batch.seller_id,
             truck_capacity: 666,
-            batchIds
-          }, {
-            headers: { 'Content-Type': 'application/json' }
-          });
- 
-          console.log('Order created for seller:', seller_id);
-        } else {
-          console.log(`No batch IDs found for seller ${seller_id}. Exiting order creation scheduler.`, { totalBatches });
-          loop = false;
-        }
- 
-      } catch (error) {
-        console.error(`Error in creating orders for seller ${seller_id}:`, error.message);
+            farmerData: batch.farmerData,
+          },
+          {
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+
+        console.log(
+          `Batch created for seller ${seller_id}:`,
+          postResponse.data.message,
+          { totalOrders }
+        );
+      } else {
+        console.log(
+          `No farmer data found for seller ${seller_id}. Exiting scheduler.`,
+          { totalOrders }
+        );
         loop = false;
       }
+    } catch (error) {
+      console.error(
+        `Error in processing batch for seller ${seller_id}:`,
+        error
+      );
+      loop = false;
     }
-    console.log(`Completed order creation for seller ${seller_id}. Total batches processed: ${totalBatches}`);
   }
-  console.log('Signing off for today!');
+  console.log(
+    `Signing off for seller ${seller_id}. Total orders processed: ${totalOrders}`
+  );
 }
- 
- 
 
 
 
@@ -277,21 +314,23 @@ async function fetchAndCreateOrders() {
 // and then next 6 digits are the date of file upload in DDMMYY format - `181124`
 // and rest 3 digits are the random values defining no of attempts made to finish the process* - `006`
 
-// *:this process includes generating the name of the file, uploading it etc. 
-
+// *:this process includes generating the name of the file, uploading it etc.
 
 //sample reverse file data
 
-  // CORPORATION_CODE: '101923545',
-  // CLIENT_CODE: 'NCCFMAIZER',
-  // ACCOUNT_NMBR: '2244102000000055',
-  // BENEF_ACCOUNT_NMBR: '034301539698',
-  // BENEF_DESCRIPTION: 'MANNAVA SRIKANTH',
-  // INSTRUMENT_AMNT: 1,
-  // PIR_DATE: '29-10-24',
-  // BENE_IFSC_CODE: 'HDFC0000982',
-  // PIR_REFERENCE_NMBR: 'rakhi123',
-  // LIQ_STATUS || ADDR_5: 'Paid',
-  // UTR_SR_NO: 'ICMS2410300BZA7T',
-  // INST_DATE: '29-10-24',
-  // PRODUCT_CODE: 'NEFT'
+// CORPORATION_CODE: '101923545',
+// CLIENT_CODE: 'NCCFMAIZER',
+// ACCOUNT_NMBR: '2244102000000055',
+// BENEF_ACCOUNT_NMBR: '034301539698',
+// BENEF_DESCRIPTION: 'MANNAVA SRIKANTH',
+// INSTRUMENT_AMNT: 1,
+// PIR_DATE: '29-10-24',
+// BENE_IFSC_CODE: 'HDFC0000982',
+// PIR_REFERENCE_NMBR: 'rakhi123',
+// LIQ_STATUS || ADDR_5: 'Paid',
+// UTR_SR_NO: 'ICMS2410300BZA7T',
+// INST_DATE: '29-10-24',
+// PRODUCT_CODE: 'NEFT'
+
+
+
