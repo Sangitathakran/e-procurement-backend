@@ -386,7 +386,7 @@ module.exports. farmerList = async (req, res) => {
     records.rows = await farmer
       .find(query)
       .select(
-        "farmer_code farmer_id name parents mobile_no address basic_details associate_id bank_details.is_verified proof.is_verified createdAt"
+        "farmer_code farmer_id name parents mobile_no address basic_details associate_id bank_details.is_verified proof createdAt"
       )
       .populate({ path: "associate_id", select: "user_code" })
       .limit(parseInt(limit))
