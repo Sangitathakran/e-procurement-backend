@@ -1194,22 +1194,67 @@ module.exports.getCrop = async (req, res) => {
     const { page = 1, limit = 10, sortBy = 'crop_name', paginate = 1, farmer_id } = req.query;
     const skip = (page - 1) * limit;
     const currentDate = new Date();
-    const query = farmer_id ? { farmer_id } : {};
+    const query = farmer_id ? { farmer_id: new mongoose.Types.ObjectId(farmer_id) } : {};
     const records = { pastCrops: {}, upcomingCrops: {} };
-
     const fetchCrops = async (query) => paginate == 1
       ? Crop.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
       : Crop.find(query).sort(sortBy).populate('farmer_id', 'id name');
+    // const [pastCrops, upcomingCrops] = await Promise.all([
+    //   fetchCrops({ ...query, sowing_date: { $lt: currentDate } }),
+    //   fetchCrops({ ...query, sowing_date: { $gt: currentDate } })
+    // ]);
+    // console.log('fetchCrops', await fetchCrops(query))
 
-    const [pastCrops, upcomingCrops] = await Promise.all([
-      fetchCrops({ ...query, sowing_date: { $lt: currentDate } }),
-      fetchCrops({ ...query, sowing_date: { $gt: currentDate } })
-    ]);
 
-    const [pastCount, upcomingCount] = await Promise.all([
-      Crop.countDocuments({ ...query, sowing_date: { $lt: currentDate } }),
-      Crop.countDocuments({ ...query, sowing_date: { $gt: currentDate } })
-    ]);
+    // const [pastCount, upcomingCount] = await Promise.all([
+    //   Crop.countDocuments({ ...query, sowing_date: { $lt: currentDate } }),
+    //   Crop.countDocuments({ ...query, sowing_date: { $gt: currentDate } })
+    // ]);
+
+// Craft query filters
+const baseQuery = { farmer_id: new mongoose.Types.ObjectId(farmer_id) };
+
+// 1. All crops with sowing date before today => past
+const pastWithDateQuery = { 
+  ...baseQuery, 
+  sowing_date: { $lt: currentDate } 
+};
+
+// 2. All crops with sowing date after today => upcoming
+const upcomingWithDateQuery = {
+  ...baseQuery,
+  sowing_date: { $gt: currentDate }
+};
+
+// 3. Crops with no sowing_date, null, or empty string – also past
+const missingDateQuery = {
+  ...baseQuery,
+  $or: [
+    { sowing_date: null },
+    { sowing_date: { $exists: false } },
+    { sowing_date: "" }
+  ]
+};
+
+// Fetch crops
+const [pastCrops1, upcomingCrops, pastCrops2] = await Promise.all([
+  fetchCrops(pastWithDateQuery),
+  fetchCrops(upcomingWithDateQuery),
+  fetchCrops(missingDateQuery)
+]);
+
+// Combine both past sets
+const pastCrops = [...pastCrops1, ...pastCrops2];
+
+// Fetch counts
+const [pastCount1, upcomingCount, pastCount2] = await Promise.all([
+  Crop.countDocuments(pastWithDateQuery),
+  Crop.countDocuments(upcomingWithDateQuery),
+  Crop.countDocuments(missingDateQuery)
+]);
+
+const pastCount = pastCount1 + pastCount2;
+
 
     records.pastCrops = { rows: pastCrops, count: pastCount };
     records.upcomingCrops = { rows: upcomingCrops, count: upcomingCount };
