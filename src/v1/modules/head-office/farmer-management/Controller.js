@@ -386,7 +386,7 @@ module.exports. farmerList = async (req, res) => {
     records.rows = await farmer
       .find(query)
       .select(
-        "farmer_code farmer_id name parents mobile_no address basic_details associate_id bank_details.is_verified proof.is_verified createdAt"
+        "farmer_code farmer_id name parents mobile_no address basic_details associate_id bank_details.is_verified proof createdAt"
       )
       .populate({ path: "associate_id", select: "user_code" })
       .limit(parseInt(limit))
@@ -719,7 +719,7 @@ module.exports.getSingleFarmer = async (req, res) => {
       .findById(farmerId)
       .populate("land_details.land_id crop_details.crop_id");
 
-    console.log(farmerData);
+    //console.log(farmerData);
 
     const state = await getState(farmerData.address?.state_id);
     const district = await getDistrict(
