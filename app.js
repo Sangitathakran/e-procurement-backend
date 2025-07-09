@@ -1,4 +1,11 @@
 // Path Alias
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+});
 require("module-alias/register");
 require('newrelic');
 // import modules

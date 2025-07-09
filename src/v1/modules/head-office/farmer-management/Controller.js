@@ -719,7 +719,7 @@ module.exports.getSingleFarmer = async (req, res) => {
       .findById(farmerId)
       .populate("land_details.land_id crop_details.crop_id");
 
-    console.log(farmerData);
+    //console.log(farmerData);
 
     const state = await getState(farmerData.address?.state_id);
     const district = await getDistrict(
