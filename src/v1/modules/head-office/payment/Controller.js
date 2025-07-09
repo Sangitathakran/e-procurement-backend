@@ -3919,15 +3919,15 @@ module.exports.proceedToPayPayment = async (req, res) => {
     });
 
     const cachedData = getCache(cacheKey);
-    if (cachedData && isExport != 1) {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: cachedData,
-          message: "Payments found (cached)",
-        })
-      );
-    }
+    // if (cachedData && isExport != 1) {
+    //   return res.status(200).send(
+    //     new serviceResponse({
+    //       status: 200,
+    //       data: cachedData,
+    //       message: "Payments found (cached)",
+    //     })
+    //   );
+    // }
 
     // Ensure indexes (if not already present, ideally done at setup)
     await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
@@ -4027,7 +4027,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
                 qty: 1,
                 totalPrice: 1,
                 goodsPrice: 1,
-                payement_approval_at: 1,
+                ho_approval_at: 1,
                 bo_approve_status: 1,
                 ho_approve_status: 1,
                 payment: 1,
@@ -4100,7 +4100,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           qtyPurchased: { $sum: "$batches.qty" },
           amountPayable: { $sum: "$batches.totalPrice" },
           amountPaid: { $sum: "$batches.goodsPrice" },
-          approval_date: { $arrayElemAt: ["$batches.payement_approval_at", 0] },
+          approval_date: { $arrayElemAt: ["$batches.ho_approval_at", 0] },
           approval_status: "Approved",
           payment_status: payment_status || _paymentstatus.pending,
           schemeName: {
