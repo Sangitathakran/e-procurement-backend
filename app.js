@@ -20,9 +20,9 @@ const cookieParser = require("cookie-parser");
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./src/v1/utils/swagger/swagger-output.json");
 require("@src/v1/utils/websocket/server");
-require('newrelic'); // new relic package, add its app name and license key in terminal
 // configs
 const { PORT, apiVersion } = require("./config/index");
+require('newrelic');
 require("./config/database");
 // require('./config/redis')
 const {

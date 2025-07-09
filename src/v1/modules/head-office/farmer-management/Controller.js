@@ -15,7 +15,7 @@ const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 
-module.exports.farmerList = async (req, res) => {
+module.exports. farmerList = async (req, res) => {
   try {
     // const {
     //   page = 1,
@@ -225,12 +225,14 @@ module.exports.farmerList = async (req, res) => {
           land_details: lands, // replaces previous "land_details"
         };
       }) );
+
+     
       const exportData = data.map((item) => {
         return {
           "Associate ID": item?.associate_id || "NA",
           "Farmer ID": item?.farmer_id || "NA",
           "Farmer Name": item?.name || "NA",
-          "Father/Spouse Name": item?.father_spouse_name || "NA",
+          "Father/Spouse Name": item?.parents?.father_name || "NA",
           "Mother Name": item?.parents?.mother_name || "NA",
           "Mobile Number": item?.mobile_no || "NA",
           "Created At" : item?.createdAt || "NA",
@@ -384,7 +386,7 @@ module.exports.farmerList = async (req, res) => {
     records.rows = await farmer
       .find(query)
       .select(
-        "farmer_code farmer_id name parents mobile_no address basic_details associate_id createdAt"
+        "farmer_code farmer_id name parents mobile_no address basic_details associate_id bank_details.is_verified proof createdAt"
       )
       .populate({ path: "associate_id", select: "user_code" })
       .limit(parseInt(limit))
@@ -407,6 +409,9 @@ module.exports.farmerList = async (req, res) => {
           farmer_id: item?.farmer_id,
           father_spouse_name:
             item?.parents?.father_name || item?.parents?.mother_name || null,
+          bank_details: item?.bank_details,
+          proof: item?.proof,
+
           createdAt: item?.createdAt || null,
         };
       })
@@ -430,6 +435,275 @@ module.exports.farmerList = async (req, res) => {
   }
 };
 
+module.exports. farmerListExport = async (req, res) => {
+  try {
+   
+
+    let {
+   
+      sortBy = "name",
+      state,
+      startDate,
+      endDate,
+    } = req.query;
+
+    state = Array.isArray(state) ? state : state ? [state] : [];
+
+    let query = {};
+
+    const stateDistrictData = await StateDistrictCity.find(
+      {},
+      { states: 1 }
+    ).lean();
+
+    const stateMap = {};
+    const reverseStateMap = {};
+
+    stateDistrictData.forEach(({ states }) => {
+      states.forEach(({ _id, state_title, districts }) => {
+        const stateIdStr = _id.toString();
+        stateMap[stateIdStr] = state_title;
+        reverseStateMap[state_title.toLowerCase()] = stateIdStr;
+      });
+    });
+
+
+    if (state.length > 0 ) {
+      const andConditions = [];
+
+      // Handle multiple states
+      if (state.length > 0) {
+        const stateIds = state
+          .map((s) => reverseStateMap[s.toLowerCase()])
+          .filter(Boolean);
+
+        if (stateIds.length > 0) {
+          andConditions.push({ "address.state_id": { $in: stateIds } });
+        } else {
+          return sendResponse({
+            res,
+            status: 200,
+            data: { count: 0, rows: [], page, limit, pages: 0 },
+            message: "No matching states found",
+          });
+        }
+      }
+      if (andConditions.length > 0) {
+        query.$and = [...(query.$and || []), ...andConditions];
+      }
+    }
+    const records = { count: 0, rows: [] };
+
+     if (startDate || endDate) {
+        query.createdAt = {};
+        if (startDate) {
+          query.createdAt.$gte = new Date(startDate);
+        }
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = end;
+        }
+      }
+    
+     const farmers = await farmer
+        .find(query)
+        .populate({ path: "associate_id", select: "user_code" })
+        .sort(sortBy)
+        .lean();
+
+      const farmerIds = farmers.map((f) => f._id);
+      const crops = await Crop.find({ farmer_id: { $in: farmerIds } }).lean();
+      const landRecords = await Land.find({
+        farmer_id: { $in: farmerIds },
+      }).lean();
+
+      const cropsByFarmer = crops.reduce((acc, crop) => {
+        const farmerId = crop.farmer_id?.toString();
+        if (!acc[farmerId]) acc[farmerId] = [];
+        acc[farmerId].push(crop);
+        return acc;
+      }, {});
+      const landByFarmer = landRecords.reduce((acc, land) => {
+        const farmerId = land.farmer_id?.toString();
+        if (!acc[farmerId]) acc[farmerId] = [];
+        acc[farmerId].push(land);
+        return acc;
+      }, {});
+
+      const data = await Promise.all ( 
+        farmers.map( async (item) => {
+        const address = await getAddress(item);
+        const farmerIdStr = item._id.toString();
+        const crops = cropsByFarmer[farmerIdStr] || [];
+        const lands = landByFarmer[farmerIdStr] || [];
+
+        return {
+          ...item,
+          address : address,
+          crop_details: crops,
+          land_details: lands, 
+        };
+      }) );
+
+       records.rows = data;
+    
+      
+      const exportData = data.map((item) => {
+        return {
+          "Associate ID": item?.associate_id?.user_code || "NA",
+          "Farmer ID": item?.farmer_id || "NA",
+          "Farmer Name": item?.name || "NA",
+          "Father/Spouse Name": item?.parents?.father_name || "NA",
+          "Mother Name": item?.parents?.mother_name || "NA",
+          "Mobile Number": item?.mobile_no || "NA",
+          "Created At" : item?.createdAt || "NA",
+          "Email ": item?.basic_details?.email || "NA",
+          "Category": item?.basic_details?.category || "NA",
+          "Age": item?.basic_details?.age || "NA",
+          "Date of Birth": item?.basic_details?.dob || "NA",
+          "Farmer Type": item?.basic_details?.farmer_type || "NA",
+          "Gender": item?.basic_details?.gender || "NA",
+          "Address Line 1": item?.address?.address_line_1 || "NA",
+          "Address Line 2": item?.address?.address_line_2 || "NA",
+          village: item?.address?.village || "NA",
+          Block: item?.address?.block || "NA",
+          Tahshil: item?.address?.tahshil || "NA",
+          District: item?.address?.district || "NA",
+          State: item?.address?.state || "NA",
+          Country: item?.address?.country || "NA",
+          "Pin Code": item?.address?.pin_code || "NA",
+          "Bank Name": item?.bank_details?.bank_name || "NA",
+          "Account Holder Name":
+            item?.bank_details?.account_holder_name || "NA",
+          "IFSC Code": item?.bank_details?.ifsc_code || "NA",
+          "Account Number": item?.bank_details?.account_no || "NA",
+          "Account Status": item?.bank_details?.accountstatus || "NA",
+          "Welcome Msg Send": item?.is_welcome_msg_send ,
+          "Verify Otp": item?.is_verify_otp ,
+          "Haryna Famer Code": item?.harynaNewFarmer_code ,
+          "User Type": item?.user_type || "NA",
+          "Marital Status": item?.marital_status,
+          Religion: item?.religion || "NA",
+          "Eduction (Highest)": item?.education?.highest_edu || "NA",
+          "Eduction (Details)": item?.education?.edu_details || "NA",
+          "Proof (Type)": item?.proof?.type || "NA",
+          "Proof (Aadhar no.)": item?.proof?.aadhar_no || "NA",
+          Status: item?.status || "NA",
+          "External Farmer Id": item?.external_farmer_id || "NA",
+          "Infra Structure (Warehouse) ":
+            item?.infrastructure_needs?.warehouse || "NA",
+          "Infra Structure (Cold Storage) ":
+            item?.infrastructure_needs?.cold_storage || "NA",
+          "Infra Structure (Processing Unit) ":
+            item?.infrastructure_needs?.processing_unit || "NA",
+          "Infra Structure (Teansportation) ":
+            item?.infrastructure_needs?.transportation_facilities || "NA",
+          Ekhird: item?.ekhrid || "NA",
+          "Famer Tracent Code": item?.farmer_tracent_code || "NA",
+          "Financial Support (Creadit Facillties)":
+            item?.financial_support?.credit_facilities || "NA",
+          "Financial Support (Soure of Credit)":
+            item?.financial_support?.source_of_credit || "NA",
+          "Financial Support (Financial Chanllenges)":
+            item?.financial_support?.financial_challenges || "NA",
+          "Financial Support (Support Required)":
+            item?.financial_support?.support_required || "NA",
+          "hr_p_code (p_DCodeLGD)": item?.hr_p_code?.p_DCodeLGD || "NA",
+          "hr_p_code (p_BtCodeLGD)": item?.hr_p_code?.p_BtCodeLGD || "NA",
+          "hr_p_code (p_WvCodeLGD)": item?.hr_p_code?.p_WvCodeLGD || "NA",
+          "hr_p_code (p_address)": item?.hr_p_code?.p_address || "NA",
+          "hr_p_code (Dis_code)": item?.hr_p_code?.Dis_code || "NA",
+          "hr_p_code (Teh_code)": item?.hr_p_code?.Teh_code || "NA",
+          "hr_p_code (Vil_code)": item?.hr_p_code?.Vil_code || "NA",
+          "hr_p_code (statecode)": item?.hr_p_code?.statecode || "NA",
+          "Land Details (Khtauni Number)":
+            item?.land_details?.[0]?.khtauni_number || "NA",
+          "Land Details (khasra Number)":
+            item?.land_details?.[0]?.khasra_number || "NA",
+          "Soil Testing Agencies":
+            item?.land_details?.[0]?.soil_testing_agencies || "NA",
+          "Land Details (LandCropID)": item?.land_details?.[0]?.LandCropID || "NA",
+          "Land Details (Muraba)": item?.land_details?.[0]?.Muraba || "NA",
+          "Land Details (khewat)": item?.land_details?.[0]?.khewat || "NA",
+          "Land Details (sownkanal)": item?.land_details?.[0]?.sownkanal || "NA",
+          "Land Details (SownMarla)": item?.land_details?.[0]?.SownMarla || "NA",
+          "Land Details (SownAreaInAcre)":
+            item?.land_details?.[0]?.SownAreaInAcre || "NA",
+          "Land Details (RevenueKanal)":
+            item?.land_details?.[0]?.RevenueKanal || "NA",
+          "Land Details (RevenueMarla)":
+            item?.land_details?.[0]?.RevenueMarla || "NA",
+          "Land Details (RevenueAreaInAcre)":
+            item?.land_details?.[0]?.RevenueAreaInAcre || "NA",
+          "Crop Details (Season Name)": item?.crop_details?.[0]?.crop_season || "NA",
+          "Crop Details (L LGD DIS CODE)":
+            item?.crop_details?.[0]?.L_LGD_DIS_CODE || "NA",
+          "Crop Details (L LGD TEH CODE)":
+            item?.crop_details?.[0]?.L_LGD_TEH_CODE || "NA",
+          "Crop Details (L LGD VIL CODE)":
+            item?.crop_details?.[0]?.L_LGD_VIL_CODE || "NA",
+          "Crop Details (Sown Commodity ID)":
+            item?.crop_details?.[0]?.SownCommodityID || "NA",
+          "Crop Details (Sown Commodity Name)":
+            item?.crop_details?.[0]?.SownCommodityName || "NA",
+          "Crop Details (Commodity Variety)":
+            item?.crop_details?.[0]?.CommodityVariety || "NA",
+          "Crop Details (Crop Growth Stage)":
+            item?.crop_details?.[0]?.crop_growth_stage || "NA",
+          "Crop Details (Crop Name)": item?.crop_details?.[0]?.crop_name || "NA",
+          "Crop Details (Harvesting Date)":
+            item?.crop_details?.[0]?.harvesting_date || "NA",
+          "Crop Details (Production Quantity)":
+            item?.crop_details?.[0]?.production_quantity || "NA",
+          "Crop Details (Production Quantity)":
+            item?.crop_details?.[0]?.production_quantity || "NA",
+          "Crop Details (Selling Price)":
+            item?.crop_details?.[0]?.selling_price || "NA",
+          "Crop Details (Yield)": item?.crop_details?.[0]?.yield || "NA",
+          "Crop Details (Land Name)": item?.crop_details?.[0]?.land_name || "NA",
+          "Crop Details (Crop Disease)":
+            item?.crop_details?.[0]?.crop_disease || "NA",
+          "Crop Details (Crop Rotation)":
+            item?.crop_details?.[0]?.crop_rotation || "NA",
+          "Insurance Details (Insurance Company)":
+            item?.crop_details?.[0]?.insurance_details?.[0]?.insurance_company || "NA",
+          "Insurance Details (Insurance Worth)":
+            item?.crop_details?.[0]?.insurance_details?.[0]?.insurance_worth || "NA",
+          "Insurance Details (Insurance Premium)":
+            item?.crop_details?.[0]?.insurance_details?.[0]?.insurance_premium || "NA",
+          "Insurance Details (Insurance Start Date)":
+            item?.crop_details?.[0]?.insurance_details?.[0]?.insurance_start_date || "NA",
+          "Insurance Details (Insurance End Date)":
+            item?.crop_details?.[0]?.insurance_details?.[0]?.insurance_end_date || "NA",
+          "Seeds (Crop Name)": item?.crop_details?.[0]?.input_details?.[0]?.seeds?.crop_name || "NA",
+          "Seeds (Crop Variety)":
+            item?.crop_details?.[0]?.input_details?.[0]?.seeds?.crop_variety || "NA",
+          "Seeds (Name of Seeds)":
+            item?.crop_details?.[0]?.input_details?.[0]?.seeds?.name_of_seeds || "NA",
+          "Seeds (Name of Seeds Company)":
+            item?.crop_details?.[0]?.input_details?.[0]?.seeds?.name_of_seeds_company || "NA",
+          "Seeds (Package Size)":
+            item?.input_details?.[0]?.seeds?.package_size || "NA",
+          "Seeds (Total Package Required)":
+            item?.crop_details?.[0]?.input_details?.[0]?.seeds?.total_package_required || "NA",
+          "Seeds (Date of Purchase)":
+            item?.crop_details?.[0]?.input_details?.[0]?.seeds?.date_of_purchase || "NA",
+        };
+      });
+
+      return dumpJSONToExcel(req, res, {
+        data: exportData,
+        fileName: `Farmer-List.xlsx`,
+        worksheetName: `Farmer-List`,
+      });
+  
+  } catch (error) {
+    console.log("error", error);
+    _handleCatchErrors(error, res);
+  }
+};
+
 module.exports.getSingleFarmer = async (req, res) => {
   try {
     const farmerId = req.params.id;
@@ -445,7 +719,7 @@ module.exports.getSingleFarmer = async (req, res) => {
       .findById(farmerId)
       .populate("land_details.land_id crop_details.crop_id");
 
-    console.log(farmerData);
+    //console.log(farmerData);
 
     const state = await getState(farmerData.address?.state_id);
     const district = await getDistrict(
