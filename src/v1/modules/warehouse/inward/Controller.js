@@ -863,9 +863,9 @@ module.exports.viewBatchDetails = async (req, res) => {
             .populate([
                 { path: "procurementCenter_id", select: "center_name" },
                 { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
-                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" },
+                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no receving_date updatedAt" },
                 { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
-                { path: "req_id", select: "product.name deliveryDate" },
+                { path: "req_id", select: "product.name deliveryDate quotedPrice " },
             ])
 
         if (!batch) {
@@ -874,7 +874,18 @@ module.exports.viewBatchDetails = async (req, res) => {
                 errors: [{ message: "Batch not found" }]
             }));
         }
-        console.log('batch', batch)
+        let procurementDate = "NA";
+            for (const order of batch.farmerOrderIds) {
+                const receivingDate = order.farmerOrder_id?.receving_date;
+                const updatedDate = order.farmerOrder_id?.updatedAt;
+
+                if (receivingDate) {
+                    procurementDate = receivingDate;
+                    break;
+                } else if (updatedDate && procurementDate === "NA") {
+                    procurementDate = updatedDate;
+                }
+            }
         const response = {
             basic_details: {
                 batch_id: batch.batchId,
@@ -882,10 +893,10 @@ module.exports.viewBatchDetails = async (req, res) => {
                 commodity: batch.req_id || "NA",
                 intransit: batch.intransit || "NA",
                 receivingDetails: batch.receiving_details || "NA",
-                procurementDate: batch.procurementDate,
+                procurementDate: procurementDate,
                 procurementCenter: batch.procurementCenter_id?.center_name || "NA",
                 warehouse: batch.warehousedetails_id,
-                msp: batch.msp || "NA",
+                msp: batch.req_id?.quotedPrice || "NA",
                 final_quality_check: batch.final_quality_check,
                 dispatched: batch.dispatched,
                 delivered: batch.delivered
