@@ -1194,7 +1194,7 @@ module.exports.getCrop = async (req, res) => {
     const { page = 1, limit = 10, sortBy = 'crop_name', paginate = 1, farmer_id } = req.query;
     const skip = (page - 1) * limit;
     const currentDate = new Date();
-    const query = farmer_id ? { farmer_id: new mongoose.Types.ObjectId(farmer_id) } : {};
+    const baseQuery = farmer_id ? { farmer_id: new mongoose.Types.ObjectId(farmer_id) } : {};
     const records = { pastCrops: {}, upcomingCrops: {} };
     const fetchCrops = async (query) => paginate == 1
       ? Crop.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
@@ -1212,7 +1212,7 @@ module.exports.getCrop = async (req, res) => {
     // ]);
 
 // Craft query filters
-const baseQuery = { farmer_id: new mongoose.Types.ObjectId(farmer_id) };
+//const baseQuery = { farmer_id: new mongoose.Types.ObjectId(farmer_id) };
 
 // 1. All crops with sowing date before today => past
 const pastWithDateQuery = { 
@@ -1275,6 +1275,7 @@ const pastCount = pastCount1 + pastCount2;
     _handleCatchErrors(error, res);
   }
 };
+
 
 module.exports.updateIndCrop = async (req, res) => {
   try {
