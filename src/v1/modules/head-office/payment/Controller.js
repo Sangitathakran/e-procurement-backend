@@ -3919,15 +3919,15 @@ module.exports.proceedToPayPayment = async (req, res) => {
     });
 
     const cachedData = getCache(cacheKey);
-    // if (cachedData && isExport != 1) {
-    //   return res.status(200).send(
-    //     new serviceResponse({
-    //       status: 200,
-    //       data: cachedData,
-    //       message: "Payments found (cached)",
-    //     })
-    //   );
-    // }
+    if (cachedData && isExport != 1) {
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: cachedData,
+          message: "Payments found (cached)",
+        })
+      );
+    }
 
     // Ensure indexes (if not already present, ideally done at setup)
     await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
