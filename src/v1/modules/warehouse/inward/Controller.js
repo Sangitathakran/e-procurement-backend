@@ -5,7 +5,7 @@ const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { _query, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
-const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod, _userType } = require("@src/v1/utils/constants");
+const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod, _userType, _paymentApproval } = require("@src/v1/utils/constants");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { ExternalBatch } = require("@src/v1/models/app/procurement/ExternalBatch");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
@@ -1143,6 +1143,9 @@ module.exports.batchMarkDelivered = async (req, res) => {
                 associate_id: record?.seller_id,
                 ho_id: request?.head_office_id,
                 bo_id: request?.branch_id,
+                sla_id: request?.sla_id,
+                sla_approve_status: _paymentApproval.pending,
+                sla_approve_by: new mongoose.Types.ObjectId(user_id),
                 associateOffers_id: farmerData?.associateOffers_id,
                 batch_id: record?._id,
                 qtyProcured: farmer.qty,
