@@ -23,17 +23,6 @@ connection.once('open', function (error) {
         console.log("Connected MongoDB Successfully...!", connection._connectionString)
     }
 })
-
-
-// async function fetchFromCollection(collectionName) {
-//     try {
-//         const collection = connection.collection(collectionName); // native MongoDB collection
-//         const results = await collection.find({}).toArray();
-//         console.log(`Documents in ${collectionName}:`, results);
-//     } catch (error) {
-//         console.error(`Error fetching from ${collectionName}:`, error);
-//     }
-// }
 async function fetchFromCollection(collectionName, query = {}, projection = {}) {
     try {
         const collection = connection.collection(collectionName);
@@ -44,4 +33,4 @@ async function fetchFromCollection(collectionName, query = {}, projection = {}) 
         return []; // Return empty array on error to avoid crashing
     }
 }
-module.exports = { connection,fetchFromCollection };
+module.exports = { connection, fetchFromCollection };

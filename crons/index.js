@@ -13,6 +13,7 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const xlsx = require("xlsx");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const importAssociates = require("./associateImportJob");
 const { _paymentstatus } = require("@src/v1/utils/constants");
 const importAssociates = require("./associateImportJob")
 main().catch((err) => console.log(err));
@@ -236,11 +237,7 @@ async function downloadFarmerFile() {
   // UTR_SR_NO: 'ICMS2410300BZA7T',
   // INST_DATE: '29-10-24',
   // PRODUCT_CODE: 'NEFT'
-// cron.schedule("22 14 * * *", () => {
-//   console.log("Running scheduled import job...");
-//   importAssociates();
-// });
-cron.schedule("00 0,14 * * *", () => {
-  console.log("Running scheduled import job at", new Date().toLocaleString());
+ cron.schedule("0 11,16,2 * * *", () => {
+  console.log("🕒 Running scheduled import job at", new Date().toLocaleString());
   importAssociates();
 });
