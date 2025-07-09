@@ -1,4 +1,14 @@
 // Path Alias
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+});
+
+// Path Alias
 require("module-alias/register");
 // import modules
 const express = require("express");
