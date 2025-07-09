@@ -1,7 +1,7 @@
 const express = require("express");
 const farmerManagementRoutes = express.Router();
 
-const {farmerList,farmerListExport, getSingleFarmer, getAllStateAndDistricts,getStatewiseFarmersCount, getStatewiseFarmersCountWOAggregation } = require("./Controller")
+const {farmerList,farmerListExport, getSingleFarmer, getAllStateAndDistricts,getStatewiseFarmersCount, getStatewiseFarmersCountWOAggregation, getStateWiseFarmerCount, getStateWiseProcuredQty } = require("./Controller")
 
 farmerManagementRoutes.get("/farmer-list",farmerList);
 farmerManagementRoutes.get("/farmer-list-export",farmerListExport);
@@ -11,7 +11,8 @@ farmerManagementRoutes.get("/farmer-address-list", getAllStateAndDistricts);
 
 
 // without aggregation
-farmerManagementRoutes.get("/farmers-count-list-statewise", getStatewiseFarmersCountWOAggregation);
+farmerManagementRoutes.get("/farmers-count-list-statewise", getStateWiseFarmerCount);
+farmerManagementRoutes.get('/get-statewise-procuredQty', getStateWiseProcuredQty);
 
 
 module.exports = { farmerManagementRoutes }; 
