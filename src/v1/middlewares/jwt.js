@@ -24,9 +24,15 @@ const {LoginHistory} = require('@src/v1/models/master/loginHistery');
 const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
     const user = req.user;
-
-    if (!user || !allowedRoles.includes(user.userType)) {
-      return res.status(403).json({ message: "Access denied. Unauthorized role." });
+    console.log("User in authorizeRoles middleware:", user);
+    if (!user || !allowedRoles.includes(user?.user_type)) {
+      return sendResponse({
+        res,
+        status: 403,
+        data: [],
+        message: "You do not have permission to access this resource",
+        errors: _auth_module.forbidden,
+      });
     }
 
     next();
@@ -40,6 +46,7 @@ const authenticateUser = async (req, res, next) => {
     return sendResponse({
       res,
       status: 401,
+      data: [],
       message: "Token required",
       errors: _auth_module.unAuth,
     });
@@ -75,11 +82,11 @@ const Auth = async function (req, res, next) {
       else {
         // Login History 
         let loginHistory = await LoginHistory.findOne({token:token,logged_out_at:null }).sort({ createdAt: -1 });
-
+        console.log("Login History", loginHistory);
         if (!loginHistory){ 
           return sendResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
         }
-
+        
         if (decoded) {
           const route = req.baseUrl.split("/")[2]
 

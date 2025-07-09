@@ -21,10 +21,20 @@ const FileCounter = require("@src/v1/models/app/payment/fileCounter");
  * @param {import("express").NextFunction} next 
  */
 exports._handleCatchErrors = async (error, res, next) => {
-  console.log('error', error)
-  //  errorLogger.error({ message: error.message, stack: error.stack }) 
-  return res.status(500).json({ status: 500, errors: [{ message: error.message, stack: error.stack }] })
-}
+  const isProd = process.env.NODE_ENV === 'production';
+
+  console.log('error', error); // You can keep this for logs
+
+  return res.status(500).json({
+    status: 500,
+    errors: [
+      {
+        message: isProd ? 'Internal server error' : error.message,
+        ...(isProd ? {} : { stack: error.stack }),
+      },
+    ],
+  });
+};
 
 
 exports.dumpJSONToCSV = (req, res, config = {

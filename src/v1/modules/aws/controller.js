@@ -1,31 +1,30 @@
 const AWS = require("aws-sdk");
+const sharp = require("sharp");
 const { v4: uuidv4 } = require('uuid');
 const config = require("@config/index");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 require("aws-sdk/lib/maintenance_mode_message").suppress = true;
- 
-// Initializing S3 bucket
-AWS.config.update({
-    accessKeyId: config.s3Config.accessKey,
-    secretAccessKey: config.s3Config.secretKey,
-    region: config.s3Config.region,
-    signatureVersion: 'v4'
-});
 
+// Initialize AWS S3
+AWS.config.update({
+  accessKeyId: config.s3Config.accessKey,
+  secretAccessKey: config.s3Config.secretKey,
+  region: config.s3Config.region,
+  signatureVersion: 'v4'
+});
 const S3 = new AWS.S3();
 
 const uploadToS3 = async (req, res) => {
   try {
-    // #swagger.tags = ['aws']
     let { folder_name } = req.body;
     let { files } = req;
 
     const allowedTypes = [
       'image/jpeg', 'image/png', 'image/jpg',
       'application/pdf',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-      'application/vnd.ms-excel' // .xls
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
     ];
     const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB
 
@@ -40,7 +39,6 @@ const uploadToS3 = async (req, res) => {
     let paths = [];
 
     for (const file of files) {
-      // Validate file size
       if (file.size > MAX_FILE_SIZE) {
         return sendResponse({
           res,
@@ -49,7 +47,6 @@ const uploadToS3 = async (req, res) => {
         });
       }
 
-      // Validate file type
       if (!allowedTypes.includes(file.mimetype)) {
         return sendResponse({
           res,
@@ -58,13 +55,21 @@ const uploadToS3 = async (req, res) => {
         });
       }
 
+      let fileBuffer = file.buffer || file;
+      if (file.mimetype.startsWith("image/")) {
+        fileBuffer = await sharp(fileBuffer)
+          .withMetadata({ exif: false }) 
+          .toBuffer();
+      }
+
       let filename = uuidv4() + `_${file.originalname}`;
       const key = folder_name ? `${folder_name}/${filename}` : filename;
 
       const uploadParams = {
         Bucket: config.s3Config.bucketName,
         Key: key,
-        Body: file.buffer || file,
+        Body: fileBuffer,
+        ContentType: file.mimetype
       };
 
       let s3Resp = await S3.upload(uploadParams).promise();

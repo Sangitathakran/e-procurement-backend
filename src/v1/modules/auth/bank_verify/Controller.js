@@ -1,6 +1,6 @@
 const {
   verifyBankAccountService,
-} = require("@src/v1/common/services/gridlines/BankVerification");
+} = require("@src/common/services/gridlines/BankVerification");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");

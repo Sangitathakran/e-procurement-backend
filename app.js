@@ -42,13 +42,41 @@ const { router } = require("./src/v1/routes");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { agristackchRoutes } = require("@src/v1/modules/agristack/Routes");
 // application level middlewares
-app.use(helmet());
+
 app.use(
   cors({
     origin: "*",
     methods: ["POST", "GET", "PUT", "DELETE", "OPTIONS", "PATCH"],
   })
 );
+
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      fontSrc: ["'self'", "https:", "data:"],
+      formAction: ["'self'"],
+      frameAncestors: ["'self'"],
+      imgSrc: ["'self'", "data:"],
+      objectSrc: ["'none'"],
+      scriptSrc: ["'self'"],
+      scriptSrcAttr: ["'none'"],
+      styleSrc: ["'self'", "https:", "'unsafe-inline'"],
+      upgradeInsecureRequests: [],
+    }
+  },
+  crossOriginOpenerPolicy: { policy: "same-origin" },
+  crossOriginResourcePolicy: { policy: "same-origin" },
+  referrerPolicy: { policy: "no-referrer" },
+  dnsPrefetchControl: { allow: false },
+  permittedCrossDomainPolicies: { permittedPolicies: "none" },
+  hidePoweredBy: true,
+}));
+
+
+
 app.use(morgan('dev'));
 app.use(morgan("combined", { stream: combinedLogStream }));
 app.use(express.json( { limit: "50mb" }));
@@ -72,6 +100,13 @@ app.get(
     );
   })
 );
+
+// Remove X-Powered-By header
+app.use((req, res, next) => {
+  res.removeHeader("X-Powered-By");
+  next();
+});
+
 
 // const used = process.memoryUsage();
 // for (let key in used) {

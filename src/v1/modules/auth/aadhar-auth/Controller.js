@@ -6,8 +6,7 @@ const {
 } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
-
-const { sendOtpToAadhar, verifyOtpWithAadhar } = require("@src/v1/common/services/gridlines/AadharVerification");
+const { sendOtpToAadhar, verifyOtpWithAadhar } = require("@src/common/services/gridlines/AadharVerification");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Verifyfarmer } = require("@src/v1/models/app/farmerDetails/verifyFarmer");
 
