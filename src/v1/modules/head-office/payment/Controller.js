@@ -1242,7 +1242,7 @@ module.exports.payment = async (req, res) => {
           foreignField: "req_id",
           as: "batches",
           pipeline: [
-            { $match: { qty: { $exists: true } } },
+            { $match: { qty: { $exists: true }, } },
             {
               $lookup: {
                 from: "payments",
@@ -1281,15 +1281,15 @@ module.exports.payment = async (req, res) => {
         },
       },
       { $unwind: "$branch" },
-      {
-        $match: {
-          batches: { $ne: [] },
-          "batches.ho_approve_status":
-            approve_status == _paymentApproval.pending
-              ? _paymentApproval.pending
-              : { $ne: _paymentApproval.pending },
-        },
-      },
+      // {
+      //   $match: {
+      //     batches: {
+      //       $elemMatch: {
+      //         ho_approve_status:_paymentApproval.pending,
+      //       },
+      //     },
+      //   },
+      // },
       {
         $lookup: {
           from: "schemes",
@@ -1507,12 +1507,12 @@ module.exports.payment = async (req, res) => {
       });
     }
 
-    console.log("comodity", commodityName);
 
     if (state || commodityName || schemeName || branch) {
       aggregationPipeline.push({
         $match: {
           $and: [
+
             ...(state ? [{ state: { $regex: state, $options: "i" } }] : []),
             ...(commodityName
               ? [
@@ -1541,7 +1541,13 @@ module.exports.payment = async (req, res) => {
       //   ...(branch ? [{ "branch.branchName": { $regex: branch, $options: "i" } }] : []),
       // ];
     }
-
+    aggregationPipeline.push(
+      {
+        $match: {
+          "approval_status":approve_status
+        }
+      }
+    );
     aggregationPipeline.push(
       {
         $project: {
@@ -4166,8 +4172,8 @@ module.exports.proceedToPayPayment = async (req, res) => {
           approval_date: 1,
         },
       },
-        // { $skip: (page - 1) * limit },
-        // { $limit: limit }
+      // { $skip: (page - 1) * limit },
+      // { $limit: limit }
     );
 
     if (paginate == 1) {
