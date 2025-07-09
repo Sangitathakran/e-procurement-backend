@@ -14,6 +14,7 @@ const {
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
+const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 
 module.exports. farmerList = async (req, res) => {
   try {
@@ -1169,62 +1170,348 @@ const singlefarmerDetails = async (res, farmerId, farmerType = 1) => {
 
 // **************************  CONTROLLERS WITHOUT AGGREGATION    ***************************
 
-module.exports.getStatewiseFarmersCountWOAggregation = async (req, res) => {
+// module.exports.getStatewiseFarmersCountWOAggregation = async (req, res) => {
+//   try {
+//     // Step 1: Get valid states from StateDistrictCity
+//     const stateDistrictData = await StateDistrictCity.find(
+//       {},
+//       { states: 1 }
+//     ).lean();
+
+//     const allStates = stateDistrictData.flatMap((doc) => doc.states);
+//     const stateMap = {};
+//     const stateIds = [];
+
+//     for (const state of allStates) {
+//       if (state?._id) {
+//         const sid = state._id.toString();
+//         stateMap[sid] = state.state_title;
+//         stateIds.push(state._id);
+//       }
+//     }
+
+//     // Step 2: Group in MongoDB — only count per state_id
+//     const farmerCounts = await farmer.aggregate([
+//       {
+//         $match: {
+//           "address.state_id": { $in: stateIds },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: "$address.state_id",
+//           count: { $sum: 1 },
+//         },
+//       },
+//     ]);
+
+//     // Step 3: Build final state-wise count array
+//     const stateWiseCount = farmerCounts.map((item) => ({
+//       state: stateMap[item._id.toString()] || "Unknown",
+//       count: item.count,
+//     }));
+
+//     const totalFarmers = stateWiseCount.reduce(
+//       (sum, entry) => sum + entry.count,
+//       0
+//     );
+
+//     return sendResponse({
+//       res,
+//       status: 200,
+//       data: { stateWiseCount, totalCount: totalFarmers },
+//       message: _response_message.found(
+//         "All farmers count fetched successfully"
+//       ),
+//     });
+//   } catch (error) {
+//     console.log("error", error);
+//     _handleCatchErrors(error, res);
+//   }
+// };
+
+module.exports.getStateWiseFarmerCount = async (req, res) => {
   try {
-    // Step 1: Get valid states from StateDistrictCity
-    const stateDistrictData = await StateDistrictCity.find(
-      {},
-      { states: 1 }
-    ).lean();
+    const { season, commodity_id, schemeId, states } = req.query;
 
-    const allStates = stateDistrictData.flatMap((doc) => doc.states);
-    const stateMap = {};
-    const stateIds = [];
+    const hasRequestFilters = season || commodity_id || schemeId;
 
-    for (const state of allStates) {
-      if (state?._id) {
-        const sid = state._id.toString();
-        stateMap[sid] = state.state_title;
-        stateIds.push(state._id);
-      }
+    // Convert filter strings to arrays (if provided)
+    const seasonArr = season
+  ? season.split(",").map((s) => new RegExp(s.trim(), "i"))
+  : null;
+    const commodityArr = commodity_id ? commodity_id.split(",").map((id) => new ObjectId(id.trim())) : null;
+    const schemeArr = schemeId ? schemeId.split(",").map((id) => new ObjectId(id.trim())) : null;
+    const stateArr = states ? states.split(",").map((id) => new ObjectId(id.trim())) : null;
+
+    const matchStage = stateArr
+      ? { "address.state_id": { $in: stateArr } }
+      : {};
+
+    let pipeline;
+
+    if (hasRequestFilters) {
+      // Use full aggregation with Payment and Request filtering
+      pipeline = [
+        { $match: matchStage },
+
+        {
+          $lookup: {
+            from: "payments",
+            localField: "_id",
+            foreignField: "farmer_id",
+            as: "payments",
+          },
+        },
+        { $unwind: "$payments" },
+
+        {
+          $lookup: {
+            from: "requests",
+            localField: "payments.req_id",
+            foreignField: "_id",
+            as: "request",
+          },
+        },
+        { $unwind: "$request" },
+       {
+  $lookup: {
+    from: "schemes",
+    localField: "request.product.schemeId",
+    foreignField: "_id",
+    as: "scheme",
+  }
+},
+{ $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true } },
+
+       {
+  $match: {
+    ...(seasonArr && {
+      $or: [
+        { "request.product.season": { $in: seasonArr } },
+        { "scheme.season": { $in: seasonArr } }
+      ]
+    }),
+    ...(commodityArr && { "request.product.commodity_id": { $in: commodityArr } }),
+    ...(schemeArr && { "request.product.schemeId": { $in: schemeArr } }),
+  }
+},
+
+        {
+          $group: {
+            _id: "$address.state_id",
+            farmerIds: { $addToSet: "$_id" },
+          },
+        },
+        {
+          $project: {
+            state_id: "$_id",
+            count: { $size: "$farmerIds" },
+            _id: 0,
+          },
+        },
+
+        {
+          $lookup: {
+            from: "statedistrictcities",
+            let: { stateId: "$state_id" },
+            pipeline: [
+              { $unwind: "$states" },
+              { $match: { $expr: { $eq: ["$states._id", "$$stateId"] } } },
+              { $project: { state_title: "$states.state_title", _id: 0 } },
+            ],
+            as: "state_info",
+          },
+        },
+        { $unwind: { path: "$state_info", preserveNullAndEmptyArrays: true } },
+
+        {
+          $project: {
+            state_id: 1,
+            count: 1,
+            state: "$state_info.state_title",
+          },
+        },
+        { $sort: { count: -1 } },
+      ];
+    } else {
+      // Lightweight version: only from farmer → group by state
+      pipeline = [
+        { $match: matchStage },
+        {
+          $group: {
+            _id: "$address.state_id",
+            farmerIds: { $addToSet: "$_id" },
+          },
+        },
+        {
+          $project: {
+            state_id: "$_id",
+            count: { $size: "$farmerIds" },
+            _id: 0,
+          },
+        },
+        {
+          $lookup: {
+            from: "statedistrictcities",
+            let: { stateId: "$state_id" },
+            pipeline: [
+              { $unwind: "$states" },
+              { $match: { $expr: { $eq: ["$states._id", "$$stateId"] } } },
+              { $project: { state_title: "$states.state_title", _id: 0 } },
+            ],
+            as: "state_info",
+          },
+        },
+        { $unwind: { path: "$state_info", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            state_id: 1,
+            count: 1,
+            state: "$state_info.state_title",
+          },
+        },
+        { $sort: { count: -1 } },
+      ];
     }
 
-    // Step 2: Group in MongoDB — only count per state_id
-    const farmerCounts = await farmer.aggregate([
-      {
-        $match: {
-          "address.state_id": { $in: stateIds },
-        },
-      },
-      {
-        $group: {
-          _id: "$address.state_id",
-          count: { $sum: 1 },
-        },
-      },
-    ]);
+    const result = await farmer.aggregate(pipeline);
 
-    // Step 3: Build final state-wise count array
-    const stateWiseCount = farmerCounts.map((item) => ({
-      state: stateMap[item._id.toString()] || "Unknown",
-      count: item.count,
-    }));
-
-    const totalFarmers = stateWiseCount.reduce(
-      (sum, entry) => sum + entry.count,
-      0
-    );
-
-    return sendResponse({
-      res,
+    res.status(200).json({
       status: 200,
-      data: { stateWiseCount, totalCount: totalFarmers },
-      message: _response_message.found(
-        "All farmers count fetched successfully"
-      ),
+      message: "All farmers count fetched successfully found successfully.",
+      data: result,
     });
-  } catch (error) {
-    console.log("error", error);
-    _handleCatchErrors(error, res);
+  } catch (err) {
+    console.error("Error in getStateWiseFarmerCount:", err);
+    res.status(500).json({
+      status: 500,
+      message: err.message,
+      error: err.message,
+    });
   }
 };
+
+module.exports.getStateWiseProcuredQty = async (req, res) => {
+  try {
+    const { season, commodity_id, schemeId, states } = req.query;
+
+    const seasonArr = season
+      ? season.split(',').map(s => new RegExp(s.trim(), 'i'))
+      : null;
+    const commodityArr = commodity_id
+      ? commodity_id.split(',').map(id => new ObjectId(id.trim()))
+      : null;
+    const schemeArr = schemeId
+      ? schemeId.split(',').map(id => new ObjectId(id.trim()))
+      : null;
+    const stateArr = states
+      ? states.split(',').map(id => new ObjectId(id.trim()))
+      : null;
+
+    const matchStage = stateArr
+      ? { 'address.state_id': { $in: stateArr } }
+      : {};
+
+    const pipeline = [
+      { $match: matchStage },
+
+      // Join with Batch
+      {
+        $lookup: {
+          from: 'batches',
+          localField: '_id',
+          foreignField: 'procurementCenter_id',
+          as: 'batches',
+        },
+      },
+      { $unwind: '$batches' },
+
+      // Join with Request
+      {
+        $lookup: {
+          from: 'requests',
+          let: { reqId: '$batches.req_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$_id', '$$reqId'] },
+              },
+            },
+            {
+              $project: {
+                'product.season': 1,
+                'product.commodity_id': 1,
+                'product.schemeId': 1,
+              },
+            },
+          ],
+          as: 'request',
+        },
+      },
+      { $unwind: { path: '$request', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'schemes',
+          localField: 'request.product.schemeId',
+          foreignField: '_id',
+          as: 'scheme',
+        },
+      },
+      { $unwind: { path: '$scheme', preserveNullAndEmptyArrays: true } },
+
+      // Filters
+      {
+        $match: {
+          ...(seasonArr && {
+            $or: [
+              { 'request.product.season': { $in: seasonArr } },
+              { 'scheme.season': { $in: seasonArr } },
+            ],
+          }),
+          ...(commodityArr && {
+            'request.product.commodity_id': { $in: commodityArr },
+          }),
+          ...(schemeArr && { 'request.product.schemeId': { $in: schemeArr } }),
+        },
+      },
+
+      // Group by state_id and state title directly from ProcurementCenter.address
+      {
+        $group: {
+          _id: {
+            state_id: '$address.state_id',
+            state: '$address.state',
+          },
+          totalQty: { $sum: '$batches.qty' },
+        },
+      },
+      {
+        $project: {
+          state_id: '$_id.state_id',
+          state: '$_id.state',
+          totalQty: 1,
+          _id: 0,
+        },
+      },
+      { $sort: { totalQty: -1 } },
+    ];
+
+    const result = await ProcurementCenter.aggregate(pipeline);
+
+    res.status(200).json({
+      status: 200,
+      message: 'State-wise procured quantity fetched statusfully',
+      data: result,
+    });
+  } catch (err) {
+    console.error('Error in getStateWiseProcuredQty:', err);
+    res.status(500).json({
+      success: 500,
+      message: 'Internal server error',
+      error: err.message,
+    });
+  }
+};
+
+
