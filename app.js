@@ -1,4 +1,14 @@
 // Path Alias
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+});
+
+// Path Alias
 require("module-alias/register");
 // import modules
 const express = require("express");
@@ -15,6 +25,7 @@ require("@src/v1/utils/websocket/server");
 require('newrelic');
 // configs
 const { PORT, apiVersion } = require("./config/index");
+require('newrelic');
 require("./config/database");
 // require('./config/redis')
 const {

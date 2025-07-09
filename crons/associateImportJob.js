@@ -28,7 +28,6 @@ async function importAssociates() {
     const errors = [],
       duplicateMobiles = [];
       
-
     for (const [index, data] of associatesData.entries()) {
       try {
         const associate_name = (data["cooperative_socity_name"] || "").trim();
@@ -52,14 +51,16 @@ async function importAssociates() {
         }
         if (!/^\d{10}$/.test(mobile_no)) {
           duplicateMobiles.push({ ...data, Error: "Invalid mobile number (must be 10 digits)" });
+          console.log(`Skipping record ${index + 1}: Invalid mobile number`);
           continue;
         }
-        const existing = await User.findOne({ "basic_details.point_of_contact.mobile": mobile_no });
+        const existing = await User.findOne({ "basic_details.associate_details.phone": mobile_no });
         if (existing) {
           duplicate++;
           duplicateMobiles.push({
             ...data, Error: "Duplicate mobile number"
           });
+          console.log(`Skipping record ${index + 1}: Duplicate mobile number`);
           continue;
         }
         const newAssociate = new User({
@@ -104,6 +105,7 @@ async function importAssociates() {
 
         await newAssociate.save();
         inserted++;
+        console.log(`Record ${index + 1} inserted successfully with mobile number: ${mobile_no}`);
       } catch (err) {
         errors.push({ record: index + 1, error: err.message });
       }
@@ -123,7 +125,7 @@ async function importAssociates() {
     };
 
     fs.writeFileSync(path.join(logDir, `log-from-db-${Date.now()}.json`), JSON.stringify(logData, null, 2));
-
+    console.log("Import process completed.");
 
     const rawCollection = mongoose.connection.collection(RAW_COLLECTION_NAME);
     const deleteResult = await rawCollection.deleteMany({});

@@ -128,7 +128,7 @@ userSchema.pre('save', async function (next) {
         //     const lastCodeNumber = parseInt(lastUser.user_code.slice(2));
         //     nextUserCode = 'AS' + String(lastCodeNumber + 1).padStart(5, '0');
         // }
-
+        
         ////////////////////////////////////
         const lastUser = await User.findOne(
             { user_code: /^AS\d+$/ }, // Ensures only user_codes matching ASxxxxx pattern

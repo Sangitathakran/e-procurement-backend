@@ -19,7 +19,6 @@ module.exports = {
     platform_org: process.env.PLATFORM_ORG,
     app_name: process.env.APP_NAME,
     license_key: process.env.LICENSE_KEY,
-	
 
     mailer: {
         service: 'gmail',
