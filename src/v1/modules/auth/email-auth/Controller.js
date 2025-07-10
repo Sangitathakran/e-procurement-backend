@@ -211,15 +211,10 @@ exports.logout = async (req, res) => {
     }
 
     const result = await LoginHistory.findOneAndUpdate({ token: token }, { logged_out_at: new Date() });
-    await LoginAttempt.deleteMany({ master_id: result.master_id, userType: result.user_type });
-
-    if (!result) {
-      return sendResponse({
-        res,
-        status: 404,
-        message: "Active session not found or already logged out"
-      });
+    if(result) {
+       await LoginAttempt.deleteMany({ master_id: result?.master_id, userType: result?.user_type });
     }
+
 
     return sendResponse({
       res,
