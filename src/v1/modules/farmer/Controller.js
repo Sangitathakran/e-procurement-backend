@@ -1042,20 +1042,19 @@ module.exports.createLand = async (req, res) => {
     //     errors: [{ message: _response_message.allReadyExist("Land") }]
     //   }));
     // }
+    // const isStateExist = await isStateAvailable(state);
+    // const isDistrictExist = await isDistrictAvailable(state, district);
 
-    const isStateExist = await isStateAvailable(state);
-    const isDistrictExist = await isDistrictAvailable(state, district);
+    // if (!isStateExist) {
+    //   return res.status(400).send({ message: "State not available" });
+    // }
 
-    if (!isStateExist) {
-      return res.status(400).send({ message: "State not available" });
-    }
+    // if (!isDistrictExist) {
+    //   await updateDistrict(state, district);
+    // }
 
-    if (!isDistrictExist) {
-      await updateDistrict(state, district);
-    }
-
-    const state_id = await getStateId(state);
-    const district_id = await getDistrictId(district);
+    const state_id = new mongoose.Types.ObjectId(state) //await getStateId(state);
+    const district_id = new mongoose.Types.ObjectId(district)// getDistrictId(district);
 
     let land_address = {
       state_id,
