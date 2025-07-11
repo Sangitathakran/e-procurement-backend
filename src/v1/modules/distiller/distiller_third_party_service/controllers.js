@@ -35,15 +35,12 @@ function replaceUndefinedWithNull(obj) {
 
 exports.createDistiller = async (req, res) => {
   const session = await mongoose.startSession();
-
   try {
     await session.withTransaction(async () => {
-      // Support draft structure: extract onboarding, po_receipt, batches if present
       const onboarding = req.body.onboarding || req.body;
       const po_receipt = req.body.po_receipt || {};
       const batches = req.body.batches || [];
 
-      // Extract manufacturing and storage fields from onboarding
       const manufacturing_address_line1 =
         onboarding.manufacturing_address_line1;
       const manufacturing_address_line2 =
@@ -62,7 +59,6 @@ exports.createDistiller = async (req, res) => {
       const storage_capacity_value = onboarding.storage_capacity_value;
       const storage_condition = onboarding.storage_condition;
 
-      // Always check required fields inside onboarding
       
       let mobile_no = req.body.mobile_no;
       if (!mobile_no) {
@@ -90,15 +86,13 @@ exports.createDistiller = async (req, res) => {
         poc_email = onboarding.basic_details?.point_of_contact?.email;
       }
 
-      // Always save onboarding, po_receipt, and batches in the draft data
       await DistillerDraft.create({
-        data: {
-          onboarding,
-          po_receipt,
-          batches
-        },
+        onboarding,
+        po_receipt,
+        batches,
+        mobile_no, 
         createdBy: req.user_id,
-        status: "pending",
+        status: false, 
       });
 
       const existing = await Distiller.findOne({
@@ -250,12 +244,12 @@ exports.createDistiller = async (req, res) => {
         },
       });
     });
-    } catch (error) {
-    console.error("Transaction Error:", error.message);
+  } catch (error) {
+    console.error("Transaction Error:", error);
     return sendResponse({
       res,
       status: 500,
-      message: "Transaction failed while creating distiller.",
+      message: "Internal server error",
       errors: [{ message: error.message }],
     });
   } finally {
