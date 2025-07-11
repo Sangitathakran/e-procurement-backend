@@ -1,7 +1,7 @@
 
 
 const express = require("express");
-const { getAssociates, userStatusUpdate, statusUpdate, pendingRequests, getAssociatesById, bulkuplodAssociate } = require("./Controllers");
+const { getAssociates, userStatusUpdate, statusUpdate, pendingRequests, getAssociatesById, bulkuplodAssociate, associateNorthEastBulkuplod } = require("./Controllers");
 
 
 const associateMngmntRoutes = express.Router();
@@ -14,5 +14,5 @@ associateMngmntRoutes.get("/pending", pendingRequests);
 associateMngmntRoutes.get("/details/:id", getAssociatesById);
 
 associateMngmntRoutes.post("/associate-bulkuplod", Auth, bulkuplodAssociate);
-
+associateMngmntRoutes.post("/associateNorthEastFarmer-bulkuplod", associateNorthEastBulkuplod);
 module.exports = { associateMngmntRoutes }; 

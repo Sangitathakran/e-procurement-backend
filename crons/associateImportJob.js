@@ -28,7 +28,6 @@ async function importAssociates() {
     const errors = [],
       duplicateMobiles = [];
       
-    console.log(`Total records to process: ${associatesData.length}`);
     for (const [index, data] of associatesData.entries()) {
       try {
         const associate_name = (data["cooperative_socity_name"] || "").trim();
@@ -48,7 +47,6 @@ async function importAssociates() {
             ...data,
             Error: "Mobile number required"
           });
-          console.log(`Skipping record ${index + 1}: Missing mobile number`);
           continue;
         }
         if (!/^\d{10}$/.test(mobile_no)) {

@@ -13,8 +13,11 @@ const {
   StateDistrictCity,
 } = require("@src/v1/models/master/StateDistrictCity");
 const UserRole = require("@src/v1/models/master/UserRole");
-const { sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { sendResponse, serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { default: mongoose } = require("mongoose");
+const { getAddressByPincode, getAllStates, getDistrictsByStateId } = require("./Services");
+const { _query } = require("@src/v1/utils/constants/messages");
 module.exports.scheme = async (req, res) => {
   const query = { deletedAt: null, status: "active" };
   try {
@@ -90,7 +93,10 @@ module.exports.bo_list = async (req, res) => {
   }
 
   const query = {
-    deletedAt: null,
+    $or: [
+      { "deletedAt": { $eq: null } }, // "deletedAt" is null
+      { "deletedAt": { $exists: false } } // "deletedAt" does not exist
+    ],
     headOfficeId: new mongoose.Types.ObjectId(ho_id),
     status: "active",
   };
@@ -139,18 +145,18 @@ module.exports.getStates = async (req, res) => {
   try {
     const state_list = await StateDistrictCity.aggregate([
       { $unwind: "$states" }, // Unwind the states array to extract individual state objects
-      { 
-        $match: { 
-          "states.deletedAt": null, 
-          "states.status": "active" 
-        } 
+      {
+        $match: {
+          "states.deletedAt": null,
+          "states.status": "active"
+        }
       },
-      { 
-        $project: { 
-          _id: 0, 
-          state_title: "$states.state_title", 
-          state_code: "$states.state_code" 
-        } 
+      {
+        $project: {
+          _id: 0,
+          state_title: "$states.state_title",
+          state_code: "$states.state_code"
+        }
       }
     ]);
 
@@ -163,7 +169,7 @@ module.exports.getStates = async (req, res) => {
 
 module.exports.getCitiesByState = async (req, res) => {
   try {
-    const { state_code } = req.query; 
+    const { state_code } = req.query;
 
     if (!state_code) {
       return sendResponse({ res, status: 400, message: "State code is required" });
@@ -174,14 +180,14 @@ module.exports.getCitiesByState = async (req, res) => {
       { $match: { "states.state_code": state_code, "states.status": "active" } }, // Match state by code
       { $unwind: "$states.districts" }, // Flatten districts array
       { $unwind: "$states.districts.cities" }, // Flatten cities array
-      { 
+      {
         $match: { "states.districts.cities.status": "active" } // Filter only active cities
       },
-      { 
-        $project: { 
-          _id: 0, 
-          city_title: "$states.districts.cities.city_title" 
-        } 
+      {
+        $project: {
+          _id: 0,
+          city_title: "$states.districts.cities.city_title"
+        }
       }
     ]);
 
@@ -197,7 +203,7 @@ module.exports.getCitiesByState = async (req, res) => {
 module.exports.getRoles = async (req, res) => {
   const query = { deletedAt: null };
   try {
-    const role_list = await UserRole.find({ ...query }, { userRoleName: 1, userRoleType: 1, createdBy: 1, updatedBy:1} );
+    const role_list = await UserRole.find({ ...query }, { userRoleName: 1, userRoleType: 1, createdBy: 1, updatedBy: 1 });
     return sendResponse({ res, message: "", data: role_list });
   } catch (err) {
     console.log("ERROR: ", err);
@@ -244,5 +250,112 @@ module.exports.getWarehouses = async (req, res) => {
     return sendResponse({ status: 500, message: err.message });
   }
 };
+
+module.exports.getStatesByPincode = async (req, res) => {
+  try {
+    const { pincode } = req.query;
+    if (!pincode) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          message: _middleware.require("pincode"),
+        })
+      );
+    }
+
+    if (pincode.length !== 6) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          message: "pincode should be of 6 digits",
+        })
+      );
+    }
+
+    const pincode_data = await getAddressByPincode({ pincode });
+
+    if (pincode_data?.Status !== "Success") {
+      return res.send(
+        new serviceResponse({ status: 400, message: _query.invalid("pincode") })
+      );
+    }
+
+    const states = await getAllStates();
+    const filteredState = states.find(
+      (obj) =>
+        obj.state_title.toLowerCase() ===
+        pincode_data?.PostOffice[0]?.State?.toLowerCase()
+    );
+    //console.log(">>>>>>>>>>>>>>>>>>>>>>>>", pincode_data, states);
+    return res.send(
+      new serviceResponse({
+        message: "OK",
+        data: { states: [filteredState] || states },
+      })
+    );
+  } catch (err) {
+    _handleCatchErrors(err, res);
+  }
+};
+
+module.exports.getDistrictsByState = async (req, res) => {
+  try {
+    const { stateId, pincode } = req.query;
+    if (!stateId) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          message: _middleware.require("stateId"),
+        })
+      );
+    }
+
+    if (!pincode) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          message: _middleware.require("pincode"),
+        })
+      );
+    }
+
+    if (pincode.length !== 6) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          message: "pincode should be of 6 digits",
+        })
+      );
+    }
+
+    const pincode_data = await getAddressByPincode({ pincode });
+
+    if (pincode_data?.Status !== "Success") {
+      return res.send(
+        new serviceResponse({ status: 400, message: _query.invalid("pincode") })
+      );
+    }
+
+    let villages = pincode_data.PostOffice.map((obj) => obj.Name);
+    let districts = await getDistrictsByStateId(stateId);
+    let filteredDistricts = districts.find(
+      (obj) =>
+        obj.district_title.toLowerCase() ===
+        pincode_data.PostOffice[0].District.toLowerCase()
+    );
+    return res.send(
+      new serviceResponse({
+        message: _query.get("districts"),
+        data: { villages, districts: [filteredDistricts] || districts },
+      })
+    );
+  } catch (err) {
+    console.log(err);
+    throw new Error(err.message);
+  }
+};
+
+
+
 
 

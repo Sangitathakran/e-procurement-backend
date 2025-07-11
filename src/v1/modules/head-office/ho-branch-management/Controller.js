@@ -366,10 +366,10 @@ module.exports.branchList = async (req, res) => {
     //   branchName: { $regex: search, $options: 'i' }        // Case-insensitive search for branchName
     // } : {};
     let searchQuery = {};
-    if(search.trim()){
+    if (search.trim()) {
       searchQuery.$or = [
-        {branchName: { $regex: search, $options: 'i' }},
-        {branchId: { $regex: search, $options: 'i' }}
+        { branchName: { $regex: search, $options: 'i' } },
+        { branchId: { $regex: search, $options: 'i' } }
       ]
     }
 
@@ -530,7 +530,7 @@ module.exports.schemeList = async (req, res) => {
     {
       $lookup: {
         from: 'commodities',
-        localField: 'commodity_id',
+        localField: 'schemeDetails.commodity_id',
         foreignField: '_id',
         as: 'commodityDetails',
       },
@@ -538,11 +538,22 @@ module.exports.schemeList = async (req, res) => {
     { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
     {
       $addFields: {
+        // schemeName: {
+        //   $concat: [
+        //     "$schemeDetails.schemeName",
+        //     " ",
+        //     { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+        //     " ",
+        //     { $ifNull: ["$schemeDetails.season", ""] },
+        //     " ",
+        //     { $ifNull: ["$schemeDetails.period", ""] },
+        //   ],
+        // },
         schemeName: {
           $concat: [
             "$schemeDetails.schemeName",
             " ",
-            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+            { $ifNull: ["$commodityDetails.name", ""] }, // Fixed here
             " ",
             { $ifNull: ["$schemeDetails.season", ""] },
             " ",
@@ -552,7 +563,7 @@ module.exports.schemeList = async (req, res) => {
         schemeId: { $ifNull: ["$schemeDetails.schemeId", ""] }
       },
     },
-   
+
   ];
 
   if (search) {
@@ -567,21 +578,11 @@ module.exports.schemeList = async (req, res) => {
   }
 
   aggregationPipeline.push(
-     {
+    {
       $project: {
         _id: 1,
         schemeId: 1,
         schemeName: 1,
-        // schemeName: {
-        //   $concat: [
-        //     "$schemeDetails.schemeName", "",
-        //     { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
-        //     { $ifNull: ["$schemeDetails.season", ""] }, "",
-        //     { $ifNull: ["$schemeDetails.period", ""] }
-        //   ]
-        // },
-        // branchName: '$branchDetails.branchName',
-        // branchLocation: '$branchDetails.state',
         scheme_id: 1,
         assignQty: 1,
         status: 1
@@ -634,6 +635,7 @@ module.exports.schemeList = async (req, res) => {
   }
 }
 
+/*
 module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
   try {
     const { schemeData, bo_id } = req.body;
@@ -667,7 +669,7 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
       }
 
       // Check if the record already exists in SchemeAssign
-      const existingRecord = await SchemeAssign.findOne({ ho_id:user_id, scheme_id: _id });
+      const existingRecord = await SchemeAssign.findOne({ bo_id, scheme_id: _id });
 
       if (existingRecord) {
         // Update existing record
@@ -685,6 +687,75 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
     }
 
     // Bulk insert new records if there are any
+    if (newRecords.length > 0) {
+      const insertedRecords = await SchemeAssign.insertMany(newRecords);
+      updatedRecords = [...updatedRecords, ...insertedRecords];
+    }
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: updatedRecords,
+        message: _response_message.created("Scheme Assign Updated Successfully"),
+      })
+    );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+*/
+
+module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
+  try {
+    const { schemeData, bo_id } = req.body;
+
+    // Validate input
+    if (!bo_id || !Array.isArray(schemeData) || schemeData.length === 0) {
+      return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          message: "Invalid request. 'bo_id' and 'schemeData' must be provided.",
+        })
+      );
+    }
+
+    let updatedRecords = [];
+    let newRecords = [];
+
+    for (const { _id, qty } of schemeData) {
+      // Find the SchemeAssign record using `_id`
+      const schemeAssignRecord = await SchemeAssign.findById(_id);
+      if (!schemeAssignRecord) {
+        return res.status(404).send(
+          new serviceResponse({
+            status: 404,
+            message: `SchemeAssign record with ID ${_id} not found.`,
+          })
+        );
+      }
+
+      // Check if a record already exists for the given `bo_id` and `scheme_id`
+      const existingRecord = await SchemeAssign.findOne({
+        scheme_id: schemeAssignRecord.scheme_id, // Get scheme_id from the found record
+        bo_id: new mongoose.Types.ObjectId(bo_id),
+      });
+
+      if (existingRecord) {
+        // Update existing record
+        existingRecord.assignQty = qty;
+        await existingRecord.save();
+        updatedRecords.push(existingRecord);
+      } else {
+        // Insert new record with the correct scheme_id
+        newRecords.push({
+          bo_id,
+          scheme_id: schemeAssignRecord.scheme_id, // Correctly fetch scheme_id from existing SchemeAssign
+          assignQty: qty,
+        });
+      }
+    }
+
+    // Bulk insert new records if any
     if (newRecords.length > 0) {
       const insertedRecords = await SchemeAssign.insertMany(newRecords);
       updatedRecords = [...updatedRecords, ...insertedRecords];

@@ -123,6 +123,9 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         limit = 10,
         search = '',
         sortBy,
+        ownerName = '',
+        state = '',
+        city = '',
         isExport = 0
     } = req.query;
 
@@ -136,6 +139,16 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         });
 
         const query = search ? makeSearchQuery(searchFields) : {};
+        if (ownerName) {
+            query["warehouseOwner.ownerDetails.name"] = { $regex: ownerName, $options: "i" };
+        }
+        if (state) {
+            query["addressDetails.state.state_name"] = { $regex: state, $options: "i" };
+        }
+
+        if (city) {
+            query["addressDetails.city"] = { $regex: city, $options: "i" };
+        }
         const pipeline = [
             {
                 $lookup: {
@@ -248,7 +261,10 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
         search = '',
         sortBy,
         id,
-        isExport=0
+        isExport=0,
+        commodity,
+        associateName,
+        qcStatus
     } = req.query;
 
     try {
@@ -305,6 +321,13 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
                 },
             },
             { $unwind: { path: "$procurementcenter", preserveNullAndEmptyArrays: true } },
+            {
+                $match: {
+                    ...(commodity ? { "request.product.name": { $regex: commodity, $options: "i" } } : {}),
+                    ...(associateName ? { "user.basic_details.associate_details.associate_name": { $regex: associateName, $options: "i" } } : {}),
+                    ...(qcStatus ? { "final_quality_check.status": { $regex: qcStatus, $options: "i" } } : {})
+                }
+            },
             {
                 $project: {
                     batchId: 1,

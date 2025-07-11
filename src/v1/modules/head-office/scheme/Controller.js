@@ -13,13 +13,13 @@ const { mongoose } = require("mongoose");
 module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, isExport = 0 } = req.query;
   const { user_id, portalId } = req;
-  // console.log(user_id);
-  // console.log(portalId);
+  
   const Ids = (await SchemeAssign.find({ ho_id: new mongoose.Types.ObjectId(portalId) })).map(i => i.scheme_id);
-
+  
   // Initialize matchQuery
   let matchQuery = {
-    _id: { $in: Ids },
+    // _id: { $in: Ids },
+    ho_id: new mongoose.Types.ObjectId(portalId),
     deletedAt: null,
   };
 
@@ -36,35 +36,44 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   if (status) {
     matchQuery.status = status.toLowerCase();
   }
-  // else {
-  // matchQuery.status = _status.active;
-  // }
+ 
 
   let aggregationPipeline = [
     { $match: matchQuery },
     {
       $lookup: {
+        from: "schemes",
+        localField: "scheme_id",
+        foreignField: "_id",
+        as: "schemeDetails",
+      },
+    },
+    { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
         from: 'commodities',
-        localField: 'commodity_id',
+        localField: 'schemeDetails.commodity_id',
         foreignField: '_id',
         as: 'commodityDetails',
       },
     },
     { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+   
     // Add schemeName field before filtering
     {
-      $addFields: {
+      $addFields: {       
         schemeName: {
           $concat: [
-            "$schemeName",
+            "$schemeDetails.schemeName",
             " ",
-            { $ifNull: ["$commodityDetails.name", ""] },
+            { $ifNull: ["$commodityDetails.name", ""] }, // Fixed here
             " ",
-            { $ifNull: ["$season", ""] },
+            { $ifNull: ["$schemeDetails.season", ""] },
             " ",
-            { $ifNull: ["$period", ""] },
+            { $ifNull: ["$schemeDetails.period", ""] },
           ],
         },
+        schemeId: '$schemeDetails.schemeId'
       },
     },
   ];
@@ -80,25 +89,15 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     {
       $project: {
         _id: 1,
-        schemeId: 1,
+        scheme_id: 1,
         schemeName: 1,
-        // schemeName: {
-        //   $concat: [
-        //     "$schemeName",
-        //     "",
-        //     { $ifNull: ["$commodityDetails.name", ""] },
-        //     "",
-        //     { $ifNull: ["$season", ""] },
-        //     "",
-        //     { $ifNull: ["$period", ""] },
-        //   ],
-        // },
-        Schemecommodity: 1,
-        season: 1,
-        period: 1,
-        procurement: 1,
-        status: 1,
-        createdAt: 1
+        createdAt: 1,
+        schemeId: '$schemeDetails.schemeId',
+        Schemecommodity:'$schemeDetails.Schemecommodity',
+        season:'$schemeDetails.season',
+        period:'$schemeDetails.period',
+        procurement:'$assignQty',
+        status:'$schemeDetails.status',
       },
     }
   );
@@ -115,9 +114,12 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     });
   }
 
-  const rows = await Scheme.aggregate(aggregationPipeline);
+  // const rows = await Scheme.aggregate(aggregationPipeline);
+  const rows = await SchemeAssign.aggregate(aggregationPipeline);  
   const countPipeline = [{ $match: matchQuery }, { $count: "total" }];
-  const countResult = await Scheme.aggregate(countPipeline);
+  // const countResult = await Scheme.aggregate(countPipeline);  
+  const countResult = await SchemeAssign.aggregate(countPipeline);
+  
   const count = countResult[0]?.total || 0;
   const records = { rows, count };
   if (paginate == 1) {
@@ -257,17 +259,6 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
           assignQty: 1,
           schemeId: 1,//"$schemeDetails.schemeId",
           schemeName: 1,
-          // schemeName: {
-          //   $concat: [
-          //     "$schemeDetails.schemeName",
-          //     "",
-          //     { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
-          //     "",
-          //     { $ifNull: ["$schemeDetails.season", ""] },
-          //     "",
-          //     { $ifNull: ["$schemeDetails.period", ""] },
-          //   ],
-          // },
           scheme_id: 1,
           procurement: 1,
           status: 1

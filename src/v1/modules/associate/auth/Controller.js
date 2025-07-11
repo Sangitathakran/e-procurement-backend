@@ -97,6 +97,7 @@ module.exports.loginOrRegister = async (req, res) => {
             } else {
                 newUser.is_mobile_verified = true;
             }
+
             userExist = await User.create(newUser);
         }
 
@@ -113,6 +114,7 @@ module.exports.loginOrRegister = async (req, res) => {
             secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
             maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
         });
+
         const data = {
             token: token,
             user_type: userExist.user_type,
@@ -137,11 +139,20 @@ module.exports.saveAssociateDetails = async (req, res) => {
         }
         const decode = await decryptJwtToken(getToken);
         const userId = decode.data.user_id;
+        const { formName, ...formData } = req.body;
         const user = await User.findById(userId);
         if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         }
-        const { formName, ...formData } = req.body;
+
+        if (formData.organization_name&&formData.organization_name != user.basic_details.associate_details.organization_name) {
+            const isOrganizationName = await User.findOne({ 'basic_details.associate_details.organization_name': formData.organization_name });
+            if (isOrganizationName) {
+                return res.status(400).send(new serviceResponse({ status: 400, message: "You are already registered with this organization name." }));
+            }
+        }
+
+
         switch (formName) {
             case 'organization':
                 user.basic_details.associate_details.organization_name = formData.organization_name;
@@ -499,7 +510,6 @@ module.exports.associateBulkuplod = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
-
 module.exports.associateNorthEastBulkuplod = async (req, res) => {
     try {
         const { isxlsx = 1 } = req.body;
@@ -621,7 +631,7 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
                         is_approved: 'approved',
                         is_form_submitted: true,
                         is_welcome_email_send: true,
-                        term_condition:true,
+                        term_condition: true,
                         active: true,
                         is_sms_send: true,
                     });

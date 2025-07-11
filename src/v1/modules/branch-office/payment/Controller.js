@@ -23,7 +23,7 @@ const validateMobileNumber = async (mobile) => {
 module.exports.payment = async (req, res) => {
 
     try {
-        let { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0, approve_status = "Pending" } = req.query
+        let { page, limit, skip, paginate = 1, sortBy, search = '', user_type, isExport = 0, approve_status = "Pending", scheme, commodity, branchName, state } = req.query
         // limit = 5
         let query = search ? {
             $or: [
@@ -34,6 +34,7 @@ module.exports.payment = async (req, res) => {
 
         const { portalId, user_id } = req
         const paymentIds = (await Payment.find({ bo_id: { $in: [portalId, user_id] } })).map(i => i.req_id)
+        if (commodity) query["product.name"] = { $regex: commodity, $options: 'i' };
 
         const aggregationPipeline = [
             { $match: { _id: { $in: paymentIds }, ...query } },
@@ -67,6 +68,26 @@ module.exports.payment = async (req, res) => {
             },
             {
                 $lookup: {
+                    from: "branches",
+                    localField: "branch_id",
+                    foreignField: "_id",
+                    as: "branch"
+                }
+            },
+            {
+                $unwind:{path: "$branch", preserveNullAndEmptyArrays: true}
+            },
+            {
+                $match: query 
+            },
+            {
+                $match: {
+                    ...(branchName ? { "branch.branchName": { $regex: branchName, $options: "i" } } : {}),
+                    ...(state ? { "branch.state": { $regex: state, $options: "i" } } : {})
+                }
+            },
+            {
+                $lookup: {
                     from: "slas",
                     localField: "sla_id",
                     foreignField: "_id",
@@ -86,6 +107,14 @@ module.exports.payment = async (req, res) => {
             },
             {
                 $unwind: { path: "$scheme", preserveNullAndEmptyArrays: true }
+            },
+            {
+                $match: query 
+            },
+            {
+                $match: {
+                    ...(scheme ? { "scheme.name": { $regex: scheme, $options: "i" } } : {})
+                }
             },
             {
                 $match: {
@@ -166,10 +195,13 @@ module.exports.payment = async (req, res) => {
                     'sla.basic_details.name': 1,
                     'scheme.schemeName': 1,
                     'batches.batchId': 1,
+                    'branch.branchName': 1,
+                    'branch.state': 1,
                     approval_status: 1,
                     qtyPurchased: 1,
                     amountPayable: 1,
                     payment_status: 1,
+                    createdAt: 1
 
                 }
             },
@@ -348,14 +380,17 @@ module.exports.batchList = async (req, res) => {
             bo_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
             ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
-        console.log(JSON.stringify(query))
 
         const records = { count: 0 };
 
         records.rows = paginate == 1 ? await Batch.find(query)
             .sort(sortBy)
             .skip(skip)
-            .select('_id batchId delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status')
+            .select('_id batchId req_id delivered.delivered_at qty goodsPrice totalPrice payement_approval_at payment_at payment_approve_by bo_approve_status').populate(
+                {
+                    path: 'req_id', select: 'createdAt'
+                }
+            )
             .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
 
         records.count = await Batch.countDocuments(query);

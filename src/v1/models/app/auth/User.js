@@ -74,6 +74,9 @@ const userSchema = new mongoose.Schema({
             back: { type: String, trim: true },
         },
         gst_no: { type: String, trim: true, },
+        gst_no_certificate: {
+            type: String, trim: true, 
+        },
         pacs_reg_date: { type: String, trim: true, },
         registration_number: { type: String, trim: true, },
     },
@@ -112,6 +115,7 @@ const userSchema = new mongoose.Schema({
     is_sms_send: { type: Boolean, default: false },
     term_condition: { type: String, default: false },
     active: { type: Boolean, default: true },
+    ekhridUser: { type: Boolean, default: false },
     ..._commonKeys
 }, { timestamps: true });
 userSchema.pre('save', async function (next) {

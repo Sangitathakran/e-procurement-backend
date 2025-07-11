@@ -1054,12 +1054,12 @@ module.exports.payment = async (req, res) => {
           },
         },
       },
-      
+
     ];
 
-    if(search){
+    if (search) {
       aggregationPipeline.push({
-        $match: { $or: [{reqNo: { $regex: search, $options: "i" } }, {'branch.branchName': { $regex: search, $options: "i" }}]}
+        $match: { $or: [{ reqNo: { $regex: search, $options: "i" } }, { 'branch.branchName': { $regex: search, $options: "i" } }] }
       });
     }
 
@@ -1188,24 +1188,25 @@ module.exports.associateOrders = async (req, res) => {
     }
     const paymentIds = (
       await Payment.find({
-        ho_id: { $in: [portalId, user_id] },
-        req_id,
+        ho_id: { $in: [new mongoose.Types.ObjectId(portalId), new mongoose.Types.ObjectId(user_id)] },
+        req_id: new mongoose.Types.ObjectId(req_id),
         bo_approve_status: _paymentApproval.approved,
       })
     ).map((i) => i.associateOffers_id);
+
     let query = {
-    _id: { $in: paymentIds },
-    req_id,
+      _id: { $in: paymentIds },
+      req_id: new mongoose.Types.ObjectId(req_id),
       status: {
         $in: [
           _associateOfferStatus.partially_ordered,
           _associateOfferStatus.ordered,
         ],
       },
-     // ...(search ? { order_no: { $regex: search, $options: "i" } } : {}), // Search functionality
+      // ...(search ? { order_no: { $regex: search, $options: "i" } } : {}), // Search functionality
     };
 
-    const records = { count: 0 }; 
+    const records = { count: 0 };
     records.reqDetails = await RequestModel.findOne({ _id: req_id }).select({
       _id: 1,
       reqNo: 1,
@@ -1255,7 +1256,7 @@ module.exports.associateOrders = async (req, res) => {
       // Lookup for seller_id instead of populate
       {
         $lookup: {
-          from: 'users', 
+          from: 'users',
           localField: 'seller_id',
           foreignField: '_id',
           pipeline: [
@@ -1272,12 +1273,12 @@ module.exports.associateOrders = async (req, res) => {
       },
     ];
 
-    if(search){
+    if (search) {
       pipeline.push({
         $match: {
           $or: [
-            { 'seller_id.basic_details.associate_details.organization_name': { $regex: search, $options: 'i'}  },
-            { 'seller_id.basic_details.associate_details.associate_name': { $regex: search, $options: 'i'} }
+            { 'seller_id.basic_details.associate_details.organization_name': { $regex: search, $options: 'i' } },
+            { 'seller_id.basic_details.associate_details.associate_name': { $regex: search, $options: 'i' } }
           ]
         }
       });
@@ -1289,7 +1290,7 @@ module.exports.associateOrders = async (req, res) => {
       { $count: "count" }
     ];
 
- // add necessary fields
+    // add necessary fields
     pipeline.push(
       // Project only required fields
       {
@@ -1310,25 +1311,25 @@ module.exports.associateOrders = async (req, res) => {
         },
       }
     );
-    
+
     // sorting
     pipeline.push(
       // Sorting
       { $sort: sortBy },
     );
 
-    if( paginate == 1){
-      pipeline.push( { $skip: parseInt(skip) }, { $limit : parseInt(limit) });
+    if (paginate == 1) {
+      pipeline.push({ $skip: parseInt(skip) }, { $limit: parseInt(limit) });
       records.page = page;
       records.limit = limit;
     }
-    
+
     records.rows = await AssociateOffers.aggregate(pipeline);
 
-    countResult = await AssociateOffers.aggregate( countPipeline);
+    countResult = await AssociateOffers.aggregate(countPipeline);
     records.count = countResult[0]?.count || 0;
 
-    if(paginate == 1){
+    if (paginate == 1) {
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
@@ -1474,7 +1475,7 @@ module.exports.batchList = async (req, res) => {
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
-          approval_status:1
+          approval_status: 1
         }
       },
 
@@ -1648,7 +1649,7 @@ module.exports.approvedBatchList = async (req, res) => {
       bo_approve_status: _paymentApproval.approved,
       ho_approve_status: _paymentApproval.approved,
       // agent_approve_status: _paymentApproval.approved
-      ...( search ? { batchId: { $regex: search, $options: 'i'} }: {})
+      ...(search ? { batchId: { $regex: search, $options: 'i' } } : {})
     };
 
     records.rows = await Batch.find(query).populate({
@@ -1897,41 +1898,41 @@ module.exports.orderList = async (req, res) => {
     //       }
     //     : {}),
     // };
-    
-// Initialize $and conditionally
 
-const andConditions = [];
+    // Initialize $and conditionally
 
-// If state filter is provided
-if (state) {
-  andConditions.push({
-    "sellers.address.registered.state": { $regex: state, $options: "i" },
-  });
-}
+    const andConditions = [];
 
-// If search filter is provided
-// if (search) {
-//   andConditions.push({
-//     $or: [
-//       { "branch.branchId": { $regex: search, $options: "i" } },
-//       { "requests.reqNo": { $regex: search, $options: "i" } },
-//     ],
-//   });
-// }
+    // If state filter is provided
+    if (state) {
+      andConditions.push({
+        "sellers.address.registered.state": { $regex: state, $options: "i" },
+      });
+    }
 
-// If commodity filter is provided
-if (commodity) {
-  andConditions.push({
-    "requests.product.name": { $regex: commodity, $options: "i" },
-  });
-}
+    // If search filter is provided
+    // if (search) {
+    //   andConditions.push({
+    //     $or: [
+    //       { "branch.branchId": { $regex: search, $options: "i" } },
+    //       { "requests.reqNo": { $regex: search, $options: "i" } },
+    //     ],
+    //   });
+    // }
 
-// Add $and condition only if there are filters
-if (andConditions.length > 0) {
-  query.$and = andConditions;
-}
+    // If commodity filter is provided
+    if (commodity) {
+      andConditions.push({
+        "requests.product.name": { $regex: commodity, $options: "i" },
+      });
+    }
 
-  
+    // Add $and condition only if there are filters
+    if (andConditions.length > 0) {
+      query.$and = andConditions;
+    }
+
+
     const unwindBatchIdStage = {
       $unwind: {
         path: "$batch_id",
@@ -2020,22 +2021,26 @@ if (andConditions.length > 0) {
       unwindBrachesStage,
       lookupUserStage,
       matchStateStage,
-     // projectStage,
+      // projectStage,
     ];
 
 
-    if(search){
-      pipeline.push( { $match: {$or: [
-        { "branch.branchId": { $regex: search, $options: "i" } },
-        { "requests.reqNo": { $regex: search, $options: "i" } },
-      ], } },)
+    if (search) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { "branch.branchId": { $regex: search, $options: "i" } },
+            { "requests.reqNo": { $regex: search, $options: "i" } },
+          ],
+        }
+      },)
     }
-         // Count pipeline
-         const countPipeline = [
-          ...pipeline,
-          { $count: "count" },
-        ];
-    
+    // Count pipeline
+    const countPipeline = [
+      ...pipeline,
+      { $count: "count" },
+    ];
+
     pipeline.push(projectStage);
 
     if (paginate == 1) {
@@ -3126,6 +3131,9 @@ module.exports.proceedToPayPayment = async (req, res) => {
           amountPayable: {
             $sum: "$batches.totalPrice"
           },
+          amountPaid: {
+            $sum: "$batches.goodsPrice"
+          },
           approval_status: "Approved",
           payment_status: payment_status || _paymentstatus.pending,
         }
@@ -3137,12 +3145,13 @@ module.exports.proceedToPayPayment = async (req, res) => {
           product: 1,
           qtyPurchased: 1,
           amountPayable: 1,
+          amountPaid: 1,
           approval_status: 1,
           payment_status: 1,
           'branchDetails.branchName': 1,
           'branchDetails.branchId': 1,
           'sla.basic_details.name': 1,
-          'scheme.schemeName': 1,
+          'scheme.schemeName': 1
         }
       },
       { $skip: (page - 1) * limit },
@@ -3330,7 +3339,9 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           deliveryDate: "$delivered.delivered_at",
           procuredOn: "$requestDetails.createdAt",
           tags: 1,
-          approval_status:1
+          approval_status: 1,
+          payment_date:'$payment_at',
+          payment_status:"$payment.payment_status"
         }
       },
       // Start of Sangita code

@@ -584,7 +584,6 @@ module.exports.getFarmers = async (req, res) => {
   try {
     const { page = 1, limit = 10, sortBy, search = '', skip, paginate = 1, is_associated } = req.query;
     const { user_id } = req
-
     let query = {};
     const records = { count: 0 };
     // query.associate_id = is_associated == 1 ? user_id : null
@@ -600,7 +599,10 @@ module.exports.getFarmers = async (req, res) => {
       query = {};
     }
     if (search) {
-      query.name = { $regex: search, $options: 'i' };
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { farmer_id: { $regex: search, $options: 'i' } }
+      ];
     }
     records.rows = paginate == 1
       ? await farmer.find(query)
@@ -623,6 +625,14 @@ module.exports.getFarmers = async (req, res) => {
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
+
+    if (records.count === 0) {
+      return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: [],
+        message: _response_message.notFound("data")
+      }));
+    }
     return res.status(200).send(new serviceResponse({
       status: 200,
       data: records,
@@ -642,10 +652,8 @@ module.exports.getBoFarmer = async (req, res) => {
 
     const { portalId, user_id } = req
     const { page = 1, limit = 10, search = '', sortBy } = req.query;
-
     // const user = await Branches.findById(user_id);
     const user = await Branches.findOne({ _id: portalId });
-
     if (!user) {
       return res.status(404).send({ message: "User not found." });
     }
@@ -658,11 +666,16 @@ module.exports.getBoFarmer = async (req, res) => {
     if (!state_id) {
       return res.status(400).send({ message: "State ID not found for the user's state." });
     }
-
     let query = { 'address.state_id': state_id };
-    if (search) {
-      query.name = { $regex: search, $options: 'i' };
+    if (search.trim()) {
+      //query.name = { $regex: search, $options: 'i' };
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { mobile_no: { $regex: search, $options: "i" } },
+        { farmer_id: { $regex: search, $options: "i" } },
+      ]
     }
+
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const parsedLimit = parseInt(limit);

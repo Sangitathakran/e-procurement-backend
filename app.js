@@ -1,4 +1,14 @@
 // Path Alias
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+});
+
+// Path Alias
 require("module-alias/register");
 // import modules
 const express = require("express");
@@ -12,6 +22,7 @@ const cookieParser = require("cookie-parser");
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./src/v1/utils/swagger/swagger-output.json");
 require("@src/v1/utils/websocket/server");
+require('newrelic');
 // configs
 const { PORT, apiVersion } = require("./config/index");
 require('newrelic');
