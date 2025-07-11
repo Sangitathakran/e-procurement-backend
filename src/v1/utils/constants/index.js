@@ -76,7 +76,7 @@ const _collectionName = {
     AgristackFarmerDetail: 'AgristackFarmerDetails',
     LoginHistory: "loginhistory",
     loginAttempt: "loginAttempt",
-    secretKeyHistory: "secretKeyHistory",
+    forgetHistory: "forgetHistory",
 
 }
 

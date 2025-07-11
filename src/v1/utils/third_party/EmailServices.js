@@ -42,7 +42,8 @@ class EmailService {
     async sendForgotPasswordEmail(emailPaylod) {
         try {
             const template = await this.loadTemplate("forgotPassword");
-            const resetPasswordLink = `${FRONTEND_URL}/${emailPaylod.portal_type}/reset-password/${emailPaylod.resetToken}?secretKey=${emailPaylod.secretKey}`;
+            const resetPasswordLink = `${FRONTEND_URL}/${emailPaylod.portal_type}/reset-password/${emailPaylod.resetToken}`;
+            console.log("Reset Password Link:", resetPasswordLink);
             const html = template
                 .replace("{{resetPasswordLink}}", resetPasswordLink)
                 .replace("{{app_url}}", FRONTEND_URL)

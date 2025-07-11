@@ -32,18 +32,28 @@ const loginAttemptSchema = new mongoose.Schema({
     timestamps: true,
 });
 
-const resetLinkHistorySchema = new mongoose.Schema({
-    secretKey : {
+const forgetPasswordSchema = new mongoose.Schema({
+    token : {
         type: String,
         required: true,
+    },
+    email: {
+        type: String,
+        required: true,
+        default:null,
+    },
+    ip: {
+        type: String,
+        required: true,
+        default: null,
     },
     expireTime: {
         type: Date, 
         default: Date.now,
     },
-    count: {
-        type: Number,
-        default: 0,
+    isExpired: {
+        type: Boolean,
+        default: false,
     },
 }, {
     timestamps: true,
@@ -53,7 +63,7 @@ const resetLinkHistorySchema = new mongoose.Schema({
 const LoginAttempt = mongoose.model(_collectionName.loginAttempt, loginAttemptSchema);
 loginAttemptSchema.index({ lockUntil: 1 }, { expireAfterSeconds: 1800 });
 
-const ResetLinkHistory = mongoose.model(_collectionName.secretKeyHistory, resetLinkHistorySchema);
-resetLinkHistorySchema.index({ createdAt: 1 }, { expireAfterSeconds: 1800 }); 
+const ResetLinkHistory = mongoose.model(_collectionName.forgetHistory, forgetPasswordSchema);
+forgetPasswordSchema.index({ createdAt: 1 }, { expireAfterSeconds: 1800 }); 
 
 module.exports = { LoginAttempt,ResetLinkHistory };
