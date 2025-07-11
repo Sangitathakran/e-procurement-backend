@@ -1,4 +1,3 @@
-// Path Alias
 
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
@@ -7,7 +6,7 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection:', reason);
 });
-//require('newrelic');
+
 require("module-alias/register");
 
 // import modules
@@ -108,14 +107,15 @@ app.use((req, res, next) => {
 });
 
 
-// const used = process.memoryUsage();
-// for (let key in used) {
-//   console.log(`${key} ${Math.round(used[key] / 1024 / 1024 * 100) / 100} MB`);
-// }
-
-/* Handle errors */
-//app.use(handleCatchError)
 app.all("*", handleRouteNotFound);
+
+app.use((req, res, next) => {
+  res.setHeader("Content-Security-Policy",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none';"
+  );
+  next();
+});
+
 
 // Listner server
 app.listen(PORT, async () => {

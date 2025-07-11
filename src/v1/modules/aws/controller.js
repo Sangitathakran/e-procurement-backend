@@ -1,26 +1,26 @@
 const AWS = require("aws-sdk");
-const sharp = require("sharp");
 const { v4: uuidv4 } = require('uuid');
 const config = require("@config/index");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 require("aws-sdk/lib/maintenance_mode_message").suppress = true;
-
-// Initialize AWS S3
+ 
+// Initializing S3 bucket
 AWS.config.update({
-  accessKeyId: config.s3Config.accessKey,
-  secretAccessKey: config.s3Config.secretKey,
-  region: config.s3Config.region,
-  signatureVersion: 'v4'
+    accessKeyId: config.s3Config.accessKey,
+    secretAccessKey: config.s3Config.secretKey,
+    region: config.s3Config.region,
+    signatureVersion: 'v4'
 });
+
 const S3 = new AWS.S3();
 
 const uploadToS3 = async (req, res) => {
-  try {
-    let { folder_name } = req.body;
-    let { files } = req;
-
-    const allowedTypes = [
+    try {
+        // #swagger.tags = ['aws']
+        let { folder_name } = req.body
+        let { files } = req
+            const allowedTypes = [
       'image/jpeg', 'image/png', 'image/jpg',
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -28,7 +28,7 @@ const uploadToS3 = async (req, res) => {
     ];
     const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB
 
-    if (!files || files.length === 0) {
+        if (!files || files.length === 0) {
       return sendResponse({
         res,
         status: 400,
@@ -36,10 +36,9 @@ const uploadToS3 = async (req, res) => {
       });
     }
 
-    let paths = [];
-
-    for (const file of files) {
-      if (file.size > MAX_FILE_SIZE) {
+        let paths = []
+        for (const file of files) {
+           if (file.size > MAX_FILE_SIZE) {
         return sendResponse({
           res,
           status: 400,
@@ -55,74 +54,24 @@ const uploadToS3 = async (req, res) => {
         });
       }
 
-      let fileBuffer = file.buffer || file;
-      if (file.mimetype.startsWith("image/")) {
-        fileBuffer = await sharp(fileBuffer)
-          .withMetadata({ exif: false }) 
-          .toBuffer();
-      }
+            let filename = uuidv4() + `_${file.originalname}`
+            const key = folder_name ? (folder_name + "/" + filename) : filename;
+            const uploadParams = {
+                Bucket: config.s3Config.bucketName,
+                Key: key,
+                Body: file.buffer || file,
+                  ContentType: file.mimetype
+            };
+            let s3Resp = await S3.upload(uploadParams).promise();
 
-      let filename = uuidv4() + `_${file.originalname}`;
-      const key = folder_name ? `${folder_name}/${filename}` : filename;
-
-      const uploadParams = {
-        Bucket: config.s3Config.bucketName,
-        Key: key,
-        Body: fileBuffer,
-        ContentType: file.mimetype
-      };
-
-      let s3Resp = await S3.upload(uploadParams).promise();
-      paths.push(`/${s3Resp.Key}`);
+            paths.push(`/${s3Resp.Key}`)
+        }
+        return sendResponse({ res,status: 201, data: { count: paths.length, rows: paths }, message: _response_message.uploaded() });
+    } catch (err) {
+        console.error("Error while upload_to_s3, reason >> ", err.message)
+        return sendResponse({res, status: 500, errors: [{ message: `Error while upload to s3` }] });
     }
-
-    return sendResponse({
-      res,
-      status: 201,
-      data: { count: paths.length, rows: paths },
-      message: _response_message.uploaded()
-    });
-
-  } catch (err) {
-    console.error("Error while upload_to_s3, reason >>", err.message);
-    return sendResponse({
-      res,
-      status: 500,
-      message: _response_message.error("upload to S3"),
-      errors: { message: `Error while upload to S3` }
-    });
-  }
-};
-
-
-// const uploadToS3 = async (req, res) => {
-//     try {
-//         // #swagger.tags = ['aws']
-//         let { folder_name } = req.body
-//         let { files } = req
-
-//         if (files.length == 0) {
-//             return sendResponse({res, status: 400, errors: [{ message: `Attachment file is required` }] });
-//         }
-//         let paths = []
-//         for (const file of files) {
-//             let filename = uuidv4() + `_${file.originalname}`
-//             const key = folder_name ? (folder_name + "/" + filename) : filename;
-//             const uploadParams = {
-//                 Bucket: config.s3Config.bucketName,
-//                 Key: key,
-//                 Body: file.buffer || file,
-//             };
-//             let s3Resp = await S3.upload(uploadParams).promise();
-
-//             paths.push(`/${s3Resp.Key}`)
-//         }
-//         return sendResponse({ res,status: 201, data: { count: paths.length, rows: paths }, message: _response_message.uploaded() });
-//     } catch (err) {
-//         console.error("Error while upload_to_s3, reason >> ", err.message)
-//         return sendResponse({res, status: 500, errors: [{ message: `Error while upload to s3` }] });
-//     }
-// }
+}
 
 const deleteFromS3 = async (req, res) => {
     try {
@@ -159,4 +108,6 @@ module.exports = {
     uploadToS3,
     deleteFromS3
 }
+
+
 

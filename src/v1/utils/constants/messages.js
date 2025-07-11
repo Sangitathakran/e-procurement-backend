@@ -62,6 +62,7 @@ module.exports = {
         userNotApproved:() => "User is not Approved",
         canNOtBeEdited:()=> "HO Approved bills can't be edited.",
         rejectedSuccessfully: (key) => `${key} rejected successfully.`,
+        error: (key) => `${key} `,
     },
     _commonMessages:{
        invaildCredentials: "Invalid credentials.",
