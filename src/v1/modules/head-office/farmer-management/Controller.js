@@ -15,6 +15,7 @@ const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
+const { parseDateRange } = require("../ho-dashboard/Services");
 
 module.exports. farmerList = async (req, res) => {
   try {
@@ -1232,7 +1233,18 @@ const singlefarmerDetails = async (res, farmerId, farmerType = 1) => {
 
 module.exports.getStateWiseFarmerCount = async (req, res) => {
   try {
-    const { season, commodity_id, schemeId, states } = req.query;
+    const { season, commodity_id, schemeId, states, dateRange } = req.query;
+   let dateFilter = {};
+if (dateRange) {
+  const { startDate, endDate } = parseDateRange(dateRange);
+  dateFilter = {
+    createdAt: {
+      $gte: startDate,
+      $lte: endDate,
+    },
+  };
+}
+
 
     const hasRequestFilters = season || commodity_id || schemeId;
 
@@ -1245,8 +1257,8 @@ module.exports.getStateWiseFarmerCount = async (req, res) => {
     const stateArr = states ? states.split(",").map((id) => new ObjectId(id.trim())) : null;
 
     const matchStage = stateArr
-      ? { "address.state_id": { $in: stateArr } }
-      : {};
+      ? { "address.state_id": { $in: stateArr }, ...dateFilter }
+      : {...dateFilter};
 
     let pipeline;
 
@@ -1380,7 +1392,10 @@ module.exports.getStateWiseFarmerCount = async (req, res) => {
     res.status(200).json({
       status: 200,
       message: "All farmers count fetched successfully found successfully.",
-      data: result,
+      data: {
+        statewise_farmers: result,
+        total_farmers: result.reduce( (acc, curr) =>acc+curr.count, 0)
+      },
     });
   } catch (err) {
     console.error("Error in getStateWiseFarmerCount:", err);
@@ -1394,7 +1409,18 @@ module.exports.getStateWiseFarmerCount = async (req, res) => {
 
 module.exports.getStateWiseProcuredQty = async (req, res) => {
   try {
-    const { season, commodity_id, schemeId, states } = req.query;
+    const { season, commodity_id, schemeId, states, dateRange } = req.query;
+
+    let dateFilter = {};
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange);
+      dateFilter = {
+        'batches.createdAt': {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      };
+    }
 
     const seasonArr = season
       ? season.split(',').map(s => new RegExp(s.trim(), 'i'))
@@ -1426,6 +1452,7 @@ module.exports.getStateWiseProcuredQty = async (req, res) => {
         },
       },
       { $unwind: '$batches' },
+      { $match: dateFilter },
 
       // Join with Request
       {
@@ -1477,6 +1504,40 @@ module.exports.getStateWiseProcuredQty = async (req, res) => {
       },
 
       // Group by state_id and state title directly from ProcurementCenter.address
+      //       {
+      //         $group: {
+      //           _id: {
+      //             state_id: '$address.state_id',
+      //             state: '$address.state',
+      //           },
+      //           //totalQty: { $sum: '$batches.qty' },
+      //           totalQty: { $sum: '$batches.qty' },
+      // todaysQty: {
+      //   $sum: {
+      //     $cond: [
+      //       {
+      //         $and: [
+      //           { $gte: ['$batches.createdAt', new Date(new Date().setHours(0, 0, 0, 0))] },
+      //           { $lt: ['$batches.createdAt', new Date(new Date().setHours(23, 59, 59, 999))] },
+      //         ],
+      //       },
+      //       '$batches.qty',
+      //       0,
+      //     ],
+      //   },
+      // },
+
+      //         },
+      //       },
+      //       {
+      //         $project: {
+      //           state_id: '$_id.state_id',
+      //           state: '$_id.state',
+      //           totalQty: 1,
+      //           _id: 0,
+      //         },
+      //       },
+
       {
         $group: {
           _id: {
@@ -1484,6 +1545,30 @@ module.exports.getStateWiseProcuredQty = async (req, res) => {
             state: '$address.state',
           },
           totalQty: { $sum: '$batches.qty' },
+          todaysQty: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    {
+                      $gte: [
+                        '$batches.createdAt',
+                        new Date(new Date().setHours(0, 0, 0, 0)),
+                      ],
+                    },
+                    {
+                      $lt: [
+                        '$batches.createdAt',
+                        new Date(new Date().setHours(23, 59, 59, 999)),
+                      ],
+                    },
+                  ],
+                },
+                '$batches.qty',
+                0,
+              ],
+            },
+          },
         },
       },
       {
@@ -1491,9 +1576,11 @@ module.exports.getStateWiseProcuredQty = async (req, res) => {
           state_id: '$_id.state_id',
           state: '$_id.state',
           totalQty: 1,
+          todaysQty: 1,
           _id: 0,
         },
       },
+
       { $sort: { totalQty: -1 } },
     ];
 
@@ -1502,7 +1589,11 @@ module.exports.getStateWiseProcuredQty = async (req, res) => {
     res.status(200).json({
       status: 200,
       message: 'State-wise procured quantity fetched statusfully',
-      data: result,
+      data: {
+        total_procurement_quantity: result.reduce( (acc, curr) => acc+ curr.totalQty ,0)?.toFixed(3),
+        todays_procurement_quantity: result.reduce( (acc, curr) => acc+ curr.todaysQty, 0)?.toFixed(3),
+        statewise_procurement_quantity: result,
+      },
     });
   } catch (err) {
     console.error('Error in getStateWiseProcuredQty:', err);
@@ -1513,5 +1604,4 @@ module.exports.getStateWiseProcuredQty = async (req, res) => {
     });
   }
 };
-
 
