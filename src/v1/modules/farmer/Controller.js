@@ -619,7 +619,6 @@ module.exports.getFarmers = async (req, res) => {
       records.count = await farmer.estimatedDocumentCount(query);
     }
 
-
     if (paginate == 1) {
       records.page = page;
       records.limit = limit;
