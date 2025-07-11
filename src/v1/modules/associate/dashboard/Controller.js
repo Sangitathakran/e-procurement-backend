@@ -92,6 +92,7 @@ const { exist } = require("joi");
 module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   try {
     const { user_id } = req;
+    console.log("user_id", user_id)
     const { schemeName, commodity, district = [] } = req.body;
     const userObjectId = new mongoose.Types.ObjectId(user_id);
 
@@ -157,7 +158,8 @@ if (districtIds.length) {
 
     const procurementCenterQuery = {
       user_id: userObjectId,
-      _id: { $in: batchPOCIds },
+      // _id: { $in: batchPOCIds },
+      active: true
     };
     if (validDistrictTitles.length) {
       procurementCenterQuery['address.district'] = { $in: validDistrictTitles };

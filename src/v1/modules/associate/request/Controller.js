@@ -1101,17 +1101,25 @@ module.exports.farmerOrderList = async (req, res) => {
         })
       );
     }
+      let query = {};
+      let farmerIdsFromSearch = [];
+      if (search) {
+        const matchedFarmers = await farmer.find({
+          farmer_id: { $regex: search, $options: "i" },
+        }).select("_id");
 
-    let query = search
-      ? {
-          $or: [
-            { "metaData.name": { $regex: search, $options: "i" } },
-            { "metaData.father_name": { $regex: search, $options: "i" } },
-            { "metaData.mobile_no": { $regex: search, $options: "i" } },
-          ],
-        }
-      : {};
-
+      farmerIdsFromSearch = matchedFarmers.map(f => f._id);
+        
+              query.$or =  [
+                { "metaData.name": { $regex: search, $options: "i" } },
+                { "metaData.father_name": { $regex: search, $options: "i" } },
+                { "metaData.mobile_no": { $regex: search, $options: "i" } },
+                { order_no: { $regex: search, $options: "i" } },
+                ...(farmerIdsFromSearch.length > 0
+                  ? [{ farmer_id: { $in: farmerIdsFromSearch } }]
+                  : []),
+                  ];
+                }
     query.associateOffers_id = { $in: offerIds };
 
     if (status) {
