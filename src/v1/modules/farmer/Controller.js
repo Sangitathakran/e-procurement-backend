@@ -593,16 +593,16 @@ module.exports.getFarmers = async (req, res) => {
     else if (is_associated == 0) {
       query.associate_id = null;
       query.farmer_id = { $ne: null };
-      query.name = { $ne: null }; 
-      query.mobile_no = { $ne: null }; 
+      query.name = { $ne: null };
+      query.mobile_no = { $ne: null };
     } else {
       query = {};
     }
     if (search) {
-      query.$or =[
-     { name: { $regex: search, $options: 'i' } },
-      { farmer_id: { $regex: search, $options: 'i' } }
-    ];
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { farmer_id: { $regex: search, $options: 'i' } }
+      ];
     }
     records.rows = paginate == 1
       ? await farmer.find(query)
@@ -612,7 +612,13 @@ module.exports.getFarmers = async (req, res) => {
         .populate('associate_id', '_id user_code')
       : await farmer.find(query).sort(sortBy);
 
-    records.count = await farmer.countDocuments(query);
+    // records.count = await farmer.countDocuments(query);
+    if (is_associated == 1) {
+      records.count = await farmer.countDocuments(query);
+    } else {
+      records.count = await farmer.estimatedDocumentCount(query);
+    }
+
 
     if (paginate == 1) {
       records.page = page;
@@ -668,7 +674,7 @@ module.exports.getBoFarmer = async (req, res) => {
         { name: { $regex: search, $options: "i" } },
         { mobile_no: { $regex: search, $options: "i" } },
         { farmer_id: { $regex: search, $options: "i" } },
-    ]
+      ]
     }
 
 
@@ -1583,15 +1589,15 @@ module.exports.bulkUploadFarmers = async (req, res) => {
     let errorArray = [];
     const processFarmerRecord = async (rec) => {
       const toLowerCaseIfExists = (value) => value ? value.toLowerCase().trim() : value;
-    //   const parseDateOfBirth = (dob) => {
-    //     if (!isNaN(dob)) {
-    //         const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-    //         const parsedDate = new Date(excelEpoch.getTime() + (dob) * 86400000); 
-    //         return moment.utc(parsedDate).format('DD-MM-YYYY'); 
-    //     }
-    
-    //     return moment(dob, 'DD-MM-YYYY', true).isValid() ? dob : null;
-    // };
+      //   const parseDateOfBirth = (dob) => {
+      //     if (!isNaN(dob)) {
+      //         const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+      //         const parsedDate = new Date(excelEpoch.getTime() + (dob) * 86400000); 
+      //         return moment.utc(parsedDate).format('DD-MM-YYYY'); 
+      //     }
+
+      //     return moment(dob, 'DD-MM-YYYY', true).isValid() ? dob : null;
+      // };
       const parseBooleanYesNo = (value) => {
         if (value === true || value?.toLowerCase() === 'yes') return true;
         if (value === false || value?.toLowerCase() === 'no') return false;
@@ -1868,26 +1874,26 @@ module.exports.exportFarmers = async (req, res) => {
 
       {
         $lookup: {
-          from: 'statedistrictcities', 
+          from: 'statedistrictcities',
           let: { stateId: { $toObjectId: '$address.state_id' } },
           pipeline: [
             { $unwind: '$states' },
             { $match: { $expr: { $eq: ['$states._id', '$$stateId'] } } },
-            { $project: { state_title: '$states.state_title', _id: 0 } } 
+            { $project: { state_title: '$states.state_title', _id: 0 } }
           ],
           as: 'state'
         }
       },
       { $unwind: { path: '$state', preserveNullAndEmptyArrays: true } },
-    
+
       {
         $lookup: {
           from: 'statedistrictcities',
-          let: { districtId: { $toObjectId: '$address.district_id' } }, 
+          let: { districtId: { $toObjectId: '$address.district_id' } },
           pipeline: [
             { $unwind: '$states' },
-            { $unwind: '$states.districts' }, 
-            { $match: { $expr: { $eq: ['$states.districts._id', '$$districtId'] } } }, 
+            { $unwind: '$states.districts' },
+            { $match: { $expr: { $eq: ['$states.districts._id', '$$districtId'] } } },
             { $project: { district_title: '$states.districts.district_title', _id: 0 } }
           ],
           as: 'district'
@@ -2628,11 +2634,11 @@ module.exports.addDistrictCity = async (req, res) => {
     return res.status(400).json({ message: "state_title, district_title, and city_title are required." });
   }
   try {
-  const state = await StateDistrictCity.findOne({ "states.state_title": state_title });
+    const state = await StateDistrictCity.findOne({ "states.state_title": state_title });
     if (!state) {
       return res.status(404).json({ message: "State not found." });
     }
-  const stateIndex = state.states.findIndex((s) => s.state_title === state_title);
+    const stateIndex = state.states.findIndex((s) => s.state_title === state_title);
     const districtCount = state.states[stateIndex].districts.length;
     const serialNumber = (districtCount + 1).toString().padStart(2, "0");
     const result = await StateDistrictCity.updateOne(
@@ -2645,7 +2651,7 @@ module.exports.addDistrictCity = async (req, res) => {
             cities: [
               {
                 city_title,
-                status: "active", 
+                status: "active",
                 createdAt: new Date(),
                 updatedAt: new Date(),
               },
@@ -2725,13 +2731,13 @@ module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
         if (value === false || value?.toLowerCase() === 'no') return false;
         return null;
       };
-    
+
       function getValueOrNull(value) {
-        return  value  ? typeof value ==='string'?
-                         value.trim():value 
-                      : null;
+        return value ? typeof value === 'string' ?
+          value.trim() : value
+          : null;
       }
-    
+
       const name = getValueOrNull(rec["Farmer Name"]);
       const father_name = getValueOrNull(rec["Farmer Father Name"]);
       const mother_name = getValueOrNull(rec["MOTHER NAME"]);
@@ -2797,7 +2803,7 @@ module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
       if (!/^\d{10}$/.test(mobile_no)) {
         errors.push({ record: rec, error: "Invalid Mobile Number" });
       }
-      
+
       if (!Object.values(_gender).includes(gender)) {
         errors.push({ record: rec, error: `Invalid Gender: ${gender}. Valid options: ${Object.values(_gender).join(', ')}` });
       }
@@ -2828,11 +2834,11 @@ module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
         let farmerRecord = await farmer.findOne({ 'proof.aadhar_no': aadhar_no });
         if (farmerRecord) {
           return { success: false, errors: [{ record: rec, error: `Farmer  with Aadhar No. ${aadhar_no} already registered.` }] };
-          
+
           // });
         } else {
           farmerRecord = await insertNewFarmerRecord({
-            associate_id: associateId,farmer_tracent_code, name, father_name, mother_name, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, 
+            associate_id: associateId, farmer_tracent_code, name, father_name, mother_name, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name,
           });
         }
 
