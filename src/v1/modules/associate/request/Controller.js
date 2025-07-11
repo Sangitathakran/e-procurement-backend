@@ -103,17 +103,26 @@ module.exports.getProcurement = async (req, res) => {
             as: "myoffer",
           },
         },
-
         {
           $lookup: {
             from: "payments",
-            localField: "_id",
-            foreignField: "req_id",
+            // localField: "_id",
+            // foreignField: "req_id",
+            let: { reqId: "$_id" },
              pipeline: [
-              {
+                      {
+                $match: {
+                  $expr: {
+                    $eq: ["$req_id", "$$reqId"]
+                  }
+                }
+              },
+              { $sort: { createdAt: -1 } },
+              { $limit: 1 },
+                      {
                 $project: {
                   _id: 0,
-                  associate_id: 1, // adjust based on what fields you need
+                  associate_id: 1,
                 },
               },
             ],
@@ -123,10 +132,9 @@ module.exports.getProcurement = async (req, res) => {
         {
           $unwind: {
             path: "$payments",
-            preserveNullAndEmptyArrays: true, // In case no payment exists
+            preserveNullAndEmptyArrays: true,
           },
         },
-
         {
           $lookup: {
             from: "users",
