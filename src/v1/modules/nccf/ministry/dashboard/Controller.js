@@ -1532,7 +1532,7 @@ module.exports.poRaised = asyncErrorHandler(async (req, res) => {
           poAmount: "$paymentInfo.totalAmount",
           commodity: "$product.name",
           quantity: "$purchasedOrder.poQuantity",
-          status: "$payment_status",
+          status: "$status",
           createdAt: 1
         }
       },
