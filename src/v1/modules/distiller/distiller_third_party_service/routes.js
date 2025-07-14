@@ -5,7 +5,7 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const thirdPartyRoutes = express.Router();
 
 thirdPartyRoutes.post(
-  "/onboarding/create",
+  "/api-service",
   verifyDistiller,
   asyncErrorHandler(controller.createDistiller)
 );

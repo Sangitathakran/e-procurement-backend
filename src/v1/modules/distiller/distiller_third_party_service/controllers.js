@@ -37,63 +37,50 @@ exports.createDistiller = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      const onboarding = req.body.onboarding || req.body;
-      const po_receipt = req.body.po_receipt || {};
-      const batches = req.body.batches || [];
+      let distiller_details = req.body.distiller_details || {};
+      distiller_details = {
+        ...distiller_details,
+        user_type: "8",
+        is_mobile_verified: "true",
+        is_approved: "approved",
+        is_email_verified: "true",
+        is_form_submitted: "true",
+        is_welcome_email_send: "true",
+        is_sms_send: "true",
+        term_condition: "true",
+        mou: "true",
+        mou_document: distiller_details.mou_document,
+        mou_approval: distiller_details.mou_approval,
+        active: true,
+        client_id: distiller_details.client_id || "9877"
+      };
+      const po_details = req.body.po_details || [];
+      const source_by = req.body.source_by || "NAFED";
+      const country = req.body.country || "India";
+      const draft = await DistillerDraft.create({
+        distiller_details,
+        po_details,
+        source_by,
+        country
+      });
 
-      const manufacturing_address_line1 =
-        onboarding.manufacturing_address_line1;
-      const manufacturing_address_line2 =
-        onboarding.manufacturing_address_line2;
-      const manufacturing_state = onboarding.manufacturing_state;
-      const manufacturing_district = onboarding.manufacturing_district;
-      const production_capacity_value = onboarding.production_capacity_value;
-      const production_capacity_unit = onboarding.production_capacity_unit;
-      const product_produced = onboarding.product_produced;
-      const supply_chain_capabilities = onboarding.supply_chain_capabilities;
-
-      const storage_address_line1 = onboarding.storage_address_line1;
-      const storage_address_line2 = onboarding.storage_address_line2;
-      const storage_state = onboarding.storage_state;
-      const storage_district = onboarding.storage_district;
-      const storage_capacity_value = onboarding.storage_capacity_value;
-      const storage_condition = onboarding.storage_condition;
-
-      
-      let mobile_no = req.body.mobile_no;
+      let mobile_no = distiller_details.phone;
       if (!mobile_no) {
-        mobile_no = onboarding.basic_details?.distiller_details?.phone;
+        mobile_no = distiller_details.mobile_no;
       }
       if (!mobile_no) {
         return sendResponse({
           res,
           status: 400,
-          message: "Mobile number is required in the 'mobile_no' field.",
+          message: "Mobile number is required in the 'distiller_details.phone' field.",
           errors: [
             {
               message:
-                "Please provide a valid and unique mobile_no in your request body.",
+                "Please provide a valid and unique phone in your distiller_details.",
             },
           ],
         });
       }
-      let poc_name = req.body.poc_name;
-      if (!poc_name) {
-        poc_name = onboarding.basic_details?.point_of_contact?.name;
-      }
-      let poc_email = req.body.poc_email;
-      if (!poc_email) {
-        poc_email = onboarding.basic_details?.point_of_contact?.email;
-      }
-
-      await DistillerDraft.create({
-        onboarding,
-        po_receipt,
-        batches,
-        mobile_no, 
-        createdBy: req.user_id,
-        status: false, 
-      });
 
       const existing = await Distiller.findOne({
         "basic_details.point_of_contact.mobile": mobile_no,
@@ -111,7 +98,9 @@ exports.createDistiller = async (req, res) => {
         });
       }
 
-      onboarding.active = true;
+      let poc_name = distiller_details.name;
+      let poc_email = distiller_details.email;
+
       const staticFields = {
         user_type: "8",
         is_mobile_verified: "true",
@@ -122,14 +111,14 @@ exports.createDistiller = async (req, res) => {
         is_sms_send: "true",
         term_condition: "true",
         mou: "true",
-        mou_document: onboarding.mou_document,
-        mou_approval: onboarding.mou_approval,
+        mou_document: distiller_details.mou_document,
+        mou_approval: distiller_details.mou_approval,
         active: true,
-        source_by: onboarding.source_by || "NAFED",
-        country: onboarding.country || "India",
-        client_id: onboarding.client_id || "9877"
+        source_by: distiller_details.source_by || "NAFED",
+        country: distiller_details.country || "India",
+        client_id: distiller_details.client_id || "9877"
       };
-      const onboardingWithStatic = { ...onboarding, ...staticFields };
+      const onboardingWithStatic = { ...distiller_details, ...staticFields };
 
       let userReq = createDistllerPayload(onboardingWithStatic);
 
@@ -162,6 +151,22 @@ exports.createDistiller = async (req, res) => {
         ],
         { session }
       );
+
+      const manufacturing_address_line1 = onboardingWithStatic.address?.full_address;
+      const manufacturing_address_line2 = null;
+      const manufacturing_state = onboardingWithStatic.address?.state;
+      const manufacturing_district = onboardingWithStatic.address?.district;
+      const production_capacity_value = null; 
+      const production_capacity_unit = null; 
+      const supply_chain_capabilities = null; 
+      const product_produced = null; 
+
+      const storage_address_line1 = onboardingWithStatic.address?.full_address;
+      const storage_address_line2 = null;
+      const storage_state = onboardingWithStatic.address?.state;
+      const storage_district = onboardingWithStatic.address?.district;
+      const storage_capacity_value = null; 
+      const storage_condition = null;
 
       if (manufacturing_address_line1 || product_produced) {
         await ManufacturingUnit.create(
@@ -234,13 +239,14 @@ exports.createDistiller = async (req, res) => {
         status: 201,
         message: "Distiller & MasterUser created successfully.",
         data: {
-          user_code: newDistiller.user_code,
-          master_user_id: masterUser[0]._id,
-          onboarding,
-          po_receipt,
-          batches,
-          status: false,
-          source_by: onboarding.source_by || "NAFED",
+          distiller_details,
+          po_details,
+          source_by,
+          country,
+          status: true,
+          active: true,
+          createdAt: draft.createdAt,
+          updatedAt: draft.updatedAt
         },
       });
     });
