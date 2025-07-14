@@ -376,6 +376,7 @@ exports._generateFarmerCode = async () => {
 }
 
 const myAddress = new Map()
+
 exports.getStateId = async (stateName) => {
   try {
     if (myAddress.get(stateName)) {
