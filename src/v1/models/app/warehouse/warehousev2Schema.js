@@ -16,7 +16,7 @@ const warehousev2Schema = new mongoose.Schema(
       tanDocument: { type: String, trim: true },
       panNumber: { type: String, trim: true },
       panDocument: { type: String, trim: true },
-      gstNumber: { type: String, trim: true },
+      gstNumber: { type: String, trim: true, required: true },
       gstDocument: { type: String, trim: true },
     },
     ownerDetails: {
@@ -48,8 +48,8 @@ const warehousev2Schema = new mongoose.Schema(
     is_sms_send: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
     warehouseOwner_code: { type: String, unique: true },
-    third_party_client :  { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ClientToken },
-}, { timestamps: true });
+    third_party_client: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ClientToken },
+  }, { timestamps: true });
 
 warehousev2Schema.pre("save", async function (next) {
   if (this.isNew && !this.warehouse_code) {
