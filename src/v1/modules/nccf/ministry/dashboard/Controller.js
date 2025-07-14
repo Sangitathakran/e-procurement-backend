@@ -2,7 +2,7 @@ const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, } = require("@src/v1/utils/constants/messages");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const { _userType, _poAdvancePaymentStatus, _userStatus, _poBatchStatus } = require("@src/v1/utils/constants");
+const { _poRequestStatus, _poAdvancePaymentStatus, _userStatus, _poBatchStatus } = require("@src/v1/utils/constants");
 const { asyncErrorHandler, } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
@@ -1651,7 +1651,8 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
           "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
           source_by: { $in: finalCNA },
           deletedAt: null,
-          status: { $ne: "Completed" }
+          // status: { $ne: "Completed" }
+          poStatus: { $in: [_poRequestStatus.pending,_poRequestStatus.approved] }
         }
       },
       {
@@ -1710,7 +1711,7 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({
       status: 200,
       data: result,
-      message: _response_message.found("PO Raised"),
+      message: _response_message.found("Ongoing orders"),
     }));
 
   } catch (error) {
