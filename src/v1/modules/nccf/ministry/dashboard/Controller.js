@@ -1666,7 +1666,8 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
           poAmount: "$paymentInfo.totalAmount",
           state: "$distillers.address.registered.state",
           district: "$distillers.address.registered.district",
-          createdAt: 1 // needed for sorting
+          createdAt: 1,
+          deliveryLocation: "$deliveryLocation.locationDetails"
         }
       },
       {
