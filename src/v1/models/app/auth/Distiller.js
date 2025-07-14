@@ -98,7 +98,7 @@ const distillerSchema = new mongoose.Schema(
       pan_image: { type: String, trim: true },
     },
     bank_details: {
-      bank_name: { type: String, trim: true },
+      bank_name: { type: String, trim: true ,defsult:null },
       branch_name: { type: String, trim: true },
       account_holder_name: { type: String, rim: true },
       ifsc_code: { type: String, trim: true },
