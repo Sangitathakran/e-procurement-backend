@@ -11,6 +11,7 @@ const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { PaymentLogs } = require("@src/v1/models/app/procurement/PaymentLogs");
 const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoice");
 const { eventEmitter } = require("@src/v1/utils/websocket/server");
+const { from } = require("pdfkit");
 module.exports.payment = async (req, res) => {
 
     try {
@@ -40,127 +41,201 @@ if (search) {
 } else {
   query = { _id: { $in: paymentIds } };
 }
-
-
-
-        const basePipeline = [
-  { $match: query },
-  {
-    $lookup: {
-      from: 'batches',
-      localField: '_id',
-      foreignField: 'req_id',
-      as: 'batches',
-      pipeline: [
-        {
-          $lookup: {
-            from: 'payments',
-            localField: '_id',
-            foreignField: 'batch_id',
-            as: 'payment',
-          }
-        }
-      ]
-    }
-  },
-  {
-    $match: {
-      batches: { $ne: [] }
-    }
-  },
-  {
-    $addFields: {
-      approval_status: {
-        $cond: {
-          if: {
-            $anyElementTrue: {
-              $map: {
-                input: '$batches',
-                as: 'batch',
-                in: {
-                  $or: [
-                    { $not: { $ifNull: ['$$batch.bo_approval_at', true] } },
-                    { $eq: ['$$batch.bo_approval_at', null] }
-                  ]
-                }
-              }
-            }
-          },
-          then: 'Pending',
-          else: 'Approved'
-        }
-      },
-      qtyPurchased: {
-        $reduce: {
-          input: '$batches',
-          initialValue: 0,
-          in: { $add: ['$$value', '$$this.qty'] }
-        }
-      },
-      amountPayable: {
-        $reduce: {
-          input: '$batches',
-          initialValue: 0,
-          in: { $add: ['$$value', '$$this.totalPrice'] }
-        }
-      },
-      payment_status: {
-        $cond: {
-          if: {
-            $anyElementTrue: {
-              $map: {
-                input: '$batches',
-                as: 'batch',
-                in: {
-                  $anyElementTrue: {
-                    $map: {
-                      input: '$$batch.payment',
-                      as: 'pay',
-                      in: {
-                        $eq: ['$$pay.payment_status', 'Pending']
-                      }
+const basePipeline = [
+            { $match: query },
+            {
+                $lookup: {
+                from: 'batches',
+                localField: '_id',
+                foreignField: 'req_id',
+                as: 'batches',
+                pipeline: [
+                    {
+                    $lookup: {
+                        from: 'payments',
+                        localField: '_id',
+                        foreignField: 'batch_id',
+                        as: 'payment',
                     }
-                  }
+                    }
+                ]
                 }
-              }
-            }
-          },
-          then: 'Pending',
-          else: 'Approved'
-        }
-      }
-    }
-  },
-  {
-    $group: {
-      _id: '$reqNo',
-      doc: { $first: '$$ROOT' }
-    }
-  },
-  { $replaceRoot: { newRoot: '$doc' } },
-  {
-    $project: {
-      _id: 1,
-      reqNo: 1,
-      product: 1,
-      approval_status: 1,
-      qtyPurchased: 1,
-      amountPayable: 1,
-      payment_status: 1
-    }
-  },
-  { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } }
-];
+            },
+            {
+                $match: {
+                batches: { $ne: [] }
+                }
+            },
+            {
+                $addFields: {
+                approval_status: {
+                    $cond: {
+                    if: {
+                        $anyElementTrue: {
+                        $map: {
+                            input: '$batches',
+                            as: 'batch',
+                            in: {
+                            $or: [
+                                { $not: { $ifNull: ['$$batch.bo_approval_at', true] } },
+                                { $eq: ['$$batch.bo_approval_at', null] }
+                            ]
+                            }
+                        }
+                        }
+                    },
+                    then: 'Pending',
+                    else: 'Approved'
+                    }
+                },
+                qtyPurchased: {
+                    $reduce: {
+                    input: '$batches',
+                    initialValue: 0,
+                    in: { $add: ['$$value', '$$this.qty'] }
+                    }
+                },
+                amountPayable: {
+                    $reduce: {
+                    input: '$batches',
+                    initialValue: 0,
+                    in: { $add: ['$$value', '$$this.totalPrice'] }
+                    }
+                },
+                payment_status: {
+                    $cond: {
+                    if: {
+                        $anyElementTrue: {
+                        $map: {
+                            input: '$batches',
+                            as: 'batch',
+                            in: {
+                            $anyElementTrue: {
+                                $map: {
+                                input: '$$batch.payment',
+                                as: 'pay',
+                                in: {
+                                    $eq: ['$$pay.payment_status', 'Pending']
+                                }
+                                }
+                            }
+                            }
+                        }
+                        }
+                    },
+                    then: 'Pending',
+                    else: 'Approved'
+                    }
+                }
+                }
+            },
+            {
+                $lookup: {
+                    from: 'headoffices',
+                    localField: 'head_office_id',
+                    foreignField: '_id',
+                    as: 'headOffice'
+                }
+                },
+                { $unwind: { path: '$headOffice', preserveNullAndEmptyArrays: true } },
+                {
+                    $lookup: {
+                        from: 'slas',
+                        localField: 'sla_id',
+                        foreignField: '_id',
+                        as: 'sla'
+                    }
+                },
+                { $unwind: { path: '$sla', preserveNullAndEmptyArrays: true } },
+                {
+                $lookup: {
+                    from: 'branches',
+                    localField: 'branch_id',
+                    foreignField: '_id',
+                    as: 'branch'
+                }
+                },
+                { $unwind: { path: '$branch', preserveNullAndEmptyArrays: true } },
+                {
+                $lookup: {
+                    from: 'schemes',
+                    localField: 'product.schemeId',
+                    foreignField: '_id',
+                    as: 'scheme'
+                }
+                },
+                {
+                $unwind: {
+                    path: '$scheme',
+                    preserveNullAndEmptyArrays: true
+                }
+                },
+
+                {
+                $lookup: {
+                    from: 'commodities',
+                    localField: 'scheme.commodity_id',
+                    foreignField: '_id',
+                    as: 'commodity'
+                }
+                },
+                {
+                $unwind: {
+                    path: '$commodity',
+                    preserveNullAndEmptyArrays: true
+                }
+                },
+                {
+                $addFields: {
+                    schemeFullName: {
+                    $cond: {
+                        if: { $and: ['$scheme.schemeName', '$commodity.name'] },
+                        then: {
+                        $concat: [
+                            { $ifNull: ['$scheme.schemeName', ''] },
+                            { $ifNull: ['$commodity.name', ''] },
+                            { $ifNull: ['$scheme.season', ''] },
+                            { $ifNull: ['$scheme.period', ''] }
+                        ]
+                        },
+                        else: ''
+                    }
+                    }
+                }
+                },
+            {
+                $group: {
+                _id: '$reqNo',
+                doc: { $first: '$$ROOT' }
+                }
+            },
+            { $replaceRoot: { newRoot: '$doc' } },
+            {
+                $project: {
+                _id: 1,
+                reqNo: 1,
+                product: 1,
+                approval_status: 1,
+                qtyPurchased: 1,
+                amountPayable: 1,
+                payment_status: 1,
+                schemeFullName: 1,
+                branchName: '$branch.branchName',
+                slaName: '$sla.basic_details.name',
+                CNA: '$headOffice.company_details.name'
+                }
+            },
+            { $sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 } }
+            ];
 
        const records = await RequestModel.aggregate([
-  {
-    $facet: {
-      data: [...basePipeline, { $skip: calculatedSkip }, { $limit: parseInt(limit) }],
-      totalCount: [...basePipeline, { $count: 'count' }]
-    }
-  }
-]);
-
+            {
+                $facet: {
+                data: [...basePipeline, { $skip: calculatedSkip }, { $limit: parseInt(limit) }],
+                totalCount: [...basePipeline, { $count: 'count' }]
+                }
+            }
+            ]);
 
         const response = {
             count: records[0]?.totalCount[0]?.count || 0,
