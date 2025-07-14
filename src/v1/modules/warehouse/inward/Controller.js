@@ -244,7 +244,8 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                     createdAt: 1
                 }
             },
-            { $sort: { [sortBy]: 1 } },
+            // { $sort: { [sortBy]: 1 } },
+            { $sort: { createdAt: - 1, _id: -1 } },
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) }
         ];
@@ -619,7 +620,8 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
                     createdAt: 1
                 }
             },
-            { $sort: { [sortBy]: 1 } },
+            // { $sort: { [sortBy]: 1 } },
+            { $sort: { createdAt: - 1, _id: -1 } },
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) }
         ];
