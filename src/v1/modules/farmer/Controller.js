@@ -1,7 +1,7 @@
 const { _handleCatchErrors, _generateFarmerCode, getStateId, getDistrictId, parseDate, parseMonthyear, dumpJSONToExcel, isStateAvailable, isDistrictAvailable, updateDistrict, generateFarmerId, calculateAge } = require("@src/v1/utils/helpers")
 const { _userType } = require('@src/v1/utils/constants');
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
-const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords } = require("@src/v1/utils/helpers/farmer_module");
+const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords, excelDateToDDMMYYYY } = require("@src/v1/utils/helpers/farmer_module");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
@@ -1588,15 +1588,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
     let errorArray = [];
     const processFarmerRecord = async (rec) => {
       const toLowerCaseIfExists = (value) => value ? value.toLowerCase().trim() : value;
-      //   const parseDateOfBirth = (dob) => {
-      //     if (!isNaN(dob)) {
-      //         const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-      //         const parsedDate = new Date(excelEpoch.getTime() + (dob) * 86400000); 
-      //         return moment.utc(parsedDate).format('DD-MM-YYYY'); 
-      //     }
-
-      //     return moment(dob, 'DD-MM-YYYY', true).isValid() ? dob : null;
-      // };
       const parseBooleanYesNo = (value) => {
         if (value === true || value?.toLowerCase() === 'yes') return true;
         if (value === false || value?.toLowerCase() === 'no') return false;
@@ -1605,7 +1596,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const name = rec["NAME*"];
       const father_name = rec["FATHER NAME*"];
       const mother_name = rec["MOTHER NAME"] ? rec["MOTHER NAME"] : null;
-      const date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)*"];
+      let date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)*"];
       const farmer_category = rec["FARMER CATEGORY"] ? rec["FARMER CATEGORY"] : null;
       const gender = toLowerCaseIfExists(rec["GENDER*"]);
       const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS"]) ? toLowerCaseIfExists(rec["MARITAL STATUS"]) : 'N/A';
@@ -1684,6 +1675,9 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const branch_name = rec["BRANCH NAME*"];
       const ifsc_code = rec["IFSC CODE*"];
       const account_holder_name = rec["ACCOUNT HOLDER NAME*"];
+      if (!isNaN(date_of_birth)) {
+        date_of_birth = excelDateToDDMMYYYY(Number(date_of_birth));
+      }
       const requiredFields = [
         { field: "NAME*", label: "NAME" },
         { field: "FATHER NAME*", label: "FATHER NAME" },
