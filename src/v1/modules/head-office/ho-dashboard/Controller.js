@@ -1249,8 +1249,8 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const matchConditions = {};
-    if (state) matchConditions["address.registered.state"] = state;
-
+   // if (state) matchConditions["address.registered.state"] = state;
+   if (state) matchConditions["address.registered.state_id"] = { $in: state.split(',').map( id=> new mongoose.Types.ObjectId(id)) };
     const pipeline = [
       { $match: matchConditions },
 
@@ -1272,7 +1272,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
             { $match: { $expr: { $eq: ["$_id", "$$reqId"] } } },
             ...(commodityId ? [{
               $match: {
-                "product.commodity_id": new mongoose.Types.ObjectId(commodityId)
+                "product.commodity_id": { $in: commodityId.split(',').map( id => new mongoose.Types.ObjectId(id))}
               }
             }] : [])
           ],
@@ -1439,7 +1439,6 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
         }
       }
     ];
-
     const data = await User.aggregate(pipeline);
 
     res.status(200).send({
