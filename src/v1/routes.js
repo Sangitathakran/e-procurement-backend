@@ -22,7 +22,7 @@ const { bankIntegrationRoutes } = require("./modules/bankIntegration/Routes");
 
 /* Define Your Routes */
 router.use(handlePagination)
-router.use(handleRateLimit)
+// router.use(handleRateLimit)
 router.use(multer().any())
 
 router.use('/aws', S3Router)
