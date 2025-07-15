@@ -29,7 +29,7 @@ const { Branches } = require("@src/v1/models/app/branchManagement/Branches"); //
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder"); // Add proper import path
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess"); // Add proper import path
 const { _poBatchPaymentStatus, _poPaymentStatus, _webSocketEvents } = require("@src/v1/utils/constants"); // Add proper import path
-const {MasterUser} = require("@models/master/MasterUser")
+const { MasterUser } = require("@models/master/MasterUser")
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET_KEY } = require('@config/index');
 const bcrypt = require('bcryptjs');
@@ -51,8 +51,9 @@ function replaceUndefinedWithNull(obj) {
 exports.createDistiller = async (req, res) => {
   // IMPROVED: Better session management with try-catch-finally
   const session = await mongoose.startSession();
-  
+
   try {
+    let { userId } = req.user
     // IMPROVED: Using session.withTransaction for automatic retry and error handling
     const result = await session.withTransaction(async () => {
       let distiller_details = req.body.distiller_details || {};
@@ -72,19 +73,21 @@ exports.createDistiller = async (req, res) => {
         active: true,
         client_id: distiller_details.client_id || "9877"
       };
-      
+
       const po_details = req.body.po_details || [];
-      const source_by = req.body.source_by || "NAFED";
+      const source_by = "NAFED";
       const country = req.body.country || "India";
 
-      
-      
+
+
       // IMPROVED: All database operations now use session
       const draft = await DistillerDraft.create([{
         distiller_details,
         po_details,
         source_by,
-        country
+        country,
+        createdBy: userId,
+        updatedBy: userId
       }], { session });
 
       let mobile_no = distiller_details.phone;
@@ -100,7 +103,7 @@ exports.createDistiller = async (req, res) => {
       const existing = await Distiller.findOne({
         "basic_details.distiller_details.phone": mobile_no,
       }).session(session);
-      
+
       if (existing) {
         // IMPROVED: Throwing error instead of returning response to trigger rollback
         throw new Error(`Mobile number '${mobile_no}' already registered. Please use a different mobile_no.`);
@@ -126,15 +129,15 @@ exports.createDistiller = async (req, res) => {
         country: distiller_details.country || "India",
         client_id: distiller_details.client_id || "9877"
       };
-      
+
       const onboardingWithStatic = { ...distiller_details, ...staticFields };
       let userReq = createDistllerPayload(onboardingWithStatic);
-       
-      console.log("Creating Distiller with payload:", userReq);
-      
+      userReq["createdBy"] = userId
+      userReq["updatedBy"] = userId
+
       // IMPROVED: Using create with session instead of new + save
       const distillerCreate = await Distiller.create([userReq], { session });
-      
+
       const newDistiller = distillerCreate[0];
 
       // IMPROVED: Update operation now uses session
@@ -157,7 +160,8 @@ exports.createDistiller = async (req, res) => {
             portalId: newDistiller._id,
             portalRef: _collectionName.Distiller,
             status: _statusType.active,
-            createdBy: req.user_id,
+            createdBy: userId,
+            updatedBy: userId,
             userRole: [new mongoose.Types.ObjectId("67addf7fab0f886017049ed7")],
           },
         ],
@@ -189,6 +193,8 @@ exports.createDistiller = async (req, res) => {
               },
               product_produced,
               supply_chain_capabilities,
+              createdBy: userId,
+              updatedBy: userId,
             },
           ],
           { session }
@@ -220,6 +226,8 @@ exports.createDistiller = async (req, res) => {
                 unit: "Square meters",
               },
               storage_condition: "Cool",
+              createdBy: userId,
+              updatedBy: userId,
             },
           ],
           { session }
@@ -234,26 +242,28 @@ exports.createDistiller = async (req, res) => {
         for (let i = 0; i < po_details.length; i++) {
           let index = po_details[i];
           let brachName = `NAFED ${index.devlivery_district} ${index.devlivery_state} Branch`;
-          
+
           // IMPROVED: Added session to branch query
           let searchBrachName = await Branches.findOne({ brachName: brachName }).session(session);
           let branch_id = searchBrachName?._id;
-           const shortCode = generate3LetterCode();
+          const shortCode = generate3LetterCode();
 
           if (!searchBrachName) {
             let branchData = {
               branchName: brachName,
               "address": index.devlivery_location, // FIXED: typo in original code
               "district": index.devlivery_district,
-              state: index.devlivery_state|| null,
+              state: index.devlivery_state || null,
               "status": "active",
               "password": "$2b$10$ssCi8PXtT7MH.v8eO2xJCu0kBh50qYDasc0lWkGql1b/.ZKPVZy16",
-              "emailAddress": `${index.devlivery_district+shortCode}@gmail.com`,
-              "pointOfContact": { "name": "XYZ", "email": `${index.devlivery_district+shortCode}@gmail.com` },
+              "emailAddress": `${index.devlivery_district + shortCode}@gmail.com`,
+              "pointOfContact": { "name": "XYZ", "email": `${index.devlivery_district + shortCode}@gmail.com` },
               "isPasswordChanged": false,
               "cityVillageTown": index.devlivery_location || null,
               "status": "active",
-              "headOfficeId": new mongoose.Types.ObjectId("6826e933d66a1726b9c58219")
+              "headOfficeId": new mongoose.Types.ObjectId("6723a9159fed2bd78ef5588a"),
+              createdBy: userId,
+              updatedBy: userId,
             };
 
             // IMPROVED: Added session to branch creation
@@ -262,75 +272,81 @@ exports.createDistiller = async (req, res) => {
           }
 
           // IMPROVED: Added session to PurchaseOrderModel query
-          const lastOrder = await PurchaseOrderModel.findOne({purchasedOrder:{poNo:index.poNo}})
+          const lastOrder = await PurchaseOrderModel.findOne({ purchasedOrder: { poNo: index.poNo } })
           let purchasedOrderId = lastOrder?._id
-          if(!lastOrder){
-          const msp = _distillerMsp();
-          const totalAmount = handleDecimal(msp * index.poQuantity);
-          const tokenAmount = handleDecimal((totalAmount * 3) / 100); 
-          const remainingAmount = handleDecimal(totalAmount - tokenAmount);
-          
-          // IMPROVED: Calculate tax properly
-          const tax = _taxValue(totalAmount); // Assuming you have this function
+          if (!lastOrder) {
+            const msp = _distillerMsp();
+            const totalAmount = handleDecimal(msp * index.poQuantity);
+            const tokenAmount = handleDecimal((totalAmount * 3) / 100);
+            const remainingAmount = handleDecimal(totalAmount - tokenAmount);
 
-          // IMPROVED: Added session to purchase order creation
-          const purchasedOrderCreate = await PurchaseOrderModel.create([{
-            distiller_id: newDistiller._id,
-            branch_id: branch_id,
-            purchasedOrder: {
-              poNo: index.poNo,
-              poQuantity: handleDecimal(index.poQuantity), // FIXED: changed poQuantity to index.poQuantity
-              poAmount: handleDecimal(totalAmount),
-            },
-            product: {
-              name: index.commodity,
-              msp: index.msp,
-            },
-            manufacturingLocation: index.manufacturing_location,
-            storageLocation: index.storage_location,
-            deliveryLocation: {
-              location: index.devlivery_location,
-              lat: index.lat,
-              long: index.long,
-              locationDetails: index.devlivery_location
-            },
-            paymentInfo: {
-              totalAmount: handleDecimal(totalAmount),
-              advancePayment: handleDecimal(tokenAmount),
-              balancePayment: handleDecimal(remainingAmount),
-              tax: index.tax,
-              mandiTax: index.mandiTax,
-              paidAmount: handleDecimal(tokenAmount),
-              advancePaymentStatus: index._poAdvancePaymentStatus?.paid || "Paid" ,
-              status: "Completed",
-              poStatus:"Approved",
-              fulfilledQty:index.fulfilledQty,
-              transactionId:index.transactionId
-            },
-            companyDetails: index.companyDetails,
-            additionalDetails: index.additionalDetails,
-            qualitySpecificationOfProduct: index.qualitySpecificationOfProduct,
-            termsAndConditions: true,
-            createdBy: req.user_id, 
-          }], { session });
-          
-           purchasedOrderId = purchasedOrderCreate[0]._id;
+            // IMPROVED: Calculate tax properly
+            const tax = _taxValue(totalAmount); // Assuming you have this function
 
-        }
-          
+            // IMPROVED: Added session to purchase order creation
+            const purchasedOrderCreate = await PurchaseOrderModel.create([{
+              distiller_id: newDistiller._id,
+              branch_id: branch_id,
+              purchasedOrder: {
+                poNo: index.poNo,
+                poQuantity: handleDecimal(index.poQuantity), // FIXED: changed poQuantity to index.poQuantity
+                poAmount: handleDecimal(totalAmount),
+              },
+              product: {
+                name: index.commodity,
+                msp: index.msp,
+              },
+              manufacturingLocation: index.manufacturing_location,
+              storageLocation: index.storage_location,
+              deliveryLocation: {
+                location: index.devlivery_location,
+                lat: index.lat,
+                long: index.long,
+                locationDetails: index.devlivery_location
+              },
+              paymentInfo: {
+                token:index.token,
+                totalAmount: handleDecimal(totalAmount),
+                advancePayment: handleDecimal(tokenAmount),
+                balancePayment: handleDecimal(remainingAmount),
+                tax: index.tax,
+                mandiTax: index.mandiTax,
+                paidAmount: handleDecimal(tokenAmount),
+                advancePaymentStatus: index._poAdvancePaymentStatus?.paid || "Paid",
+                status: "Completed",
+                poStatus: "Approved",
+                fulfilledQty: index.fulfilledQty,
+                transactionId: index.transactionId
+              },
+              poStatus: "Approved",
+              payment_status: "Paid",
+              companyDetails: index.companyDetails,
+              additionalDetails: index.additionalDetails,
+              qualitySpecificationOfProduct: index.qualitySpecificationOfProduct,
+              termsAndConditions: true,
+              createdBy: userId,
+              updatedBy: userId,
+            }], { session });
+
+            purchasedOrderId = purchasedOrderCreate[0]._id;
+
+          }
+
           if (index?.batch_details && Array.isArray(index.batch_details)) {
             for (let j = 0; j < index.batch_details.length; j++) {
 
               let createwarehouse = await createWarehouse(index.batch_details[j], session);
-              
-              const data = { 
-                user_id: newDistiller._id, 
-                warehouseId: createwarehouse, 
-                orderId: purchasedOrderId, 
-                quantityRequired: index.batch_details[j].quantity || 0, // FIXED: assuming quantity field exists
-                warehouseOwner_Id: new mongoose.Types.ObjectId("6874b9a8516fc15195972cb4") // ADDED: missing field
+
+              const data = {
+                user_id: newDistiller._id,
+                warehouseId: createwarehouse,
+                orderId: purchasedOrderId,
+                quantityRequired: index.batch_details[j]?.quantity || 0, 
+                warehouseOwner_Id: new mongoose.Types.ObjectId("6874b9a8516fc15195972cb4") ,// ADDED: missing field,
+                createdBy: userId,
+                updatedBy: userId,
               };
-              
+
               await createBatch(data, session);
             }
           }
@@ -362,11 +378,11 @@ exports.createDistiller = async (req, res) => {
   } catch (error) {
     // IMPROVED: Better error handling with specific error messages
     console.error("Transaction Error:", error);
-    
+
     // IMPROVED: Handle specific error types
     let statusCode = 500;
     let errorMessage = "Internal server error";
-    
+
     if (error.message.includes("Mobile number is required")) {
       statusCode = 400;
       errorMessage = "Mobile number is required in the 'distiller_details.phone' field.";
@@ -380,7 +396,7 @@ exports.createDistiller = async (req, res) => {
       statusCode = 400;
       errorMessage = "Storage facility details are required.";
     }
-    
+
     return sendResponse({
       res,
       status: statusCode,
@@ -439,9 +455,9 @@ async function createBatch(data, session) {
     const { user_id, warehouseId, orderId, quantityRequired, warehouseOwner_Id } = data;
 
     // IMPROVED: Added session to PurchaseOrderModel query
-    const poRecord = await PurchaseOrderModel.findOne({ 
-      _id: orderId, 
-      deletedAt: null 
+    const poRecord = await PurchaseOrderModel.findOne({
+      _id: orderId,
+      deletedAt: null
     }).session(session);
 
     if (!poRecord) {
@@ -455,11 +471,11 @@ async function createBatch(data, session) {
     }
 
     // IMPROVED: Added session to BatchOrderProcess query
-    const existBatch = await BatchOrderProcess.find({ 
-      distiller_id: user_id, 
-      orderId 
+    const existBatch = await BatchOrderProcess.find({
+      distiller_id: user_id,
+      orderId
     }).session(session);
-    
+
     const addedQty = existBatch.reduce((sum, b) => sum + b.quantityRequired, 0);
 
     if (addedQty >= purchasedOrder.poQuantity) {
@@ -504,7 +520,7 @@ async function createBatch(data, session) {
         "payment.amount": amountToBePaid,
         "payment.status": _poBatchPaymentStatus.paid,
         scheduledPickupDate: new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000), // FIXED: date calculation
-        createdBy: user_id,
+        createdBy: data.createdBy,
         source_by: "NAFED",
       }],
       { session }
@@ -550,9 +566,9 @@ function createDistllerPayload(input) {
     mou = "true",
     mou_approval = "approved",
     active = true,
-    name,organization_name,email,phone,aadhar_number,pan_card
+    name, organization_name, email, phone, aadhar_number, pan_card
   } = input;
-  console.log(input,"============================")
+  console.log(input, "============================")
   const {
     distiller_details = {},
     point_of_contact = {},
@@ -568,15 +584,15 @@ function createDistllerPayload(input) {
     basic_details: {
       distiller_details: {
         associate_type: distiller_details.associate_type,
-        organization_name: name,
+        organization_name: organization_name,
         email: email,
         phone: phone,
         company_logo: distiller_details.company_logo || null,
       },
       point_of_contact: {
         name: name || null,
-        email: email||null,
-        mobile: phone|| null,
+        email: email || null,
+        mobile: phone || null,
         designation: point_of_contact.designation,
         aadhar_number: aadhar_number,
       },
@@ -616,7 +632,7 @@ function createDistllerPayload(input) {
       cin_image: null,
       tan_number: null,
       tan_image: null,
-      pan_card: null,
+      pan_card: pan_card,
       pan_image: null,
       gst_no: null,
       pacs_reg_date: null,
@@ -626,13 +642,13 @@ function createDistllerPayload(input) {
       storage_details: false,
     },
     authorised: input.authorised || {
-      name: company_owner_info.name,
+      name: name,
       designation: null,
-      phone: null,
-      email: null,
-      aadhar_number: null,
+      phone: phone,
+      email: email,
+      aadhar_number: aadhar_number,
       aadhar_certificate: { front: null, back: null },
-      pan_card: null,
+      pan_card: pan_card,
       pan_image: null,
     },
     bank_details: input.bank_details || {
@@ -652,8 +668,8 @@ function createDistllerPayload(input) {
     is_sms_send: "true",
     term_condition: "true",
     mou: "true",
-    mou_document:null,
-    mou_approval:null,
+    mou_document: null,
+    mou_approval: null,
     active: true,
     source_by: "NAFED",
   };
@@ -681,11 +697,10 @@ exports.loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Email and password required' });
     }
 
-    const user = await MasterUser.findOne({ email:email });
+    const user = await MasterUser.findOne({ email: email });
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
-    console.log(password, user.password)
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email or password' });
@@ -706,18 +721,18 @@ exports.loginUser = async (req, res) => {
   }
 };
 
-exports.authMiddleware = async(req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Unauthorized: No token provided' });
-    }
-  
-    const token = authHeader.split(' ')[1];
-    try {
-      const decoded =  await jwt.verify(token, JWT_SECRET_KEY);
-      req.user = decoded; 
-      next(); 
-    } catch (err) {
-      return res.status(403).json({ message: 'Forbidden: Invalid token' });
-    }
-  };
+exports.authMiddleware = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Unauthorized: No token provided' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = await jwt.verify(token, JWT_SECRET_KEY);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(403).json({ message: 'Forbidden: Invalid token' });
+  }
+};
