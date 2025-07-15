@@ -2,7 +2,7 @@ const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, } = require("@src/v1/utils/constants/messages");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const { _userType, _poAdvancePaymentStatus, _userStatus, _poPickupStatus } = require("@src/v1/utils/constants");
+const { _poRequestStatus, _poAdvancePaymentStatus, _userStatus, _poPickupStatus } = require("@src/v1/utils/constants");
 const { asyncErrorHandler, } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
@@ -98,7 +98,8 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
           "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
           source_by: { $in: finalCNA },
           deletedAt: null,
-          status: { $ne: "Completed" }
+          // status: { $ne: "Completed" }
+          poStatus: { $in: [_poRequestStatus.pending, _poRequestStatus.approved] }
         }
       },
       {
@@ -168,12 +169,6 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
 
     const withoutPaginationPipeline = [...pipeline];
 
-    // Pagination
-    // pipeline.push(
-    //   { $skip: parseInt(skip) },
-    //   { $limit: parseInt(limit) }
-    // );
-
     if (parseInt(isExport) !== 1) {
       pipeline.push(
         { $skip: parseInt(skip) },
@@ -206,12 +201,6 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
     result.page = parseInt(page);
     result.limit = parseInt(limit);
     result.pages = limit != 0 ? Math.ceil(result.count / limit) : 0;
-
-    // return res.status(200).send(new serviceResponse({
-    //   status: 200,
-    //   data: result,
-    //   message: _response_message.found("Order Summary"),
-    // }));
 
     if (isExport == 1) {
       const exportData = result.rows.map(item => ({
@@ -317,6 +306,11 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
 
     const basePipeline = [
       {
+        $match: {
+          deletedAt: null // Ensure only active (non-deleted) purchase orders
+        }
+      },
+      {
         $lookup: {
           from: 'distillers',
           localField: 'distiller_id',
@@ -374,27 +368,6 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
           as: 'maizePOs'
         }
       },
-
-      // Fetch maize Procurement of the same state
-      // {
-      //   $lookup: {
-      //     from: 'requests',
-      //     pipeline: [
-      //       {
-      //         $match: {
-      //           'product.name': { $regex: /maize/i }
-      //         }
-      //       },
-      //       {
-      //         $project: {
-      //           _id: 1,
-      //           quantity: '$product.quantity',
-      //         }
-      //       }
-      //     ],
-      //     as: 'maizeRequests'
-      //   }
-      // },
       {
         $lookup: {
           from: 'requests',
@@ -479,7 +452,7 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
           noOfFarmerBenefited: {
             $size: '$paymentsForMaize'
           },
-          
+
         }
       },
       {
