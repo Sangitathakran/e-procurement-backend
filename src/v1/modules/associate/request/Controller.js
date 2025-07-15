@@ -390,7 +390,13 @@ module.exports.getProcurement = async (req, res) => {
               .populate({ path: "branch_id", select: "branchName" })
               .populate({
                 path: "product.schemeId",
-                select: "schemeName procurementDuration",
+                // select: "schemeName procurementDuration",
+                select: "schemeName procurementDuration season period commodity_id",
+                populate: {
+                path: "commodity_id",
+                model: "Commodity",
+                select: "name",
+              },
               })
               .sort(sortBy || { createdAt: -1 })
               .skip(parseInt(skip))
@@ -398,13 +404,26 @@ module.exports.getProcurement = async (req, res) => {
           : await RequestModel.find(query).sort(sortBy || { createdAt: -1 });
 
       const count = await RequestModel.countDocuments(query);
+      const mappedRows = rows.map((item) => {
+        const scheme = item?.product?.schemeId || {};
+        const commodityName = scheme?.commodity_id?.name || "";
+        const schemeName = [scheme.schemeName, commodityName, scheme.season, scheme.period]
+        .filter(Boolean)
+        .join("")
+        .replace(/\s+/g, "")
+        .trim();
+        return {
+          ...item._doc,
+          schemeName: schemeName || "N/A",
+        };
+      });
 
-      const records = { rows, count };
+      const records = { rows: mappedRows, count };
       if (paginate === 1) {
         records.page = parseInt(page);
         records.limit = parseInt(limit);
         records.pages =
-          records.limit !== 0 ? Math.ceil(records.count / records.limit) : 0;
+        records.limit !== 0 ? Math.ceil(records.count / records.limit) : 0;
       }
 
       return res.status(200).send(
