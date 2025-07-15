@@ -82,7 +82,6 @@ const Auth = async function (req, res, next) {
       else {
         // Login History 
         let loginHistory = await LoginHistory.findOne({token:token,logged_out_at:null }).sort({ createdAt: -1 });
-        console.log("Login History", loginHistory);
         if (!loginHistory){ 
           return sendResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
         }

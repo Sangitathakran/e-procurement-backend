@@ -67,5 +67,6 @@ module.exports = {
     WORKING_KEY:process.env.WORKING_KEY,
     BANK_VERIFICATION_API_KEY: process.env.BANK_VERIFICATION_API_KEY,
     BANK_VERIFICATION_API_PROVIDER: process.env.BANK_VERIFICATION_API_PROVIDER,
-    ON_GRID_BASE_URL: process.env.ON_GRID_BASE_URL
+    ON_GRID_BASE_URL: process.env.ON_GRID_BASE_URL,
+    procurement_partners:procurement_partners
 }

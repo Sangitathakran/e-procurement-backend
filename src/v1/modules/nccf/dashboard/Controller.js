@@ -1734,7 +1734,7 @@ async function getWarehouseProcurementStats({ commodity = [], state = [] }) {
       },
     },
   ];
-
   const result = await Batch.aggregate(pipeline);
+ 
   return result;
 }
