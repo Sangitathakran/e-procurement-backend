@@ -12,16 +12,18 @@ const { warehouseRoutes } = require("./warehouse/Route");
 const { paymentRoutes } = require("./payment/Routes");
 const { schemeRoutes } = require("./scheme/Routes");
 const { slaRoute } = require("./ho-sla-management/Routes");
+const {authenticateUser,authorizeRoles} = require("@src/v1/middlewares/jwt")
+const { _userType } = require("@src/v1/utils/constants/index")
 
 headOfficeRoutes.use("/auth", hoAuthRoutes)
-headOfficeRoutes.use("/branch", Auth, hoBranchRoutes)
-headOfficeRoutes.use("/dashboard", Auth, hoDashboardRoutes)
-headOfficeRoutes.use("/requirement", Auth, requireMentRoutes)
-headOfficeRoutes.use("/farmer", Auth, farmerManagementRoutes)
-headOfficeRoutes.use("/warehouse", Auth, warehouseRoutes)
-headOfficeRoutes.use("/payment", Auth, paymentRoutes)
-headOfficeRoutes.use("/schemeAssigned", Auth, schemeRoutes)
-headOfficeRoutes.use("/sla", Auth, slaRoute)
+headOfficeRoutes.use("/branch",authenticateUser,authorizeRoles(_userType.ho), Auth, hoBranchRoutes)
+headOfficeRoutes.use("/dashboard",authenticateUser,authorizeRoles(_userType.ho),Auth, hoDashboardRoutes)
+headOfficeRoutes.use("/requirement",authenticateUser,authorizeRoles(_userType.ho), Auth, requireMentRoutes)
+headOfficeRoutes.use("/farmer",authenticateUser,authorizeRoles(_userType.ho), Auth, farmerManagementRoutes)
+headOfficeRoutes.use("/warehouse",authenticateUser,authorizeRoles(_userType.ho), Auth, warehouseRoutes)
+headOfficeRoutes.use("/payment",authenticateUser,authorizeRoles(_userType.ho), Auth, paymentRoutes)
+headOfficeRoutes.use("/schemeAssigned",authenticateUser,authorizeRoles(_userType.ho), Auth, schemeRoutes)
+headOfficeRoutes.use("/sla",authenticateUser,authorizeRoles(_userType.ho), Auth, slaRoute)
 
 
 module.exports = { headOfficeRoutes }

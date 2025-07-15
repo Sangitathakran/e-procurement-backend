@@ -2,6 +2,7 @@ const express = require("express");
 const hoDashboardRoutes = express.Router();
 
 const {
+  satewiseProcurement,
   widgetList,
   farmerPayments,
   revenueExpenseChart,
@@ -39,4 +40,5 @@ hoDashboardRoutes.get("/payment-activity",paymentActivity)
 
 hoDashboardRoutes.get("/farmer-pending-payments", farmerPendingPayments);
 hoDashboardRoutes.get("/farmer-pending-approval", farmerPendingApproval);
+hoDashboardRoutes.get("/statewise-procurement", satewiseProcurement);
 module.exports = { hoDashboardRoutes };

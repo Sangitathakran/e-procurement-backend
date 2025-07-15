@@ -9,6 +9,7 @@ const { User } = require("@src/v1/models/app/auth/User");
 const {
   ProcurementCenter,
 } = require("@src/v1/models/app/procurement/ProcurementCenter");
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
@@ -20,7 +21,7 @@ const { _query } = require("@src/v1/utils/constants/messages");
 const moment = require("moment");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { default: mongoose } = require("mongoose");
-
+const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
 
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
@@ -1076,4 +1077,92 @@ module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
     message: _query.get("ProcurementOnTime"),
     data: data,
   });
+});
+
+module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
+  try {
+    const hoId = new mongoose.Types.ObjectId(req.portalId);
+    const { user_id, portalId } = req;
+
+    // Step 1: Fetch all states from the only StateDistrictCity document
+    const stateContainer = await StateDistrictCity.findOne().lean();
+
+    if (!stateContainer || !Array.isArray(stateContainer.states)) {
+      return sendResponse({
+        res,
+        status: 500,
+        message: "State data not configured properly",
+      });
+    }
+
+    // Step 2: Create a state lookup map by _id
+    const stateMap = {};
+    for (const state of stateContainer.states) {
+      stateMap[state._id.toString()] = state.state_title;
+    }
+
+    // Step 3: Fetch payments and populate farmer (only getting state_id in address)
+    const payments = await Payment.find({
+      ho_id: { $in: [user_id, portalId] },
+      payment_status: _paymentstatus.completed,
+    })
+      .select("qtyProcured farmer_id")
+      .populate({
+        path: "farmer_id",
+        select: "address.state_id",
+      })
+      .lean();
+
+    // Step 4: Group by state_id and sum qtyProcured
+    const statewiseTotals = {};
+
+    for (const payment of payments) {
+      const stateId = payment?.farmer_id?.address?.state_id?.toString();
+
+      if (!stateId || !stateMap[stateId]) continue; // skip if invalid
+
+      const qty = Number(payment.qtyProcured) || 0; // 👈 convert to number safely
+
+      if (!statewiseTotals[stateId]) {
+        statewiseTotals[stateId] = {
+          state_id: stateId,
+          state_name: stateMap[stateId],
+          totalQtyProcured: 0,
+        };
+      }
+
+      // statewiseTotals[stateId].totalQtyProcured += payment.qtyProcured || 0;
+      statewiseTotals[stateId].totalQtyProcured += qty;
+    }
+
+    // const result = Object.values(statewiseTotals);
+
+    // Step 5: Convert to array and calculate grand total
+    const result = Object.values(statewiseTotals);
+
+    const grandTotalQtyProcured = result.reduce(
+      (sum, item) => sum + item.totalQtyProcured,
+      0
+    );
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: _query.get("satewise Procurement List"),
+      // data: result,
+      data: {
+        states: result,
+        // grandTotalQtyProcured: Math.round(grandTotalQtyProcured * 100) / 100,
+        grandTotalQtyProcured: grandTotalQtyProcured,
+      },
+    });
+  } catch (error) {
+    console.error("Error in satewiseProcurement:", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
 });
