@@ -18,9 +18,9 @@ const distillerSchema = new mongoose.Schema(
           enum: Object.values(_trader_type),
           default: _trader_type.ORGANISATION,
         },
-        organization_name: { type: String, trim: true },
+        organization_name: { type: String, trim: true, required:true },
         email: { type: String, trim: true, lowercase: true },
-        phone: { type: String, trim: true },
+        phone: { type: String, trim: true , required:true },
         company_logo: { type: String, trim: true },
       },
       point_of_contact: {
