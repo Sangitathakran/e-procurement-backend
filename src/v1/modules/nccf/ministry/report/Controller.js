@@ -99,7 +99,7 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
           source_by: { $in: finalCNA },
           deletedAt: null,
           // status: { $ne: "Completed" }
-          poStatus: { $in: [_poRequestStatus.pending,_poRequestStatus.approved] }
+          poStatus: { $in: [_poRequestStatus.pending, _poRequestStatus.approved] }
         }
       },
       {
@@ -169,12 +169,6 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
 
     const withoutPaginationPipeline = [...pipeline];
 
-    // Pagination
-    // pipeline.push(
-    //   { $skip: parseInt(skip) },
-    //   { $limit: parseInt(limit) }
-    // );
-
     if (parseInt(isExport) !== 1) {
       pipeline.push(
         { $skip: parseInt(skip) },
@@ -207,12 +201,6 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
     result.page = parseInt(page);
     result.limit = parseInt(limit);
     result.pages = limit != 0 ? Math.ceil(result.count / limit) : 0;
-
-    // return res.status(200).send(new serviceResponse({
-    //   status: 200,
-    //   data: result,
-    //   message: _response_message.found("Order Summary"),
-    // }));
 
     if (isExport == 1) {
       const exportData = result.rows.map(item => ({
@@ -318,6 +306,11 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
 
     const basePipeline = [
       {
+        $match: {
+          deletedAt: null // Ensure only active (non-deleted) purchase orders
+        }
+      },
+      {
         $lookup: {
           from: 'distillers',
           localField: 'distiller_id',
@@ -375,27 +368,6 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
           as: 'maizePOs'
         }
       },
-
-      // Fetch maize Procurement of the same state
-      // {
-      //   $lookup: {
-      //     from: 'requests',
-      //     pipeline: [
-      //       {
-      //         $match: {
-      //           'product.name': { $regex: /maize/i }
-      //         }
-      //       },
-      //       {
-      //         $project: {
-      //           _id: 1,
-      //           quantity: '$product.quantity',
-      //         }
-      //       }
-      //     ],
-      //     as: 'maizeRequests'
-      //   }
-      // },
       {
         $lookup: {
           from: 'requests',
@@ -480,7 +452,7 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
           noOfFarmerBenefited: {
             $size: '$paymentsForMaize'
           },
-          
+
         }
       },
       {
