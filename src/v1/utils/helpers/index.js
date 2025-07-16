@@ -24,6 +24,10 @@ exports._handleCatchErrors = async (error, res, next) => {
   //  errorLogger.error({ message: error.message, stack: error.stack }) 
   return res.status(500).json({ status: 500, errors: [{ message: error.message, stack: error.stack }] })
 }
+exports._advancePayment = () => {
+  const percentage = 10;
+  return percentage;
+}
 
 
 exports.dumpJSONToCSV = (req, res, config = {
@@ -376,6 +380,7 @@ exports._generateFarmerCode = async () => {
 }
 
 const myAddress = new Map()
+
 exports.getStateId = async (stateName) => {
   try {
     if (myAddress.get(stateName)) {
@@ -484,3 +489,10 @@ exports.makeSearchQuery = (searchFields,search) => ({
       [item]: { $regex: search, $options: 'i' }
   }))
 });
+
+
+// exports.removeSpaces = (str) => ({
+//     return str.replace(/\s+/g, '').toString();
+// })
+
+// module.exports={removeSpaces }

@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 const { _status, _userType, _collectionName } = require('@src/v1/utils/constants');
 const { generateRandomId } = require('@src/v1/utils/helpers/randomGenerator');
 const { required } = require('joi');
+const { _commonKeys } = require('@src/v1/utils/helpers/collection');
+
 
 const branchSchema = new mongoose.Schema({
   branchName: {
@@ -29,7 +31,7 @@ const branchSchema = new mongoose.Schema({
   },
   pointOfContact: {
     name: { type: String, required: true, trim: true, maxLength: 100 }, // Max 100 characters
-     phone: { type: String, required: false, trim: true, match: /^\d{10}$/ }, // Exactly 10 digits
+    phone: { type: String, required: false, trim: true, match: /^\d{10}$/ }, // Exactly 10 digits
     email: { type: String, required: true, lowercase: true, trim: true, maxLength: 100 }, // Max 100 characters
   },
   address: {
@@ -48,7 +50,7 @@ const branchSchema = new mongoose.Schema({
   },
   cityVillageTown: {
     type: String,
-    required: true,
+    required: false,
     trim: true,
     maxLength: 100, // Max 100 characters
   },
@@ -65,7 +67,7 @@ const branchSchema = new mongoose.Schema({
   },
   pincode: {
     type: String,
-    // required: true,
+    required: false,
     trim: true,
     match: /^\d{6}$/, // Max 6 digits
   },
@@ -80,6 +82,8 @@ const branchSchema = new mongoose.Schema({
     required: true,
   },
   user_type: { type: String, trim: true, enum: Object.values(_userType) },
+  source_by: { type: String, default: "NCCF" },
+  ..._commonKeys
 }, { timestamps: true });
 
 // Pre-save hook to generate a unique random BranchId
