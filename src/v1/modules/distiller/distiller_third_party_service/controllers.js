@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 const { DistillerDraft } = require("@src/v1/models/app/auth/DistillerDraft");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
@@ -22,14 +23,18 @@ const {
   _statusType,
   _collectionName,
 } = require("@src/v1/utils/constants");
+const { getStateIdBystateName, getDistrictIdByname } = require("@common/services/stateServices")
 const { getStateId, getDistrictId } = require("@src/v1/utils/helpers");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
-const { Branches } = require("@src/v1/models/app/branchManagement/Branches"); // Add proper import path
-const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder"); // Add proper import path
-const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess"); // Add proper import path
-const { _poBatchPaymentStatus, _poPaymentStatus, _webSocketEvents } = require("@src/v1/utils/constants"); // Add proper import path
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
+const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
+const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
+const { _poBatchPaymentStatus, _poPaymentStatus, _webSocketEvents } = require("@src/v1/utils/constants");
 const { MasterUser } = require("@models/master/MasterUser")
+const { calculateAmount } = require("@src/v1/utils/helpers/amountCalculation");
+const logger = require("@common/logger/logger")
+
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET_KEY } = require('@config/index');
 const bcrypt = require('bcryptjs');
@@ -49,12 +54,19 @@ function replaceUndefinedWithNull(obj) {
 }
 
 exports.createDistiller = async (req, res) => {
-  // IMPROVED: Better session management with try-catch-finally
   const session = await mongoose.startSession();
+  const { userId } = req.user;
+  
+  // IMPROVED: Add request logging
+  logger.info(`Creating distiller - User: ${userId}`, {
+    userId,
+    requestBody: {
+      distiller_details: req.body.distiller_details ? 'present' : 'missing',
+      po_details: req.body.po_details ? `${req.body.po_details.length} items` : 'missing'
+    }
+  });
 
   try {
-    let { userId } = req.user
-    // IMPROVED: Using session.withTransaction for automatic retry and error handling
     const result = await session.withTransaction(async () => {
       let distiller_details = req.body.distiller_details || {};
       distiller_details = {
@@ -78,9 +90,42 @@ exports.createDistiller = async (req, res) => {
       const source_by = "NAFED";
       const country = req.body.country || "India";
 
+      // IMPROVED: Validate PO numbers first before any database operations
+      if (po_details.length > 0) {
+        logger.info(`Validating ${po_details.length} PO numbers`, { userId });
+        
+        const poNumbers = po_details.map(po => po.poNo).filter(Boolean);
+        const duplicatePoNumbers = [];
+        
+        for (const poNo of poNumbers) {
+          const existingPO = await PurchaseOrderModel.findOne({ 
+            "purchasedOrder.poNo": poNo 
+          }).session(session);
+          
+          if (existingPO) {
+            duplicatePoNumbers.push(poNo);
+            logger.warn(`Duplicate PO number found: ${poNo}`, {
+              userId,
+              poNo,
+              existingPOId: existingPO._id
+            });
+          }
+        }
+        
+        if (duplicatePoNumbers.length > 0) {
+          const errorMessage = `PO number(s) already exist: ${duplicatePoNumbers.join(', ')}. Please use different PO numbers.`;
+          logger.error(`PO validation failed - duplicate numbers found`, {
+            userId,
+            duplicatePoNumbers,
+            totalPOsRequested: poNumbers.length
+          });
+          throw new Error(errorMessage);
+        }
+        
+        logger.info(`PO validation successful - all ${poNumbers.length} PO numbers are unique`, { userId });
+      }
 
-
-      // IMPROVED: All database operations now use session
+      // Create draft
       const draft = await DistillerDraft.create([{
         distiller_details,
         po_details,
@@ -90,22 +135,29 @@ exports.createDistiller = async (req, res) => {
         updatedBy: userId
       }], { session });
 
-      let mobile_no = distiller_details.phone;
+      logger.info(`Draft created successfully`, {
+        userId,
+        draftId: draft[0]._id
+      });
+
+      // Mobile number validation
+      let mobile_no = distiller_details.phone || distiller_details.mobile_no;
       if (!mobile_no) {
-        mobile_no = distiller_details.mobile_no;
-      }
-      if (!mobile_no) {
-        // IMPROVED: Throwing error instead of returning response to trigger rollback
+        logger.error(`Mobile number missing in distiller creation`, { userId });
         throw new Error("Mobile number is required in the 'distiller_details.phone' field.");
       }
 
-      // IMPROVED: Added session to the query
+      // Check existing mobile number
       const existing = await Distiller.findOne({
         "basic_details.distiller_details.phone": mobile_no,
       }).session(session);
 
       if (existing) {
-        // IMPROVED: Throwing error instead of returning response to trigger rollback
+        logger.warn(`Duplicate mobile number attempted`, {
+          userId,
+          mobileNo: mobile_no,
+          existingDistillerId: existing._id
+        });
         throw new Error(`Mobile number '${mobile_no}' already registered. Please use a different mobile_no.`);
       }
 
@@ -132,22 +184,27 @@ exports.createDistiller = async (req, res) => {
 
       const onboardingWithStatic = { ...distiller_details, ...staticFields };
       let userReq = createDistllerPayload(onboardingWithStatic);
-      userReq["createdBy"] = userId
-      userReq["updatedBy"] = userId
+      userReq["createdBy"] = userId;
+      userReq["updatedBy"] = userId;
 
-      // IMPROVED: Using create with session instead of new + save
+      // Create distiller
       const distillerCreate = await Distiller.create([userReq], { session });
-
       const newDistiller = distillerCreate[0];
 
-      // IMPROVED: Update operation now uses session
+      logger.info(`Distiller created successfully`, {
+        userId,
+        distillerId: newDistiller._id,
+        mobileNo: mobile_no
+      });
+
+      // Update distiller
       await Distiller.updateOne(
         { _id: newDistiller._id },
         { $set: { is_form_submitted: "true" } },
         { session }
       );
 
-      // IMPROVED: MasterUser creation already uses session properly
+      // Create master user
       const masterUser = await MasterUser.create(
         [
           {
@@ -168,7 +225,13 @@ exports.createDistiller = async (req, res) => {
         { session }
       );
 
-      // IMPROVED: Manufacturing unit creation with better error handling
+      logger.info(`Master user created successfully`, {
+        userId,
+        masterUserId: masterUser[0]._id,
+        distillerId: newDistiller._id
+      });
+
+      // Manufacturing unit creation
       const manufacturing_address_line1 = onboardingWithStatic.address?.full_address;
       const manufacturing_address_line2 = null;
       const manufacturing_state = onboardingWithStatic.address?.state;
@@ -179,7 +242,7 @@ exports.createDistiller = async (req, res) => {
       const product_produced = null;
 
       if (manufacturing_address_line1 || product_produced) {
-        await ManufacturingUnit.create(
+        const manufacturingUnit = await ManufacturingUnit.create(
           [
             {
               distiller_id: newDistiller._id,
@@ -199,12 +262,21 @@ exports.createDistiller = async (req, res) => {
           ],
           { session }
         );
+        
+        logger.info(`Manufacturing unit created successfully`, {
+          userId,
+          manufacturingUnitId: manufacturingUnit[0]._id,
+          distillerId: newDistiller._id
+        });
       } else {
-        // IMPROVED: Throwing error instead of ending session and returning
+        logger.error(`Manufacturing unit creation failed - missing required details`, {
+          userId,
+          distillerId: newDistiller._id
+        });
         throw new Error("Manufacturing unit details are required. Please provide manufacturing address or product produced.");
       }
 
-      // IMPROVED: Storage facility creation with better error handling
+      // Storage facility creation
       const storage_address_line1 = onboardingWithStatic.address?.full_address;
       const storage_address_line2 = null;
       const storage_state = onboardingWithStatic.address?.state;
@@ -213,7 +285,7 @@ exports.createDistiller = async (req, res) => {
       const storage_condition = null;
 
       if (storage_address_line1 || storage_condition) {
-        await StorageFacility.create(
+        const storageFacility = await StorageFacility.create(
           [
             {
               distiller_id: newDistiller._id,
@@ -232,26 +304,45 @@ exports.createDistiller = async (req, res) => {
           ],
           { session }
         );
+        
+        logger.info(`Storage facility created successfully`, {
+          userId,
+          storageFacilityId: storageFacility[0]._id,
+          distillerId: newDistiller._id
+        });
       } else {
-        // IMPROVED: Throwing error instead of ending session and returning
+        logger.error(`Storage facility creation failed - missing required details`, {
+          userId,
+          distillerId: newDistiller._id
+        });
         throw new Error("Storage facility details are required. Please provide storage address or storage condition.");
       }
 
-      // IMPROVED: Purchase order processing with transaction support
+      // Purchase order processing
       if (po_details.length > 0) {
+        logger.info(`Processing ${po_details.length} purchase orders`, {
+          userId,
+          distillerId: newDistiller._id
+        });
+
         for (let i = 0; i < po_details.length; i++) {
           let index = po_details[i];
           let brachName = `NAFED ${index.devlivery_district} ${index.devlivery_state} Branch`;
 
-          // IMPROVED: Added session to branch query
+          logger.info(`Processing PO ${i + 1}/${po_details.length}`, {
+            userId,
+            poNo: index.poNo,
+            branchName: brachName
+          });
+
           let searchBrachName = await Branches.findOne({ brachName: brachName }).session(session);
-          let branch_id = searchBrachName?._id;
+          let branch_id 
           const shortCode = generate3LetterCode();
 
           if (!searchBrachName) {
             let branchData = {
               branchName: brachName,
-              "address": index.devlivery_location, // FIXED: typo in original code
+              "address": index.devlivery_location,
               "district": index.devlivery_district,
               state: index.devlivery_state || null,
               "status": "active",
@@ -264,96 +355,118 @@ exports.createDistiller = async (req, res) => {
               "headOfficeId": new mongoose.Types.ObjectId("6723a9159fed2bd78ef5588a"),
               createdBy: userId,
               updatedBy: userId,
+              source_by: "NAFED"
             };
 
-            // IMPROVED: Added session to branch creation
             let createBranch = await Branches.create([branchData], { session });
+            console.log("=============================",createBranch)
             branch_id = createBranch[0]._id;
+            
+            logger.info(`New branch created`, {
+              userId,
+              branchId: branch_id,
+              branchName: brachName
+            });
+          }else{
+            branch_id = searchBrachName?._id;
           }
 
-          // IMPROVED: Added session to PurchaseOrderModel query
-          const lastOrder = await PurchaseOrderModel.findOne({ purchasedOrder: { poNo: index.poNo } })
-          let purchasedOrderId = lastOrder?._id
-          if (!lastOrder) {
-            const msp = _distillerMsp();
-            const totalAmount = handleDecimal(msp * index.poQuantity);
-            const tokenAmount = handleDecimal((totalAmount * 3) / 100);
-            const remainingAmount = handleDecimal(totalAmount - tokenAmount);
+          let purchasedOrderId = null;
+           const { msp, mandiTax, mandiTaxAmount, totalAmount, tokenAmount, advancenAmount, remainingAmount } = await calculateAmount(index.token, index.poQuantity, branch_id,session);
 
-            // IMPROVED: Calculate tax properly
-            const tax = _taxValue(totalAmount); // Assuming you have this function
-
-            // IMPROVED: Added session to purchase order creation
-            const purchasedOrderCreate = await PurchaseOrderModel.create([{
-              distiller_id: newDistiller._id,
-              branch_id: branch_id,
-              purchasedOrder: {
-                poNo: index.poNo,
-                poQuantity: handleDecimal(index.poQuantity), // FIXED: changed poQuantity to index.poQuantity
-                poAmount: handleDecimal(totalAmount),
-              },
-              product: {
-                name: index.commodity,
-                msp: index.msp,
-              },
-              manufacturingLocation: index.manufacturing_location,
-              storageLocation: index.storage_location,
-              deliveryLocation: {
-                location: index.devlivery_location,
-                lat: index.lat,
-                long: index.long,
-                locationDetails: index.devlivery_location
-              },
-              paymentInfo: {
-                token:index.token,
-                totalAmount: handleDecimal(totalAmount),
-                advancePayment: handleDecimal(tokenAmount),
-                balancePayment: handleDecimal(remainingAmount),
-                tax: index.tax,
-                mandiTax: index.mandiTax,
-                paidAmount: handleDecimal(tokenAmount),
-                advancePaymentStatus: index._poAdvancePaymentStatus?.paid || "Paid",
-                status: "Completed",
-                poStatus: "Approved",
-                fulfilledQty: index.fulfilledQty,
-                transactionId: index.transactionId
-              },
+          const purchasedOrderCreate = await PurchaseOrderModel.create([{
+            distiller_id: newDistiller._id,
+            branch_id: branch_id,
+            purchasedOrder: {
+              poNo: index.poNo,
+              poQuantity: handleDecimal(index.poQuantity),
+              poAmount: handleDecimal(totalAmount),
+            },
+            product: {
+              name: index.commodity,
+              msp: msp,
+            },
+            manufacturingLocation: index.manufacturing_location,
+            storageLocation: index.storage_location,
+            deliveryLocation: {
+              location: index.devlivery_location,
+              locationDetails: index.devlivery_location
+            },
+            paymentInfo: {
+              token: index.token,
+              totalAmount: handleDecimal(totalAmount),
+              advancePayment: advancenAmount,
+              balancePayment: handleDecimal(remainingAmount),
+              tax: mandiTax,
+              mandiTax: mandiTax,
+              paidAmount: handleDecimal(tokenAmount),
+              advancePaymentStatus: index._poAdvancePaymentStatus?.paid || "Paid",
+              status: "Completed",
               poStatus: "Approved",
-              payment_status: "Paid",
-              companyDetails: index.companyDetails,
-              additionalDetails: index.additionalDetails,
-              qualitySpecificationOfProduct: index.qualitySpecificationOfProduct,
-              termsAndConditions: true,
-              createdBy: userId,
-              updatedBy: userId,
-            }], { session });
+              fulfilledQty: index.fulfilledQty,
+              transactionId: index.transactionId
+            },
+            poStatus :"Approved",
+            status:"Completed",
+            payment_status: "Paid",
+            companyDetails: index.companyDetails,
+            additionalDetails: index.additionalDetails,
+            qualitySpecificationOfProduct: index.qualitySpecificationOfProduct,
+            termsAndConditions: true,
+            createdBy: userId,
+            updatedBy: userId,
+            source_by: "NAFED"
+          }], { session });
 
-            purchasedOrderId = purchasedOrderCreate[0]._id;
+          purchasedOrderId = purchasedOrderCreate[0]._id;
 
-          }
+          logger.info(`Purchase order created successfully`, {
+            userId,
+            purchaseOrderId: purchasedOrderId,
+            poNo: index.poNo,
+            distillerId: newDistiller._id
+          });
 
+          // Process batch details
           if (index?.batch_details && Array.isArray(index.batch_details)) {
-            for (let j = 0; j < index.batch_details.length; j++) {
+            logger.info(`Processing ${index.batch_details.length} batch details for PO: ${index.poNo}`, {
+              userId,
+              poNo: index.poNo,
+              batchCount: index.batch_details.length
+            });
 
-              let createwarehouse = await createWarehouse(index.batch_details[j], session);
+            for (let j = 0; j < index.batch_details.length; j++) {
+              let createwarehouse = await createWarehouse(index.batch_details[j], session, userId);
 
               const data = {
                 user_id: newDistiller._id,
                 warehouseId: createwarehouse,
                 orderId: purchasedOrderId,
-                quantityRequired: index.batch_details[j]?.quantity || 0, 
-                warehouseOwner_Id: new mongoose.Types.ObjectId("6874b9a8516fc15195972cb4") ,// ADDED: missing field,
+                quantityRequired: index.batch_details[j]?.quantity || 0,
+                warehouseOwner_Id: new mongoose.Types.ObjectId("6874b9a8516fc15195972cb4"),
                 createdBy: userId,
                 updatedBy: userId,
               };
 
-              await createBatch(data, session);
+              await createBatch(data, session, userId);
+              
+              logger.info(`Batch ${j + 1}/${index.batch_details.length} processed successfully`, {
+                userId,
+                poNo: index.poNo,
+                warehouseId: createwarehouse,
+                quantity: data.quantityRequired
+              });
             }
           }
         }
       }
 
-      // IMPROVED: Return data for successful transaction
+      logger.info(`Distiller creation completed successfully`, {
+        userId,
+        distillerId: newDistiller._id,
+        poCount: po_details.length
+      });
+
       return {
         distiller_details,
         po_details,
@@ -367,7 +480,6 @@ exports.createDistiller = async (req, res) => {
       };
     });
 
-    // IMPROVED: Send success response after transaction completes
     return sendResponse({
       res,
       status: 201,
@@ -376,10 +488,12 @@ exports.createDistiller = async (req, res) => {
     });
 
   } catch (error) {
-    // IMPROVED: Better error handling with specific error messages
-    console.error("Transaction Error:", error);
+    logger.error(`Distiller creation failed`, {
+      userId,
+      error: error.message,
+      stack: error.stack
+    });
 
-    // IMPROVED: Handle specific error types
     let statusCode = 500;
     let errorMessage = "Internal server error";
 
@@ -387,6 +501,9 @@ exports.createDistiller = async (req, res) => {
       statusCode = 400;
       errorMessage = "Mobile number is required in the 'distiller_details.phone' field.";
     } else if (error.message.includes("already registered")) {
+      statusCode = 400;
+      errorMessage = error.message;
+    } else if (error.message.includes("PO number(s) already exist")) {
       statusCode = 400;
       errorMessage = error.message;
     } else if (error.message.includes("Manufacturing unit details are required")) {
@@ -404,24 +521,32 @@ exports.createDistiller = async (req, res) => {
       errors: [{ message: error.message }],
     });
   } finally {
-    // IMPROVED: Always end session in finally block
     await session.endSession();
+    logger.info(`Database session ended`, { userId });
   }
 };
 
-// IMPROVED: Updated createWarehouse function to use session
-async function createWarehouse(data, session) {
+// IMPROVED: Updated createWarehouse function with logging
+async function createWarehouse(data, session, userId) {
   try {
-    // IMPROVED: Added session to warehouse query
+    logger.info(`Creating/Finding warehouse`, {
+      userId,
+      warehouseName: data.warehouse_name
+    });
+
     let findWarehouse = await wareHouseDetails.findOne({
       "basicDetails.warehouseName": data.warehouse_name
     }).session(session);
 
     if (findWarehouse) {
+      logger.info(`Warehouse found - using existing`, {
+        userId,
+        warehouseId: findWarehouse._id,
+        warehouseName: data.warehouse_name
+      });
       return findWarehouse._id;
     }
 
-    // IMPROVED: Create warehouse with session
     let obj = {
       warehouseOwnerId: new mongoose.Types.ObjectId("6874b9a8516fc15195972cb4"),
       basicDetails: {
@@ -443,34 +568,61 @@ async function createWarehouse(data, session) {
     };
 
     const createWarehouse = await wareHouseDetails.create([obj], { session });
+    
+    logger.info(`New warehouse created successfully`, {
+      userId,
+      warehouseId: createWarehouse[0]._id,
+      warehouseName: data.warehouse_name
+    });
+
     return createWarehouse[0]._id;
   } catch (error) {
+    logger.error(`Warehouse creation failed`, {
+      userId,
+      warehouseName: data.warehouse_name,
+      error: error.message
+    });
     throw new Error("Failed to create warehouse: " + error.message);
   }
 }
 
-// IMPROVED: Updated createBatch function to use session
-async function createBatch(data, session) {
+// IMPROVED: Updated createBatch function with logging
+async function createBatch(data, session, userId) {
   try {
     const { user_id, warehouseId, orderId, quantityRequired, warehouseOwner_Id } = data;
 
-    // IMPROVED: Added session to PurchaseOrderModel query
+    logger.info(`Creating batch`, {
+      userId,
+      orderId,
+      quantityRequired,
+      warehouseId
+    });
+
     const poRecord = await PurchaseOrderModel.findOne({
       _id: orderId,
       deletedAt: null
     }).session(session);
 
     if (!poRecord) {
+      logger.error(`PO not found for batch creation`, {
+        userId,
+        orderId
+      });
       throw new Error("PO not found");
     }
 
     const { purchasedOrder, fulfilledQty = 0, paymentInfo } = poRecord;
 
     if (quantityRequired > purchasedOrder.poQuantity) {
+      logger.error(`Quantity exceeds PO quantity`, {
+        userId,
+        orderId,
+        quantityRequired,
+        poQuantity: purchasedOrder.poQuantity
+      });
       throw new Error("Quantity should not exceed PO Qty.");
     }
 
-    // IMPROVED: Added session to BatchOrderProcess query
     const existBatch = await BatchOrderProcess.find({
       distiller_id: user_id,
       orderId
@@ -479,11 +631,23 @@ async function createBatch(data, session) {
     const addedQty = existBatch.reduce((sum, b) => sum + b.quantityRequired, 0);
 
     if (addedQty >= purchasedOrder.poQuantity) {
+      logger.error(`Cannot create more batches - quantity already fulfilled`, {
+        userId,
+        orderId,
+        addedQty,
+        poQuantity: purchasedOrder.poQuantity
+      });
       throw new Error("Cannot create more Batch, Qty already fulfilled.");
     }
 
     const remainingQty = handleDecimal(purchasedOrder.poQuantity - addedQty);
     if (quantityRequired > remainingQty) {
+      logger.error(`Quantity exceeds remaining PO quantity`, {
+        userId,
+        orderId,
+        quantityRequired,
+        remainingQty
+      });
       throw new Error("Quantity exceeds PO remaining quantity.");
     }
 
@@ -495,7 +659,6 @@ async function createBatch(data, session) {
       ? handleDecimal(msp * quantityRequired)
       : handleDecimal(msp * quantityRequired - tokenAmount);
 
-    // IMPROVED: Added session to BatchOrderProcess query
     const lastOrder = await BatchOrderProcess.findOne()
       .sort({ createdAt: -1 })
       .select("purchaseId")
@@ -508,7 +671,6 @@ async function createBatch(data, session) {
 
     let currentDate = new Date();
 
-    // IMPROVED: Added session to BatchOrderProcess creation
     const record = await BatchOrderProcess.create(
       [{
         distiller_id: user_id,
@@ -519,14 +681,14 @@ async function createBatch(data, session) {
         quantityRequired: handleDecimal(quantityRequired),
         "payment.amount": amountToBePaid,
         "payment.status": _poBatchPaymentStatus.paid,
-        scheduledPickupDate: new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000), // FIXED: date calculation
+        scheduledPickupDate: new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000),
         createdBy: data.createdBy,
         source_by: "NAFED",
       }],
       { session }
     );
 
-    // IMPROVED: Update PO record with session
+    // Update PO record
     poRecord.fulfilledQty = handleDecimal(fulfilledQty + quantityRequired);
     poRecord.paymentInfo.paidAmount = handleDecimal(poRecord.paymentInfo.paidAmount + amountToBePaid);
     poRecord.paymentInfo.balancePayment = handleDecimal(poRecord.paymentInfo.totalAmount - poRecord.paymentInfo.paidAmount);
@@ -537,12 +699,24 @@ async function createBatch(data, session) {
 
     await poRecord.save({ session });
 
-    // IMPROVED: Event emission after successful transaction
+    logger.info(`Batch created successfully`, {
+      userId,
+      batchId: record[0]._id,
+      purchaseId: randomVal,
+      orderId,
+      quantityRequired
+    });
+
+    // Event emission after successful transaction
     eventEmitter.emit(_webSocketEvents.procurement, { ...record[0].toObject(), method: "created" });
 
     return record[0];
   } catch (error) {
-    // IMPROVED: Better error handling
+    logger.error(`Batch creation failed`, {
+      userId,
+      orderId: data.orderId,
+      error: error.message
+    });
     throw new Error("Failed to create batch: " + error.message);
   }
 }
@@ -712,7 +886,7 @@ exports.loginUser = async (req, res) => {
       username: user.username,
     };
 
-    const token = await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn: '24h' });
+    const token = await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn: '1h' });
 
     return res.status(200).json({ token });
   } catch (error) {
