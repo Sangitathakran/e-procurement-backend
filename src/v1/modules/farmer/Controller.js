@@ -4116,3 +4116,256 @@ async function mapToVerifyFarmerModel(rows, request_for_verfication) {
 
   return result;
 }
+
+module.exports.uploadFarmerForVerfication = async (req, res) => {
+  try {
+    const { isxlsx, request_for_bank, request_for_aadhaar } = req.body;
+    const [file] = req.files;
+
+    logger.info("Starting upload of farmer data for verification.");
+
+    // Check for required fields
+    if (!file) {
+      logger.warn("File is missing in the request.");
+      return sendResponse({
+        res,
+        status: 400,
+        message: "File is required"
+      });
+    }
+
+    if (
+      typeof isxlsx === "undefined" ||
+      typeof request_for_bank === "undefined" ||
+      typeof request_for_aadhaar === "undefined"
+    ) {
+      logger.warn("Missing required fields in request body", {
+        isxlsx,
+        request_for_bank,
+        request_for_aadhaar,
+      });
+
+      return sendResponse({
+        res,
+        status: 400,
+        message: "Missing required fields: isxlsx, request_for_bank, request_for_aadhaar"
+      });
+    }
+
+    const rawRows = await parseExcelOrCsvFile(file, parseInt(isxlsx));
+    if (!rawRows.length) {
+      logger.warn("Uploaded file contains no data.");
+      return sendResponse({
+        res,
+        status: 400,
+        message: "No data found in file"
+      });
+    }
+
+    const formattedRows = await mapToVerifyFarmerModel(rawRows, request_for_bank, request_for_aadhaar);
+    await verfiyfarmer.insertMany(formattedRows);
+
+    logger.info(`Imported ${formattedRows.length} farmer records successfully.`);
+
+    return sendResponse({
+      res,
+      message: "Farmers imported successfully",
+      data: { count: formattedRows.length }
+    });
+  } catch (error) {
+    logger.error("Error during farmer data import", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Failed to import data",
+      errors: error.message
+    });
+  }
+};
+
+
+module.exports.farmerCount = async (req, res) => {
+  try {
+    logger.info(" Fetching farmer count and verification statistics");
+
+    // Aggregate farmer types and counts
+    const farmerTypeAgg = farmer.aggregate([
+      {
+        $group: {
+          _id: "$farmer_type",
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$count" },
+          data: {
+            $push: {
+              type: "$_id",
+              count: "$count"
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          totalFarmers: "$total",
+          individualFarmers: {
+            $ifNull: [
+              {
+                $let: {
+                  vars: {
+                    match: {
+                      $first: {
+                        $filter: {
+                          input: "$data",
+                          as: "item",
+                          cond: { $eq: ["$$item.type", "Individual"] }
+                        }
+                      }
+                    }
+                  },
+                  in: "$$match.count"
+                }
+              },
+              0
+            ]
+          },
+          associateFarmers: {
+            $ifNull: [
+              {
+                $let: {
+                  vars: {
+                    match: {
+                      $first: {
+                        $filter: {
+                          input: "$data",
+                          as: "item",
+                          cond: { $eq: ["$$item.type", "Associate"] }
+                        }
+                      }
+                    }
+                  },
+                  in: "$$match.count"
+                }
+              },
+              0
+            ]
+          }
+        }
+      }
+    ]).exec();
+
+    // Aggregate verified farmers count
+    const verifiedFarmerAgg = farmer.aggregate([
+      {
+        $facet: {
+          bankVerified: [
+            { $match: { "bank_details.is_verified": true } },
+            { $count: "count" }
+          ],
+          aadhaarVerified: [
+            { $match: { "proof.is_verified": true } },
+            { $count: "count" }
+          ],
+          bothVerified: [
+            {
+              $match: {
+                "bank_details.is_verified": true,
+                "proof.is_verified": true
+              }
+            },
+            { $count: "count" }
+          ]
+        }
+      },
+      {
+        $project: {
+          bankVerified: {
+            $ifNull: [{ $arrayElemAt: ["$bankVerified.count", 0] }, 0]
+          },
+          aadhaarVerified: {
+            $ifNull: [{ $arrayElemAt: ["$aadhaarVerified.count", 0] }, 0]
+          },
+          bothVerified: {
+            $ifNull: [{ $arrayElemAt: ["$bothVerified.count", 0] }, 0]
+          }
+        }
+      }
+    ]).exec();
+
+    const [farmerTypes, verifiedFarmers] = await Promise.all([
+      farmerTypeAgg,
+      verifiedFarmerAgg
+    ]);
+
+    logger.info("✅ Farmer statistics fetched successfully");
+
+    return sendResponse({
+      res,
+      message: "Farmer count fetched successfully",
+      data: {
+        farmerTypes: farmerTypes[0] || {
+          totalFarmers: 0,
+          individualFarmers: 0,
+          associateFarmers: 0
+        },
+        verifiedFarmers: verifiedFarmers[0] || {
+          bankVerified: 0,
+          aadhaarVerified: 0,
+          bothVerified: 0
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error("❌ Error while fetching farmer count", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Failed to fetch farmer count",
+      errors: error.message
+    });
+  }
+};
+
+
+module.exports.verfiyedFarmer = async (req, res) => {
+  try {
+    logger.info(" Fetching farmer count and verification statistics");
+
+     let { associate_id ,farmer_id} = req.query
+    const farmerTypeAgg = await verfiyfarmer.find({})
+
+
+    logger.info("✅ Farmer statistics fetched successfully");
+
+    return sendResponse({
+      res,
+      message: "Farmer count fetched successfully",
+      data: {
+        farmerTypes: farmerTypes[0] || {
+          totalFarmers: 0,
+          individualFarmers: 0,
+          associateFarmers: 0
+        },
+        verifiedFarmers: verifiedFarmers[0] || {
+          bankVerified: 0,
+          aadhaarVerified: 0,
+          bothVerified: 0
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error("❌ Error while fetching farmer count", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Failed to fetch farmer count",
+      errors: error.message
+    });
+  }
+};
