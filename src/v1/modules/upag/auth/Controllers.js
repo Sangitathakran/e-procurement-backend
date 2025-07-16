@@ -33,6 +33,7 @@ module.exports.registerUser = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 module.exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
