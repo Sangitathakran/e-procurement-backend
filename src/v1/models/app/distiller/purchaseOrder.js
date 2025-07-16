@@ -33,8 +33,8 @@ const purchaseOrderSchema = new mongoose.Schema(
       quantityDuration: { type: String, required: false },
     },
 
-    manufacturingLocation: { type: String, required: true },
-    storageLocation: { type: String, required: true },
+    manufacturingLocation: { type: String, required: false },
+    storageLocation: { type: String, required: false },
     deliveryLocation: {
       location: { type: String },
       lat: { type: String },
@@ -43,6 +43,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       locationDetails: { type: Object },
     },
     paymentInfo: {
+      token:{ type: Number, default: 10 }, // Unique token for payment processing
       totalAmount: { type: Number, required: true }, // Assume this is calculated during the first step
       advancePayment: { type: Number, required: true }, // Auto-calculated: 3% of totalAmount
       advancePaymentStatus: {
@@ -168,6 +169,7 @@ const purchaseOrderSchema = new mongoose.Schema(
     ],
     updatedBy: { type: mongoose.Schema.Types.ObjectId, default: null },
     createdBy: { type: mongoose.Schema.Types.ObjectId, default: null },
+    source_by: { type: String, default: "NCCF" },
     ..._commonKeys,
   },
   { timestamps: true }
@@ -179,4 +181,3 @@ const PurchaseOrderModel = mongoose.model(
 );
 
 module.exports = { PurchaseOrderModel };
-
