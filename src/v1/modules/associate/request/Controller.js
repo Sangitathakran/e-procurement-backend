@@ -66,11 +66,6 @@ module.exports.getProcurement = async (req, res) => {
       query["product.name"] = { $in: commodityArray };
     }
 
-     if (state) {
-      const stateArray = Array.isArray(state) ? state : [state];
-     
-       query["associateUserDetails.address.registered.state"] = { $in: stateArray };
-    }
 
     if (status) {
       // Handle status-based filtering
@@ -194,7 +189,13 @@ module.exports.getProcurement = async (req, res) => {
               : {}),
           },
         },
-
+          ...(state ? [{
+        $match: {
+          "associateUserDetails.address.registered.state": {
+            $in: Array.isArray(state) ? state : [state]
+          }
+        }
+      }] : []),
         // Lookup Head Office details
         {
           $lookup: {
@@ -295,7 +296,13 @@ module.exports.getProcurement = async (req, res) => {
             preserveNullAndEmptyArrays: true,
           },
         },
-
+       ...(commodity ? [{
+      $match: {
+        "commodityDetails.name": {
+          $in: Array.isArray(commodity) ? commodity : [commodity]
+        }
+      }
+    }] : []),
         {
           $lookup: {
             from: "branches",
