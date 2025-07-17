@@ -987,6 +987,7 @@ module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
         $match: {
           source_by: { $in: finalCNA },
           deletedAt: null,
+          "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid
         }
       },
       // Lookup to get branch details including state
@@ -1058,6 +1059,7 @@ module.exports.stateWiseProcurementQuantity = asyncErrorHandler(async (req, res)
       {
         $match: {
           source_by: { $in: finalCNA },
+          deletedAt:null
         }
       },
       {
@@ -1117,7 +1119,8 @@ module.exports.stateWiseLiftingQuantity = asyncErrorHandler(async (req, res) => 
     const result = await BatchOrderProcess.aggregate([
       {
         $match: {
-          source_by: { $in: finalCNA }
+          source_by: { $in: finalCNA },
+          deletedAt:null
         }
       },
       {
