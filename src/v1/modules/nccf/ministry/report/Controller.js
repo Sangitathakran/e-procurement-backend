@@ -307,7 +307,8 @@ module.exports.omcReport = asyncErrorHandler(async (req, res) => {
     const basePipeline = [
       {
         $match: {
-          deletedAt: null // Ensure only active (non-deleted) purchase orders
+          deletedAt: null, // Ensure only active (non-deleted) purchase orders
+          "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid
         }
       },
       {
