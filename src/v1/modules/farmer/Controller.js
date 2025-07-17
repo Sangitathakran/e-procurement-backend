@@ -3912,6 +3912,10 @@ module.exports.getVerifiedAdharDetails = async (req, res) => {
         message: "Either cpmu_farmer_id or uidai_aadharNo is required !",
       });
     }
+    let farmer_data = uidai_aadharNo ? await farmer.findOne({"proof.aadhar_no": uidai_aadharNo }, {_id: 1}): null;
+    if(farmer_data && !new mongoose.Types.ObjectId(farmer_id).equals(farmer_data?._id)){
+      return res.json( { status: 400, message: "This uidai_aadharNo is already taken, try other."});
+    }
     // Run both queries in parallel for better performance
     const [adharDetails, agristackFarmerDetails] = await Promise.all([
       uidai_aadharNo
