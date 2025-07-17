@@ -919,7 +919,8 @@ module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
       {
         $match: {
           source_by: { $in: finalCNA },
-          deletedAt: null,
+          'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
+          deletedAt: null
         }
       },
       {
@@ -1173,6 +1174,7 @@ module.exports.paymentWithTenPercant = asyncErrorHandler(async (req, res) => {
       {
         $match: {
           "paymentInfo.token": { $in: [10] },
+          'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
           deletedAt: null,
           source_by: { $in: finalCNA }
         }
@@ -1233,6 +1235,7 @@ module.exports.paymentWithHundredPercant = asyncErrorHandler(async (req, res) =>
       {
         $match: {
           "paymentInfo.token": { $in: [100] },
+          'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
           deletedAt: null,
           source_by: { $in: finalCNA }
         }
