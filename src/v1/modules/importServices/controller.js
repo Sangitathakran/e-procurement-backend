@@ -234,7 +234,7 @@ exports.bulkUploadDistiller = async (req, res) => {
                     } else {
                         branch_id = findBranch._id;
                     }
-                    const purchaseData = await formatPurchaseOrderRecord(record, branch_id);
+                    const purchaseData = await formatPurchaseOrderRecord(record, branch_id ,session);
                     console.log(purchaseData)
                     if (!purchaseData) {
                         const errorMsg = `Failed to format purchase order for: ${organization}`;
@@ -384,7 +384,7 @@ exports.bulkUploadDistiller = async (req, res) => {
                             branch_id = findBranch._id;
                         }
                         // Step 6: Handle Purchase Order
-                        let purchaseData = await formatPurchaseOrderRecord(record, branch_id);
+                        let purchaseData = await formatPurchaseOrderRecord(record, branch_id,session);
                         console.log(purchaseData)
                         if (!purchaseData) {
                             throw new Error(`Failed to format purchase order for: ${organization}`);
@@ -593,13 +593,13 @@ const formatDocument = (row) => {
     return obj;
 };
 
-async function formatPurchaseOrderRecord(record = {}, branch_id) {
+async function formatPurchaseOrderRecord(record = {}, branch_id ,session) {
     try {
         const poDate = convertExcelDate(record["PO date "] || record["PO date"]);
         const receiptDate = convertExcelDate(record["Receipt Amount Date"]);
         let poQuantity = record["PO Quantity (In Mt)"]
         let token = Number(record["Payment Token (%)"]) || 10
-        const { msp, mandiTax, mandiTaxAmount, totalAmount, tokenAmount, advancenAmount, remainingAmount } = await calculateAmount(token, poQuantity, branch_id);
+        const { msp, mandiTax, mandiTaxAmount, totalAmount, tokenAmount, advancenAmount, remainingAmount } = await calculateAmount(token, poQuantity, branch_id ,session);
 
         return {
             product: {
@@ -608,6 +608,7 @@ async function formatPurchaseOrderRecord(record = {}, branch_id) {
             },
             deliveryLocation: {
                 location: record["Delivery Location "]?.trim() || record["Delivery Location"]?.trim(),
+                locationDetails :record["Delivery Location "]?.trim() || record["Delivery Location"]?.trim(),
             },
             storageLocation: record['state'],
             manufacturingLocation: record['state'],
