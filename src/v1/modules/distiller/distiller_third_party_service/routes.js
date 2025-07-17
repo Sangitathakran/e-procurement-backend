@@ -4,10 +4,9 @@ const { verifyDistiller } = require("@modules/distiller/utils/verifyDistiller");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const thirdPartyRoutes = express.Router();
 
-thirdPartyRoutes.post(
-  "/onboarding/create",
-  verifyDistiller,
-  asyncErrorHandler(controller.createDistiller)
-);
+thirdPartyRoutes.post( "/api-service", controller.authMiddleware,asyncErrorHandler(controller.createDistiller));
+
+thirdPartyRoutes.post("/login",controller.loginUser);
+
 
 module.exports = { thirdPartyRoutes };
