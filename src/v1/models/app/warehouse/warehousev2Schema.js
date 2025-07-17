@@ -16,7 +16,7 @@ const warehousev2Schema = new mongoose.Schema(
       tanDocument: { type: String, trim: true },
       panNumber: { type: String, trim: true },
       panDocument: { type: String, trim: true },
-      gstNumber: { type: String, trim: true, required: true },
+      gstNumber: { type: String, trim: true },
       gstDocument: { type: String, trim: true },
     },
     ownerDetails: {
