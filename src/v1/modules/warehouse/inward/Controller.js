@@ -13,6 +13,7 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const PaymentLogsHistory = require('@src/v1/models/app/procurement/PaymentLogsHistory');
+const moment = require('moment');
 
 
 // module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
@@ -1058,10 +1059,13 @@ module.exports.batchStatusUpdate = async (req, res) => {
             'final_quality_check.qc_images': qc_images,
             'final_quality_check.whr_receipt': whr_receipt,
             'final_quality_check.whr_receipt_image': whr_receipt_image,
-            'final_quality_check.rejected_reason': status === 'Rejected' ? rejected_reason : null
+            'final_quality_check.rejected_reason': status === 'Rejected' ? rejected_reason : null,
+            
         };
 
         const updatedBatch = await Batch.findByIdAndUpdate(batchId, { $set: updateFields }, { new: true });
+        updatedBatch.dispatched.qc_report.received.push({ img: qc_images, on: moment() });
+        await updatedBatch.save()
         if (!updatedBatch) {
             return res.status(404).send(new serviceResponse({
                 status: 404,
@@ -1136,6 +1140,8 @@ module.exports.batchMarkDelivered = async (req, res) => {
         //     record.dispatched.material_img.received.push(...document_pictures.product_images.map(i => { return { img: i, on: moment() } }))
         // }
         // if (qc_report.length > 0) {
+        record.dispatched.material_img.received.push({ img: document_pictures?.proof_of_delivery || null, on: moment() });
+        record.dispatched.weight_slip.received.push({ img: document_pictures?.weigh_bridge_slip|| null, on: moment() });
         record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
         record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
 
