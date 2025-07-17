@@ -95,7 +95,8 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
     const buildMatch = (start, end) => {
       const match = {
-        source_by: { $in: finalCNA }
+        source_by: { $in: finalCNA },
+        deletedAt: null,
       };
       if (start && end) match.createdAt = { $gte: start, $lte: end };
       if (commodityList.length > 0) match["product.name"] = { $in: commodityList };
@@ -119,6 +120,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
         $match: {
           "paymentInfo.advancePaymentStatus": _poAdvancePaymentStatus.paid,
           source_by: { $in: finalCNA },
+          deletedAt: null,
           ...(stateList.length > 0 && { "branch.state": { $in: stateList } }),
           ...(districtList.length > 0 && { "branch.district": { $in: districtList } }),
           ...(commodityList.length > 0 && { "product.name": { $in: commodityList } })
@@ -179,6 +181,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
       noOfDistiller = await Distiller.countDocuments({
         _id: { $in: distillerIds },
+        deletedAt: null,
         is_approved: _userStatus.approved,
         source_by: { $in: finalCNA },
         ...(stateList.length > 0 && { "address.registered.state": { $in: stateList } }),
@@ -188,6 +191,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     } else {
       noOfDistiller = await Distiller.countDocuments({
         is_approved: _userStatus.approved,
+        deletedAt: null,
         source_by: { $in: finalCNA },
         ...(stateList.length > 0 && { "address.registered.state": { $in: stateList } }),
         ...(districtList.length > 0 && { "address.registered.district": { $in: districtList } })
@@ -202,6 +206,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
           $match: {
             source_by: { $in: finalCNA },
             "product.name": { $in: commodityList },
+            deletedAt: null,
             createdAt: { $gte: previousStart, $lte: previousEnd }
           }
         },
@@ -218,6 +223,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       previousNoOfDistiller = await Distiller.countDocuments({
         _id: { $in: prevDistillerIds },
         is_approved: _userStatus.approved,
+        deletedAt: null,
         source_by: { $in: finalCNA },
         ...(stateList.length > 0 && { "address.registered.state": { $in: stateList } }),
         ...(districtList.length > 0 && { "address.registered.district": { $in: districtList } })
@@ -226,6 +232,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       previousNoOfDistiller = await Distiller.countDocuments({
         is_approved: _userStatus.approved,
         source_by: { $in: finalCNA },
+        deletedAt: null,
         createdAt: { $gte: previousStart, $lte: previousEnd },
         ...(stateList.length > 0 && { "address.registered.state": { $in: stateList } }),
         ...(districtList.length > 0 && { "address.registered.district": { $in: districtList } })
@@ -254,6 +261,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       {
         $match: {
           "order.source_by": { $in: finalCNA },
+          "order.deletedAt": null,
           ...(stateList.length > 0 && { "branch.state": { $in: stateList } }),
           ...(districtList.length > 0 && { "branch.district": { $in: districtList } }),
           ...(commodityList.length > 0 && { "order.product.name": { $in: commodityList } })
@@ -334,7 +342,8 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
             {
               $match: {
                 ...matchCurrent,
-                'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid
+                'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
+                deletedAt: null,
               }
             },
             {
@@ -502,6 +511,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
       {
         $match: {
           source_by: { $in: finalCNA },
+          deletedAt: null,
           "requests.product.name": { "$regex": "maize", "$options": "i" },
           ...(stateList.length > 0 && { "warehouse.addressDetails.state.state_name": { $in: stateList } }),
           ...(districtList.length > 0 && { "warehouse.addressDetails.district.district_name": { $in: districtList } }),
@@ -660,7 +670,8 @@ module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
 
     // Build dynamic date filter
     const baseMatch = {
-      source_by: { $in: finalCNA }
+      source_by: { $in: finalCNA },
+      deletedAt: null,
     };
 
     if (commodityNames.length > 0) {
@@ -804,6 +815,7 @@ module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
         $match: {
           source_by: { $in: finalCNA },
           is_approved: _userStatus.approved,
+          deletedAt: null,
         }
       },
       { $group: { _id: '$address.registered.state', distillerCount: { $sum: 1 } } }
@@ -814,6 +826,7 @@ module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
       {
         $match: {
           source_by: { $in: finalCNA },
+          deletedAt: null,
           active: true
         }
       },
@@ -830,7 +843,8 @@ module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
     const batchState = BatchOrderProcess.aggregate([
       {
         $match: {
-          source_by: { $in: finalCNA }
+          source_by: { $in: finalCNA },
+          deletedAt: null,
         }
       },
       { $lookup: { from: 'purchaseorders', localField: 'orderId', foreignField: '_id', as: 'po' } },
@@ -847,8 +861,8 @@ module.exports.stateWiseAnalysis = asyncErrorHandler(async (req, res) => {
     ]);
 
     // 4. Totals
-    const totalDistillers = Distiller.countDocuments({ source_by: { $in: finalCNA }, is_approved: _userStatus.approved });
-    const totalWarehouses = wareHouseDetails.countDocuments({ source_by: { $in: finalCNA }, active: true });
+    const totalDistillers = Distiller.countDocuments({ source_by: { $in: finalCNA }, is_approved: _userStatus.approved, deletedAt: null, });
+    const totalWarehouses = wareHouseDetails.countDocuments({ source_by: { $in: finalCNA }, active: true, deletedAt: null });
 
     const [dState, wState, bState, totalD, totalW] = await Promise.all([
       distillerState, warehouseState, batchState, totalDistillers, totalWarehouses
@@ -905,6 +919,7 @@ module.exports.getMonthlyPayments = asyncErrorHandler(async (req, res) => {
       {
         $match: {
           source_by: { $in: finalCNA },
+          deletedAt: null,
         }
       },
       {
@@ -969,7 +984,8 @@ module.exports.stateWiseQuantity = asyncErrorHandler(async (req, res) => {
     const result = await PurchaseOrderModel.aggregate([
       {
         $match: {
-          source_by: { $in: finalCNA }
+          source_by: { $in: finalCNA },
+          deletedAt: null,
         }
       },
       // Lookup to get branch details including state
@@ -1295,6 +1311,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
         $match: {
           warehouseId: { $ne: null },
           source_by: { $in: finalCNA },
+          deletedAt: null,
         }
       },
       {
@@ -1652,7 +1669,7 @@ module.exports.ongoingOrders = asyncErrorHandler(async (req, res) => {
           source_by: { $in: finalCNA },
           deletedAt: null,
           // status: { $ne: "Completed" }
-          poStatus: { $in: [_poRequestStatus.pending,_poRequestStatus.approved] }
+          poStatus: { $in: [_poRequestStatus.pending, _poRequestStatus.approved] }
         }
       },
       {
