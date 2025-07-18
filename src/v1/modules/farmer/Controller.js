@@ -74,6 +74,7 @@ const {
   getAllStates,
   getDistrictsByStateId,
 } = require("./Services");
+const AgristackFarmerDetails = require("@src/v1/models/app/farmerDetails/src/v1/models/app/farmerDetails/AgristackFarmerDetails");
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -308,7 +309,7 @@ module.exports.getFarmerDetails = async (req, res) => {
       }).select("is_verify_aadhaar");
       // console.log('farmerAAdharInfo',farmerAAdharInfo,  { farmer_id: farmerDetails._id})
     }
-
+    let agristackFarmerDetailsObj = await AgristackFarmerDetails.findOne( {farmer_id: new mongoose.Types.ObjectId(id)}, { cpmu_farmer_id: 1} );
     if (farmerDetails) {
       if (farmerDetails?.address) {
         const state = await StateDistrictCity.findOne(
@@ -330,8 +331,10 @@ module.exports.getFarmerDetails = async (req, res) => {
             ...farmerDetails.address,
             state: state?.states[0]?.state_title,
             district: districts?.district_title,
-            is_verify_aadhaar: farmerAAdharInfo?.is_verify_aadhaar || false,
+            
           },
+          is_verify_aadhaar: farmerAAdharInfo?.is_verify_aadhaar || false,
+          isAgristackVerified:  agristackFarmerDetailsObj ? true : false,
         };
       }
 
