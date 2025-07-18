@@ -333,11 +333,11 @@ module.exports.getFarmerDetails = async (req, res) => {
             district: districts?.district_title,
             
           },
-          is_verify_aadhaar: farmerAAdharInfo?.is_verify_aadhaar || false,
-          isAgristackVerified:  agristackFarmerDetailsObj ? true : false,
+         
         };
       }
-
+      farmerDetails.is_verify_aadhaar= farmerAAdharInfo?.is_verify_aadhaar || false;
+      farmerDetails.isAgristackVerified=  agristackFarmerDetailsObj ? true : false;
       return sendResponse({
         res,
         status: 200,
