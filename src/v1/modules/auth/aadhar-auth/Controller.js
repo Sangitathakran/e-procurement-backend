@@ -10,6 +10,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { sendOtpToAadhar, verifyOtpWithAadhar } = require("@src/v1/common/services/gridlines/AadharVerification");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Verifyfarmer } = require("@src/v1/models/app/farmerDetails/verifyFarmer");
+const { default: mongoose } = require("mongoose");
 
 // module.exports.sendAadharOTP = async (req, res) => {
 //   try {
@@ -244,13 +245,13 @@ module.exports.sendAadharOTP = async (req, res) => {
 
 module.exports.verifyAadharOTP = async (req, res) => {
   try {
-    const { otp, code, transaction_id, uidai_aadharNo  } = req.body;
+    const { otp, code, transaction_id, uidai_aadharNo, farmer_id  } = req.body;
 
-    if (!otp || !transaction_id) {
+    if (!otp || !transaction_id || !farmer_id) {
       return res.status(400).send(
         new serviceResponse({
           status: 400,
-          errors: [{ message: _middleware.require("OTP,transaction_id") }],
+          errors: [{ message: _middleware.require("OTP,transaction_id,farmer_id") }],
         })
       );
     }
@@ -272,14 +273,15 @@ module.exports.verifyAadharOTP = async (req, res) => {
       );
     }
 
-    let farmerObj = await farmer.findOne({"proof.aadhar_no": uidai_aadharNo}, { _id: 1});
+    //let farmerObj = await farmer.findOne({"proof.aadhar_no": uidai_aadharNo}, { _id: 1});
 
     if (fetchedData?.aadhaar_data) {
      await Verifyfarmer.findOneAndUpdate(
-      { "aadhaar_details.uidai_aadharNo": uidai_aadharNo }, // Match condition
+     // { "aadhaar_details.uidai_aadharNo": uidai_aadharNo }, // Match condition
+    {farmer_id: new mongoose.Types.ObjectId(farmer_id)},
       {
         $set: {
-          farmer_id: farmerObj?._id,
+          farmer_id: new mongoose.Types.ObjectId(farmer_id),
           aadhaar_details: {uidai_aadharNo, ...fetchedData?.aadhaar_data},
           is_verify_aadhaar: true,
           is_verify_aadhaar_date: new Date()
@@ -290,6 +292,17 @@ module.exports.verifyAadharOTP = async (req, res) => {
         upsert: true,   // Create if not exists
         setDefaultsOnInsert: true
       }
+    );
+
+    await farmer.findByIdAndUpdate(
+      new mongoose.Types.ObjectId(farmer_id),
+      {
+        $set: {
+          "proof.aadhar_no": uidai_aadharNo,
+          "proof.is_verified": true
+        }
+      },
+      { new: true } // optional: returns the updated document
     );
 
 
