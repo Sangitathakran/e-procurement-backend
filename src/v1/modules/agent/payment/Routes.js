@@ -91,7 +91,7 @@ paymentRoutes.get(
 //   paymentWithoutAgreegation
 // );
 
-paymentRoutes.get('/agent-dashboard-associate-list', agentDashboardAssociateListWOAggregation);
-paymentRoutes.get("/agent-dashboard-payment-list", agentDashboardPaymentListWOAggregation);
+paymentRoutes.get('/agent-dashboard-associate-list',Auth, agentDashboardAssociateListWOAggregation);
+paymentRoutes.get("/agent-dashboard-payment-list",Auth, agentDashboardPaymentListWOAggregation);
 
 module.exports = { paymentRoutes };

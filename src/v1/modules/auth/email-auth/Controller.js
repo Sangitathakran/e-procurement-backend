@@ -49,12 +49,18 @@ module.exports.login = async (req, res) => {
       );
     }
 
-    const user = await MasterUser.findOne({ email: email.trim() })
-      .populate([
-        { path: "userRole", select: "" },
-        { path: "portalId", select: "organization_name _id email phone" }
-      ]);
-
+   const user = await MasterUser.findOne({ email: email.trim() })
+  .select("-createdBy -history -passwordChangedAt -email -mobile") 
+  .populate([
+    {
+      path: "userRole",
+      select: "" 
+    },
+    {
+      path: "portalId",
+      select: "organization_name _id " 
+    }
+  ]);
     if (!user) {
       return res.status(400).send(
         new serviceResponse({

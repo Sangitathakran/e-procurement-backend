@@ -23,31 +23,32 @@ const { dropDownRoutes } = require("./modules/dropDown/Routes");
 const { ekhridRoutes } = require("./modules/ekhrid/Routes");
 const { slaRoutes } = require("./modules/sla/Routes");
 const { upagRoutes } = require("./modules/upag/Routes");
+const {commonAuth} = require("@middlewares/jwt")
 
 /* Define Your Routes */
 router.use(handlePagination)
 router.use(handleRateLimit)
 router.use(multer().any())
 
-router.use('/aws', S3Router)
-router.use("/master", masterRoutes);
+router.use('/aws',commonAuth, S3Router) 
+router.use("/master", masterRoutes); 
 router.use("/modules", FeatureRoutes)
 router.use("/agent", agentRoutes);
-router.use("/newsla", slaRoutes);
+router.use("/newsla", commonAuth ,slaRoutes);
 
-router.use('/helper', helperRoutes)
-router.use('/user', userManagementRoutes)
-router.use("/distiller", distillerRoutes);
-router.use("/associate", associateRoutes);
+router.use('/helper', helperRoutes) 
+router.use('/user', userManagementRoutes) 
+router.use("/distiller", distillerRoutes); 
+router.use("/associate", associateRoutes); 
 router.use("/farmer", farmerRoutes);
-router.use("/ho", headOfficeRoutes);
-router.use("/bo", branchOfficeoRoutes);
-router.use("/warehouse", wareHouseRoutes);
+router.use("/ho", headOfficeRoutes); 
+router.use("/bo", branchOfficeoRoutes); 
+router.use("/warehouse", wareHouseRoutes); 
 router.use("/auth", authRoutes)
-router.use("/nccf", nccfRoutes)
-router.use("/bank", bankIntegrationRoutes)
-router.use("/dropdown", dropDownRoutes);
-router.use("/ekhrid", ekhridRoutes);
+router.use("/nccf", nccfRoutes) 
+router.use("/bank",commonAuth, bankIntegrationRoutes)
+router.use("/dropdown",commonAuth, dropDownRoutes);
+router.use("/ekhrid",commonAuth, ekhridRoutes);
 router.use("/upag", upagRoutes);
 
 module.exports = { router };

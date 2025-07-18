@@ -5,7 +5,7 @@ const { JWT_SECRET_KEY } = require('@config/index');
 const { _userType } = require('@src/v1/utils/constants/index');
 const { MasterUser } = require('@src/v1/models/master/MasterUser');
 const { User } = require('../models/app/auth/User');
-const {LoginHistory} = require('@src/v1/models/master/loginHistery');
+const { LoginHistory } = require('@src/v1/models/master/loginHistery');
 
 
 
@@ -58,7 +58,7 @@ const authenticateUser = async (req, res, next) => {
       return sendResponse({
         res,
         status: 403,
-        data:[],
+        data: [],
         message: "Invalid or expired token",
         errors: _auth_module.unAuth,
       });
@@ -77,20 +77,20 @@ const Auth = async function (req, res, next) {
 
     await jwt.verify(token, JWT_SECRET_KEY, async function (err, decoded) {
       if (err) {
-        return sendResponse({ res, status: 403, message: "error while token decode", errors: _auth_module.unAuth });
+        return sendResponse({ res, status: 401, message: "error while token decode", errors: _auth_module.unAuth });
       }
       else {
         // Login History 
-        let loginHistory = await LoginHistory.findOne({token:token,logged_out_at:null }).sort({ createdAt: -1 });
-        if (!loginHistory){ 
+        let loginHistory = await LoginHistory.findOne({ token: token, logged_out_at: null }).sort({ createdAt: -1 });
+        if (!loginHistory) {
           return sendResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
         }
-        
+
         if (decoded) {
           const route = req.baseUrl.split("/")[2]
 
           const user_type = decoded.user_type
-          
+
           const routeCheck = checkUser(route, user_type)
           if (!routeCheck) {
             return sendResponse({ res, status: 403, message: "error while routecheck decode", errors: _auth_module.unAuth });
@@ -100,15 +100,12 @@ const Auth = async function (req, res, next) {
             req[key] = value
           })
           if (decoded.email) {
-            const user = await MasterUser.findOne({ email: decoded.email.trim() }).populate("portalId")
+            const user = await MasterUser.findOne({ email: decoded?.email?.trim() }).populate("portalId")
             req.user = user
-          }else{ 
-            const user = await MasterUser.findOne({ mobile: decoded.userInput.trim() }).populate("portalId")
+          } else {
+            const user = await MasterUser.findOne({ mobile: decoded?.userInput?.trim() }).populate("portalId")
             req.user = user
           }
-
-
-
           next();
         } else {
           return sendResponse({ res, status: 403, message: "error while decode not found", errors: _auth_module.tokenExpired });
@@ -122,13 +119,13 @@ const Auth = async function (req, res, next) {
 };
 
 const checkUser = (route, user_type) => {
-  if(route === "newsla") {
+  if (route === "newsla") {
     return true;
   }
   if (_userType[route] == user_type) {
     return true;
-  } 
-  else if(user_type == 11){
+  }
+  else if (user_type == 11) {
     return true;
   }
   else {
@@ -201,10 +198,29 @@ async function verifyJwtToken(req, res, next) {
   }
 }
 
+const commonAuth = async function (req, res, next) {
+  let { token } = req.headers;
 
+  if (token) {
+    await jwt.verify(token, JWT_SECRET_KEY, async function (err, decoded) {
+      if (err) {
+        return sendResponse({ res, status: 401, message: "error while token decode", errors: _auth_module.unAuth });
+      }
+      let loginHistory = await LoginHistory.findOne({ token: token, logged_out_at: null }).sort({ createdAt: -1 });
+      if (!loginHistory) {
+        return sendResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
+      }
+      req.usersDeatils = decoded.user_type
+      next();
+    });
+  }
+  else {
+    return sendResponse({ res, status: 401, message: "error while verify token", errors: _auth_module.tokenMissing });
+  }
+};
 
 module.exports = {
   verifyJwtToken,
   verifyBasicAuth,
-  Auth, authenticateUser,authorizeRoles
+  Auth, authenticateUser, authorizeRoles, commonAuth
 }

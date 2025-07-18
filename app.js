@@ -21,12 +21,12 @@ const cookieParser = require("cookie-parser");
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./src/v1/utils/swagger/swagger-output.json");
 require("@src/v1/utils/websocket/server");
+const crypto = require("crypto");
 
 const { PORT, apiVersion } = require("./config/index");
 require('newrelic');
 require("./config/database");
-// require('newrelic');
-// require('./config/redis')
+
 const {
   handleCatchError,
   handleRouteNotFound,
@@ -38,7 +38,6 @@ const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { router } = require("./src/v1/routes");
-const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { agristackchRoutes } = require("@src/v1/modules/agristack/Routes");
 // application level middlewares
 
@@ -48,6 +47,7 @@ app.use(
     methods: ["POST", "GET", "PUT", "DELETE", "OPTIONS", "PATCH"],
   })
 );
+
 
 
 app.use(helmet({
@@ -103,14 +103,18 @@ app.get(
 // Remove X-Powered-By header
 app.use((req, res, next) => {
   res.removeHeader("X-Powered-By");
+  res.removeHeader("server");
+  res.removeHeader("Access-Control-Allow-Methods");
   next();
 });
+
+
 
 
 app.all("*", handleRouteNotFound);
 
 app.use((req, res, next) => {
-  res.setHeader("Content-Security-Policy",
+  res.setHeader("cps",
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none';"
   );
   next();
