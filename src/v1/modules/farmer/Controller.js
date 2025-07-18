@@ -25,6 +25,7 @@ const fs = require('fs');
 const axios = require('axios');
 const moment = require('moment');
 const mongoose = require('mongoose');
+const { Types } = require("mongoose");
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -611,6 +612,33 @@ module.exports.getFarmers = async (req, res) => {
         .sort(sortBy)
         .populate('associate_id', '_id user_code')
       : await farmer.find(query).sort(sortBy);
+        const updatedRows = [];
+
+        for (const f of records.rows) {
+          const farmer = f.toObject(); 
+
+          farmer.address = farmer.address || {};
+
+          const stateId = farmer.address.state_id;
+          const districtId = farmer.address.district_id;
+
+          if (stateId && Types.ObjectId.isValid(stateId)) {
+            const stateName = await getState(stateId);
+            farmer.address.state_name = stateName || null;
+          }
+
+          if (districtId && Types.ObjectId.isValid(districtId)) {
+            const districtName = await getDistrict(districtId);
+            farmer.address.district_name = districtName || null;
+          }
+
+          delete farmer.address.state_title;
+          delete farmer.address.district_title;
+
+          updatedRows.push(farmer);
+        }
+
+        records.rows = updatedRows;
 
     // records.count = await farmer.countDocuments(query);
     if (is_associated == 1) {
@@ -2177,7 +2205,7 @@ const getDistrict = async (districtId) => {
 
 
   ])
-  return district[0].district
+  return district.length > 0 ? district[0].district : null;
 
 }
 
@@ -2211,7 +2239,7 @@ const getState = async (stateId) => {
       }
     }
   ])
-  return state[0].state
+   return state.length > 0 ? state[0].state : null;
 }
 
 module.exports.makeAssociateFarmer = async (req, res) => {
