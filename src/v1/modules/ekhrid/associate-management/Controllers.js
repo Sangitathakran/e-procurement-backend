@@ -635,8 +635,6 @@ module.exports.associateFarmerList = async (req, res) => {
                 { "procurementDetails.offerCreatedAt": { $exists: false } }
             ]
         };
-        // jfomIds.forEach( (id) => { query['procurementDetails.jformID'] = parseInt(id)} );
-        // return res.json( { query});
 
         const procurements = await eKharidHaryanaProcurementModel.find(query).limit(300).lean();
         // const procurements = await eKharidHaryanaProcurementModel.find(query).lean();
@@ -646,7 +644,7 @@ module.exports.associateFarmerList = async (req, res) => {
         const farmerIDs = [];
         const mandiNames = new Set();
         const agentNames = new Set();
-
+        /*
         for (const p of procurements) {
             if (p?.procurementDetails?.farmerID) {
                 farmerIDs.push(p.procurementDetails.farmerID.toString());
@@ -658,7 +656,22 @@ module.exports.associateFarmerList = async (req, res) => {
                 agentNames.add(p.procurementDetails.commisionAgentName);
             }
         }
+        */
 
+        for (const p of procurements) {
+            if (p?.procurementDetails?.farmerID) {
+                farmerIDs.push(p.procurementDetails.farmerID.toString());
+            }
+            if (p?.procurementDetails?.mandiName) {
+                mandiNames.add(p.procurementDetails.mandiName);
+
+                const commisionAgentName = await AssociateMandiName.findOne({ mandiNames: p.procurementDetails.mandiName });
+                agentNames.add(commisionAgentName);
+            }
+            // if (p?.procurementDetails?.commisionAgentName) {
+            //     agentNames.add(p.procurementDetails.commisionAgentName);
+            // }
+        }
 
         const farmers = await farmer.find({
             external_farmer_id: { $in: farmerIDs }
@@ -671,7 +684,6 @@ module.exports.associateFarmerList = async (req, res) => {
         const users = await User.find({
             "basic_details.associate_details.organization_name": { $in: [...agentNames] }
         }, { _id: 1, "basic_details.associate_details.organization_name": 1 }).lean();
-
 
         const farmerMap = new Map(farmers.map(f => [f.external_farmer_id.toString(), f]));
         const centerMap = new Map(procurementCenters.map(c => [c.center_name, c._id]));
@@ -686,13 +698,14 @@ module.exports.associateFarmerList = async (req, res) => {
 
             const warehouseData = doc.warehouseData;
             if (!warehouseData) continue;
-
+        
             const agentName = procurement.commisionAgentName || 'UNKNOWN';
+            // const agentName = agentNames || 'UNKNOWN';
             const farmerIdStr = procurement.farmerID?.toString();
             const farmerObj = farmerMap.get(farmerIdStr) || null;
             const procurementCenterId = centerMap.get(procurement.mandiName) || null;
             const userId = userMap.get(agentName) || null;
-
+            
             // const qty = (procurement.gatePassWeightQtl || 0) / 10;
             const qty = (procurement.JformFinalWeightQtl || 0) / 10;
 
@@ -1875,7 +1888,7 @@ module.exports.updateAssociateMandiId = async (req, res) => {
         }
 
         // Loop through each document and update related records
-        
+
         const results = await Promise.allSettled(
             allDocs.map(async (doc) => {
                 const { _id, mandiName } = doc;
@@ -1892,25 +1905,25 @@ module.exports.updateAssociateMandiId = async (req, res) => {
                 }
             })
         );
+
+        /*
+                const results = await Promise.allSettled(
+                    allDocs.map(async (doc) => {
+                        const { _id, commisionAgentName } = doc;
         
-/*
-        const results = await Promise.allSettled(
-            allDocs.map(async (doc) => {
-                const { _id, commisionAgentName } = doc;
-
-                if (!commisionAgentName) return;
-
-                const associate = await User.findOne({ 'basic_details.associate_details.organization_name': commisionAgentName });
-
-                if (associate) {
-                    await AssociateMandiName.findByIdAndUpdate(
-                        _id,
-                        { associate_id: associate._id }
-                    );
-                }
-            })
-        );
-*/
+                        if (!commisionAgentName) return;
+        
+                        const associate = await User.findOne({ 'basic_details.associate_details.organization_name': commisionAgentName });
+        
+                        if (associate) {
+                            await AssociateMandiName.findByIdAndUpdate(
+                                _id,
+                                { associate_id: associate._id }
+                            );
+                        }
+                    })
+                );
+        */
         const successCount = results.filter(r => r.status === "fulfilled").length;
         const failCount = results.length - successCount;
 

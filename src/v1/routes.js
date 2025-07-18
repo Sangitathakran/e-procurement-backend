@@ -24,7 +24,7 @@ const { ekhridRoutes } = require("./modules/ekhrid/Routes");
 const { upagRoutes } = require("./modules/upag/Routes");
 const { slaRoutes } = require("./modules/sla/Routes");
 // const { agristackchRoutes } = require("./modules/agristack/Routes");
-const { eKharidDevelopmentRoutes } = require("./modules/eKharid-development/Routes");
+const { bulkImport } = require("./modules/importServices/Routes");
 /* Define Your Routes */
 router.use(handlePagination)
 //router.use(handleRateLimit)
@@ -51,7 +51,7 @@ router.use("/dropdown", dropDownRoutes);
 router.use("/ekhrid", ekhridRoutes);
 router.use("/upag", upagRoutes);
 //router.use("/agristack", agristackchRoutes);
-router.use("/eKharid", eKharidDevelopmentRoutes)
 
+router.use('/', bulkImport)
 
 module.exports = { router };

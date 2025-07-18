@@ -1,6 +1,70 @@
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET_KEY } = require('@config/index');
+const { MasterUser } = require('@src/v1/models/master/MasterUser');
+const bcrypt = require('bcryptjs');
 
+module.exports.registerUser = async (req, res) => {
+  try {
+    const { firstName, email, password } = req.body;
+
+    if (!firstName || !email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    const existingUser = await MasterUser.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ message: 'Email already registered' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new MasterUser({
+      firstName,
+      email,
+      password: hashedPassword
+    });
+
+    await newUser.save();
+
+    res.status(201).json({ message: 'User registered successfully' });
+
+  } catch (error) {
+    console.error('Register Error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports.loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password required' });
+    }
+
+    const user = await MasterUser.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    const payload = {
+      userId: user._id,
+      email: user.email,
+      username: user.username,
+    };
+
+    const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn: '24h' });
+
+    return res.status(200).json({ token });
+  } catch (error) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
 module.exports.generateToken = async(req,res)=>{
 const payload = {
   userId: 123,

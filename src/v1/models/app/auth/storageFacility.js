@@ -13,6 +13,7 @@ const storageFacilitySchema = new mongoose.Schema({
         unit: { type: String, enum: ["Square meters"], default:"Square meters"}
     },
     storage_condition: { type: String, enum: ["Cool","Dry"],  trim: true }, 
+    source_by: { type: String, default: "NCCF" },
     ..._commonKeys
 }, { timestamps: true });
 
