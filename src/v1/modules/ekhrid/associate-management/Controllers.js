@@ -17,10 +17,16 @@ const Joi = require('joi');
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 // const jformIds = require('../jform_ids');
-const jformIds = require('../remaining_jformIds');
-const checkJformIdsExist = require('../allJformIds');
+// const jformIds = require('../remaining_jformIds');
+const jformIds = require('../allJformIds');
+// const checkJformIdsExist = require('../allJformIds');
 // const checkJformIdsExist = require('../paymentExistingInEkhridTeam');
+// const checkJformIdsExist = require('../rajveerSheet');
+const checkJformIdsExist = require('../finalJformIds(02-07-2025)');
+// const checkJformIdsExist = require('../remainingJformIds(15-07-2025)');
+const needToUpdateAssociateJformIds = require('../needToUpdateAssociateJformIds');
 const { AssociateMandiName } = require("@src/v1/models/app/eKharid/associateMandiName");
+const { error } = require('console');
 
 module.exports.getAssociates = async (req, res) => {
     try {
@@ -370,6 +376,7 @@ module.exports.addProcurementCenter = async (req, res) => {
         const procurements = await eKharidHaryanaProcurementModel.aggregate([
             {
                 $match: {
+                    "procurementDetails.commodityName": "Sunflower",
                     // "procurementDetails.commisionAgentName":"SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD",
                     // "procurementDetails.commisionAgentName": "FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY",
                     "procurementDetails.commisionAgentName": "HAFED",
@@ -638,13 +645,13 @@ module.exports.associateFarmerList = async (req, res) => {
 
         const procurements = await eKharidHaryanaProcurementModel.find(query).limit(300).lean();
         // const procurements = await eKharidHaryanaProcurementModel.find(query).lean();
-        // console.log(procurements.length);
+        console.log(procurements.length);
         if (!procurements.length) return [];
 
         const farmerIDs = [];
         const mandiNames = new Set();
         const agentNames = new Set();
-        /*
+
         for (const p of procurements) {
             if (p?.procurementDetails?.farmerID) {
                 farmerIDs.push(p.procurementDetails.farmerID.toString());
@@ -656,22 +663,7 @@ module.exports.associateFarmerList = async (req, res) => {
                 agentNames.add(p.procurementDetails.commisionAgentName);
             }
         }
-        */
 
-        for (const p of procurements) {
-            if (p?.procurementDetails?.farmerID) {
-                farmerIDs.push(p.procurementDetails.farmerID.toString());
-            }
-            if (p?.procurementDetails?.mandiName) {
-                mandiNames.add(p.procurementDetails.mandiName);
-
-                const commisionAgentName = await AssociateMandiName.findOne({ mandiNames: p.procurementDetails.mandiName });
-                agentNames.add(commisionAgentName);
-            }
-            // if (p?.procurementDetails?.commisionAgentName) {
-            //     agentNames.add(p.procurementDetails.commisionAgentName);
-            // }
-        }
 
         const farmers = await farmer.find({
             external_farmer_id: { $in: farmerIDs }
@@ -684,6 +676,7 @@ module.exports.associateFarmerList = async (req, res) => {
         const users = await User.find({
             "basic_details.associate_details.organization_name": { $in: [...agentNames] }
         }, { _id: 1, "basic_details.associate_details.organization_name": 1 }).lean();
+
 
         const farmerMap = new Map(farmers.map(f => [f.external_farmer_id.toString(), f]));
         const centerMap = new Map(procurementCenters.map(c => [c.center_name, c._id]));
@@ -698,14 +691,13 @@ module.exports.associateFarmerList = async (req, res) => {
 
             const warehouseData = doc.warehouseData;
             if (!warehouseData) continue;
-        
+
             const agentName = procurement.commisionAgentName || 'UNKNOWN';
-            // const agentName = agentNames || 'UNKNOWN';
             const farmerIdStr = procurement.farmerID?.toString();
             const farmerObj = farmerMap.get(farmerIdStr) || null;
             const procurementCenterId = centerMap.get(procurement.mandiName) || null;
             const userId = userMap.get(agentName) || null;
-            
+
             // const qty = (procurement.gatePassWeightQtl || 0) / 10;
             const qty = (procurement.JformFinalWeightQtl || 0) / 10;
 
@@ -1615,6 +1607,105 @@ module.exports.totalQtyRania = async (req, res) => {
     }
 };
 
+module.exports.totalQtyBarwala = async (req, res) => {
+    try {
+        const matchStage = {
+            "warehouseData.jformID": { $exists: true },
+            "paymentDetails.jFormId": { $exists: true },
+            "procurementDetails.jformID": { $exists: true },
+            "procurementDetails.offerCreatedAt": { $ne: null },
+            "procurementDetails.mandiName": { $in: ["Barwala(H)", "Barwala(H)"] },
+            "procurementDetails.commisionAgentName": "HAFED"
+        };
+
+        const groupedResult = await eKharidHaryanaProcurementModel.aggregate([
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: "$warehouseData.exitGatePassId",
+                    totalQtyQtl: { $sum: "$procurementDetails.JformFinalWeightQtl" }
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    totalQtyQtl: 1,
+                    totalQtyMT: { $multiply: ["$totalQtyQtl", 0.1] }
+                }
+            },
+            {
+                $sort: { totalQtyMT: -1 } // Optional sorting
+            }
+        ]);
+
+        // Calculate grand total from the grouped result
+        const grandTotal = groupedResult.reduce(
+            (acc, item) => {
+                acc.totalQtyQtl += item.totalQtyQtl;
+                acc.totalQtyMT += item.totalQtyMT;
+                return acc;
+            },
+            { totalQtyQtl: 0, totalQtyMT: 0 }
+        );
+
+        res.json({
+            groupedQty: groupedResult,
+            totalQtyQtl: grandTotal.totalQtyQtl,
+            totalQtyMT: grandTotal.totalQtyMT
+        });
+
+        // res.json({
+        //     groupedQty: result
+        // });
+    } catch (error) {
+        console.error("Error in totalQty:", error);
+        _handleCatchErrors(error, res);
+    }
+};
+
+module.exports.getBatchIdandDeletePayment = async (req, res) => {
+    try {
+        const matchStage = {
+            associateOffer_id: new mongoose.Types.ObjectId("681c91dc2e8cd7e6c0d71a8e"),
+            procurementCenter_id: {
+                $in: [
+                    new mongoose.Types.ObjectId("67e3c0d316a8db907254c7b1"),
+                    new mongoose.Types.ObjectId("67ee35f407654b69eabda474")
+                ]
+            }
+        };
+
+        // Step 1: Fetch batch IDs
+        const batches = await Batch.find(matchStage, { _id: 1 });
+        const batchIds = batches.map(batch => batch._id);
+        const count = batchIds.length;
+
+        if (count === 0) {
+            return res.json({
+                message: "No batches found for given criteria.",
+                batchIds: [],
+                deletedCount: 0
+            });
+        }
+
+        // Step 2: Delete payments with batch_id in batchIds
+        const paymentResult = await Payment.find({ batch_id: { $in: batchIds } });
+        // const deleteResult = await Payment.deleteMany({ batch_id: { $in: batchIds } });
+
+        res.json({
+            message: "Payments deleted successfully",
+            batchIds,
+            batchCount: count,
+            paymentCount: paymentResult.length,
+            //   deletedCount: deleteResult.deletedCount
+        });
+
+    } catch (error) {
+        console.error("Error in totalQty:", error);
+        _handleCatchErrors(error, res);
+    }
+};
+
 
 // Helper to get start and end of today in ISO
 function getTodayRange() {
@@ -1684,8 +1775,8 @@ module.exports.checkJformIdsExist = async (req, res) => {
         const existingDocs = await eKharidHaryanaProcurementModel.find(
             {
                 "procurementDetails.jformID": { $in: allJformIds },
-                "procurementDetails.iFormId": { $exists: true },
-                "warehouseData.jformID": { $exists: true },
+                // "procurementDetails.iFormId": { $exists: true },
+                // "warehouseData.jformID": { $exists: true },
                 // "paymentDetails.jFormId": { $exists: false }
             },
             { "procurementDetails.jformID": 1 }
@@ -1699,7 +1790,7 @@ module.exports.checkJformIdsExist = async (req, res) => {
         );
 
 
-        const newJformIds = allJformIds.filter(id => existingIdsSet.has(id));
+        const newJformIds = allJformIds.filter(id => !existingIdsSet.has(id));
         console.log("newJformIds count:", newJformIds.length);
         // //  Write result to file
         // fs.writeFileSync('./paymentDetailsExisting.txt', JSON.stringify(newJformIds, null, 2));
@@ -1735,7 +1826,6 @@ module.exports.checkJformIdsExist = async (req, res) => {
     }
 };
 
-
 module.exports.ekhridProcrementExport = async (req, res) => {
     const fs = require('fs');
     // const { page = 1, limit = 10, sortBy, isExport = 0 } = req.query;
@@ -1760,7 +1850,7 @@ module.exports.ekhridProcrementExport = async (req, res) => {
                 "procurementDetails.jformID": { $in: allJformIds },
                 // "procurementDetails.commisionAgentName": "FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY",
                 // "procurementDetails.commisionAgentName": "SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD",
-                "procurementDetails.commisionAgentName": "HAFED",
+                // "procurementDetails.commisionAgentName": "HAFED",
             }
         )
             .sort({ createdAt: -1, _id: -1 })
@@ -1943,3 +2033,352 @@ module.exports.updateAssociateMandiId = async (req, res) => {
     }
 
 };
+
+module.exports.sunflowerMandiName = async (req, res) => {
+    try {
+
+        const matchStage = {
+            "procurementDetails.commodityName": "Sunflower",
+        };
+
+        // Get unique mandi names
+        const mandiResults = await eKharidHaryanaProcurementModel.aggregate([
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: "$procurementDetails.mandiName"
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    mandiName: "$_id"
+                }
+            }
+        ]);
+
+        // Get unique commission agent names
+        const agentResults = await eKharidHaryanaProcurementModel.aggregate([
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: "$procurementDetails.commisionAgentName"
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    commisionAgentName: "$_id"
+                }
+            }
+        ]);
+
+        // Extract values into arrays
+        const mandiNames = mandiResults.map(item => item.mandiName);
+        const commisionAgentNames = agentResults.map(item => item.commisionAgentName);
+
+        return res.status(200).json({
+            success: true,
+            message: "Unique Sunflower mandi and agent names fetched successfully.",
+            data: {
+                mandiNames,
+                mandiNameCount: mandiNames.length,
+                commisionAgentNames,
+                commisionAgentNameCount: commisionAgentNames.length
+            }
+        });
+    }
+    catch (err) {
+        console.error("Error in SunflowerMandiName:", err);
+        return res.status(500).json({ error: err.message });
+    }
+}
+
+module.exports.sunflowerMandiWiseDataExport = async (req, res) => {
+    try {
+        const { Parser } = require('json2csv');
+        const matchStage = {
+            "procurementDetails.commodityName": "Sunflower",
+            "procurementDetails.mandiName": {
+                $in: ["Shahbad", "Ishmilabad", "Ismailabad", "Thol", "Jhansa", "Mullana", "Naraingarh", "Sadhaura"]
+            }
+        };
+
+        const data = await eKharidHaryanaProcurementModel.aggregate([
+            {
+                $match: {
+                    "procurementDetails.commodityName": "Sunflower",
+                    "procurementDetails.mandiName": {
+                        $in: ["Shahbad", "Ishmilabad", "Ismailabad", "Thol", "Jhansa", "Mullana", "Naraingarh", "Sadhaura"]
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    farmerIDAsNumber: { $toLong: "$procurementDetails.farmerID" }
+                }
+            },
+            {
+                $lookup: {
+                    from: 'farmers',
+                    let: { farmerId: "$farmerIDAsNumber" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $eq: ["$external_farmer_id", "$$farmerId"]
+                                }
+                            }
+                        },
+                        { $project: { name: 1 } }
+                    ],
+                    as: "farmerInfo"
+                }
+            },
+            {
+                $unwind: {
+                    path: "$farmerInfo",
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $project: {
+                    farmerName: "$farmerInfo.name",
+                    jformID: "$procurementDetails.jformID",
+                    jformFinalWeightQtl: "$procurementDetails.JformFinalWeightQtl",
+                    mandiName: "$procurementDetails.mandiName",
+                    procurementDate: "$procurementDetails.jformApprovalDate"
+                }
+            }
+        ]);
+
+        if (!data.length) {
+            return res.status(404).json({ success: false, message: "No data found" });
+        }
+        // console.log("Data fetched for CSV export:", data);
+        // Convert JSON to CSV
+        const fields = ['farmerName', 'jformID', 'jformFinalWeightQtl', 'mandiName', 'procurementDate'];
+        const json2csvParser = new Parser({ fields });
+        const csv = json2csvParser.parse(data);
+
+        // Set headers and send CSV
+        res.header('Content-Type', 'text/csv');
+        res.attachment('sunflower_procurement.csv');
+        return res.send(csv);
+
+    } catch (error) {
+        console.error("CSV export error:", error);
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+}
+
+module.exports.checkFinalJformIdsExist = async (req, res) => {
+    const fs = require('fs');
+    const XLSX = require('xlsx');
+    try {
+        // Make sure jformIds is defined or fetched from request
+        const allJformIds = checkJformIdsExist.map(id => parseInt(id));
+
+        // Query DB for documents that match
+        const existingDocs = await eKharidHaryanaProcurementModel.find(
+            {
+                "procurementDetails.jformID": { $in: allJformIds },
+                "procurementDetails.iFormId": { $exists: true },
+                "paymentDetails.jFormId": { $exists: true },
+                "warehouseData.jformID": { $exists: true }
+            },
+            {
+                "procurementDetails.jformID": 1,
+                "procurementDetails.JformFinalWeightQtl": 1 // <-- Add qty field
+            }
+        ).lean();
+
+        console.log("Existing jformIDs count:", existingDocs.length);
+        console.log("allJformIds count:", allJformIds.length);
+
+        // Extract jformIDs found in DB
+        const existingIdsSet = new Set(
+            existingDocs.map(doc => doc.procurementDetails.jformID)
+        );
+
+        // Calculate total quantity (sum of jformFinalWeightQtl)
+
+        const totalQty = existingDocs.reduce((sum, doc) => {
+            const qty = doc?.procurementDetails?.JformFinalWeightQtl;
+            if (typeof qty === 'number') {
+                return sum + qty;
+            } else {
+                console.warn(`No qty found for jformID: ${doc?.procurementDetails?.jformID}`);
+                return sum;
+            }
+        }, 0);
+
+        // Get missing jformIDs
+        const newJformIds = allJformIds.filter(id => !existingIdsSet.has(id));
+        console.log("Missing JformIds count:", newJformIds.length);
+
+        // Prepare Excel data of missing jformIDs
+        const excelData = newJformIds.map(id => ({ jformID: id }));
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+        XLSX.writeFile(wb, './paymentDetailsMissing(2025-07-15).xlsx');
+
+        // Return response
+        return res.json({
+            message: "Success",
+            total: allJformIds.length,
+            foundInDB: existingIdsSet.size,
+            missing: newJformIds.length,
+            totalQty: +totalQty.toFixed(2) // Round to 2 decimals
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: err.message });
+    }
+};
+
+module.exports.ekhridExport = async (req, res) => {
+    const XLSX = require('xlsx');
+    const fs = require('fs');
+    const path = require('path');
+    try {
+        const allJformIds = checkJformIdsExist.map(id => parseInt(id));
+
+        const existingDocs = await eKharidHaryanaProcurementModel.find(
+            {
+                "procurementDetails.jformID": { $in: allJformIds },
+                // "procurementDetails.iFormId": { $exists: true },
+                "procurementDetails.offerCreatedAt": { $exists: true },
+                "procurementDetails.commodityName": "Mustard"
+            }
+        ).sort({ createdAt: -1, _id: -1 }).lean();
+
+        // console.log("Existing jformIDs count:", existingDocs.length);
+        // console.log("allJformIds count:", allJformIds.length);
+
+        const matchedIdsSet = new Set(existingDocs.map(doc => doc?.procurementDetails?.jformID));
+        const newJformIds = allJformIds.filter(id => !matchedIdsSet.has(id));
+
+        const farmerIds = existingDocs
+            .map(doc => doc?.procurementDetails?.farmerID)
+            .filter(Boolean);
+
+        const farmers = await farmer.find({
+            external_farmer_id: { $in: farmerIds }
+        }).lean();
+
+        // console.log('Farmers fetched:', farmers.length);
+
+        const farmerMap = new Map();
+        farmers.forEach(f => {
+            farmerMap.set(String(f.external_farmer_id), f);
+        });
+
+        const matchedExcelData = existingDocs.map(doc => {
+            const farmerID = doc?.procurementDetails?.farmerID;
+            const farmer = farmerMap.get(String(farmerID)) || {};
+
+            // console.log('Farmers fetched:', farmers.length);
+            // console.log('Sample farmer:', farmers[0]);
+
+            return {
+                jformID: doc?.procurementDetails?.jformID || '',
+                agencyName: doc?.procurementDetails?.agencyName || '',
+                commodityName: doc?.procurementDetails?.commodityName || '',
+                mandiName: doc?.procurementDetails?.mandiName || '',
+                gatePassWeightQtl: doc?.procurementDetails?.gatePassWeightQtl || '',
+                farmerID: farmerID || '',
+                farmerName: farmer.name || farmer.basic_details?.name,                 // <-- new field
+                farmerMobile: farmer.mobile_no || farmer.basic_details?.mobile_no,             // <-- new field
+                gatePassID: doc?.procurementDetails?.gatePassID || '',
+                gatePassDate: doc?.procurementDetails?.gatePassDate || '',
+                auctionID: doc?.procurementDetails?.auctionID || '',
+                auctionDate: doc?.procurementDetails?.auctionDate || '',
+                commisionAgentName: doc?.procurementDetails?.commisionAgentName || '',
+                jformDate: doc?.procurementDetails?.jformDate || '',
+                JformFinalWeightQtl: doc?.procurementDetails?.JformFinalWeightQtl || '',
+                totalBags: doc?.procurementDetails?.totalBags || '',
+                liftedDate: doc?.procurementDetails?.liftedDate || '',
+                destinationWarehouseName: doc?.procurementDetails?.destinationWarehouseName || '',
+                receivedAtDestinationDate: doc?.procurementDetails?.receivedAtDestinationDate || '',
+                jformApprovalDate: doc?.procurementDetails?.jformApprovalDate || '',
+                offerCreatedAt: doc?.procurementDetails?.offerCreatedAt || '',
+                batchCreatedAt: doc?.procurementDetails?.batchCreatedAt || '',
+                centerCreatedAt: doc?.procurementDetails?.centerCreatedAt || '',
+                warehouseCreatedAt: doc?.procurementDetails?.warehouseCreatedAt || '',
+                batchIdUpdatedAt: doc?.procurementDetails?.batchIdUpdatedAt || '',
+
+                // Payment Details
+                payment_jFormId: doc?.paymentDetails?.jFormId || '',
+                transactionId: doc?.paymentDetails?.transactionId || '',
+                transactionAmount: doc?.paymentDetails?.transactionAmount || '',
+                transactionDate: doc?.paymentDetails?.transactionDate || '',
+                transactionStatus: doc?.paymentDetails?.transactionStatus || '',
+                paymentReason: doc?.paymentDetails?.reason || '',
+
+                // Warehouse Data
+                destinationAddress: doc?.warehouseData?.destinationAddress || '',
+                driverName: doc?.warehouseData?.driverName || '',
+                exitGatePassId: doc?.warehouseData?.exitGatePassId || '',
+                warehouse_jFormId: doc?.warehouseData?.jFormId || '',
+                transporterName: doc?.warehouseData?.transporterName || '',
+                truckNo: doc?.warehouseData?.truckNo || '',
+                warehouseId: doc?.warehouseData?.warehouseId || '',
+                warehouseName: doc?.warehouseData?.warehouseName || ''
+            };
+        });
+        const wb = XLSX.utils.book_new();
+        const matchedSheet = XLSX.utils.json_to_sheet(matchedExcelData);
+        XLSX.utils.book_append_sheet(wb, matchedSheet, 'MatchedRecords');
+
+        const missingSheet = XLSX.utils.json_to_sheet(newJformIds.map(id => ({ jformID: id })));
+        XLSX.utils.book_append_sheet(wb, missingSheet, 'MissingJformIDs');
+
+        const filePath = path.join(__dirname, '../exports/eKharidMappedWithFarmerDetailsReport.xlsx'); // adjust folder
+        XLSX.writeFile(wb, filePath);
+
+        return res.download(filePath, 'eKharidMappedWithFarmerDetailsReport.xlsx');
+
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: err.message });
+    }
+};
+
+module.exports.updateAssociateName = async (req, res) => {
+    const XLSX = require('xlsx');
+    const fs = require('fs');
+    const path = require('path');
+    try {
+        // const allJformIds = checkJformIdsExist.map(id => parseInt(id));
+        const needToUpdateParsed = needToUpdateAssociateJformIds.map(id => parseInt(id));
+
+        const existingDocs = await eKharidHaryanaProcurementModel.find({
+
+            "procurementDetails.jformID": { $in: needToUpdateParsed },
+            // "warehouseData.jformID": { $exists: true },
+            // "paymentDetails.jFormId": { $exists: true },
+        });
+
+        const updateResult = await eKharidHaryanaProcurementModel.updateMany(
+            {
+                "procurementDetails.jformID": { $in: needToUpdateParsed },
+                "procurementDetails.offerCreatedAt": null,
+            },
+            {
+                $set: { "procurementDetails.commisionAgentName": "HAFED" }
+            }
+        );
+
+        res.json({
+            message: "Associate Updated",
+            existingDocs: existingDocs.length,
+            updatedCount: updateResult.modifiedCount
+        });
+
+    } catch (error) {
+        console.error("Error in updateAssociate:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+}
