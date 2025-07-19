@@ -11,8 +11,8 @@ module.exports.farmerOfferCreated = async (req, res) => {
    const seller_id= "67e38f0516a8db907254c63a" // farmer consortium
   //  const seller_id= "67ee2a3e07654b69eabda370", // hafed
     const payload = {
-      // "associateName":"SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD"
-      "associateName":"FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY"
+      "associateName":"SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD"
+      // "associateName":"FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY"
       // "associateName":"HAFED"
   };
     let count = 1;
