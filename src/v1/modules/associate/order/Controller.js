@@ -380,7 +380,6 @@ module.exports.editTrackDelivery = async (req, res) => {
 }
 
 module.exports.viewTrackDelivery = async (req, res) => {
-
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
         const user_id = req.user_id
@@ -388,7 +387,6 @@ module.exports.viewTrackDelivery = async (req, res) => {
         let query = {
             req_id,
             seller_id: user_id,
-            ...(search ? { name: { $regex: search, $options: "i" } } : {})
         };
 
         const records = { count: 0 };
@@ -398,27 +396,36 @@ module.exports.viewTrackDelivery = async (req, res) => {
               { path: "procurementCenter_id", select: "center_name" },
           ])
           */
-        records.rows = paginate == 1 ? await Batch.find(query).populate([
-            {
-                path: 'req_id', select: 'product address branch_id head_office_id sla_id',
-                populate: [
-                    { path: 'product.schemeId', select: 'schemeName season period' },
-                    { path: "sla_id", select: "basic_details.name" },
-                    { path: 'branch_id', select: '_id branchName branchId' },
-                    { path: "head_office_id", select: "_id company_details.name" }
-                ]
-
-            },
-            { path: 'associateOffer_id', select: 'offeredQty procuredQty' },
-            { path: "procurementCenter_id", select: "center_name" }
-        ])
+         let rows = await Batch.find(query)
+            .populate([
+                {
+                    path: 'req_id',
+                    select: 'product address branch_id head_office_id sla_id',
+                    populate: [
+                        { path: 'product.schemeId', select: 'schemeName season period' },
+                        { path: 'sla_id', select: 'basic_details.name' },
+                        { path: 'branch_id', select: '_id branchName branchId' },
+                        { path: 'head_office_id', select: '_id company_details.name' }
+                    ]
+                },
+                { path: 'associateOffer_id', select: 'offeredQty procuredQty' },
+                { path: 'procurementCenter_id', select: 'center_name' }
+            ])
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
+            .limit(parseInt(limit));
 
-        // Modify each record to concatenate schemeName, season, and period
-
-        records.count = await Batch.countDocuments(query);
+       if (search?.trim()) {
+            const lowerSearch = search.trim().toLowerCase();
+            rows = rows.filter(item => {
+                const batchMatch = item?.batchId?.toString().toLowerCase().includes(lowerSearch);
+                const centerMatch = item?.procurementCenter_id?.center_name?.toLowerCase().includes(lowerSearch);
+                return batchMatch || centerMatch;
+            });
+        }
+       
+        records.rows = rows;
+        records.count = rows.length;
 
         if (paginate == 1) {
             records.page = page
