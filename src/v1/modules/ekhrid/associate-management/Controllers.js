@@ -628,6 +628,7 @@ module.exports.associateFarmerList = async (req, res) => {
     let jfomIds = jformIds.slice(0, 110191);
 
     const { associateName } = req.body;
+    console.log("associateName",associateName)
 
     try {
         // Match filter
@@ -643,9 +644,9 @@ module.exports.associateFarmerList = async (req, res) => {
             ]
         };
 
-        const procurements = await eKharidHaryanaProcurementModel.find(query).limit(300).lean();
+        const procurements = await eKharidHaryanaProcurementModel.find(query).limit(3).lean();
         // const procurements = await eKharidHaryanaProcurementModel.find(query).lean();
-        console.log(procurements.length);
+        console.log("procurements",procurements.length);
         if (!procurements.length) return [];
 
         const farmerIDs = [];
@@ -1036,6 +1037,7 @@ module.exports.createOfferOrder = async (req, res) => {
                 exitGatePassId: warehouseData.exitGatePassId || null,
                 createdAt: harvester.createdAt,
                 procurementCenter_id: harvester.procurementId,
+                jformID:harvester.jformID,
                 ekhrid: true
             });
 
@@ -1045,6 +1047,7 @@ module.exports.createOfferOrder = async (req, res) => {
                 metaData,
                 offeredQty: handleDecimal(harvester.qty),
                 createdBy: seller_id,
+                jformID:harvester.jformID,
                 ekhrid: true
             });
 

@@ -10,6 +10,7 @@ const farmerOffersSchema = new mongoose.Schema({
     offeredQty: { type: Number, required: true },
     status: { type: String, enum: Object.values(_status), default: _status.active },
     ekhrid:{ type: Boolean, default: false },
+    jformID:{type:Number,default:null},
     ..._commonKeys
 }, { timestamps: true });
 
