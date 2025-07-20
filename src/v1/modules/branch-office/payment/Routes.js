@@ -1,6 +1,6 @@
 const express = require("express");
 const { payment, paymentLogsHistory, associateOrders, batchList, batchApprove, qcReport, paymentApprove, getBill, lot_list,
-     agentPaymentList, agentBill, boBillRejection, verifyOTP, sendOTP, paymentWithoutAggregtion} = require("./Controller");
+     agentPaymentList, agentBill, boBillRejection, verifyOTP, sendOTP, paymentWithoutAggregtion,paymentWithoutAggregtionExport} = require("./Controller");
 const { _userType } = require("@src/v1/utils/constants/index")
 const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/jwt")
 
@@ -19,6 +19,7 @@ paymentRoutes.get("/agent-bill",authenticateUser,authorizeRoles(_userType.bo), A
 paymentRoutes.get("/payment-logs",authenticateUser,authorizeRoles(_userType.bo), Auth, paymentLogsHistory);
 
 paymentRoutes.get("/",authenticateUser,authorizeRoles(_userType.bo), Auth, paymentWithoutAggregtion);
+paymentRoutes.get("/payment-export", Auth, paymentWithoutAggregtionExport);
 
 /// dileep code 
 

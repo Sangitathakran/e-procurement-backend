@@ -26,7 +26,6 @@ const crypto = require("crypto");
 const { PORT, apiVersion } = require("./config/index");
 require('newrelic');
 require("./config/database");
-
 const {
   handleCatchError,
   handleRouteNotFound,

@@ -1,6 +1,7 @@
 const { errorLogger } = require("@config/logger")
 const { sendResponse } = require("./api_response")
 const fs = require('fs');
+const path = require('path');
 const { Parser } = require('json2csv');
 const { v4: uuidv4 } = require('uuid');
 const xlsx = require('xlsx');
@@ -408,13 +409,27 @@ exports.getStateId = async (stateName) => {
     if (myAddress.get(stateName)) {
       return myAddress.get(stateName)
     }
-    const stateDoc = await StateDistrictCity.findOne({
-      'states.state_title': stateName
-    });
-    if (stateDoc) {
-      const state = stateDoc.states.find(state => state.state_title == stateName);
+    // const stateDoc = await StateDistrictCity.findOne({
+    //   'states.state_title': { $regex: new RegExp(`^${stateName}$`, 'i') }
+    // });
+    const stateDoc = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      {
+        $match: {
+          "states.state_title": { $regex: new RegExp(`^${stateName}$`, "i") }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          state: "$states"
+        }
+      }
+    ]);
+    if (stateDoc && stateDoc.length > 0) {
+      const state = stateDoc[0].state;
       // console.log('state', state._id);
-      if (state) {
+      if (state && state._id) {
         myAddress.set(stateName, state._id);
         return state._id;
       }
@@ -517,3 +532,68 @@ exports._advancePayment = () => {
   const percentage = 10;
   return percentage;
 }
+exports.dumpLargeJSONToExcelStream = async (
+  res,
+  config = {
+    dataGenerator: async function* () {
+      yield* [];
+    }, // async generator
+    fileName: 'LargeExport.xlsx',
+    sheetName: 'Sheet1',
+  }
+) => {
+  try {
+    const { dataGenerator, fileName, sheetName } = config;
+
+    const tempFilePath = path.join(__dirname, `../../temp/${fileName}`);
+
+    // Ensure temp folder exists
+    fs.mkdirSync(path.dirname(tempFilePath), { recursive: true });
+
+    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+      filename: tempFilePath,
+    });
+
+    const worksheet = workbook.addWorksheet(sheetName);
+
+    let isFirstRow = true;
+    for await (const row of dataGenerator()) {
+      // Set header row only once
+      if (isFirstRow) {
+        worksheet.addRow(Object.keys(row)).commit();
+        isFirstRow = false;
+      }
+
+      worksheet.addRow(Object.values(row)).commit();
+    }
+
+    await workbook.commit();
+
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+
+    const stream = fs.createReadStream(tempFilePath);
+    stream.pipe(res);
+
+    stream.on('end', () => {
+      fs.unlink(tempFilePath, () => {}); // clean up
+    });
+
+    stream.on('error', err => {
+      console.error('Stream error:', err);
+      return res
+        .status(500)
+        .send({ message: 'Error while streaming Excel file.' });
+    });
+  } catch (error) {
+    console.error('Excel export error:', error);
+    return res.status(500).send({
+      status: 500,
+      errors: [{ message: `${error.message}` }],
+    });
+  }
+};

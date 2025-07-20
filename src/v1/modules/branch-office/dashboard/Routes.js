@@ -1,5 +1,5 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
-const { getDashboardStats, getProcurementsStats, getProcurementStatusList, getPendingOffersCountByRequestId, farmerPayments, agentPayments } = require("./Controller");
+const { getDashboardStats, getProcurementsStats, getProcurementStatusList, getPendingOffersCountByRequestId, farmerPayments, agentPayments, getStateWiseCommodityStatus, getDistrict } = require("./Controller");
 const express = require("express");
 const dashboardRoutes = express.Router();
 const { _userType } = require("@src/v1/utils/constants/index")
@@ -12,5 +12,7 @@ dashboardRoutes.get("/pending-precurement-list",authenticateUser,authorizeRoles(
 
 dashboardRoutes.get("/farmer-payment",authenticateUser,authorizeRoles(_userType.bo), Auth, farmerPayments);
 dashboardRoutes.get("/agent-req", agentPayments);
+dashboardRoutes.get("/state-wise-commodity", Auth, getStateWiseCommodityStatus);
+dashboardRoutes.get("/state-wise-district",Auth, getDistrict) //**statewise district */
 
 module.exports = { dashboardRoutes }; 

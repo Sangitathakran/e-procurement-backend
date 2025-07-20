@@ -1,6 +1,7 @@
 const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 const { User } = require("@src/v1/models/app/auth/User");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
+const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Commodity } = require("@src/v1/models/master/Commodity");
 const {
@@ -124,12 +125,12 @@ module.exports.cna_list = async (req, res) => {
 module.exports.sla_list = async (req, res) => {
   const query = { deletedAt: null, status: "active" };
   try {
-    const sla_list = await SLAManagement.aggregate([
+    const sla_lists = await SLAManagement.aggregate([
       { $match: query },
       { $project: { name: "$basic_details.name" } },
     ]);
 
-    return sendResponse({ res, message: "", data: sla_list });
+    return sendResponse({ res, message: "", data: sla_lists });
   } catch (err) {
     console.log("ERROR: ", err);
     return sendResponse({ status: 500, message: err.message });
@@ -351,4 +352,63 @@ module.exports.getWarehouses = async (req, res) => {
   }
 };
 
+module.exports.updateProcurementCenters = async (req, res) => {
+  try {
+    const centers = await ProcurementCenter.find({
+      $or: [
+        { 'address.state_id': { $exists: false } },
+        { 'address.district_id': { $exists: false } },
+      ],
+    }).lean();
+    const updatedCenters = [];
+
+    const cityData = await StateDistrictCity.findOne().lean();
+    if (!cityData) throw new Error('No StateDistrictCity document found');
+    for (const center of centers) {
+      const { state: stateTitle, district: districtTitle } = center.address;
+
+      const stateObj = cityData.states.find(
+        st => st.state_title.toLowerCase() === stateTitle.toLowerCase()
+      );
+      if (!stateObj) {
+        console.warn(`State not found for: ${stateTitle}`);
+        continue;
+      }
+
+      const districtObj = stateObj.districts.find(
+        dt => dt.district_title.toLowerCase() === districtTitle.toLowerCase()
+      );
+      if (!districtObj) {
+        console.warn(
+          `District not found for: ${districtTitle} in state: ${stateTitle}`
+        );
+        continue;
+      }
+
+      await ProcurementCenter.updateOne(
+        { _id: center._id },
+        {
+          $set: {
+            'address.state_id': stateObj._id,
+            'address.district_id': districtObj._id,
+          },
+        }
+      );
+
+      console.log(`Updated center ${center._id}: set state_id and district_id`);
+      updatedCenters.push(center._id);
+    }
+
+    console.log('✅ All done!');
+    return res.send({
+      message: '✅ All done!',
+      data: {
+        centers: updatedCenters,
+        total: updatedCenters.length
+      },
+    });
+  } catch (err) {
+    throw new Error(err.message);
+  }
+};
 

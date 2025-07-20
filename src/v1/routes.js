@@ -27,7 +27,7 @@ const {commonAuth} = require("@middlewares/jwt")
 
 /* Define Your Routes */
 router.use(handlePagination)
-router.use(handleRateLimit)
+//router.use(handleRateLimit)    //unnecessarily throws too many requests
 router.use(multer().any())
 
 router.use('/aws',commonAuth, S3Router) 

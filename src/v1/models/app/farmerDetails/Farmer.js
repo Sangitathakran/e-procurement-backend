@@ -94,6 +94,7 @@ const farmerSchema = new mongoose.Schema({
         type: { type: String, enum: Object.values(_proofType), default: null, trim: true },
         doc: { type: String, trim: true },
         aadhar_no: { type: String, required: false, trim: true },
+        is_verified: { type: Boolean, default:false },
     },
     source_by: { type: String, required: false, trim: true },
     status: { type: String, enum: Object.values(_status), default: _status.active },
