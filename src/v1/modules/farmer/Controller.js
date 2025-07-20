@@ -11,38 +11,58 @@ const {
   updateDistrict,
   generateFarmerId,
   calculateAge,
-  dumpLargeJSONToExcelStream,
 } = require("@src/v1/utils/helpers");
-const { _userType } = require('@src/v1/utils/constants');
-const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
-const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords, excelDateToDDMMYYYY } = require("@src/v1/utils/helpers/farmer_module");
+const { _userType } = require("@src/v1/utils/constants");
+const {
+  serviceResponse,
+  sendResponse,
+} = require("@src/v1/utils/helpers/api_response");
+const {
+  insertNewFarmerRecord,
+  updateFarmerRecord,
+  updateRelatedRecords,
+  insertNewRelatedRecords,
+  insertNewHaryanaFarmerRecord,
+  insertNewHaryanaRelatedRecords,
+} = require("@src/v1/utils/helpers/farmer_module");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { User } = require("@src/v1/models/app/auth/User");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
-const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
-const xlsx = require('xlsx');
+const {
+  _response_message,
+  _middleware,
+  _query,
+} = require("@src/v1/utils/constants/messages");
+const xlsx = require("xlsx");
 const csv = require("csv-parser");
 const Readable = require("stream").Readable;
 const { smsService } = require("../../utils/third_party/SMSservices");
 const OTPModel = require("../../models/app/auth/OTP");
 const { generateJwtToken } = require("../../utils/helpers/jwt");
 const stateList = require("../../utils/constants/stateList");
-const _individual_farmer_onboarding_steps = require('@src/v1/utils/constants');
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 const { ObjectId } = require('mongodb');
 const { _proofType, _gender, _religion, _maritalStatus, _areaUnit, _seasons, _individual_category, _soilType, _yesNo } = require('@src/v1/utils/constants');
 const XLSX = require('xlsx');
-const fs = require('fs');
-const axios = require('axios');
 const moment = require('moment');
 const mongoose = require('mongoose');
 const { setCache, getCache } = require("@src/v1/utils/cache");
 const { Verifyfarmer } = require("@src/v1/models/app/farmerDetails/verifyFarmer");
-const { getVerifiedAadharInfo, getAgristackFarmerByAadhar } = require("./Services");
 const { Types } = require("mongoose");
+const _individual_farmer_onboarding_steps = require("@src/v1/utils/constants");
+const fs = require("fs");
+const axios = require("axios");
+const {
+  getVerifiedAadharInfo,
+  getAgristackFarmerByAadhar,
+  getAddressByPincode,
+  getAllStates,
+  getDistrictsByStateId,
+} = require("./Services");
+const AgristackFarmerDetails = require("@src/v1/models/app/farmerDetails/src/v1/models/app/farmerDetails/AgristackFarmerDetails");
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -203,19 +223,20 @@ module.exports.saveFarmerDetails = async (req, res) => {
       if (screenName == "address") {
         let { state, district } = req.body[screenName];
 
-        const isStateExist = await isStateAvailable(state);
-        const isDistrictExist = await isDistrictAvailable(state, district);
+      //   const isStateExist = await isStateAvailable(state);
+      //  // console.log({isStateExist})
+      //   const isDistrictExist = await isDistrictAvailable(state, district);
 
-        if (!isStateExist) {
-          return res.status(400).send({ message: "State not available" });
-        }
+      //   if (!isStateExist) {
+      //     return res.status(400).send({ message: "State not available" });
+      //   }
 
-        if (!isDistrictExist) {
-          await updateDistrict(state, district);
-        }
+      //   if (!isDistrictExist) {
+      //     await updateDistrict(state, district);
+      //   }
 
-        const state_id = await getStateId(state);
-        const district_id = await getDistrictId(district);
+        const state_id = state //await getStateId(state);
+        const district_id = district//await getDistrictId(district);
 
         farmerDetails[screenName] = {
           ...req.body[screenName],
@@ -253,6 +274,8 @@ module.exports.getFarmerDetails = async (req, res) => {
     const { id } = req.params;
     //if(!screenName) return res.status(400).send({message:'Please Provide Screen Name'});
 
+    let farmerDetails = {},
+      farmerAAdharInfo = {};
     const selectFields = screenName
       ? `${screenName} allStepsCompletedStatus `
       : null;
@@ -262,10 +285,19 @@ module.exports.getFarmerDetails = async (req, res) => {
         .findOne({ _id: id })
         .select(selectFields)
         .lean();
+
+      farmerAAdharInfo = await Verifyfarmer.findOne({
+        farmer_id: farmerDetails._id,
+      }).select("is_verify_aadhaar");
+      // console.log('farmerAAdharInfo',farmerAAdharInfo,  { farmer_id: farmerDetails._id})
     } else {
       farmerDetails = await farmer.findOne({ _id: id }).lean();
+      farmerAAdharInfo = await Verifyfarmer.findOne({
+        farmer_id: farmerDetails._id,
+      }).select("is_verify_aadhaar");
+      // console.log('farmerAAdharInfo',farmerAAdharInfo,  { farmer_id: farmerDetails._id})
     }
-
+    let agristackFarmerDetailsObj = await AgristackFarmerDetails.findOne( {farmer_id: new mongoose.Types.ObjectId(id)}, { cpmu_farmer_id: 1} );
     if (farmerDetails) {
       if (farmerDetails?.address) {
         const state = await StateDistrictCity.findOne(
@@ -287,10 +319,13 @@ module.exports.getFarmerDetails = async (req, res) => {
             ...farmerDetails.address,
             state: state?.states[0]?.state_title,
             district: districts?.district_title,
+            
           },
+         
         };
       }
-
+      farmerDetails.is_verify_aadhaar= farmerAAdharInfo?.is_verify_aadhaar || false;
+      farmerDetails.isAgristackVerified=  agristackFarmerDetailsObj ? true : false;
       return sendResponse({
         res,
         status: 200,
@@ -314,18 +349,23 @@ module.exports.submitForm = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const farmerDetails = await farmer.findById(id)
+    const farmerDetails = await farmer.findById(id);
 
-    if(!farmerDetails){
-      return res.json( new serviceResponse( { status: 400, message: _response_message.notFound('farmerDetails')} ) );
+    if (!farmerDetails) {
+      return res.json(
+        new serviceResponse({
+          status: 400,
+          message: _response_message.notFound("farmerDetails"),
+        })
+      );
     }
-    const state = await getState(farmerDetails?.address?.state_id); 
-    const district = await getDistrict(farmerDetails?.address?.district_id); 
-    if(!state){
-      return res.json( { status: 400, message: 'State not found '} );
+    const state = await getState(farmerDetails?.address?.state_id);
+    const district = await getDistrict(farmerDetails?.address?.district_id);
+    if (!state) {
+      return res.json({ status: 400, message: "State not found " });
     }
-    if(!district){
-      return res.json( { status: 400, message: 'district not found '} );
+    if (!district) {
+      return res.json({ status: 400, message: "district not found " });
     }
     let obj = {
       _id: farmerDetails._id,
@@ -655,19 +695,17 @@ module.exports.getFarmers = async (req, res) => {
       query = {};
     }
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { farmer_id: { $regex: search, $options: 'i' } }
-      ];
+      query.name = { $regex: search, $options: "i" };
     }
-    records.rows = paginate == 1
-      ? await farmer.find(query)
-        .limit(parseInt(limit))
-        .skip(parseInt(skip))
-        .sort(sortBy)
-        .populate('associate_id', '_id user_code')
-      : await farmer.find(query).sort(sortBy);
-        const updatedRows = [];
+    records.rows =
+      paginate == 1
+        ? await farmer
+            .find(query)
+            .limit(parseInt(limit))
+            .skip(parseInt(skip))
+            .sort(sortBy)
+            .populate("associate_id", "_id user_code")
+        : await farmer.find(query).sort(sortBy);
 
         for (const f of records.rows) {
           const farmer = f.toObject(); 
@@ -707,19 +745,14 @@ module.exports.getFarmers = async (req, res) => {
       records.limit = limit;
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
-    if (records.count === 0) {
-      return res.status(200).send(new serviceResponse({
-        status: 200,
-        data: [],
-        message: _response_message.notFound("data")
-      }));
-    }
-    return res.status(200).send(new serviceResponse({
-      status: 200,
-      data: records,
-      message: _response_message.found("farmers")
-    }));
 
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("farmers"),
+      })
+    );
   } catch (error) {
     _handleCatchErrors(error, res);
   }
@@ -751,14 +784,10 @@ module.exports.getBoFarmer = async (req, res) => {
         .status(400)
         .send({ message: "State ID not found for the user's state." });
     }
+
     let query = { "address.state_id": state_id };
-    if (search.trim()) {
-      //query.name = { $regex: search, $options: 'i' };
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { mobile_no: { $regex: search, $options: "i" } },
-        { farmer_id: { $regex: search, $options: "i" } },
-      ];
+    if (search) {
+      query.name = { $regex: search, $options: "i" };
     }
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const parsedLimit = parseInt(limit);
@@ -1766,20 +1795,19 @@ module.exports.createLand = async (req, res) => {
     //     errors: [{ message: _response_message.allReadyExist("Land") }]
     //   }));
     // }
+    // const isStateExist = await isStateAvailable(state);
+    // const isDistrictExist = await isDistrictAvailable(state, district);
 
-    const isStateExist = await isStateAvailable(state);
-    const isDistrictExist = await isDistrictAvailable(state, district);
+    // if (!isStateExist) {
+    //   return res.status(400).send({ message: "State not available" });
+    // }
 
-    if (!isStateExist) {
-      return res.status(400).send({ message: "State not available" });
-    }
+    // if (!isDistrictExist) {
+    //   await updateDistrict(state, district);
+    // }
 
-    if (!isDistrictExist) {
-      await updateDistrict(state, district);
-    }
-
-    const state_id = await getStateId(state);
-    const district_id = await getDistrictId(district);
+    const state_id = new mongoose.Types.ObjectId(state) //await getStateId(state);
+    const district_id = new mongoose.Types.ObjectId(district)// getDistrictId(district);
 
     let land_address = {
       state_id,
@@ -2204,65 +2232,25 @@ module.exports.getCrop = async (req, res) => {
     const currentDate = new Date();
     const baseQuery = farmer_id ? { farmer_id: new mongoose.Types.ObjectId(farmer_id) } : {};
     const records = { pastCrops: {}, upcomingCrops: {} };
-    const fetchCrops = async (query) => paginate == 1
-      ? Crop.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
-      : Crop.find(query).sort(sortBy).populate('farmer_id', 'id name');
-    // const [pastCrops, upcomingCrops] = await Promise.all([
-    //   fetchCrops({ ...query, sowing_date: { $lt: currentDate } }),
-    //   fetchCrops({ ...query, sowing_date: { $gt: currentDate } })
-    // ]);
-    // console.log('fetchCrops', await fetchCrops(query))
 
+    const fetchCrops = async (query) =>
+      paginate == 1
+        ? Crop.find(query)
+            .limit(parseInt(limit))
+            .skip(parseInt(skip))
+            .sort(sortBy)
+            .populate("farmer_id", "id name")
+        : Crop.find(query).sort(sortBy).populate("farmer_id", "id name");
 
-    // const [pastCount, upcomingCount] = await Promise.all([
-    //   Crop.countDocuments({ ...query, sowing_date: { $lt: currentDate } }),
-    //   Crop.countDocuments({ ...query, sowing_date: { $gt: currentDate } })
-    // ]);
+    const [pastCrops, upcomingCrops] = await Promise.all([
+      fetchCrops({ ...query, sowing_date: { $lt: currentDate } }),
+      fetchCrops({ ...query, sowing_date: { $gt: currentDate } }),
+    ]);
 
-// Craft query filters
-//const baseQuery = { farmer_id: new mongoose.Types.ObjectId(farmer_id) };
-
-// 1. All crops with sowing date before today => past
-const pastWithDateQuery = { 
-  ...baseQuery, 
-  sowing_date: { $lt: currentDate } 
-};
-
-// 2. All crops with sowing date after today => upcoming
-const upcomingWithDateQuery = {
-  ...baseQuery,
-  sowing_date: { $gt: currentDate }
-};
-
-// 3. Crops with no sowing_date, null, or empty string – also past
-const missingDateQuery = {
-  ...baseQuery,
-  $or: [
-    { sowing_date: null },
-    { sowing_date: { $exists: false } },
-    { sowing_date: "" }
-  ]
-};
-
-// Fetch crops
-const [pastCrops1, upcomingCrops, pastCrops2] = await Promise.all([
-  fetchCrops(pastWithDateQuery),
-  fetchCrops(upcomingWithDateQuery),
-  fetchCrops(missingDateQuery)
-]);
-
-// Combine both past sets
-const pastCrops = [...pastCrops1, ...pastCrops2];
-
-// Fetch counts
-const [pastCount1, upcomingCount, pastCount2] = await Promise.all([
-  Crop.countDocuments(pastWithDateQuery),
-  Crop.countDocuments(upcomingWithDateQuery),
-  Crop.countDocuments(missingDateQuery)
-]);
-
-const pastCount = pastCount1 + pastCount2;
-
+    const [pastCount, upcomingCount] = await Promise.all([
+      Crop.countDocuments({ ...query, sowing_date: { $lt: currentDate } }),
+      Crop.countDocuments({ ...query, sowing_date: { $gt: currentDate } }),
+    ]);
 
     records.pastCrops = { rows: pastCrops, count: pastCount };
     records.upcomingCrops = { rows: upcomingCrops, count: upcomingCount };
@@ -2701,7 +2689,9 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const category = toLowerCaseIfExists(rec["CATEGORY"])
         ? toLowerCaseIfExists(rec["CATEGORY"])
         : "N/A";
-      const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL"]);
+      const highest_edu = rec["EDUCATION LEVEL"]
+        ? rec["EDUCATION LEVEL"]
+        : null;
       const edu_details = rec["EDU DETAILS"] ? rec["EDU DETAILS"] : null;
       const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"]);
       const aadhar_no = rec["AADHAR NUMBER*"];
@@ -2717,8 +2707,11 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const long = rec["LONGITUDE"] ? rec["LONGITUDE"] : null;
       const mobile_no = rec["MOBILE NO*"];
       const email = rec["EMAIL ID"] ? rec["EMAIL ID"] : null;
-      const  source_by = rec["SOURCE BY"] ? rec["SOURCE BY"] : null;
-      const warehouse = rec["WAREHOUSE"] && rec["WAREHOUSE"].toLowerCase() === 'yes' ? 'yes' : 'no';
+      const source_by = rec["SOURCE BY"] ? rec["SOURCE BY"] : null;
+      const warehouse =
+        rec["WAREHOUSE"] && rec["WAREHOUSE"].toLowerCase() === "yes"
+          ? "yes"
+          : "no";
 
       const cold_storage =
         rec["COLD STORAGE"] && rec["COLD STORAGE"].toLowerCase() === "yes"
@@ -2994,10 +2987,30 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       if (errors.length > 0) return { success: false, errors };
       // const calulateage = calculateAge(date_of_birth);
       try {
-        const state_id = await getStateId(stateName);
-        const district_id = await getDistrictId(district_name);
-        const land_state_id = await getStateId(state);
-        const land_district_id = await getDistrictId(district);
+        const stateIdResult1 = await getStateId(stateName);
+        if (!stateIdResult1.success) {
+          errors.push({ record: rec, error: stateIdResult1.error });
+          return { success: false, errors };
+        }
+        const state_id = stateIdResult1.stateId;
+        const districtIdResult1 = await getDistrictId(district_name);
+        if (!districtIdResult1.success) {
+          errors.push({ record: rec, error: districtIdResult1.error });
+          return { success: false, errors };
+        }
+        const district_id = districtIdResult1.districtId;
+        const stateIdResult = await getStateId(state);
+        if (!stateIdResult.success) {
+          errors.push({ record: rec, error: stateIdResult.error });
+          return { success: false, errors };
+        }
+        const land_state_id = stateIdResult.stateId;
+        const districtIdResult = await getDistrictId(district);
+        if (!districtIdResult.success) {
+          errors.push({ record: rec, error: districtIdResult.error });
+          return { success: false, errors };
+        }
+        const land_district_id = districtIdResult.districtId;
         const sowing_date = parseMonthyear(sowingdate);
         const harvesting_date = parseMonthyear(harvestingdate);
         // const processedDateOfBirth = parseDateOfBirth(date_of_birth);
@@ -3033,7 +3046,46 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         } else {
           // Insert new farmer record
           farmerRecord = await insertNewFarmerRecord({
-            associate_id: associateId, name, father_name, mother_name, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, source_by, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
+            associate_id: associateId,
+            name,
+            father_name,
+            mother_name,
+            dob: date_of_birth,
+            age: null,
+            gender,
+            farmer_category,
+            aadhar_no,
+            type,
+            marital_status,
+            religion,
+            category,
+            highest_edu,
+            edu_details,
+            address_line,
+            country,
+            state_id,
+            district_id,
+            tahshil,
+            block,
+            village,
+            pinCode,
+            lat,
+            long,
+            mobile_no,
+            email,
+            bank_name,
+            account_no,
+            branch_name,
+            ifsc_code,
+            account_holder_name,
+            warehouse,
+            cold_storage,
+            processing_unit,
+            transportation_facilities,
+            credit_facilities,
+            source_of_credit,
+            financial_challenges,
+            support_required,
           });
           await insertNewRelatedRecords(farmerRecord._id, {
             total_area,
@@ -3118,7 +3170,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
-
 module.exports.exportFarmers = async (req, res) => {
   try {
     const {
@@ -3147,27 +3198,36 @@ module.exports.exportFarmers = async (req, res) => {
 
       {
         $lookup: {
-          from: 'statedistrictcities',
-          let: { stateId: { $toObjectId: '$address.state_id' } },
+          from: "statedistrictcities",
+          let: { stateId: { $toObjectId: "$address.state_id" } },
           pipeline: [
-            { $unwind: '$states' },
-            { $match: { $expr: { $eq: ['$states._id', '$$stateId'] } } },
-            { $project: { state_title: '$states.state_title', _id: 0 } }
+            { $unwind: "$states" },
+            { $match: { $expr: { $eq: ["$states._id", "$$stateId"] } } },
+            { $project: { state_title: "$states.state_title", _id: 0 } },
           ],
           as: "state",
         },
       },
-      { $unwind: { path: '$state', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$state", preserveNullAndEmptyArrays: true } },
 
       {
         $lookup: {
-          from: 'statedistrictcities',
-          let: { districtId: { $toObjectId: '$address.district_id' } },
+          from: "statedistrictcities",
+          let: { districtId: { $toObjectId: "$address.district_id" } },
           pipeline: [
-            { $unwind: '$states' },
-            { $unwind: '$states.districts' },
-            { $match: { $expr: { $eq: ['$states.districts._id', '$$districtId'] } } },
-            { $project: { district_title: '$states.districts.district_title', _id: 0 } }
+            { $unwind: "$states" },
+            { $unwind: "$states.districts" },
+            {
+              $match: {
+                $expr: { $eq: ["$states.districts._id", "$$districtId"] },
+              },
+            },
+            {
+              $project: {
+                district_title: "$states.districts.district_title",
+                _id: 0,
+              },
+            },
           ],
           as: "district",
         },
@@ -3464,7 +3524,7 @@ const getAddress = async (item) => {
 };
 
 // const getDistrict = async (districtId) => {
-  
+
 //   const district = await StateDistrictCity.aggregate([
 //     {
 //       $match: {}
@@ -3485,7 +3545,6 @@ const getAddress = async (item) => {
 //       }
 //     }
 
-
 //   ])
 //   console.log('IIIIIIIIIIIIIIIIIIIIIIIIIIII',district, { districtId})
 //   return district[0].district
@@ -3494,15 +3553,15 @@ const getAddress = async (item) => {
 
 const getDistrict = async (districtId) => {
   if (!mongoose.Types.ObjectId.isValid(districtId)) {
-    throw new Error('Invalid districtId');
+    throw new Error("Invalid districtId");
   }
   const objId = new mongoose.Types.ObjectId(districtId);
 
   const res = await StateDistrictCity.aggregate([
-    { $unwind: '$states' },
-    { $unwind: '$states.districts' },
-    { $match: { 'states.districts._id': objId } },
-    { $project: { _id: 0, district: '$states.districts.district_title' } }
+    { $unwind: "$states" },
+    { $unwind: "$states.districts" },
+    { $match: { "states.districts._id": objId } },
+    { $project: { _id: 0, district: "$states.districts.district_title" } },
   ]);
 
   if (res.length === 0) {
@@ -3511,7 +3570,6 @@ const getDistrict = async (districtId) => {
   }
   return res[0].district;
 };
-
 
 const getState = async (stateId) => {
   if (!mongoose.Types.ObjectId.isValid(stateId)) {
@@ -3530,18 +3588,18 @@ const getState = async (stateId) => {
                   $filter: {
                     input: "$states",
                     as: "s",
-                    cond: { $eq: ["$$s._id", objectId] }
-                  }
+                    cond: { $eq: ["$$s._id", objectId] },
+                  },
                 },
                 as: "matched",
-                in: "$$matched.state_title"
-              }
+                in: "$$matched.state_title",
+              },
             },
-            0
-          ]
-        }
-      }
-    }
+            0,
+          ],
+        },
+      },
+    },
   ]);
 
   return result.length > 0 ? result[0].state : null;
@@ -3611,11 +3669,10 @@ module.exports.getAllFarmers = async (req, res) => {
     const {
       page = 1,
       limit = 10,
-      sortBy = '_id',
-      search = '',
-      paginate = 1
+      sortBy = "_id",
+      search = "",
+      paginate = 1,
     } = req.query;
-
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const parsedLimit = parseInt(limit);
     const sortCriteria = { [sortBy]: 1, _id: 1 };
@@ -3999,11 +4056,15 @@ module.exports.addDistrictCity = async (req, res) => {
     });
   }
   try {
-    const state = await StateDistrictCity.findOne({ "states.state_title": state_title });
+    const state = await StateDistrictCity.findOne({
+      "states.state_title": state_title,
+    });
     if (!state) {
       return res.status(404).json({ message: "State not found." });
     }
-    const stateIndex = state.states.findIndex((s) => s.state_title === state_title);
+    const stateIndex = state.states.findIndex(
+      (s) => s.state_title === state_title
+    );
     const districtCount = state.states[stateIndex].districts.length;
     const serialNumber = (districtCount + 1).toString().padStart(2, "0");
     const result = await StateDistrictCity.updateOne(
@@ -4097,56 +4158,211 @@ module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
     let errorArray = [];
     const processFarmerRecord = async (rec) => {
       const toLowerCaseIfExists = (value) =>
-        value ? value.toLowerCase().trim() : null;
+        value ? value.toLowerCase().trim() : value;
+      //   const parseDateOfBirth = (dob) => {
+      //     if (!isNaN(dob)) {
+      //         const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+      //         const parsedDate = new Date(excelEpoch.getTime() + (dob) * 86400000);
+      //         return moment.utc(parsedDate).format('DD-MM-YYYY');
+      //     }
+
+      //     return moment(dob, 'DD-MM-YYYY', true).isValid() ? dob : null;
+      // };
       const parseBooleanYesNo = (value) => {
         if (value === true || value?.toLowerCase() === "yes") return true;
         if (value === false || value?.toLowerCase() === "no") return false;
         return null;
       };
+      const name = rec["NAME*"];
+      const father_name = rec["FATHER NAME*"];
+      const email = rec["EMAIL ID"] ? rec["EMAIL ID"] : null;
+      const mobile_no = rec["MOBILE NO*"];
+      const category = toLowerCaseIfExists(rec["CATEGORY"])
+        ? toLowerCaseIfExists(rec["CATEGORY"])
+        : "N/A";
+      const date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)"];
+      const farmer_category = rec["FARMER CATEGORY"]
+        ? rec["FARMER CATEGORY"]
+        : null;
+      const gender = toLowerCaseIfExists(rec["GENDER*"]);
+      const address_line = rec["ADDRESS LINE"];
+      const country = rec["COUNTRY NAME"] ? rec["COUNTRY NAME"] : "India";
+      const state_name = rec["STATE NAME*"];
+      const district_name = rec["DISTRICT NAME*"];
+      const village = rec["VILLAGE NAME"];
+      const landPincode = rec["LAND PINCODE"] ? rec["LAND PINCODE"] : null;
+      const state = rec["STATE*"];
+      const district = rec["DISTRICT*"];
+      const landvillage = rec["ViLLAGE"] ? rec["ViLLAGE"] : null;
+      const LandBlock = rec["LAND BLOCK"] ? rec["LAND BLOCK"] : null;
+      const khasra_number = rec["KHASRA NUMBER*"];
+      const khtauni_number = rec["KHATAUNI*"];
+      const land_type = rec["LAND TYPE"] ? rec["LAND TYPE"] : "other";
+      const total_area = rec["TOTAL AREA*"];
+      const sow_area = rec["SOW AREA*"];
+      const ghat_number = rec["Ghat number*"];
+      const khewat_number = rec["Khewat number*"];
+      const karnal_number = rec["Karnal number*"];
+      const murla_number = rec["Murla number*"];
+      const revenue_area_karnal = rec["Revenue area karnal"]
+        ? rec["Revenue area karnal"]
+        : null;
+      const revenue_area_murla = rec["Revenue area mulla"]
+        ? rec["Revenue area mulla"]
+        : null;
+      const sow_area_karnal = rec["Sow area karnal"]
+        ? rec["Sow area karnal"]
+        : null;
+      const sow_area_murla = rec["Sow area murla"]
+        ? rec["Sow area murla"]
+        : null;
+      const aadhar_no = rec["AADHAR NUMBER"] ? rec["AADHAR NUMBER"] : null;
+      const pan_number = rec["PAN card"] ? rec["PAN card"] : null;
+      const bank_name = rec["BANK NAME*"];
+      const account_no = rec["ACCOUNT NUMBER*"];
+      const branch_name = rec["BRANCH NAME*"];
+      const ifsc_code = rec["IFSC CODE*"];
+      const account_holder_name = rec["ACCOUNT HOLDER NAME*"];
 
-      function getValueOrNull(value) {
-        return value ? typeof value === 'string' ?
-          value.trim() : value
-          : null;
-      }
-
-      const name = getValueOrNull(rec["Farmer Name"]);
-      const father_name = getValueOrNull(rec["Farmer Father Name"]);
-      const mother_name = getValueOrNull(rec["MOTHER NAME"]);
-      const date_of_birth = getValueOrNull(rec["DATE OF BIRTH(DD-MM-YYYY)*"]);
-      const farmer_category = getValueOrNull(rec["FARMER CATEGORY"]);
-      const gender = toLowerCaseIfExists(rec["Gender"]);
-      const marital_status =
-        toLowerCaseIfExists(rec["MARITAL STATUS"]) || "N/A";
-      const religion = toLowerCaseIfExists(rec["RELIGION"]) || "N/A";
-      const category = toLowerCaseIfExists(rec["CATEGORY"]) || "N/A";
+      const marital_status = toLowerCaseIfExists(rec["MARITAL STATUS"])
+        ? toLowerCaseIfExists(rec["MARITAL STATUS"])
+        : "N/A";
+      const religion = toLowerCaseIfExists(rec["RELIGION"])
+        ? toLowerCaseIfExists(rec["RELIGION"])
+        : "N/A";
       const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL"]);
-      const edu_details = getValueOrNull(rec["EDU DETAILS"]);
-      const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"]);
-      const aadhar_no = getValueOrNull(rec["AADHAR NUMBER*"]);
-      const address_line = getValueOrNull(rec["ADDRESS LINE*"]);
-      const country = getValueOrNull(rec["COUNTRY NAME"]) || "India";
-      const state_name = getValueOrNull(rec["STATE NAME*"]);
-      const district_name = getValueOrNull(rec["DISTRICT NAME*"]);
-      const tahshil = getValueOrNull(rec["TAHSHIL*"]);
-      const block = getValueOrNull(rec["BLOCK NAME*"]);
-      const village = getValueOrNull(rec["Village"]);
-      const pinCode = getValueOrNull(rec["PINCODE*"]);
-      const lat = getValueOrNull(rec["LATITUDE"]);
-      const long = getValueOrNull(rec["LONGITUDE"]);
-      const mobile_no = getValueOrNull(rec["MOBILE NO*"]);
-      const email = getValueOrNull(rec["EMAIL ID"]);
-      const bank_name = getValueOrNull(rec["Bank Name"]);
-      const account_no = getValueOrNull(rec["Account No"]);
-      const branch_name = getValueOrNull(rec["Branch"]);
-      const ifsc_code = getValueOrNull(rec["IFSC Code"]);
-      const account_holder_name = getValueOrNull(rec["Farmer Name"]);
-      const farmer_tracent_code = getValueOrNull(rec["Farmer Tracenet Code *"]);
-      // console.log("aadhar_no", aadhar_no)
-      // console.log("mobile_no", mobile_no)
+      const edu_details = rec["EDU DETAILS"] ? rec["EDU DETAILS"] : null;
+      const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"])
+        ? toLowerCaseIfExists(rec["ID PROOF TYPE*"])
+        : "aadhar";
+      const tahshil = rec["TAHSHIL*"];
+      const block = rec["BLOCK NAME*"];
+      const pinCode = rec["PINCODE*"];
+      const lat = rec["LATITUDE"] ? rec["LATITUDE"] : null;
+      const long = rec["LONGITUDE"] ? rec["LONGITUDE"] : null;
+      const warehouse =
+        rec["WAREHOUSE"] && rec["WAREHOUSE"].toLowerCase() === "yes"
+          ? "yes"
+          : "no";
+      const cold_storage =
+        rec["COLD STORAGE"] && rec["COLD STORAGE"].toLowerCase() === "yes"
+          ? "yes"
+          : "no";
+      const processing_unit =
+        rec["PROCESSING UNIT"] && rec["PROCESSING UNIT"].toLowerCase() === "yes"
+          ? "yes"
+          : "no";
+      const transportation_facilities =
+        rec["TRANSPORTATION FACILITIES"] &&
+        rec["TRANSPORTATION FACILITIES"].toLowerCase() === "yes"
+          ? "yes"
+          : "no";
+      const credit_facilities =
+        rec["CREDIT FACILITIES"] &&
+        rec["CREDIT FACILITIES"].toLowerCase() === "yes"
+          ? "yes"
+          : "no";
+      const source_of_credit = rec["SOURCE OF CREDIT"]
+        ? rec["SOURCE OF CREDIT"]
+        : null;
+      const financial_challenges = rec["FINANCIAL CHALLENGE"]
+        ? rec["FINANCIAL CHALLENGE"]
+        : null;
+      const support_required = rec["SUPPORT REQUIRED"]
+        ? rec["SUPPORT REQUIRED"]
+        : null;
+      const land_name = rec["LAND NAME"] ? rec["LAND NAME"] : null;
+      const cultivation_area = rec["CULTIVATION AREA"]
+        ? rec["CULTIVATION AREA"]
+        : null;
+      const area_unit = toLowerCaseIfExists(rec["AREA UNIT"])
+        ? toLowerCaseIfExists(rec["AREA UNIT"])
+        : "Other";
+      const khata_number = rec["KHATA NUMBER"] ? rec["KHATA NUMBER"] : null;
+      const expected_production = rec["EXPECTED PRODUCTION"]
+        ? rec["EXPECTED PRODUCTION"]
+        : null;
+      const soil_type = toLowerCaseIfExists(rec["SOIL TYPE"])
+        ? toLowerCaseIfExists(rec["SOIL TYPE"])
+        : "other";
+      const soil_tested = toLowerCaseIfExists(rec["SOIL TESTED"])
+        ? toLowerCaseIfExists(rec["SOIL TESTED"])
+        : "yes";
+      const soil_testing_agencies = rec["SOIL TESTING AGENCY"]
+        ? rec["SOIL TESTING AGENCY"]
+        : null;
+      const upload_geotag = rec["UPLOD GEOTAG"] ? rec["UPLOD GEOTAG"] : null;
+      const crop_name = rec["CROPS NAME*"];
+      const crop_variety = rec["CROP VARITY"] ? rec["CROP VARITY"] : null;
+      const production_quantity = rec["PRODUCTION QUANTITY"]
+        ? rec["PRODUCTION QUANTITY"]
+        : null;
+      const selling_price = rec["SELLING PRICE"] ? rec["SELLING PRICE"] : null;
+      const yield = rec["YIELD(KG)"] ? rec["YIELD(KG)"] : null;
+      const crop_land_name = rec["CROP LAND NAME"]
+        ? rec["CROP LAND NAME"]
+        : null;
+      const crop_growth_stage = rec["CROP GROWTH STAGE"]
+        ? rec["CROP GROWTH STAGE"]
+        : "Stage1";
+      const crop_disease = rec["CROP DISEASE"] ? rec["CROP DISEASE"] : null;
+      const crop_rotation = parseBooleanYesNo(rec["CROP ROTATION"]);
+      const previous_crop_session = rec["PREVIOUS CROP SESSION"]
+        ? rec["PREVIOUS CROP SESSION"]
+        : "others";
+      const previous_crop_name = rec["PREVIOUS CROP NAME"]
+        ? rec["PREVIOUS CROP NAME"]
+        : null;
+      const crop_season = toLowerCaseIfExists(rec["CROP SEASONS*"])
+        ? toLowerCaseIfExists(rec["CROP SEASONS*"])
+        : "others";
+      const crop_sold = rec["CROP SOLD"] ? rec["CROP SOLD"] : null;
+      const quantity_sold = rec["QUANTITY SOLD"] ? rec["QUANTITY SOLD"] : null;
+      const average_selling_price = rec["AVERAGE SELLING PRICE"]
+        ? rec["AVERAGE SELLING PRICE"]
+        : null;
+      const marketing_channels_used = rec["MARKETING CHANNELS USED"]
+        ? rec["MARKETING CHANNELS USED"]
+        : null;
+      const challenges_faced = rec["CHALLENGES FACED"]
+        ? rec["CHALLENGES FACED"]
+        : null;
+      const insurance_company = rec["INSURANCE COMPANY"]
+        ? rec["INSURANCE COMPANY"]
+        : null;
+      const insurance_worth = rec["INSURANCE WORTH"]
+        ? rec["INSURANCE WORTH"]
+        : null;
+      const insurance_premium = rec["INSURANCE PREMIUM"]
+        ? rec["INSURANCE PREMIUM"]
+        : null;
+      const insurance_start_date = rec["INSURANCE START DATE(DD-MM-YYYY)"]
+        ? rec["INSURANCE START DATE(DD-MM-YYYY)"]
+        : null;
+      const insurance_end_date = rec["INSURANCE END DATE(DD-MM-YYYY)"]
+        ? rec["INSURANCE END DATE(DD-MM-YYYY)"]
+        : null;
       const requiredFields = [
         { field: "AADHAR NUMBER*", label: "AADHAR NUMBER" },
         { field: "MOBILE NO*", label: "MOBILE NUMBER" },
+        { field: "GENDER*", label: "GENDER" },
+        { field: "STATE NAME*", label: "STATE NAME" },
+        { field: "DISTRICT NAME*", label: "DISTRICT NAME" },
+        { field: "STATE*", label: " LAND STATE" },
+        { field: "DISTRICT*", label: "LAND DISTRICT" },
+        { field: "ACCOUNT NUMBER*", label: "ACCOUNT NUMBER" },
+        { field: "BANK NAME*", label: "BANK NAME" },
+        { field: "BRANCH NAME*", label: "BRANCH NAME" },
+        { field: "IFSC CODE*", label: "IFSC CODE" },
+        { field: "ACCOUNT HOLDER NAME*", label: "ACCOUNT HOLDER NAME" },
+        { field: "Ghat number*", label: "Ghat number" },
+        { field: "Khewat number*", label: "Khewat number" },
+        { field: "Karnal number*", label: "Karnal number" },
+        { field: "Murla number*", label: "Murla number" },
+        { field: "KHASRA NUMBER*", label: "KHASRA NUMBER" },
+        { field: "KHATAUNI*", label: "KHATAUNI" },
+        { field: "TOTAL AREA*", label: "TOTAL AREA" },
+        { field: "SOW AREA*", label: "SOW AREA" },
       ];
       let stateName = state_name.replace(/_/g, " ");
       if (
@@ -4176,6 +4392,13 @@ module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
       // if (!/^\d{6,20}$/.test(account_no)) {
       //   errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 20 digits." });
       // }
+      if (!/^\d{6,20}$/.test(account_no)) {
+        errors.push({
+          record: rec,
+          error:
+            "Invalid Account Number: Must be a numeric value between 6 and 20 digits.",
+        });
+      }
       if (!/^\d{10}$/.test(mobile_no)) {
         errors.push({ record: rec, error: "Invalid Mobile Number" });
       }
@@ -4188,6 +4411,7 @@ module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
           ).join(", ")}`,
         });
       }
+
       if (!Object.values(_maritalStatus).includes(marital_status)) {
         errors.push({
           record: rec,
@@ -4221,15 +4445,29 @@ module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
         });
       }
       if (area_unit && !Object.values(_areaUnit).includes(area_unit)) {
-        errors.push({ record: rec, error: `Invalid Area Unit: ${area_unit}. Valid options: ${Object.values(_areaUnit).join(', ')}` });
+        errors.push({
+          record: rec,
+          error: `Invalid Area Unit: ${area_unit}. Valid options: ${Object.values(
+            _areaUnit
+          ).join(", ")}`,
+        });
       }
       if (!Object.values(_seasons).includes(crop_season)) {
-        errors.push({ record: rec, error: `Invalid Crop Season: ${crop_season}. Valid options: ${Object.values(_seasons).join(', ')}` });
+        errors.push({
+          record: rec,
+          error: `Invalid Crop Season: ${crop_season}. Valid options: ${Object.values(
+            _seasons
+          ).join(", ")}`,
+        });
       }
       if (!Object.values(_yesNo).includes(soil_tested)) {
-        errors.push({ record: rec, error: `Invalid Yes No: ${soil_tested}. Valid options: ${Object.values(_yesNo).join(', ')}` });
+        errors.push({
+          record: rec,
+          error: `Invalid Yes No: ${soil_tested}. Valid options: ${Object.values(
+            _yesNo
+          ).join(", ")}`,
+        });
       }
-
 
       if (errors.length > 0) return { success: false, errors };
       try {
@@ -4237,16 +4475,117 @@ module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
         const district_id = await getDistrictId(district_name);
         const land_state_id = await getStateId(state);
         const land_district_id = await getDistrictId(district);
-        const uniqueFarmerCode = generateFarmerCode(state_name, mobile_no, name);
+        const uniqueFarmerCode = generateFarmerCode(
+          state_name,
+          mobile_no,
+          name
+        );
 
-        let farmerRecord = await farmer.findOne({ 'mobile_no': mobile_no });
+        let farmerRecord = await farmer.findOne({ mobile_no: mobile_no });
         if (farmerRecord) {
-          return { success: false, errors: [{ record: rec, error: `Farmer  with Aadhar No. ${aadhar_no} already registered.` }] };
-
-          // });
+          return {
+            success: false,
+            errors: [
+              {
+                record: rec,
+                error: `Farmer  with Mobile No. ${mobile_no} already registered.`,
+              },
+            ],
+          };
         } else {
-          farmerRecord = await insertNewFarmerRecord({
-            associate_id: associateId, farmer_tracent_code, name, father_name, mother_name, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name,
+          // Insert new farmer record
+          farmerRecord = await insertNewHaryanaFarmerRecord({
+            name,
+            father_name,
+            uniqueFarmerCode,
+            dob: date_of_birth,
+            age: null,
+            gender,
+            farmer_category,
+            aadhar_no,
+            pan_number,
+            type,
+            marital_status,
+            religion,
+            category,
+            highest_edu,
+            edu_details,
+            address_line,
+            country,
+            state_id,
+            district_id,
+            tahshil,
+            block,
+            village,
+            pinCode,
+            lat,
+            long,
+            mobile_no,
+            email,
+            bank_name,
+            account_no,
+            branch_name,
+            ifsc_code,
+            account_holder_name,
+            warehouse,
+            cold_storage,
+            processing_unit,
+            transportation_facilities,
+            credit_facilities,
+            source_of_credit,
+            financial_challenges,
+            support_required,
+          });
+          await insertNewHaryanaRelatedRecords(farmerRecord._id, {
+            total_area,
+            khasra_number,
+            land_name,
+            cultivation_area,
+            area_unit,
+            khata_number,
+            land_type,
+            khtauni_number,
+            sow_area,
+            state_id: land_state_id,
+            district_id: land_district_id,
+            landvillage,
+            LandBlock,
+            landPincode,
+            expected_production,
+            soil_type,
+            soil_tested,
+            soil_testing_agencies,
+            upload_geotag,
+            crop_name,
+            production_quantity,
+            selling_price,
+            ghat_number,
+            khewat_number,
+            karnal_number,
+            murla_number,
+            revenue_area_karnal,
+            revenue_area_murla,
+            sow_area_karnal,
+            sow_area_murla,
+            yield,
+            insurance_company,
+            insurance_worth,
+            crop_season,
+            crop_land_name,
+            crop_growth_stage,
+            crop_disease,
+            crop_rotation,
+            previous_crop_session,
+            previous_crop_name,
+            crop_sold,
+            quantity_sold,
+            average_selling_price,
+            marketing_channels_used,
+            challenges_faced,
+            insurance_premium,
+            insurance_start_date,
+            insurance_end_date,
+            crop_variety,
           });
         }
       } catch (error) {
@@ -4288,9 +4627,11 @@ module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
 };
 const generateFarmerCode = (state, mobile_no, name) => {
   if (!state || !mobile_no || !name) {
-      throw new Error('State Mobile number and Name are required to generate code');
+    throw new Error(
+      "State Mobile number and Name are required to generate code"
+    );
   }
- const farmerName = name.substring(0, 3).toUpperCase();
+  const farmerName = name.substring(0, 3).toUpperCase();
   const stateCode = state.substring(0, 3).toUpperCase();
 
   const mobileCode = String(mobile_no).slice(-4);
@@ -4298,29 +4639,46 @@ const generateFarmerCode = (state, mobile_no, name) => {
   return `${stateCode}${mobileCode}${farmerName}`;
 };
 
-
 module.exports.getVerifiedAdharDetails = async (req, res) => {
   try {
-    const { uidai_aadharNo } = req.body;
+    const { uidai_aadharNo, farmer_id, cpmu_farmer_id } = req.body;
 
+    if(!farmer_id){
+      return res.send({
+        status: 400,
+        message: _middleware.require('farmer_id'),
+      });
+    }
+    if (!uidai_aadharNo && !cpmu_farmer_id) {
+      return res.send({
+        status: 400,
+        message: "Either cpmu_farmer_id or uidai_aadharNo is required !",
+      });
+    }
+    let farmer_data = uidai_aadharNo ? await farmer.findOne({"proof.aadhar_no": uidai_aadharNo }, {_id: 1}): null;
+    if(farmer_data && !new mongoose.Types.ObjectId(farmer_id).equals(farmer_data?._id)){
+      return res.json( { status: 400, message: "This uidai_aadharNo is already taken, try other."});
+    }
     // Run both queries in parallel for better performance
     const [adharDetails, agristackFarmerDetails] = await Promise.all([
-      getVerifiedAadharInfo(uidai_aadharNo),
-      getAgristackFarmerByAadhar(uidai_aadharNo),
+      uidai_aadharNo
+        ? getVerifiedAadharInfo(uidai_aadharNo, farmer_id)
+        : Promise.resolve(null),
+      getAgristackFarmerByAadhar(uidai_aadharNo, farmer_id, cpmu_farmer_id),
     ]);
 
     // Return 404 if both are null
     if (!adharDetails && !agristackFarmerDetails) {
       return res.status(200).json({
         status: 200,
-        message: _query.notFound('aadhar'),
+        message: _query.notFound("aadhar"),
       });
     }
 
     return res.json(
       new serviceResponse({
         status: 200,
-        message: _query.get('aadhar'),
+        message: _query.get("aadhar"),
         data: {
           adharDetails,
           agristackFarmerDetails,
@@ -4328,8 +4686,111 @@ module.exports.getVerifiedAdharDetails = async (req, res) => {
       })
     );
   } catch (err) {
-    console.error('Error in getVerifiedAadharDetails:', err);
+    console.error("Error in getVerifiedAadharDetails:", err);
     _handleCatchErrors(err, res);
   }
 };
 
+module.exports.getStatesByPincode = async (req, res) => {
+  try {
+    const { pincode } = req.query;
+    if (!pincode) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          message: _middleware.require("pincode"),
+        })
+      );
+    }
+
+    if (pincode.length !== 6) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          message: "pincode should be of 6 digits",
+        })
+      );
+    }
+
+    const pincode_data = await getAddressByPincode({ pincode });
+
+    if (pincode_data?.Status !== "Success") {
+      return res.send(
+        new serviceResponse({ status: 400, message: _query.invalid("pincode") })
+      );
+    }
+
+    const states = await getAllStates();
+    const filteredState = states.find(
+      (obj) =>
+        obj.state_title.toLowerCase() ===
+        pincode_data?.PostOffice[0]?.State?.toLowerCase()
+    );
+    //console.log(">>>>>>>>>>>>>>>>>>>>>>>>", pincode_data, states);
+    return res.send(
+      new serviceResponse({
+        message: "OK",
+        data: { states: [filteredState] || states },
+      })
+    );
+  } catch (err) {
+    _handleCatchErrors(err, res);
+  }
+};
+
+module.exports.getDistrictsByState = async (req, res) => {
+  try {
+    const { stateId, pincode } = req.query;
+    if (!stateId) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          message: _middleware.require("stateId"),
+        })
+      );
+    }
+
+    if (!pincode) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          message: _middleware.require("pincode"),
+        })
+      );
+    }
+
+    if (pincode.length !== 6) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          message: "pincode should be of 6 digits",
+        })
+      );
+    }
+
+    const pincode_data = await getAddressByPincode({ pincode });
+
+    if (pincode_data?.Status !== "Success") {
+      return res.send(
+        new serviceResponse({ status: 400, message: _query.invalid("pincode") })
+      );
+    }
+
+    let villages = pincode_data.PostOffice.map((obj) => obj.Name);
+    let districts = await getDistrictsByStateId(stateId);
+    let filteredDistricts = districts.find(
+      (obj) =>
+        obj.district_title.toLowerCase() ===
+        pincode_data.PostOffice[0].District.toLowerCase()
+    );
+    return res.send(
+      new serviceResponse({
+        message: _query.get("districts"),
+        data: { villages, districts: [filteredDistricts] || districts },
+      })
+    );
+  } catch (err) {
+    console.log(err);
+    throw new Error(err.message);
+  }
+};

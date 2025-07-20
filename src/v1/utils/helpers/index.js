@@ -406,62 +406,58 @@ exports._generateFarmerCode = async () => {
 const myAddress = new Map()
 exports.getStateId = async (stateName) => {
   try {
-    if (myAddress.get(stateName)) {
-      return myAddress.get(stateName)
+    if (!stateName || typeof stateName !== 'string') {
+      return { success: false, error: "Invalid or missing state name" };
     }
-    // const stateDoc = await StateDistrictCity.findOne({
-    //   'states.state_title': { $regex: new RegExp(`^${stateName}$`, 'i') }
-    // });
-    const stateDoc = await StateDistrictCity.aggregate([
-      { $unwind: "$states" },
-      {
-        $match: {
-          "states.state_title": { $regex: new RegExp(`^${stateName}$`, "i") }
-        }
-      },
-      {
-        $project: {
-          _id: 0,
-          state: "$states"
-        }
-      }
-    ]);
-    if (stateDoc && stateDoc.length > 0) {
-      const state = stateDoc[0].state;
+    if (myAddress.get(stateName)) {
+      // return myAddress.get(stateName)
+       return { success: true, stateId: myAddress.get(stateName) };
+    }
+    const stateDoc = await StateDistrictCity.findOne({
+      'states.state_title': stateName
+    });
+    if (stateDoc) {
+      const state = stateDoc.states.find(state => state.state_title == stateName);
       // console.log('state', state._id);
       if (state && state._id) {
         myAddress.set(stateName, state._id);
-        return state._id;
+        // return state._id;
+        return { success: true, stateId: state._id };
       }
     }
-    throw new Error(`Farmer State Name Not Found: ${stateName}`);
+    // throw new Error(`Farmer State Name Not Found: ${stateName}`);
+    return { success: false, error: `Farmer State Name Not Found: ${stateName}` };
   } catch (error) {
-    throw new Error(`Error fetching state ID: ${error.message}`);
+    return { success: false, error: `Error fetching state ID: ${error.message}` };
+    // throw new Error(`Error fetching state ID: ${error.message}`);
   }
 };
 
 exports.getDistrictId = async (districtName) => {
   try {
+     if (!districtName || typeof districtName !== 'string') {
+      return { success: false, error: "Invalid or missing district name" };
+    }
     if (myAddress.get(districtName)) {
-      return myAddress.get(districtName)
+      // return myAddress.get(districtName)
+      return { success: true, districtId: myAddress.get(districtName) };
     }
     const stateDoc = await StateDistrictCity.findOne({
-      'states.districts.district_title': districtName
+      'states.districts.district_title': { $regex: `^${districtName}$`, $options: 'i' }
     });
 
     if (stateDoc) {
       for (const state of stateDoc.states) {
         const district = state.districts.find(district => district.district_title === districtName);
-        // console.log('state', district._id);
         if (district) {
           myAddress.set(districtName, district._id)
-          return district._id;
+          return { success: true, districtId: district._id };
         }
       }
     }
-    throw new Error(`Farmer District Name Not Found: ${districtName}`);
+     return { success: false, error: `Farmer District Name Not Found: ${districtName}` };
   } catch (error) {
-    throw new Error(`Error fetching district ID: ${error.message}`);
+    return { success: false, error: `Error fetching district ID: ${error.message}` };
   }
 };
 
