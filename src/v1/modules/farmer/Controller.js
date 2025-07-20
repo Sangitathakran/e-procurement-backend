@@ -13,17 +13,9 @@ const {
   calculateAge,
   dumpLargeJSONToExcelStream,
 } = require("@src/v1/utils/helpers");
-const { _userType } = require("@src/v1/utils/constants");
-const {
-  serviceResponse,
-  sendResponse,
-} = require("@src/v1/utils/helpers/api_response");
-const {
-  insertNewFarmerRecord,
-  updateFarmerRecord,
-  updateRelatedRecords,
-  insertNewRelatedRecords,
-} = require("@src/v1/utils/helpers/farmer_module");
+const { _userType } = require('@src/v1/utils/constants');
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { insertNewFarmerRecord, updateFarmerRecord, updateRelatedRecords, insertNewRelatedRecords, excelDateToDDMMYYYY } = require("@src/v1/utils/helpers/farmer_module");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
@@ -50,6 +42,7 @@ const mongoose = require('mongoose');
 const { setCache, getCache } = require("@src/v1/utils/cache");
 const { Verifyfarmer } = require("@src/v1/models/app/farmerDetails/verifyFarmer");
 const { getVerifiedAadharInfo, getAgristackFarmerByAadhar } = require("./Services");
+const { Types } = require("mongoose");
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -662,33 +655,71 @@ module.exports.getFarmers = async (req, res) => {
       query = {};
     }
     if (search) {
-      query.name = { $regex: search, $options: "i" };
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { farmer_id: { $regex: search, $options: 'i' } }
+      ];
     }
-    records.rows =
-      paginate == 1
-        ? await farmer
-            .find(query)
-            .limit(parseInt(limit))
-            .skip(parseInt(skip))
-            .sort(sortBy)
-            .populate("associate_id", "_id user_code")
-        : await farmer.find(query).sort(sortBy);
+    records.rows = paginate == 1
+      ? await farmer.find(query)
+        .limit(parseInt(limit))
+        .skip(parseInt(skip))
+        .sort(sortBy)
+        .populate('associate_id', '_id user_code')
+      : await farmer.find(query).sort(sortBy);
+        const updatedRows = [];
 
-    records.count = await farmer.countDocuments(query);
+        for (const f of records.rows) {
+          const farmer = f.toObject(); 
+
+          farmer.address = farmer.address || {};
+
+          const stateId = farmer.address.state_id;
+          const districtId = farmer.address.district_id;
+
+          if (stateId && Types.ObjectId.isValid(stateId)) {
+            const stateName = await getState(stateId);
+            farmer.address.state_name = stateName || null;
+          }
+
+          if (districtId && Types.ObjectId.isValid(districtId)) {
+            const districtName = await getDistrict(districtId);
+            farmer.address.district_name = districtName || null;
+          }
+
+          delete farmer.address.state_title;
+          delete farmer.address.district_title;
+
+          updatedRows.push(farmer);
+        }
+
+        records.rows = updatedRows;
+
+    // records.count = await farmer.countDocuments(query);
+    if (is_associated == 1) {
+      records.count = await farmer.countDocuments(query);
+    } else {
+      records.count = await farmer.estimatedDocumentCount(query);
+    }
 
     if (paginate == 1) {
       records.page = page;
       records.limit = limit;
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
-
-    return res.status(200).send(
-      new serviceResponse({
+    if (records.count === 0) {
+      return res.status(200).send(new serviceResponse({
         status: 200,
-        data: records,
-        message: _response_message.found("farmers"),
-      })
-    );
+        data: [],
+        message: _response_message.notFound("data")
+      }));
+    }
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: records,
+      message: _response_message.found("farmers")
+    }));
+
   } catch (error) {
     _handleCatchErrors(error, res);
   }
@@ -2648,15 +2679,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
     let errorArray = [];
     const processFarmerRecord = async (rec) => {
       const toLowerCaseIfExists = (value) => value ? value.toLowerCase().trim() : value;
-      //   const parseDateOfBirth = (dob) => {
-      //     if (!isNaN(dob)) {
-      //         const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-      //         const parsedDate = new Date(excelEpoch.getTime() + (dob) * 86400000); 
-      //         return moment.utc(parsedDate).format('DD-MM-YYYY'); 
-      //     }
-
-      //     return moment(dob, 'DD-MM-YYYY', true).isValid() ? dob : null;
-      // };
       const parseBooleanYesNo = (value) => {
         if (value === true || value?.toLowerCase() === "yes") return true;
         if (value === false || value?.toLowerCase() === "no") return false;
@@ -2813,6 +2835,9 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const branch_name = rec["BRANCH NAME*"];
       const ifsc_code = rec["IFSC CODE*"];
       const account_holder_name = rec["ACCOUNT HOLDER NAME*"];
+      if (!isNaN(date_of_birth)) {
+        date_of_birth = excelDateToDDMMYYYY(Number(date_of_birth));
+      }
       const requiredFields = [
         { field: "NAME*", label: "NAME" },
         { field: "FATHER NAME*", label: "FATHER NAME" },
@@ -4216,17 +4241,12 @@ module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
 
         let farmerRecord = await farmer.findOne({ 'mobile_no': mobile_no });
         if (farmerRecord) {
-          return { success: false, errors: [{ record: rec, error: `Farmer  with Mobile No. ${mobile_no} already registered.` }] };
-          
+          return { success: false, errors: [{ record: rec, error: `Farmer  with Aadhar No. ${aadhar_no} already registered.` }] };
+
+          // });
         } else {
-          // Insert new farmer record
-          farmerRecord = await insertNewHaryanaFarmerRecord({
-            name, father_name, uniqueFarmerCode, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, pan_number, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name, warehouse, cold_storage, processing_unit, transportation_facilities, credit_facilities, source_of_credit, financial_challenges, support_required,
-          });
-          await insertNewHaryanaRelatedRecords(farmerRecord._id, {
-            total_area, khasra_number, land_name, cultivation_area, area_unit, khata_number, land_type, khtauni_number, sow_area, state_id: land_state_id, district_id: land_district_id, landvillage, LandBlock, landPincode, expected_production, soil_type, soil_tested, soil_testing_agencies, upload_geotag, crop_name, production_quantity, selling_price, ghat_number,
-            khewat_number, karnal_number, murla_number, revenue_area_karnal, revenue_area_murla, sow_area_karnal, sow_area_murla, yield, insurance_company, insurance_worth, crop_season, crop_land_name, crop_growth_stage, crop_disease, crop_rotation, previous_crop_session, previous_crop_name, crop_sold, quantity_sold, average_selling_price,
-            marketing_channels_used, challenges_faced, insurance_premium, insurance_start_date, insurance_end_date, crop_variety,
+          farmerRecord = await insertNewFarmerRecord({
+            associate_id: associateId, farmer_tracent_code, name, father_name, mother_name, dob: date_of_birth, age: null, gender, farmer_category, aadhar_no, type, marital_status, religion, category, highest_edu, edu_details, address_line, country, state_id, district_id, tahshil, block, village, pinCode, lat, long, mobile_no, email, bank_name, account_no, branch_name, ifsc_code, account_holder_name,
           });
         }
       } catch (error) {

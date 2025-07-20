@@ -13,13 +13,13 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const xlsx = require("xlsx");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
-const importAssociates = require("./associateImportJob");
 const { _paymentstatus } = require("@src/v1/utils/constants");
 const { saveExternalFarmerData } = require("@src/v1/modules/localFarmers/controller");
 const { getState, getDistrict, generateFarmerId } = require("@src/v1/utils/helpers");
 const { generateFarmersIdLogger } = require("@config/logger");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
+const importAssociates = require("./associateImportJob")
 main().catch((err) => console.log(err));
 //update
 async function main() {
