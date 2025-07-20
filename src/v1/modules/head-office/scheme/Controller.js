@@ -30,9 +30,9 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   //   ];
   // }
 
-  if (schemeName) {
-    matchQuery.schemeName = { $regex: schemeName.trim().replace(/\s+/g, ".*"), $options: "i" };
-  }
+  // if (schemeName) {
+  //   matchQuery["schemeDetails.schemeName"] = { $regex: schemeName, $options: "i" };
+  // }
   if (status) {
     matchQuery.status = status.toLowerCase();
   }
@@ -58,6 +58,18 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
     { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+
+     // 💥 Unique filtering based on scheme_id
+     {
+      $group: {
+        _id: "$scheme_id",
+        doc: { $first: "$$ROOT" }
+      }
+    },
+    {
+      $replaceRoot: { newRoot: "$doc" }
+    },
+
     {
       $addFields: {
         schemeName: {
@@ -75,16 +87,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
 
-    // 💥 Unique filtering based on scheme_id
-    {
-      $group: {
-        _id: "$scheme_id",
-        doc: { $first: "$$ROOT" }
-      }
-    },
-    {
-      $replaceRoot: { newRoot: "$doc" }
-    },
+   
   ];
 
   if (search.trim()) {
@@ -94,6 +97,18 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       }
     });
   }
+
+  if (schemeName) {
+    aggregationPipeline.push({
+      $match: {
+        schemeName: {
+          $regex: schemeName.trim(),
+          $options: "i"
+        }
+      }
+    });
+  }
+  
   aggregationPipeline.push(
     {
       $project: {
@@ -111,7 +126,9 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     }
   );
 
-  if (paginate == 1) {
+ 
+
+  if (paginate == 1 && isExport != 1 ) {
     aggregationPipeline.push(
       { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Secondary sort by _id for stability
       { $skip: parseInt(skip) },
@@ -140,7 +157,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
 
   const count = countResult[0]?.total || 0;
   const records = { rows, count };
-  if (paginate == 1) {
+  if (paginate == 1 && isExport != 1) {
     records.page = parseInt(page);
     records.limit = parseInt(limit);
     records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
@@ -149,12 +166,13 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     const record = rows.map((item) => {
       console.log(item);
       return {
-        "Scheme Id": item?.schemeId || "NA",
-        "scheme Name": item?.schemeName || "NA",
-        "Scheme Commodity": item?.Schemecommodity || "NA",
-        season: item?.season || "NA",
-        period: item?.period || "NA",
-        procurement: item?.procurement || "NA",
+        "SCHEME ID": item?.schemeId || "NA",
+        "SCHEME": item?.schemeName || "NA",
+        "ASSIGNED QUANTITY (IN MT)": item?.procurement || "NA",
+         "SCHEME CREATED ON": item?.createdAt || "NA",
+        "STATUS" : item?.status|| "NA",
+        // season: item?.season || "NA",
+        // period: item?.period || "NA",
       };
     });
     if (record.length > 0) {

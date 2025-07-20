@@ -1,8 +1,7 @@
 const express = require("express");
 const hoDashboardRoutes = express.Router();
-
+const { Auth } = require("@src/v1/middlewares/jwt");
 const {
-  satewiseProcurement,
   widgetList,
   farmerPayments,
   revenueExpenseChart,
@@ -17,11 +16,17 @@ const {
   procurementStatus,
   dashboardWidgetList,
   farmerPendingPayments,
-  farmerPendingApproval
+  farmerPendingApproval,
+  satewiseProcurement,
+  getcommodity,
+  getAssignedSchemes,
+  stateWiseCommodityDetail,
+  getStateWiseCommodityStats
 } = require("./Controller");
 
+
 hoDashboardRoutes.get("/widget-list", widgetList);
-hoDashboardRoutes.get("/ho-widget-list", dashboardWidgetList);
+hoDashboardRoutes.get("/ho-widget-list", dashboardWidgetList); // 
 hoDashboardRoutes.get("/farmer-payments", farmerPayments);
 hoDashboardRoutes.get("/revenue-expense", revenueExpenseChart);
 hoDashboardRoutes.get("/location-warehouse", locationWareHouseChart);
@@ -35,10 +40,15 @@ hoDashboardRoutes.get("/benifitted-farmer", farmerBenifitted);
 hoDashboardRoutes.get("/procurement-status", procurementStatus);
 hoDashboardRoutes.get("/procurement-ontime", procurementOnTime);
 hoDashboardRoutes.get("/payment-status-by-date", paymentStatusByDate);
-hoDashboardRoutes.get("/payment-activity",paymentActivity)
+
+hoDashboardRoutes.get("/payment-activity",paymentActivity) 
+hoDashboardRoutes.get("/farmer-pending-payments", farmerPendingPayments); 
+hoDashboardRoutes.get("/farmer-pending-approval", farmerPendingApproval); 
+hoDashboardRoutes.get("/statewise-procurement", satewiseProcurement); 
+
+hoDashboardRoutes.get("/commodity", Auth, getcommodity);
+hoDashboardRoutes.get("/getscheme", Auth, getAssignedSchemes);
+hoDashboardRoutes.get("/statewise-commodity", getStateWiseCommodityStats);
 
 
-hoDashboardRoutes.get("/farmer-pending-payments", farmerPendingPayments);
-hoDashboardRoutes.get("/farmer-pending-approval", farmerPendingApproval);
-hoDashboardRoutes.get("/statewise-procurement", satewiseProcurement);
 module.exports = { hoDashboardRoutes };

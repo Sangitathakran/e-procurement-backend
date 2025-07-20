@@ -123,124 +123,125 @@ module.exports.createProcurementCenter = async (req, res) => {
 
 module.exports.updateProcurementCenter = asyncErrorHandler(async (req, res) => {
   try {
-      const { id } = req.params;
-      const {
-          center_name,
-          // center_code,
-          center_mobile,
-          center_email,
-          registration_image,
-          pan_number,
-          pan_image,
-          line1,
-          line2,
-          state,
-          district,
-          city,
-          postalCode,
-          lat,
-          long,
-          name,
-          email,
-          mobile,
-          designation,
-          aadhar_number,
-          aadhar_image,
-          bank_name,
-          branch_name,
-          account_holder_name,
-          ifsc_code,
-          account_number,
-          proof,
-          addressType,
-          location_url
-      } = req.body;
+    const { id } = req.params;
+    const {
+      center_name,
+      // center_code,
+      center_mobile,
+      center_email,
+      registration_image,
+      pan_number,
+      pan_image,
+      line1,
+      line2,
+      state,
+      district,
+      city,
+      postalCode,
+      lat,
+      long,
+      name,
+      email,
+      mobile,
+      designation,
+      aadhar_number,
+      aadhar_image,
+      bank_name,
+      branch_name,
+      account_holder_name,
+      ifsc_code,
+      account_number,
+      proof,
+      addressType,
+      location_url
+    } = req.body;
 
-      if (!id) {
-          return res.status(400).json(new serviceResponse({
-              status: 400,
-              message: "Procurement Center ID is required"
-          }));
-      }
-
-      // Update object with nested fields
-      const updateFields = {
-          ...(center_name && { center_name }),
-          // ...(center_code && { center_code }),
-          ...(center_mobile && { center_mobile }),
-          ...(center_email && { center_email }),
-          ...(addressType && { addressType }),
-          ...(location_url && { location_url }),
-          ...(registration_image || pan_number || pan_image ? {
-              company_details: {
-                  ...(registration_image && { registration_image }),
-                  ...(pan_number && { pan_number }),
-                  ...(pan_image && { pan_image })
-              }
-          } : {}),
-          ...(line1 || line2 || state || district || city || postalCode || lat || long ? {
-              address: {
-                  ...(line1 && { line1 }),
-                  ...(line2 && { line2 }),
-                  ...(state && { state }),
-                  ...(district && { district }),
-                  ...(city && { city }),
-                  ...(postalCode && { postalCode }),
-                  ...(lat && { lat }),
-                  ...(long && { long }),
-                  country: "India"
-              }
-          } : {}),
-          ...(name || email || mobile || designation || aadhar_number || aadhar_image ? {
-              point_of_contact: {
-                  ...(name && { name }),
-                  ...(email && { email }),
-                  ...(mobile && { mobile }),
-                  ...(designation && { designation }),
-                  ...(aadhar_number && { aadhar_number }),
-                  ...(aadhar_image && { aadhar_image })
-              }
-          } : {}),
-          ...(bank_name || branch_name || account_holder_name || ifsc_code || account_number || proof ? {
-              bank_details: {
-                  ...(bank_name && { bank_name }),
-                  ...(branch_name && { branch_name }),
-                  ...(account_holder_name && { account_holder_name }),
-                  ...(ifsc_code && { ifsc_code }),
-                  ...(account_number && { account_number }),
-                  ...(proof && { proof })
-              }
-          } : {})
-      };
-
-      // Find and update with proper nested structure
-      const updatedProcurement = await ProcurementCenter.findOneAndUpdate(
-          { $or: [{ id }, { _id: id }] },
-          { $set: updateFields },
-          { new: true, runValidators: true }
-      );
-
-      if (!updatedProcurement) {
-          return res.status(404).json(new serviceResponse({
-              status: 404,
-              message: "Procurement record not found"
-          }));
-      }
-
-      return res.status(200).json(new serviceResponse({
-          status: 200,
-          message: "Procurement record updated successfully",
-          data: updatedProcurement
+    if (!id) {
+      return res.status(400).json(new serviceResponse({
+        status: 400,
+        message: "Procurement Center ID is required"
       }));
+    }
+
+    // Update object with nested fields
+    const updateFields = {
+      ...(center_name && { center_name }),
+      // ...(center_code && { center_code }),
+      ...(center_mobile && { center_mobile }),
+      ...(center_email && { center_email }),
+      ...(addressType && { addressType }),
+      ...(location_url && { location_url }),
+      ...(registration_image || pan_number || pan_image ? {
+        company_details: {
+          ...(registration_image && { registration_image }),
+          ...(pan_number && { pan_number }),
+          ...(pan_image && { pan_image })
+        }
+      } : {}),
+      ...(line1 || line2 || state || district || city || postalCode || lat || long ? {
+        address: {
+          ...(line1 && { line1 }),
+          ...(line2 && { line2 }),
+          ...(state && { state }),
+          ...(district && { district }),
+          ...(city && { city }),
+          ...(postalCode && { postalCode }),
+          ...(lat && { lat }),
+          ...(long && { long }),
+          country: "India"
+        }
+      } : {}),
+      ...(name || email || mobile || designation || aadhar_number || aadhar_image ? {
+        point_of_contact: {
+          ...(name && { name }),
+          ...(email && { email }),
+          ...(mobile && { mobile }),
+          ...(designation && { designation }),
+          ...(aadhar_number && { aadhar_number }),
+          ...(aadhar_image && { aadhar_image })
+        }
+      } : {}),
+      ...(bank_name || branch_name || account_holder_name || ifsc_code || account_number || proof ? {
+        bank_details: {
+          ...(bank_name && { bank_name }),
+          ...(branch_name && { branch_name }),
+          ...(account_holder_name && { account_holder_name }),
+          ...(ifsc_code && { ifsc_code }),
+          ...(account_number && { account_number }),
+          ...(proof && { proof })
+        }
+      } : {})
+    };
+
+    // Find and update with proper nested structure
+    const updatedProcurement = await ProcurementCenter.findOneAndUpdate(
+      { $or: [{ id }, { _id: id }] },
+      { $set: updateFields },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedProcurement) {
+      return res.status(404).json(new serviceResponse({
+        status: 404,
+        message: "Procurement record not found"
+      }));
+    }
+
+    return res.status(200).json(new serviceResponse({
+      status: 200,
+      message: "Procurement record updated successfully",
+      data: updatedProcurement
+    }));
 
   } catch (error) {
-      console.error("Error updating Procurement Center:", error);
-      return res.status(500).json(new serviceResponse({
-          status: 500,
-          error: "Internal Server Error"
-      }));
+    console.error("Error updating Procurement Center:", error);
+    return res.status(500).json(new serviceResponse({
+      status: 500,
+      error: "Internal Server Error"
+    }));
   }
 });
+
 module.exports.getProcurementCenter = async (req, res) => {
   try {
     const {
@@ -255,10 +256,14 @@ module.exports.getProcurementCenter = async (req, res) => {
     const { user_id } = req;
     let query = {
       user_id: user_id,
-      ...(search
-        ? { center_name: { $regex: search, $options: "i" }, deletedAt: null }
-        : { deletedAt: null }),
-    };
+      deletedAt: null,
+      ...(search && {
+        $or: [
+         { center_name: { $regex: search, $options: "i" } },
+         { center_code: { $regex: search, $options: "i" } }
+        ]
+        })
+      };
     const records = { count: 0 };
     records.rows =
       paginate == 1
@@ -436,18 +441,21 @@ module.exports.getHoProcurementCenter = async (req, res) => {
     if (isExport == 1) {
       const record = records.rows.map((item) => {
         return {
-          "Address Line 1": item?.address?.line1 || "NA",
-          "Address Line 2": item?.address?.line2 || "NA",
-          Country: item?.address?.country || "NA",
+          "CENTER ID": item?.center_code || "NA",
+          "CENTER TYPE": item?.center_code || "NA",
+          "CENTER NAME": item?.center_code || "NA",
+          CONTACT: item?.point_of_contact?.mobile || "NA",
+          EMAIL: item?.point_of_contact?.email || "NA",
           State: item?.address?.country || "NA",
-          District: item?.address?.district || "NA",
           City: item?.address?.city || "NA",
-          "PIN Code": item?.address?.postalCode || "NA",
-          Name: item?.point_of_contact?.name || "NA",
-          Email: item?.point_of_contact?.email || "NA",
-          Mobile: item?.point_of_contact?.mobile || "NA",
-          Designation: item?.point_of_contact?.designation || "NA",
-          "Aadhar Number": item?.point_of_contact?.aadhar_number || "NA",
+          "POINT OF CONTACT": item?.point_of_contact?.name || "NA",
+          // "Address Line 1": item?.address?.line1 || "NA",
+          // "Address Line 2": item?.address?.line2 || "NA",
+          // Country: item?.address?.country || "NA",
+          // District: item?.address?.district || "NA",
+          // "PIN Code": item?.address?.postalCode || "NA",
+          // Designation: item?.point_of_contact?.designation || "NA",
+          // "Aadhar Number": item?.point_of_contact?.aadhar_number || "NA",
         };
       });
 
@@ -649,7 +657,6 @@ module.exports.ImportProcurementCenter = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
-
 /*
 module.exports.generateCenterCode = async (req, res) => {
     try {

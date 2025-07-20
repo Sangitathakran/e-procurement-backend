@@ -2,6 +2,7 @@ const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 const { User } = require("@src/v1/models/app/auth/User");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Commodity } = require("@src/v1/models/master/Commodity");
 const {
@@ -69,6 +70,27 @@ module.exports.commodity = async (req, res) => {
   }
 };
 
+module.exports.commodityRequest = async (req, res) => {
+  try {
+    const result = await RequestModel.find({ "product.name": { $exists: true } })
+      .select("product.name -_id"); // only fetch product.name
+
+    const nameList = result.map(item => item.product.name);
+
+    return sendResponse({
+      res,
+      message: "Product names fetched successfully.",
+      data: nameList,
+    });
+  } catch (err) {
+    console.error("ERROR:", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: err.message,
+    });
+  }
+};
 module.exports.commodity_standard = async (req, res) => {
   const query = { deletedAt: null, status: "active" };
   try {
@@ -329,6 +351,55 @@ module.exports.getAssociates = async (req, res) => {
   } catch (err) {
     console.log("ERROR: ", err);
     return sendResponse({ status: 500, message: err.message });
+  }
+};
+
+module.exports.getDistrictsByState = async (req, res) => {
+  try {
+    const { state_code } = req.query;
+
+    if (!state_code) {
+      return sendResponse({
+        res,
+        status: 400,
+        message: "State code is required",
+      });
+    }
+
+    const district_list = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      {
+        $match: {
+          "states.state_code": state_code,
+          "states.status": "active",
+        },
+      },
+      { $unwind: "$states.districts" },
+      {
+        $match: {
+          "states.districts.status": "active",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          district_title: "$states.districts.district_title",
+        },
+      },
+    ]);
+
+    return sendResponse({
+      res,
+      message: "",
+      data: district_list,
+    });
+  } catch (err) {
+    console.error("ERROR: ", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: err.message,
+    });
   }
 };
 

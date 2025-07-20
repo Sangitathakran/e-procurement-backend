@@ -17,6 +17,10 @@ const {
 const Branches = require("@src/v1/models/app/branchManagement/Branches");
 const { getFilter } = require("@src/v1/utils/helpers/customFilter");
 const { received_qc_status } = require("@src/v1/utils/constants");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const {wareHouseDetails} = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const {ProcurementCenter} = require("@src/v1/models/app/procurement/ProcurementCenter");
+const {User} = require("@src/v1/models/app/auth/User");
 
 //widget list
 /*
@@ -406,7 +410,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
       {
         $lookup: {
           from: 'commodities',
-          localField: 'commodity_id',
+          localField: 'schemeDetails.commodity_id',
           foreignField: '_id',
           as: 'commodityDetails',
         },
@@ -414,8 +418,11 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
       { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
       { $match: query }, // Now filtering happens after lookups
       { $sort: sortBy },
-      { $skip: parsedSkip },
-      { $limit: parsedLimit },
+      // { $skip: parsedSkip },
+      // { $limit: parsedLimit },
+      ...(isExport == 0 || isExport == "0"
+        ? [{ $skip: parsedSkip }, { $limit: parsedLimit }]
+        : []),
       {
         $project: {
           reqNo: 1,
@@ -431,10 +438,11 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
           slaName: "$slaDetails.basic_details.name",
           schemeSeason:"$schemeDetails.season",
           schemeYear:"$schemeDetails.period",
+          commodityName: "$commodityDetails.name",
           schemeName: {
             $concat: [
-              "$schemeDetails.schemeName", "",
-              { $ifNull: ["$commodityDetails.name", ""] }, "",
+              "$schemeDetails.schemeName", " ",
+              { $ifNull: ["$commodityDetails.name", ""] }, " ",
               { $ifNull: ["$schemeDetails.season", ""] }, " ",
               { $ifNull: ["$schemeDetails.period", ""] },
             ],
@@ -442,7 +450,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
         },
       },
     ];
-
+     console.log("aggregateQuery",aggregateQuery);
     const records = await RequestModel.aggregate(aggregateQuery);
     console.log("Records fetched:", records.length);
 
@@ -502,12 +510,15 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     // Handle export request
     if (isExport == 1) {
       const record = records.map((item) => ({
-        "Order ID": item?.reqNo || "NA",
-        "Branch Office": item?.branchName || "NA",
+        "ORDER ID": item?.reqNo || "NA",
+        "BRANCH OFFFICE NAME": item?.branchName || "NA",
+        "SLA": item?.slaName || "NA",
+        "SCHEME": item?.schemeName || "NA",
         "Commodity": item?.product?.name || "NA",
-        "MSP": item?.quotedPrice || "NA",
-        "EST Delivery": item?.fulfilledQty || "NA",
-        "Completion": item?.deliveryDate || "NA",
+        "QUANTITY PURCHASED": item?.fulfilledQty ,
+        "MSP": item?.quotedPrice ,
+        "EST Delivery": item?.deliveryDate || "NA",
+        "Completion": item?.quoteExpiry || "NA",
         "Created Date": item?.createdAt || "NA",
       }));
 
@@ -550,8 +561,13 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
 module.exports.requirementById = asyncErrorHandler(async (req, res) => {
   try {
     const { requirementId } = req.params;
-    const { page, limit, skip = 0, paginate, sortBy } = req.query;
+    const { page, limit, skip = 0, paginate, sortBy,isExport = 0, } = req.query;
     const records = { count: 0 };
+
+    const query = { req_id: requirementId };
+
+    // // Get total count FIRST
+     records.count = await Batch.countDocuments(query);
 
     records.rows = await Batch.find({ req_id: requirementId })
       .select('batchId qty delivered status')
@@ -566,7 +582,7 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
         path: 'procurementCenter_id',
         select: 'center_name location_url'
       })
-      .skip(skip)
+      .skip((parseInt(page) - 1) * parseInt(limit))
       .limit(parseInt(limit))
       .sort(sortBy) ?? [];
 
@@ -582,20 +598,56 @@ module.exports.requirementById = asyncErrorHandler(async (req, res) => {
       status: item.status
     }));
 
-    records.count = records.rows.length;
+    // records.count = records.rows.length;
 
     if (paginate == 1) {
       records.page = page;
       records.limit = limit;
-      records.pages = limit != 0 ? Math.ceil(records.count / 10) : 0;
+      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
-    return sendResponse({
-      res,
-      status: 200,
-      data: records,
-      message: _response_message.found("requirement"),
-    })
+       // Handle export request
+       if (isExport == 1) {
+        const record = records.rows.map((item) => ({
+          "BATCH ID": item?.batchId || "NA",
+          "ASSOCIATE NAME": item?.associateName || "NA",
+          "PROCUREMENT CENTER": item?.procurementCenterName || "NA",
+          "QUANTITY PURCHASED": item?.quantity || "NA",
+          "DELIVERED ON": item?.deliveredOn || "NA",
+          "BATCH STATUS": item?.status || "NA",
+          "QC STATUS": item?.qc_status || "NA",
+        }));
+  
+        if (record.length > 0) {
+          dumpJSONToExcel(req, res, {
+            data: record,
+            fileName: `Batch-List-Record.xlsx`,
+            worksheetName: `Batch-List-Record`,
+          });
+        } else {
+          return sendResponse({
+            res,
+            status: 400,
+            data: [],
+            message: _response_message.notFound("Requirement"),
+          });
+        }
+      } else {
+        // Send paginated data
+        return sendResponse({
+          res,
+          status: 200,
+          data: records,
+          message: _response_message.found("requirement"),
+        });
+      }
+
+    // return sendResponse({
+    //   res,
+    //   status: 200,
+    //   data: records,
+    //   message: _response_message.found("requirement"),
+    // })
   } catch (error) {
     console.log("error", error);
     _handleCatchErrors(error, res);
@@ -726,7 +778,18 @@ module.exports.qcDetailsById = asyncErrorHandler(async (req, res) => {
     records.rows =
       (await Batch.findById(id)
         .select(" ")
-        .populate({ path: 'req_id', select: '' })) ?? []
+        .populate({ path: 'req_id', select: '' })
+        .populate({ path: 'warehousedetails_id', select: '' })
+        .populate({ path: 'procurementCenter_id', select: '' })
+         .populate({ path: 'seller_id', select: '' })
+      )
+         ?? []
+
+         const farmerOrderIds = records.rows?.farmerOrderIds?.map(f => f.farmerOrder_id) || [];
+         records.lot_details = await FarmerOrders.find({
+           _id: { $in: farmerOrderIds },
+           status: "Received"
+         }).select(" ");  
 
     return sendResponse({
       res,
