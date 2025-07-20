@@ -5,7 +5,7 @@ const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { _query, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
-const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod, _userType } = require("@src/v1/utils/constants");
+const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod, _userType, _paymentApproval } = require("@src/v1/utils/constants");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { ExternalBatch } = require("@src/v1/models/app/procurement/ExternalBatch");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
@@ -13,6 +13,7 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const PaymentLogsHistory = require('@src/v1/models/app/procurement/PaymentLogsHistory');
+const moment = require('moment');
 
 
 // module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
@@ -113,7 +114,7 @@ const PaymentLogsHistory = require('@src/v1/models/app/procurement/PaymentLogsHi
 
 //using aggregate for filter and search
 module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
-    const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status, productName, warehouse_name } = req.query;
+    const { page = 1, limit = 10, search = '', isExport = 0, status, productName, warehouse_name } = req.query;
     const { warehouseIds = [] } = req.body;
 
     try {
@@ -145,6 +146,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
         }
 
         const searchRegex = search ? new RegExp(search, 'i') : null;
+        const sortBy = 'createdAt';
 
         const pipeline = [
             {
@@ -244,7 +246,8 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                     createdAt: 1
                 }
             },
-            { $sort: { [sortBy]: 1 } },
+            // { $sort: { [sortBy]: 1 } },
+            { $sort: { createdAt: - 1, _id: -1 } },
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) }
         ];
@@ -488,7 +491,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
 
 //using aggregate for search and filter getPendingBatchesByWarehouse
 module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
-    const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status, productName, warehouse_name } = req.query;
+    const { page = 1, limit = 10,  search = '', isExport = 0, status, productName, warehouse_name } = req.query;
     const { warehouseIds = [] } = req.body;
 
     try {
@@ -520,6 +523,7 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
         }
 
         const searchRegex = search ? new RegExp(search, 'i') : null;
+        const sortBy = "createdAt";
 
         const pipeline = [
             {
@@ -619,7 +623,8 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
                     createdAt: 1
                 }
             },
-            { $sort: { [sortBy]: 1 } },
+            // { $sort: { [sortBy]: 1 } },
+            { $sort: { createdAt: - 1, _id: -1 } },
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) }
         ];
@@ -860,9 +865,9 @@ module.exports.viewBatchDetails = async (req, res) => {
             .populate([
                 { path: "procurementCenter_id", select: "center_name" },
                 { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
-                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" },
+                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no receving_date updatedAt" },
                 { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
-                { path: "req_id", select: "product.name deliveryDate" },
+                { path: "req_id", select: "product.name deliveryDate quotedPrice " },
             ])
 
         if (!batch) {
@@ -871,7 +876,18 @@ module.exports.viewBatchDetails = async (req, res) => {
                 errors: [{ message: "Batch not found" }]
             }));
         }
-        console.log('batch', batch)
+        let procurementDate = "NA";
+            for (const order of batch.farmerOrderIds) {
+                const receivingDate = order.farmerOrder_id?.receving_date;
+                const updatedDate = order.farmerOrder_id?.updatedAt;
+
+                if (receivingDate) {
+                    procurementDate = receivingDate;
+                    break;
+                } else if (updatedDate && procurementDate === "NA") {
+                    procurementDate = updatedDate;
+                }
+            }
         const response = {
             basic_details: {
                 batch_id: batch.batchId,
@@ -879,10 +895,10 @@ module.exports.viewBatchDetails = async (req, res) => {
                 commodity: batch.req_id || "NA",
                 intransit: batch.intransit || "NA",
                 receivingDetails: batch.receiving_details || "NA",
-                procurementDate: batch.procurementDate,
+                procurementDate: procurementDate,
                 procurementCenter: batch.procurementCenter_id?.center_name || "NA",
                 warehouse: batch.warehousedetails_id,
-                msp: batch.msp || "NA",
+                msp: batch.req_id?.quotedPrice || "NA",
                 final_quality_check: batch.final_quality_check,
                 dispatched: batch.dispatched,
                 delivered: batch.delivered
@@ -1042,10 +1058,13 @@ module.exports.batchStatusUpdate = async (req, res) => {
             'final_quality_check.qc_images': qc_images,
             'final_quality_check.whr_receipt': whr_receipt,
             'final_quality_check.whr_receipt_image': whr_receipt_image,
-            'final_quality_check.rejected_reason': status === 'Rejected' ? rejected_reason : null
+            'final_quality_check.rejected_reason': status === 'Rejected' ? rejected_reason : null,
+            
         };
 
         const updatedBatch = await Batch.findByIdAndUpdate(batchId, { $set: updateFields }, { new: true });
+        updatedBatch.dispatched.qc_report.received.push({ img: qc_images, on: moment() });
+        await updatedBatch.save()
         if (!updatedBatch) {
             return res.status(404).send(new serviceResponse({
                 status: 404,
@@ -1119,6 +1138,8 @@ module.exports.batchMarkDelivered = async (req, res) => {
         //     record.dispatched.material_img.received.push(...document_pictures.product_images.map(i => { return { img: i, on: moment() } }))
         // }
         // if (qc_report.length > 0) {
+        record.dispatched.material_img.received.push({ img: document_pictures?.proof_of_delivery || null, on: moment() });
+        record.dispatched.weight_slip.received.push({ img: document_pictures?.weigh_bridge_slip|| null, on: moment() });
         record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
         record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
 
@@ -1139,6 +1160,9 @@ module.exports.batchMarkDelivered = async (req, res) => {
                 associate_id: record?.seller_id,
                 ho_id: request?.head_office_id,
                 bo_id: request?.branch_id,
+                sla_id: request?.sla_id,
+                sla_approve_status: _paymentApproval.pending,
+                sla_approve_by: new mongoose.Types.ObjectId(user_id),
                 associateOffers_id: farmerData?.associateOffers_id,
                 batch_id: record?._id,
                 qtyProcured: farmer.qty,
