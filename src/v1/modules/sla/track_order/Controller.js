@@ -119,136 +119,207 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
 
         // Aggregation Pipeline
         const basePipeline = [
-            { $match: query },
+          { $match: query },
 
-            // Lookup AssociateOffers
-            {
-                $lookup: {
-                    from: 'associateoffers',
-                    localField: '_id',
-                    foreignField: 'req_id',
-                    as: 'myoffer',
-                },
+          // Lookup AssociateOffers
+          {
+            $lookup: {
+              from: "associateoffers",
+              localField: "_id",
+              foreignField: "req_id",
+              as: "myoffer",
             },
-            { $unwind: { path: '$myoffer', preserveNullAndEmptyArrays: true } }, // Prevent data loss
+          },
+          { $unwind: { path: "$myoffer", preserveNullAndEmptyArrays: true } }, // Prevent data loss
 
-            // Match only required statuses
-            {
-                $match: {
-                    $or: [
-                        { "myoffer.status": _associateOfferStatus.ordered },
-                        { "myoffer.status": _associateOfferStatus.partially_ordered }
-                    ]
-                }
+          // Match only required statuses
+          {
+            $match: {
+              $or: [
+                { "myoffer.status": _associateOfferStatus.ordered },
+                { "myoffer.status": _associateOfferStatus.partially_ordered },
+              ],
             },
+          },
 
-            // Lookup Head Office details
-            {
-                $lookup: {
-                    from: "headoffices",
-                    let: { head_office_id: "$head_office_id" },
-                    pipeline: [
-                        { $match: { $expr: { $eq: ["$_id", { $toObjectId: "$$head_office_id" }] } } },
-                        {
-                            $project: {
-                                headOfficesName: "$company_details.name",
-                                _id: 0
-                            }
-                        }
-                    ],
-                    as: "headOfficeDetails",
-                },
-            },
-            { $unwind: { path: "$headOfficeDetails", preserveNullAndEmptyArrays: true } },
-
-            // Lookup SLA details
-            {
-                $lookup: {
-                    from: "slas",
-                    let: { sla_id: "$sla_id" },
-                    pipeline: [
-                        { $match: { $expr: { $eq: ["$_id", "$$sla_id"] } } },
-                        {
-                            $project: {
-                                slaName: "$basic_details.name",
-                                _id: 0
-                            }
-                        }
-                    ],
-                    as: "slaDetails",
-                },
-            },
-            { $unwind: { path: "$slaDetails", preserveNullAndEmptyArrays: true } },
-
-            // Lookup Scheme details
-            {
-                $lookup: {
-                    from: 'schemes',
-                    let: { schemeId: "$product.schemeId" },
-                    pipeline: [
-                        { $match: { $expr: { $eq: ["$_id", "$$schemeId"] } } },
-                        {
-                            $project: {
-                                schemeName: 1,
-                                "commodityDetails.name": 1,
-                                season: 1,
-                                period: 1,
-                                _id: 0
-                            }
-                        }
-                    ],
-                    as: 'schemeDetails',
-                },
-            },
-            { $unwind: { path: '$schemeDetails', preserveNullAndEmptyArrays: true } },
-
-            {
-                $lookup: {
-                    from: "branches",
-                    let: { branch_id: "$branch_id" },
-                    pipeline: [
-                        { $match: { $expr: { $eq: ["$_id", { $toObjectId: "$$branch_id" }] } } },
-                        {
-                            $project: {
-                                branchName: "$branchName",
-                                _id: 0
-                            }
-                        }
-                    ],
-                    as: "branchDetails",
-                },
-            },
-            { $unwind: { path: '$branchDetails', preserveNullAndEmptyArrays: true } },
-            // Add computed fields
-            {
-                $addFields: {
-                    schemeName: {
-                        $concat: [
-                            { $ifNull: ["$schemeDetails.schemeName", ""] }, "",
-                            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
-                            { $ifNull: ["$schemeDetails.procurement", ""] }, "",
-                            { $ifNull: ["$schemeDetails.season", ""] }, "",
-                            { $ifNull: ["$schemeDetails.period", ""] }
-                        ]
+          // Lookup Head Office details
+          {
+            $lookup: {
+              from: "headoffices",
+              let: { head_office_id: "$head_office_id" },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $eq: ["$_id", { $toObjectId: "$$head_office_id" }],
                     },
-                    slaName: { $ifNull: ["$slaDetails.slaName", "N/A"] },
-                    headOfficesName: { $ifNull: ["$headOfficeDetails.headOfficesName", "N/A"] },
-                    branchName: { $ifNull: ["$branchDetails.branchName","N/A"] },
-                    commodity: { $ifNull: ["$product.name", "N/A"] },
-                    cna: { $ifNull: ["$headOfficeDetails.headOfficesName", "N/A"] }
-                }
+                  },
+                },
+                {
+                  $project: {
+                    headOfficesName: "$company_details.name",
+                    _id: 0,
+                  },
+                },
+              ],
+              as: "headOfficeDetails",
             },
+          },
+          {
+            $unwind: {
+              path: "$headOfficeDetails",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
 
-             // Apply dynamic filters if they exist
-             ...(schemeName ? [{ $match: { schemeName: { $regex: schemeName, $options: 'i' } } }] : []),
-             ...(commodity ? [{ $match: { commodity: { $regex: commodity, $options: 'i' } } }] : []),
-             ...(slaName ? [{ $match: { slaName: { $regex: slaName, $options: 'i' } } }] : []),
-             ...(branchName ? [{ $match: { branchName: { $regex: branchName, $options: 'i' } } }] : []),
-             ...(cna ? [{ $match: { cna: { $regex: cna, $options: 'i' } } }] : []),
-            // ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
-            // Sorting (Always Descending)
-            { $sort: { [sortBy || "createdAt"]: -1 } }  
+          // Lookup SLA details
+          {
+            $lookup: {
+              from: "slas",
+              let: { sla_id: "$sla_id" },
+              pipeline: [
+                { $match: { $expr: { $eq: ["$_id", "$$sla_id"] } } },
+                {
+                  $project: {
+                    slaName: "$basic_details.name",
+                    _id: 0,
+                  },
+                },
+              ],
+              as: "slaDetails",
+            },
+          },
+          {
+            $unwind: { path: "$slaDetails", preserveNullAndEmptyArrays: true },
+          },
 
+          // Lookup Scheme details
+          {
+            $lookup: {
+              from: "schemes",
+              let: { schemeId: "$product.schemeId" },
+              pipeline: [
+                { $match: { $expr: { $eq: ["$_id", "$$schemeId"] } } },
+                {
+                  $project: {
+                    schemeName: 1,
+                    "commodityDetails.name": 1,
+                    season: 1,
+                    period: 1,
+                    _id: 0,
+                  },
+                },
+              ],
+              as: "schemeDetails",
+            },
+          },
+          {
+            $unwind: {
+              path: "$schemeDetails",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+
+          {
+            $lookup: {
+              from: "commodities",
+              let: { commodity_id: "$schemeDetails.commodity_id" },
+              pipeline: [
+                { $match: { $expr: { $eq: ["$_id", "$$commodity_id"] } } },
+                {
+                  $project: {
+                    name: 1,
+                    _id: 1,
+                  },
+                },
+              ],
+              as: "commodityDetails",
+            },
+          },
+          {
+            $unwind: {
+              path: "$commodityDetails",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+
+          {
+            $lookup: {
+              from: "branches",
+              let: { branch_id: "$branch_id" },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: { $eq: ["$_id", { $toObjectId: "$$branch_id" }] },
+                  },
+                },
+                {
+                  $project: {
+                    branchName: "$branchName",
+                    _id: 0,
+                  },
+                },
+              ],
+              as: "branchDetails",
+            },
+          },
+          {
+            $unwind: {
+              path: "$branchDetails",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          // Add computed fields
+          {
+            $addFields: {
+              schemeName: {
+                $concat: [
+                  { $ifNull: ["$schemeDetails.schemeName", ""] },
+                  " ",
+                  { $ifNull: ["$commodityDetails.name", ""] },
+                  " ",
+                  { $ifNull: ["$schemeDetails.procurement", ""] },
+                  " ",
+                  { $ifNull: ["$schemeDetails.season", ""] },
+                  " ",
+                  { $ifNull: ["$schemeDetails.period", ""] },
+                ],
+              },
+              slaName: { $ifNull: ["$slaDetails.slaName", "N/A"] },
+              headOfficesName: {
+                $ifNull: ["$headOfficeDetails.headOfficesName", "N/A"],
+              },
+              branchName: { $ifNull: ["$branchDetails.branchName", "N/A"] },
+              commodity: { $ifNull: ["$product.name", "N/A"] },
+              cna: { $ifNull: ["$headOfficeDetails.headOfficesName", "N/A"] },
+            },
+          },
+
+          // Apply dynamic filters if they exist
+          ...(schemeName
+            ? [
+                {
+                  $match: { schemeName: { $regex: schemeName, $options: "i" } },
+                },
+              ]
+            : []),
+          ...(commodity
+            ? [{ $match: { commodity: { $regex: commodity, $options: "i" } } }]
+            : []),
+          ...(slaName
+            ? [{ $match: { slaName: { $regex: slaName, $options: "i" } } }]
+            : []),
+          ...(branchName
+            ? [
+                {
+                  $match: { branchName: { $regex: branchName, $options: "i" } },
+                },
+              ]
+            : []),
+          ...(cna ? [{ $match: { cna: { $regex: cna, $options: "i" } } }] : []),
+          // ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
+          // Sorting (Always Descending)
+          { $sort: { [sortBy || "createdAt"]: -1 } },
         ];
        
         // Pagination
@@ -285,13 +356,14 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
                 return {
                     "Order Id": item?.reqNo || "NA",
                     "Commodity": item?.product.name || "NA",
-                    "Grade": item?.product.grade || "NA",
+                    "SCHEME": item?.schemeName || "NA",
+                    "CNA NAME": item?.headOfficesName || "NA",
+                    "BO NAME": item?.branchName || "NA",
+                    "SLA Name": item?.slaName || "NA",
+                    "SUB STANDARD": item?.product?.grade || "NA",
                     "MSP": item?.quotedPrice || "NA",
                     "Expected Procurement": item?.expectedProcurementDate || "NA",
                     "Expected Delivery Date": item?.deliveryDate || "NA",
-                    "Delivery Location": item?.address.deliveryLocation || "NA",
-                    "SLA Name": item?.slaName || "NA",
-                    "Head Office Name": item?.headOfficesName || "NA",
                 };
             });
 

@@ -192,17 +192,44 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
     const records = { count: 0 };
 
-    records.rows = paginate == 1 ? await RequestModel.find(query)
+    if(isExport!=1 && paginate == 1 )
+    {
+        records.rows = await RequestModel.find(query)
         .sort(sortBy)
         .skip(skip)
         .populate({ path: "branch_id", select: "_id branchName branchId" })
         .populate({ path: "head_office_id", select: "_id company_details.name" })
         .populate({ path: "sla_id", select: "_id basic_details.name" })
         .populate({ path: "warehouse_id", select: "addressDetails" })
-        .populate({ path: "product.schemeId", select: "schemeName" })
-        .limit(parseInt(limit)) : await RequestModel.find(query).sort(sortBy);
+        .populate({ path: "product.schemeId", select: "schemeName season period" })
+        .limit(parseInt(limit))
+    }else {
+        records.rows = await RequestModel.find(query)
+        .sort(sortBy)
+        .populate({ path: "branch_id", select: "_id branchName branchId" })
+        .populate({ path: "head_office_id", select: "_id company_details.name" })
+        .populate({ path: "sla_id", select: "_id basic_details.name" })
+        .populate({ path: "warehouse_id", select: "addressDetails" })
+        .populate({ path: "product.schemeId", select: "schemeName season period" })
+    }
 
-console.log("Filtered Data:", JSON.stringify(records.rows, null, 2));
+    
+
+   records.rows = records.rows.map(item => {
+    const scheme = item?.product?.schemeId;
+    const commodity = item?.product?.name;
+
+    const schemeName = scheme
+        ? `${scheme.schemeName || ''} ${commodity || ''} ${scheme.season || ''} ${scheme.period || ''}`
+        : `${commodity || 'NA'}`; 
+
+    return {
+        ...item.toObject(),
+        SchemeName: schemeName
+    };
+});
+
+
 
 
     records.count = await RequestModel.countDocuments(query);
@@ -216,19 +243,19 @@ console.log("Filtered Data:", JSON.stringify(records.rows, null, 2));
 
     if (isExport == 1) {
 
-        const allRecords = await RequestModel.find(query)
-            .sort(sortBy)
-            .populate({ path: "branch_id", select: "_id branchName branchId" });
-        const record = allRecords.map((item) => {
+        const record = records.rows.map((item) => {
 
             return {
                 "Order Id": item?.reqNo || "NA",
-                "BO Name": item?.branch_id?.branchName || "NA",
                 "Commodity": item?.product?.name || "NA",
-                "Grade": item?.product?.grade || "NA",
+                "Scheme": item?.SchemeName || "NA",
+                 "CNA Name": item?.head_office_id?.company_details?.name || "NA",
+                "BO Name": item?.branch_id?.branchName || "NA",
+                "SLA Name": item?.sla_id?.basic_details?.name || "NA",
+                "Sub Standard": item?.product?.substandard || "NA",
                 "Quantity": item?.product?.quantity || "NA",
                 "MSP": item?.quotedPrice || "NA",
-                "Delivery Location": item?.address?.deliveryLocation || "NA"
+
             }
         })
 

@@ -5,7 +5,7 @@ const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { validateIndFarmer, validateRegisterDetail, validateFarmer, validateLand, validateCrop, validateBank } = require("./Validation")
 const { verifyAssociate } = require("../associate/utils/verifyAssociate");
 const { apiKeyAuth } = require("../warehouse/utils/verifyWarehouseOwner");
-const { saveFarmerDetails,updateIndCrop,getLandDetails, getIndCropDetails,sendOTP, verifyOTP, registerName, getBoFarmerExport,getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers, getstatedistrictname, getBoFarmerPreview, uploadFarmerDocument, getFarmerDocument,getLocationOfIpaddress, editFarmerDocument, getStates, getDistrictByState,addDistrictCity, haryanaFarmerUplod, getVerifiedAdharDetails, getStatesByPincode, getDistrictsByState } = require("./Controller");
+const { saveFarmerDetails,updateIndCrop,getLandDetails, getIndCropDetails,sendOTP, verifyOTP, registerName, getBoFarmerExport,getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers,getAllFarmersExport, getstatedistrictname, getBoFarmerPreview, uploadFarmerDocument, getFarmerDocument,getLocationOfIpaddress, editFarmerDocument, getStates, getDistrictByState,addDistrictCity, haryanaFarmerUplod, getVerifiedAdharDetails, getStatesByPincode, getDistrictsByState ,bulkUploadNorthEastFarmers} = require("./Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
 // const { verifyAgent } = require("../agent/utils/verifyAgent");
 const { Auth } = require("@src/v1/middlewares/jwt");
@@ -47,6 +47,7 @@ farmerRoutes.post("/make-associate", verifyAssociate, makeAssociateFarmer);
 farmerRoutes.get("/getbo-farmer", Auth, getBoFarmer);
 farmerRoutes.get("/getbo-farmer-Export", Auth, getBoFarmerExport);
 farmerRoutes.get("/getall-farmer", Auth, getAllFarmers);
+farmerRoutes.get("/getall-farmer-export", Auth, getAllFarmersExport);
 farmerRoutes.get("/bo-preview/:id", Auth, getBoFarmerPreview);
 farmerRoutes.post("/add-district", addDistrictCity);
 // farmerRoutes.post("/bulk-upload-northEastFarmer", verifyAssociate, bulkUploadNorthEastFarmers);
