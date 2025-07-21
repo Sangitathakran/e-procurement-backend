@@ -45,10 +45,6 @@ router.use("/ho", headOfficeRoutes);
 router.use("/bo", branchOfficeoRoutes); 
 router.use("/warehouse", wareHouseRoutes); 
 router.use("/auth", authRoutes)
-router.use("/nccf", nccfRoutes) 
-router.use("/bank",commonAuth, bankIntegrationRoutes)
-router.use("/dropdown",commonAuth, dropDownRoutes);
-router.use("/ekhrid",commonAuth, ekhridRoutes);
-router.use("/upag", upagRoutes);
+router.use("/nccf", nccfRoutes)
 
 module.exports = { router };

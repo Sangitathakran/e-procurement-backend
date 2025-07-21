@@ -90,6 +90,7 @@ const Auth = async function (req, res, next) {
           const route = req.baseUrl.split("/")[2]
 
           const user_type = decoded.user_type
+          
           const routeCheck = checkUser(route, user_type)
           if (!routeCheck) {
             return sendResponse({ res, status: 403, message: "error while routecheck decode", errors: _auth_module.unAuth });

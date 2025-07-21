@@ -355,7 +355,6 @@ module.exports.getAssociates = async (req, res) => {
   }
 };
 
-
 module.exports.getWarehouses = async (req, res) => {
   const query = { active: true };
 
