@@ -1242,7 +1242,7 @@ module.exports.payment = async (req, res) => {
           foreignField: "req_id",
           as: "batches",
           pipeline: [
-            { $match: { qty: { $exists: true } } },
+            { $match: { qty: { $exists: true }, } },
             {
               $lookup: {
                 from: "payments",
@@ -1281,15 +1281,15 @@ module.exports.payment = async (req, res) => {
         },
       },
       { $unwind: "$branch" },
-      {
-        $match: {
-          batches: { $ne: [] },
-          "batches.ho_approve_status":
-            approve_status == _paymentApproval.pending
-              ? _paymentApproval.pending
-              : { $ne: _paymentApproval.pending },
-        },
-      },
+      // {
+      //   $match: {
+      //     batches: {
+      //       $elemMatch: {
+      //         ho_approve_status:_paymentApproval.pending,
+      //       },
+      //     },
+      //   },
+      // },
       {
         $lookup: {
           from: "schemes",
@@ -1507,12 +1507,12 @@ module.exports.payment = async (req, res) => {
       });
     }
 
-    console.log("comodity", commodityName);
 
     if (state || commodityName || schemeName || branch) {
       aggregationPipeline.push({
         $match: {
           $and: [
+
             ...(state ? [{ state: { $regex: state, $options: "i" } }] : []),
             ...(commodityName
               ? [
@@ -1541,7 +1541,13 @@ module.exports.payment = async (req, res) => {
       //   ...(branch ? [{ "branch.branchName": { $regex: branch, $options: "i" } }] : []),
       // ];
     }
-
+    aggregationPipeline.push(
+      {
+        $match: {
+          "approval_status":approve_status
+        }
+      }
+    );
     aggregationPipeline.push(
       {
         $project: {
@@ -4021,7 +4027,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
                 qty: 1,
                 totalPrice: 1,
                 goodsPrice: 1,
-                payement_approval_at: 1,
+                ho_approval_at: 1,
                 bo_approve_status: 1,
                 ho_approve_status: 1,
                 payment: 1,
@@ -4094,7 +4100,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           qtyPurchased: { $sum: "$batches.qty" },
           amountPayable: { $sum: "$batches.totalPrice" },
           amountPaid: { $sum: "$batches.goodsPrice" },
-          approval_date: { $arrayElemAt: ["$batches.payement_approval_at", 0] },
+          approval_date: { $arrayElemAt: ["$batches.ho_approval_at", 0] },
           approval_status: "Approved",
           payment_status: payment_status || _paymentstatus.pending,
           schemeName: {
@@ -4166,8 +4172,8 @@ module.exports.proceedToPayPayment = async (req, res) => {
           approval_date: 1,
         },
       },
-        // { $skip: (page - 1) * limit },
-        // { $limit: limit }
+      // { $skip: (page - 1) * limit },
+      // { $limit: limit }
     );
 
     if (paginate == 1) {
@@ -4691,9 +4697,9 @@ module.exports.proceedToPaybatchListWithoutAggregation = async (req, res) => {
         return {
           batchId: batch.batchId,
           batch_id: batch._id,
-          amountPayable: batch.totalPrice,
-          qtyPurchased: batch.qty,
-          amountProposed: batch.goodsPrice,
+          amountPayable: (batch.totalPrice || 0).toFixed(3),
+          qtyPurchased: (batch.qty || 0).toFixed(3),
+          amountProposed:  (batch.goodsPrice || 0).toFixed(3),
           associateName:
             batch.seller_id?.basic_details?.associate_details?.associate_name,
           organisationName:
