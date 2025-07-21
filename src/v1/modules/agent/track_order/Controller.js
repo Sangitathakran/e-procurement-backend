@@ -247,7 +247,8 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
              ...(cna ? [{ $match: { cna: { $regex: cna, $options: 'i' } } }] : []),
             // ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
             // Sorting (Always Descending)
-            { $sort: { [sortBy || "createdAt"]: -1 } }  
+            // { $sort: { [sortBy || "createdAt"]: -1 } }  
+            { $sort: { createdAt: -1 } }
 
         ];
        

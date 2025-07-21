@@ -38,8 +38,9 @@ module.exports.getAssociates = async (req, res) => {
         const records = await User.aggregate([
             { $match: matchQuery },
             { $sort: sortBy }, // Sort by the provided field
-            { $skip: skip }, 
-            { $limit: parseInt(limit) }, 
+          //  { $skip: skip }, 
+           // { $limit: parseInt(limit) }, 
+           ...(isExport == 1 ? [] : [{ $skip: skip }, { $limit: parseInt(limit) }]),
 
             // Lookup to count associated farmers
             {
@@ -84,15 +85,15 @@ module.exports.getAssociates = async (req, res) => {
 
         if (isExport == 1) {
             const record = records.map((item) => {
-                const { name, email, mobile } = item?.basic_details.point_of_contact;
+                const { name, email, mobile } = item?.basic_details?.point_of_contact || {};
 
-                const { line1, line2, district, state, country } = item.address.registered
+                const { line1, line2, district, state, country } = item?.address?.registered || {};
 
                 return {
                     "Associate Id": item?.user_code || "NA",
-                    "Associate Name": item?.basic_details.associate_details.associate_name || "NA",
-                    "Associated Farmer": item?.farmersCount || "NA",
-                    "Procurement Center": item?.procurementCentersCount || "NA",
+                    "Associate Name": item?.basic_details?.associate_details?.associate_name || "NA",
+                    "Associated Farmer": item?.farmersCount,
+                    "Procurement Center": item?.procurementCentersCount,
                     "Point Of Contact": `${name} , ${email} , ${mobile}` || "NA",
                     "Address": `${line1} , ${line2} , ${district} , ${state} , ${country}` || "NA",
                     "Status": item?.active || "NA",

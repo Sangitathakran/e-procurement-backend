@@ -16,6 +16,7 @@ require("@src/v1/utils/websocket/server");
 const { PORT, apiVersion } = require("./config/index");
 require("newrelic");
 require("./config/database");
+require('newrelic');
 // require('./config/redis')
 const {
   handleCatchError,

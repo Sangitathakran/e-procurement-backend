@@ -321,6 +321,7 @@ module.exports.getAssociates = async (req, res) => {
       {
         $project: {
           name: "$basic_details.associate_details.associate_name",
+          organization_name: "$basic_details.associate_details.organization_name",
         },
       },
     ]);
