@@ -247,11 +247,11 @@ module.exports.verifyAadharOTP = async (req, res) => {
   try {
     const { otp, code, transaction_id, uidai_aadharNo, farmer_id  } = req.body;
 
-    if (!otp || !transaction_id || !farmer_id) {
+    if (!otp || !transaction_id || !farmer_id || !uidai_aadharNo) {
       return res.status(400).send(
         new serviceResponse({
           status: 400,
-          errors: [{ message: _middleware.require("OTP,transaction_id,farmer_id") }],
+          errors: [{ message: _middleware.require("OTP,transaction_id,farmer_id,uidai_aadharNo") }],
         })
       );
     }
