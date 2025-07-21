@@ -20,7 +20,7 @@ const {
 const { _query } = require("@src/v1/utils/constants/messages");
 const moment = require("moment");
 const { default: mongoose } = require("mongoose");
-const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName, _associateOfferStatus, _status } = require("@src/v1/utils/constants");
+const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName, _associateOfferStatus, _status, _paymentApproval } = require("@src/v1/utils/constants");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
@@ -2536,6 +2536,17 @@ module.exports.getBenefittedFarmersAndPaymentAmount = async (req, res) => {
   try {
     const { states, season, schemeId, commodity_id, dateRange } =
       req.query;
+      const { portalId, user_id } = req;
+      const paymentIds = await Payment.distinct('req_id', {
+        ho_id: { $in: [portalId, user_id] },
+        bo_approve_status: _paymentApproval.approved,
+      });
+
+    //  console.log('paymentIds', paymentIds);
+      let query = {
+        'request._id': { $in: paymentIds },
+      };
+
       const ho_id = new mongoose.Types.ObjectId(req.portalId);
 
     if (!ho_id) {
@@ -2569,7 +2580,7 @@ module.exports.getBenefittedFarmersAndPaymentAmount = async (req, res) => {
     const pipeline = [
       {
         $match: {
-         // ho_id: new ObjectId(ho_id),
+         //ho_id: new ObjectId(ho_id),
           payment_status: _paymentstatus.completed,
           ...dateFilter,
         },
@@ -2603,6 +2614,7 @@ module.exports.getBenefittedFarmersAndPaymentAmount = async (req, res) => {
         },
       },
       { $unwind: '$request' },
+      { $match: query},
 
       {
         $lookup: {

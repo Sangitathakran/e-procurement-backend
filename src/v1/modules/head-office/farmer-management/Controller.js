@@ -16,6 +16,8 @@ const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 const { parseDateRange } = require("../ho-dashboard/Services");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
+const { _paymentApproval } = require("@src/v1/utils/constants");
 
 module.exports. farmerList = async (req, res) => {
   try {
@@ -1410,6 +1412,17 @@ if (dateRange) {
 module.exports.getStateWiseProcuredQty = async (req, res) => {
   try {
     const { season, commodity_id, schemeId, states, dateRange } = req.query;
+    const { portalId, user_id } = req;
+    const paymentIds = await Payment.distinct('req_id', {
+      ho_id: { $in: [portalId, user_id] },
+      bo_approve_status: _paymentApproval.approved,
+    });
+
+   // console.log('paymentIds', paymentIds);
+    let query = {
+      'request._id': { $in: paymentIds },
+    };
+
 
     let dateFilter = {};
     if (dateRange) {
@@ -1477,6 +1490,7 @@ module.exports.getStateWiseProcuredQty = async (req, res) => {
         },
       },
       { $unwind: { path: '$request', preserveNullAndEmptyArrays: true } },
+      { $match: query},
       {
         $lookup: {
           from: 'schemes',
