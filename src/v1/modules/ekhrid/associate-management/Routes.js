@@ -4,7 +4,8 @@ const { getAssociates, updateOrInsertUsers, addFarmers, addProcureallPaymentOrde
     allPaymentOrders, getBatchIds, updateBatchIds, totalQtyFarmerOrder, ekhridFarmerOrderMapping,
     getNewJformIds, totalQtyRania, totalQtyBarwala, getBatchIdandDeletePayment, getTodaysfarmerOrder, checkJformIdsExist,
      ekhridProcrementExport, associateMandiName, updateAssociateMandiId, sunflowerMandiName, sunflowerMandiWiseDataExport,
-      checkFinalJformIdsExist, ekhridExport, updateAssociateName } = require("./Controllers");
+      checkFinalJformIdsExist, ekhridExport, updateAssociateName, 
+      notIncludedJformId} = require("./Controllers");
 
 const associateMngmntRoutes = express.Router();
 
@@ -48,5 +49,5 @@ associateMngmntRoutes.get('/checkFinalJformIdsExist', checkFinalJformIdsExist);
 associateMngmntRoutes.get('/ekhridExport', ekhridExport);
 
 associateMngmntRoutes.get('/updateAssociateName', updateAssociateName);
-
+associateMngmntRoutes.get('/notIncludedJformId', notIncludedJformId);
 module.exports = { associateMngmntRoutes }; 

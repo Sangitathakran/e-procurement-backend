@@ -19,12 +19,14 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 // const jformIds = require('../jform_ids');
 // const jformIds = require('../remaining_jformIds');
 const jformIds = require('../allJformIds');
+// const jformIds = require('../jformIdRemaining(07-19-2025)');
 // const checkJformIdsExist = require('../allJformIds');
 // const checkJformIdsExist = require('../paymentExistingInEkhridTeam');
 // const checkJformIdsExist = require('../rajveerSheet');
 const checkJformIdsExist = require('../finalJformIds(02-07-2025)');
 // const checkJformIdsExist = require('../remainingJformIds(15-07-2025)');
 const needToUpdateAssociateJformIds = require('../needToUpdateAssociateJformIds');
+const jformIdDeleted = require('../jformIdDeleted');
 const { AssociateMandiName } = require("@src/v1/models/app/eKharid/associateMandiName");
 const { error } = require('console');
 
@@ -638,13 +640,14 @@ module.exports.associateFarmerList = async (req, res) => {
             "paymentDetails.jFormId": { $exists: true },
             "procurementDetails.jformID": { $exists: true },
             "procurementDetails.jformID": { $in: jfomIds },
+            "procurementDetails.notIncludedJformId": { $ne: true },
             $or: [
                 { "procurementDetails.offerCreatedAt": null },
                 { "procurementDetails.offerCreatedAt": { $exists: false } }
             ]
         };
 
-        const procurements = await eKharidHaryanaProcurementModel.find(query).limit(3).lean();
+        const procurements = await eKharidHaryanaProcurementModel.find(query).limit(1000).lean();
         // const procurements = await eKharidHaryanaProcurementModel.find(query).lean();
         console.log("procurements",procurements.length);
         if (!procurements.length) return [];
@@ -2371,6 +2374,43 @@ module.exports.updateAssociateName = async (req, res) => {
             },
             {
                 $set: { "procurementDetails.commisionAgentName": "HAFED" }
+            }
+        );
+
+        res.json({
+            message: "Associate Updated",
+            existingDocs: existingDocs.length,
+            updatedCount: updateResult.modifiedCount
+        });
+
+    } catch (error) {
+        console.error("Error in updateAssociate:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+}
+
+module.exports.notIncludedJformId = async (req, res) => {
+    const XLSX = require('xlsx');
+    const fs = require('fs');
+    const path = require('path');
+    try {
+        // const allJformIds = checkJformIdsExist.map(id => parseInt(id));
+        const needToUpdateParsed = jformIdDeleted.map(id => parseInt(id));
+
+        const existingDocs = await eKharidHaryanaProcurementModel.find({
+
+            "procurementDetails.jformID": { $in: needToUpdateParsed },
+            // "warehouseData.jformID": { $exists: true },
+            // "paymentDetails.jFormId": { $exists: true },
+        });
+
+        const updateResult = await eKharidHaryanaProcurementModel.updateMany(
+            {
+                "procurementDetails.jformID": { $in: needToUpdateParsed },
+                // "procurementDetails.offerCreatedAt": null,
+            },
+            {
+                $set: { "procurementDetails.notIncludedJformId": true }
             }
         );
 

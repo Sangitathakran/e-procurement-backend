@@ -7,9 +7,9 @@ module.exports.farmerOfferCreated = async (req, res) => {
     const req_id= "67e1524fad7ee1581f97ac64"// mustard
     // const  req_id="685a79ba90d964f34a7bcca5" // sunflower
 
-    // const seller_id= "67e3dcfc16a8db907254eaec" // swaraj
-   const seller_id= "67e38f0516a8db907254c63a" // farmer consortium
-  //  const seller_id= "67ee2a3e07654b69eabda370", // hafed
+    const seller_id= "67e3dcfc16a8db907254eaec" // swaraj
+  //  const seller_id= "67e38f0516a8db907254c63a" // farmer consortium
+  //  const seller_id= "67ee2a3e07654b69eabda370" // hafed
     const payload = {
       "associateName":"SWARAJ FEDERATION OF MULTIPURPOSE COOP SOCIETY LTD"
       // "associateName":"FARMERS CONSORTIUM FOR AGRICULTURE &ALLIED SEC HRY"
@@ -29,7 +29,7 @@ module.exports.farmerOfferCreated = async (req, res) => {
     
           const farmer_data = getResponse.data?.data[0]?.farmer_data;
           const qtyOffered = getResponse.data?.data[0]?.qtyOffered
-    console.log("farmer_data",getResponse)
+    
           if (!farmer_data || farmer_data.length === 0) {
             console.log('✅ No more farmer data');
             status=false
@@ -66,9 +66,9 @@ module.exports.batchCreated = async (req, res) => {
     const req_id= "67e1524fad7ee1581f97ac64"// mustard
     // const  req_id="685a79ba90d964f34a7bcca5" // sunflower
 
-     // const seller_id= "67e3dcfc16a8db907254eaec" // swaraj
-   const seller_id= "67e38f0516a8db907254c63a" // farmer consortium
-   //  const seller_id= "67ee2a3e07654b69eabda370", // hafed
+    //  const seller_id= "67e3dcfc16a8db907254eaec" // swaraj
+  //  const seller_id= "67e38f0516a8db907254c63a" // farmer consortium
+    const seller_id= "67ee2a3e07654b69eabda370" // hafed
     const payload = {
         req_id: req_id,
         seller_id: seller_id,
@@ -126,8 +126,8 @@ module.exports.paymentCreated = async (req, res) => {
    // const  req_id="685a79ba90d964f34a7bcca5" // sunflower
 
     // const seller_id= "67e3dcfc16a8db907254eaec" // swaraj
-  const seller_id= "67e38f0516a8db907254c63a" // farmer consortium
-  //  const seller_id= "67ee2a3e07654b69eabda370", // hafed
+  // const seller_id= "67e38f0516a8db907254c63a" // farmer consortium
+   const seller_id= "67ee2a3e07654b69eabda370" // hafed
    const payload = {
        req_id: req_id,
        seller_id: seller_id,
