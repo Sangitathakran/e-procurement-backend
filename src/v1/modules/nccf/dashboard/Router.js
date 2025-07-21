@@ -26,11 +26,11 @@ nccfDashboardRoutes.get("/warehouses",authenticateUser,authorizeRoles(_userType.
 nccfDashboardRoutes.get("/companyNames",authenticateUser,authorizeRoles(_userType.nccf), Auth, getCompanyNames);
 
 nccfDashboardRoutes.get("/payment-disteller",authenticateUser,authorizeRoles(_userType.nccf), Auth, getMonthlyPaidAmount);
-nccfDashboardRoutes.get("/global-states", getPublicStates);
-nccfDashboardRoutes.get("/global-district/:id", getPublicDistrictByState);
-nccfDashboardRoutes.get("/distiller-count-statewise", getStatewiseDistillerCount)
-nccfDashboardRoutes.get("/state-wise-procurment", getProcurmentCountDistiller)
-nccfDashboardRoutes.get("/distiller-wise-payment", getDistillerWisePayment)
+nccfDashboardRoutes.get("/global-states",authenticateUser,authorizeRoles(_userType.nccf), getPublicStates);
+nccfDashboardRoutes.get("/global-district/:id",authenticateUser,authorizeRoles(_userType.nccf), getPublicDistrictByState);
+nccfDashboardRoutes.get("/distiller-count-statewise",authenticateUser,authorizeRoles(_userType.nccf), getStatewiseDistillerCount)
+nccfDashboardRoutes.get("/state-wise-procurment",authenticateUser,authorizeRoles(_userType.nccf), getProcurmentCountDistiller)
+nccfDashboardRoutes.get("/distiller-wise-payment",authenticateUser,authorizeRoles(_userType.nccf), getDistillerWisePayment)
 
 
 

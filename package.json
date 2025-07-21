@@ -24,7 +24,8 @@
     "cross-env": "^7.0.3",
     "crypto": "^1.0.1",
     "csv-parser": "^3.0.0",
-    "dotenv": "^16.4.7",
+    "csv-writer": "^1.6.0",
+    "dotenv": "^16.3.1",
     "ejs": "^3.1.9",
     "exceljs": "^4.4.0",
     "express": "^4.21.2",
@@ -65,7 +66,9 @@
     "@config": "./config",
     "@middlewares": "./src/v1/middlewares",
     "@utils": "./src/v1/utils",
-    "@models": "./src/v1/models"
+    "@models": "./src/v1/models",
+    "@views": "./src/v1/views",
+    "@common": "./src/common"
   },
   "devDependencies": {
     "nodemon": "^3.1.10",

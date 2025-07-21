@@ -6,10 +6,10 @@ const batchsSchema = new mongoose.Schema({
     req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true },
     associateOffer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, required: true },
     warehousedetails_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.WarehouseDetails },
-    batchId: { type: String, trim: true,unique:true},
-    farmerOrderIds: [{ 
-        farmerOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.FarmerOrder, required: true }, 
-        qty: { type: Number, default: 0 }, 
+    batchId: { type: String, trim: true, unique: true },
+    farmerOrderIds: [{
+        farmerOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.FarmerOrder, required: true },
+        qty: { type: Number, default: 0 },
         amt: { type: Number, default: 0 },
         rejected_quantity : { type: Number, default: 0 }, 
         rejected_bags : { type: Number, default: 0 }, 
@@ -23,8 +23,8 @@ const batchsSchema = new mongoose.Schema({
     }],
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
     qty: { type: Number, default: 0 },
-    available_qty : { type : Number , default: 0 } , 
-    allotedQty : { type : Number , default : 0 } ,
+    available_qty: { type: Number, default: 0 },
+    allotedQty: { type: Number, default: 0 },
     goodsPrice: { type: Number, trim: true },
     totalPrice: { type: Number, trim: true },
     dispatched: {
