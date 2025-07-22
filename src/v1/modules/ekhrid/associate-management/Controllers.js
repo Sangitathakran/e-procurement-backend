@@ -18,7 +18,7 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 // const jformIds = require('../jform_ids');
 // const jformIds = require('../remaining_jformIds');
-const jformIds = require('../allJformIds');
+const jformIds = require('../50kg-jformId');
 // const jformIds = require('../jformIdRemaining(07-19-2025)');
 // const checkJformIdsExist = require('../allJformIds');
 // const checkJformIdsExist = require('../paymentExistingInEkhridTeam');
@@ -640,7 +640,7 @@ module.exports.associateFarmerList = async (req, res) => {
             "paymentDetails.jFormId": { $exists: true },
             "procurementDetails.jformID": { $exists: true },
             "procurementDetails.jformID": { $in: jfomIds },
-            "procurementDetails.notIncludedJformId": { $ne: true },
+            // "procurementDetails.notIncludedJformId": { $ne: true },
             $or: [
                 { "procurementDetails.offerCreatedAt": null },
                 { "procurementDetails.offerCreatedAt": { $exists: false } }
@@ -1775,15 +1775,16 @@ module.exports.checkJformIdsExist = async (req, res) => {
     const XLSX = require('xlsx');
     try {
         // Assuming jformIds is defined globally or retrieved from req
-        const allJformIds = checkJformIdsExist.map(id => parseInt(id));
+        // const allJformIds = checkJformIdsExist.map(id => parseInt(id));
+        const allJformIds = jformIds.map(id => parseInt(id));
 
         // Step 1: Query only existing jformIDs in one go
         const existingDocs = await eKharidHaryanaProcurementModel.find(
             {
                 "procurementDetails.jformID": { $in: allJformIds },
-                // "procurementDetails.iFormId": { $exists: true },
+                // "procurementDetails.jformID": { $exists: true },
                 // "warehouseData.jformID": { $exists: true },
-                // "paymentDetails.jFormId": { $exists: false }
+                "paymentDetails.jFormId": { $exists: true }
             },
             { "procurementDetails.jformID": 1 }
         ).lean();
@@ -1802,15 +1803,15 @@ module.exports.checkJformIdsExist = async (req, res) => {
         // fs.writeFileSync('./paymentDetailsExisting.txt', JSON.stringify(newJformIds, null, 2));
 
         // Create Excel data (convert to array of objects)
-        const excelData = newJformIds.map(id => ({ jformID: id }));
-        // Create a workbook and worksheet
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(excelData);
+        // const excelData = newJformIds.map(id => ({ jformID: id }));
+        // // Create a workbook and worksheet
+        // const wb = XLSX.utils.book_new();
+        // const ws = XLSX.utils.json_to_sheet(excelData);
 
-        XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+        // XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
 
-        // Write the workbook to a file
-        XLSX.writeFile(wb, './paymentDetailsExisting.xlsx');
+        // // Write the workbook to a file
+        // XLSX.writeFile(wb, './warehouseMissing.xlsx');
 
 
         //  Filter IDs that are existing in the set

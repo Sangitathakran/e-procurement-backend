@@ -61,7 +61,7 @@ module.exports.getFarmerOrders = async (req, res) => {
 
         const farmerOrders = await FarmerOrders.aggregate([
             { $match: query },
-            { $limit: 1000 },
+            { $limit: 1000 }, // Limit to 1000 records
             {
                 $lookup: {
                     from: "farmers",
