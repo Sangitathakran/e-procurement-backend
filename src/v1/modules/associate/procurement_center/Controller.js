@@ -7,6 +7,7 @@ const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const { _userType, _center_type } = require("@src/v1/utils/constants");
+const { default: mongoose } = require("mongoose");
 const Readable = require('stream').Readable;
 
 
@@ -119,14 +120,25 @@ module.exports.getProcurementCenter = async (req, res) => {
 module.exports.getHoProcurementCenter = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', associateName, state, city, isExport = 0 } = req.query;
-        let query = { deletedAt: null };
-        if (search) query.center_name = { $regex: search, $options: "i" };
+       let query = { deletedAt: null };
+
+        if (search) {
+        const orFilters = [
+            { center_name: { $regex: search, $options: "i" } }
+        ];
+
+        if (mongoose.Types.ObjectId.isValid(search)) {
+            orFilters.push({ _id: new mongoose.Types.ObjectId(search) });
+        }
+
+        query.$or = orFilters;
+        }
+
         if (associateName) query["point_of_contact.name"] = { $regex: associateName, $options: "i" };
         if (state) query["address.state"] = { $regex: state, $options: "i" };
         if (city) query["address.city"] = { $regex: city, $options: "i" };
 
         const records = { count: 0 };
-
         // Populates user_id with only bank_details
         const baseQuery = ProcurementCenter.find(query)
             .populate('user_id', 'bank_details')
