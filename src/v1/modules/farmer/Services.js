@@ -1,12 +1,10 @@
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const AgristackFarmerDetails = require("@src/v1/models/app/farmerDetails/src/v1/models/app/farmerDetails/AgristackFarmerDetails");
-const {
-  Verifyfarmer,
-} = require("@src/v1/models/app/farmerDetails/verifyFarmer");
+const { verfiyfarmer } = require("@src/v1/models/app/farmerDetails/verfiyFarmer");
 
 async function getVerifiedAadharInfo(uidai_aadharNo) {
   try {
-    const adharDetails = await Verifyfarmer.findOne(
+    const adharDetails = await verfiyfarmer.findOne(
       {
         "aadhaar_details.uidai_aadharNo": uidai_aadharNo,
         is_verify_aadhaar: true,

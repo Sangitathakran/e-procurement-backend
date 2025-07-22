@@ -35,9 +35,8 @@ hoDashboardRoutes.get("/benifitted-farmer", farmerBenifitted);
 hoDashboardRoutes.get("/procurement-status", procurementStatus);
 hoDashboardRoutes.get("/procurement-ontime", procurementOnTime);
 hoDashboardRoutes.get("/payment-status-by-date", paymentStatusByDate);
+
 hoDashboardRoutes.get("/payment-activity",paymentActivity)
-
-
 hoDashboardRoutes.get("/farmer-pending-payments", farmerPendingPayments);
 hoDashboardRoutes.get("/farmer-pending-approval", farmerPendingApproval);
 hoDashboardRoutes.get("/statewise-procurement", satewiseProcurement);

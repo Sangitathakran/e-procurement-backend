@@ -21,13 +21,14 @@ const { nccfRoutes } = require("./modules/nccf/routes");
 const { bankIntegrationRoutes } = require("./modules/bankIntegration/Routes");
 const { dropDownRoutes } = require("./modules/dropDown/Routes");
 const { ekhridRoutes } = require("./modules/ekhrid/Routes");
-const { slaRoutes } = require("./modules/sla/Routes");
 const { upagRoutes } = require("./modules/upag/Routes");
 const {commonAuth} = require("@middlewares/jwt")
+const { slaRoutes } = require("./modules/sla/Routes");
+// const { agristackchRoutes } = require("./modules/agristack/Routes");
 
 /* Define Your Routes */
 router.use(handlePagination)
-router.use(handleRateLimit)
+//router.use(handleRateLimit)
 router.use(multer().any())
 
 router.use('/aws',commonAuth, S3Router) 
@@ -50,5 +51,8 @@ router.use("/bank",commonAuth, bankIntegrationRoutes)
 router.use("/dropdown",commonAuth, dropDownRoutes);
 router.use("/ekhrid",commonAuth, ekhridRoutes);
 router.use("/upag", upagRoutes);
+//router.use("/agristack", agristackchRoutes);
+
+
 
 module.exports = { router };

@@ -9,7 +9,6 @@ const { User } = require("@src/v1/models/app/auth/User");
 const {
   ProcurementCenter,
 } = require("@src/v1/models/app/procurement/ProcurementCenter");
-const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
@@ -22,11 +21,16 @@ const moment = require("moment");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { default: mongoose } = require("mongoose");
 const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
+const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { Distiller } = require("@src/v1/models/app/auth/Distiller");
+const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
 
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
   try {
-   let report = [
+    const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
+
+    let report = [
       { monthName: "January", month: 1, total: 0 },
       { monthName: "February", month: 2, total: 0 },
       { monthName: "March", month: 3, total: 0 },
@@ -49,9 +53,9 @@ module.exports.widgetList = asyncErrorHandler(async (req, res) => {
     };
     let associateFCount = (await farmer.countDocuments({})) ?? 0;
     widgetDetails.farmer.total = associateFCount;
-    widgetDetails.associate.total = await User.countDocuments({});
-    widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({});
-    widgetDetails.branch.total = await Branches.countDocuments({});
+    widgetDetails.associate.total = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved });
+    widgetDetails.procCenter.total = await ProcurementCenter.countDocuments({ deletedAt: null });
+    widgetDetails.branch.total = await Branches.countDocuments({ headOfficeId: hoId });
 
     let lastMonthUser = await User.aggregate([
       { $match: { user_type: "Associate" } },
@@ -96,26 +100,54 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   try {
 
     const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
-
+    const { user_id, portalId } = req;
     let widgetDetails = {
       branchOffice: { total: 0 },
-      farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0 },
+      farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0, distillerTotal: 0 },
       wareHouse: { total: 0 },
       //procurementTarget: { total: 0 }
+      farmerBenifitted: 0,
+      paymentInitiated: 0,
+      totalProcurement: 0,
+      todaysQtyProcured: 0,
     };
 
-
-
     // Get counts safely
-    widgetDetails.wareHouse.total = await wareHousev2.countDocuments({});
+    widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
+    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    //start of prachi code
+
+    widgetDetails.farmerRegistration.distillerTotal = await Distiller.countDocuments({ is_approved: _userStatus.approved });
     widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
-    widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({});
+    widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
+    widgetDetails.farmerRegistration.totalRegistration = (widgetDetails.farmerRegistration.farmertotal + widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal);
+    widgetDetails.farmerBenifitted = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
+   
+    const payments = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: _paymentstatus.completed, }).select("qtyProcured createdAt amount").lean();
 
-    //let procurementTargetQty = await RequestModel.find({})
-    widgetDetails.farmerRegistration.totalRegistration =
-      widgetDetails.farmerRegistration.farmertotal +
-      widgetDetails.farmerRegistration.associateFarmerTotal;
+    let grandTotalQtyProcured = 0;
+    let todaysQtyProcured = 0;
+    let grandTotalamount = 0;
+    // Get start of today
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    for (const payment of payments) {
+      const qty = Number(payment.qtyProcured) || 0;
+      const amount = Number(payment.amount) || 0;
+      grandTotalQtyProcured += qty;
+      grandTotalamount +=amount;
+      
+      const createdAt = new Date(payment.createdAt);
+      if (createdAt >= startOfToday) {
+        todaysQtyProcured += qty;
+      }
+    }
+
+    widgetDetails.paymentInitiated += grandTotalamount; 
+    widgetDetails.totalProcurement = Math.round(grandTotalQtyProcured * 100) / 100;
+    widgetDetails.todaysQtyProcured = todaysQtyProcured;
 
     return sendResponse({
       res,
@@ -134,27 +166,36 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   }
 });
 
-
+// start of prachi code
+/*
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
+  const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
+  console.log("hoId", hoId);
+
   const { limit = 10, page = 1 } = req.query;
-
+  const { user_id, portalId } = req;
   const skip = (page - 1) * limit;
-  let pendingPaymentDetails = await Payment.find({payment_status:'Pending'})
-  .populate({ path: "req_id", select: "reqNo" })
-  .select('req_id qtyProcured amount payment_status')
-  .skip(skip)
-  .limit(limit);
 
-  // Get total count for pagination metadata
-  const totalCount = await Payment.countDocuments({ payment_status: "Pending" });
+  let pendingPaymentDetails = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: 'Pending' })
+    .select('req_id qtyProcured amount payment_status')
+    .populate({ path: "req_id", select: "reqNo" })
+    .skip(skip)
+    .limit(limit)
+    .lean();
 
+  pendingPaymentDetails = pendingPaymentDetails.map((payment) => {
+    return {
+      ...payment,
+      reqNo: payment.req_id && payment.req_id.reqNo ? payment.req_id.reqNo : 'No Data Available',
+    };
+  });
 
+  const totalCount = await Payment.countDocuments({ ho_id: { $in: [user_id, portalId] }, payment_status: 'Pending' });
 
   return sendResponse({
     res,
     status: 200,
     message: _query.get("Farmer Payments"),
-    //data: pendingPaymentDetails,
     data: {
       rows: pendingPaymentDetails,
       totalCount: totalCount,
@@ -165,15 +206,19 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   });
 });
 
+// end of prachi code
+
+//Start of prachi code for pending-approval-farmer
 module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 
   const { limit = 10, page = 1 } = req.query;
   const skip = (page - 1) * limit;
+  const { user_id, portalId } = req;
 
   // Get total count for pagination metadata
-  const totalCount = await Payment.countDocuments({ ho_approve_status: "Pending" });
+  const totalCount = await Payment.countDocuments({ ho_id: { $in: [user_id, portalId] }, ho_approve_status: "Pending" });
 
-  let pendingApprovalDetails = await Payment.find({ ho_approve_status: "Pending" })
+  let pendingApprovalDetails = await Payment.find({ ho_id: { $in: [user_id, portalId] }, ho_approve_status: "Pending" })
     .populate({ path: "req_id", select: "reqNo deliveryDate" })
     .select("req_id qtyProcured amountPaid ho_approve_status")
     .skip(skip)
@@ -203,6 +248,216 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
     },
   });
 });
+
+//end of prachi code
+*/
+
+module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
+  const hoId = new mongoose.Types.ObjectId(req.portalId);
+
+  const { limit = 10, page = 1 } = req.query;
+  const { user_id, portalId } = req;
+  const skip = (page - 1) * limit;
+
+  let pendingPaymentDetails = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: 'Pending' })
+    .select('req_id qtyProcured amount payment_status')
+    .populate({ path: "req_id", select: "reqNo" })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  // Filter out payments where reqNo is missing
+  pendingPaymentDetails = pendingPaymentDetails.filter(payment => payment.req_id && payment.req_id.reqNo);
+
+  // Map to flatten reqNo
+  pendingPaymentDetails = pendingPaymentDetails.map(payment => ({
+    ...payment,
+    reqNo: payment.req_id.reqNo,
+  }));
+
+  // Note: Count still includes all "Pending" payments regardless of reqNo presence.
+  // If you want the count to reflect only visible rows, recompute it based on the filtered array.
+  const filteredTotalCount = pendingPaymentDetails.length;
+
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Farmer Payments"),
+    data: {
+      rows: pendingPaymentDetails,
+      totalCount: filteredTotalCount,
+      totalPages: Math.ceil(filteredTotalCount / limit),
+      limit: limit,
+      page: page,
+    },
+  });
+});
+
+module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
+  const { limit = 10, page = 1 } = req.query;
+  const skip = (page - 1) * limit;
+  const { user_id, portalId } = req;
+
+  // Fetch all relevant records for this page
+  let pendingApprovalDetails = await Payment.find({
+    ho_id: { $in: [user_id, portalId] },
+    ho_approve_status: "Pending"
+  })
+    .populate({ path: "req_id", select: "reqNo deliveryDate" })
+    .select("req_id qtyProcured amountPaid ho_approve_status")
+    .skip(skip)
+    .limit(limit);
+
+  // Filter out records without reqNo and compute paymentDueDate using reduce
+  const modifiedDetails = pendingApprovalDetails.reduce((acc, doc) => {
+    if (doc.req_id?.reqNo) {
+      const deliveryDate = doc.req_id.deliveryDate ? new Date(doc.req_id.deliveryDate) : null;
+      acc.push({
+        ...doc.toObject(),
+        paymentDueDate: deliveryDate ? moment(deliveryDate).add(72, "hours").toISOString() : null,
+      });
+    }
+    return acc;
+  }, []);
+
+  // Adjust totalCount and pagination metadata based on filtered results
+  const filteredTotalCount = modifiedDetails.length;
+
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("Farmer Payments"),
+    data: {
+      rows: modifiedDetails,
+      totalCount: filteredTotalCount,
+      totalPages: Math.ceil(filteredTotalCount / limit),
+      limit: limit,
+      page: page,
+    },
+  });
+});
+
+module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+  const skip = (page - 1) * limit;
+
+  const paymentDetails = await Payment.find({ ho_id: req.portalId })
+    .select("initiated_at req_id ho_approve_by ho_approve_at")
+    .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
+    .populate({
+      path: "req_id",
+      select: "reqNo"
+    })
+    .populate({ path: "req_id", select: "reqNo" })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+
+  const totalCount = await Payment.countDocuments({ ho_id: req.portalId });
+
+  return sendResponse({
+    res,
+    status: 200,
+    message: _query.get("PaymentActivity"),
+    data: {
+      paymentDetails,
+      totalCount,
+      pages: Math.ceil(totalCount / limit),
+      limit: limit,
+      page: page,
+    },
+  });
+});
+
+
+module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
+  try {
+    const hoId = new mongoose.Types.ObjectId(req.portalId);
+    const { user_id, portalId } = req;
+
+    // Step 1: Fetch all states from the only StateDistrictCity document
+    const stateContainer = await StateDistrictCity.findOne().lean();
+
+    if (!stateContainer || !Array.isArray(stateContainer.states)) {
+      return sendResponse({
+        res,
+        status: 500,
+        message: "State data not configured properly",
+      });
+    }
+
+    // Step 2: Create a state lookup map by _id
+    const stateMap = {};
+    for (const state of stateContainer.states) {
+      stateMap[state._id.toString()] = state.state_title;
+    }
+
+    // Step 3: Fetch payments and populate farmer (only getting state_id in address)
+    const payments = await Payment.find({
+      ho_id: { $in: [user_id, portalId] },
+      payment_status: _paymentstatus.completed,
+    })
+      .select("qtyProcured farmer_id")
+      .populate({
+        path: "farmer_id",
+        select: "address.state_id",
+      })
+      .lean();
+
+    // Step 4: Group by state_id and sum qtyProcured
+    const statewiseTotals = {};
+
+    for (const payment of payments) {
+      const stateId = payment?.farmer_id?.address?.state_id?.toString();
+
+      if (!stateId || !stateMap[stateId]) continue; // skip if invalid
+
+      const qty = Number(payment.qtyProcured) || 0; // 👈 convert to number safely
+
+      if (!statewiseTotals[stateId]) {
+        statewiseTotals[stateId] = {
+          state_id: stateId,
+          state_name: stateMap[stateId],
+          totalQtyProcured: 0,
+        };
+      }
+
+      // statewiseTotals[stateId].totalQtyProcured += payment.qtyProcured || 0;
+      statewiseTotals[stateId].totalQtyProcured += qty;
+    }
+
+    // const result = Object.values(statewiseTotals);
+
+    // Step 5: Convert to array and calculate grand total
+    const result = Object.values(statewiseTotals);
+
+    const grandTotalQtyProcured = result.reduce(
+      (sum, item) => sum + item.totalQtyProcured,
+      0
+    );
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: _query.get("satewise Procurement List"),
+      // data: result,
+      data: {
+        states: result,
+        // grandTotalQtyProcured: Math.round(grandTotalQtyProcured * 100) / 100,
+        grandTotalQtyProcured: grandTotalQtyProcured,
+      },
+    });
+  } catch (error) {
+    console.error("Error in satewiseProcurement:", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+});
+
 
 
 //farmer payments
@@ -271,6 +526,7 @@ module.exports.farmerPayments = asyncErrorHandler(async (req, res) => {
     data: paymentDetails,
   });
 });
+
 //revenue expense chart
 module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
   let { option } = req.query;
@@ -406,6 +662,7 @@ module.exports.revenueExpenseChart = asyncErrorHandler(async (req, res) => {
     data: paymentDetails,
   });
 });
+
 //locationWareHouseChart
 module.exports.locationWareHouseChart = asyncErrorHandler(async (req, res) => {
   const { skip, limit } = req.query;
@@ -457,6 +714,7 @@ module.exports.locationWareHouseChart = asyncErrorHandler(async (req, res) => {
     data: record,
   });
 });
+
 //paymentQuantityPurchase
 module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
   const { limit, skip, page } = req.query;
@@ -477,6 +735,7 @@ module.exports.paymentQuantityPurchase = asyncErrorHandler(async (req, res) => {
     data: records,
   });
 });
+
 module.exports.optionRequestId = asyncErrorHandler(async (req, res) => {
   let records = { count: 0 };
   records.row = await RequestModel.find({
@@ -490,6 +749,7 @@ module.exports.optionRequestId = asyncErrorHandler(async (req, res) => {
     data: records,
   });
 });
+
 //branchOfficeProcurements
 module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
   let { stateNames } = req.query;
@@ -786,6 +1046,7 @@ module.exports.branchOfficeProcurement = asyncErrorHandler(async (req, res) => {
     data: { branchOfficeProc: data, totalProcuredQty },
   });
 });
+
 //farmerBenifitted
 module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
   const { startDate, endDate } = req.query;
@@ -843,6 +1104,7 @@ module.exports.farmerBenifitted = asyncErrorHandler(async (req, res) => {
     data: farmerBenifittedDetails,
   });
 });
+
 //procurementStatus
 module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
   let statusDetails = [
@@ -952,6 +1214,7 @@ module.exports.procurementStatus = asyncErrorHandler(async (req, res) => {
     data: statusDetails,
   });
 });
+
 //payment status by batch
 module.exports.paymentStatusByDate = asyncErrorHandler(async (req, res) => {
   const { date } = req.query;
@@ -991,44 +1254,19 @@ module.exports.paymentStatusByDate = asyncErrorHandler(async (req, res) => {
     data: data,
   });
 });
-//payment status by batch
-module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
-  const skip = (page - 1) * limit;
 
-  const paymentDetails = await Payment.find()
-    .select("initiated_at req_id ho_approve_by")
-    .populate({ path: "ho_approve_by", select: "" })
-    .populate({ path: "req_id", select: "reqNo" })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit);
-
-  const totalCount = await Payment.countDocuments();
-
-  return sendResponse({
-    res,
-    status: 200,
-    message: _query.get("PaymentActivity"),
-    data: {
-      paymentDetails,
-      totalCount,
-      pages: Math.ceil(totalCount / limit),
-      limit: limit,
-      page: page,
-    },
-  });
-});
 const calculateProcureQuantity = async (paymentDetails, status) => {
   return paymentDetails
     .filter((item) => item.payment_status == status)
     .reduce((acc, item) => acc + item.qtyProcured, 0);
 };
+
 const calculateAmount = async (paymentDetails, status) => {
   return paymentDetails
     .filter((item) => item.payment_status == status)
     .reduce((acc, item) => acc + item.amount, 0);
 };
+
 //procurementOnTime
 module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
   let data = [

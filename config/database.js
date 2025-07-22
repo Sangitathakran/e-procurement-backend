@@ -50,4 +50,43 @@ async function fetchFromCollection(collectionName, query = {}, projection = {}) 
         return []; // Return empty array on error to avoid crashing
     }
 }
-module.exports = { connection, fetchFromCollection };
+
+
+
+const db = new Proxy({}, {
+  get: (_, collectionName) => {
+    const collection = connection.collection(collectionName);
+
+    return {
+      find: async (query = {}, options = {}) =>
+        await collection.find(query, options).toArray(),
+
+      findOne: async (query = {}, options = {}) =>
+        await collection.findOne(query, options),
+
+      insertOne: async (document, options = {}) =>
+        await collection.insertOne(document, options),
+
+      insertMany: async (documents, options = {}) =>
+        await collection.insertMany(documents, options),
+
+      updateOne: async (filter, update, options = {}) =>
+        await collection.updateOne(filter, update, options),
+
+      updateMany: async (filter, update, options = {}) =>
+        await collection.updateMany(filter, update, options),
+
+      deleteOne: async (filter, options = {}) =>
+        await collection.deleteOne(filter, options),
+
+      deleteMany: async (filter, options = {}) =>
+        await collection.deleteMany(filter, options),
+
+      aggregate: async (pipeline = [], options = {}) =>
+        await collection.aggregate(pipeline, options).toArray()
+    };
+  }
+});
+
+
+module.exports = { connection ,db,fetchFromCollection};

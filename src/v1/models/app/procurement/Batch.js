@@ -143,6 +143,8 @@ const batchsSchema = new mongoose.Schema({
     gatePassId: { type: Number, default: null },
     ekhrid_payment: { type: Date, default: null },
     warehouseUpdatedAt: { type: Date, default: null },
+    batchIdUpdated: { type: Boolean, default: false },
+    batchIdUpdatedByQty: { type: Boolean, default: false },
 
     source_by: { type: String, default: "NCCF" },
     
