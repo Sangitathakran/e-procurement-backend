@@ -124,7 +124,8 @@ module.exports.getHoProcurementCenter = async (req, res) => {
 
         if (search) {
         const orFilters = [
-            { center_name: { $regex: search, $options: "i" } }
+            { center_name: { $regex: search, $options: "i" } },
+            {center_code: { $regex: search, $options: "i"} }
         ];
 
         if (mongoose.Types.ObjectId.isValid(search)) {
