@@ -4945,7 +4945,7 @@ module.exports.batchListWOAggregation = async (req, res) => {
         "DELIEVERY DATE": item?.deliveryDate || "NA",
         "QUANTITY PURCHASED": item?.qtyPurchased || "NA",
         "AMOUNT PAYABLE": item?.amountPayable || "NA",
-        "WHR NO": item?.whr_no || "NA",
+        "WHR NO": item?.whrNo || "NA",
         TAGS: item?.tags || "NA",
         "APPROVAL STATUS": item?.approval_status || "NA",
       }));
@@ -4967,7 +4967,6 @@ module.exports.batchListWOAggregation = async (req, res) => {
         );
       }
     }
-
     return res.status(200).send(
       new serviceResponse({
         status: 200,
