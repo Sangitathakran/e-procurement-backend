@@ -26,8 +26,10 @@ const callThirdPartyAPI = async ({ baseURL, path, data = {}, method = 'POST', he
     return response.data;
   } catch (error) {
     const errData = error.response?.data || { message: error.message };
-    console.error(`Third Party API Error: ${JSON.stringify(errData)}`);
-    throw new Error(errData.message || 'Third party API call failed');
+        console.log(errData)
+
+    console.error(`Third Party API Error: `, errData);
+    throw new Error(errData?.error?.message || 'Third party API call failed');
   }
 };
 
