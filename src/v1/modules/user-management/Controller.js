@@ -301,7 +301,7 @@ exports.getUserPermission = async (req, res) => {
 
   try {
     const response = await MasterUser
-      .findOne({ _id: req.user?._id ?? req.user_id })
+      .findOne({ _id:  req.user?._id })
       .select("-password -history -passwordChangedAt -updatedAt -createdAt -deletedBy -createdBy -updatedBy -email -mobile")
       .populate([{
         path: "portalId",
