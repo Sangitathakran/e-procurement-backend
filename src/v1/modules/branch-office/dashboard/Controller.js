@@ -298,7 +298,9 @@ module.exports.getDashboardStats = async (req, res) => {
             const warehouseCount = await wareHouseDetails.countDocuments({ active: true });
             const procurementCenterCount = await ProcurementCenter.countDocuments({ deletedAt: null, active: true });
             const PaymentInitiatedData = await Payment.find({
-                bo_id: { $exists: true },
+                // bo_id: { $exists: true },
+                bo_id: boId,
+                deletedAt: null,
                 payment_status: "Completed"
             }, { amount: 1});
 
