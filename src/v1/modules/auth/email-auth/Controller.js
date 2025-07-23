@@ -100,7 +100,7 @@ module.exports.login = async (req, res) => {
         return res.status(400).send(
           new serviceResponse({
             status: 400,
-            data: { remainingAttempts },
+            // data: { remainingAttempts },
             errors: [{ message: _commonMessages.invaildCredentials }]
           })
         );
@@ -116,7 +116,7 @@ module.exports.login = async (req, res) => {
         return res.status(400).send(
           new serviceResponse({
             status: 400,
-            data: { remainingAttempts: 4 },
+            // data: { remainingAttempts: 4 },
             errors: [{ message: _commonMessages.invaildCredentials }]
           })
         );
