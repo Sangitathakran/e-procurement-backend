@@ -5,12 +5,12 @@ const { _userType } = require("@src/v1/utils/constants/index")
 //userRole routes
 const { createUserRole, getFeatures , editUserRolePage, editUserRole, getUserRoles, getUserRoleList } = require("./Controller")
 
-userManagementRoutes.get('/getFeatures/:type',authenticateUser,authorizeRoles(_userType.admin), Auth , getFeatures )
+userManagementRoutes.get('/getFeatures/:type', Auth , getFeatures )
 userManagementRoutes.post('/createUserRole' ,authenticateUser,authorizeRoles(_userType.admin), Auth, createUserRole )
 userManagementRoutes.get('/editUserRolePage/:id',authenticateUser,authorizeRoles(_userType.admin) ,Auth, editUserRolePage )
 userManagementRoutes.put('/editUserRole',authenticateUser,authorizeRoles(_userType.admin) , Auth, editUserRole )
-userManagementRoutes.get('/getUserRoles',authenticateUser,authorizeRoles(_userType.admin), Auth , getUserRoles )
-userManagementRoutes.get('/getUserRoleList',authenticateUser,authorizeRoles(_userType.admin), Auth, getUserRoleList)
+userManagementRoutes.get('/getUserRoles', Auth , getUserRoles )
+userManagementRoutes.get('/getUserRoleList', Auth, getUserRoleList)
 
 
 //user routes 
