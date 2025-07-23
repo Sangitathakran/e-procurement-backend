@@ -46,5 +46,5 @@ router.use("/bo", branchOfficeoRoutes);
 router.use("/warehouse", wareHouseRoutes); 
 router.use("/auth", authRoutes)
 router.use("/nccf", nccfRoutes)
-
+router.use("/dropdown", dropDownRoutes)
 module.exports = { router };
