@@ -28,7 +28,7 @@ const authorizeRoles = (...allowedRoles) => {
     if (!user || !allowedRoles.includes(user?.user_type)) {
       return sendResponse({
         res,
-        status: 401,
+        status: 403,
         data: [],
         message: "You do not have permission to access this resource",
         errors: _auth_module.forbidden,
