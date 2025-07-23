@@ -1,4 +1,4 @@
-const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const { _handleCatchErrors, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
@@ -318,8 +318,12 @@ module.exports.getDashboardStats = async (req, res) => {
                     farmerRegisteredCount,
                     warehouseCount,
                     procurementCenterCount,
-                    PaymentInitiatedCount: Number(totalAmount.toFixed(3)),
-                    totalProcurementCount: Number(totalProcurementCount.toFixed(3)),
+                    // PaymentInitiatedCount: Number(totalAmount.toFixed(3)),
+                    // totalProcurementCount: Number(totalProcurementCount.toFixed(3)),
+
+                    PaymentInitiatedCount: handleDecimal(totalAmount),
+                    totalProcurementCount: handleDecimal(totalProcurementCount),
+                    
                 },
                 message: _response_message.found("Default Dashboard Stats")
             }));
@@ -351,7 +355,7 @@ module.exports.getDashboardStats = async (req, res) => {
                 warehouseCount: warehouseIds.length,
                 procurementCenterCount: pocIds.length,
                 PaymentInitiatedCount: payments.length,
-                totalProcurementCount: totalFilteredQty
+                totalProcurementCount: handleDecimal(totalFilteredQty)
             },
             message: _response_message.found("Filtered Dashboard Stats")
         }));
