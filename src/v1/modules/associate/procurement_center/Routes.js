@@ -7,6 +7,7 @@ const { verifyAssociate } = require("../utils/verifyAssociate");
 const procurementCenterRoutes = express.Router();
 const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 
+procurementCenterRoutes.get("/ho-list", getHoProcurementCenter);
 procurementCenterRoutes.get("/", verifyAssociate, getProcurementCenter);
 procurementCenterRoutes.get("/:id", verifyAssociate, getProcurementById);
 
@@ -74,6 +75,5 @@ procurementCenterRoutes.put("/:id", validateErrors, verifyAssociate, updateProcu
     body("proof").optional().trim(),
     body("isPrimary").optional().isBoolean()
 ]);
-procurementCenterRoutes.get("/ho-list", verifyJwtToken, getHoProcurementCenter);
 
 module.exports = { procurementCenterRoutes }; 
