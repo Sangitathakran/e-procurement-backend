@@ -50,10 +50,10 @@ farmerRoutes.post('/register-details',authenticateUser,authorizeRoles(_userType.
 farmerRoutes.post("/make-associate",authenticateUser,authorizeRoles(_userType.associate), verifyAssociate, makeAssociateFarmer);
 farmerRoutes.get("/getbo-farmer",authenticateUser,authorizeRoles(_userType.bo), Auth, getBoFarmer);
 farmerRoutes.get("/getall-farmer",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), Auth, getAllFarmers);
-farmerRoutes.get("/bo-preview/:id",authenticateUser,authorizeRoles(_userType.bo), Auth, getBoFarmerPreview);
+farmerRoutes.get("/bo-preview/:id",authenticateUser,authorizeRoles(_userType.bo), getBoFarmerPreview);
 farmerRoutes.post("/add-district",authenticateUser,authorizeRoles(_userType.admin), addDistrictCity);
 farmerRoutes.put("/upload-farmer-document", Auth, uploadFarmerDocument);
-farmerRoutes.get("/farmer-document",authenticateUser,authorizeRoles(_userType.admin,_userType.agent ,_userType.ho,_userType.bo,_userType.associate), Auth, getFarmerDocument);
+farmerRoutes.get("/farmer-document",authenticateUser,authorizeRoles(_userType.admin,_userType.agent ,_userType.ho,_userType.bo,_userType.associate), getFarmerDocument);
 farmerRoutes.get("/get-states", Auth, getStates);
 farmerRoutes.get("/get-district-by-state/:id", Auth, getDistrictByState);
 farmerRoutes.get('/get-states-by-pincode', getStatesByPincode );
