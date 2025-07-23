@@ -2131,7 +2131,7 @@ module.exports.associateOrders = async (req, res) => {
           item?.seller_id?.basic_details?.associate_details?.associate_type ||
           "NA",
         "Organization Name":
-          item?.seller_id?.basic_details?.associate_details?.associate_name ||
+          item?.seller_id?.basic_details?.associate_details?.organization_name ||
           "NA",
         "Quantity Purchased": item?.procuredQty || "NA",
       }));
