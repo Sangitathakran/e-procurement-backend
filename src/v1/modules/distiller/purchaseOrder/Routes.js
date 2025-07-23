@@ -5,7 +5,7 @@ const distillerpurchaseOrderRoutes = express.Router();
 const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/jwt")
 const { _userType } = require("@src/v1/utils/constants/index")
 
-distillerpurchaseOrderRoutes.get("/branch-list", branchList);
+distillerpurchaseOrderRoutes.get("/branch-list",authenticateUser,authorizeRoles(_userType.distiller), branchList);
 distillerpurchaseOrderRoutes.post("/amountCalculation",authenticateUser,authorizeRoles(_userType.distiller), verifyDistiller, amountCalculation);
 distillerpurchaseOrderRoutes.post("/",authenticateUser,authorizeRoles(_userType.distiller), verifyDistiller, createPurchaseOrder);
 distillerpurchaseOrderRoutes.get("/",authenticateUser,authorizeRoles(_userType.distiller), verifyDistiller, getPurchaseOrder);

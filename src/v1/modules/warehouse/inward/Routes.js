@@ -22,10 +22,10 @@ const { _userType } = require("@src/v1/utils/constants/index")
 
 const wareHouseInwardRoutes = express.Router();
 
-wareHouseInwardRoutes.get("/received-batch-list", getReceivedBatchesByWarehouse);
-wareHouseInwardRoutes.put("/whr_receipt_image-update/:batchId", whrReceiptImageUpdate);
+wareHouseInwardRoutes.get("/received-batch-list",authenticateUser,authorizeRoles(_userType.warehouse), getReceivedBatchesByWarehouse);
+wareHouseInwardRoutes.put("/whr_receipt_image-update/:batchId",authenticateUser,authorizeRoles(_userType.warehouse), whrReceiptImageUpdate);
 
-wareHouseInwardRoutes.get("/pending-batch-list", getPendingBatchesByWarehouse);
+wareHouseInwardRoutes.get("/pending-batch-list",authenticateUser,authorizeRoles(_userType.warehouse), getPendingBatchesByWarehouse);
 wareHouseInwardRoutes.put("/batch-approval", authenticateUser,authorizeRoles(_userType.warehouse),verifyWarehouseOwner, batchApproveOrReject);
 wareHouseInwardRoutes.get("/lot-list",authenticateUser,authorizeRoles(_userType.warehouse), verifyWarehouseOwner, lot_list);
 wareHouseInwardRoutes.get("/batch-details",authenticateUser,authorizeRoles(_userType.warehouse), verifyWarehouseOwner, viewBatchDetails);

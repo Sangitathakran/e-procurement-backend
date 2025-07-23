@@ -1,34 +1,34 @@
 const express = require("express")
 const userManagementRoutes = express.Router()
-const { Auth } = require("@src/v1/middlewares/jwt")
-
+const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/jwt")
+const { _userType } = require("@src/v1/utils/constants/index")
 //userRole routes
 const { createUserRole, getFeatures , editUserRolePage, editUserRole, getUserRoles, getUserRoleList } = require("./Controller")
 
-userManagementRoutes.get('/getFeatures/:type', Auth , getFeatures )
-userManagementRoutes.post('/createUserRole' , Auth, createUserRole )
-userManagementRoutes.get('/editUserRolePage/:id' ,Auth, editUserRolePage )
-userManagementRoutes.put('/editUserRole' , Auth, editUserRole )
-userManagementRoutes.get('/getUserRoles', Auth , getUserRoles )
-userManagementRoutes.get('/getUserRoleList', Auth, getUserRoleList)
+userManagementRoutes.get('/getFeatures/:type',authenticateUser,authorizeRoles(_userType.admin), Auth , getFeatures )
+userManagementRoutes.post('/createUserRole' ,authenticateUser,authorizeRoles(_userType.admin), Auth, createUserRole )
+userManagementRoutes.get('/editUserRolePage/:id',authenticateUser,authorizeRoles(_userType.admin) ,Auth, editUserRolePage )
+userManagementRoutes.put('/editUserRole',authenticateUser,authorizeRoles(_userType.admin) , Auth, editUserRole )
+userManagementRoutes.get('/getUserRoles',authenticateUser,authorizeRoles(_userType.admin), Auth , getUserRoles )
+userManagementRoutes.get('/getUserRoleList',authenticateUser,authorizeRoles(_userType.admin), Auth, getUserRoleList)
 
 
 //user routes 
 const { createUser, getUserPermission, editUser, toggleStatus, getUsersByUser, getSingleUser } = require("./Controller")
 
-userManagementRoutes.post('/createUser', Auth, createUser )
-userManagementRoutes.get('/getUserPermission',Auth ,  getUserPermission )
-userManagementRoutes.put('/editUser', Auth , editUser )
-userManagementRoutes.put('/toggleStatus/:id', Auth , toggleStatus )
-userManagementRoutes.get('/getUsersByUser', Auth , getUsersByUser)
-userManagementRoutes.get('/getSingleUser/:id', Auth , getSingleUser)
+userManagementRoutes.post('/createUser',authenticateUser,authorizeRoles(_userType.admin), Auth, createUser )
+userManagementRoutes.get('/getUserPermission', authenticateUser,authorizeRoles(_userType.admin),Auth ,  getUserPermission )
+userManagementRoutes.put('/editUser',authenticateUser,authorizeRoles(_userType.admin), Auth , editUser )
+userManagementRoutes.put('/toggleStatus/:id',authenticateUser,authorizeRoles(_userType.admin), Auth , toggleStatus )
+userManagementRoutes.get('/getUsersByUser',authenticateUser,authorizeRoles(_userType.admin), Auth , getUsersByUser)
+userManagementRoutes.get('/getSingleUser/:id',authenticateUser,authorizeRoles(_userType.admin), Auth , getSingleUser)
 
 
 //portal routes 
 const { getAgency, getHo, getBo } = require("./Controller")
-userManagementRoutes.get('/getAgency', Auth, getAgency)
-userManagementRoutes.get('/getHo', Auth, getHo)
-userManagementRoutes.get('/getBo', Auth, getBo)
+userManagementRoutes.get('/getAgency',authenticateUser,authorizeRoles(_userType.admin), Auth, getAgency)
+userManagementRoutes.get('/getHo',authenticateUser,authorizeRoles(_userType.admin), Auth, getHo)
+userManagementRoutes.get('/getBo',authenticateUser,authorizeRoles(_userType.admin), Auth, getBo)
 
 
 
