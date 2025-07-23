@@ -17,10 +17,10 @@ userManagementRoutes.get('/getUserRoleList',authenticateUser,authorizeRoles(_use
 const { createUser, getUserPermission, editUser, toggleStatus, getUsersByUser, getSingleUser } = require("./Controller")
 
 userManagementRoutes.post('/createUser',authenticateUser,authorizeRoles(_userType.admin), Auth, createUser )
-userManagementRoutes.get('/getUserPermission', authenticateUser,authorizeRoles(_userType.admin),Auth ,  getUserPermission )
+userManagementRoutes.get('/getUserPermission',Auth ,  getUserPermission )
 userManagementRoutes.put('/editUser',authenticateUser,authorizeRoles(_userType.admin), Auth , editUser )
 userManagementRoutes.put('/toggleStatus/:id',authenticateUser,authorizeRoles(_userType.admin), Auth , toggleStatus )
-userManagementRoutes.get('/getUsersByUser',authenticateUser,authorizeRoles(_userType.admin), Auth , getUsersByUser)
+userManagementRoutes.get('/getUsersByUser', Auth , getUsersByUser)
 userManagementRoutes.get('/getSingleUser/:id',authenticateUser,authorizeRoles(_userType.admin), Auth , getSingleUser)
 
 
