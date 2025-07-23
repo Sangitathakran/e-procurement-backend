@@ -18,7 +18,7 @@ branchOfficeoRoutes.use("/center", procurementCenterRoutes);
 branchOfficeoRoutes.use("/req", requirementRoutes);
 branchOfficeoRoutes.use("/dashboard", dashboardRoutes);
 branchOfficeoRoutes.use("/assignScheme", assignSchemeRoutes);
-branchOfficeoRoutes.use("/sla", Auth, slaRoute);
-branchOfficeoRoutes.use("/dropdown", Auth, dropDownRoute);
+branchOfficeoRoutes.use("/sla", slaRoute);
+branchOfficeoRoutes.use("/dropdown", dropDownRoute);
 
 module.exports = { branchOfficeoRoutes };

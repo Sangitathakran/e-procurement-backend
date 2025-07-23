@@ -65,7 +65,7 @@ farmerRoutes.put('/submit-form/:id',authenticateUser,authorizeRoles(_userType.fa
 
 farmerRoutes.get('/download-zipFile', createZip)
 
-farmerRoutes.post('/get-state-from-ip-address',authenticateUser,authorizeRoles(_userType.farmer),getLocationOfIpaddress)
+farmerRoutes.post('/get-state-from-ip-address',getLocationOfIpaddress)
 farmerRoutes.post('/get-verified-adhar-details',authenticateUser,authorizeRoles(_userType.farmer), getVerifiedAdharDetails);
 /* 
  individual farmer haryana bulkuplod
