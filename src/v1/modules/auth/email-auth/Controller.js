@@ -108,7 +108,7 @@ module.exports.login = async (req, res) => {
         await LoginAttempt.create({
           master_id: user._id,
           userType: user.user_type,
-          email: user.email,
+          email: email,
           failedAttempts: 1,
           lastFailedAt: new Date()
         });
