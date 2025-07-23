@@ -33,9 +33,9 @@ agentRoutes.use("/dashboard",authenticateUser,authorizeRoles(_userType.agent ,_u
 agentRoutes.use("/proc-track",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), procTrackingRoutes);
 agentRoutes.use("/agency",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), agencyMngmntRoutes);
 agentRoutes.use("/commodity",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), commodityRoutes);
-agentRoutes.use("/sla", slaRoute);
-agentRoutes.use("/standard", standardRoutes);
-agentRoutes.use("/mandiWiseProcurement", mandiWiseProcurementRoute )
+agentRoutes.use("/sla",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), slaRoute);
+agentRoutes.use("/standard",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), standardRoutes);
+agentRoutes.use("/mandiWiseProcurement",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), mandiWiseProcurementRoute )
 
 
 module.exports = { agentRoutes } 
