@@ -236,7 +236,7 @@ module.exports.login = async (req, res) => {
 
         if (!user) {
             logger.warn(`Login failed - User not found for email: ${email}`);
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound('User') }] }));
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('Credentials') }] }));
         }
 
         const validPassword = await bcrypt.compare(password, user.password);

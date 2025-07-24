@@ -136,6 +136,12 @@ const batchsSchema = new mongoose.Schema({
     wareHouse_approve_status: { type: String, enum: Object.values(_wareHouseApproval), default: _wareHouseApproval.pending },
     wareHouse_approve_at: { type: Date, default: null },
     wareHouse_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
+    ekhridBatch: { type: Boolean, default: false },
+    gatePassId: { type: Number, default: null },
+    ekhrid_payment: { type: Date, default: null },
+    warehouseUpdatedAt: { type: Date, default: null },
+    batchIdUpdated: { type: Boolean, default: false },
+    batchIdUpdatedByQty: { type: Boolean, default: false },
 
 }, { timestamps: true });
 

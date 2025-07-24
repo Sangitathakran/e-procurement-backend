@@ -1,17 +1,13 @@
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const AgristackFarmerDetails = require("@src/v1/models/app/farmerDetails/src/v1/models/app/farmerDetails/AgristackFarmerDetails");
-const {
-  Verifyfarmer,
-} = require("@src/v1/models/app/farmerDetails/verifyFarmer");
-const {
-  StateDistrictCity,
-} = require("@src/v1/models/master/StateDistrictCity");
+const {StateDistrictCity,} = require("@src/v1/models/master/StateDistrictCity");
 const { thirdPartyGetApi } = require("@src/v1/utils/helpers/third_party_Api");
 const { default: mongoose } = require("mongoose");
+const { verfiyfarmer } = require("@src/v1/models/app/farmerDetails/verfiyFarmer");
 
 async function getVerifiedAadharInfo(uidai_aadharNo, farmer_id) {
   try {
-    const adharDetails = await Verifyfarmer.findOne(
+    const adharDetails = await verfiyfarmer.findOne(
       {
         "aadhaar_details.uidai_aadharNo": uidai_aadharNo,
         is_verify_aadhaar: true,

@@ -35,6 +35,7 @@ const ProcurementDetailsSchema = new mongoose.Schema({
   commissionCharges: { type: Number },
   commissionChargesPayableDate: { type: Date },
 
+  batchIdUpdatedAt: { type: Date }
 });
 
 // Payment Details Schema
@@ -47,17 +48,16 @@ const PaymentDetailsSchema = new mongoose.Schema({
   reason: { type: String }, // In case of failure
 });
 
-// Warehouse Data Schema
-const WarehouseDataSchema = new mongoose.Schema({
-  jformID: { type: Number }, // Must match with jFormID in procurementDetails
-  exitGatePassId: { type: Number },
+// Payment Details Schema
+const warehouseDataSchema = new mongoose.Schema({  
   destinationAddress: { type: String },
-  warehouseName: { type: String },
-  warehouseId: { type: String },
-  inwardDate: { type: String },
-  truckNo: { type: String },
   driverName: { type: String },
+  jFormId: { type: Number },
+  exitGatePassId: { type: Number },
   transporterName: { type: String },
+  truckNo: { type: String },
+  warehouseId: { type: String }, // In case of failure
+  warehouseName: { type: String },
 });
 
 // Main e-Kharid Schema
@@ -65,7 +65,7 @@ const EKhairidSchema = new mongoose.Schema({
   session: { type: String },
   procurementDetails: { type: ProcurementDetailsSchema },
   paymentDetails: { type: PaymentDetailsSchema },
-  warehouseData: { type: WarehouseDataSchema },
+  warehouseData: { type: warehouseDataSchema },
   ..._commonKeys
 }, { timestamps: true });
 
