@@ -5,12 +5,13 @@ const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
+const { default: mongoose } = require("mongoose");
 
 
 
 module.exports.getAssociates = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search = '', sortBy, isExport = 0 } = req.query;
+        const { page = 1, limit = 10, search = '', sortBy, isExport = 0, state_id='' } = req.query;
         const skip = (page - 1) * limit;
 
         // Build the query for searching/filtering associates
@@ -19,6 +20,9 @@ module.exports.getAssociates = async (req, res) => {
             is_approved: _userStatus.approved,
             // bank_details: { $ne: null }
         };
+        if(state_id.trim()){
+            matchQuery['address.registered.state_id'] = new mongoose.Types.ObjectId(state_id);
+        }
 
 
         // If there's a search term, add it to the match query
@@ -30,7 +34,7 @@ module.exports.getAssociates = async (req, res) => {
                 {'user_code':searchRegx}
             ] 
         }
-
+        //console.log('matchQuery', matchQuery)
         // Aggregation pipeline to join farmers and procurement centers and get counts
         const records = await User.aggregate([
             { $match: matchQuery },
