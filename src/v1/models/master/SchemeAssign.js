@@ -21,7 +21,7 @@ const SchemeAssignSchema = new mongoose.Schema(
             ref: _collectionName.Scheme,
             required: true,
         },
-        assignQty: { type: Number },
+        assignQty: { type: Number, default: 0 },
         status: { type: String, enum: Object.values(_status), default: _status.active },
         ..._commonKeys,
     },
