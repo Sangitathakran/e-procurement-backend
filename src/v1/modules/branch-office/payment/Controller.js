@@ -644,7 +644,7 @@ module.exports.batchList = async (req, res) => {
             _id: { $in: paymentIds },
             associateOffer_id,
             bo_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+            ...(search ? { batchId: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
         const records = { count: 0 };
