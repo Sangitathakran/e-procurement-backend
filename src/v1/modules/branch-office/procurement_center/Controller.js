@@ -14,7 +14,16 @@ module.exports.getProcurementCenter = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, associateName, state, city } = req.query
         let query = {
-            ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+            // ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+            ...(search ? {
+                $or: [
+                    { "center_name": { $regex: search, $options: "i" } },
+                    { "center_code": { $regex: search, $options: "i" } },
+                    { "address.state": { $regex: search, $options: "i" } },
+                    { slaId: { $regex: search, $options: "i" } },
+                ], deletedAt: null
+            } : { deletedAt: null })
+
         };
         if (associateName) {
             query["user_id.basic_details.associate_details.associate_name"] = { $regex: `^${associateName}$`, $options: "i" };
