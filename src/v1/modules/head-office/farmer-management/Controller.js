@@ -14,7 +14,11 @@ const {
 const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
-
+const { _paymentApproval } = require("@src/v1/utils/constants");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
+const {
+  ProcurementCenter,
+} = require("@src/v1/models/app/procurement/ProcurementCenter");
 module.exports. farmerList = async (req, res) => {
   try {
     // const {
@@ -1226,5 +1230,214 @@ module.exports.getStatewiseFarmersCountWOAggregation = async (req, res) => {
   } catch (error) {
     console.log("error", error);
     _handleCatchErrors(error, res);
+  }
+};
+module.exports.getStateWiseProcuredQty = async (req, res) => {
+  try {
+    const { season, commodity_id, schemeId, states, dateRange } = req.query;
+    const { portalId, user_id } = req;
+    const paymentIds = await Payment.distinct('req_id', {
+      ho_id: { $in: [portalId, user_id] },
+      bo_approve_status: _paymentApproval.approved,
+    });
+
+   // console.log('paymentIds', paymentIds);
+    let query = {
+      'request._id': { $in: paymentIds },
+    };
+
+
+    let dateFilter = {};
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange);
+      dateFilter = {
+        'batches.createdAt': {
+          $gte: startDate,
+          $lte: endDate,
+        },
+      };
+    }
+
+    const seasonArr = season
+      ? season.split(',').map(s => new RegExp(s.trim(), 'i'))
+      : null;
+    const commodityArr = commodity_id
+      ? commodity_id.split(',').map(id => new ObjectId(id.trim()))
+      : null;
+    const schemeArr = schemeId
+      ? schemeId.split(',').map(id => new ObjectId(id.trim()))
+      : null;
+    const stateArr = states
+      ? states.split(',').map(id => new ObjectId(id.trim()))
+      : null;
+
+    const matchStage = stateArr
+      ? { 'address.state_id': { $in: stateArr } }
+      : {};
+
+    const pipeline = [
+      { $match: matchStage },
+
+      // Join with Batch
+      {
+        $lookup: {
+          from: 'batches',
+          localField: '_id',
+          foreignField: 'procurementCenter_id',
+          as: 'batches',
+        },
+      },
+      { $unwind: '$batches' },
+      { $match: dateFilter },
+
+      // Join with Request
+      {
+        $lookup: {
+          from: 'requests',
+          let: { reqId: '$batches.req_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$_id', '$$reqId'] },
+              },
+            },
+            {
+              $project: {
+                'product.season': 1,
+                'product.commodity_id': 1,
+                'product.schemeId': 1,
+              },
+            },
+          ],
+          as: 'request',
+        },
+      },
+      { $unwind: { path: '$request', preserveNullAndEmptyArrays: true } },
+      { $match: query},
+      {
+        $lookup: {
+          from: 'schemes',
+          localField: 'request.product.schemeId',
+          foreignField: '_id',
+          as: 'scheme',
+        },
+      },
+      { $unwind: { path: '$scheme', preserveNullAndEmptyArrays: true } },
+
+      // Filters
+      {
+        $match: {
+          ...(seasonArr && {
+            $or: [
+              { 'request.product.season': { $in: seasonArr } },
+              { 'scheme.season': { $in: seasonArr } },
+            ],
+          }),
+          ...(commodityArr && {
+            'request.product.commodity_id': { $in: commodityArr },
+          }),
+          ...(schemeArr && { 'request.product.schemeId': { $in: schemeArr } }),
+        },
+      },
+
+      // Group by state_id and state title directly from ProcurementCenter.address
+      //       {
+      //         $group: {
+      //           _id: {
+      //             state_id: '$address.state_id',
+      //             state: '$address.state',
+      //           },
+      //           //totalQty: { $sum: '$batches.qty' },
+      //           totalQty: { $sum: '$batches.qty' },
+      // todaysQty: {
+      //   $sum: {
+      //     $cond: [
+      //       {
+      //         $and: [
+      //           { $gte: ['$batches.createdAt', new Date(new Date().setHours(0, 0, 0, 0))] },
+      //           { $lt: ['$batches.createdAt', new Date(new Date().setHours(23, 59, 59, 999))] },
+      //         ],
+      //       },
+      //       '$batches.qty',
+      //       0,
+      //     ],
+      //   },
+      // },
+
+      //         },
+      //       },
+      //       {
+      //         $project: {
+      //           state_id: '$_id.state_id',
+      //           state: '$_id.state',
+      //           totalQty: 1,
+      //           _id: 0,
+      //         },
+      //       },
+
+      {
+        $group: {
+          _id: {
+            state_id: '$address.state_id',
+            state: '$address.state',
+          },
+          totalQty: { $sum: '$batches.qty' },
+          todaysQty: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    {
+                      $gte: [
+                        '$batches.createdAt',
+                        new Date(new Date().setHours(0, 0, 0, 0)),
+                      ],
+                    },
+                    {
+                      $lt: [
+                        '$batches.createdAt',
+                        new Date(new Date().setHours(23, 59, 59, 999)),
+                      ],
+                    },
+                  ],
+                },
+                '$batches.qty',
+                0,
+              ],
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          state_id: '$_id.state_id',
+          state: '$_id.state',
+          totalQty: 1,
+          todaysQty: 1,
+          _id: 0,
+        },
+      },
+
+      { $sort: { totalQty: -1 } },
+    ];
+
+    const result = await ProcurementCenter.aggregate(pipeline);
+
+    res.status(200).json({
+      status: 200,
+      message: 'State-wise procured quantity fetched statusfully',
+      data: {
+        total_procurement_quantity: result.reduce( (acc, curr) => acc+ curr.totalQty ,0)?.toFixed(3),
+        todays_procurement_quantity: result.reduce( (acc, curr) => acc+ curr.todaysQty, 0)?.toFixed(3),
+        statewise_procurement_quantity: result,
+      },
+    });
+  } catch (err) {
+    console.error('Error in getStateWiseProcuredQty:', err);
+    res.status(500).json({
+      success: 500,
+      message: 'Internal server error',
+      error: err.message,
+    });
   }
 };

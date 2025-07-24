@@ -17,7 +17,7 @@ userManagementRoutes.get('/getUserRoleList', Auth, getUserRoleList)
 const { createUser, getUserPermission, editUser, toggleStatus, getUsersByUser, getSingleUser } = require("./Controller")
 
 userManagementRoutes.post('/createUser', Auth, createUser )
-userManagementRoutes.get('/getUserPermission',Auth ,  getUserPermission )
+userManagementRoutes.get('/getUserPermission',  getUserPermission )
 userManagementRoutes.put('/editUser', Auth , editUser )
 userManagementRoutes.put('/toggleStatus/:id', Auth , toggleStatus )
 userManagementRoutes.get('/getUsersByUser', Auth , getUsersByUser)
