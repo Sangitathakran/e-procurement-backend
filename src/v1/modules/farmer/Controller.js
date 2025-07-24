@@ -2989,17 +2989,41 @@ module.exports.getAllFarmers = async (req, res) => {
     records.count = await farmer.countDocuments(associatedQuery);
     records.localFarmersCount = await farmer.countDocuments(localQuery);
 
+    // const getData = await getAddress(records.localFarmers[1]);
+    // for fetching address detail for farmer
+    const newAssociateFarmer = await Promise.all(
+      records.associatedFarmers.map(async (farmer) => {
+        const newAddress = await getAddress(farmer);
+        return {
+          farmer,
+          updatedFarmerAddress: { ...farmer.address, ...newAddress },
+        };
+      })
+    );
+
+    //for fetching address details for localfarmer
+    const newLocalFarmer = await Promise.all(
+      records.localFarmers.map(async (farmer) => {
+        const newAddress = await getAddress(farmer);
+        return {
+          farmer,
+          updatedLocalAddress: { ...farmer.address, ...newAddress },
+        };
+      })
+    );
+
     // Prepare response data
     const responseData = {
       associatedFarmersCount: records.count,
       localFarmersCount: records.localFarmersCount,
-      associatedFarmers: records.associatedFarmers,
-      localFarmers: records.localFarmers,
+      associatedFarmers: newAssociateFarmer,
+      localFarmers: newLocalFarmer,
       page: parseInt(page),
       limit: parsedLimit,
       totalPages:
         limit != 0 ? Math.ceil(records.associatedFarmersCount / limit) : 0,
     };
+
     return res.status(200).send({
       status: 200,
       data: responseData,
@@ -3393,6 +3417,8 @@ module.exports.getStates = async (req, res) => {
     _handleCatchErrors(err, res);
   }
 };
+
+
 
 module.exports.getDistrictByState = async (req, res) => {
   const { id } = req.params;
@@ -4166,6 +4192,288 @@ module.exports.haryanaFarmerUplod = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
+
+
+module.exports.bulkUploadNorthEastFarmers = async (req, res) => {
+  try {
+    const { user_id } = req;
+    const { isxlsx = 1 } = req.body;
+    const [file] = req.files;
+
+    if (!file) {
+      return res.status(400).json({
+        message: _response_message.notFound("file"),
+        status: 400,
+      });
+    }
+
+    let farmers = [];
+    let headers = [];
+
+    if (isxlsx) {
+      const workbook = xlsx.read(file.buffer, { type: "buffer" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      farmers = xlsx.utils.sheet_to_json(worksheet);
+      headers = Object.keys(farmers[0]);
+    } else {
+      const csvContent = file.buffer.toString("utf8");
+      const lines = csvContent.split("\n");
+      headers = lines[0].trim().split(",");
+      const dataContent = lines.slice(1).join("\n");
+
+      const parser = csv({ headers });
+      const readableStream = Readable.from(dataContent);
+
+      readableStream.pipe(parser);
+      parser.on("data", async (data) => {
+        if (Object.values(data).some((val) => val !== "")) {
+          const result = await processFarmerRecord(data);
+          if (!result.success) {
+            errorArray = errorArray.concat(result.errors);
+          }
+        }
+      });
+
+      parser.on("end", () => {
+        console.log("Stream end");
+      });
+      parser.on("error", (err) => {
+        console.log("Stream error", err);
+      });
+    }
+
+    let errorArray = [];
+    const processFarmerRecord = async (rec) => {
+      const toLowerCaseIfExists = (value) =>
+        value ? value.toLowerCase().trim() : null;
+      const parseBooleanYesNo = (value) => {
+        if (value === true || value?.toLowerCase() === "yes") return true;
+        if (value === false || value?.toLowerCase() === "no") return false;
+        return null;
+      };
+
+      function getValueOrNull(value) {
+        return value
+          ? typeof value === "string"
+            ? value.trim()
+            : value
+          : null;
+      }
+
+      const name = getValueOrNull(rec["Farmer Name"]);
+      const father_name = getValueOrNull(rec["Farmer Father Name"]);
+      const mother_name = getValueOrNull(rec["MOTHER NAME"]);
+      const date_of_birth = getValueOrNull(rec["DATE OF BIRTH(DD-MM-YYYY)*"]);
+      const farmer_category = getValueOrNull(rec["FARMER CATEGORY"]);
+      const gender = toLowerCaseIfExists(rec["Gender"]);
+      const marital_status =
+        toLowerCaseIfExists(rec["MARITAL STATUS"]) || "N/A";
+      const religion = toLowerCaseIfExists(rec["RELIGION"]) || "N/A";
+      const category = toLowerCaseIfExists(rec["CATEGORY"]) || "N/A";
+      const highest_edu = toLowerCaseIfExists(rec["EDUCATION LEVEL"]);
+      const edu_details = getValueOrNull(rec["EDU DETAILS"]);
+      const type = toLowerCaseIfExists(rec["ID PROOF TYPE*"]);
+      const aadhar_no = getValueOrNull(rec["AADHAR NUMBER*"]);
+      const address_line = getValueOrNull(rec["ADDRESS LINE*"]);
+      const country = getValueOrNull(rec["COUNTRY NAME"]) || "India";
+      const state_name = getValueOrNull(rec["STATE NAME*"]);
+      const district_name = getValueOrNull(rec["DISTRICT NAME*"]);
+      const tahshil = getValueOrNull(rec["TAHSHIL*"]);
+      const block = getValueOrNull(rec["BLOCK NAME*"]);
+      const village = getValueOrNull(rec["Village"]);
+      const pinCode = getValueOrNull(rec["PINCODE*"]);
+      const lat = getValueOrNull(rec["LATITUDE"]);
+      const long = getValueOrNull(rec["LONGITUDE"]);
+      const mobile_no = getValueOrNull(rec["MOBILE NO*"]);
+      const email = getValueOrNull(rec["EMAIL ID"]);
+      const bank_name = getValueOrNull(rec["Bank Name"]);
+      const account_no = getValueOrNull(rec["Account No"]);
+      const branch_name = getValueOrNull(rec["Branch"]);
+      const ifsc_code = getValueOrNull(rec["IFSC Code"]);
+      const account_holder_name = getValueOrNull(rec["Farmer Name"]);
+      const farmer_tracent_code = getValueOrNull(rec["Farmer Tracenet Code *"]);
+      // console.log("aadhar_no", aadhar_no)
+      // console.log("mobile_no", mobile_no)
+      const requiredFields = [
+        { field: "AADHAR NUMBER*", label: "AADHAR NUMBER" },
+        { field: "MOBILE NO*", label: "MOBILE NUMBER" },
+      ];
+      let stateName = state_name.replace(/_/g, " ");
+      if (
+        stateName === "Dadra and Nagar Haveli" ||
+        stateName === "Andaman and Nicobar" ||
+        stateName === "Daman and Diu" ||
+        stateName === "Jammu and Kashmir"
+      ) {
+        stateName = stateName.replace("and", "&");
+      }
+      let errors = [];
+      let missingFields = [];
+
+      requiredFields.forEach(({ field, label }) => {
+        if (!rec[field]) missingFields.push(label);
+      });
+
+      if (missingFields.length > 0) {
+        errors.push({
+          record: rec,
+          error: `Required fields missing: ${missingFields.join(", ")}`,
+        });
+      }
+      if (!/^\d{12}$/.test(aadhar_no)) {
+        errors.push({ record: rec, error: "Invalid Aadhar Number" });
+      }
+      // if (!/^\d{6,20}$/.test(account_no)) {
+      //   errors.push({ record: rec, error: "Invalid Account Number: Must be a numeric value between 6 and 20 digits." });
+      // }
+      if (!/^\d{10}$/.test(mobile_no)) {
+        errors.push({ record: rec, error: "Invalid Mobile Number" });
+      }
+
+      if (!Object.values(_gender).includes(gender)) {
+        errors.push({
+          record: rec,
+          error: `Invalid Gender: ${gender}. Valid options: ${Object.values(
+            _gender
+          ).join(", ")}`,
+        });
+      }
+      if (!Object.values(_maritalStatus).includes(marital_status)) {
+        errors.push({
+          record: rec,
+          error: `Invalid Marital Status: ${marital_status}. Valid options: ${Object.values(
+            _maritalStatus
+          ).join(", ")}`,
+        });
+      }
+      if (!Object.values(_religion).includes(religion)) {
+        errors.push({
+          record: rec,
+          error: `Invalid Religion: ${religion}. Valid options: ${Object.values(
+            _religion
+          ).join(", ")}`,
+        });
+      }
+      if (!Object.values(_individual_category).includes(category)) {
+        errors.push({
+          record: rec,
+          error: `Invalid Category: ${category}. Valid options: ${Object.values(
+            _individual_category
+          ).join(", ")}`,
+        });
+      }
+      if (!Object.values(_proofType).includes(type)) {
+        errors.push({
+          record: rec,
+          error: `Invalid Proof type: ${type}. Valid options: ${Object.values(
+            _proofType
+          ).join(", ")}`,
+        });
+      }
+      if (errors.length > 0) return { success: false, errors };
+      // const calulateage = calculateAge(date_of_birth);
+      try {
+        const state_id = await getStateId(stateName);
+        const district_id = await getDistrictId(district_name);
+        // const processedDateOfBirth = parseDateOfBirth(date_of_birth);
+
+        let associateId = user_id;
+        if (!user_id) {
+          const associate = await User.findOne({
+            "basic_details.associate_details.organization_name": fpo_name,
+          });
+          associateId = associate ? associate._id : null;
+        }
+        let farmerRecord = await farmer.findOne({
+          "proof.aadhar_no": aadhar_no,
+        });
+        if (farmerRecord) {
+          return {
+            success: false,
+            errors: [
+              {
+                record: rec,
+                error: `Farmer  with Aadhar No. ${aadhar_no} already registered.`,
+              },
+            ],
+          };
+
+          // });
+        } else {
+          farmerRecord = await insertNewFarmerRecord({
+            associate_id: associateId,
+            farmer_tracent_code,
+            name,
+            father_name,
+            mother_name,
+            dob: date_of_birth,
+            age: null,
+            gender,
+            farmer_category,
+            aadhar_no,
+            type,
+            marital_status,
+            religion,
+            category,
+            highest_edu,
+            edu_details,
+            address_line,
+            country,
+            state_id,
+            district_id,
+            tahshil,
+            block,
+            village,
+            pinCode,
+            lat,
+            long,
+            mobile_no,
+            email,
+            bank_name,
+            account_no,
+            branch_name,
+            ifsc_code,
+            account_holder_name,
+          });
+        }
+      } catch (error) {
+        console.log(error);
+        errors.push({ record: rec, error: error.message });
+      }
+
+      return { success: errors.length === 0, errors };
+    };
+
+    for (const farmer of farmers) {
+      const result = await processFarmerRecord(farmer);
+      if (!result.success) {
+        errorArray = errorArray.concat(result.errors);
+      }
+    }
+
+    if (errorArray.length > 0) {
+      const errorData = errorArray.map((err) => ({
+        ...err.record,
+        Error: err.error,
+      }));
+      // console.log("error data->",errorData)
+      dumpJSONToExcel(req, res, {
+        data: errorData,
+        fileName: `Farmer-error_records.xlsx`,
+        worksheetName: `Farmer-record-error_records`,
+      });
+    } else {
+      return res.status(200).json({
+        status: 200,
+        data: {},
+        message: "Farmers successfully uploaded.",
+      });
+    }
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
 const generateFarmerCode = (state, mobile_no, name) => {
   if (!state || !mobile_no || !name) {
     throw new Error(
@@ -4333,5 +4641,475 @@ module.exports.getDistrictsByState = async (req, res) => {
   } catch (err) {
     console.log(err);
     throw new Error(err.message);
+  }
+};
+
+
+module.exports.uploadFarmerForVerfication = async (req, res) => {
+  try {
+    let { isxlsx, request_for_verfication } = req.body;
+    const [file] = req.files;
+    request_for_verfication = +request_for_verfication
+    logger.info("Starting upload of farmer data for verification.");
+
+    // Check for required fields
+    if (!file) {
+      logger.warn("File is missing in the request.");
+      return sendResponse({
+        res,
+        status: 400,
+        message: "File is required"
+      });
+    }
+
+    // Check if isxlsx is provided
+    if (typeof isxlsx === "undefined") {
+      logger.warn("Missing required field: isxlsx");
+      return sendResponse({
+        res,
+        status: 400,
+        message: "Missing required field: isxlsx"
+      });
+    }
+    if (!Object.values(VerificationType).includes(request_for_verfication)) {
+      logger.warn("Invalid or missing request_for_verfication value", { request_for_verfication });
+
+      return sendResponse({
+        res,
+        status: 400,
+        message: "Invalid or missing value: request_for_verfication"
+      });
+    }
+
+
+    const rawRows = await parseExcelOrCsvFile(file, parseInt(isxlsx));
+    if (!rawRows.length) {
+      logger.warn("Uploaded file contains no data.");
+      return sendResponse({
+        res,
+        status: 400,
+        message: "No data found in file"
+      });
+    }
+
+    const formattedRows = await mapToVerifyFarmerModel(rawRows, request_for_verfication);
+    await verfiyfarmer.insertMany(formattedRows);
+
+    logger.info(`Imported ${formattedRows.length} farmer records successfully.`);
+
+    return sendResponse({
+      res,
+      message: "Farmers imported successfully",
+      data: { count: formattedRows.length }
+    });
+  } catch (error) {
+    logger.error("Error during farmer data import", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Failed to import data",
+      errors: error.message
+    });
+  }
+};
+
+
+async function mapToVerifyFarmerModel(rows, request_for_verfication) {
+  const result = [];
+  let request_for_aadhaar = false
+  let request_for_bank = false
+
+  switch (request_for_verfication) {
+    case VerificationType.BANK:
+      request_for_bank = true;
+      break;
+    case VerificationType.AADHAAR:
+      request_for_aadhaar = true;
+      break;
+    case VerificationType.BOTH:
+      request_for_bank = true;
+      request_for_aadhaar = true;
+      break;
+  }
+
+  for (const row of rows) {
+    try {
+      const farmerData = await farmer.findOne({ farmer_id: row["Farmer ID"] });
+      if (!farmerData) {
+        logger.warn(`Farmer not found with ID: ${row._id}`);
+        continue;
+      }
+
+      const existingVerification = await verfiyfarmer.findOne({ farmer_id: farmerData._id });
+      if (existingVerification) {
+        logger.info(`Farmer already verified with ID: ${farmerData._id}`);
+        continue;
+      }
+
+      const data = {
+        farmer_id: new ObjectId(farmerData._id),
+        associate_id: farmerData?.associate_id ? new ObjectId(farmerData.associate_id) : null,
+        aadhar_number: farmerData?.proof?.aadhar_no || null,
+        request_for_aadhaar,
+        request_for_bank
+      };
+
+      result.push(data);
+
+    } catch (err) {
+      logger.error(`Error processing row with ID ${row._id}`, err);
+      continue;
+    }
+  }
+
+  return result;
+}
+
+module.exports.farmerCount = async (req, res) => {
+  try {
+    logger.info(" Fetching farmer count and verification statistics");
+
+    // Aggregate farmer types and counts
+    const farmerTypeAgg = farmer.aggregate([
+      {
+        $group: {
+          _id: "$farmer_type",
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$count" },
+          data: {
+            $push: {
+              type: "$_id",
+              count: "$count"
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          totalFarmers: "$total",
+          individualFarmers: {
+            $ifNull: [
+              {
+                $let: {
+                  vars: {
+                    match: {
+                      $first: {
+                        $filter: {
+                          input: "$data",
+                          as: "item",
+                          cond: { $eq: ["$$item.type", "Individual"] }
+                        }
+                      }
+                    }
+                  },
+                  in: "$$match.count"
+                }
+              },
+              0
+            ]
+          },
+          associateFarmers: {
+            $ifNull: [
+              {
+                $let: {
+                  vars: {
+                    match: {
+                      $first: {
+                        $filter: {
+                          input: "$data",
+                          as: "item",
+                          cond: { $eq: ["$$item.type", "Associate"] }
+                        }
+                      }
+                    }
+                  },
+                  in: "$$match.count"
+                }
+              },
+              0
+            ]
+          }
+        }
+      }
+    ]).exec();
+
+    // Aggregate verified farmers count
+    const verifiedFarmerAgg = farmer.aggregate([
+      {
+        $facet: {
+          bankVerified: [
+            { $match: { "bank_details.is_verified": true } },
+            { $count: "count" }
+          ],
+          aadhaarVerified: [
+            { $match: { "proof.is_verified": true } },
+            { $count: "count" }
+          ],
+          bothVerified: [
+            {
+              $match: {
+                "bank_details.is_verified": true,
+                "proof.is_verified": true
+              }
+            },
+            { $count: "count" }
+          ]
+        }
+      },
+      {
+        $project: {
+          bankVerified: {
+            $ifNull: [{ $arrayElemAt: ["$bankVerified.count", 0] }, 0]
+          },
+          aadhaarVerified: {
+            $ifNull: [{ $arrayElemAt: ["$aadhaarVerified.count", 0] }, 0]
+          },
+          bothVerified: {
+            $ifNull: [{ $arrayElemAt: ["$bothVerified.count", 0] }, 0]
+          }
+        }
+      }
+    ]).exec();
+
+    const [farmerTypes, verifiedFarmers] = await Promise.all([
+      farmerTypeAgg,
+      verifiedFarmerAgg
+    ]);
+
+    logger.info("✅ Farmer statistics fetched successfully");
+
+    return sendResponse({
+      res,
+      message: "Farmer count fetched successfully",
+      data: {
+        farmerTypes: farmerTypes[0] || {
+          totalFarmers: 0,
+          individualFarmers: 0,
+          associateFarmers: 0
+        },
+        verifiedFarmers: verifiedFarmers[0] || {
+          bankVerified: 0,
+          aadhaarVerified: 0,
+          bothVerified: 0
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error("❌ Error while fetching farmer count", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Failed to fetch farmer count",
+      errors: error.message
+    });
+  }
+};
+
+module.exports.farmerVerfiedData = async (req, res) => {
+  try {
+    logger.info("[farmerVerfiedData] Fetching verified farmers with filters and pagination", {
+      query: req.query,
+    });
+
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      state_id,
+      associate_id = "",
+      commodityName,
+      isExport = 1
+    } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const matchStage = {};
+
+    // Unified search across mobile, name, farmer_id
+    if (search) {
+      const searchRegex = new RegExp(search.trim(), "i");
+      matchStage.$or = [
+        { "farmer_details.mobile_no": searchRegex },
+        { "farmer_details.farmer_id": searchRegex },
+        { "farmer_details.name": searchRegex }
+      ];
+    }
+
+    if (state_id) {
+      matchStage["farmer_details.address.state_id"] = new mongoose.Types.ObjectId(state_id);
+    }
+
+    if (commodityName) {
+      matchStage["farmer_detailsCrop.crop_name"] = new RegExp(commodityName, "i");
+    }
+
+    if (associate_id && mongoose.Types.ObjectId.isValid(associate_id)) {
+      matchStage["associate_id"] = new mongoose.Types.ObjectId(associate_id);
+    }
+
+    const pipeline = [
+      {
+        $lookup: {
+          from: "farmers",
+          localField: "farmer_id",
+          foreignField: "_id",
+          as: "farmer_details"
+        }
+      },
+      { $unwind: "$farmer_details" },
+      {
+        $lookup: {
+          from: "users",
+          localField: "associate_id",
+          foreignField: "_id",
+          as: "associate_details"
+        }
+      },
+      {
+        $unwind: {
+          path: "$associate_details",
+        }
+      },
+      {
+        $lookup: {
+          from: "crops",
+          let: { farmerId: "$farmer_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$farmer_id", "$$farmerId"] } } },
+            { $sort: { createdAt: -1 } }, 
+            { $limit: 1 }
+          ],
+          as: "farmer_detailsCrop"
+        }
+      },
+      {
+        $unwind: {
+          path: "$farmer_detailsCrop",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      { $match: matchStage },
+      {
+        $project: {
+          _id: 0,
+          farmer_id: "$farmer_details.farmer_id",
+          commodityName: "$farmer_detailsCrop.crop_name",
+          associate_id: 1,
+          is_verify_aadhaar: 1,
+          is_verify_bank: 1,
+          state_id: "$farmer_details.address.state_id",
+          name: "$farmer_details.name",
+          mobile: "$farmer_details.mobile_no",
+          address: "$farmer_details.address.address_line_1",
+          aadhar_no: "$farmer_details.proof.aadhar_no",
+          account_no: "$farmer_details.bank_details.account_no",
+          bank_name: "$farmer_details.bank_details.bank_name",
+          branch_name: "$farmer_details.bank_details.branch_name",
+          ifsc_code: "$farmer_details.bank_details.ifsc_code",
+          organization_name: "$associate_details.basic_details.associate_details.organization_name"
+        }
+      },
+      {
+        $sort: { createdAt: -1 } // Sort by creation date, most recent first
+      }
+    ];
+
+    if (isExport != 2 && isExport !== "2") {
+      pipeline.push({
+        $facet: {
+          totalCount: [{ $count: "count" }],
+          data: [
+            { $skip: skip },
+            { $limit: parseInt(limit) }
+          ]
+        }
+      });
+    }
+
+    logger.info("[farmerVerfiedData] Running aggregation pipeline", {
+      matchStage,
+      skip,
+      limit: parseInt(limit),
+      isExport,
+    });
+    console.log("Aggregation Pipeline:", JSON.stringify(pipeline, null, 2));
+    const result = await verfiyfarmer.aggregate(pipeline);
+    const count = await verfiyfarmer.countDocuments(); // optional: base count
+    console.log("MongoDB Count:", count);
+
+    let total = 0;
+    let data = [];
+
+    if (isExport == 2 || isExport === "2") {
+      data = result;
+      total = result.length;
+    } else {
+      total = result[0]?.totalCount[0]?.count || 0;
+      data = result[0]?.data || [];
+    }
+
+    logger.info("[farmerVerfiedData] Aggregation successful", {
+      totalResults: total,
+      returnedCount: data.length
+    });
+
+    // Export to Excel
+    if (isExport == 2 || isExport === "2") {
+      const exportRows = data.map((item) => ({
+        "Farmer ID": item.farmer_id || "NA",
+        "Farmer Name": item.name || "NA",
+        "Mobile": item.mobile || "NA",
+        "Commodity": item.commodityName || "NA",
+        "Aadhaar Verified": item.is_verify_aadhaar ? "Yes" : "No",
+        "Bank Verified": item.is_verify_bank ? "Yes" : "No",
+        "Aadhaar No": item.aadhar_no || "NA",
+        "Account No": item.account_no || "NA",
+        "Bank Name": item.bank_name || "NA",
+        "Branch Name": item.branch_name || "NA",
+        "IFSC Code": item.ifsc_code || "NA",
+        "Address": item.address || "NA",
+        "Organization": item.organization_name || "NA"
+      }));
+
+      if (exportRows.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: exportRows,
+          fileName: `Verified_Farmers_${new Date().toISOString().slice(0, 10)}.xlsx`,
+          worksheetName: `Farmers`
+        });
+      } else {
+        return sendResponse({
+          res,
+          status: 200,
+          message: "No farmer data found to export"
+        });
+      }
+    }
+
+    return sendResponse({
+      res,
+      message: "Verified farmers fetched successfully",
+      data: {
+        total,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        farmers: data
+      }
+    });
+
+  } catch (error) {
+    logger.error("[farmerVerfiedData] Error fetching verified farmers", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Failed to fetch verified farmers",
+      errors: error.message
+    });
   }
 };
