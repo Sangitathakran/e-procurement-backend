@@ -49,18 +49,18 @@ module.exports.login = async (req, res) => {
       );
     }
 
-   const user = await MasterUser.findOne({ email: email.trim() })
-  .select("-createdBy -history -passwordChangedAt -email -mobile") 
-  .populate([
-    {
-      path: "userRole",
-      select: "" 
-    },
-    {
-      path: "portalId",
-      select: "organization_name _id " 
-    }
-  ]);
+    const user = await MasterUser.findOne({ email: email.trim() })
+      .select("-createdBy -history -passwordChangedAt -email -mobile")
+      .populate([
+        {
+          path: "userRole",
+          select: ""
+        },
+        {
+          path: "portalId",
+          select: "organization_name _id "
+        }
+      ]);
     if (!user) {
       return res.status(400).send(
         new serviceResponse({
@@ -100,7 +100,7 @@ module.exports.login = async (req, res) => {
         return res.status(400).send(
           new serviceResponse({
             status: 400,
-            data: { remainingAttempts },
+            // data: { remainingAttempts },
             errors: [{ message: _commonMessages.invaildCredentials }]
           })
         );
@@ -108,7 +108,7 @@ module.exports.login = async (req, res) => {
         await LoginAttempt.create({
           master_id: user._id,
           userType: user.user_type,
-          email: user.email,
+          email: email,
           failedAttempts: 1,
           lastFailedAt: new Date()
         });
@@ -116,7 +116,7 @@ module.exports.login = async (req, res) => {
         return res.status(400).send(
           new serviceResponse({
             status: 400,
-            data: { remainingAttempts: 4 },
+            // data: { remainingAttempts: 4 },
             errors: [{ message: _commonMessages.invaildCredentials }]
           })
         );
@@ -200,10 +200,10 @@ module.exports.forgetPassword = async (req, res) => {
     const user = await MasterUser.findOne({ email: email.trim() });
 
     if (!user) {
-      return res.status(400).send(
+      return res.status(200).send(
         new serviceResponse({
-          status: 400,
-          errors: [{ message: _commonMessages.invaildCredentials }]
+          status: 200,
+          message: `Forget password email sent successfully to ${email}`
         })
       );
     }

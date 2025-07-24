@@ -13,7 +13,7 @@ const mongoose = require('mongoose');
 const moment = require('moment');
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
-module.exports.getMissingBatch=async (req, res) => {
+module.exports.getMissingBatch = async (req, res) => {
     try {
         const { req_id, seller_id } = req.body;
         const associateOfferIds = (await AssociateOffers.find({ req_id: new mongoose.Types.ObjectId(req_id), seller_id: new mongoose.Types.ObjectId(seller_id) })).map(i => i._id);
@@ -28,14 +28,14 @@ module.exports.getMissingBatch=async (req, res) => {
         const farmerOrders = await FarmerOrders.find(query).select('gatePassID').lean();
         const gatePassIds = farmerOrders.map(order => order.gatePassID);
 
-        const completeBatches = await Batch.find({ batchId: { $in: gatePassIds },ekhridBatch:true }).select('batchId').lean();
+        const completeBatches = await Batch.find({ batchId: { $in: gatePassIds }, ekhridBatch: true }).select('batchId').lean();
         const missingBatchIds = gatePassIds.filter(gatePassId => !completeBatches.some(batch => batch.batchId == gatePassId));
         console.log("Missing Batch IDs:", missingBatchIds.length);
         console.log("Farmer Orders:", farmerOrders.length);
         console.log("complete Batches:", completeBatches.length);
         console.log("Gate Pass IDs:", gatePassIds.length);
 
-        return res.status(200).json({ status: 200, data: {missingBatchIds,count:missingBatchIds.length}, message: "Missing batches fetched successfully" });
+        return res.status(200).json({ status: 200, data: { missingBatchIds, count: missingBatchIds.length }, message: "Missing batches fetched successfully" });
     } catch (error) {
         console.error("Error fetching missing batches:", error);
         return res.status(500).json({ status: 500, message: "Internal Server Error" });
@@ -95,7 +95,8 @@ module.exports.getFarmerOrders = async (req, res) => {
                         $push: {
                             farmerOrder_id: "$_id",
                             qty: "$offeredQty",
-                            gatePassId: "$gatePassID",
+                            gatePassId: "$gatePassID", // this will not be used as batchID
+                            exitGatePassId: "$procurementDetails.warehouseData.exitGatePassId", // fetch id by sangita this will be used as batchID
                             liftedDate: "$procurementDetails.procurementDetails.liftedDate",
                             gatePassDate: "$procurementDetails.procurementDetails.gatePassDate",
                             noOfBags: "$procurementDetails.procurementDetails.totalBags",
@@ -119,7 +120,7 @@ module.exports.getFarmerOrders = async (req, res) => {
                 }
             }
         ]);
-      
+
 
         return res.status(200).json({ status: 200, data: farmerOrders, message: "Farmer orders fetched successfully" });
 
@@ -167,10 +168,7 @@ module.exports.getWarehouseTesting = async (req, res) => {
     }
 };
 
-
-
-
-
+/*
 module.exports.createBatch = async (req, res) => {
     try {
         const { req_id, truck_capacity, farmerData = [], seller_id } = req.body;
@@ -213,13 +211,15 @@ module.exports.createBatch = async (req, res) => {
             const qty_value = handleDecimal(farmer.qty);
             const total_price = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
             
+           // if exitGatePassId already than data should be updated instead of inserting new record, data will be pushed exiesting farmerOrderIds[]
             return {
                 insertOne: {
                     document: {
                         seller_id,
                         req_id,
                         associateOffer_id: record._id,
-                        batchId: farmer.gatePassId,
+                        // batchId: farmer.gatePassId,
+                        batchId: farmer.exitGatePassId,
                         gatePassId: farmer.gatePassId,
                         warehousedetails_id: warehouseDetails,
                         farmerOrderIds: [{
@@ -304,164 +304,208 @@ module.exports.createBatch = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
-
-
-/*
-module.exports.createBatch = async (req, res) => {
-    try {
-        const { req_id, truck_capacity, farmerData = [], seller_id } = req.body;
-
-        const procurementRecord = await RequestModel.findOne({ _id: req_id }).lean();
-        if (!procurementRecord) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }));
-        }
-
-        const record = await AssociateOffers.findOne({
-            seller_id: new mongoose.Types.ObjectId(seller_id),
-            req_id: new mongoose.Types.ObjectId(req_id)
-        });
-
-        if (!record) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
-        }
-
-        const warehouseDetails = procurementRecord.warehouse_id || null;
-        const farmerOrderIds = farmerData.map(farmer => new mongoose.Types.ObjectId(farmer.farmerOrder_id));
-        const farmerOrders = await FarmerOrders.find({ _id: { $in: farmerOrderIds } }).lean();
-
-        if (farmerOrders.length !== farmerOrderIds.length) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "One or more farmer orders not found" }] }));
-        }
-
-        for (const order of farmerOrders) {
-            if (order.status !== _procuredStatus.received) {
-                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "All farmer orders must be in received state" }] }));
-            }
-        }
-
-        const bulkOps = [];
-        const obj={}
-        const duplicateGatePassIds = []
-        farmerData.forEach((item)=>{
-            if(!obj[item.gatePassId]){
-            obj[item.gatePassId]=item
-            }else{
-                duplicateGatePassIds.push(item.gatePassId)
-            }
-        })
-        const farmerDataResult = Object.values(obj)
-        for (const farmer of farmerDataResult) {
-            const farmerOrder = farmerOrders.find(order => order._id.toString() === farmer.farmerOrder_id);
-            const qty_value = handleDecimal(farmer.qty);
-            const total_price = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
-
-            const existingBatch = await Batch.findOne({ batchId: farmer.gatePassId });
-
-            if (!existingBatch) {
-                bulkOps.push({
-                    insertOne: {
-                        document: {
-                            seller_id,
-                            req_id,
-                            associateOffer_id: record._id,
-                            batchId: farmer.gatePassId,
-                            gatePassId: farmer.gatePassId,
-                            warehousedetails_id: warehouseDetails,
-                            farmerOrderIds: [{
-                                farmerOrder_id: new mongoose.Types.ObjectId(farmer.farmerOrder_id),
-                                qty: qty_value,
-                                amt: total_price,
-                            }],
-                            procurementCenter_id: farmerOrder.procurementCenter_id,
-                            qty: qty_value,
-                            available_qty: qty_value,
-                            goodsPrice: total_price,
-                            totalPrice: total_price,
-                            ekhridBatch: true,
-                            agent_approve_at: new Date(),
-                            agent_approve_status: _paymentApproval.approved,
-                            bo_approve_status: _paymentApproval.approved,
-                            ho_approve_status: _paymentApproval.approved,
-                            ho_approval_at: new Date(),
-                            status: _batchStatus.intransit,
-                            'final_quality_check.status': "Approved",
-                            "final_quality_check.whr_receipt": farmer.gatePassId,
-                            'intransit.no_of_bags': farmer.noOfBags,
-                            'intransit.driver.name': farmer.driverName,
-                            'intransit.transport.service_name': farmer.transporterName,
-                            'intransit.transport.vehicleNo': farmer.truckNo,
-                            'createdAt': moment(farmer.gatePassDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
-                            'dispatched.dispatched_at': moment(farmer.liftedDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
-                            'intransit.intransit_at': moment(farmer.liftedDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
-                            'delivered.delivered_at': moment(farmer.inwardDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
-                            'payment_at': moment(farmer.transactionDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
-                            'payement_approval_at': moment(farmer.transactionDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
-                        }
-                    }
-                });
-            }else{
-                duplicateGatePassIds.push(farmer.gatePassId)
-            }
-        }
-
-        const bulkFarmersOrder = farmerData.map(farmer => ({
-            updateOne: {
-                filter: { _id: new mongoose.Types.ObjectId(farmer.farmerOrder_id) },
-                update: {
-                    $set: {
-                        batchCreatedAt: new Date(),
-                        payment_status: farmer?.transactionStatus === "Success" ? _paymentstatus.completed : _paymentstatus.pending,
-                        payment_date: moment(farmer?.transactionDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
-                        ekhridPaymentDetails: {
-                            transactionId: farmer?.transactionId,
-                            transactionAmount: farmer?.transactionAmount,
-                        }
-                    }
-                }
-            }
-        }));
-
-        await FarmerOrders.bulkWrite(bulkFarmersOrder);
-        const result = await Batch.bulkWrite(bulkOps);
-
-        record.status = _associateOfferStatus.ordered;
-        await record.save();
-
-        return res.status(200).send(
-            new serviceResponse({
-                status: 200,
-                data: {Insert:result.insertedIds, duplicateGatePassIds},
-                message: _response_message.created("batches"),
-            })
-        );
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
-    }
-};
 */
 
 
+// module.exports.createBatch = async (req, res) => {
+//     try {
+//         const { req_id, truck_capacity, farmerData = [], seller_id } = req.body;
 
+//         const procurementRecord = await RequestModel.findOne({ _id: req_id }).lean();
+//         if (!procurementRecord) {
+//             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }));
+//         }
 
+//         const record = await AssociateOffers.findOne({
+//             seller_id: new mongoose.Types.ObjectId(seller_id),
+//             req_id: new mongoose.Types.ObjectId(req_id)
+//         });
 
+//         if (!record) {
+//             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
+//         }
 
-/*
+//         const warehouseDetails = procurementRecord.warehouse_id || null;
+
+//         const farmerOrderIds = farmerData.map(farmer => new mongoose.Types.ObjectId(farmer.farmerOrder_id));
+//         const farmerOrders = await FarmerOrders.find({ _id: { $in: farmerOrderIds } }).lean();
+
+//         if (farmerOrders.length !== farmerOrderIds.length) {
+//             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "One or more farmer orders not found" }] }));
+//         }
+
+//         for (const order of farmerOrders) {
+//             if (order.status !== _procuredStatus.received) {
+//                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "All farmer orders must be in received state" }] }));
+//             }
+//         }
+
+//         // Group by gatePassId
+//         const groupedByGatePassId = {};
+//         // for (const farmer of farmerData) {
+//         //     if (!groupedByGatePassId[farmer.gatePassId]) {
+//         //         groupedByGatePassId[farmer.gatePassId] = [];
+//         //     }
+//         //     groupedByGatePassId[farmer.gatePassId].push(farmer);
+//         // }
+
+//         for (const farmer of farmerData) {
+//             if (!groupedByGatePassId[farmer.exitGatePassId]) {
+//                 groupedByGatePassId[farmer.exitGatePassId] = [];
+//             }
+//             groupedByGatePassId[farmer.exitGatePassId].push(farmer);
+//         }
+
+//         // Fetch existing batches
+//         const gatePassIds = Object.keys(groupedByGatePassId);
+//         const existingBatches = await Batch.find({ batchId: { $in: gatePassIds } }).lean();
+//         const existingBatchMap = {};
+//         existingBatches.forEach(batch => {
+//             existingBatchMap[batch.gatePassId] = batch;
+//         });
+
+//         const bulkOps = [];
+
+//         for (const gatePassId in groupedByGatePassId) {
+//             const farmersGroup = groupedByGatePassId[gatePassId];
+//             const batchExists = !!existingBatchMap[gatePassId];
+
+//             let totalQty = 0;
+//             let totalPrice = 0;
+//             const farmerOrderIdsArray = [];
+
+//             for (const farmer of farmersGroup) {
+//                 const qty_value = handleDecimal(farmer.qty);
+//                 const price = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
+//                 totalQty += qty_value;
+//                 totalPrice += price;
+
+//                 farmerOrderIdsArray.push({
+//                     farmerOrder_id: new mongoose.Types.ObjectId(farmer.farmerOrder_id),
+//                     qty: qty_value,
+//                     amt: price,
+//                 });
+//             }
+
+//             const baseFarmer = farmersGroup[0];
+//             const farmerOrder = farmerOrders.find(order => order._id.toString() === baseFarmer.farmerOrder_id);
+
+//             if (batchExists) {
+//                 bulkOps.push({
+//                     updateOne: {
+//                         filter: { batchId: gatePassId },
+//                         update: {
+//                             $push: { farmerOrderIds: { $each: farmerOrderIdsArray } },
+//                             $inc: {
+//                                 qty: totalQty,
+//                                 available_qty: totalQty,
+//                                 goodsPrice: totalPrice,
+//                                 totalPrice: totalPrice,
+//                             }
+//                         }
+//                     }
+//                 });
+//             } else {
+//                 bulkOps.push({
+//                     insertOne: {
+//                         document: {
+//                             seller_id,
+//                             req_id,
+//                             associateOffer_id: record._id,
+//                             batchId: gatePassId,
+//                             gatePassId: gatePassId,
+//                             warehousedetails_id: warehouseDetails,
+//                             farmerOrderIds: farmerOrderIdsArray,
+//                             procurementCenter_id: farmerOrder.procurementCenter_id,
+//                             qty: totalQty,
+//                             available_qty: totalQty,
+//                             goodsPrice: totalPrice,
+//                             totalPrice: totalPrice,
+//                             ekhridBatch: true,
+//                             agent_approve_at: new Date(),
+//                             agent_approve_status: _paymentApproval.approved,
+//                             bo_approve_status: _paymentApproval.approved,
+//                             ho_approve_status: _paymentApproval.approved,
+//                             ho_approval_at: new Date(),
+//                             status: _batchStatus.intransit,
+//                             'final_quality_check.status': "Approved",
+//                             "final_quality_check.whr_receipt": gatePassId,
+//                             'intransit.no_of_bags': baseFarmer.noOfBags,
+//                             'intransit.driver.name': baseFarmer.driverName,
+//                             'intransit.transport.service_name': baseFarmer.transporterName,
+//                             'intransit.transport.vehicleNo': baseFarmer.truckNo,
+//                             'createdAt': moment(baseFarmer.gatePassDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+//                             'dispatched.dispatched_at': moment(baseFarmer.liftedDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+//                             'intransit.intransit_at': moment(baseFarmer.liftedDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+//                             'delivered.delivered_at': moment(baseFarmer.inwardDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+//                             'payment_at': moment(baseFarmer.transactionDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+//                             'payement_approval_at': moment(baseFarmer.transactionDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+//                         }
+//                     }
+//                 });
+//             }
+//         }
+
+//         // Update farmer orders
+//         const bulkFarmersOrder = farmerData.map(farmer => ({
+//             updateOne: {
+//                 filter: { _id: new mongoose.Types.ObjectId(farmer.farmerOrder_id) },
+//                 update: {
+//                     $set: {
+//                         batchCreatedAt: new Date(),
+//                         payment_status: _paymentstatus.completed,
+//                         payment_date: moment(farmer?.transactionDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+//                         ekhridBatch: true,
+//                         ekhridPaymentDetails: {
+//                             transactionId: farmer?.transactionId,
+//                             transactionAmount: farmer?.transactionAmount,
+//                         }
+//                     }
+//                 }
+//             }
+//         }));
+
+//         await FarmerOrders.bulkWrite(bulkFarmersOrder);
+//         const result = await Batch.bulkWrite(bulkOps);
+
+//         record.status = _associateOfferStatus.ordered;
+//         await record.save();
+
+//         return res.status(200).send(
+//             new serviceResponse({
+//                 status: 200,
+//                 data: result.insertedIds,
+//                 message: _response_message.created("batches"),
+//             })
+//         );
+
+//     } catch (error) {
+//         _handleCatchErrors(error, res);
+//     }
+// };
+
 module.exports.createBatch = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
         const { req_id, truck_capacity, farmerData = [], seller_id } = req.body;
 
         const procurementRecord = await RequestModel.findOne({ _id: req_id }).lean();
         if (!procurementRecord) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("request") }] }));
         }
 
         const record = await AssociateOffers.findOne({
             seller_id: new mongoose.Types.ObjectId(seller_id),
             req_id: new mongoose.Types.ObjectId(req_id)
-        });
+        }).session(session);
 
         if (!record) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("offer") }] }));
         }
 
@@ -471,25 +515,27 @@ module.exports.createBatch = async (req, res) => {
         const farmerOrders = await FarmerOrders.find({ _id: { $in: farmerOrderIds } }).lean();
 
         if (farmerOrders.length !== farmerOrderIds.length) {
+            await session.abortTransaction();
+            session.endSession();
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "One or more farmer orders not found" }] }));
         }
 
         for (const order of farmerOrders) {
             if (order.status !== _procuredStatus.received) {
+                await session.abortTransaction();
+                session.endSession();
                 return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "All farmer orders must be in received state" }] }));
             }
         }
 
-        // Group by gatePassId
         const groupedByGatePassId = {};
         for (const farmer of farmerData) {
-            if (!groupedByGatePassId[farmer.gatePassId]) {
-                groupedByGatePassId[farmer.gatePassId] = [];
+            if (!groupedByGatePassId[farmer.exitGatePassId]) {
+                groupedByGatePassId[farmer.exitGatePassId] = [];
             }
-            groupedByGatePassId[farmer.gatePassId].push(farmer);
+            groupedByGatePassId[farmer.exitGatePassId].push(farmer);
         }
 
-        // Fetch existing batches
         const gatePassIds = Object.keys(groupedByGatePassId);
         const existingBatches = await Batch.find({ batchId: { $in: gatePassIds } }).lean();
         const existingBatchMap = {};
@@ -579,15 +625,15 @@ module.exports.createBatch = async (req, res) => {
             }
         }
 
-        // Update farmer orders
         const bulkFarmersOrder = farmerData.map(farmer => ({
             updateOne: {
                 filter: { _id: new mongoose.Types.ObjectId(farmer.farmerOrder_id) },
                 update: {
                     $set: {
                         batchCreatedAt: new Date(),
-                        payment_status: farmer?.transactionStatus === "Success" ? _paymentstatus.completed : _paymentstatus.pending,
+                        payment_status: _paymentstatus.completed,
                         payment_date: moment(farmer?.transactionDate, "DD-MM-YYYY hh:mm:ss A").toISOString(),
+                        ekhridBatch: true,
                         ekhridPaymentDetails: {
                             transactionId: farmer?.transactionId,
                             transactionAmount: farmer?.transactionAmount,
@@ -597,11 +643,14 @@ module.exports.createBatch = async (req, res) => {
             }
         }));
 
-        await FarmerOrders.bulkWrite(bulkFarmersOrder);
-        const result = await Batch.bulkWrite(bulkOps);
+        await FarmerOrders.bulkWrite(bulkFarmersOrder, { session });
+        const result = await Batch.bulkWrite(bulkOps, { session });
 
         record.status = _associateOfferStatus.ordered;
-        await record.save();
+        await record.save({ session });
+
+        await session.commitTransaction();
+        session.endSession();
 
         return res.status(200).send(
             new serviceResponse({
@@ -612,8 +661,8 @@ module.exports.createBatch = async (req, res) => {
         );
 
     } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
         _handleCatchErrors(error, res);
     }
 };
-*/
-

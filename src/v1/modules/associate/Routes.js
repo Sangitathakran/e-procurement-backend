@@ -13,7 +13,7 @@ const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/j
 const { _userType } = require("@src/v1/utils/constants/index")
 
 associateRoutes.use("/request",authenticateUser,authorizeRoles(_userType.associate), requestRoutes);
-associateRoutes.use("/center",authenticateUser,authorizeRoles(_userType.associate,_userType.ho), procurementCenterRoutes);
+associateRoutes.use("/center",authenticateUser,authorizeRoles(_userType.associate , _userType.ho), procurementCenterRoutes);
 associateRoutes.use("/order",authenticateUser,authorizeRoles(_userType.associate), orderRoutes);
 associateRoutes.use("/payment",authenticateUser,authorizeRoles(_userType.associate), paymentRoutes);
 associateRoutes.use("/whr",authenticateUser,authorizeRoles(_userType.associate), whrRoutes);

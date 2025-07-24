@@ -10,6 +10,6 @@ dashboardRoutes.get("/", authenticateUser,authorizeRoles(_userType.distiller) ,A
 dashboardRoutes.get("/getCenterProjections",authenticateUser,authorizeRoles(_userType.distiller), Auth, getStateWishProjection);
 dashboardRoutes.get("/purchase-order",authenticateUser,authorizeRoles(_userType.distiller), Auth, getOrder);
 dashboardRoutes.get("/nearest-warehouse-list",authenticateUser,authorizeRoles(_userType.distiller), Auth, warehouseList);
-dashboardRoutes.get("/payment-disteller", getMonthlyPaidAmount);
+dashboardRoutes.get("/payment-disteller",authenticateUser,authorizeRoles(_userType.distiller), getMonthlyPaidAmount);
 
 module.exports = { dashboardRoutes }; 

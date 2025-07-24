@@ -1,7 +1,8 @@
 const express = require("express");
-const { getAssociates, updateOrInsertUsers, addFarmers, addProcureallPaymentOrdersmentCenter,updateOrInsertUsersTesting, associateFarmerList, 
-    createOfferOrder, addProcurementCenter, getProcurementCenter, getProcurementCenterTesting,getEkhridJFormId, getMandiName, getAllMandiName, totalQty,
-    allPaymentOrders } = require("./Controllers");
+const { getAssociates, updateOrInsertUsers, addFarmers, addProcureallPaymentOrdersmentCenter, updateOrInsertUsersTesting, associateFarmerList,
+    createOfferOrder, addProcurementCenter, getProcurementCenter, getProcurementCenterTesting, getEkhridJFormId, getMandiName, getAllMandiName, totalQty,
+    allPaymentOrders, getBatchIds, updateBatchIds, totalQtyFarmerOrder, ekhridFarmerOrderMapping,
+    getNewJformIds, totalQtyRania, getTodaysfarmerOrder, checkJformIdsExist, ekhridProcrementExport } = require("./Controllers");
 
 const associateMngmntRoutes = express.Router();
 
@@ -21,6 +22,17 @@ associateMngmntRoutes.get("/getAllMandiName", getAllMandiName);
 associateMngmntRoutes.get("/totalQty", totalQty);
 associateMngmntRoutes.get("/getEkhridJFormId", getEkhridJFormId);
 
-associateMngmntRoutes.get("/allPaymentOrders", allPaymentOrders );
+associateMngmntRoutes.get("/allPaymentOrders", allPaymentOrders);
+associateMngmntRoutes.get("/getBatchIds", getBatchIds);
+associateMngmntRoutes.get("/updateBatchIds", updateBatchIds);
+
+associateMngmntRoutes.get("/totalQtyFarmerOrder", totalQtyFarmerOrder);
+associateMngmntRoutes.get("/ekhridFarmerOrderMapping", ekhridFarmerOrderMapping);
+associateMngmntRoutes.get('/test', getNewJformIds);
+associateMngmntRoutes.get('/totalQtyRania', totalQtyRania);
+associateMngmntRoutes.get('/getTodaysfarmerOrder', getTodaysfarmerOrder);
+associateMngmntRoutes.get('/checkJformIdsExist', checkJformIdsExist);
+
+associateMngmntRoutes.get('/ekhridProcrementExport', ekhridProcrementExport);
 
 module.exports = { associateMngmntRoutes }; 

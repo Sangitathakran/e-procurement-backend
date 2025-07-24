@@ -14,25 +14,25 @@ const { schemeRoutes } = require("./scheme/Routes");
 const { commodityRoutes } = require("./commodity/Routes");
 const { slaRoute } = require("./sla-management/Routes");
 const { standardRoutes } = require("./standard/Routes");
-const {dropDownRoute} = require("./dropdown/Routes")
+const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/jwt")
+const { _userType } = require("@src/v1/utils/constants/index")
 
 const slaRoutes = express.Router();
 
-slaRoutes.use('/request', requestRoutes);
-slaRoutes.use('/scheme', schemeRoutes);
-slaRoutes.use("/associate", associateMngmntRoutes);
-slaRoutes.use("/ho", hoMngmntRoutes);
-slaRoutes.use("/bo", boManagementRoutes);
-slaRoutes.use("/warehouse", warehouseRoutes);
-slaRoutes.use("/procurement", procurementCenterRoutes);
-slaRoutes.use("/track-orders", trackDeliveryRoutes);
-slaRoutes.use('/payment', paymentRoutes);
-slaRoutes.use("/dashboard", dashboardRoutes);
-slaRoutes.use("/proc-track", procTrackingRoutes);
-slaRoutes.use("/agency", agencyMngmntRoutes);
-slaRoutes.use("/commodity", commodityRoutes);
-slaRoutes.use("/sla", slaRoute);
-slaRoutes.use("/standard", standardRoutes);
-slaRoutes.use("/dropdown", dropDownRoute);
+slaRoutes.use('/request',authenticateUser,authorizeRoles(_userType.agent ), requestRoutes);
+slaRoutes.use('/scheme',authenticateUser,authorizeRoles(_userType.agent ), schemeRoutes);
+slaRoutes.use("/associate",authenticateUser,authorizeRoles(_userType.agent ), associateMngmntRoutes);
+slaRoutes.use("/ho",authenticateUser,authorizeRoles(_userType.agent ), hoMngmntRoutes);
+slaRoutes.use("/bo",authenticateUser,authorizeRoles(_userType.agent ), boManagementRoutes);
+slaRoutes.use("/warehouse",authenticateUser,authorizeRoles(_userType.agent ), warehouseRoutes);
+slaRoutes.use("/procurement",authenticateUser,authorizeRoles(_userType.agent ), procurementCenterRoutes);
+slaRoutes.use("/track-orders",authenticateUser,authorizeRoles(_userType.agent ), trackDeliveryRoutes);
+slaRoutes.use('/payment',authenticateUser,authorizeRoles(_userType.agent ), paymentRoutes);
+slaRoutes.use("/dashboard",authenticateUser,authorizeRoles(_userType.agent ), dashboardRoutes);
+slaRoutes.use("/proc-track",authenticateUser,authorizeRoles(_userType.agent ), procTrackingRoutes);
+slaRoutes.use("/agency",authenticateUser,authorizeRoles(_userType.agent ), agencyMngmntRoutes);
+slaRoutes.use("/commodity",authenticateUser,authorizeRoles(_userType.agent ), commodityRoutes);
+slaRoutes.use("/sla",authenticateUser,authorizeRoles(_userType.agent ), slaRoute);
+slaRoutes.use("/standard",authenticateUser,authorizeRoles(_userType.agent ), standardRoutes);
 
 module.exports = { slaRoutes } 
