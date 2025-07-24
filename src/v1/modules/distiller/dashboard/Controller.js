@@ -12,13 +12,15 @@ const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 
 
 const { mongoose } = require("mongoose");
+const { procurement_partners } = require("@config/index");
+const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   try {
     const { user_id } = req;
     const currentDate = new Date();
 
-    const wareHouseCount = (await wareHousev2.countDocuments()) ?? 0;
+    const wareHouseCount = (await wareHouseDetails.countDocuments()) ?? 0;
     const purchaseOrderCount =
       (await PurchaseOrderModel.countDocuments({ distiller_id: user_id })) ?? 0;
 
@@ -44,10 +46,103 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 
     const realTimeStock = result.length > 0 ? result[0].totalStock : 0;
 
+    const totalStats = await wareHouseDetails.aggregate([
+  {
+    $match: {
+      procurement_partner: { $in: ['Radiant', 'Agribid'] },
+    },
+  },
+  {
+    $lookup: {
+      from: 'batches',
+      let: { wid: '$_id', partner: '$procurement_partner' },
+      pipeline: [
+        { $match: { $expr: { $eq: ['$warehousedetails_id', '$$wid'] } } },
+        {
+          $group: {
+            _id: null,
+            procured: { $sum: '$qty' },
+            available: { $sum: '$available_qty' },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            procured: 1,
+            available: 1,
+          },
+        },
+      ],
+      as: 'internalStats',
+    },
+  },
+  {
+    $lookup: {
+      from: 'externalbatches',
+      let: { wid: '$_id', partner: '$procurement_partner' },
+      pipeline: [
+        { $match: { $expr: { $eq: ['$warehousedetails_id', '$$wid'] } } },
+        {
+          $group: {
+            _id: null,
+            procured: { $sum: '$inward_quantity' },
+            available: { $sum: '$remaining_quantity' },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            procured: 1,
+            available: 1,
+          },
+        },
+      ],
+      as: 'externalStats',
+    },
+  },
+  {
+    $addFields: {
+      totalProcuredQty: {
+        $cond: [
+          { $eq: ['$procurement_partner', 'Radiant'] },
+          { $ifNull: [{ $arrayElemAt: ['$internalStats.procured', 0] }, 0] },
+          { $ifNull: [{ $arrayElemAt: ['$externalStats.procured', 0] }, 0] },
+        ],
+      },
+      totalAvailableQty: {
+        $cond: [
+          { $eq: ['$procurement_partner', 'Radiant'] },
+          { $ifNull: [{ $arrayElemAt: ['$internalStats.available', 0] }, 0] },
+          { $ifNull: [{ $arrayElemAt: ['$externalStats.available', 0] }, 0] },
+        ],
+      },
+    },
+  },
+  {
+    $group: {
+      _id: null,
+      totalProcuredQty: { $sum: '$totalProcuredQty' },
+      totalAvailableQty: { $sum: '$totalAvailableQty' },
+    },
+  },
+  {
+    $project: {
+      _id: 0,
+      totalProcuredQty: { $round: ['$totalProcuredQty', 2] },
+      totalAvailableQty: { $round: ['$totalAvailableQty', 2] },
+    },
+  },
+]);
+
+//console.log('>>>>>>>>>>>>>>>',totalStats);
+
+
     const records = {
       wareHouseCount,
       purchaseOrderCount,
       realTimeStock,
+      totalProcuredQty: totalStats[0]?.totalProcuredQty,
+      totalAvailableQty: totalStats[0]?.totalAvailableQty,
     };
 
     return res.send(
@@ -55,6 +150,63 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
         status: 200,
         data: records,
         message: _response_message.found("Dashboard Stats"),
+      })
+    );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
+module.exports.getSateStock = asyncErrorHandler(async (req, res) => {
+  try {
+    const {  organization_id} = req;
+
+     const stateWiseInventoryStock = await BatchOrderProcess.aggregate([
+  {
+    $match: {
+      distiller_id: new mongoose.Types.ObjectId(organization_id._id) 
+    }
+  },
+  {
+    $lookup: {
+      from: "warehousedetails", 
+      localField: "warehouseId",
+      foreignField: "_id",
+      as: "warehouseDetails"
+    }
+  },
+  { $unwind: "$warehouseDetails" },
+
+  {
+    $project: {
+      state: "$warehouseDetails.addressDetails.state.state_name",
+      stock: "$warehouseDetails.inventory.stock"
+    }
+  },
+
+  {
+    $group: {
+      _id: "$state",
+      totalStock: { $sum: "$stock" }
+    }
+  },
+    {
+    $project: {
+      _id: 0,
+      state: "$_id",
+      totalStock: 1
+    }
+  },
+
+  { $sort: { totalStock: -1 } }
+]);
+
+
+    return res.send(
+      new serviceResponse({
+        status: 200,
+        data: stateWiseInventoryStock,
+        message: _response_message.found("State Wise Stock"),
       })
     );
   } catch (error) {
@@ -223,70 +375,222 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     } = req.query;
     const skip = (parseInt(page, 5) - 1) * parseInt(limit, 5);
 
-    let query = search
-      ? {
-        $or: [
-          { "companyDetails.name": { $regex: search, $options: "i" } },
-          { "ownerDetails.name": { $regex: search, $options: "i" } },
-          {
-            "warehouseDetails.basicDetails.warehouseName": {
-              $regex: search,
-              $options: "i",
-            },
+    // let query = search
+    //   ? {
+    //     $or: [
+    //       { "companyDetails.name": { $regex: search, $options: "i" } },
+    //       { "ownerDetails.name": { $regex: search, $options: "i" } },
+    //       {
+    //         "warehouseDetails.basicDetails.warehouseName": {
+    //           $regex: search,
+    //           $options: "i",
+    //         },
+    //       },
+    //       {
+    //         "warehouseDetails.procurement_partner": {
+    //           $regex: search,
+    //           $options: "i",
+    //         },
+    //       },
+    //     ],
+    //     ...filters, // Additional filters
+    //   }
+    //   : {};
+
+    // const aggregationPipeline = [
+    //   { $match: query },
+    //   {
+    //     $lookup: {
+    //       from: "warehousedetails", // Collection name in MongoDB
+    //       localField: "_id",
+    //       foreignField: "warehouseOwnerId",
+    //       as: "warehouseDetails",
+    //     },
+    //   },
+    //   {
+    //     $unwind: {
+    //       path: "$warehouseDetails",
+    //       preserveNullAndEmptyArrays: true,
+    //     },
+    //   },
+    //   {
+    //     $project: {
+    //       warehousename: "$warehouseDetails.basicDetails.warehouseName",
+    //       inventory : "$warehouseDetails.inventory.requiredStock",
+    //       address: "$warehouseDetails.addressDetails.state",
+    //       totalCapicity: "$warehouseDetails.basicDetails.warehouseCapacity",
+    //       utilizedCapicity: {
+    //         $cond: {
+    //           if: {
+    //             $gt: [
+    //               { $ifNull: ["$warehouseDetails.inventory.requiredStock", 0] },
+    //               0,
+    //             ],
+    //           },
+    //           then: "$warehouseDetails.inventory.requiredStock",
+    //           else: "$warehouseDetails.inventory.stock",
+    //         },
+    //       },
+    //       realTimeStock: "$warehouseDetails.inventory.stock",
+    //       distance: "100 KM",
+    //     },
+    //   },
+
+    //   { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
+    //   { $skip: skip },
+    //   { $limit: parseInt(limit, 10) },
+    // ];
+
+    const preLookupQuery = search
+  ? {
+      $or: [
+        { "companyDetails.name": { $regex: search, $options: "i" } },
+        { "ownerDetails.name": { $regex: search, $options: "i" } },
+      ],
+      ...filters,
+    }
+  : { ...filters };
+
+const postLookupQuery = search
+  ? {
+      $or: [
+        {
+          "warehouseDetails.basicDetails.warehouseName": {
+            $regex: search,
+            $options: "i",
           },
-        ],
-        ...filters, // Additional filters
-      }
-      : {};
+        },
+        {
+          "warehouseDetails.procurement_partner": {
+            $regex: search,
+            $options: "i",
+          },
+        },
+      ],
+    }
+  : {};
 
     const aggregationPipeline = [
-      { $match: query },
-      {
-        $lookup: {
-          from: "warehousedetails", // Collection name in MongoDB
-          localField: "_id",
-          foreignField: "warehouseOwnerId",
-          as: "warehouseDetails",
-        },
+   { $match: preLookupQuery },
+
+  // Lookup warehouseDetails
+  {
+    $lookup: {
+      from: "warehousedetails",
+      localField: "_id",
+      foreignField: "warehouseOwnerId",
+      as: "warehouseDetails",
+    },
+  },
+  {
+    $unwind: {
+      path: "$warehouseDetails",
+      preserveNullAndEmptyArrays: true,
+    },
+  },
+
+  // Apply post-lookup search filters
+  ...(search ? [{ $match: postLookupQuery }] : []),
+
+   // Filter for Radiant and Agribid procurement partners
+  {
+    $match: {
+      "warehouseDetails.procurement_partner": {
+        $in: [ procurement_partners.Radiant, procurement_partners.Agribid], 
       },
-      {
-        $unwind: {
-          path: "$warehouseDetails",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $project: {
-          warehousename: "$warehouseDetails.basicDetails.warehouseName",
-          inventory : "$warehouseDetails.inventory.requiredStock",
-          address: "$warehouseDetails.addressDetails.state",
-          totalCapicity: "$warehouseDetails.basicDetails.warehouseCapacity",
-          utilizedCapicity: {
+    },
+  },
+  
+  // Lookup batches (internal)
+  {
+    $lookup: {
+      from: "batches",
+      localField: "warehouseDetails._id",
+      foreignField: "warehousedetails_id",
+      as: "internalBatches",
+    },
+  },
+
+  // Lookup externalBatches
+  {
+    $lookup: {
+      from: "externalbatches",
+      localField: "warehouseDetails._id",
+      foreignField: "warehousedetails_id",
+      as: "externalBatches",
+    },
+  },
+
+  // Add calculated fields
+  {
+    $addFields: {
+      totalProcuredQty: {
+        $round: [
+          {
             $cond: {
               if: {
-                $gt: [
-                  { $ifNull: ["$warehouseDetails.inventory.requiredStock", 0] },
-                  0,
-                ],
+                $eq: ["$warehouseDetails.procurement_partner", procurement_partners.Radiant],
               },
-              then: "$warehouseDetails.inventory.requiredStock",
-              else: "$warehouseDetails.inventory.stock",
+              then: { $sum: "$internalBatches.qty" },
+              else: { $sum: "$externalBatches.inward_quantity" },
             },
           },
-          realTimeStock: "$warehouseDetails.inventory.stock",
-          distance: "100 KM",
+          2,
+        ],
+      },
+      totalLiftedQty: {
+        $round: [
+          {
+            $cond: {
+              if: {
+                $eq: ["$warehouseDetails.procurement_partner", procurement_partners.Radiant],
+              },
+              then: { $sum: "$internalBatches.allotedQty" },
+              else: { $sum: "$externalBatches.outward_quantity" },
+            },
+          },
+          2,
+        ],
+      },
+    },
+  },
+
+  // Final projection
+  {
+    $project: {
+      warehousename: "$warehouseDetails.basicDetails.warehouseName",
+      inventory: "$warehouseDetails.inventory.requiredStock",
+      address: "$warehouseDetails.addressDetails.state",
+      totalCapicity: "$warehouseDetails.basicDetails.warehouseCapacity",
+      utilizedCapicity: {
+        $cond: {
+          if: {
+            $gt: [
+              { $ifNull: ["$warehouseDetails.inventory.requiredStock", 0] },
+              0,
+            ],
+          },
+          then: "$warehouseDetails.inventory.requiredStock",
+          else: "$warehouseDetails.inventory.stock",
         },
       },
+      realTimeStock: "$warehouseDetails.inventory.stock",
+      procurement_partner: "$warehouseDetails.procurement_partner",
+      distance: "100 KM",
+      totalProcuredQty: 1,
+      totalLiftedQty: 1,
+    },
+  },
 
-      { $sort: { [sortBy || 'createdAt']: -1, _id: 1 } },
-      { $skip: skip },
-      { $limit: parseInt(limit, 10) },
-    ];
+  { $sort: { [sortBy || "createdAt"]: -1, _id: 1 } },
+  { $skip: skip },
+  { $limit: parseInt(limit, 10) },
+];
 
     const records = { count: 0, rows: [] };
     records.rows = await wareHousev2.aggregate(aggregationPipeline);
 
-    const countAggregation = [{ $match: query }, { $count: "total" }];
+    const countAggregation = [{ $match: preLookupQuery }, { $count: "total" }]; //[{ $match: query }, { $count: "total" }];
     const countResult = await wareHousev2.aggregate(countAggregation);
     records.count = countResult.length > 0 ? countResult[0].total : 0;
 
