@@ -4455,8 +4455,9 @@ module.exports.proceedToPayBatchList = async (req, res) => {
       payment_status,
       isExport = 0,
     } = req.query;
+   // const paymentIds = (await Payment.find({ req_id })).map((i) => i.batch_id);
+   const paymentIds = await Payment.distinct('batch_id', { req_id });
 
-    const paymentIds = (await Payment.find({ req_id })).map((i) => i.batch_id);
 
     let query = {
       _id: { $in: paymentIds },
@@ -4490,35 +4491,53 @@ module.exports.proceedToPayBatchList = async (req, res) => {
       paymentStatusCondition = "Failed";
     }
 
+    const combinedMatch = {
+  ...query,
+  ...(search
+    ? {
+        $or: [
+          { batchId: { $regex: search, $options: "i" } },
+          { "final_quality_check.whr_receipt": { $regex: search, $options: "i" } },
+        ],
+      }
+    : {}),
+};
+
+
     const records = { count: 0 };
 
     const pipeline = [
-      {
-        $match: query,
-      },
-      {
-        $match: {
-          ...(search
-            ? {
-              $or: [
-                { batchId: { $regex: search, $options: "i" } },
-                {
-                  "final_quality_check.whr_receipt": {
-                    $regex: search,
-                    $options: "i",
-                  },
-                },
-              ],
-            }
-            : {}),
-        },
-      },
+      // {
+      //   $match: query,
+      // },
+      // {
+      //   $match: {
+      //     ...(search
+      //       ? {
+      //         $or: [
+      //           { batchId: { $regex: search, $options: "i" } },
+      //           {
+      //             "final_quality_check.whr_receipt": {
+      //               $regex: search,
+      //               $options: "i",
+      //             },
+      //           },
+      //         ],
+      //       }
+      //       : {}),
+      //   },
+      // },
+      { $match: combinedMatch },
+
       {
         $lookup: {
           from: "users",
           localField: "seller_id",
           foreignField: "_id",
           as: "users",
+          pipeline: [
+            { $project: { basic_details: 1 } }
+          ]
         },
       },
       {
@@ -4530,19 +4549,20 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           localField: "req_id",
           foreignField: "_id",
           as: "requestDetails",
+          pipeline: [{ $project: { createdAt: 1 } }]
         },
       },
       {
         $unwind: "$requestDetails",
       },
-      {
-        $lookup: {
-          from: "associateinvoices",
-          localField: "_id",
-          foreignField: "batch_id",
-          as: "invoice",
-        },
-      },
+      // {
+      //   $lookup: {
+      //     from: "associateinvoices",
+      //     localField: "_id",
+      //     foreignField: "batch_id",
+      //     as: "invoice",
+      //   },
+      // },
       // {
       //     $unwind: "$invoice"
       // },
@@ -4552,6 +4572,7 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           localField: "_id",
           foreignField: "batch_id",
           as: "payment",
+          pipeline: [{ $project: { payment_status: 1 } }]
         },
       },
       {
@@ -4560,14 +4581,14 @@ module.exports.proceedToPayBatchList = async (req, res) => {
             paymentStatusCondition || _paymentstatus.pending,
         },
       },
-      {
-        $lookup: {
-          from: "warehousedetails",
-          localField: "warehousedetails_id",
-          foreignField: "_id",
-          as: "warehousedetails",
-        },
-      },
+      // {
+      //   $lookup: {
+      //     from: "warehousedetails",
+      //     localField: "warehousedetails_id",
+      //     foreignField: "_id",
+      //     as: "warehousedetails",
+      //   },
+      // },
 
       {
         $addFields: {
@@ -4680,6 +4701,8 @@ module.exports.proceedToPayBatchList = async (req, res) => {
       // End of Sangita code
     ];
 
+
+
     records.rows = await Batch.aggregate(pipeline);
 
     records.reqDetails = await RequestModel.findOne({ _id: req_id }).select({
@@ -4692,7 +4715,23 @@ module.exports.proceedToPayBatchList = async (req, res) => {
       status: 1,
     });
 
-    records.count = await Batch.countDocuments(query);
+    //records.count = await Batch.countDocuments(query);
+    const basePipeline = pipeline.filter(stage => {
+      // exclude $sort, $skip, $limit stages related to pagination and sorting
+      const stageKeys = Object.keys(stage);
+      return !(
+        stageKeys.includes('$sort') ||
+        stageKeys.includes('$skip') ||
+        stageKeys.includes('$limit')
+      );
+    });
+
+    const countPipelineCorrected = [...basePipeline, { $count: "totalCount" }];
+
+    // Run aggregation count
+    const countResult = await Batch.aggregate(countPipelineCorrected);
+
+    records.count = countResult.length > 0 ? countResult[0].totalCount : 0;
 
     if (paginate == 1) {
       records.page = page;
@@ -4785,6 +4824,7 @@ module.exports.proceedToPaybatchListWithoutAggregation = async (req, res) => {
       payment_status,
       isExport,
     });
+    console.log('>>>>>>>>>>>>>',cacheKey);
 
     const cachedData = getCache(cacheKey);
     if (cachedData && isExport != 1) {
