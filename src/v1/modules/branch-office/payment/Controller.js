@@ -1568,13 +1568,6 @@ module.exports.paymentWithoutAggregtionExport = async (req, res) => {
 
         const { portalId, user_id } = req;
 
-        // Ensure necessary indexes are created (run once in your database setup)
-        // await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
-        // await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
-        // await Batch.createIndexes({ req_id: 1 });
-        // await Payment.createIndexes({ batch_id: 1 });
-        // await Branches.createIndexes({ _id: 1 });
-
         // Step 1: Get req_ids user has access to
         const paymentReqIds = await Payment.find({ bo_id: { $in: [portalId, user_id] } }).distinct("req_id");
         let baseMatch = { _id: { $in: paymentReqIds } };
