@@ -142,11 +142,12 @@ module.exports.login = async (req, res) => {
 
     // Generate JWT token
     const payload = {
-      email: user.email,
+      email: email,
       user_id: user._id,
       portalId: user?.portalId?._id,
       user_type: user.user_type
     };
+    console.log(payload)
     const expiresIn = 24 * 60 * 60;
     const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
