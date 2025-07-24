@@ -339,8 +339,20 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
 
     // Base query
     let query = {};
+    // if (req.user.user_type === 2 || req.user.user_type === "2") {
+    //   query.head_office_id = req?.user?.portalId?._id;
+    // }
     if (req.user.user_type === 2 || req.user.user_type === "2") {
-      query.head_office_id = req?.user?.portalId?._id;
+      const portalId = req.user.portalId;
+
+      if (portalId && typeof portalId === "object" && portalId._id) {
+        query.head_office_id = portalId._id;
+      } else if (typeof portalId === "string" && portalId.length > 0) {
+        query.head_office_id = portalId;
+      } else {
+        console.warn("portalId is missing or invalid — head_office_id will not be added to query");
+        
+      }
     }
 
     if (state || district || search || commodity || schemeName || schemeYear) {
