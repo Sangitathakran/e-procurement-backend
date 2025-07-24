@@ -4,7 +4,7 @@ const { associateMngmntRoutes } = require("./associate-management/Routes");
 const { batchManagementRoutes } = require("./batch-management/Routes");
 const { orderManagementRoutes } = require("./payment-management/Routes");
 const { warehouseRoutes } = require("./warehouseUpdate/Routes");
-const { batchCreated, farmerOfferCreated, paymentCreated } = require("./proccessJob/job");
+const { batchCreated, farmerOfferCreated, paymentCreated, updateWarehouse } = require("./proccessJob/job");
 
 const ekhridRoutes = express.Router();
 
@@ -15,5 +15,6 @@ ekhridRoutes.use("/warehouse", warehouseRoutes);
 ekhridRoutes.get('/farmerOffer-job',farmerOfferCreated)
 ekhridRoutes.get('/batch-job',batchCreated)
 ekhridRoutes.get('/payment-job',paymentCreated)
+ekhridRoutes.get('/warehouse-job',updateWarehouse)
 
 module.exports = { ekhridRoutes } 

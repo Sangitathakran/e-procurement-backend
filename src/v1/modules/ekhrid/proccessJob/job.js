@@ -157,3 +157,52 @@ module.exports.paymentCreated = async (req, res) => {
   }
   return res.json({ success: true, message: 'Payment created completed. No more batch data.' });
 };
+module.exports.updateWarehouse = async (req, res) => {
+  const { req_id, seller_id } = req.body;
+  const payload = {
+    req_id: req_id,
+    seller_id: seller_id,
+  };
+  let count = 1;
+  let status = true;
+  while (status ) {
+    console.log(`\n🔄 Iteration ${count} - Fetching batch ...`);
+
+    try {
+      const getResponse = await axios.post(
+        ` ${endpoint}/v1/ekhrid/warehouse/getBatchesIds`,
+        payload,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+
+      const batchIds = getResponse.data?.data?.data || [];
+
+      if (!batchIds || batchIds.length === 0) {
+        console.log('✅ No more batch data. Job completed.');
+        status = false
+        return res.json({ success: true, message: 'Job completed. No more batch data.' });
+      }
+      console.log('🔢 Batch Count:', batchIds.length);
+      const postPayload = {
+        ekharidWarehouse:batchIds,
+      };
+      console.log(batchIds)
+
+      const postResponse = await axios.post(
+        `${endpoint}/v1/ekhrid/warehouse/updateBatchWarehouseBulks`,
+        postPayload,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+
+      console.log(`✅ Warehouse updated (iteration ${count}):`, postResponse.data?.message || 'Success');
+      count++;
+      await delay(500); // Wait before next loop
+
+    } catch (error) {
+      console.error('❌ Error:', error.response?.data || error.message);
+      status = false
+      return res.json({ success: false, message: 'Error occurred', error: error.message });
+    }
+  }
+  return res.json({ success: true, message: 'Payment created completed. No more batch data.' });
+};
