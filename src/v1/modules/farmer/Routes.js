@@ -16,11 +16,11 @@ farmerRoutes.post("/" ,authenticateUser,authorizeRoles(_userType.associate), ver
 // common apis
 farmerRoutes.get("/",authenticateUser,authorizeRoles(_userType.admin, _userType.associate ,_userType.bo ,_userType.ho ,_userType.agent), verifyJwtToken, getFarmers);
 
-farmerRoutes.get("/get-land",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin), verifyJwtToken, getLand);
-farmerRoutes.get("/get-crop-details",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin), verifyJwtToken, getIndCropDetails);
-farmerRoutes.get("/get-land-details/:id",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin), verifyJwtToken, getLandDetails);
+farmerRoutes.get("/get-land",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent), verifyJwtToken, getLand);
+farmerRoutes.get("/get-crop-details",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent), verifyJwtToken, getIndCropDetails);
+farmerRoutes.get("/get-land-details/:id",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent), verifyJwtToken, getLandDetails);
 
-farmerRoutes.get('/getFarmerDetails/:id',authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin),verifyJwtToken,getFarmerDetails);
+farmerRoutes.get('/getFarmerDetails/:id',authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent),verifyJwtToken,getFarmerDetails);
 
 /// common apis end
 // farmerRoutes.put('/:id', verifyJwtToken, editFarmer);
@@ -33,11 +33,11 @@ farmerRoutes.put("/updateIndCrop/:farmer_id",authenticateUser,authorizeRoles(_us
 farmerRoutes.delete("/deleteLand",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, deleteLand);
 farmerRoutes.post("/createCrop",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, [validateCrop, validateErrors], createCrop);
 farmerRoutes.post("/createIndCrop",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, createCrop);
-farmerRoutes.get("/get-crop",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin), verifyJwtToken, getCrop);
+farmerRoutes.get("/get-crop",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo), verifyJwtToken, getCrop);
 farmerRoutes.put("/updateCrop/:crop_id",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, updateCrop);
 farmerRoutes.delete("/deleteCrop",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, deleteCrop);
 farmerRoutes.post("/createBank",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, [validateBank, validateErrors], createBank);
-farmerRoutes.get("/get-bank",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, getBank);
+farmerRoutes.get("/get-bank",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo), verifyJwtToken, getBank);
 farmerRoutes.put("/updateBank/:bank_id",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, updateBank);
 farmerRoutes.delete("/deleteBank",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, deleteBank);
 farmerRoutes.post("/bulk-upload",authenticateUser,authorizeRoles(_userType.associate), verifyAssociate, bulkUploadFarmers);
