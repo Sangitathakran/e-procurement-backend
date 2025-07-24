@@ -48,7 +48,7 @@ router.use("/warehouse", wareHouseRoutes);
 router.use("/auth", authRoutes)
 router.use("/nccf", nccfRoutes) 
 router.use("/bank",commonAuth, bankIntegrationRoutes)
-router.use("/dropdown",commonAuth, dropDownRoutes);
+router.use("/dropdown", dropDownRoutes);
 router.use("/ekhrid",commonAuth, ekhridRoutes);
 router.use("/upag", upagRoutes);
 //router.use("/agristack", agristackchRoutes);
