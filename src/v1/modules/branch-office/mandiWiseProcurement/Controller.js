@@ -370,7 +370,7 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
       );
       query.push({ 'product.season': { $in: regexSeason } });
     }
-    
+
 
     const payments = await Payment.find({ bo_id: portalId }).lean();
     const batchIds = [
@@ -449,14 +449,14 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
           }),
           ...(commodityArray.length > 0 && {
             "relatedRequest.product.commodity_id": {
-              $in: commodityArray 
+              $in: commodityArray
                 .filter(mongoose.Types.ObjectId.isValid)
                 .map(id => new mongoose.Types.ObjectId(id))
             }
           }),
-           ...(districtArray.length > 0 && {
+          ...(districtArray.length > 0 && {
             "center.address.district_id": {
-              $in: districtArray 
+              $in: districtArray
                 .filter(mongoose.Types.ObjectId.isValid)
                 .map(id => new mongoose.Types.ObjectId(id))
             }
@@ -466,19 +466,51 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
 
       {
         $addFields: {
+          // liftedDataDays: {
+          //   $cond: [
+          //     { $and: ['$createdAt', '$relatedRequest.createdAt'] },
+          //     {
+          //       $dateDiff: {
+          //         startDate: '$relatedRequest.createdAt',
+          //         endDate: '$createdAt',
+          //         unit: 'day'
+          //       }
+          //     },
+          //     null
+          //   ]
+          // },
+
           liftedDataDays: {
             $cond: [
               { $and: ['$createdAt', '$relatedRequest.createdAt'] },
               {
-                $dateDiff: {
-                  startDate: '$relatedRequest.createdAt',
-                  endDate: '$createdAt',
-                  unit: 'day'
-                }
+                $cond: [
+                  {
+                    $lt: [
+                      {
+                        $dateDiff: {
+                          startDate: '$relatedRequest.createdAt',
+                          endDate: '$createdAt',
+                          unit: 'day'
+                        }
+                      },
+                      0
+                    ]
+                  },
+                  0,
+                  {
+                    $dateDiff: {
+                      startDate: '$relatedRequest.createdAt',
+                      endDate: '$createdAt',
+                      unit: 'day'
+                    }
+                  }
+                ]
               },
               null
             ]
           },
+
           purchaseDays: {
             $cond: [
               { $and: ['$updatedAt', '$relatedRequest.createdAt'] },
@@ -495,33 +527,33 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
         }
       },
       {
-       
+
 
         $group: {
-  _id: {
-    procurementCenter_id: '$procurementCenter_id',
-    req_id: '$req_id'
-  },
-  req_No: { $first: '$relatedRequest.reqNo' },
-  centerName: { $first: '$center.center_name' },
-  Status: { $first: '$center.active' },
-  centerId: { $first: '$center._id' },
-  state: { $first: "$center.address.state"},
-  state_id: { $first: "$center.address.state_id" },
-  district: { $first: '$center.address.district' },
-  district_id: { $first: '$center.address.district_id' },
-  associate_name: {
-    $first: '$seller.basic_details.associate_details.associate_name'
-  },
-  liftedQty: { $sum: '$qty' },
-  offeredQty: { $first: { $ifNull: ['$associateOffer.offeredQty', 0] } },
-  liftedDataDays: { $first: '$liftedDataDays' },
-  purchaseDays: { $first: '$purchaseDays' },
-  productName: { $first: '$relatedRequest.product.name' },
-  season: { $first: '$relatedRequest.product.season' },
-  schemeId: { $first: '$relatedRequest.product.schemeId' },
-  commodity_id: { $first: '$relatedRequest.product.commodity_id' }
-}
+          _id: {
+            procurementCenter_id: '$procurementCenter_id',
+            req_id: '$req_id'
+          },
+          req_No: { $first: '$relatedRequest.reqNo' },
+          centerName: { $first: '$center.center_name' },
+          Status: { $first: '$center.active' },
+          centerId: { $first: '$center._id' },
+          state: { $first: "$center.address.state" },
+          state_id: { $first: "$center.address.state_id" },
+          district: { $first: '$center.address.district' },
+          district_id: { $first: '$center.address.district_id' },
+          associate_name: {
+            $first: '$seller.basic_details.associate_details.associate_name'
+          },
+          liftedQty: { $sum: '$qty' },
+          offeredQty: { $first: { $ifNull: ['$associateOffer.offeredQty', 0] } },
+          liftedDataDays: { $first: '$liftedDataDays' },
+          purchaseDays: { $first: '$purchaseDays' },
+          productName: { $first: '$relatedRequest.product.name' },
+          season: { $first: '$relatedRequest.product.season' },
+          schemeId: { $first: '$relatedRequest.product.schemeId' },
+          commodity_id: { $first: '$relatedRequest.product.commodity_id' }
+        }
       },
       {
         $addFields: {
@@ -545,43 +577,43 @@ module.exports.mandiWiseProcurementdata = async (req, res) => {
           }
         }
       },
-     {
-       $project: {
-  req_No: 1,
-  centerName: 1,
-  Status: 1,
-  centerId: 1,
-  state: 1,
-  state_id: 1,
-  district: 1,
-  district_id: 1,
-  associate_name: 1,
-  liftedQty: 1,
-  offeredQty: 1,
-  liftedDataDays: 1,
-  purchaseDays: 1,
-  productName: 1,
-  season: 1,
-  schemeId: 1,
-  commodity_id: 1,
-  balanceMandi: 1,
-  liftingPercentage: 1,
-}
-     }
+      {
+        $project: {
+          req_No: 1,
+          centerName: 1,
+          Status: 1,
+          centerId: 1,
+          state: 1,
+          state_id: 1,
+          district: 1,
+          district_id: 1,
+          associate_name: 1,
+          liftedQty: 1,
+          offeredQty: 1,
+          liftedDataDays: 1,
+          purchaseDays: 1,
+          productName: 1,
+          season: 1,
+          schemeId: 1,
+          commodity_id: 1,
+          balanceMandi: 1,
+          liftingPercentage: 1,
+        }
+      }
 
     ];
 
     if (search?.trim()) {
-  const searchRegex = new RegExp(search, 'i');
-  pipeline.push({
-    $match: {
-      $or: [
-        { district: searchRegex },
-        { centerName: searchRegex }
-      ]
+      const searchRegex = new RegExp(search, 'i');
+      pipeline.push({
+        $match: {
+          $or: [
+            { district: searchRegex },
+            { centerName: searchRegex }
+          ]
+        }
+      });
     }
-  });
-}
 
 
     pipeline.push({ $sort: { centerName: 1 } });
