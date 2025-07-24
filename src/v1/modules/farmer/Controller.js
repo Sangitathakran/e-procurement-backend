@@ -1489,35 +1489,24 @@ module.exports.getIndCropDetails = async (req, res) => {
 
 module.exports.getCrop = async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      sortBy = "crop_name",
-      paginate = 1,
-      farmer_id,
-    } = req.query;
+    const { page = 1, limit = 10, sortBy = 'crop_name', paginate = 1, farmer_id } = req.query;
     const skip = (page - 1) * limit;
     const currentDate = new Date();
-    const baseQuery = farmer_id ? { farmer_id: new mongoose.Types.ObjectId(farmer_id) } : {};
+    const query = farmer_id ? { farmer_id } : {};
     const records = { pastCrops: {}, upcomingCrops: {} };
 
-    const fetchCrops = async (query) =>
-      paginate == 1
-        ? Crop.find(query)
-            .limit(parseInt(limit))
-            .skip(parseInt(skip))
-            .sort(sortBy)
-            .populate("farmer_id", "id name")
-        : Crop.find(query).sort(sortBy).populate("farmer_id", "id name");
+    const fetchCrops = async (query) => paginate == 1
+      ? Crop.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
+      : Crop.find(query).sort(sortBy).populate('farmer_id', 'id name');
 
     const [pastCrops, upcomingCrops] = await Promise.all([
       fetchCrops({ ...query, sowing_date: { $lt: currentDate } }),
-      fetchCrops({ ...query, sowing_date: { $gt: currentDate } }),
+      fetchCrops({ ...query, sowing_date: { $gt: currentDate } })
     ]);
 
     const [pastCount, upcomingCount] = await Promise.all([
       Crop.countDocuments({ ...query, sowing_date: { $lt: currentDate } }),
-      Crop.countDocuments({ ...query, sowing_date: { $gt: currentDate } }),
+      Crop.countDocuments({ ...query, sowing_date: { $gt: currentDate } })
     ]);
 
     records.pastCrops = { rows: pastCrops, count: pastCount };
@@ -1529,13 +1518,12 @@ module.exports.getCrop = async (req, res) => {
       records.upcomingCrops.pages = totalPages(upcomingCount);
     }
 
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.found("Crops"),
-      })
-    );
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: records,
+      message: _response_message.found("Crops")
+    }));
+
   } catch (error) {
     _handleCatchErrors(error, res);
   }
