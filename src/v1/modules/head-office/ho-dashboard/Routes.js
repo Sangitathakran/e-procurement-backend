@@ -21,12 +21,16 @@ const {
   getcommodity,
   getAssignedSchemes,
   stateWiseCommodityDetail,
-  getStateWiseCommodityStats
+  getStateWiseCommodityStats,
+  dashboardWidgetListV2,
+  getBenefittedFarmersAndPaymentAmount,
 } = require("./Controller");
 
 
 hoDashboardRoutes.get("/widget-list", widgetList);
 hoDashboardRoutes.get("/ho-widget-list", dashboardWidgetList); // 
+hoDashboardRoutes.get("/ho-widget-list-v2", dashboardWidgetListV2);
+hoDashboardRoutes.get('/ho-widget-benifitted-farmer-payment',getBenefittedFarmersAndPaymentAmount);
 hoDashboardRoutes.get("/farmer-payments", farmerPayments);
 hoDashboardRoutes.get("/revenue-expense", revenueExpenseChart);
 hoDashboardRoutes.get("/location-warehouse", locationWareHouseChart);
