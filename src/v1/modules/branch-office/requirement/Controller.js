@@ -52,7 +52,6 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
         }
     }
 
-
     if (schemeName) {
         const scheme = await Scheme.findOne({ schemeName: { $regex: schemeName, $options: 'i' } }).select('_id');
         if (scheme) {
@@ -96,7 +95,9 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
         const schemeName = obj?.product?.schemeId?.schemeName || '';
         const season = obj?.product?.schemeId?.season || '';
         const period = obj?.product?.schemeId?.period || '';
+        const slaName = obj?.sla_id?.basic_details?.name || '';
         obj.scheme_name = `${schemeName} ${commdityName} ${season} ${period}`;
+        obj.sla_name = slaName;
         return obj;
     });
 
