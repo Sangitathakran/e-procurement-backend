@@ -136,8 +136,6 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     }
 });
 
-
-
 module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
     const {
         page = 1,
@@ -328,8 +326,6 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
         message: _response_message.found("requirement")
     }));
 });
-
-
 
 module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 
