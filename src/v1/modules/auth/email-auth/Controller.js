@@ -172,7 +172,7 @@ module.exports.login = async (req, res) => {
     return res.status(200).send(
       new serviceResponse({
         status: 200,
-        message: _auth_module.login('Account login successful.'),
+        message: _auth_module.login('Account'),
         data
       })
     );
