@@ -780,14 +780,14 @@ module.exports.getBoFarmer = async (req, res) => {
         .status(400)
         .send({ message: "User's state information is missing." });
     }
-    const state_id = await getStateId(state);
-    if (!state_id) {
+    const stateData = await getStateId(state);
+    if (!stateData || !stateData.stateId) {
       return res
         .status(400)
         .send({ message: "State ID not found for the user's state." });
     }
 
-    let query = { "address.state_id": state_id };
+    let query = { "address.state_id": stateData.stateId };
     if (search) {
       query.name = { $regex: search, $options: "i" };
     }
