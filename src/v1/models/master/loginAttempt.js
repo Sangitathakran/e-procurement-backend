@@ -4,17 +4,17 @@ const { _collectionName, _commodityType, _userType } = require("@src/v1/utils/co
 const loginAttemptSchema = new mongoose.Schema({
     master_id: {
         type: mongoose.Schema.Types.ObjectId,
-        required: true,
+        required: false,
         ref: _collectionName.MasterUser, 
     },
     userType: {
         type: String,
         enum: Object.values(_userType),
-        required: true,
+        required: false,
     },
-    email: {
+    phone: {
         type: String,
-        required: true,
+        required: false,
     },
     failedAttempts: {
         type: Number,
