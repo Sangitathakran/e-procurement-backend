@@ -1,15 +1,15 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
-const { getDashboardStats, getOrder, warehouseList, getMonthlyPaidAmount ,getStateWishProjection} = require("./Controller");
-const { _userType } = require("@src/v1/utils/constants/index")
+const { getDashboardStats, getOrder, warehouseList, getMonthlyPaidAmount ,getStateWishProjection,getSateStock} = require("./Controller");
 const express = require("express");
-const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/jwt")
+const { Auth } = require("@src/v1/middlewares/jwt")
 const dashboardRoutes = express.Router();
 
 
-dashboardRoutes.get("/", authenticateUser,authorizeRoles(_userType.distiller) ,Auth, getDashboardStats);
-dashboardRoutes.get("/getCenterProjections",authenticateUser,authorizeRoles(_userType.distiller), Auth, getStateWishProjection);
-dashboardRoutes.get("/purchase-order",authenticateUser,authorizeRoles(_userType.distiller), Auth, getOrder);
-dashboardRoutes.get("/nearest-warehouse-list",authenticateUser,authorizeRoles(_userType.distiller), Auth, warehouseList);
-dashboardRoutes.get("/payment-disteller",authenticateUser,authorizeRoles(_userType.distiller), getMonthlyPaidAmount);
+dashboardRoutes.get("/", Auth, getDashboardStats);
+dashboardRoutes.get("/getCenterProjections", Auth, getStateWishProjection);
+dashboardRoutes.get("/purchase-order", Auth, getOrder);
+dashboardRoutes.get("/nearest-warehouse-list", Auth, warehouseList);
+dashboardRoutes.get("/payment-disteller", getMonthlyPaidAmount);
+dashboardRoutes.get("/getStateWieseStock", Auth ,getSateStock);
 
 module.exports = { dashboardRoutes }; 

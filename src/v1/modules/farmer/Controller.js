@@ -669,23 +669,15 @@ module.exports.createFarmer = async (req, res) => {
 
 module.exports.getFarmers = async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      sortBy,
-      search = "",
-      skip,
-      paginate = 1,
-      is_associated,
-    } = req.query;
-    const { user_id } = req;
-
+    const { page = 1, limit = 10, sortBy, search = '', skip, paginate = 1, is_associated } = req.query;
+    const { user_id } = req
     let query = {};
     const records = { count: 0 };
     // query.associate_id = is_associated == 1 ? user_id : null
     if (is_associated == 1) {
       query.associate_id = user_id;
-    } else if (is_associated == 0) {
+    }
+    else if (is_associated == 0) {
       query.associate_id = null;
       query.farmer_id = { $ne: null };
       query.name = { $ne: null };
@@ -694,17 +686,19 @@ module.exports.getFarmers = async (req, res) => {
       query = {};
     }
     if (search) {
-      query.name = { $regex: search, $options: "i" };
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { farmer_id: { $regex: search, $options: 'i' } }
+      ];
     }
-    records.rows =
-      paginate == 1
-        ? await farmer
-            .find(query)
-            .limit(parseInt(limit))
-            .skip(parseInt(skip))
-            .sort(sortBy)
-            .populate("associate_id", "_id user_code")
-        : await farmer.find(query).sort(sortBy);
+    records.rows = paginate == 1
+      ? await farmer.find(query)
+        .limit(parseInt(limit))
+        .skip(parseInt(skip))
+        .sort(sortBy)
+        .populate('associate_id', '_id user_code')
+      : await farmer.find(query).sort(sortBy);
+        const updatedRows = [];
 
         for (const f of records.rows) {
           const farmer = f.toObject(); 
@@ -745,17 +739,25 @@ module.exports.getFarmers = async (req, res) => {
       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
     }
 
-    return res.status(200).send(
-      new serviceResponse({
+
+    if (records.count === 0) {
+      return res.status(200).send(new serviceResponse({
         status: 200,
-        data: records,
-        message: _response_message.found("farmers"),
-      })
-    );
+        data: [],
+        message: _response_message.notFound("data")
+      }));
+    }
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: records,
+      message: _response_message.found("farmers")
+    }));
+
   } catch (error) {
-    _handleCatchErrors(error, res);
+    _handleCatchErrors(error.message, res);
   }
 };
+
 
 module.exports.getBoFarmer = async (req, res) => {
   try {
@@ -1487,35 +1489,24 @@ module.exports.getIndCropDetails = async (req, res) => {
 
 module.exports.getCrop = async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      sortBy = "crop_name",
-      paginate = 1,
-      farmer_id,
-    } = req.query;
+    const { page = 1, limit = 10, sortBy = 'crop_name', paginate = 1, farmer_id } = req.query;
     const skip = (page - 1) * limit;
     const currentDate = new Date();
-    const baseQuery = farmer_id ? { farmer_id: new mongoose.Types.ObjectId(farmer_id) } : {};
+    const query = farmer_id ? { farmer_id } : {};
     const records = { pastCrops: {}, upcomingCrops: {} };
 
-    const fetchCrops = async (query) =>
-      paginate == 1
-        ? Crop.find(query)
-            .limit(parseInt(limit))
-            .skip(parseInt(skip))
-            .sort(sortBy)
-            .populate("farmer_id", "id name")
-        : Crop.find(query).sort(sortBy).populate("farmer_id", "id name");
+    const fetchCrops = async (query) => paginate == 1
+      ? Crop.find(query).limit(parseInt(limit)).skip(parseInt(skip)).sort(sortBy).populate('farmer_id', 'id name')
+      : Crop.find(query).sort(sortBy).populate('farmer_id', 'id name');
 
     const [pastCrops, upcomingCrops] = await Promise.all([
       fetchCrops({ ...query, sowing_date: { $lt: currentDate } }),
-      fetchCrops({ ...query, sowing_date: { $gt: currentDate } }),
+      fetchCrops({ ...query, sowing_date: { $gt: currentDate } })
     ]);
 
     const [pastCount, upcomingCount] = await Promise.all([
       Crop.countDocuments({ ...query, sowing_date: { $lt: currentDate } }),
-      Crop.countDocuments({ ...query, sowing_date: { $gt: currentDate } }),
+      Crop.countDocuments({ ...query, sowing_date: { $gt: currentDate } })
     ]);
 
     records.pastCrops = { rows: pastCrops, count: pastCount };
@@ -1527,13 +1518,12 @@ module.exports.getCrop = async (req, res) => {
       records.upcomingCrops.pages = totalPages(upcomingCount);
     }
 
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.found("Crops"),
-      })
-    );
+    return res.status(200).send(new serviceResponse({
+      status: 200,
+      data: records,
+      message: _response_message.found("Crops")
+    }));
+
   } catch (error) {
     _handleCatchErrors(error, res);
   }

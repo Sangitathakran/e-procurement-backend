@@ -11,15 +11,19 @@ const { JWT_SECRET_KEY } = require('@config/index');
 const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
+const { LoginHistory } = require("@src/v1/models/master/loginHistery");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
+
 const findUser = async (input, type) => {
     return type === 'email'
         ? await User.findOne({ email: input })
         : await User.findOne({ phone: input });
 };
+
 const sendEmailOtp = async (email) => {
     await emailService.sendEmailOTP(email);
 };
@@ -109,6 +113,13 @@ module.exports.loginOrRegister = async (req, res) => {
         const expiresIn = 24 * 60 * 60; // 24 hour in seconds
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
+        await LoginHistory.deleteMany({  master_id:userExist._id,user_type: userExist.user_type });
+            await LoginHistory.create({
+              token :token,
+              master_id:userExist._id,
+              user_type: userExist.user_type,
+              ipAddress: getIpAddress(req)
+            });
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
