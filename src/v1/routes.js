@@ -31,7 +31,7 @@ router.use(handlePagination)
 //router.use(handleRateLimit)    //unnecessarily throws too many requests
 router.use(multer().any())
 
-router.use('/aws',commonAuth, S3Router) 
+router.use('/aws', S3Router) 
 router.use("/master", masterRoutes); 
 router.use("/modules", FeatureRoutes)
 router.use("/agent", agentRoutes);
