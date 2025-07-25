@@ -19,7 +19,7 @@ farmerRoutes.get("/",authenticateUser,authorizeRoles(_userType.admin, _userType.
 farmerRoutes.get("/get-land",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent), verifyJwtToken, getLand);
 farmerRoutes.get("/get-crop-details",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent), verifyJwtToken, getIndCropDetails);
 farmerRoutes.get("/get-land-details/:id",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent), verifyJwtToken, getLandDetails);
-
+farmerRoutes.get("/get-crop",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent), verifyJwtToken, getCrop);
 farmerRoutes.get('/getFarmerDetails/:id',authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent),verifyJwtToken,getFarmerDetails);
 
 /// common apis end
@@ -33,7 +33,7 @@ farmerRoutes.put("/updateIndCrop/:farmer_id",authenticateUser,authorizeRoles(_us
 farmerRoutes.delete("/deleteLand",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, deleteLand);
 farmerRoutes.post("/createCrop",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, [validateCrop, validateErrors], createCrop);
 farmerRoutes.post("/createIndCrop",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, createCrop);
-farmerRoutes.get("/get-crop",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo), verifyJwtToken, getCrop);
+
 farmerRoutes.put("/updateCrop/:crop_id",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, updateCrop);
 farmerRoutes.delete("/deleteCrop",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, deleteCrop);
 farmerRoutes.post("/createBank",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, [validateBank, validateErrors], createBank);
