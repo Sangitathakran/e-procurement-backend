@@ -4686,8 +4686,8 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           tags: 1,
           approval_status: 1,
           payment_date: "$payment_at",
-          payment_status: "$payment.payment_status",
-          bankStatus: "$payment.payment_status",
+          payment_status: { $arrayElemAt: [ "$payment.payment_status", 0 ] },//"$payment.payment_status",
+          bankStatus: { $arrayElemAt: [ "$payment.payment_status", 0 ] }//"$payment.payment_status",
         },
       },
       // Start of Sangita code
