@@ -65,7 +65,6 @@ const authenticateUser = async (req, res, next) => {
     }
 
     req.user = decoded; // Attach decoded payload (must include userType, etc.)
-    console.log("req.user", req.user)
     next();
   });
 };

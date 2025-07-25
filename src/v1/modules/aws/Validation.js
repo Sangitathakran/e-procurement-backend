@@ -6,7 +6,6 @@ const { body } = require("express-validator");
  * @param {'upload' | 'delete'} type
  */
 exports.s3ValSchema = (type) => {
-    console.log("sdfg")
     switch (type) {
         case "upload":
             return [
