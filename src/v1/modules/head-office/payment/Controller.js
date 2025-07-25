@@ -60,6 +60,8 @@ const {
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { Commodity } = require("@src/v1/models/master/Commodity");
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
+const { buildDateRange } = require("./Services");
+const { dateRanges, dateRangesObj } = require("../../agent/utils/constants");
 
 const validateMobileNumber = async (mobile) => {
   let pattern = /^[0-9]{10}$/;
@@ -4092,12 +4094,27 @@ module.exports.proceedToPayPayment = async (req, res) => {
       schemeName = "",
       commodityName = "",
       paginate = 1,
+      dateFilterType="",
+      startDate='',
+      endDate=''
     } = req.query;
 
     limit = parseInt(limit) || 10;
     page = parseInt(page) || 1;
 
     const { portalId, user_id } = req;
+    let exportDates = {};
+    if(dateFilterType.trim() && !dateRanges.includes(dateFilterType)){
+      return res.status(400).json( { status: 400, message: _query.invalid(dateFilterType)} );
+    }
+
+    if(dateFilterType.trim()){
+      exportDates = buildDateRange(dateFilterType)
+    }else if(startDate && endDate){
+      exportDates = buildDateRange(dateRangesObj.custom, startDate, endDate);
+    }else{
+      exportDates = buildDateRange(dateRangesObj.currentMonth);
+    }
 
     // const cacheKey = `payment:${portalId}:${user_id}:${page}:${limit}:${search}:${payment_status}:${state}:${branch}:${schemeName}:${commodityName}:${paginate}:${isExport}`;
 
@@ -4116,16 +4133,16 @@ module.exports.proceedToPayPayment = async (req, res) => {
       isExport,
     });
 
-    const cachedData = getCache(cacheKey);
-    if (cachedData && isExport != 1) {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: cachedData,
-          message: "Payments found (cached)",
-        })
-      );
-    }
+    // const cachedData = getCache(cacheKey);
+    // if (cachedData && isExport != 1) {
+    //   return res.status(200).send(
+    //     new serviceResponse({
+    //       status: 200,
+    //       data: cachedData,
+    //       message: "Payments found (cached)",
+    //     })
+    //   );
+    // }
 
     // Ensure indexes (if not already present, ideally done at setup)
     await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
@@ -4142,6 +4159,16 @@ module.exports.proceedToPayPayment = async (req, res) => {
     let query = {
       _id: { $in: paymentIds },
     };
+
+    // // Apply the updatedAt filter only if you got a valid range
+    // if (isExport == 1) {
+    //   if (isExport == 1 && exportDates?.from && exportDates?.to) {
+    //   query.createdAt = {
+    //     $gte: exportDates.from,
+    //     $lte: exportDates.to,
+    //    };
+    //   }
+    // }
 
     if (search) {
       query.$or = [
@@ -4314,7 +4341,20 @@ module.exports.proceedToPayPayment = async (req, res) => {
           },
         },
       },
+      
     ];
+    if( isExport == 1){
+      aggregationPipeline.push(
+        {
+      $match: {
+        approval_date: {
+          $gte: exportDates.from,
+          $lte: exportDates.to,
+        },
+      },
+    }
+      )
+    }
 
     // Apply filters on already aggregated data
     if (state || commodityName || schemeName || branch) {
@@ -4374,7 +4414,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
       // { $limit: limit }
     );
 
-    if (paginate == 1) {
+    if (paginate == 1 && isExport !=1) {
       aggregationPipeline.push(
         { $skip: (page - 1) * limit },
         { $limit: limit }
@@ -4394,7 +4434,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
     response.limit = limit
 
     if (isExport != 1) {
-      setCache(cacheKey, response, 300); // 5 mins
+     // setCache(cacheKey, response, 300); // 5 mins
     }
 
     if (isExport == 1) {
@@ -4412,6 +4452,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
         "AMOUNT PAID": item?.amountPayable || "NA",
         "APPROVAL DATE": item?.approval_date || "NA",
       }));
+     // return res.json({ record});
       if (record.length > 0) {
         dumpJSONToExcel(req, res, {
           data: record,
