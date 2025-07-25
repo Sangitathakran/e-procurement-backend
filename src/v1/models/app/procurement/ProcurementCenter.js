@@ -16,6 +16,8 @@ const ProcurementCenterSchema = new mongoose.Schema({
         state: { type: String, required: true, trim: true },
         district: { type: String, required: true, trim: true },
         city: { type: String, required: true, trim: true },
+        state_id: { type: mongoose.Types.ObjectId, default: null},
+        district_id: { type: mongoose.Types.ObjectId, default: null },
         postalCode: { type: String, required: true, trim: true },
         lat: { type: String, default: null},
         long: { type: String, default: null },

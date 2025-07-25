@@ -45,6 +45,8 @@ const userSchema = new mongoose.Schema({
             country: { type: String, trim: true },
             state: { type: String, trim: true },
             district: { type: String, trim: true },
+            state_id: { type: mongoose.Types.ObjectId},
+            district_id: { type: mongoose.Types.ObjectId},
             taluka: { type: String, trim: true },
             pinCode: { type: String, trim: true },
             village: { type: String, trim: true },

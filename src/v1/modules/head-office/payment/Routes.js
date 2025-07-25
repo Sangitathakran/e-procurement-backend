@@ -25,8 +25,8 @@ paymentRoutes.put("/update-payment-status", Auth, updatePaymentByOrderId)
 paymentRoutes.get("/proceed-to-pay", Auth, proceedToPayPayment);
 paymentRoutes.get("/get-paidAmount", Auth, getTotalSuccessfulPaidAmount);
 
-// paymentRoutes.get("/proceed-to-pay-batch-list", Auth, proceedToPayBatchList);
-paymentRoutes.get("/proceed-to-pay-batch-list", Auth, proceedToPaybatchListWithoutAggregation);
+ paymentRoutes.get("/proceed-to-pay-batch-list", Auth, proceedToPayBatchList);
+//paymentRoutes.get("/proceed-to-pay-batch-list", Auth, proceedToPaybatchListWithoutAggregation);
 paymentRoutes.get("/payment-logs", Auth, paymentLogsHistory);
 // dileep code 
 

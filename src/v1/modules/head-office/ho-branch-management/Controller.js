@@ -742,7 +742,7 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 
       if (existingRecord) {
         // Update existing record
-        existingRecord.assignQty = qty;
+        existingRecord.assignQty = Number(existingRecord.assignQty) + Number(qty);
         await existingRecord.save();
         updatedRecords.push(existingRecord);
       } else {

@@ -13,6 +13,7 @@ const { Scheme } = require("@src/v1/models/master/Scheme");
 const {
   StateDistrictCity,
 } = require("@src/v1/models/master/StateDistrictCity");
+const { State } = require("@src/v1/models/master/states");
 const UserRole = require("@src/v1/models/master/UserRole");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { default: mongoose } = require("mongoose");
@@ -162,22 +163,23 @@ module.exports.sla_list = async (req, res) => {
 
 module.exports.getStates = async (req, res) => {
   try {
-    const state_list = await StateDistrictCity.aggregate([
-      { $unwind: "$states" }, // Unwind the states array to extract individual state objects
-      {
-        $match: {
-          "states.deletedAt": null,
-          "states.status": "active"
-        }
-      },
-      {
-        $project: {
-          _id: 0,
-          state_title: "$states.state_title",
-          state_code: "$states.state_code"
-        }
-      }
-    ]);
+    // const state_list = await StateDistrictCity.aggregate([
+    //   { $unwind: "$states" }, // Unwind the states array to extract individual state objects
+    //   {
+    //     $match: {
+    //       "states.deletedAt": null,
+    //       "states.status": "active"
+    //     }
+    //   },
+    //   {
+    //     $project: {
+    //      // _id: 1,
+    //       state_title: "$states.state_title",
+    //       state_code: "$states.state_code"
+    //     }
+    //   }
+    // ]);
+    const state_list = await State.find({}, {state_title: 1, state_code: 1});
 
     return sendResponse({ res, message: "", data: state_list });
   } catch (err) {
