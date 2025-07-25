@@ -165,8 +165,8 @@ module.exports.getHoProcurementCenter = async (req, res) => {
                 let {line1,line2,city,district,postalCode} = item?.address || {}
                 return {
                   "CENTER ID": item?.center_code || "NA",
-                  "CENTER TYPE": item?.center_code || "NA",
-                  "CENTER NAME": item?.center_code || "NA",
+                  "CENTER TYPE": item?.center_type || "NA",
+                  "CENTER NAME": item?.center_name || "NA",
                   CONTACT: item?.point_of_contact?.mobile || "NA",
                   EMAIL: item?.point_of_contact?.email || "NA",
                   State: item?.address?.country || "NA",
