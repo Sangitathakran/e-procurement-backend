@@ -5190,7 +5190,7 @@ module.exports.verfiyedFarmer = async (req, res) => {
           aadhaarVerified: 0,
           bothVerified: 0
         }
->>>>>>> 4c08669a710e8fc01f7b15a632c055837782fa34
+
       }
     });
 
