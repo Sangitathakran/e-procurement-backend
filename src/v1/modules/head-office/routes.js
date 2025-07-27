@@ -21,7 +21,8 @@ headOfficeRoutes.use("/dashboard",authenticateUser,authorizeRoles(_userType.ho),
 headOfficeRoutes.use("/requirement",authenticateUser,authorizeRoles(_userType.ho), Auth, requireMentRoutes)
 headOfficeRoutes.use("/farmer",authenticateUser,authorizeRoles(_userType.ho), Auth, farmerManagementRoutes)
 headOfficeRoutes.use("/warehouse",authenticateUser,authorizeRoles(_userType.ho), Auth, warehouseRoutes)
-headOfficeRoutes.use("/payment",authenticateUser,authorizeRoles(_userType.ho), Auth, paymentRoutes)
+    agent: "6",
+headOfficeRoutes.use("/payment",authenticateUser,authorizeRoles(_userType.ho ,_userType.admin,_userType.agent), Auth, paymentRoutes)
 headOfficeRoutes.use("/schemeAssigned",authenticateUser,authorizeRoles(_userType.ho ,_userType.bo), Auth, schemeRoutes)
 headOfficeRoutes.use("/sla",authenticateUser,authorizeRoles(_userType.ho), Auth, slaRoute)
 

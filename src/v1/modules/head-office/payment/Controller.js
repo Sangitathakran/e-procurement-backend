@@ -2921,8 +2921,8 @@ module.exports.orderList = async (req, res) => {
       commodity = null,
     } = req.query;
 
-    const portalId = req.user.portalId._id;
-    const user_id = req.user._id;
+    const portalId = req.user.portalId?._id;
+    const user_id = req.user?._id;
 
     // Base query
     let query = search

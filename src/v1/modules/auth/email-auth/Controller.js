@@ -69,9 +69,8 @@ module.exports.login = async (req, res) => {
         })
       );
     }
-
     const validPassword = await bcrypt.compare(password, user.password);
-
+    console.log("Valid Password:", validPassword);
     if (!validPassword) {
       const loginAttempt = await LoginAttempt.findOne({ master_id: user._id, userType: user.user_type });
 
@@ -141,7 +140,7 @@ module.exports.login = async (req, res) => {
 
     // Generate JWT token
     const payload = {
-      email: user.email,
+      email: email,
       user_id: user._id,
       portalId: user?.portalId?._id,
       user_type: user.user_type
