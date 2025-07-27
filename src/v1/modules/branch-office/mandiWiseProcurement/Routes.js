@@ -6,5 +6,4 @@ const mandiWiseProcureRoute = express.Router();
 mandiWiseProcureRoute.get("/mandiwiseData", mandiWiseProcurementdata);
 
 
-
 module.exports = { mandiWiseProcureRoute };
