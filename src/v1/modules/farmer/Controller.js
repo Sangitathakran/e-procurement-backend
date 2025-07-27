@@ -64,7 +64,7 @@ const fs = require("fs");
 const axios = require("axios");
 const moment = require("moment");
 const mongoose = require("mongoose");
-const { verfiyfarmer} = require("@src/v1/models/app/farmerDetails/verfiyFarmer");
+const { verfiyfarmer } = require("@src/v1/models/app/farmerDetails/verfiyFarmer");
 const {
   getVerifiedAadharInfo,
   getAgristackFarmerByAadhar,
@@ -73,6 +73,9 @@ const {
   getDistrictsByStateId,
 } = require("./Services");
 const AgristackFarmerDetails = require("@src/v1/models/app/farmerDetails/src/v1/models/app/farmerDetails/AgristackFarmerDetails");
+const { LoginAttempt } = require("@src/v1/models/master/loginAttempt");
+const { LoginHistory } = require("@src/v1/models/master/loginHistery");
+const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -123,19 +126,62 @@ module.exports.verifyOTP = async (req, res) => {
       });
     }
 
+    const blockCheck = await LoginAttempt.findOne({ phone: mobileNumber });
+    if (blockCheck?.lockUntil && blockCheck.lockUntil > new Date()) {
+      const remainingTime = Math.ceil((blockCheck.lockUntil - new Date()) / (1000 * 60));
+      return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          data: { remainingTime },
+          errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minute(s).` }]
+        })
+      );
+    }
+
     // Find the OTP for the provided mobile number
     const userOTP = await OTPModel.findOne({ phone: mobileNumber });
 
     const staticOTP = "9821";
 
-    // Verify the OTP
-    // if (inputOTP !== userOTP?.otp) {
     if ((!userOTP || inputOTP !== userOTP.otp) && inputOTP !== staticOTP) {
-      return sendResponse({
-        res,
-        status: 400,
-        message: _response_message.otp_not_verified("OTP"),
-      });
+      const loginAttempt = await LoginAttempt.findOne({ phone: mobileNumber });
+
+      if (loginAttempt) {
+        loginAttempt.failedAttempts += 1;
+        loginAttempt.lastFailedAt = new Date();
+
+        if (loginAttempt.failedAttempts >= 5) {
+          loginAttempt.lockUntil = new Date(Date.now() + 30 * 60 * 1000);
+        }
+
+        await loginAttempt.save();
+
+        const remainingAttempts = 5 - loginAttempt.failedAttempts;
+
+        if (remainingAttempts <= 0) {
+          return res.status(400).send(
+            new serviceResponse({
+              status: 400,
+              data: { remainingTime: 30 },
+              errors: [{ message: `Your account is locked due to multiple failed attempts. Try again after 30 minutes.` }]
+            })
+          );
+        }
+
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP ') }] }));
+
+      } else {
+        await LoginAttempt.create({
+          userType: _userType.farmer,
+          phone: mobileNumber,
+          failedAttempts: 1,
+          lastFailedAt: new Date()
+        });
+
+        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP ') }] }));
+      }
+    } else {
+      await LoginAttempt.deleteMany({ phone: mobileNumber });
     }
 
     // Find the farmer data and verify OTP
@@ -158,6 +204,9 @@ module.exports.verifyOTP = async (req, res) => {
       token: generateJwtToken({ mobile_no: mobileNumber }),
       ...JSON.parse(JSON.stringify(individualFormerData)), // Use individualFormerData (existing or newly saved)
     };
+
+    await LoginHistory.deleteMany({ master_id: individualFormerData._id, user_type: _userType.farmer });
+    await LoginHistory.create({ token: resp.token, user_type: _userType.farmer, master_id: individualFormerData._id, ipAddress: getIpAddress(req) });
 
     // Send the response
     return sendResponse({
@@ -233,17 +282,17 @@ module.exports.saveFarmerDetails = async (req, res) => {
       if (screenName == "address") {
         let { state, district } = req.body[screenName];
 
-      //   const isStateExist = await isStateAvailable(state);
-      //  // console.log({isStateExist})
-      //   const isDistrictExist = await isDistrictAvailable(state, district);
+        //   const isStateExist = await isStateAvailable(state);
+        //  // console.log({isStateExist})
+        //   const isDistrictExist = await isDistrictAvailable(state, district);
 
-      //   if (!isStateExist) {
-      //     return res.status(400).send({ message: "State not available" });
-      //   }
+        //   if (!isStateExist) {
+        //     return res.status(400).send({ message: "State not available" });
+        //   }
 
-      //   if (!isDistrictExist) {
-      //     await updateDistrict(state, district);
-      //   }
+        //   if (!isDistrictExist) {
+        //     await updateDistrict(state, district);
+        //   }
 
         const state_id = state //await getStateId(state);
         const district_id = district//await getDistrictId(district);
@@ -307,7 +356,7 @@ module.exports.getFarmerDetails = async (req, res) => {
       }).select("is_verify_aadhaar");
       // console.log('farmerAAdharInfo',farmerAAdharInfo,  { farmer_id: farmerDetails._id})
     }
-    let agristackFarmerDetailsObj = await AgristackFarmerDetails.findOne( {farmer_id: new mongoose.Types.ObjectId(id)}, { cpmu_farmer_id: 1} );
+    let agristackFarmerDetailsObj = await AgristackFarmerDetails.findOne({ farmer_id: new mongoose.Types.ObjectId(id) }, { cpmu_farmer_id: 1 });
     if (farmerDetails) {
       if (farmerDetails?.address) {
         const state = await StateDistrictCity.findOne(
@@ -329,13 +378,13 @@ module.exports.getFarmerDetails = async (req, res) => {
             ...farmerDetails.address,
             state: state?.states[0]?.state_title,
             district: districts?.district_title,
-            
+
           },
-         
+
         };
       }
-      farmerDetails.is_verify_aadhaar= farmerAAdharInfo?.is_verify_aadhaar || false;
-      farmerDetails.isAgristackVerified=  agristackFarmerDetailsObj ? true : false;
+      farmerDetails.is_verify_aadhaar = farmerAAdharInfo?.is_verify_aadhaar || false;
+      farmerDetails.isAgristackVerified = agristackFarmerDetailsObj ? true : false;
       return sendResponse({
         res,
         status: 200,
@@ -710,11 +759,11 @@ module.exports.getFarmers = async (req, res) => {
     records.rows =
       paginate == 1
         ? await farmer
-            .find(query)
-            .limit(parseInt(limit))
-            .skip(parseInt(skip))
-            .sort(sortBy)
-            .populate("associate_id", "_id user_code")
+          .find(query)
+          .limit(parseInt(limit))
+          .skip(parseInt(skip))
+          .sort(sortBy)
+          .populate("associate_id", "_id user_code")
         : await farmer.find(query).sort(sortBy);
 
     records.count = await farmer.countDocuments(query);
@@ -1118,15 +1167,15 @@ module.exports.getLand = async (req, res) => {
     let lands =
       paginate == 1
         ? await Land.find(query)
-            .limit(parseInt(limit))
-            .skip(parseInt(skip))
-            .sort(sortBy)
-            .populate("farmer_id", "id name")
-            .lean()
+          .limit(parseInt(limit))
+          .skip(parseInt(skip))
+          .sort(sortBy)
+          .populate("farmer_id", "id name")
+          .lean()
         : await Land.find(query)
-            .sort(sortBy)
-            .populate("farmer_id", "id name")
-            .lean();
+          .sort(sortBy)
+          .populate("farmer_id", "id name")
+          .lean();
 
     records.rows = await Promise.all(
       lands.map(async (land) => {
@@ -1484,10 +1533,10 @@ module.exports.getCrop = async (req, res) => {
     const fetchCrops = async (query) =>
       paginate == 1
         ? Crop.find(query)
-            .limit(parseInt(limit))
-            .skip(parseInt(skip))
-            .sort(sortBy)
-            .populate("farmer_id", "id name")
+          .limit(parseInt(limit))
+          .skip(parseInt(skip))
+          .sort(sortBy)
+          .populate("farmer_id", "id name")
         : Crop.find(query).sort(sortBy).populate("farmer_id", "id name");
 
     const [pastCrops, upcomingCrops] = await Promise.all([
@@ -1740,10 +1789,10 @@ module.exports.getBank = async (req, res) => {
     records.rows =
       paginate == 1
         ? await Bank.find(query)
-            .limit(parseInt(limit))
-            .skip(parseInt(skip))
-            .sort(sortBy)
-            .populate("farmer_id", "id name")
+          .limit(parseInt(limit))
+          .skip(parseInt(skip))
+          .sort(sortBy)
+          .populate("farmer_id", "id name")
         : await Bank.find(query).sort(sortBy);
 
     records.count = await Bank.countDocuments(query);
@@ -1980,12 +2029,12 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           : "no";
       const transportation_facilities =
         rec["TRANSPORTATION FACILITIES"] &&
-        rec["TRANSPORTATION FACILITIES"].toLowerCase() === "yes"
+          rec["TRANSPORTATION FACILITIES"].toLowerCase() === "yes"
           ? "yes"
           : "no";
       const credit_facilities =
         rec["CREDIT FACILITIES"] &&
-        rec["CREDIT FACILITIES"].toLowerCase() === "yes"
+          rec["CREDIT FACILITIES"].toLowerCase() === "yes"
           ? "yes"
           : "no";
       const source_of_credit = rec["SOURCE OF CREDIT"]
@@ -2766,13 +2815,13 @@ const getAddress = async (item) => {
     district: item?.address?.district
       ? item?.address?.district
       : item?.address?.district_id
-      ? await getDistrict(item?.address?.district_id)
-      : "unknown",
+        ? await getDistrict(item?.address?.district_id)
+        : "unknown",
     state: item?.address?.state
       ? item?.address?.state
       : item?.address?.state_id
-      ? await getState(item?.address?.state_id)
-      : "unknown",
+        ? await getState(item?.address?.state_id)
+        : "unknown",
     pinCode: item?.address?.pinCode,
   };
 };
@@ -3515,12 +3564,12 @@ module.exports.haryanaFarmerUplod = async (req, res) => {
           : "no";
       const transportation_facilities =
         rec["TRANSPORTATION FACILITIES"] &&
-        rec["TRANSPORTATION FACILITIES"].toLowerCase() === "yes"
+          rec["TRANSPORTATION FACILITIES"].toLowerCase() === "yes"
           ? "yes"
           : "no";
       const credit_facilities =
         rec["CREDIT FACILITIES"] &&
-        rec["CREDIT FACILITIES"].toLowerCase() === "yes"
+          rec["CREDIT FACILITIES"].toLowerCase() === "yes"
           ? "yes"
           : "no";
       const source_of_credit = rec["SOURCE OF CREDIT"]
@@ -3901,7 +3950,7 @@ module.exports.getVerifiedAdharDetails = async (req, res) => {
   try {
     const { uidai_aadharNo, farmer_id, cpmu_farmer_id } = req.body;
 
-    if(!farmer_id){
+    if (!farmer_id) {
       return res.send({
         status: 400,
         message: _middleware.require('farmer_id'),
@@ -3913,9 +3962,9 @@ module.exports.getVerifiedAdharDetails = async (req, res) => {
         message: "Either cpmu_farmer_id or uidai_aadharNo is required !",
       });
     }
-    let farmer_data = uidai_aadharNo ? await farmer.findOne({"proof.aadhar_no": uidai_aadharNo }, {_id: 1}): null;
-    if(farmer_data && !new mongoose.Types.ObjectId(farmer_id).equals(farmer_data?._id)){
-      return res.json( { status: 400, message: "This uidai_aadharNo is already taken, try other."});
+    let farmer_data = uidai_aadharNo ? await farmer.findOne({ "proof.aadhar_no": uidai_aadharNo }, { _id: 1 }) : null;
+    if (farmer_data && !new mongoose.Types.ObjectId(farmer_id).equals(farmer_data?._id)) {
+      return res.json({ status: 400, message: "This uidai_aadharNo is already taken, try other." });
     }
     // Run both queries in parallel for better performance
     const [adharDetails, agristackFarmerDetails] = await Promise.all([

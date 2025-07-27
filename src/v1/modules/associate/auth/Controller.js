@@ -12,6 +12,8 @@ const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { LoginAttempt } = require("@src/v1/models/master/loginAttempt");
+const {LoginHistory} = require("@src/v1/models/master/loginHistery");
+const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
@@ -158,6 +160,8 @@ module.exports.loginOrRegister = async (req, res) => {
         const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
         const expiresIn = 24 * 60 * 60; // 24 hour in seconds
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+        await LoginHistory.deleteMany({ master_id: userExist._id, user_type: _userType.associate });
+        await LoginHistory.create({ token: token,user_type: _userType.associate, master_id: userExist._id, ipAddress: getIpAddress(req) });
 
         res.cookie('token', token, {
             httpOnly: true,
