@@ -3617,7 +3617,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
         // Store in cache only if not export
         if (parseInt(isExport) !== 1) {
             setCache(cacheKey, response); // Optional: set TTL manually
-            console.log("✅ Cached response stored");
+            console.log("Cached response stored");
         }
 
         return res.status(200).send(new serviceResponse({
@@ -3852,7 +3852,7 @@ if (isExport == 1) {
 
         if (parseInt(isExport) !== 1) {
             setCache(cacheKey, response);
-            console.log("✅ Cached response stored");
+            console.log("Cached response stored");
         }
 
         return res.status(200).send(new serviceResponse({
@@ -3929,7 +3929,7 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
     // Step 3: Fetch Requests
     let requestLimit = paginate == 1 ? parseInt(limit) : 0;
     if (parseInt(isExport) === 1) {
-      requestLimit = 500; // ✅ Limit for export
+      requestLimit = 500; //  Limit for export
     }
 
     let requests = await RequestModel.find(query)

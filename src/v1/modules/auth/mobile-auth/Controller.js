@@ -14,8 +14,9 @@ const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const { _userType, _userStatus } = require("@src/v1/utils/constants");
 const { TypesModel } = require("@src/v1/models/master/Types");
 const { getPermission } = require("../../user-management/permission");
-const {LoginHistory}= require("@src/v1/models/master/loginHistery");
+const { LoginHistory } = require("@src/v1/models/master/loginHistery");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller")
+const { LoginAttempt } = require("@src/v1/models/master/loginAttempt");
 
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
@@ -73,11 +74,62 @@ module.exports.loginOrRegister = async (req, res) => {
             ? { 'ownerDetails.email': userInput }
             : { 'ownerDetails.mobile': userInput };
 
+
+        const blockCheck = await LoginAttempt.findOne({ phone: userInput });
+        if (blockCheck?.lockUntil && blockCheck.lockUntil > new Date()) {
+            const remainingTime = Math.ceil((blockCheck.lockUntil - new Date()) / (1000 * 60));
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    data: { remainingTime },
+                    errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minute(s).` }]
+                })
+            );
+        }
+
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
 
         if ((!userOTP || inputOTP !== userOTP.otp) && inputOTP !== staticOTP) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
+            const loginAttempt = await LoginAttempt.findOne({ phone: userInput });
+
+            if (loginAttempt) {
+                loginAttempt.failedAttempts += 1;
+                loginAttempt.lastFailedAt = new Date();
+
+                if (loginAttempt.failedAttempts >= 5) {
+                    loginAttempt.lockUntil = new Date(Date.now() + 30 * 60 * 1000);
+                }
+
+                await loginAttempt.save();
+
+                const remainingAttempts = 5 - loginAttempt.failedAttempts;
+
+                if (remainingAttempts <= 0) {
+                    return res.status(400).send(
+                        new serviceResponse({
+                            status: 400,
+                            data: { remainingTime: 30 },
+                            errors: [{ message: `Your account is locked due to multiple failed attempts. Try again after 30 minutes.` }]
+                        })
+                    );
+                }
+
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
+
+            } else {
+                await LoginAttempt.create({
+                    userType: _userType.warehouse,
+                    phone: userInput,
+                    failedAttempts: 1,
+                    lastFailedAt: new Date()
+                });
+
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
+
+            }
+        } else {
+            await LoginAttempt.deleteMany({ phone: userInput });
         }
 
         const user = await MasterUser.findOne({ mobile: userInput.trim() })
@@ -172,7 +224,7 @@ module.exports.loginOrRegister = async (req, res) => {
                     userInput: userInput, user_id: masterUserCreated._id, organization_id: masterUserCreated.portalId, user_type: masterUserCreated?.user_type
                 }
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
-                const token =  await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+                const token = await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
                 await LoginHistory.create({ token: token, user_type: masterUserCreated.user_type, master_id: masterUserCreated._id, ipAddress: getIpAddress(req) });
 
@@ -205,10 +257,62 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
             ? { 'basic_details.distiller_details.email': userInput }
             : { 'basic_details.distiller_details.phone': userInput };
 
+        const blockCheck = await LoginAttempt.findOne({ phone: userInput });
+        if (blockCheck?.lockUntil && blockCheck.lockUntil > new Date()) {
+            const remainingTime = Math.ceil((blockCheck.lockUntil - new Date()) / (1000 * 60));
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    data: { remainingTime },
+                    errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minute(s).` }]
+                })
+            );
+        }
+
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
+
         if ((!userOTP || inputOTP !== userOTP.otp) && inputOTP !== staticOTP) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
+
+            const loginAttempt = await LoginAttempt.findOne({ phone: userInput });
+
+            if (loginAttempt) {
+                loginAttempt.failedAttempts += 1;
+                loginAttempt.lastFailedAt = new Date();
+
+                if (loginAttempt.failedAttempts >= 5) {
+                    loginAttempt.lockUntil = new Date(Date.now() + 30 * 60 * 1000);
+                }
+
+                await loginAttempt.save();
+
+                const remainingAttempts = 5 - loginAttempt.failedAttempts;
+
+                if (remainingAttempts <= 0) {
+                    return res.status(400).send(
+                        new serviceResponse({
+                            status: 400,
+                            data: { remainingTime: 30 },
+                            errors: [{ message: `Your account is locked due to multiple failed attempts. Try again after 30 minutes.` }]
+                        })
+                    );
+                }
+
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
+
+            } else {
+                await LoginAttempt.create({
+                    userType: _userType.distiller,
+                    phone: userInput,
+                    failedAttempts: 1,
+                    lastFailedAt: new Date()
+                });
+
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
+
+            }
+        } else {
+            await LoginAttempt.deleteMany({ phone: userInput});
         }
 
         const user = await MasterUser.findOne({ mobile: userInput.trim() })
@@ -312,7 +416,7 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                     user: { _id: user._id, user_type: user?.user_type, portalId: user.portalId },
                     userInput: userInput, user_id: user._id, organization_id: user.portalId, user_type: user?.user_type
                 }
-               
+
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
                 const token = await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
                 await LoginHistory.deleteMany({ master_id: user._id, user_type: user.user_type });
@@ -328,7 +432,6 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                     ...JSON.parse(JSON.stringify(ownerExist)),
                     onboarding: (ownerExist?.basic_details?.distiller_details?.organization_name && ownerExist?.basic_details?.point_of_contact && ownerExist.address && ownerExist.company_details && ownerExist.authorised && ownerExist.bank_details && ownerExist.is_form_submitted == 'true') ? true : false
                 }
-
 
                 return res.status(200).send(new serviceResponse({ status: 201, message: _auth_module.created('Account'), data: { token, ownerExist, userWithPermission: masterUserCreated } }));
 
@@ -378,7 +481,7 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
                     user: { _id: user._id, user_type: user?.user_type, portalId: user.portalId },
                     userInput: userInput, user_id: user._id, organization_id: user.portalId, user_type: user?.user_type
                 }
-               
+
                 const expiresIn = 24 * 60 * 60; // 24 hour in seconds
                 const token = await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
                 await LoginHistory.deleteMany({ master_id: user._id, user_type: user.user_type });
