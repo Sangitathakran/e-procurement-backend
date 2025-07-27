@@ -1,20 +1,20 @@
 const { _handleCatchErrors, dumpJSONToExcel, handleDecimal } = require("@src/v1/utils/helpers")
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, _query } = require("@src/v1/utils/constants/messages");
-const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
-const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
+// const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
+// const { FarmerOffers } = require("@src/v1/models/app/procurement/FarmerOffers");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const { User } = require("@src/v1/models/app/auth/User");
+// const { User } = require("@src/v1/models/app/auth/User");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType, _userStatus, _status, _procuredStatus, _paymentStatus, _associateOfferStatus } = require("@src/v1/utils/constants");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
-const { commodity } = require("../../dropDown/Controller");
+// const { commodity } = require("../../dropDown/Controller");
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
-const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+// const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const mongoose = require("mongoose");
 const { Scheme } = require("@src/v1/models/master/Scheme");
@@ -109,7 +109,6 @@ module.exports.getDashboardStats = async (req, res) => {
     }
 };
 
-
 module.exports.getProcurementsStats = async (req, res) => {
 
     try {
@@ -181,135 +180,6 @@ module.exports.getProcurementsStats = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
-
-
-// module.exports.getProcurementStatusList = async (req, res) => {
-//     try {
-//         let {
-//             page = 1,
-//             limit = 6,
-//             skip = 0,
-//             paginate = 1,
-//             sortBy = {},
-//             search = '',
-//             isExport = 0,
-//             commodity,
-//             season,
-//             scheme
-//         } = req.query;
-
-//         page = parseInt(page);
-//         limit = parseInt(limit);
-//         skip = parseInt(skip);
-
-//         //Multiselect parse
-//        const parseArray = (param) => {
-//             if (!param) return [];
-//             if (Array.isArray(param)) return param;
-//             try {
-//                 const parsed = JSON.parse(param);
-//                 return Array.isArray(parsed) ? parsed : [parsed];
-//             } catch {
-//                 return param.split(',').map(item => item.trim()).filter(Boolean);
-//             }
-//         };
-
-//         const commodityArray = parseArray(commodity);
-//         const seasonArray = parseArray(season);
-//         const schemeArray = parseArray(scheme);
-
-//         //query
-//         const query = {
-//             deletedAt: null,
-//             ...(search ? { reqNo: { $regex: search, $options: 'i' } } : {})
-//         };
-
-//          // Filter: commodity _id
-//         if (commodityArray.length > 0) {
-//             const validCommodityIds = commodityArray.filter(mongoose.Types.ObjectId.isValid);
-//             if (validCommodityIds.length) {
-//                 query['product.commodity_id'] = {
-//                     $in: validCommodityIds.map(id => new mongoose.Types.ObjectId(id))
-//                 };
-//             }
-//         }
-
-//         // Filter: schemeId
-//         if (schemeArray.length > 0) {
-//             const validSchemeIds = schemeArray.filter(mongoose.Types.ObjectId.isValid);
-//             if (validSchemeIds.length) {
-//                 query['product.schemeId'] = {
-//                     $in: validSchemeIds.map(id => new mongoose.Types.ObjectId(id))
-//                 };
-//             }
-//         }
-
-//          // Filter: season (string match)
-//         if (seasonArray.length > 0) {
-//             query['product.season'] = {
-//                 $in: seasonArray.map(season => new RegExp(`^${season}$`, 'i'))
-//             };
-//         }
-
-
-//         const selectedFields = 'reqNo product.name product.quantity totalQuantity fulfilledQty product.commodity_id product.schemeId season';
-//         const records = { count: 0 };
-
-//         // Fetch data
-//         const fetchedRecords = paginate == 1
-//             ? await RequestModel.find(query)
-//                 .select(selectedFields)
-//                 .sort(sortBy)
-//                 .skip(skip)
-//                 .limit(limit)
-//             : await RequestModel.find(query)
-//                 .select(selectedFields)
-//                 .sort(sortBy);
-
-//         //results
-//         records.rows = fetchedRecords.map(record => ({
-//             orderId: record?.reqNo,
-//             commodity: record?.product?.name,
-//             quantityRequired: record?.product?.quantity,
-//             totalQuantity: record?.product?.quantity,
-//             fulfilledQty: record?.fulfilledQty,
-//             commodity_id: record?.product?.commodity_id || null,
-//             scheme_id: record?.product?.schemeId || null,
-//             season: record?.product?.season || null
-//         }));
-
-//         //pagination
-//         records.count = await RequestModel.countDocuments(query);
-
-//         if (paginate == 1) {
-//             records.page = page;
-//             records.limit = limit;
-//             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-//         }
-
-//         //Empty check
-//         if (!records?.rows?.length) {
-//             return res.status(200).send(
-//                 new serviceResponse({
-//                     status: 200,
-//                     data: records,
-//                     message: _response_message.notFound('Procurement')
-//                 })
-//             );
-//         }
-
-
-//         return res.status(200).send(
-//             new serviceResponse({
-//                 status: 200,
-//                 data: records,
-//                 message: _response_message.found('Procurement')
-//             })
-//         );
-//     } catch (error) {
-//         _handleCatchErrors(error, res);
-//     }
-// };
 
 module.exports.getProcurementStatusList = async (req, res) => {
     try {
@@ -422,8 +292,6 @@ module.exports.getProcurementStatusList = async (req, res) => {
     }
 };
 
-
-
 module.exports.getPendingOffersCountByRequestId = async (req, res) => {
 
     try {
@@ -483,118 +351,6 @@ module.exports.getPendingOffersCountByRequestId = async (req, res) => {
     }
 
 }
-
-// module.exports.farmerPayments = async (req, res) => {
-
-//     try {
-//         const { page, limit = 6, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-
-//         let query = {
-//             ...(search ? { reqNo: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
-//         };
-
-//         // Convert into Array
-//         const parseArray = (param) => {
-//             if (!param) return [];
-//             if (Array.isArray(param)) return param;
-//             try {
-//                 const parsed = JSON.parse(param);
-//                 return Array.isArray(parsed) ? parsed : [parsed];
-//             } catch {
-//                 return param.split(',').map(item => item.trim()).filter(Boolean);
-//             }
-//         };
-
-//         const commodityArray = parseArray(commodity);
-//         const seasonArray = parseArray(season);
-//         const schemeArray = parseArray(scheme);
-//         let queries = {
-//             deletedAt: null,
-//         };
-
-//          if (search) {
-//             queries.reqNo = { $regex: search, $options: "i" };
-//         }
-
-//         //Apply filters
-//         if (commodityArray.length > 0) {
-//             queries['product.name'] = { $in: commodityArray };
-//         }
-
-//         if (seasonArray.length > 0) {
-//             queries['product.season'] = { $in: seasonArray };
-//         }
-
-//         if (schemeArray.length > 0) {
-//             const validIds = schemeArray.filter(id => mongoose.Types.ObjectId.isValid(id));
-//             if (validIds.length) {
-//                 queries['product.schemeId'] = { $in: validIds.map(id => new mongoose.Types.ObjectId(id)) };
-//             }
-//         }
-//         // const records = { count: 0 };
-//         const selectedFields = 'reqNo product.name product.quantity deliveryDate fulfilledQty';
-//         const fetchedRecords = paginate == 1
-//             ? await RequestModel.find(query)
-//                 .select(selectedFields)
-//                 .sort(sortBy)
-//                 .skip(skip)
-//                 .limit(parseInt(limit))
-
-//             : await RequestModel.find(query).sort(sortBy);
-
-//          //No data found case when filters are applied
-//         if ((commodityArray.length || seasonArray.length || schemeArray.length) && fetchedRecords.length === 0) {
-//             return res.status(200).send(new serviceResponse({
-//                 status: 200,
-//                 data: { rows: [], count: 0, page, limit, pages: 0 },
-//                 message: _response_message.notFound("Payment")
-//             }));
-//         }
-
-//         //Build response rows
-//         const records = { rows: [], count: 0 };
-
-//         let requestCount = 0;
-
-//         records.rows = await Promise.all(fetchedRecords.map(async record => {
-
-//             const batchIds = await Batch.find({ req_id: record._id }).select({ _id: 0, farmerOrderIds: 1 }).lean();
-
-//             let farmerOrderIdsOnly = {}
-
-//             if (batchIds && batchIds.length > 0) {
-//                 farmerOrderIdsOnly = batchIds[0].farmerOrderIds.map(order => order.farmerOrder_id);
-//                 let query = { _id: { $in: farmerOrderIdsOnly } };
-//                 requestCount = await FarmerOrders.countDocuments(query);
-//                 // console.log(query);
-//             }
-//             return {
-//                 'orderId': record?.reqNo,
-//                 'quantityRequired': record?.product.quantity,
-//                 'deliveryDate': record?.deliveryDate,
-//                 'requestCount': requestCount
-//             }
-//             // return { ...record.toObject(), branchDetails }
-//         }));
-
-//         records.count = await RequestModel.countDocuments(query);
-//         //  console.log(records)
-//         if (paginate == 1) {
-//             records.page = page
-//             records.limit = limit
-//             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-//         }
-
-//         if (!records) {
-//             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("Payment") }));
-//         }
-//         return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
-
-//     } catch (error) {
-//         _handleCatchErrors(error, res);
-//     }
-
-// }
 
 module.exports.farmerPayments = async (req, res) => {
     try {
@@ -718,68 +474,6 @@ module.exports.farmerPayments = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
-
-// module.exports.agentPayments = async (req, res) => {
-
-//     try {
-
-//         const { page, limit = 5, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-
-//         let query = search ? {
-//             $or: [
-//                 { "req_id.reqNo": { $regex: search, $options: 'i' } },
-//                 { "bo_id.branchId": { $regex: search, $options: 'i' } },
-//                 { "req_id.product.name": { $regex: search, $options: 'i' } }
-//             ]
-//         } : {};
-
-//         const records = { count: 0 };
-
-//         const fetchedRecords = paginate == 1 ? await AgentInvoice.find(query)
-//             .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
-//             .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product.name deliveryDate quotedPrice reqNo" }])
-//             .sort(sortBy)
-//             .skip(skip)
-//             .limit(parseInt(limit))
-
-//             : await AgentInvoice.find(query)
-//                 .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
-//                 .populate([{ path: "bo_id", select: "branchId" }, { path: "req_id", select: "product.name deliveryDate quotedPrice reqNo" }])
-//                 .sort(sortBy)
-
-//         // records.rows = fetchedRecords.map(record => ({
-//         //     orderId: record?.req_id?.reqNo || null,
-//         //     qtyProcured: record?.qtyProcured,
-//         //     billingDate: record?.req_id?.deliveryDate || null,
-//         //     paymentStatus: record?.payment_status
-//         // })).filter(row => row.orderId !== null);
-
-//         records.rows = fetchedRecords
-//             .filter(record => record.req_id) // only include records where req_id is not null
-//             .map(record => ({
-//                 orderId: record.req_id.reqNo,
-//                 qtyProcured: record.qtyProcured,
-//                 billingDate: record.req_id.deliveryDate,
-//                 paymentStatus: record.payment_status
-//             }));
-
-//         records.count = await AgentInvoice.countDocuments(query);
-//         // console.log(records)
-
-//         if (paginate == 1) {
-//             records.page = parseInt(page)
-//             records.limit = limit
-//             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
-//         }
-
-//         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _query.get('Payment') }))
-
-
-//     } catch (error) {
-//         _handleCatchErrors(error, res);
-//     }
-
-// }
 
 module.exports.agentPayments = async (req, res) => {
     try {
@@ -912,229 +606,6 @@ module.exports.agentPayments = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
-
-// module.exports.getStateWiseCommodityStatus = async (req, res) => {
-//     try {
-//         const page = parseInt(req.query.page) || 1;
-//         const limit = parseInt(req.query.limit) || 10;
-//         const skip = (page - 1) * limit;
-//         const { commodity, scheme, season } = req.query
-//         const portalId = req.user?.portalId?._id;
-//         if (!portalId) return res.status(400).json({ message: 'Invalid portalId' });
-//         const branch = await Branches.findOne({ _id: portalId }).lean();
-//         if (!branch) return res.status(404).json({ message: 'No branch found for the portal' });
-
-//         const stateData = await StateDistrictCity.findOne(
-//             { "states.state_title": branch.state },
-//             { "states.$": 1 }
-//         ).lean();
-//         const stateId = stateData?.states?.[0]?._id;
-//         if (!stateId) return res.status(404).json({ message: 'State not found in the master collection' });
-
-//         const baseMatch = { branch_id: branch._id };
-
-//         // Filter
-//         const query = [];
-
-//         if (commodity) {
-//             const rawArray = Array.isArray(commodity)
-//                 ? commodity
-//                 : commodity.split(',');
-
-//             const commodityArray = rawArray
-//                 .map(s => String(s).trim())
-//                 .filter(s => s.length > 0);
-
-//             if (commodityArray.length > 0) {
-//                 const regexCommodity = commodityArray.map(
-//                     name => new RegExp(`^${name}$`, 'i')
-//                 );
-//                 console.log('IN commodity block >>>>>>>>>>>>>');
-//                 console.dir({ $in: regexCommodity }, { depth: null });
-//                 query.push({ 'product.name': { $in: regexCommodity } });
-//             } else {
-//                 console.log(
-//                     'Skipping commodity filter, input empty after cleaning.'
-//                 );
-//             }
-//         }
-
-//         if (scheme) {
-//             const schemeArray = scheme
-//                 .split(',')
-//                 .filter(Boolean)
-//                 .map(id => new mongoose.Types.ObjectId(id));
-//             if (schemeArray.length) {
-//                 query.push({ 'product.schemeId': { $in: schemeArray } });
-//             }
-//         }
-
-//         if (season) {
-//             const seasonArray = season.split(',').filter(Boolean);
-//             if (seasonArray.length) {
-//                 const regexSeason = seasonArray.map(
-//                     name => new RegExp(`^${name}$`, 'i')
-//                 );
-//                 query.push({ 'product.season': { $in: regexSeason } });
-//             }
-//         }
-//         console.log("Filters:", JSON.stringify(query, null, 2));
-//         const filter = { $and: query };
-//         const filterQuery = await RequestModel.find(filter, { _id: 1 }).lean();
-//         const requestIds = filterQuery.map(r => r._id);
-
-//         const farmerCountPromise = farmer.countDocuments({ 'address.state_id': stateId, status: _status.active });
-
-//         const aggregationPipeline = [
-//             {
-//                 $match: {
-//                     ...baseMatch,
-//                     ...(requestIds.length > 0 && { req_id: { $in: requestIds } }),
-//                 }
-//             },
-//             {
-//                 $lookup: {
-//                     from: 'associateoffers',
-//                     let: { reqId: '$_id' },
-//                     pipeline: [
-//                         { $match: { $expr: { $eq: ['$req_id', '$$reqId'] } } },
-//                         {
-//                             $lookup: {
-//                                 from: 'farmerorders',
-//                                 let: { offerId: '$_id' },
-//                                 pipeline: [
-//                                     { $match: { $expr: { $eq: ['$associateOffers_id', '$$offerId'] } } },
-//                                     {
-//                                         $lookup: {
-//                                             from: 'farmers',
-//                                             localField: 'farmer_id',
-//                                             foreignField: '_id',
-//                                             as: 'farmerInfo'
-//                                         }
-//                                     },
-//                                     {
-//                                         $unwind: '$farmerInfo'
-//                                     },
-//                                     {
-//                                         $project: {
-//                                             offeredQty: 1,
-//                                             farmer_id: 1,
-//                                             associate_id: '$farmerInfo.associate_id'
-//                                         }
-//                                     }
-//                                 ],
-//                                 as: 'farmerOrders'
-//                             }
-//                         },
-//                         {
-//                             $unwind: '$farmerOrders'
-//                         },
-//                         {
-//                             $project: {
-//                                 farmer_id: '$farmerOrders.farmer_id',
-//                                 offeredQty: '$farmerOrders.offeredQty',
-//                                 associate_id: '$farmerOrders.associate_id'
-//                             }
-//                         }
-//                     ],
-//                     as: 'offers'
-//                 }
-//             },
-//             {
-//                 $unwind: '$offers'
-//             },
-//             {
-//                 $lookup: {
-//                     from: 'commodities',
-//                     localField: 'product.commodity_id',
-//                     foreignField: '_id',
-//                     as: 'commodity'
-//                 }
-//             },
-//             {
-//                 $unwind: '$commodity'
-//             },
-//             {
-//                 $group: {
-//                     _id: {
-//                         commodityId: '$commodity._id',
-//                         name: '$commodity.name'
-//                     },
-//                     totalQtyPurchased: { $sum: '$offers.offeredQty' },
-//                     farmerSet: { $addToSet: '$offers.farmer_id' },
-//                     pacSet: { $addToSet: '$offers.associate_id' }
-//                 }
-//             },
-//             {
-//                 $project: {
-//                     commodityId: '$_id.commodityId',
-//                     name: '$_id.name',
-//                     quantityPurchased: { $ifNull: ['$totalQtyPurchased', 0] },
-//                     farmersBenefitted: { $size: '$farmerSet' },
-//                     registeredPacs: { $size: '$pacSet' }
-//                 }
-//             },
-//             {
-//                 $group: {
-//                     _id: branch.state,
-//                     commodities: { $push: '$$ROOT' }
-//                 }
-//             },
-//             {
-//                 $project: {
-//                     _id: 0,
-//                     state: '$_id',
-//                     commodities: 1
-//                 }
-//             },
-//             { $skip: skip },
-//             { $limit: limit }
-//         ];
-
-//         const countPipeline = [
-//             { $match: baseMatch },
-//             {
-//                 $group: {
-//                     _id: branch.state
-//                 }
-//             },
-//             { $count: 'total' }
-//         ];
-
-//         const [result, countResult, farmerCount] = await Promise.all([
-//             RequestModel.aggregate(aggregationPipeline).allowDiskUse(true),
-//             RequestModel.aggregate(countPipeline),
-//             farmerCountPromise
-//         ]);
-//         const rows = result.map(entry => ({
-//             ...entry,
-//             commodities: entry.commodities.map(commodity => ({
-//                 ...commodity,
-//                 farmerCount
-//             }))
-//         }));
-
-//         const count = countResult[0]?.total || 0;
-
-//         res.status(200).json({
-//             status: 200,
-//             data: {
-//                 rows,
-//                 count,
-//                 page,
-//                 limit,
-//                 pages: limit !== 0 ? Math.ceil(count / limit) : 0
-//             },
-//             message: _query.get('State Wise Commodity Status')
-//         });
-
-//     } catch (err) {
-//         console.error('Error generating stats:', err);
-//         res.status(500).json({ message: 'Server error', error: err.message });
-//     }
-// };
-
-
 
 module.exports.getStateWiseCommodityStatus = async (req, res) => {
     try {
@@ -1436,9 +907,6 @@ module.exports.getStateWiseCommodityStatus = async (req, res) => {
     }
 };
 
-
-
-
 // State wise district
 module.exports.getDistrict = async (req, res) => {
     try {
@@ -1531,11 +999,3 @@ module.exports.getDistrict = async (req, res) => {
         });
     }
 };
-
-
-
-
-
-
-
-

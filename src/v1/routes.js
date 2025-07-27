@@ -47,4 +47,8 @@ router.use("/warehouse", wareHouseRoutes);
 router.use("/auth", authRoutes)
 router.use("/nccf", nccfRoutes)
 
+router.use("/dropdown", dropDownRoutes)
+router.use("/ekhrid", ekhridRoutes);
+router.use("/upag", upagRoutes);
+
 module.exports = { router };
