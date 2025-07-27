@@ -15,7 +15,7 @@ const UserRole = require("@src/v1/models/master/UserRole");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { default: mongoose } = require("mongoose");
 const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
-
+const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 
 module.exports.scheme = async (req, res) => {
   const query = { deletedAt: null, status: "active" };
@@ -157,7 +157,7 @@ module.exports.sla_list = async (req, res) => {
     return sendResponse({ res, message: "", data: sla_list });
   } catch (err) {
     console.log("ERROR: ", err);
-    return sendResponse({ status: 500, message: err.message });
+    return sendResponse({ res,status: 500, message: err.message });
   }
 };
 

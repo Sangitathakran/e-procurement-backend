@@ -425,7 +425,7 @@ module.exports.farmerCount = async (req, res) => {
       verifiedFarmerAgg
     ]);
 
-    logger.info("✅ Farmer statistics fetched successfully");
+    logger.info("Farmer statistics fetched successfully");
 
     return sendResponse({
       res,

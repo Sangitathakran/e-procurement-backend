@@ -5,11 +5,17 @@ const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { validateIndFarmer, validateRegisterDetail, validateFarmer, validateLand, validateCrop, validateBank } = require("./Validation")
 const { verifyAssociate } = require("../associate/utils/verifyAssociate");
 const { apiKeyAuth } = require("../warehouse/utils/verifyWarehouseOwner");
-const { saveFarmerDetails,updateIndCrop,getLandDetails, getIndCropDetails,sendOTP, verifyOTP, registerName, getFarmerDetails, submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, deletefarmer, createLand, updateLand, deleteLand, createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer, getBoFarmer, getAllFarmers, getstatedistrictname, getBoFarmerPreview, uploadFarmerDocument, getFarmerDocument,getLocationOfIpaddress, editFarmerDocument, getStates, getDistrictByState,addDistrictCity, haryanaFarmerUplod, getVerifiedAdharDetails, getStatesByPincode, getDistrictsByState } = require("./Controller");
+const { saveFarmerDetails, updateIndCrop, getLandDetails, getIndCropDetails, sendOTP, verifyOTP, registerName, getFarmerDetails,
+    submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, deletefarmer, createLand, updateLand, deleteLand,
+    createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer,
+    getBoFarmer, getAllFarmers, getAllFarmersExport, getBoFarmerPreview, uploadFarmerDocument, getFarmerDocument, getLocationOfIpaddress,
+    editFarmerDocument, getStates, getDistrictByState,haryanaFarmerUplod, addDistrictCity, bulkUploadNorthEastFarmers,getDistrictsByState,getStatesByPincode, getVerifiedAdharDetails} = require("@modules/farmer/Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
 const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/jwt")
 const { _userType } = require("@src/v1/utils/constants/index")
 const { farmerList } = require("../head-office/farmer-management/Controller");
+const { requestforVerification, farmerVerfiedData, farmerCount, uploadFarmerForVerfication } = require("@modules/farmer/farmerVerficationController");
+
 
 farmerRoutes.post("/" ,authenticateUser,authorizeRoles(_userType.associate), verifyAssociate, [validateFarmer, validateErrors], createFarmer);
 
@@ -76,6 +82,13 @@ farmerRoutes.post('/get-verified-adhar-details',authenticateUser,authorizeRoles(
 /* 
  individual farmer haryana bulkuplod
  */
+farmerRoutes.get("/verfied_farmer", Auth, farmerVerfiedData);
+farmerRoutes.post("/requestforVerification", Auth, requestforVerification);
+farmerRoutes.post("/bulk-upload-northEastFarmer", verifyAssociate, bulkUploadNorthEastFarmers);
+farmerRoutes.post("/requestforVerification", Auth, requestforVerification);
+farmerRoutes.post("/verfiy_farmer", Auth, uploadFarmerForVerfication)
+farmerRoutes.get("/farmer_count", Auth, farmerCount)
 
+farmerRoutes.put("/upload-farmer-document", Auth, uploadFarmerDocument);
 farmerRoutes.post("/haryana-farmer-uplod", apiKeyAuth, haryanaFarmerUplod);
 module.exports = { farmerRoutes } 

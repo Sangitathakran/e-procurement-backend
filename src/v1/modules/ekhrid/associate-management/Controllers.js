@@ -817,7 +817,7 @@ module.exports.createOfferOrder = async (req, res) => {
             ]
         }).lean(); // Use lean() for performance
 
-        console.log("✅ eKharid Records Found:", eKharidRecords.map(r => r.procurementDetails.farmerID)); // Debugging
+        console.log(" eKharid Records Found:", eKharidRecords.map(r => r.procurementDetails.farmerID)); // Debugging
 
         // Create a mapping for quick lookup
         const eKharidMap = new Map(eKharidRecords.map(record => [String(record.procurementDetails.farmerID), record]));

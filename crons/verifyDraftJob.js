@@ -113,7 +113,7 @@ const processSingleFarmerRecord = async (record) => {
             },
           });
 
-          logger.info(`✅ Bank verified for farmer ${record.farmer_id}`);
+          logger.info(`Bank verified for farmer ${record.farmer_id}`);
         } else {
           await verfiyfarmer.findByIdAndUpdate(record._id, {
             bank_details: {
