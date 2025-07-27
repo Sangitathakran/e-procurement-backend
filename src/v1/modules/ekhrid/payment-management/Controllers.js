@@ -88,6 +88,7 @@ module.exports.batchMarkDelivered = async (req, res) => {
                     payment_method: _paymentmethod.bank_transfer,
                     transaction_id: farmerData.ekhridPaymentDetails.transactionId,
                     amount: farmerData.ekhridPaymentDetails.transactionAmount,
+                    jformID:farmerData?.jformID
                     // Neeraj code end
                 };
 

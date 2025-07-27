@@ -37,7 +37,6 @@ exports._handleCatchErrors = async (error, res, next) => {
   });
 };
 
-
 exports.dumpJSONToCSV = (req, res, config = {
   data: [],
   fileName: 'Default CSV',
@@ -404,6 +403,7 @@ exports._generateFarmerCode = async () => {
 }
 
 const myAddress = new Map()
+
 exports.getStateId = async (stateName) => {
   try {
     if (!stateName || typeof stateName !== 'string') {
