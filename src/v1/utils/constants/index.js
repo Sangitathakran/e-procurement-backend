@@ -28,8 +28,8 @@ const _collectionName = {
     StateDistrictCity: "StateDistrictCity",
     Batch: "Batch",
     Payment: "Payment",
-    Whr:"Whr",
-    WhrDetail : "WhrDetail",
+    Whr: "Whr",
+    WhrDetail: "WhrDetail",
     Branch: "Branch",
     DummyWarehouse: "DummyWarehouse",
     Warehouse: "WarehouseV2",
@@ -53,31 +53,32 @@ const _collectionName = {
     StorageFacility: "StorageFacility",
     PurchaseOrder: "PurchaseOrder",
     BatchOrderProcess: "batchOrderProcess",
-    TrackOrder : "TrackOrder",
-    Truck : "Truck",
-    ExternalBatch : "ExternalBatch",
-    ExternalOrder : "ExternalOrder",
+    TrackOrder: "TrackOrder",
+    Truck: "Truck",
+    ExternalBatch: "ExternalBatch",
+    ExternalOrder: "ExternalOrder",
     Scheme: "Scheme",
-    commodityStandard:"commodityStandard",
+    commodityStandard: "commodityStandard",
     SchemeAssign: "SchemeAssign",
-    ClientToken:"ClientToken",
+    ClientToken: "ClientToken",
     Scheme: "Scheme",
     SLA: "SLA",
     CCAvenueResponse: "CCAvenueResponse",
     PaymentLogsHistory: "PaymentLogsHistory",
     eKharidHaryana: "ekharidprocurements",
-    agristackLog:"agristackLog",
-    commodityStandard:"commodityStandard",
+    agristackLog: "agristackLog",
+    commodityStandard: "commodityStandard",
     SchemeAssign: "SchemeAssign",
-    ClientToken : "ClientToken",
+    ClientToken: "ClientToken",
     centerProjection: "centerProjection",
-    statewisemanditax:"statewisemanditax",
-    eKharidHaryana:"eKharidProcurement",
+    statewisemanditax: "statewisemanditax",
+    eKharidHaryana: "eKharidProcurement",
     AgristackFarmerDetail: 'AgristackFarmerDetails',
     LoginHistory: "loginhistory",
     loginAttempt: "loginAttempt",
     forgetHistory: "forgetHistory",
 
+    verfiyFarmer: "verfiyfarmer",
 }
 
 const _userType_Feature_Collection = {
@@ -98,7 +99,7 @@ const _featureType = {
     agency: "Agency",
     associate: "Associate",
     distiller: "Distiller",
-    SLA:"SLA",
+    SLA: "SLA",
     warehouse: "Warehouse"
 }
 
@@ -128,6 +129,15 @@ const _orderStatus = {
     failed: "failed",
     drop: "drop"
 }
+
+
+const _verfiycationStatus = {
+    pending: 1,
+    succeed: 2,
+    failed: 3
+}
+
+
 
 const _farmingType = {
     natural: 'Natural',
@@ -208,7 +218,7 @@ const _userType = {
     distiller: "8",
     nccf: "9",
     admin: "10",
-    ministry:"11"
+    ministry: "11"
 }
 
 const _userStatus = {
@@ -475,7 +485,7 @@ const _whr_status = {
     archived: "archived",
     deleted: "deleted",
     created: "created",
-    completed : "completed",
+    completed: "completed",
 }
 
 const _frontendLoginRoutes = {
@@ -592,6 +602,26 @@ const _schemeName = {
     Open: "Open"
 }
 
+const _ccAvenuePaymentStatus = {
+    SUCCESS: "Success",
+    DECLINED: "Unsuccessful",
+    ABORTED_SYSTEM: "Aborted/ Transaction aborted by system",
+    ABORTED_BANK: "Aborted/ Transaction aborted at the bank end",
+    ABORTED_CLIENT: "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    ABORTED_CLIENT: "Aborted/Browser closed/Cancel reason is not specified by the customer",
+    INITIATED: "Initiated",
+    AUTO_CANCELLED: "Auto-Cancelled",
+    AUTO_REVERSED: "Auto-Reversed",
+    AWAITED: "Awaited",
+    INVALID: "Invalid",
+    CANCELLED: "Cancelled",
+    SHIPPED: "Shipped",
+    TIMEOUT: "Timeout",
+    UNKNOWN: "Unknown",
+    FAILURE: "Failure"
+}
+
+
 const _statesAndUTs = [
     { name: "Andaman and Nicobar Islands", code: "AN" },
     { name: "Andhra Pradesh", code: "AP" },
@@ -629,33 +659,13 @@ const _statesAndUTs = [
     { name: "Uttar Pradesh", code: "UP" },
     { name: "Uttarakhand", code: "UK" },
     { name: "West Bengal", code: "WB" }
-  ];
-  
-const _ccAvenuePaymentStatus = {
-    SUCCESS : "Success",
-    DECLINED : "Unsuccessful",
-    ABORTED_SYSTEM : "Aborted/ Transaction aborted by system",
-    ABORTED_BANK : "Aborted/ Transaction aborted at the bank end",
-    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
-    ABORTED_CLIENT : "Aborted/Browser closed/Cancel reason is not specified by the customer",
-    INITIATED : "Initiated",
-    AUTO_CANCELLED : "Auto-Cancelled",
-    AUTO_REVERSED : "Auto-Reversed",
-    AWAITED : "Awaited",
-    INVALID : "Invalid",
-    CANCELLED : "Cancelled",
-    SHIPPED : "Shipped",
-    TIMEOUT : "Timeout",
-    UNKNOWN : "Unknown",
-    FAILURE : "Failure"
-}
+];
 
 const _verificationStatus = {
     pending: 1,
     succeed: 2,
     failed: 3
 }
-
 
 module.exports = {
     _userAction,
@@ -720,7 +730,7 @@ module.exports = {
     _poBatchStatus,
     _penaltypaymentStatus,
     _poBatchPaymentStatus,
-    _trackOrderStatus ,
+    _trackOrderStatus,
     _whr_status,
     _commodityType,
     _gradeType,
@@ -729,6 +739,7 @@ module.exports = {
     _period,
     _centralNodalAgency,
     _schemeName,
+    _verfiycationStatus,
     _ccAvenuePaymentStatus,
     _statesAndUTs,
     _verificationStatus

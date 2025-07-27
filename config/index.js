@@ -68,5 +68,16 @@ module.exports = {
     BANK_VERIFICATION_API_KEY: process.env.BANK_VERIFICATION_API_KEY,
     BANK_VERIFICATION_API_PROVIDER: process.env.BANK_VERIFICATION_API_PROVIDER,
     ON_GRID_BASE_URL: process.env.ON_GRID_BASE_URL,
-    procurement_partners:procurement_partners
+    procurement_partners:procurement_partners,
+    app_name: process.env.APP_NAME,
+    license_key: process.env.LICENSE_KEY,
+    UPAG_BASE_URL: process.env.UPAG_BASE_URL,
+    UPAG_CLIENT_ID:process.env.UPAG_CLIENT_ID,
+    UPAG_CLIENT_SECRET: process.env.UPAG_CLIENT_SECRET,
+    UPAG_EMAIL: process.env.UPAG_EMAIL,
+    UPAG_PASSWORD: process.env.UPAG_PASSWORD,
+     // adher servcies
+    AADHAR_VERIFICATION_API_KEY:process.env.AADHAR_VERIFICATION_API_KEY,
+    VERFICATION:process.env.VERFICATION
+
 }

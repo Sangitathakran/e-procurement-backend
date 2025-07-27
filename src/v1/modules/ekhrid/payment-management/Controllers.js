@@ -34,10 +34,6 @@ module.exports.getBatches = async (req, res) => {
 };
 
 
-
-
-
-
 module.exports.batchMarkDelivered = async (req, res) => {
     try {
         const { batchIds, quantity_received, no_of_bags, bag_weight_per_kg, truck_photo, vehicle_details = {}, document_pictures = {}, weight_slip = [], user_id } = req.body;

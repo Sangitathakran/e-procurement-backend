@@ -3,7 +3,6 @@ const { TypesModel } = require("@src/v1/models/master/Types")
 
 
 module.exports.getPermission = async (response) => { 
-
   const typeData = await TypesModel.find()
   const type = typeData.reduce((acc, item)=>[...acc, item.featureType], [])
   const user_type = typeData.find(item=>item.user_type===response.user_type)

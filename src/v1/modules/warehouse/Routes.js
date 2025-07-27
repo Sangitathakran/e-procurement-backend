@@ -9,12 +9,13 @@ const { whrRoutes } = require("./whr/Routes");
 
 const wareHouseRoutes = express.Router();
 
-
+const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/jwt")
+const { _userType } = require("@src/v1/utils/constants/index")
 
 wareHouseRoutes.use("/auth", wareHouseAuthRoutes);
 wareHouseRoutes.use("/management", wareHouseManagement);
 wareHouseRoutes.use("/inward", wareHouseInwardRoutes);
-wareHouseRoutes.use("/outward" ,wareHouseOutwardRoutes);
+wareHouseRoutes.use("/outward" ,authenticateUser,authorizeRoles(_userType.warehouse),wareHouseOutwardRoutes);
 wareHouseRoutes.use("/third" ,thirdPartyRoutes);
 wareHouseRoutes.use("/whr", whrRoutes);
 

@@ -207,7 +207,7 @@ module.exports.getProcurementStatusList = async (req, res) => {
         };
 
         const records = { count: 0 };
-        const selectedFields = 'reqNo quoteExpiry product.name quotedPrice totalQuantity fulfilledQty deliveryDate expectedProcurementDate';
+        const selectedFields = 'reqNo quoteExpiry product.name quotedPrice totalQuantity fulfilledQty deliveryDate expectedProcurementDate product.quantity';
         const fetchedRecords = paginate == 1
             ? await RequestModel.find(query)
                 .select(selectedFields)
@@ -224,7 +224,7 @@ module.exports.getProcurementStatusList = async (req, res) => {
             quotedPrice: record.quotedPrice,
             deliveryDate: record.deliveryDate,
             expectedProcurementDate: record.expectedProcurementDate,
-            totalQuantity: record.totalQuantity,
+            totalQuantity: record.product?.quantity,
             fulfilledQty: record.fulfilledQty
         }));
 
