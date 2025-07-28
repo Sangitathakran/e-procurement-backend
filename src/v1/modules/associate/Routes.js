@@ -7,7 +7,7 @@ const { paymentRoutes } = require("./payment/Routes");
 const { userAuthRoutes } = require("./auth/Routes");
 const { whrRoutes } = require("./whr/Routes");
 const associateRoutes = express.Router();
-const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/jwt")
+const { Auth ,authenticateUser,authorizeRoles} = require("@src/v1/middlewares/jwt")
 const { _userType } = require("@src/v1/utils/constants/index")
 
 associateRoutes.use("/request",authenticateUser,authorizeRoles(_userType.associate), requestRoutes);

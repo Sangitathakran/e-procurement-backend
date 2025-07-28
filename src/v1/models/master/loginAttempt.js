@@ -5,7 +5,7 @@ const loginAttemptSchema = new mongoose.Schema({
     master_id: {
         type: mongoose.Schema.Types.ObjectId,
         required: false,
-        ref: _collectionName.MasterUser, 
+        ref: _collectionName.MasterUser,
     },
     userType: {
         type: String,
@@ -15,6 +15,12 @@ const loginAttemptSchema = new mongoose.Schema({
     phone: {
         type: String,
         required: false,
+        default: null,
+    },
+    email: {
+        type: String,
+        required: false,
+        default: null,
     },
     failedAttempts: {
         type: Number,
@@ -33,14 +39,14 @@ const loginAttemptSchema = new mongoose.Schema({
 });
 
 const forgetPasswordSchema = new mongoose.Schema({
-    token : {
+    token: {
         type: String,
         required: true,
     },
     email: {
         type: String,
         required: true,
-        default:null,
+        default: null,
     },
     ip: {
         type: String,
@@ -48,7 +54,7 @@ const forgetPasswordSchema = new mongoose.Schema({
         default: null,
     },
     expireTime: {
-        type: Date, 
+        type: Date,
         default: Date.now,
     },
     isExpired: {
@@ -64,6 +70,6 @@ const LoginAttempt = mongoose.model(_collectionName.loginAttempt, loginAttemptSc
 loginAttemptSchema.index({ lockUntil: 1 }, { expireAfterSeconds: 1800 });
 
 const ResetLinkHistory = mongoose.model(_collectionName.forgetHistory, forgetPasswordSchema);
-forgetPasswordSchema.index({ createdAt: 1 }, { expireAfterSeconds: 1800 }); 
+forgetPasswordSchema.index({ createdAt: 1 }, { expireAfterSeconds: 1800 });
 
-module.exports = { LoginAttempt,ResetLinkHistory };
+module.exports = { LoginAttempt, ResetLinkHistory };
