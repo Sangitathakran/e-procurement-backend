@@ -12,7 +12,6 @@ farmerManagementRoutes.get('/get-statewise-procuredQty', getStateWiseProcuredQty
 
 // without aggregation
 farmerManagementRoutes.get("/farmers-count-list-statewise", getStateWiseFarmerCount);
-farmerManagementRoutes.get('/get-statewise-procuredQty', getStateWiseProcuredQty);
 
 
 module.exports = { farmerManagementRoutes }; 
