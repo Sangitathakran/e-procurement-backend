@@ -23,7 +23,7 @@ const { dropDownRoutes } = require("./modules/dropDown/Routes");
 const { ekhridRoutes } = require("./modules/ekhrid/Routes");
 const { upagRoutes } = require("./modules/upag/Routes");
 const { slaRoutes } = require("./modules/sla/Routes");
-// const { agristackchRoutes } = require("./modules/agristack/Routes");
+const { nafedRoutes } = require("@modules/nafed-apis/routes");
 
 /* Define Your Routes */
 router.use(handlePagination)
@@ -50,7 +50,7 @@ router.use("/bank", bankIntegrationRoutes)
 router.use("/dropdown", dropDownRoutes);
 router.use("/ekhrid", ekhridRoutes);
 router.use("/upag", upagRoutes);
-//router.use("/agristack", agristackchRoutes);
+router.use("/distiler_visit", nafedRoutes);
 
 
 
