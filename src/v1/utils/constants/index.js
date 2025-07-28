@@ -2,6 +2,7 @@ const { NA } = require("xlsx-populate/lib/FormulaError")
 
 
 const _collectionName = {
+     statewisemanditax:"statewisemanditax",
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",
@@ -65,20 +66,23 @@ const _collectionName = {
     SLA: "SLA",
     CCAvenueResponse: "CCAvenueResponse",
     PaymentLogsHistory: "PaymentLogsHistory",
-    eKharidHaryana: "ekharidprocurements",
+    eKharidHaryana : "ekharidprocurements",
+    states: "states",
+    // eKharidHaryana: "ekharidprocurements",
     agristackLog: "agristackLog",
     commodityStandard: "commodityStandard",
     SchemeAssign: "SchemeAssign",
     ClientToken: "ClientToken",
     centerProjection: "centerProjection",
     statewisemanditax: "statewisemanditax",
-    eKharidHaryana: "eKharidProcurement",
     AgristackFarmerDetail: 'AgristackFarmerDetails',
     LoginHistory: "loginhistory",
     loginAttempt: "loginAttempt",
     forgetHistory: "forgetHistory",
-
+    agristackLog:"agristackLog",
     verfiyFarmer: "verfiyfarmer",
+    associateMandiName: "associateMandiName",
+    eKharidHaryana: "ekhridnewprocs",
 }
 
 const _userType_Feature_Collection = {
@@ -667,6 +671,15 @@ const _verificationStatus = {
     failed: 3
 }
 
+const dateRanges = ['currentMonth', 'lastMonth', 'last3Months', 'last6Months', 'custom'];
+const dateRangesObj = {
+    currentMonth: "currentMonth",
+    lastMonth: "lastMonth",
+    last3Months: "last3Months",
+    last6Months:"last6Months",
+    custom: "custom"
+}
+
 module.exports = {
     _userAction,
     _farmerType,
@@ -742,5 +755,7 @@ module.exports = {
     _verfiycationStatus,
     _ccAvenuePaymentStatus,
     _statesAndUTs,
-    _verificationStatus
+    _verificationStatus,
+    dateRanges,
+    dateRangesObj
 }

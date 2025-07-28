@@ -9,47 +9,47 @@ const { saveFarmerDetails, updateIndCrop, getLandDetails, getIndCropDetails, sen
     submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, deletefarmer, createLand, updateLand, deleteLand,
     createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer,
     getBoFarmer, getAllFarmers, getAllFarmersExport, getBoFarmerPreview, uploadFarmerDocument, getFarmerDocument, getLocationOfIpaddress,
-    editFarmerDocument, getStates, getDistrictByState,haryanaFarmerUplod, addDistrictCity, bulkUploadNorthEastFarmers,getDistrictsByState,getStatesByPincode, getVerifiedAdharDetails} = require("@modules/farmer/Controller");
+    editFarmerDocument, getStates, getDistrictByState, haryanaFarmerUplod, addDistrictCity, bulkUploadNorthEastFarmers, getDistrictsByState, getStatesByPincode, getVerifiedAdharDetails, getMaizeProcurementSummary, getAssamMaizeProcurementSummary } = require("@modules/farmer/Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
-const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/jwt")
+const { Auth, authenticateUser, authorizeRoles, } = require("@src/v1/middlewares/jwt")
 const { _userType } = require("@src/v1/utils/constants/index")
 const { farmerList } = require("../head-office/farmer-management/Controller");
 const { requestforVerification, farmerVerfiedData, farmerCount, uploadFarmerForVerfication } = require("@modules/farmer/farmerVerficationController");
 
 
-farmerRoutes.post("/" ,authenticateUser,authorizeRoles(_userType.associate), verifyAssociate, [validateFarmer, validateErrors], createFarmer);
+farmerRoutes.post("/", authenticateUser, authorizeRoles(_userType.associate), verifyAssociate, [validateFarmer, validateErrors], createFarmer);
 
 // common apis
-farmerRoutes.get("/",authenticateUser,authorizeRoles(_userType.admin, _userType.associate ,_userType.bo ,_userType.ho ,_userType.agent), verifyJwtToken, getFarmers);
+farmerRoutes.get("/", authenticateUser, authorizeRoles(_userType.admin, _userType.associate, _userType.bo, _userType.ho, _userType.agent), verifyJwtToken, getFarmers);
 
-farmerRoutes.get("/get-land",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent), verifyJwtToken, getLand);
-farmerRoutes.get("/get-crop-details",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent), verifyJwtToken, getIndCropDetails);
-farmerRoutes.get("/get-land-details/:id",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent), verifyJwtToken, getLandDetails);
-farmerRoutes.get("/get-crop",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent), verifyJwtToken, getCrop);
-farmerRoutes.get('/getFarmerDetails/:id',authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent),verifyJwtToken,getFarmerDetails);
+farmerRoutes.get("/get-land", authenticateUser, authorizeRoles(_userType.farmer, _userType.associate, _userType.admin, _userType.bo, _userType.agent), verifyJwtToken, getLand);
+farmerRoutes.get("/get-crop-details", authenticateUser, authorizeRoles(_userType.farmer, _userType.associate, _userType.admin, _userType.bo, _userType.agent), verifyJwtToken, getIndCropDetails);
+farmerRoutes.get("/get-land-details/:id", authenticateUser, authorizeRoles(_userType.farmer, _userType.associate, _userType.admin, _userType.bo, _userType.agent), verifyJwtToken, getLandDetails);
+farmerRoutes.get("/get-crop", authenticateUser, authorizeRoles(_userType.farmer, _userType.associate, _userType.admin, _userType.bo, _userType.agent), verifyJwtToken, getCrop);
+farmerRoutes.get('/getFarmerDetails/:id', authenticateUser, authorizeRoles(_userType.farmer, _userType.associate, _userType.admin, _userType.bo, _userType.agent), verifyJwtToken, getFarmerDetails);
 
 /// common apis end
 // farmerRoutes.put('/:id', verifyJwtToken, editFarmer);
 farmerRoutes.delete("/", verifyJwtToken, deletefarmer);
 
-farmerRoutes.post("/createLand",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken,createLand);
+farmerRoutes.post("/createLand", authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, createLand);
 
-farmerRoutes.put("/updateLand/:land_id",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, updateLand);
-farmerRoutes.put("/updateIndCrop/:farmer_id",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, updateIndCrop);
-farmerRoutes.delete("/deleteLand",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, deleteLand);
-farmerRoutes.post("/createCrop",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, [validateCrop, validateErrors], createCrop);
-farmerRoutes.post("/createIndCrop",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, createCrop);
+farmerRoutes.put("/updateLand/:land_id", authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, updateLand);
+farmerRoutes.put("/updateIndCrop/:farmer_id", authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, updateIndCrop);
+farmerRoutes.delete("/deleteLand", authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, deleteLand);
+farmerRoutes.post("/createCrop", authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, [validateCrop, validateErrors], createCrop);
+farmerRoutes.post("/createIndCrop", authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, createCrop);
 
-farmerRoutes.put("/updateCrop/:crop_id",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, updateCrop);
-farmerRoutes.delete("/deleteCrop",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, deleteCrop);
-farmerRoutes.post("/createBank",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, [validateBank, validateErrors], createBank);
-farmerRoutes.get("/get-bank",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.bo), verifyJwtToken, getBank);
-farmerRoutes.put("/updateBank/:bank_id",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, updateBank);
-farmerRoutes.delete("/deleteBank",authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, deleteBank);
-farmerRoutes.post("/bulk-upload",authenticateUser,authorizeRoles(_userType.associate), verifyAssociate, bulkUploadFarmers);
-farmerRoutes.put("/edit-farmer-document",authenticateUser,authorizeRoles(_userType.associate,_userType.farmer), verifyAssociate, editFarmerDocument);
+farmerRoutes.put("/updateCrop/:crop_id", authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, updateCrop);
+farmerRoutes.delete("/deleteCrop", authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, deleteCrop);
+farmerRoutes.post("/createBank", authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, [validateBank, validateErrors], createBank);
+farmerRoutes.get("/get-bank", authenticateUser, authorizeRoles(_userType.farmer, _userType.associate, _userType.admin, _userType.bo), verifyJwtToken, getBank);
+farmerRoutes.put("/updateBank/:bank_id", authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, updateBank);
+farmerRoutes.delete("/deleteBank", authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, deleteBank);
+farmerRoutes.post("/bulk-upload", authenticateUser, authorizeRoles(_userType.associate), verifyAssociate, bulkUploadFarmers);
+farmerRoutes.put("/edit-farmer-document", authenticateUser, authorizeRoles(_userType.associate, _userType.farmer), verifyAssociate, editFarmerDocument);
 farmerRoutes.post("/bulk-export", verifyJwtToken, exportFarmers);
-farmerRoutes.get("/localfarmer",authenticateUser,authorizeRoles(_userType.associate), verifyAssociate, individualfarmerList);
+farmerRoutes.get("/localfarmer", authenticateUser, authorizeRoles(_userType.associate), verifyAssociate, individualfarmerList);
 farmerRoutes.post("/send-farmerOTP", sendOTP)
 farmerRoutes.post("/verify-farmerOTP", verifyOTP);
 farmerRoutes.post('/register-details', verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
@@ -63,10 +63,10 @@ farmerRoutes.post("/add-district", addDistrictCity);
 // farmerRoutes.post("/bulk-upload-northEastFarmer", verifyAssociate, bulkUploadNorthEastFarmers);
 
 farmerRoutes.put("/upload-farmer-document", Auth, uploadFarmerDocument);
-farmerRoutes.get("/farmer-document",authenticateUser,authorizeRoles(_userType.admin,_userType.agent ,_userType.ho,_userType.bo,_userType.associate), getFarmerDocument);
+farmerRoutes.get("/farmer-document", authenticateUser, authorizeRoles(_userType.admin, _userType.agent, _userType.ho, _userType.bo, _userType.associate), getFarmerDocument);
 farmerRoutes.get("/get-states", Auth, getStates);
 farmerRoutes.get("/get-district-by-state/:id", Auth, getDistrictByState);
-farmerRoutes.get('/get-states-by-pincode', getStatesByPincode );
+farmerRoutes.get('/get-states-by-pincode', getStatesByPincode);
 farmerRoutes.get('/get-districts-by-state_id', getDistrictsByState);
 
 /* 
@@ -74,15 +74,15 @@ farmerRoutes.get('/get-districts-by-state_id', getDistrictsByState);
  */
 farmerRoutes.post("/send-farmerOTP", sendOTP);
 farmerRoutes.post("/verify-farmerOTP", verifyOTP);
-farmerRoutes.post('/register-details',authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
-farmerRoutes.put('/onboarding-details/:id',authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken,  [validateIndFarmer, validateErrors], saveFarmerDetails);
+farmerRoutes.post('/register-details', authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
+farmerRoutes.put('/onboarding-details/:id', authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, [validateIndFarmer, validateErrors], saveFarmerDetails);
 
-farmerRoutes.put('/submit-form/:id',authenticateUser,authorizeRoles(_userType.farmer),verifyJwtToken, submitForm)
+farmerRoutes.put('/submit-form/:id', authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, submitForm)
 
 farmerRoutes.get('/download-zipFile', createZip)
 
-farmerRoutes.post('/get-state-from-ip-address',getLocationOfIpaddress)
-farmerRoutes.post('/get-verified-adhar-details',authenticateUser,authorizeRoles(_userType.farmer), getVerifiedAdharDetails);
+farmerRoutes.post('/get-state-from-ip-address', getLocationOfIpaddress)
+farmerRoutes.post('/get-verified-adhar-details', authenticateUser, authorizeRoles(_userType.farmer), getVerifiedAdharDetails);
 /* 
  individual farmer haryana bulkuplod
  */
@@ -92,7 +92,10 @@ farmerRoutes.post("/bulk-upload-northEastFarmer", verifyAssociate, bulkUploadNor
 
 farmerRoutes.post("/haryana-farmer-uplod", apiKeyAuth, haryanaFarmerUplod);
 
-farmerRoutes.post("/verfiy_farmer",Auth,uploadFarmerForVerfication)
-farmerRoutes.get("/farmer_count",Auth,farmerCount)
+farmerRoutes.post("/verfiy_farmer", Auth, uploadFarmerForVerfication)
+farmerRoutes.get("/farmer_count", Auth, farmerCount)
 
+
+farmerRoutes.get("/getMaizeProcurementSummary", getMaizeProcurementSummary);
+farmerRoutes.get("/getAssamMaizeProcurementSummary", getAssamMaizeProcurementSummary);
 module.exports = { farmerRoutes } 

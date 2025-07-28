@@ -3,6 +3,7 @@ const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
 const { eKharidHaryanaProcurementModel } = require("@src/v1/models/app/eKharid/procurements");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const { Mongoose, default: mongoose } = require("mongoose");
 module.exports.warehouseTest = async (req, res) => {
     try {
         const { associateName } = req.body;
@@ -163,22 +164,22 @@ module.exports.updateWarehouseDetailsBulk = async (req, res) => {
 
 module.exports.getBatchesIds = async (req, res) => {
     try {
-        const { req_id, seller_id } = req.body;
+        let { req_id, seller_id } = req.body;
 
         if (!req_id || !seller_id) {
             return res.status(400).json({ status: 400, message: "req_id and seller_id are required" });
         }
-
+        req_id = new mongoose.Types.ObjectId(req_id);
+        seller_id = new mongoose.Types.ObjectId(seller_id);
         // Build query
         const query = {
             req_id,
             seller_id,
             $or:[
-                { warehouseUpdatedAt: { $exists: false } },
+                // { warehouseUpdatedAt: { $exists: false } },
                 { warehouseUpdatedAt: null }
             ]
         };
-
         // Fetch batch IDs
         const batchIds = await Batch.find(query).limit(500)
             .select("batchId -_id")

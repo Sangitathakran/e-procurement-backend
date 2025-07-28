@@ -127,7 +127,6 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
   const { portalId, user_id } = req;
 
-  
 const portalObjectId = new mongoose.Types.ObjectId(portalId);
 const userObjectId = new mongoose.Types.ObjectId(user_id);
 
@@ -266,35 +265,101 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
        "schemes.cna": { $in: [portalObjectId, userObjectId] }
       },
     },
+    {
+      $lookup: {
+        from: "requests",
+        localField: "schemes.cna",
+        foreignField: "head_office_id",
+        as: "requests",
+        pipeline: [{$project: { _id: 1} }]
+
+      }
+    },
+      { $unwind: { path: "$requests", preserveNullAndEmptyArrays: true } },
+
+    {
+       $lookup: {
+        from: "batches",
+        localField: "requests._id",
+        foreignField: "req_id",
+        as: "batches",
+        pipeline: [{$project: { seller_id: 1} }]
+
+      }
+    },
+      { $unwind: { path: "$batches", preserveNullAndEmptyArrays: true } },
+
+   
     //   { $match: matchQuery },
     {
+    $group: {
+      _id: "$_id",
+      slaId: { $first: "$slaId" },
+      email: { $first: "$basic_details.email" },
+      sla_name: { $first: "$basic_details.name" },
+      address: { $first: "$address" },
+      status: { $first: "$status" },
+      poc: { $first: "$point_of_contact.name" },
+      branch: { $first: "$schemes.branch" },
+      sellerIds: { $addToSet: "$batches.seller_id" },
+    }
+  },
+    {
+      // $project: {
+      //   _id: 1,
+      //   slaId: 1,
+      //   email: "$basic_details.email",
+      //   sla_name: "$basic_details.name",
+      //   associate_count: {$addToSet: "$batches.seller_id"}, //{ $size: "$associatOrder_id" },
+      //   address: {
+      //     $concat: [
+      //       "$address.line1",
+      //       ", ",
+      //       { $ifNull: ["$address.line2", ""] },
+      //       ", ",
+      //       "$address.city",
+      //       ", ",
+      //       "$address.district",
+      //       ", ",
+      //       "$address.state",
+      //       ", ",
+      //       "$address.pinCode",
+      //       ", ",
+      //       { $ifNull: ["$address.country", ""] },
+      //     ],
+      //   },
+      //   status: 1,
+      //   poc: "$point_of_contact.name",
+      //   branch: "$schemes.branch",
+      // },
+
       $project: {
-        _id: 1,
-        slaId: 1,
-        email: "$basic_details.email",
-        sla_name: "$basic_details.name",
-        associate_count: { $size: "$associatOrder_id" },
-        address: {
-          $concat: [
-            "$address.line1",
-            ", ",
-            { $ifNull: ["$address.line2", ""] },
-            ", ",
-            "$address.city",
-            ", ",
-            "$address.district",
-            ", ",
-            "$address.state",
-            ", ",
-            "$address.pinCode",
-            ", ",
-            { $ifNull: ["$address.country", ""] },
-          ],
-        },
-        status: 1,
-        poc: "$point_of_contact.name",
-        branch: "$schemes.branch",
+      _id: 1,
+      slaId: 1,
+      email: 1,
+      sla_name: 1,
+      associate_count: { $size: { $setDifference: ["$sellerIds", [null]] } }, // filter out nulls if any
+      address: {
+        $concat: [
+          "$address.line1",
+          ", ",
+          { $ifNull: ["$address.line2", ""] },
+          ", ",
+          "$address.city",
+          ", ",
+          "$address.district",
+          ", ",
+          "$address.state",
+          ", ",
+          "$address.pinCode",
+          ", ",
+          { $ifNull: ["$address.country", ""] },
+        ],
       },
+      status: 1,
+      poc: 1,
+      branch: 1,
+    }
     },
   ];
 
