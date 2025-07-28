@@ -10,6 +10,7 @@ const {
 const {
   _query,
   _response_message,
+  _middleware,
 } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
@@ -2013,6 +2014,9 @@ module.exports.associateOrders = async (req, res) => {
         })
       );
     }
+    if(!req_id){
+      return res.json( { status: 400, message: _middleware.require('req_id')} );
+    }
 
     // Get payment-related offer IDs
     const paymentIds = await Payment.distinct("associateOffers_id", {
@@ -2038,6 +2042,12 @@ module.exports.associateOrders = async (req, res) => {
         status: 1,
       })
       .lean();
+      let batchObj = await Batch.find( { req_id}, { qty: 1}  ).lean();
+      console.log(batchObj.length, batchObj)
+      reqDetails.product.quantity = reqDetails.product.quantity = Number(
+        batchObj.reduce((acc, curr) => acc + (curr.qty || 0), 0)
+      ).toFixed(3);
+
 
     if (!reqDetails) {
       return res.status(404).send(
@@ -4174,6 +4184,8 @@ module.exports.proceedToPayPayment = async (req, res) => {
       query.$or = [
         { reqNo: { $regex: search, $options: "i" } },
         { "product.name": { $regex: search, $options: "i" } },
+        { "branchDetails.branchId": {$regex: search, $options: "i"} }
+        
       ];
     }
 
@@ -4202,7 +4214,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
     }
 
     const aggregationPipeline = [
-      { $match: query },
+      // { $match: query },
       { $sort: { createdAt: -1 } },
       // {
       //   $lookup: {
@@ -4270,6 +4282,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           as: "branchDetails",
         },
       },
+       { $match: query },
       {
         $addFields: {
           branchDetails: {
