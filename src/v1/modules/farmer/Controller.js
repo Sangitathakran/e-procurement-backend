@@ -5064,3 +5064,258 @@ module.exports.verfiyedFarmer = async (req, res) => {
   }
 };
 
+
+module.exports.getMaizeProcurementSummary = async (req, res) => {
+  try {
+    const summary = await Batch.aggregate([
+      {
+        $match: {
+          "delivered.delivered_at": { $exists: true }
+        }
+      },
+      // Join with Request to get product name
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'req_id',
+          foreignField: '_id',
+          as: 'request'
+        }
+      },
+      { $unwind: '$request' },
+      {
+        $match: {
+          'request.product.name': { $regex: 'maize', $options: 'i' }
+        }
+      },
+      // Join with Users to get seller info
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'seller_id',
+          foreignField: '_id',
+          as: 'seller'
+        }
+      },
+      { $unwind: '$seller' },
+      // Group before unwinding farmerOrderIds to avoid duplication of qty
+      {
+        $group: {
+          _id: '$seller.address.registered.state',
+          totalQty: { $sum: { $ifNull: ['$qty', 0] } },
+          sellerIds: { $addToSet: '$seller._id' },
+          farmerOrderIds: { $push: '$farmerOrderIds' }
+        }
+      },
+      // Flatten farmerOrderIds and count benefited farmers
+      {
+        $unwind: {
+          path: '$farmerOrderIds',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $unwind: {
+          path: '$farmerOrderIds',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $group: {
+          _id: '$_id',
+          totalQty: { $first: '$totalQty' },
+          sellerIds: { $first: '$sellerIds' },
+          farmerBenefitedIds: {
+            $addToSet: {
+              $cond: [
+                { $gt: ['$farmerOrderIds.qty', 0] },
+                '$farmerOrderIds.farmerOrder_id',
+                null
+              ]
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          state: '$_id',
+          totalQty: 1,
+          sellerIds: 1,
+          totalSellers: { $size: '$sellerIds' },
+          farmerBenefitedIds: {
+            $filter: {
+              input: '$farmerBenefitedIds',
+              as: 'fid',
+              cond: { $ne: ['$$fid', null] }
+            }
+          }
+        }
+      },
+      {
+        $addFields: {
+          farmersBenefitedCount: { $size: '$farmerBenefitedIds' }
+        }
+      }
+    ]);
+ 
+    // Fetch total registered farmers for each state
+    for (const item of summary) {
+      const registeredCount = await farmer.countDocuments({
+        associate_id: { $in: item.sellerIds }
+      });
+      item.totalFarmersRegistered = registeredCount;
+    }
+ 
+    // Generate overall totals
+    const totalSummary = {
+      state: 'Total',
+      totalQty: 0,
+      totalSellers: 0,
+      farmersBenefitedCount: 0,
+      totalFarmersRegistered: 0,
+      sellerIds: []
+    };
+ 
+    const allSellerSet = new Set();
+ 
+    summary.forEach(item => {
+      totalSummary.totalQty += item.totalQty;
+      totalSummary.farmersBenefitedCount += item.farmersBenefitedCount;
+      totalSummary.totalFarmersRegistered += item.totalFarmersRegistered;
+      item.sellerIds.forEach(id => allSellerSet.add(id.toString()));
+    });
+ 
+    totalSummary.sellerIds = Array.from(allSellerSet);
+    totalSummary.totalSellers = totalSummary.sellerIds.length;
+ 
+    summary.push(totalSummary);
+ 
+    return res.status(200).json({
+      success: true,
+      data: summary
+    });
+  } catch (err) {
+    console.error('Error in getMaizeProcurementSummary:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
+      error: err.message
+    });
+  }
+};
+ 
+module.exports.getAssamMaizeProcurementSummary = async (req, res) => {
+  try {
+    const summary = await Batch.aggregate([
+      // Step 1: Match only approved and paid batches
+      {
+        $match: {
+          "delivered.delivered_at": { $exists: true }
+        }
+      },
+      // Step 2: Lookup Request to filter maize
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'req_id',
+          foreignField: '_id',
+          as: 'request'
+        }
+      },
+      { $unwind: '$request' },
+      {
+        $match: {
+          'request.product.name': { $regex: 'maize', $options: 'i' }
+        }
+      },
+      // Step 3: Lookup Seller
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'seller_id',
+          foreignField: '_id',
+          as: 'seller'
+        }
+      },
+      { $unwind: '$seller' },
+      // Step 4: Filter for state = Assam
+      {
+        $match: {
+          'seller.address.registered.state': { $regex: '^Assam$', $options: 'i' }
+        }
+      },
+      // Step 5: Group once by batch to get unique qty
+      {
+        $group: {
+          _id: '$_id',
+          qty: { $first: '$qty' },
+          seller_id: { $first: '$seller._id' },
+          state: { $first: '$seller.address.registered.state' },
+          farmerOrderIds: { $first: '$farmerOrderIds' }
+        }
+      },
+      // Step 6: Regroup by state
+      {
+        $group: {
+          _id: '$state',
+          totalQty: { $sum: { $ifNull: ['$qty', 0] } },
+          sellerIds: { $addToSet: '$seller_id' },
+          farmerBenefitedIds: {
+            $addToSet: {
+              $cond: [
+                { $gt: ['$farmerOrderIds.qty', 0] },
+                '$farmerOrderIds.farmerOrder_id',
+                null
+              ]
+            }
+          }
+        }
+      },
+      // Step 7: Project clean result
+      {
+        $project: {
+          _id: 0,
+          state: '$_id',
+          totalQty: 1,
+          sellerIds: 1,
+          totalSellers: { $size: '$sellerIds' },
+          farmerBenefitedIds: {
+            $filter: {
+              input: '$farmerBenefitedIds',
+              as: 'fid',
+              cond: { $ne: ['$$fid', null] }
+            }
+          }
+        }
+      },
+      {
+        $addFields: {
+          farmersBenefitedCount: { $size: '$farmerBenefitedIds' }
+        }
+      }
+    ]);
+
+    // Step 8: Fetch registered farmers under sellers
+    for (const item of summary) {
+      const registeredCount = await farmer.countDocuments({
+        associate_id: { $in: item.sellerIds }
+      });
+      item.totalFarmersRegistered = registeredCount;
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: summary
+    });
+  } catch (err) {
+    console.error('Error in getAssamMaizeProcurementSummary:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
+      error: err.message
+    });
+  }
+};
+
+

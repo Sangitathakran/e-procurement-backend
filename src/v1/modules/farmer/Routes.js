@@ -95,4 +95,7 @@ farmerRoutes.post("/haryana-farmer-uplod", apiKeyAuth, haryanaFarmerUplod);
 farmerRoutes.post("/verfiy_farmer",Auth,uploadFarmerForVerfication)
 farmerRoutes.get("/farmer_count",Auth,farmerCount)
 
+
+farmerRoutes.get("/getMaizeProcurementSummary", getMaizeProcurementSummary);
+farmerRoutes.get("/getAssamMaizeProcurementSummary", getAssamMaizeProcurementSummary);
 module.exports = { farmerRoutes } 
