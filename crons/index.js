@@ -37,7 +37,7 @@ const { runBankVerificationJob } = require('./verifyDraftJob');
 async function main() {
   const VERFICATIONS = VERFICATION || "OFF";
 
-  if (VERFICATIONS === "ON") {
+  if (VERFICATIONS === "ONN") {
     logger.info("[Cron Init] Bank verification scheduler initialized...");
 
     cron.schedule("*/5 * * * *", async () => {
