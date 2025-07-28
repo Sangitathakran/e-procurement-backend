@@ -37,6 +37,7 @@ const farmerOrderSchema = new mongoose.Schema({
     exitGatePassId: { type: Number },
     ekhrid:{ type: Boolean, default: false },
     ekhridPaymentDetails:{type: Object,  default: null},
+    jformID:{type:Number,default:null},
     ..._commonKeys
 }, { timestamps: true });
 

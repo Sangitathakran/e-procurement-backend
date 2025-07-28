@@ -2,6 +2,7 @@ const { NA } = require("xlsx-populate/lib/FormulaError")
 
 
 const _collectionName = {
+     statewisemanditax:"statewisemanditax",
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",
@@ -65,20 +66,21 @@ const _collectionName = {
     SLA: "SLA",
     CCAvenueResponse: "CCAvenueResponse",
     PaymentLogsHistory: "PaymentLogsHistory",
-    eKharidHaryana: "ekharidprocurements",
+    // eKharidHaryana: "ekharidprocurements",
     agristackLog: "agristackLog",
     commodityStandard: "commodityStandard",
     SchemeAssign: "SchemeAssign",
     ClientToken: "ClientToken",
     centerProjection: "centerProjection",
     statewisemanditax: "statewisemanditax",
-    eKharidHaryana: "eKharidProcurement",
     AgristackFarmerDetail: 'AgristackFarmerDetails',
     LoginHistory: "loginhistory",
     loginAttempt: "loginAttempt",
     forgetHistory: "forgetHistory",
-
+    agristackLog:"agristackLog",
     verfiyFarmer: "verfiyfarmer",
+    associateMandiName: "associateMandiName",
+    eKharidHaryana: "ekhridnewprocs",
 }
 
 const _userType_Feature_Collection = {

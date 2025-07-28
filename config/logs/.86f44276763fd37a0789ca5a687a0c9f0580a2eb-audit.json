@@ -1,0 +1,20 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\xampp\\htdocs\\procurement_admin_apis\\config\\logs\\.86f44276763fd37a0789ca5a687a0c9f0580a2eb-audit.json",
+    "files": [
+        {
+            "date": 1748502348672,
+            "name": "C:\\xampp\\htdocs\\procurement_admin_apis\\config\\logs\\app-2025-05-29.log",
+            "hash": "ca2a45c6cfa85133c3ac299b0ae38d3ca7574a78dd705e26f9ee1dd337638455"
+        },
+        {
+            "date": 1748578625763,
+            "name": "C:\\xampp\\htdocs\\procurement_admin_apis\\config\\logs\\app-2025-05-30.log",
+            "hash": "15ccfd300141cdbea7bb4a75a2b355c5e0103023f1495452de9f781f5e3e091f"
+        }
+    ],
+    "hashType": "sha256"
+}

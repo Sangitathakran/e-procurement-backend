@@ -13,23 +13,52 @@ const moment = require("moment");
 const { dumpJSONToExcel } = require("@src/v1/utils/helpers");
 const mongoose = require("mongoose");
 
+
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     const { user_id, portalId } = req;
     const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, slaName, schemeName, commodity, state } = req.query;
 
-    let query = search ? {
-        $or: [
-            { "reqNo": { $regex: search, $options: 'i' } },
-            { "product.name": { $regex: search, $options: 'i' } },
-        ]
-    } : {};
+    // let query = search ? {
+    //     $or: [
+    //         { "reqNo": { $regex: search, $options: 'i' } },
+    //         { "product.name": { $regex: search, $options: 'i' } },
+    //         { "product.schemeId.schemeName": { $regex: search, $options: 'i' } },
+    //     ]
+    // } : {};
+
+    let query = {};
+
+    if (search) {
+        const searchRegex = { $regex: search, $options: 'i' };
+
+        // Search for matching schemes based on search string
+        const matchingSchemes = await Scheme.find({
+            $or: [
+                { schemeName: searchRegex },
+                { schemeId: searchRegex }
+            ]
+        }).select('_id');
+
+        const matchingSchemeIds = matchingSchemes.map(s => s._id);
+
+        query.$or = [
+            { "reqNo": searchRegex },
+            { "product.name": searchRegex },
+        ];
+
+        // If any matching schemeIds found, include schemeId search
+        if (matchingSchemeIds.length > 0) {
+            query.$or.push({ "product.schemeId": { $in: matchingSchemeIds } });
+        }
+    }
+
     if (schemeName) {
         const scheme = await Scheme.findOne({ schemeName: { $regex: schemeName, $options: 'i' } }).select('_id');
         if (scheme) {
             query["product.schemeId"] = new mongoose.Types.ObjectId(scheme._id);
         }
     }
-    
+
     if (slaName) {
         const sla = await SLAManagement.findOne({ "basic_details.name": { $regex: slaName, $options: 'i' } }).select('_id');
         if (sla) {
@@ -60,15 +89,17 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
         .skip(skip)
         .limit(parseInt(limit)) : await RequestModel.find(query).select(selectValues).sort(sortBy);
 
-        records.rows = records.rows.map((doc) => {
-            const obj = doc.toObject();
-            const commdityName = obj?.product?.name || '';
-            const schemeName= obj?.product?.schemeId?.schemeName || '';
-            const season= obj?.product?.schemeId?.season || '';
-            const period= obj?.product?.schemeId?.period || '';
-            obj.scheme_name = `${schemeName} ${commdityName} ${season} ${period}`;
-            return obj;
-        });
+    records.rows = records.rows.map((doc) => {
+        const obj = doc.toObject();
+        const commdityName = obj?.product?.name || '';
+        const schemeName = obj?.product?.schemeId?.schemeName || '';
+        const season = obj?.product?.schemeId?.season || '';
+        const period = obj?.product?.schemeId?.period || '';
+        const slaName = obj?.sla_id?.basic_details?.name || '';
+        obj.scheme_name = `${schemeName} ${commdityName} ${season} ${period}`;
+        obj.sla_name = slaName;
+        return obj;
+    });
 
     records.count = records.rows.length;
 
@@ -104,8 +135,6 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
     }
 });
-
-
 
 module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
     const {
@@ -200,46 +229,46 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
 
     // Projection + Pagination
     const aggregationPipeline = [...basePipeline,
-        {
-            $project: {
-                _id: 1,
-                batchId: 1,
-                associateName: 1,
-                procurementCenterName: 1,
-                qty: 1,
-                delivered_at: "$delivered.delivered_at",
-                status: 1,
-                dispatched: 1,
-                intransit: 1,
-                delivered: 1,
-                final_quality_check: 1,
-                receiving_details: 1,
-                seller_id: 1,
-                procurementCenter_id: 1,
-                req_id: 1,
-                farmerOrderIds: 1,
-                qty: 1,
-                goodsPrice: 1,
-                totalPrice: 1,
-                bo_approve_status: 1,
-                payement_approval_at: 1,
-                payment_approve_by: 1,
-                ho_approval_at: 1,
-                ho_approve_by: 1,
-                ho_approve_status: 1,
-                payment_by: 1,
-                payment_at: 1,
-                status: 1,
-                agent_approve_status: 1,
-                warehousedetails_id: 1,
-                wareHouse_approve_at: 1,
-                wareHouse_approve_status: 1,
-                allotedQty: 1,
-                available_qty: 1,
-                createdAt: 1,
-                updatedAt: 1
-            }
+    {
+        $project: {
+            _id: 1,
+            batchId: 1,
+            associateName: 1,
+            procurementCenterName: 1,
+            qty: 1,
+            delivered_at: "$delivered.delivered_at",
+            status: 1,
+            dispatched: 1,
+            intransit: 1,
+            delivered: 1,
+            final_quality_check: 1,
+            receiving_details: 1,
+            seller_id: 1,
+            procurementCenter_id: 1,
+            req_id: 1,
+            farmerOrderIds: 1,
+            qty: 1,
+            goodsPrice: 1,
+            totalPrice: 1,
+            bo_approve_status: 1,
+            payement_approval_at: 1,
+            payment_approve_by: 1,
+            ho_approval_at: 1,
+            ho_approve_by: 1,
+            ho_approve_status: 1,
+            payment_by: 1,
+            payment_at: 1,
+            status: 1,
+            agent_approve_status: 1,
+            warehousedetails_id: 1,
+            wareHouse_approve_at: 1,
+            wareHouse_approve_status: 1,
+            allotedQty: 1,
+            available_qty: 1,
+            createdAt: 1,
+            updatedAt: 1
         }
+    }
     ];
 
     if (paginate == 1) {
@@ -297,8 +326,6 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
         message: _response_message.found("requirement")
     }));
 });
-
-
 
 module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 

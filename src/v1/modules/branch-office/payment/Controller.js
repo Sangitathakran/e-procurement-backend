@@ -644,7 +644,7 @@ module.exports.batchList = async (req, res) => {
             _id: { $in: paymentIds },
             associateOffer_id,
             bo_approve_status: batch_status == _paymentApproval.pending ? _paymentApproval.pending : _paymentApproval.approved,
-            ...(search ? { order_no: { $regex: search, $options: 'i' } } : {}) // Search functionality
+            ...(search ? { batchId: { $regex: search, $options: 'i' } } : {}) // Search functionality
         };
 
         const records = { count: 0 };
@@ -1389,13 +1389,6 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
 
         const { portalId, user_id } = req;
 
-        // Ensure necessary indexes are created (run once in your database setup)
-        await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
-        await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
-        await Batch.createIndexes({ req_id: 1 });
-        await Payment.createIndexes({ batch_id: 1 });
-        await Branches.createIndexes({ _id: 1 });
-
         // Step 1: Get req_ids user has access to
         const paymentReqIds = await Payment.find({ bo_id: { $in: [portalId, user_id] } }).distinct("req_id");
         let baseMatch = { _id: { $in: paymentReqIds } };
@@ -1518,7 +1511,9 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
         }
 
         if (isExport == 1) {
+           
             let exportData = enrichedRequests;
+            
             const exportLimit = parseInt(req.query.exportLimit || 0);
             if (exportLimit > 0) {
                 exportData = exportData.slice(0, exportLimit);
@@ -1527,8 +1522,8 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
             const record = exportData.map((item) => ({
                 "Order ID": item?.reqNo || 'NA',
                 "BRANCH NAME": item?.branch?.branchName || 'NA',
-                "Scheme": item?.scheme?.name || 'NA',
-                "SLA NAME": item?.scheme?.name || 'NA',
+                "Scheme": item?.scheme?.schemeName || 'NA',
+                "SLA NAME": item?.sla?.basic_details.name || 'NA',
                 "Commodity": item?.product?.name || 'NA',
                 "Quantity Purchased": item?.qtyPurchased || 'NA',
                 "Amount Payable": item?.amountPayable || 'NA',
@@ -1573,13 +1568,6 @@ module.exports.paymentWithoutAggregtionExport = async (req, res) => {
 
         const { portalId, user_id } = req;
 
-        // Ensure necessary indexes are created (run once in your database setup)
-        await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
-        await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
-        await Batch.createIndexes({ req_id: 1 });
-        await Payment.createIndexes({ batch_id: 1 });
-        await Branches.createIndexes({ _id: 1 });
-
         // Step 1: Get req_ids user has access to
         const paymentReqIds = await Payment.find({ bo_id: { $in: [portalId, user_id] } }).distinct("req_id");
         let baseMatch = { _id: { $in: paymentReqIds } };
@@ -1596,8 +1584,6 @@ module.exports.paymentWithoutAggregtionExport = async (req, res) => {
         // Step 3: Get filtered requests with basic info
         let requests = await RequestModel.find(baseMatch)
             .sort({ createdAt: -1 })
-            // .skip(paginate == 1 ? (page - 1) * limit : 0)
-            // .limit(paginate == 1 ? limit : 0)
             .lean();
 
         const requestIds = requests.map(r => r._id);
@@ -1694,17 +1680,11 @@ module.exports.paymentWithoutAggregtionExport = async (req, res) => {
         if (isExport == 1) {
             
             let exportData = enrichedRequests;
-
-            // const exportLimit = parseInt(req.query.exportLimit || 0);
-            // if (exportLimit > 0) {
-            //     exportData = exportData.slice(0, exportLimit);
-            // }
-
             const record = exportData.map((item) => ({
                 "Order ID": item?.reqNo || 'NA',
                 "BRANCH NAME": item?.branch?.branchName || 'NA',
-                "Scheme": item?.scheme?.name || 'NA',
-                "SLA NAME": item?.scheme?.name || 'NA',
+                "Scheme": item?.scheme?.schemeName || 'NA',
+                "SLA NAME": item?.sla?.basic_details?.name || 'NA',
                 "Commodity": item?.product?.name || 'NA',
                 "Quantity Purchased": item?.qtyPurchased || 'NA',
                 "Amount Payable": item?.amountPayable || 'NA',

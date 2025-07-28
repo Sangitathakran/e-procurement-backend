@@ -34,8 +34,8 @@ const ProcurementDetailsSchema = new mongoose.Schema({
   laborChargesPayableDate: { type: Date },
   commissionCharges: { type: Number },
   commissionChargesPayableDate: { type: Date },
-
-  batchIdUpdatedAt: { type: Date }
+  batchIdUpdatedAt: { type: Date },
+  notIncludedJformId: { type: Boolean, default: false }, // Flag to indicate if JForm ID is not included
 });
 
 // Payment Details Schema
