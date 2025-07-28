@@ -23,7 +23,7 @@ const {
   stateWiseCommodityDetail,
   getStateWiseCommodityStats,
   dashboardWidgetListV2,
-  getBenefittedFarmersAndPaymentAmount,
+  getBenefittedFarmersAndPaymentAmount
 } = require("./Controller");
 
 

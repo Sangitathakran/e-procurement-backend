@@ -8,7 +8,10 @@ const { Commodity } = require("@src/v1/models/master/Commodity");
 const { Associate } = require("@src/v1/models/app/auth/Associate");
 const {commodityStandard,} = require("@src/v1/models/master/commodityStandard");
 const { Scheme } = require("@src/v1/models/master/Scheme");
-const {StateDistrictCity} = require("@src/v1/models/master/StateDistrictCity");
+const {
+  StateDistrictCity,
+} = require("@src/v1/models/master/StateDistrictCity");
+const { State } = require("@src/v1/models/master/states");
 const UserRole = require("@src/v1/models/master/UserRole");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { default: mongoose } = require("mongoose");

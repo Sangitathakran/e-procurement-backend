@@ -18,8 +18,9 @@ const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const xlsx = require("xlsx");
 const csv = require("csv-parser");
 const { _userType, _center_type } = require("@src/v1/utils/constants");
+const Readable = require('stream').Readable;
+
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
-const Readable = require("stream").Readable;
 
 module.exports.createProcurementCenter = async (req, res) => {
   try {
@@ -285,7 +286,52 @@ module.exports.getProcurementCenter = async (req, res) => {
               path: "user_id",
               select:
                 "basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code basic_details.associate_details.organization_name",
-            })
+            });
+
+            if (records.rows.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: records.rows,
+                    fileName: `collection-center.xlsx`,
+                    worksheetName: `collection-center}`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
+            }
+        
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+  }
+
+//start of prachi code
+module.exports.getHoProcurementCenter = async (req, res) => {
+    try {
+        const { page, limit, skip, paginate = 1, sortBy, search = '', associateName, state, city, isExport = 0 } = req.query;
+       let query = { deletedAt: null };
+
+        if (search) {
+        const orFilters = [
+            { center_name: { $regex: search, $options: "i" } },
+            {center_code: { $regex: search, $options: "i"} }
+        ];
+
+        if (mongoose.Types.ObjectId.isValid(search)) {
+            orFilters.push({ _id: new mongoose.Types.ObjectId(search) });
+        }
+
+        query.$or = orFilters;
+        }
+
+        if (associateName) query["point_of_contact.name"] = { $regex: associateName, $options: "i" };
+        if (state) query["address.state"] = { $regex: state, $options: "i" };
+        if (city) query["address.city"] = { $regex: city, $options: "i" };
+
+        const records = { count: 0 };
+        // Populates user_id with only bank_details
+        const baseQuery = ProcurementCenter.find(query)
+            .populate('user_id', 'bank_details')
             .sort(sortBy);
 
     records.count = await ProcurementCenter.countDocuments(query);
@@ -723,4 +769,4 @@ module.exports.generateCenterCode = async (req, res) => {
   } catch (error) {
     _handleCatchErrors(error, res);
   }
-};
+}

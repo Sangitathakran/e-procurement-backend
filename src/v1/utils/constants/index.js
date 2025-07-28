@@ -66,6 +66,8 @@ const _collectionName = {
     SLA: "SLA",
     CCAvenueResponse: "CCAvenueResponse",
     PaymentLogsHistory: "PaymentLogsHistory",
+    eKharidHaryana : "ekharidprocurements",
+    states: "states",
     // eKharidHaryana: "ekharidprocurements",
     agristackLog: "agristackLog",
     commodityStandard: "commodityStandard",
@@ -669,6 +671,15 @@ const _verificationStatus = {
     failed: 3
 }
 
+const dateRanges = ['currentMonth', 'lastMonth', 'last3Months', 'last6Months', 'custom'];
+const dateRangesObj = {
+    currentMonth: "currentMonth",
+    lastMonth: "lastMonth",
+    last3Months: "last3Months",
+    last6Months:"last6Months",
+    custom: "custom"
+}
+
 module.exports = {
     _userAction,
     _farmerType,
@@ -744,5 +755,7 @@ module.exports = {
     _verfiycationStatus,
     _ccAvenuePaymentStatus,
     _statesAndUTs,
-    _verificationStatus
+    _verificationStatus,
+    dateRanges,
+    dateRangesObj
 }
