@@ -21,6 +21,8 @@ const {
   _associateOfferStatus,
   _paymentApproval,
   received_qc_status,
+  dateRanges,
+  dateRangesObj,
 } = require("@src/v1/utils/constants");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 // const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
@@ -62,7 +64,6 @@ const { Scheme } = require("@src/v1/models/master/Scheme");
 const { Commodity } = require("@src/v1/models/master/Commodity");
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 const { buildDateRange } = require("./Services");
-const { dateRanges, dateRangesObj } = require("../../agent/utils/constants");
 
 const validateMobileNumber = async (mobile) => {
   let pattern = /^[0-9]{10}$/;
