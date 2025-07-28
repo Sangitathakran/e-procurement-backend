@@ -20,18 +20,47 @@ const uploadToS3 = async (req, res) => {
         // #swagger.tags = ['aws']
         let { folder_name } = req.body
         let { files } = req
+            const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/jpg',
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ];
+    const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB
 
-        if (files.length == 0) {
-            return sendResponse({res, status: 400, errors: [{ message: `Attachment file is required` }] });
-        }
+        if (!files || files.length === 0) {
+      return sendResponse({
+        res,
+        status: 400,
+        errors: [{ message: `Attachment file is required` }]
+      });
+    }
+
         let paths = []
         for (const file of files) {
+           if (file.size > MAX_FILE_SIZE) {
+        return sendResponse({
+          res,
+          status: 400,
+          errors: [{ message: `${file.originalname} exceeds the 3MB size limit` }]
+        });
+      }
+
+      if (!allowedTypes.includes(file.mimetype)) {
+        return sendResponse({
+          res,
+          status: 400,
+          errors: [{ message: `${file.originalname} has an unsupported file type` }]
+        });
+      }
+
             let filename = uuidv4() + `_${file.originalname}`
             const key = folder_name ? (folder_name + "/" + filename) : filename;
             const uploadParams = {
                 Bucket: config.s3Config.bucketName,
                 Key: key,
                 Body: file.buffer || file,
+                  ContentType: file.mimetype
             };
             let s3Resp = await S3.upload(uploadParams).promise();
 
@@ -79,4 +108,6 @@ module.exports = {
     uploadToS3,
     deleteFromS3
 }
+
+
 

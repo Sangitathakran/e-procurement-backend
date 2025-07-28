@@ -224,9 +224,10 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
                 $addFields: {
                     schemeName: {
                         $concat: [
-                            { $ifNull: ["$schemeDetails.schemeName", ""] }, "",
-                            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
-                            { $ifNull: ["$schemeDetails.procurement", ""] }, "",
+                            { $ifNull: ["$schemeDetails.schemeName", ""] }, " ",
+                           // { $ifNull: ["$schemeDetails.commodityDetails.name", ""] }, "",
+                            { $ifNull: ["$product.name", "N/A"] }, " ",
+                            { $ifNull: ["$schemeDetails.procurement", ""] }, " ",
                             { $ifNull: ["$schemeDetails.season", ""] }, "",
                             { $ifNull: ["$schemeDetails.period", ""] }
                         ]
@@ -239,6 +240,16 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
                 }
             },
 
+            {
+                $group: {
+                    _id: "$_id",
+                    doc: { $first: "$$ROOT" }
+                }
+            },
+            {
+                $replaceRoot: { newRoot: "$doc" }
+            },
+
              // Apply dynamic filters if they exist
              ...(schemeName ? [{ $match: { schemeName: { $regex: schemeName, $options: 'i' } } }] : []),
              ...(commodity ? [{ $match: { commodity: { $regex: commodity, $options: 'i' } } }] : []),
@@ -247,7 +258,8 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
              ...(cna ? [{ $match: { cna: { $regex: cna, $options: 'i' } } }] : []),
             // ...(sortBy ? [{ $sort: { [sortBy]: 1 } }] : []),  // Sorting if required
             // Sorting (Always Descending)
-            { $sort: { [sortBy || "createdAt"]: -1 } }  
+            // { $sort: { [sortBy || "createdAt"]: -1 } }  
+            { $sort: { createdAt: -1 } }
 
         ];
        
@@ -271,8 +283,9 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
             count: totalCount,
             rows: paginatedResults,
         };
+        
 
-        if (paginate == 1) {
+        if (paginate == 1 && isExport != 1) {
             records.page = page;
             records.limit = limit;
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
@@ -285,15 +298,18 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
                 return {
                     "Order Id": item?.reqNo || "NA",
                     "Commodity": item?.product.name || "NA",
-                    "Grade": item?.product.grade || "NA",
+                    "SCHEME": item?.schemeName || "NA",
+                    "CNA NAME": item?.headOfficesName || "NA",
+                    "BO NAME": item?.branchName || "NA",
+                    "SLA NAME": item?.slaName || "NA",
+                    "SUB STANDARD": item?.product?.grade || "NA",
                     "MSP": item?.quotedPrice || "NA",
-                    "Expected Procurement": item?.expectedProcurementDate || "NA",
-                    "Expected Delivery Date": item?.deliveryDate || "NA",
-                    "Delivery Location": item?.address.deliveryLocation || "NA",
                     "SLA Name": item?.slaName || "NA",
-                    "Head Office Name": item?.headOfficesName || "NA",
+                    "EXPECTED PROCUREMENT": item?.expectedProcurementDate || "NA",
+                    "EXPECTED DELIVERY DATE": item?.deliveryDate || "NA",
                 };
             });
+
 
             if (record.length > 0) {
                 dumpJSONToExcel(req, res, {

@@ -1,7 +1,11 @@
 const mongoose = require('mongoose');
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { _query, _response_message, _middleware } = require("@src/v1/utils/constants/messages");
+const { _batchStatus, received_qc_status, _paymentstatus, _paymentmethod, _userType, _paymentApproval } = require("@src/v1/utils/constants");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { ExternalBatch } = require("@src/v1/models/app/procurement/ExternalBatch");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
@@ -9,6 +13,7 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { decryptJwtToken } = require('@src/v1/utils/helpers/jwt');
 const PaymentLogsHistory = require('@src/v1/models/app/procurement/PaymentLogsHistory');
+const moment = require('moment');
 
 
 // module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
@@ -22,15 +27,15 @@ const PaymentLogsHistory = require('@src/v1/models/app/procurement/PaymentLogsHi
 //         }
 
 //         const decode = await decryptJwtToken(getToken);
-//         const UserId = decode.data.user_id;
+//         const UserId = decode.data.organization_id;
 
 //         if (!mongoose.Types.ObjectId.isValid(UserId)) {
 //             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
 //         }
-        
+
 //         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
 //         const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
-        
+
 //         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
 //             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
 //             : ownerwarehouseIds;
@@ -109,17 +114,17 @@ const PaymentLogsHistory = require('@src/v1/models/app/procurement/PaymentLogsHi
 
 //using aggregate for filter and search
 module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
-    const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status, productName, warehouse_name } = req.query;
+    const { page = 1, limit = 10, search = '', isExport = 0, status, productName, warehouse_name } = req.query;
     const { warehouseIds = [] } = req.body;
 
-    try { 
+    try {
         const getToken = req.headers.token || req.cookies.token;
         if (!getToken) {
             return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
 
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -128,7 +133,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
         //const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
         const ownerwarehouseIds = warehouseDetails.map(id => new mongoose.Types.ObjectId(id));
- 
+
         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
             : ownerwarehouseIds;
@@ -141,6 +146,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
         }
 
         const searchRegex = search ? new RegExp(search, 'i') : null;
+        const sortBy = 'createdAt';
 
         const pipeline = [
             {
@@ -175,16 +181,122 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                     as: 'req_id'
                 }
             },
-
             { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
             { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
             { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
             { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
             {
                 $match: {
-                   "warehousedetails_id._id": { $in: finalwarehouseIds },
-                   ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
-                 
+                    "warehousedetails_id._id": { $in: finalwarehouseIds },
+                    ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+                    wareHouse_approve_status: 'Received',
+                    ...(search && searchRegex && {
+                        $or: [
+                            { batchId: { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+                            { "procurementCenter_id.center_name": { $regex: searchRegex } },
+                            { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+                        ]
+                    }),
+                    ...(status && { "final_quality_check.status": status }),
+                    ...(productName && { "req_id.product.name": productName })
+                }
+            },
+            {
+                $group: {
+                    _id: "$batchId",
+                    doc: { $first: "$$ROOT" }
+                }
+            },
+            { $replaceRoot: { newRoot: "$doc" } },
+            {
+                $project: {
+                    batchId: 1,
+                    qty: 1,
+                    received_on: 1,
+                    qc_report: 1,
+                    wareHouse_code: 1,
+                    commodity: 1,
+                    "final_quality_check.status": 1,
+                    "final_quality_check.product_images": 1,
+                    "final_quality_check.qc_images": 1,
+                    "final_quality_check.rejected_reason": 1,
+                    "final_quality_check.whr_receipt": 1,
+                    "final_quality_check.whr_receipt_image": 1,
+                    "req_id.product.name": 1,
+                    "req_id._id": 1,
+                    "req_id.deliveryDate": 1,
+                    "receiving_details.received_on": 1,
+                    "receiving_details.vehicle_details": 1,
+                    "receiving_details.document_pictures": 1,
+                    "receiving_details.bag_weight_per_kg": 1,
+                    "receiving_details.no_of_bags": 1,
+                    "receiving_details.quantity_received": 1,
+                    "receiving_details.truck_photo": 1,
+                    "warehousedetails_id.basicDetails.warehouseName": 1,
+                    "warehousedetails_id.wareHouse_code": 1,
+                    "warehousedetails_id._id": 1,
+                    "procurementCenter_id.center_name": 1,
+                    "procurementCenter_id._id": 1,
+                    "seller_id.basic_details.associate_details.associate_name": 1,
+                    "seller_id.basic_details.associate_details.organization_name": 1,
+                    "seller_id._id": 1,
+                    wareHouse_approve_status: 1,
+                    createdAt: 1
+                }
+            },
+            // { $sort: { [sortBy]: 1 } },
+            { $sort: { createdAt: - 1, _id: -1 } },
+            { $skip: (page - 1) * limit },
+            { $limit: parseInt(limit) }
+        ];
+
+        //console.log(JSON.stringify(pipeline, null, 2)) 
+        const rows = await Batch.aggregate(pipeline);
+
+
+        const totalCountPipeline = [
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    localField: 'warehousedetails_id',
+                    foreignField: '_id',
+                    as: 'warehousedetails_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'procurementcenters',
+                    localField: 'procurementCenter_id',
+                    foreignField: '_id',
+                    as: 'procurementCenter_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'seller_id',
+                    foreignField: '_id',
+                    as: 'seller_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'requests',
+                    localField: 'req_id',
+                    foreignField: '_id',
+                    as: 'req_id'
+                }
+            },
+            { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
+            {
+                $match: {
+                    "warehousedetails_id._id": { $in: finalwarehouseIds },
+                    ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
                     wareHouse_approve_status: 'Received',
                     ...(search && searchRegex && {
                         $or: [
@@ -198,57 +310,17 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                     ...(status && {
                         "final_quality_check.status": status  // This checks the status field for exact match
                     }),
-                    ...(productName && { "req_id.product.name": productName})//{ $regex: new RegExp(productName, 'i') } })  // If productName is provided
+                    ...(productName && { "req_id.product.name": productName })
                 }
             },
-            {
-                $project: {
-                    batchId: 1,
-                    qty: 1,
-                    received_on: 1,
-                    qc_report: 1,
-                    wareHouse_code: 1,
-                    //status: 1,
-                    commodity: 1,
-                    "final_quality_check.status":1,
-                    "final_quality_check.product_images":1,
-                    "final_quality_check.qc_images":1,
-                    "final_quality_check.rejected_reason":1,
-                    "final_quality_check.whr_receipt":1,
-                    "final_quality_check.whr_receipt_image":1,
-                    
-                    "req_id.product.name":1,
-                    "req_id._id":1,
-                    "req_id.deliveryDate":1,
-                    "receiving_details.received_on": 1,
-                    "receiving_details.vehicle_details": 1,
-                    "receiving_details.document_pictures": 1,
-                    "receiving_details.bag_weight_per_kg": 1,
-                    "receiving_details.no_of_bags": 1,
-                    "receiving_details.quantity_received": 1,
-                    "receiving_details.truck_photo": 1,
-                    "final_quality_check.whr_receipt": 1,
-                    "warehousedetails_id.basicDetails.warehouseName": 1,
-                    "warehousedetails_id.wareHouse_code": 1,
-                    "warehousedetails_id._id": 1,
-                    "procurementCenter_id.center_name": 1,
-                    "procurementCenter_id._id": 1,
-                    "seller_id.basic_details.associate_details.associate_name": 1,
-                    "seller_id.basic_details.associate_details.organization_name": 1,
-                    "seller_id._id": 1,
-                    wareHouse_approve_status: 1,
-                    createdAt: 1
-                }
-            },
-            { $sort: { [sortBy]: 1 } },
-            { $skip: (page - 1) * limit },
-            { $limit: parseInt(limit) }
+            { $count: "totalCount" } // This will count all matching documents
         ];
 
-       //console.log(JSON.stringify(pipeline, null, 2)) 
-        const rows = await Batch.aggregate(pipeline);
-        const totalCount = rows.length;
-       
+        const totalCountResult = await Batch.aggregate(totalCountPipeline);
+        const totalCount = totalCountResult.length > 0 ? totalCountResult[0].totalCount : 0;
+
+        // const totalCount = rows.length;
+
         const query = {
             "warehousedetails_id._id": { $in: finalwarehouseIds },
             ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
@@ -265,16 +337,16 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
             ...(status && {
                 "final_quality_check.status": status  // This checks the status field for exact match
             }),
-            ...(productName && { "req_id.product.name": productName})//{ $regex: new RegExp(productName, 'i') } })  // If productName is provided
+            ...(productName && { "req_id.product.name": productName })//{ $regex: new RegExp(productName, 'i') } })  // If productName is provided
         };
 
-            const stats = {
-             totalBatches: totalCount,
-             approvedBatches: await Batch.countDocuments({ ...query, status: 'Approved' }),
-             rejectedBatches: await Batch.countDocuments({ ...query, status: 'Rejected' }),
-             pendingBatches: await Batch.countDocuments({ ...query, status: 'Pending' }),
-             pendingReceivingBatches: await Batch.countDocuments({ ...query, "dispatched.received": { $exists: false } })
-         };
+        const stats = {
+            totalBatches: totalCount,
+            approvedBatches: await Batch.countDocuments({ ...query, status: 'Approved' }),
+            rejectedBatches: await Batch.countDocuments({ ...query, status: 'Rejected' }),
+            pendingBatches: await Batch.countDocuments({ ...query, status: 'Pending' }),
+            pendingReceivingBatches: await Batch.countDocuments({ ...query, "dispatched.received": { $exists: false } })
+        };
 
 
         // Export functionality
@@ -331,15 +403,15 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
 //         }
 
 //         const decode = await decryptJwtToken(getToken);
-//         const UserId = decode.data.user_id;
+//         const UserId = decode.data.organization_id;
 
 //         if (!mongoose.Types.ObjectId.isValid(UserId)) {
 //             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
 //         }
-        
+
 //         const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
 //         const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
-        
+
 //         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
 //             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
 //             : ownerwarehouseIds;
@@ -351,7 +423,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
 //                 message: "No warehouses found for the user."
 //             }));
 //         }
-        
+
 //         const query = {
 //             "warehousedetails_id": { $in: finalwarehouseIds },
 //             wareHouse_approve_status: 'Pending', 
@@ -419,7 +491,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
 
 //using aggregate for search and filter getPendingBatchesByWarehouse
 module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res) => {
-    const { page = 1, limit = 10, sortBy = "createdAt", search = '', isExport = 0, status, productName,warehouse_name } = req.query;
+    const { page = 1, limit = 10,  search = '', isExport = 0, status, productName, warehouse_name } = req.query;
     const { warehouseIds = [] } = req.body;
 
     try {
@@ -429,7 +501,7 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
         }
 
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -442,7 +514,7 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
             ? warehouseIds.filter(id => ownerwarehouseIds.includes(id))
             : ownerwarehouseIds;
-        
+
         if (!finalwarehouseIds.length) {
             return res.status(200).send(new serviceResponse({
                 status: 200,
@@ -451,6 +523,7 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
         }
 
         const searchRegex = search ? new RegExp(search, 'i') : null;
+        const sortBy = "createdAt";
 
         const pipeline = [
             {
@@ -492,9 +565,9 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
             { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
             {
                 $match: {
-                   "warehousedetails_id._id": { $in: finalwarehouseIds },
-                   ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
-                 
+                    "warehousedetails_id._id": { $in: finalwarehouseIds },
+                    ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+
                     wareHouse_approve_status: 'Pending',
                     ...(search && searchRegex && {
                         $or: [
@@ -508,7 +581,7 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
                     ...(status && {
                         "final_quality_check.status": status  // This checks the status field for exact match
                     }),
-                    ...(productName && { "req_id.product.name": productName})//{ $regex: new RegExp(productName, 'i') } })  // If productName is provided
+                    ...(productName && { "req_id.product.name": productName })//{ $regex: new RegExp(productName, 'i') } })  // If productName is provided
                 }
             },
             {
@@ -520,16 +593,16 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
                     wareHouse_code: 1,
                     //status: 1,
                     commodity: 1,
-                    "final_quality_check.status":1,
-                    "final_quality_check.product_images":1,
-                    "final_quality_check.qc_images":1,
-                    "final_quality_check.rejected_reason":1,
-                    "final_quality_check.whr_receipt":1,
-                    "final_quality_check.whr_receipt_image":1,
-                    
-                    "req_id.product.name":1,
-                    "req_id._id":1,
-                    "req_id.deliveryDate":1,
+                    "final_quality_check.status": 1,
+                    "final_quality_check.product_images": 1,
+                    "final_quality_check.qc_images": 1,
+                    "final_quality_check.rejected_reason": 1,
+                    "final_quality_check.whr_receipt": 1,
+                    "final_quality_check.whr_receipt_image": 1,
+
+                    "req_id.product.name": 1,
+                    "req_id._id": 1,
+                    "req_id.deliveryDate": 1,
                     "receiving_details.received_on": 1,
                     "receiving_details.vehicle_details": 1,
                     "receiving_details.document_pictures": 1,
@@ -550,33 +623,95 @@ module.exports.getPendingBatchesByWarehouse = asyncErrorHandler(async (req, res)
                     createdAt: 1
                 }
             },
-            { $sort: { [sortBy]: 1 } },
+            // { $sort: { [sortBy]: 1 } },
+            { $sort: { createdAt: - 1, _id: -1 } },
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) }
         ];
-        
+
         const rows = await Batch.aggregate(pipeline);
 
-        const totalCount = rows.length;
+        const totalCountPipeline = [
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    localField: 'warehousedetails_id',
+                    foreignField: '_id',
+                    as: 'warehousedetails_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'procurementcenters',
+                    localField: 'procurementCenter_id',
+                    foreignField: '_id',
+                    as: 'procurementCenter_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'seller_id',
+                    foreignField: '_id',
+                    as: 'seller_id'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'requests',
+                    localField: 'req_id',
+                    foreignField: '_id',
+                    as: 'req_id'
+                }
+            },
+            { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
+            {
+                $match: {
+                    "warehousedetails_id._id": { $in: finalwarehouseIds },
+                    ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+                    wareHouse_approve_status: 'Pending',
+                    ...(search && searchRegex && {
+                        $or: [
+                            { batchId: { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+                            { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+                            { "procurementCenter_id.center_name": { $regex: searchRegex } },
+                            { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+                        ]
+                    }),
+                    ...(status && {
+                        "final_quality_check.status": status  // This checks the status field for exact match
+                    }),
+                    ...(productName && { "req_id.product.name": productName })
+                }
+            },
+            { $count: "totalCount" } // This will count all matching documents
+        ];
 
+        const totalCountResult = await Batch.aggregate(totalCountPipeline);
+        const totalCount = totalCountResult.length > 0 ? totalCountResult[0].totalCount : 0;
 
-        
+        // const totalCount = rows.length;
+
         // Modify the query object for consistent filters
-const baseQuery = {
-    "warehousedetails_id._id": { $in: finalwarehouseIds },
-    ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
-    wareHouse_approve_status: 'Pending',
-    ...(search && searchRegex && {
-        $or: [
-            { batchId: { $regex: searchRegex } },
-            { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
-            { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
-            { "procurementCenter_id.center_name": { $regex: searchRegex } },
-            { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
-        ]
-    }),
-    ...(productName && { "req_id.product.name": productName }),
-};
+        const baseQuery = {
+            "warehousedetails_id._id": { $in: finalwarehouseIds },
+            ...(warehouse_name && { "warehousedetails_id.basicDetails.warehouseName": warehouse_name }),
+            wareHouse_approve_status: 'Pending',
+            ...(search && searchRegex && {
+                $or: [
+                    { batchId: { $regex: searchRegex } },
+                    { "seller_id.basic_details.associate_details.associate_name": { $regex: searchRegex } },
+                    { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
+                    { "procurementCenter_id.center_name": { $regex: searchRegex } },
+                    { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+                ]
+            }),
+            ...(productName && { "req_id.product.name": productName }),
+        };
 
 
         const statsPipeline = [
@@ -591,9 +726,9 @@ const baseQuery = {
                 },
             },
         ];
-        
+
         const [result] = await Batch.aggregate(statsPipeline);
-        
+
         const stats = {
             totalBatches: totalCount || 0,//result.totalBatches?.[0]?.count || 0,
             approvedBatches: result.approvedBatches?.[0]?.count || 0,
@@ -601,8 +736,8 @@ const baseQuery = {
             pendingBatches: result.pendingBatches?.[0]?.count || 0,
             pendingReceivingBatches: result.pendingReceivingBatches?.[0]?.count || 0,
         };
-        
-        
+
+
 
         // Export functionality
         if (isExport == 1) {
@@ -656,7 +791,7 @@ module.exports.batchApproveOrReject = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         // Find the batch that is not already approved
         const record = await Batch.findOne({
@@ -686,21 +821,21 @@ module.exports.batchApproveOrReject = async (req, res) => {
         record.wareHouse_approve_status = status === "Approved" ? "Approved" : "Rejected";
         record.wareHouse_approve_at = new Date();
         record.wareHouse_approve_by = UserId;
-       
+
         // Save the updated batch record
         await record.save();
 
-        const data=[{
-            batchId:batchId,
-            status:'Approved',
-            actor:'SLA',
+        const data = [{
+            batchId: batchId,
+            status: 'Approved',
+            actor: 'SLA',
             action: 'Approved',
             logTime: new Date()
         },
         {
-            batchId:batchId,
-            status:'Pending',
-            actor:'Branch Office',
+            batchId: batchId,
+            status: 'Pending',
+            actor: 'Branch Office',
             action: 'Approved',
         }]
         await PaymentLogsHistory.insertMany(data);
@@ -730,9 +865,9 @@ module.exports.viewBatchDetails = async (req, res) => {
             .populate([
                 { path: "procurementCenter_id", select: "center_name" },
                 { path: "seller_id", select: "basic_details.associate_details.associate_name basic_details.associate_details.organization_name" },
-                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no" },
+                { path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no receving_date updatedAt" },
                 { path: "warehousedetails_id", select: "basicDetails.warehouseName basicDetails.addressDetails wareHouse_code" },
-                { path: "req_id", select: "product.name deliveryDate" },
+                { path: "req_id", select: "product.name deliveryDate quotedPrice " },
             ])
 
         if (!batch) {
@@ -741,33 +876,44 @@ module.exports.viewBatchDetails = async (req, res) => {
                 errors: [{ message: "Batch not found" }]
             }));
         }
-        console.log('batch',batch)
+        let procurementDate = "NA";
+            for (const order of batch.farmerOrderIds) {
+                const receivingDate = order.farmerOrder_id?.receving_date;
+                const updatedDate = order.farmerOrder_id?.updatedAt;
+
+                if (receivingDate) {
+                    procurementDate = receivingDate;
+                    break;
+                } else if (updatedDate && procurementDate === "NA") {
+                    procurementDate = updatedDate;
+                }
+            }
         const response = {
-            basic_details : {
+            basic_details: {
                 batch_id: batch.batchId,
                 fpoName: batch.seller_id,
                 commodity: batch.req_id || "NA",
                 intransit: batch.intransit || "NA",
                 receivingDetails: batch.receiving_details || "NA",
-                procurementDate: batch.procurementDate,
+                procurementDate: procurementDate,
                 procurementCenter: batch.procurementCenter_id?.center_name || "NA",
                 warehouse: batch.warehousedetails_id,
-                msp: batch.msp || "NA",
-                final_quality_check : batch.final_quality_check,
-                dispatched : batch.dispatched, 
-                delivered : batch.delivered
+                msp: batch.req_id?.quotedPrice || "NA",
+                final_quality_check: batch.final_quality_check,
+                dispatched: batch.dispatched,
+                delivered: batch.delivered
             },
-            
+
             lotDetails: batch.farmerOrderIds.map(order => ({
                 lotId: order.farmerOrder_id?.order_no || "NA",
                 farmerName: order.farmerOrder_id?.metaData?.name || "NA",
                 quantityPurchased: order.qty || "NA"
             })),
-            
-            document_pictures : {
-                document_pictures : batch.document_pictures
+
+            document_pictures: {
+                document_pictures: batch.document_pictures
             },
-            
+
         };
 
         return res.status(200).send(new serviceResponse({
@@ -784,7 +930,7 @@ module.exports.viewBatchDetails = async (req, res) => {
 module.exports.lot_list = async (req, res) => {
     try {
         const { batch_id } = req.query;
-        console.log('batch_id',batch_id)
+        console.log('batch_id', batch_id)
         const record = {}
         record.rows = await Batch.findOne({ _id: batch_id }).select({ _id: 1, farmerOrderIds: 1 }).populate({ path: "farmerOrderIds.farmerOrder_id", select: "metaData.name qtyProcured order_no" });
 
@@ -824,10 +970,58 @@ module.exports.editBatchDetails = async (req, res) => {
     }
 };
 
+module.exports.whrReceiptImageUpdate = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId } = req.params;
+        const { whr_receipt_image } = req.body;
+
+        if (!batchId) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "Batch ID is required"
+            }));
+        }
+
+        if (!whr_receipt_image) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "whr_receipt is required"
+            }));
+        }
+
+        // Find and update the whr_receipt field in final_quality_check
+        const updatedBatch = await Batch.findOneAndUpdate(
+            { $or: [{ batchId }, { _id: batchId }] },
+            { $set: { "final_quality_check.whr_receipt_image": whr_receipt_image } },
+            { new: true, runValidators: true } // Return updated doc
+        );
+
+        if (!updatedBatch) {
+            return res.status(404).json(new serviceResponse({
+                status: 404,
+                message: "Batch not found"
+            }));
+        }
+
+        return res.status(200).json(new serviceResponse({
+            status: 200,
+            message: "WHR Receipt Image updated successfully",
+            data: updatedBatch
+        }));
+
+    } catch (error) {
+        console.error("Error updating WHR Receipt:", error);
+        return res.status(500).json(new serviceResponse({
+            status: 500,
+            error: "Internal Server Error"
+        }));
+    }
+});
+
 module.exports.batchStatusUpdate = async (req, res) => {
     try {
-        const {batchId, product_images, qc_images, whr_receipt,whr_receipt_image, status, rejected_reason } = req.body;
-        
+        const { batchId, product_images, qc_images, whr_receipt, whr_receipt_image, status, rejected_reason } = req.body;
+
         const requiredFields = ['batchId', 'product_images', 'qc_images', 'status'];
         if (status !== 'Rejected') {
             requiredFields.push('whr_receipt', 'whr_receipt_image');
@@ -864,10 +1058,13 @@ module.exports.batchStatusUpdate = async (req, res) => {
             'final_quality_check.qc_images': qc_images,
             'final_quality_check.whr_receipt': whr_receipt,
             'final_quality_check.whr_receipt_image': whr_receipt_image,
-            'final_quality_check.rejected_reason': status === 'Rejected' ? rejected_reason : null
+            'final_quality_check.rejected_reason': status === 'Rejected' ? rejected_reason : null,
+            
         };
 
         const updatedBatch = await Batch.findByIdAndUpdate(batchId, { $set: updateFields }, { new: true });
+        updatedBatch.dispatched.qc_report.received.push({ img: qc_images, on: moment() });
+        await updatedBatch.save()
         if (!updatedBatch) {
             return res.status(404).send(new serviceResponse({
                 status: 404,
@@ -895,8 +1092,9 @@ module.exports.batchMarkDelivered = async (req, res) => {
             truck_photo,
             vehicle_details,
             document_pictures,
+            weight_slip = [], qc_report = [], data, paymentIsApprove = 0
         } = req.body;
-        
+        const { user_id, user_type } = req;
         const requiredFields = [
             'quantity_received',
             'no_of_bags',
@@ -931,6 +1129,83 @@ module.exports.batchMarkDelivered = async (req, res) => {
             }));
         }
 
+        const record = await Batch.findOne({ _id: batchId }).populate("req_id").populate("seller_id");
+        if (!record) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        }
+
+        // if (document_pictures.product_images.length > 0) {
+        //     record.dispatched.material_img.received.push(...document_pictures.product_images.map(i => { return { img: i, on: moment() } }))
+        // }
+        // if (qc_report.length > 0) {
+        record.dispatched.material_img.received.push({ img: document_pictures?.proof_of_delivery || null, on: moment() });
+        record.dispatched.weight_slip.received.push({ img: document_pictures?.weigh_bridge_slip|| null, on: moment() });
+        record.dispatched.qc_report.received.push(...qc_report.map(i => { return { img: i, on: moment() } }));
+        record.dispatched.qc_report.received_qc_status = received_qc_status.accepted;
+
+        const { farmerOrderIds } = record;
+
+        const paymentRecords = [];
+
+        const request = await RequestModel.findOne({ _id: record?.req_id });
+        // console.log('req_id',record.req_id);return false;
+        for (let farmer of farmerOrderIds) {
+
+            const farmerData = await FarmerOrders.findOne({ _id: farmer?.farmerOrder_id });
+
+            const paymentData = {
+                req_id: request?._id,
+                farmer_id: farmerData.farmer_id,
+                farmer_order_id: farmer.farmerOrder_id,
+                associate_id: record?.seller_id,
+                ho_id: request?.head_office_id,
+                bo_id: request?.branch_id,
+                sla_id: request?.sla_id,
+                sla_approve_status: _paymentApproval.pending,
+                sla_approve_by: new mongoose.Types.ObjectId(user_id),
+                associateOffers_id: farmerData?.associateOffers_id,
+                batch_id: record?._id,
+                qtyProcured: farmer.qty,
+                amount: farmer.amt,
+                initiated_at: new Date(),
+                payment_method: _paymentmethod.bank_transfer
+            }
+
+            paymentRecords.push(paymentData);
+        }
+
+        await Payment.insertMany(paymentRecords);
+
+        record.delivered.proof_of_delivery = document_pictures.proof_of_delivery;
+        record.delivered.weigh_bridge_slip = document_pictures.weigh_bridge_slip;
+        record.delivered.receiving_copy = document_pictures.receiving_copy;
+        record.delivered.truck_photo = truck_photo;
+        record.delivered.loaded_vehicle_weight = vehicle_details.loaded_vehicle_weight;
+        record.delivered.tare_weight = vehicle_details.tare_weight;
+        record.delivered.net_weight = vehicle_details.net_weight;
+        record.delivered.delivered_at = new Date();
+        record.delivered.delivered_by = user_id;
+
+        record.status = _batchStatus.delivered;
+        // }
+
+        // if (weight_slip.length > 0) {
+        record.dispatched.weight_slip.received.push(...weight_slip.map(i => { return { img: i, on: moment() } }))
+        // }
+
+
+        // record.payement_approval_at = new Date();
+        // record.payment_approve_by = user_id;
+        await record.save();
+
+
+
+
+
+
+
+
+
         const batchData = await Batch.findById(batchId);
         if (!batchData) {
             return res.status(404).send(new serviceResponse({
@@ -961,14 +1236,14 @@ module.exports.batchMarkDelivered = async (req, res) => {
             status: 200,
             message: 'Batch receiving details updated successfully.',
             data: updatedBatch
-        })); 
-        
+        }));
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }
 };
 
-
+/*
 module.exports.batchStatsData = async (req, res) => {
     try {
         const { warehouseIds = [] } = req.body;
@@ -978,7 +1253,7 @@ module.exports.batchStatsData = async (req, res) => {
         }
 
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -1001,6 +1276,12 @@ module.exports.batchStatsData = async (req, res) => {
         const query = {"warehousedetails_id": { $in: finalwarehouseIds }};
 
         const rows = await Batch.find(query);
+
+        //////// for external batches
+
+        const externalBatchrows = await ExternalBatch.countDocuments({"warehousedetails_id": { $in: finalwarehouseIds }});
+        
+
         let totalBatches = 0;
         let approvedQC = 0;
         let rejectedQC = 0;
@@ -1045,6 +1326,7 @@ module.exports.batchStatsData = async (req, res) => {
             pendingBatch,
             // rejectedBatch,
             // approvedBatch
+            externalBatch : externalBatchrows
         };
         return res.status(200).send(new serviceResponse({
             status: 200,
@@ -1056,6 +1338,104 @@ module.exports.batchStatsData = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+*/
+
+
+module.exports.batchStatsData = async (req, res) => {
+    try {
+        const { warehouseIds = [] } = req.body;
+        const getToken = req.headers.token || req.cookies.token;
+
+        if (!getToken) {
+            return res.status(401).send(new serviceResponse({
+                status: 401,
+                message: _middleware.require('token'),
+            }));
+        }
+
+        const decode = await decryptJwtToken(getToken);
+        const UserId = decode?.data?.organization_id;
+
+        if (!mongoose.Types.ObjectId.isValid(UserId)) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                message: "Invalid token user ID",
+            }));
+        }
+
+
+        // const UserId = '67b2ffcb9d27077bfef10dae';
+        // Fetch user's warehouses
+        const userWarehouses = await wareHouseDetails.find({
+            warehouseOwnerId: new mongoose.Types.ObjectId(UserId)
+        }).select("_id").lean();
+
+        const ownerWarehouseIds = new Set(userWarehouses.map(w => w._id.toString()));
+
+        // Filter warehouseIds if given
+        const finalWarehouseIds = (Array.isArray(warehouseIds) && warehouseIds.length)
+            ? warehouseIds.filter(id => ownerWarehouseIds.has(id))
+            : [...ownerWarehouseIds];
+
+        if (!finalWarehouseIds.length) {
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                message: "No warehouses found for the user.",
+            }));
+        }
+
+        // Convert to ObjectId for querying
+        const objectIds = finalWarehouseIds.map(id => new mongoose.Types.ObjectId(id));
+
+        // Fetch batches using lean
+        const batches = await Batch.find({ warehousedetails_id: { $in: objectIds } })
+            .select("wareHouse_approve_status final_quality_check.status")
+            .lean();
+
+        // Count external batches efficiently
+        const externalBatchCount = await ExternalBatch.countDocuments({
+            warehousedetails_id: { $in: objectIds }
+        });
+
+        // Counters
+        let approvedQC = 0, rejectedQC = 0, pendingQC = 0;
+        let receivedBatch = 0, pendingBatch = 0;
+
+        for (const batch of batches) {
+            const qcStatus = batch?.final_quality_check?.status;
+            const batchStatus = batch?.wareHouse_approve_status;
+
+            if (batchStatus === "Received") {
+                receivedBatch++;
+                if (qcStatus === "Approved") approvedQC++;
+                else if (qcStatus === "Rejected") rejectedQC++;
+                else if (qcStatus === "Pending") pendingQC++;
+            } else if (batchStatus === "Pending") {
+                pendingBatch++;
+            }
+        }
+
+        const response = {
+            totalBatches: receivedBatch + pendingBatch,
+            approvedQC,
+            rejectedQC,
+            pendingQC,
+            receivedBatch,
+            pendingBatch,
+            externalBatch: externalBatchCount
+        };
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            message: "Batch statistics fetched successfully.",
+            data: response,
+        }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
 
 
 
@@ -1080,7 +1460,7 @@ module.exports.getFilterBatchList = async (req, res) => {
         }
 
         const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        const UserId = decode.data.organization_id;
 
         if (!mongoose.Types.ObjectId.isValid(UserId)) {
             return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
@@ -1144,18 +1524,19 @@ module.exports.createExternalBatch = async (req, res) => {
                 return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require(key.replace(/_/g, ' ')) }));
             }
         }
-        let externalBatchExist = await ExternalBatch.findOne({ batchName  })
+        let externalBatchExist = await ExternalBatch.findOne({ batchName })
         if (externalBatchExist) {
             return res.status(200).send(new serviceResponse({ status: 400, message: _response_message.allReadyExist('Batch Name') }));
         }
 
-        const externalBatchData = new ExternalBatch({ 
-            batchName, 
-            associate_name, 
-            procurementCenter, 
+        const externalBatchData = new ExternalBatch({
+            batchName,
+            associate_name,
+            procurementCenter,
             inward_quantity: inward_quantity || 0,
-            commodity : commodity || 'Maize',
-            warehousedetails_id
+            commodity: commodity || 'Maize',
+            warehousedetails_id,
+            remaining_quantity: inward_quantity
         });
 
         const response = await externalBatchData.save();
@@ -1171,35 +1552,76 @@ module.exports.listExternalBatchList = async (req, res) => {
     try {
         const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
 
-        let query = {};
+        let matchQuery = {};
         if (search) {
-            query["basicDetails.warehouseName"] = { $regex: search, $options: "i" };
+            matchQuery["$or"] = [
+                { "batchName": { $regex: search, $options: "i" } },
+                { "associate_name": { $regex: search, $options: "i" } },
+                { "warehousedetails_id.basicDetails.warehouseName": { $regex: search, $options: "i" } },
+            ];
         }
+        const skipVal = parseInt(skip) || (parseInt(page) - 1) * parseInt(limit);
 
-        const records = { count: 0, rows: [] };
+        const pipeline = [
+            {
+                $lookup: {
+                    from: 'warehousedetails',
+                    localField: 'warehousedetails_id',
+                    foreignField: '_id',
+                    as: 'warehousedetails_id'
+                }
+            },
+            { $unwind: { path: "$warehousedetails_id", preserveNullAndEmptyArrays: true } },
+            { $match: matchQuery },
+            { $sort: { [sortBy]: 1 } },
+        ];
+
+        const countPipeline = [...pipeline, { $count: "total" }];
 
         if (paginate == 1) {
-            records.rows = await ExternalBatch.find(query)
-                .populate({
-                    path: "warehousedetails_id",
-                    select: "basicDetails.warehouseName",
-                })
-                .sort(sortBy)
-                .skip(parseInt(skip))
-                .limit(parseInt(limit));
-
-            records.count = await ExternalBatch.countDocuments(query);
-            records.page = parseInt(page);
-            records.limit = parseInt(limit);
-            records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-        } else {
-            records.rows = await ExternalOrder.find(query)
-                .populate({
-                    path: "warehousedetails_id",
-                    select: "basicDetails.warehouseName",
-                })
-                .sort(sortBy);
+            pipeline.push({ $skip: skipVal }, { $limit: parseInt(limit) });
         }
+
+        const rows = await ExternalBatch.aggregate(pipeline);
+
+        let count = rows.length;
+        if (paginate == 1) {
+            const countResult = await ExternalBatch.aggregate(countPipeline);
+            count = countResult?.[0]?.total || 0;
+        }
+
+        const records = {
+            count,
+            rows,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            pages: limit != 0 ? Math.ceil(count / limit) : 0,
+        };
+        //const records = { count: 0, rows: [] };
+
+
+        // if (paginate == 1) {
+        //     records.rows = await ExternalBatch.find(query)
+        //         .populate({
+        //             path: "warehousedetails_id",
+        //             select: "basicDetails.warehouseName",
+        //         })
+        //         .sort(sortBy)
+        //         .skip(parseInt(skip))
+        //         .limit(parseInt(limit));
+
+        //     records.count = await ExternalBatch.countDocuments(query);
+        //     records.page = parseInt(page);
+        //     records.limit = parseInt(limit);
+        //     records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        // } else {
+        //     records.rows = await ExternalOrder.find(query)
+        //         .populate({
+        //             path: "warehousedetails_id",
+        //             select: "basicDetails.warehouseName",
+        //         })
+        //         .sort(sortBy);
+        // }  
 
         return res.status(200).send(
             new serviceResponse({ status: 200, data: records, message: _response_message.found("ExternalBatch") })
@@ -1208,3 +1630,51 @@ module.exports.listExternalBatchList = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.whrReceiptImageUpdate = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId } = req.params;
+        const { whr_receipt_image } = req.body;
+
+        if (!batchId) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "Batch ID is required"
+            }));
+        }
+
+        if (!whr_receipt_image) {
+            return res.status(400).json(new serviceResponse({
+                status: 400,
+                message: "whr_receipt is required"
+            }));
+        }
+
+        // Find and update the whr_receipt field in final_quality_check
+        const updatedBatch = await Batch.findOneAndUpdate(
+            { $or: [{ batchId }, { _id: batchId }] },
+            { $set: { "final_quality_check.whr_receipt_image": whr_receipt_image } },
+            { new: true, runValidators: true } // Return updated doc
+        );
+
+        if (!updatedBatch) {
+            return res.status(404).json(new serviceResponse({
+                status: 404,
+                message: "Batch not found"
+            }));
+        }
+
+        return res.status(200).json(new serviceResponse({
+            status: 200,
+            message: "WHR Receipt Image updated successfully",
+            data: updatedBatch
+        }));
+
+    } catch (error) {
+        console.error("Error updating WHR Receipt:", error);
+        return res.status(500).json(new serviceResponse({
+            status: 500,
+            error: "Internal Server Error"
+        }));
+    }
+});

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { Types } = mongoose;
 const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, _auth_module, _query } = require("@src/v1/utils/constants/messages");
@@ -182,7 +183,8 @@ module.exports.saveDistillerDetails = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const userId = decode.data.user_id;
+        const userId = decode.data.organization_id;
+        console.log('userId-->', userId)
         const distiller = await Distiller.findById(userId);
         if (!distiller) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
@@ -259,8 +261,8 @@ module.exports.saveDistillerDetails = async (req, res) => {
 };
 
 module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
-    const { user_id } = req;
-    let record = await Distiller.findOne({ _id: user_id }).lean();
+    const { user_id, organization_id } = req;
+    let record = await Distiller.findOne({ _id: organization_id._id }).lean();
     if (!record) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }));
     }
@@ -278,20 +280,40 @@ module.exports.onboardingStatus = asyncErrorHandler(async (req, res) => {
 
 module.exports.formPreview = async (req, res) => {
     try {
-        const { user_id } = req;
-        if (!user_id) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
+        const { organization_id } = req;
+
+        if (!organization_id || !Types.ObjectId.isValid(organization_id._id)) {
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    message: "Invalid or missing organization_id"
+                })
+            );
         }
-        const response = await Distiller.findById({ _id: user_id });
+
+        const response = await Distiller.findById(organization_id._id);
+
         if (!response) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
-        } else {
-            return res.status(200).send(new serviceResponse({ status: 200, message: _query.get("data"), data: response }));
+            return res.status(404).send(
+                new serviceResponse({
+                    status: 404,
+                    message: _response_message.notFound("User")
+                })
+            );
         }
+
+        return res.status(200).send(
+            new serviceResponse({
+                status: 200,
+                message: _query.get("data"),
+                data: response
+            })
+        );
+
     } catch (error) {
         _handleCatchErrors(error, res);
     }
-}
+};
 
 module.exports.findUserStatus = async (req, res) => {
     try {
@@ -300,7 +322,7 @@ module.exports.findUserStatus = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const userId = decode.data.user_id;
+        const userId = decode.data.organization_id;
         const user = await Distiller.findById(userId);
         if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
@@ -324,7 +346,7 @@ module.exports.finalFormSubmit = async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
         }
         const decode = await decryptJwtToken(getToken);
-        const userId = decode.data.user_id;
+        const userId = decode.data.organization_id;
         const distiller = await Distiller.findById(userId);
         if (!distiller) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
@@ -363,13 +385,13 @@ module.exports.finalFormSubmit = async (req, res) => {
 
 module.exports.editOnboarding = async (req, res) => {
     try {
-        const { user_id } = req;
+        const { organization_id } = req;
         console.log(user_id);
-        if (!user_id) {
+        if (!organization_id) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('user_id') }));
         }
 
-        const response = await Distiller.findById({ _id: user_id });
+        const response = await Distiller.findById({ _id: organization_id });
 
         if (!response) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
@@ -623,9 +645,9 @@ module.exports.updateManufacturingUnit = async (req, res) => {
 module.exports.getManufacturingUnit = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
-        const { user_id } = req;
+        const { organization_id } = req;
        
-        const query = { 'distiller_id': user_id }
+        const query = { 'distiller_id': organization_id }
         const records = { count: 0 };
         const getState = async (stateId) => {
             try {
@@ -844,9 +866,9 @@ module.exports.updateStorageFacility = async (req, res) => {
 module.exports.getStorageFacility = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query;
-        const { user_id } = req;
+        const { organization_id } = req;
        
-        const query = { distiller_id: user_id };
+        const query = { distiller_id: organization_id };
         const records = { count: 0 };
 
         records.rows = paginate == 1
@@ -987,7 +1009,7 @@ module.exports.deleteStorageFacility = async (req, res) => {
 
 module.exports.getPendingDistillers = async (req, res) => {
     const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-    const { user_id } = req;
+    const { organization_id } = req;
     let query = {
         is_approved: _userStatus.pending,
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
@@ -1076,6 +1098,18 @@ module.exports.bulkUploadDistiller = async (req, res) => {
             const mou = record["Documents"];
             const taluka = record["taluka"];
             const village = record["village"];
+            const esyq3_ethanol_alloc = record["ESYQ3 Ethanol Allocn. (KL)"] || null;
+            const esyq3_maize_req = record["ESYQ3 Maize Reqd. (MT)"] || null;
+            const esyq4_ethanol_alloc = record["ESYQ4 Ethanol Allocn. (KL)"] || null;
+            const esyq4_maize_req = record["ESYQ4 Maize Reqd. (MT)"] || null;
+            const q3q4_ethanol_alloc = record["Q3+Q4  Ethanol Allocn. (KL)"] || null;
+            const q3q4_maize_req = record["Q3+Q4 Maize Reqd. (MT)"] || null;
+            const email = record["E-Mail ID"] || null;
+            const lat_long = record["Lat-Long"] || null;
+            const city = record["City"] || null;
+            const pincode = record["PIN Code"] || null;
+            const distillery_address = record["Distillery Address"] || null;
+            const authorized_contact_no = record["Authorized Contact no"] || null;
             let errors = [];
 
             if (!mobile_no) errors.push("Mobile No. is required");
@@ -1095,16 +1129,16 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                         client_id: '9876',
                         basic_details: {
                             distiller_details: {
-                                associate_type: null,
+                                associate_type: 'Organisation',
                                 organization_name: associate_name,
-                                email: null,
+                                email: email,
                                 phone: mobile_no,
                                 company_logo: null
                             },
                             point_of_contact: {
                                 name: name,
                                 email:null,
-                                mobile: null,
+                                mobile: authorized_contact_no,
                                 designation: null,
                                 aadhar_number: null,
                                 aadhar_image: {
@@ -1125,15 +1159,23 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                             implementation_agency: null,
                             cbbo_name: null
                         },
+                        distiller_alloc_data: {
+                            esyq3_ethanol_alloc,
+                            esyq3_maize_req,
+                            esyq4_ethanol_alloc,
+                            esyq4_maize_req,
+                            q3q4_ethanol_alloc,
+                            q3q4_maize_req,
+                          },
                         address: {
                             registered: {
-                                line1: null,
+                                line1: distillery_address,
                                 line2: null,
                                 country: "India",
                                 state,
                                 district,
-                                taluka,
-                                pinCode: null,
+                                taluka: city,
+                                pinCode: pincode,
                                 village,
                                 ar_circle: null
                             },
@@ -1183,6 +1225,7 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                             account_number: null,
                             upload_proof: null
                         },
+                        lat_long,
                         user_code: null,
                         mou,
                         user_type: _userType.distiller,
@@ -1195,7 +1238,9 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                         term_condition: false,
                         active: true
                     });
-                    await newDistiller.save();
+                    // const saveDistiller = await newDistiller.save();
+                    // console.log("saveDistiller",saveDistiller._id)
+                    const savedDistiller = await newDistiller.save();
                 }
             } catch (error) {
                 return { success: false, errors: [error.message] };

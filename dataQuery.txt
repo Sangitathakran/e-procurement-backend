@@ -1,0 +1,1 @@
+[{"$lookup":{"from":"distillers","localField":"distiller_id","foreignField":"_id","as":"distiller"}},{"$unwind":"$distiller"},{"$count":"count"}]

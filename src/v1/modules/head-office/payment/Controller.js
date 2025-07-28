@@ -56,6 +56,7 @@ const path = require("path");
 const { smsService } = require("@src/v1/utils/third_party/SMSservices");
 const OTPModel = require("../../../models/app/auth/OTP");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
+const ObjectId = require("mongoose").Types.ObjectId;
 const { getCache, setCache } = require("@src/v1/utils/cache");
 const {
   AssociateInvoice,
@@ -1187,19 +1188,7 @@ module.exports.payment = async (req, res) => {
 
 module.exports.payment = async (req, res) => {
   try {
-    let {
-      page = 1,
-      limit = 50,
-      search = "",
-      isExport = 0,
-      isApproved,
-      paymentStatus,
-      approve_status = "Pending",
-      state = "",
-      branch = "",
-      schemeName = "",
-      commodityName = "",
-    } = req.query;
+    let { page = 1, limit = 50, search = "", isExport = 0, isApproved, paymentStatus, approve_status = "Pending", state = "", branch = "", schemeName = "", commodityName = "" } = req.query;
     page = parseInt(page);
     limit = parseInt(limit);
     isApproved = isApproved === "true";
@@ -1619,8 +1608,8 @@ module.exports.payment = async (req, res) => {
       const record = response.rows.map((item) => ({
         "Order ID": item?.reqNo || "NA",
         "Branch Name": item?.branchName || "NA",
-        SCHEME: item?.schemeName || "NA",
-        Commodity: item?.commodity || "NA",
+        "SCHEME": item?.schemeName || "NA",
+        "Commodity": item?.commodity || "NA",
         "Quantity Purchased": item?.qtyPurchased || "NA",
         "AMOUNT PAYABLE": item?.amountPayable || "NA",
         // "Payment Status": item?.payment_status ?? "NA",
@@ -2911,8 +2900,8 @@ module.exports.orderList = async (req, res) => {
       commodity = null,
     } = req.query;
 
-    const portalId = req.user.portalId._id;
-    const user_id = req.user._id;
+    const portalId = req.user.portalId?._id;
+    const user_id = req.user?._id;
 
     // Base query
     let query = search

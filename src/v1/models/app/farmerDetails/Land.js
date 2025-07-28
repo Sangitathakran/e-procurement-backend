@@ -27,6 +27,15 @@ const landSchema = new mongoose.Schema({
     khtauni_number: { type: String },
     khasra_number: { type: String },
     khata_number: { type: String },
+    ghat_number: { type: String },
+    khewat_number: { type: String },
+    karnal_number: { type: String },
+    murla_number: { type: String },
+    revenue_area_karnal: { type: String },
+    revenue_area_murla: { type: String },
+    sow_area_karnal: { type: String },
+    sow_area_murla: { type: String },
+    uplod_document: { type: String },
     soil_type: { 
         type: String, 
         enum: Object.values(_soilType), 
@@ -49,7 +58,18 @@ const landSchema = new mongoose.Schema({
     uploadSoil_health_card: { type: String }, // if soilTested is true
     opt_for_soil_testing: { type: Boolean, required: false },
     soil_testing_agencies: { type: [String] },
-    upload_geotag: { type: String, required: false } // file upload URL/path
+    upload_geotag: { type: String, required: false }, // file upload URL/path
+
+    // haryana farmer fields
+    LandCropID: { type: Number, required: false }, // Example: 9179268
+    Muraba: { type: String, required: false }, // Example: '14'
+    khewat: { type: String, required: false }, // Example: '146'
+    sownkanal: { type: Number, required: false }, // Example: 6
+    SownMarla: { type: Number, required: false }, // Example: 9
+    SownAreaInAcre: { type: Number, required: false }, // Example: 0.806
+    RevenueKanal: { type: Number, required: false }, // Example: 6
+    RevenueMarla: { type: Number, required: false }, // Example: 10
+    RevenueAreaInAcre: { type: Number, required: false }, // Example: 0.813
 }, { timestamps: true });
 const Land = mongoose.model(_collectionName.Lands, landSchema);
 module.exports = { Land };

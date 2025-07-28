@@ -20,6 +20,7 @@ const ccAvenueResponseSchema = new mongoose.Schema(
       default: null,
       enum: Object.values(_paymentmethod),
     },
+    payment_section: { type: String },
   },
   { timestamps: true }
 );

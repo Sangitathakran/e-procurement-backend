@@ -1,19 +1,19 @@
 const express = require("express");
 const { payment, associateOrders, batchList, batchApprove, qcReport, paymentApprove, getBill, lot_list, agentPaymentList, agentBill, boBillRejection, verifyOTP, sendOTP} = require("./Controller");
-const { Auth } = require("@src/v1/middlewares/jwt")
-
+const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/jwt")
+const { _userType } = require("@src/v1/utils/constants/index")
 const paymentRoutes = express.Router();
 
-paymentRoutes.get("/", Auth, payment);
-paymentRoutes.get("/associate-orders", Auth, associateOrders);
-paymentRoutes.get("/batch-list", Auth, batchList);
-paymentRoutes.put("/batch-approval", Auth, batchApprove);
-paymentRoutes.get("/lot-list", Auth, lot_list);
-paymentRoutes.get("/qc-report", Auth, qcReport);
-paymentRoutes.patch("/payment-approval", Auth, paymentApprove);
-paymentRoutes.get("/bill-view", Auth, getBill);
-paymentRoutes.get("/agent-payment-list", Auth, agentPaymentList);
-paymentRoutes.get("/agent-bill", Auth, agentBill);
+paymentRoutes.get("/",authenticateUser,authorizeRoles(_userType.bo), Auth, payment);
+paymentRoutes.get("/associate-orders",authenticateUser,authorizeRoles(_userType.bo), Auth, associateOrders);
+paymentRoutes.get("/batch-list",authenticateUser,authorizeRoles(_userType.bo), Auth, batchList);
+paymentRoutes.put("/batch-approval",authenticateUser,authorizeRoles(_userType.bo), Auth, batchApprove);
+paymentRoutes.get("/lot-list",authenticateUser,authorizeRoles(_userType.bo), Auth, lot_list);
+paymentRoutes.get("/qc-report",authenticateUser,authorizeRoles(_userType.bo), Auth, qcReport);
+paymentRoutes.patch("/payment-approval",authenticateUser,authorizeRoles(_userType.bo), Auth, paymentApprove);
+paymentRoutes.get("/bill-view",authenticateUser,authorizeRoles(_userType.bo), Auth, getBill);
+paymentRoutes.get("/agent-payment-list",authenticateUser,authorizeRoles(_userType.bo), Auth, agentPaymentList);
+paymentRoutes.get("/agent-bill",authenticateUser,authorizeRoles(_userType.bo), Auth, agentBill);
 
 
 /// dileep code 

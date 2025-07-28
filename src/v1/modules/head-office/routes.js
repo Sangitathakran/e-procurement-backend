@@ -12,22 +12,25 @@ const { warehouseRoutes } = require("./warehouse/Route");
 const { paymentRoutes } = require("./payment/Routes");
 const { schemeRoutes } = require("./scheme/Routes");
 const { slaRoute } = require("./ho-sla-management/Routes");
+const {authenticateUser,authorizeRoles} = require("@src/v1/middlewares/jwt")
+const { _userType } = require("@src/v1/utils/constants/index")
 const { associateMngmntRoutes } = require("./associate-management/Routes");
 const {dropDownRoute} = require("./ho-dropdwon/Routes");
 const { mandiWiseProcurementRoute } = require("./mandiWiseProcurement/Routes");
 
 headOfficeRoutes.use("/auth", hoAuthRoutes)
+headOfficeRoutes.use("/branch",authenticateUser,authorizeRoles(_userType.ho), Auth, hoBranchRoutes)
+headOfficeRoutes.use("/dashboard",authenticateUser,authorizeRoles(_userType.ho),Auth, hoDashboardRoutes)
+headOfficeRoutes.use("/requirement",authenticateUser,authorizeRoles(_userType.ho), Auth, requireMentRoutes)
+headOfficeRoutes.use("/farmer",authenticateUser,authorizeRoles(_userType.ho), Auth, farmerManagementRoutes)
+headOfficeRoutes.use("/warehouse",authenticateUser,authorizeRoles(_userType.ho), Auth, warehouseRoutes)
+headOfficeRoutes.use("/payment",authenticateUser,authorizeRoles(_userType.ho ,_userType.admin,_userType.agent), Auth, paymentRoutes)
+headOfficeRoutes.use("/schemeAssigned",authenticateUser,authorizeRoles(_userType.ho ,_userType.bo), Auth, schemeRoutes)
+headOfficeRoutes.use("/sla",authenticateUser,authorizeRoles(_userType.ho), Auth, slaRoute)
 headOfficeRoutes.use("/associate", associateMngmntRoutes);
-headOfficeRoutes.use("/branch", Auth, hoBranchRoutes)
-headOfficeRoutes.use("/dashboard", Auth, hoDashboardRoutes)
-headOfficeRoutes.use("/requirement", Auth, requireMentRoutes)
-headOfficeRoutes.use("/farmer", Auth, farmerManagementRoutes)
-headOfficeRoutes.use("/warehouse", Auth, warehouseRoutes)
-headOfficeRoutes.use("/payment", Auth, paymentRoutes)
-headOfficeRoutes.use("/schemeAssigned", Auth, schemeRoutes)
-headOfficeRoutes.use("/sla", Auth, slaRoute)
-headOfficeRoutes.use("/dropdown", Auth ,dropDownRoute )
-headOfficeRoutes.use("/mandiWiseProcurement", Auth ,mandiWiseProcurementRoute )
+
+headOfficeRoutes.use("/dropdown", authenticateUser,authorizeRoles(_userType.ho) ,dropDownRoute )
+headOfficeRoutes.use("/mandiWiseProcurement", authenticateUser,authorizeRoles(_userType.ho) ,mandiWiseProcurementRoute )
 
 
 module.exports = { headOfficeRoutes }

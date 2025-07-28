@@ -13,8 +13,8 @@ module.exports = {
 
     handleCors: (req, res, next) => {
         try {
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+            // res.setHeader('Access-Control-Allow-Origin', '*');
+            // res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
             res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-Width, Content-Type, Accept, Authorization');
             res.setHeader('Access-Control-Allow-Credentials', true);
             next();
@@ -25,11 +25,11 @@ module.exports = {
 
     handlePagination: (req, res, next) => {
         const escapeRegExp = (string) => {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
         try {
             let maxLimit = 50;
-            let { limit, page, paginate = 1, sort_by = 'createdAt', sort_order = -1,search="" } = req.query;
+            let { limit, page, paginate = 1, sort_by = 'createdAt', sort_order = -1, search = "" } = req.query;
             let skip = 0;
             if (limit && page) {
                 limit = limit <= maxLimit ? limit : maxLimit
@@ -52,11 +52,43 @@ module.exports = {
     handleRateLimit: rateLimit({
         windowMs: 1 * 60 * 1000, // 1 minutes
         max: 50, // Limit each IP to 5 requests per `window` (here, per 1 minutes)
-        standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+        standardHeaders: false, // Return rate limit info in the `RateLimit-*` headers
         legacyHeaders: false, // Disable the `X-RateLimit-*` headers
         handler: (req, res, next, options) => {
             return sendResponse({ res, status: options.statusCode, errors: [{ message: options.message }] })
         }
+    }),
+
+    RequestPerMinute: rateLimit({
+        windowMs: 1 * 60 * 1000,
+        max: 3,
+        message: {
+            status: 400,
+            "data": {},
+            message: "Too many requests. Please try again after a minute.",
+            "event": {},
+            "errorCode": "",
+            "errors": [],
+            "version": "1.0"
+        },
+        standardHeaders: false,
+        legacyHeaders: false,
+    }),
+
+    loginRequestPerMinute: rateLimit({
+        windowMs: 1 * 60 * 1000,
+        max: 4,
+        message: {
+            status: 400,
+            "data": {},
+            message: "Too many requests. Please try again after a minute.",
+            "event": {},
+            "errorCode": "",
+            "errors": [],
+            "version": "1.0"
+        },
+        standardHeaders: false,
+        legacyHeaders: false,
     })
 }
 
