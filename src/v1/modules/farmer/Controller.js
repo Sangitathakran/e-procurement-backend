@@ -49,7 +49,7 @@ const XLSX = require('xlsx');
 const moment = require('moment');
 const mongoose = require('mongoose');
 const { setCache, getCache } = require("@src/v1/utils/cache");
-const { verfiyfarmer } = require("@src/v1/models/app/farmerDetails/verfiyFarmer");
+const { verfiyfarmer} = require("@src/v1/models/app/farmerDetails/verfiyFarmer");
 const { Types } = require("mongoose");
 const _individual_farmer_onboarding_steps = require("@src/v1/utils/constants");
 const fs = require("fs");
@@ -144,7 +144,7 @@ module.exports.verifyOTP = async (req, res) => {
 
     // Prepare the response data
     const resp = {
-      token: generateJwtToken({ mobile_no: mobileNumber }),
+      token: generateJwtToken({ mobile_no: mobileNumber,user_type:_userType.farmer }),
       ...JSON.parse(JSON.stringify(individualFormerData)), // Use individualFormerData (existing or newly saved)
     };
 
@@ -222,17 +222,17 @@ module.exports.saveFarmerDetails = async (req, res) => {
       if (screenName == "address") {
         let { state, district } = req.body[screenName];
 
-        //   const isStateExist = await isStateAvailable(state);
-        //  // console.log({isStateExist})
-        //   const isDistrictExist = await isDistrictAvailable(state, district);
+      //   const isStateExist = await isStateAvailable(state);
+      //  // console.log({isStateExist})
+      //   const isDistrictExist = await isDistrictAvailable(state, district);
 
-        //   if (!isStateExist) {
-        //     return res.status(400).send({ message: "State not available" });
-        //   }
+      //   if (!isStateExist) {
+      //     return res.status(400).send({ message: "State not available" });
+      //   }
 
-        //   if (!isDistrictExist) {
-        //     await updateDistrict(state, district);
-        //   }
+      //   if (!isDistrictExist) {
+      //     await updateDistrict(state, district);
+      //   }
 
         const state_id = state //await getStateId(state);
         const district_id = district//await getDistrictId(district);
@@ -296,7 +296,7 @@ module.exports.getFarmerDetails = async (req, res) => {
       }).select("is_verify_aadhaar");
       // console.log('farmerAAdharInfo',farmerAAdharInfo,  { farmer_id: farmerDetails._id})
     }
-    let agristackFarmerDetailsObj = await AgristackFarmerDetails.findOne({ farmer_id: new mongoose.Types.ObjectId(id) }, { cpmu_farmer_id: 1 });
+    let agristackFarmerDetailsObj = await AgristackFarmerDetails.findOne( {farmer_id: new mongoose.Types.ObjectId(id)}, { cpmu_farmer_id: 1} );
     if (farmerDetails) {
       if (farmerDetails?.address) {
         const state = await StateDistrictCity.findOne(
@@ -318,13 +318,13 @@ module.exports.getFarmerDetails = async (req, res) => {
             ...farmerDetails.address,
             state: state?.states[0]?.state_title,
             district: districts?.district_title,
-
+            
           },
-
+         
         };
       }
-      farmerDetails.is_verify_aadhaar = farmerAAdharInfo?.is_verify_aadhaar || false;
-      farmerDetails.isAgristackVerified = agristackFarmerDetailsObj ? true : false;
+      farmerDetails.is_verify_aadhaar= farmerAAdharInfo?.is_verify_aadhaar || false;
+      farmerDetails.isAgristackVerified=  agristackFarmerDetailsObj ? true : false;
       return sendResponse({
         res,
         status: 200,
@@ -698,33 +698,33 @@ module.exports.getFarmers = async (req, res) => {
         .sort(sortBy)
         .populate('associate_id', '_id user_code')
       : await farmer.find(query).sort(sortBy);
-    const updatedRows = [];
+        const updatedRows = [];
 
-    for (const f of records.rows) {
-      const farmer = f.toObject();
+        for (const f of records.rows) {
+          const farmer = f.toObject(); 
 
-      farmer.address = farmer.address || {};
+          farmer.address = farmer.address || {};
 
-      const stateId = farmer.address.state_id;
-      const districtId = farmer.address.district_id;
+          const stateId = farmer.address.state_id;
+          const districtId = farmer.address.district_id;
 
-      if (stateId && Types.ObjectId.isValid(stateId)) {
-        const stateName = await getState(stateId);
-        farmer.address.state_name = stateName || null;
-      }
+          if (stateId && Types.ObjectId.isValid(stateId)) {
+            const stateName = await getState(stateId);
+            farmer.address.state_name = stateName || null;
+          }
 
-      if (districtId && Types.ObjectId.isValid(districtId)) {
-        const districtName = await getDistrict(districtId);
-        farmer.address.district_name = districtName || null;
-      }
+          if (districtId && Types.ObjectId.isValid(districtId)) {
+            const districtName = await getDistrict(districtId);
+            farmer.address.district_name = districtName || null;
+          }
 
-      delete farmer.address.state_title;
-      delete farmer.address.district_title;
+          delete farmer.address.state_title;
+          delete farmer.address.district_title;
 
-      updatedRows.push(farmer);
-    }
+          updatedRows.push(farmer);
+        }
 
-    records.rows = updatedRows;
+        records.rows = updatedRows;
 
     // records.count = await farmer.countDocuments(query);
     if (is_associated == 1) {
@@ -773,7 +773,7 @@ module.exports.getBoFarmer = async (req, res) => {
     if (!user) {
       return res.status(404).send({ message: "User not found." });
     }
-
+   
     const { state } = user;
     if (!state) {
       return res
@@ -1138,15 +1138,15 @@ module.exports.getLand = async (req, res) => {
     let lands =
       paginate == 1
         ? await Land.find(query)
-          .limit(parseInt(limit))
-          .skip(parseInt(skip))
-          .sort(sortBy)
-          .populate("farmer_id", "id name")
-          .lean()
+            .limit(parseInt(limit))
+            .skip(parseInt(skip))
+            .sort(sortBy)
+            .populate("farmer_id", "id name")
+            .lean()
         : await Land.find(query)
-          .sort(sortBy)
-          .populate("farmer_id", "id name")
-          .lean();
+            .sort(sortBy)
+            .populate("farmer_id", "id name")
+            .lean();
 
     records.rows = await Promise.all(
       lands.map(async (land) => {
@@ -1749,10 +1749,10 @@ module.exports.getBank = async (req, res) => {
     records.rows =
       paginate == 1
         ? await Bank.find(query)
-          .limit(parseInt(limit))
-          .skip(parseInt(skip))
-          .sort(sortBy)
-          .populate("farmer_id", "id name")
+            .limit(parseInt(limit))
+            .skip(parseInt(skip))
+            .sort(sortBy)
+            .populate("farmer_id", "id name")
         : await Bank.find(query).sort(sortBy);
 
     records.count = await Bank.countDocuments(query);
@@ -1979,12 +1979,12 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           : "no";
       const transportation_facilities =
         rec["TRANSPORTATION FACILITIES"] &&
-          rec["TRANSPORTATION FACILITIES"].toLowerCase() === "yes"
+        rec["TRANSPORTATION FACILITIES"].toLowerCase() === "yes"
           ? "yes"
           : "no";
       const credit_facilities =
         rec["CREDIT FACILITIES"] &&
-          rec["CREDIT FACILITIES"].toLowerCase() === "yes"
+        rec["CREDIT FACILITIES"].toLowerCase() === "yes"
           ? "yes"
           : "no";
       const source_of_credit = rec["SOURCE OF CREDIT"]
@@ -2768,13 +2768,13 @@ const getAddress = async (item) => {
     district: item?.address?.district
       ? item?.address?.district
       : item?.address?.district_id
-        ? await getDistrict(item?.address?.district_id)
-        : "unknown",
+      ? await getDistrict(item?.address?.district_id)
+      : "unknown",
     state: item?.address?.state
       ? item?.address?.state
       : item?.address?.state_id
-        ? await getState(item?.address?.state_id)
-        : "unknown",
+      ? await getState(item?.address?.state_id)
+      : "unknown",
     pinCode: item?.address?.pinCode,
   };
 };
@@ -3037,9 +3037,10 @@ module.exports.getAllFarmersExport = async (req, res) => {
       _id: 1,
     };
     let query;
-    if (centertype === "associatedFarmers") {
-      query = { associate_id: { $ne: null } };
-    } else if (centertype === "localFarmers") {
+    if(centertype === "associatedFarmers")
+    {
+        query = { associate_id: { $ne: null } };
+    }else if(centertype === "localFarmers") {
       query = { associate_id: null };
     }
     const stateDistrictData = await StateDistrictCity.find(
@@ -3049,7 +3050,7 @@ module.exports.getAllFarmersExport = async (req, res) => {
     const stateMap = {};
     const reverseStateMap = {};
     stateDistrictData.forEach(({ states }) => {
-      states.forEach(({ _id, state_title }) => {
+      states.forEach(({ _id, state_title}) => {
         const stateIdStr = _id.toString();
         stateMap[stateIdStr] = state_title;
         reverseStateMap[state_title.toLowerCase()] = stateIdStr;
@@ -3115,7 +3116,7 @@ module.exports.getAllFarmersExport = async (req, res) => {
       farmers.map(async (item) => {
         //console.log("Item ->",item);
         const state = await getState(item?.address?.state_id);
-
+       
         const district = await getDistrict(item?.address?.district_id);
         const farmerIdStr = item._id.toString();
         const crops = cropsByFarmer[farmerIdStr] || [];
@@ -3813,12 +3814,12 @@ module.exports.haryanaFarmerUplod = async (req, res) => {
           : "no";
       const transportation_facilities =
         rec["TRANSPORTATION FACILITIES"] &&
-          rec["TRANSPORTATION FACILITIES"].toLowerCase() === "yes"
+        rec["TRANSPORTATION FACILITIES"].toLowerCase() === "yes"
           ? "yes"
           : "no";
       const credit_facilities =
         rec["CREDIT FACILITIES"] &&
-          rec["CREDIT FACILITIES"].toLowerCase() === "yes"
+        rec["CREDIT FACILITIES"].toLowerCase() === "yes"
           ? "yes"
           : "no";
       const source_of_credit = rec["SOURCE OF CREDIT"]
@@ -4481,7 +4482,7 @@ module.exports.getVerifiedAdharDetails = async (req, res) => {
   try {
     const { uidai_aadharNo, farmer_id, cpmu_farmer_id } = req.body;
 
-    if (!farmer_id) {
+    if(!farmer_id){
       return res.send({
         status: 400,
         message: _middleware.require('farmer_id'),
@@ -4493,9 +4494,9 @@ module.exports.getVerifiedAdharDetails = async (req, res) => {
         message: "Either cpmu_farmer_id or uidai_aadharNo is required !",
       });
     }
-    let farmer_data = uidai_aadharNo ? await farmer.findOne({ "proof.aadhar_no": uidai_aadharNo }, { _id: 1 }) : null;
-    if (farmer_data && !new mongoose.Types.ObjectId(farmer_id).equals(farmer_data?._id)) {
-      return res.json({ status: 400, message: "This uidai_aadharNo is already taken, try other." });
+    let farmer_data = uidai_aadharNo ? await farmer.findOne({"proof.aadhar_no": uidai_aadharNo }, {_id: 1}): null;
+    if(farmer_data && !new mongoose.Types.ObjectId(farmer_id).equals(farmer_data?._id)){
+      return res.json( { status: 400, message: "This uidai_aadharNo is already taken, try other."});
     }
     // Run both queries in parallel for better performance
     const [adharDetails, agristackFarmerDetails] = await Promise.all([
@@ -4754,73 +4755,6 @@ async function mapToVerifyFarmerModel(rows, request_for_verfication) {
   return result;
 }
 
-module.exports.uploadFarmerForVerfication = async (req, res) => {
-  try {
-    const { isxlsx, request_for_bank, request_for_aadhaar } = req.body;
-    const [file] = req.files;
-
-    logger.info("Starting upload of farmer data for verification.");
-
-    // Check for required fields
-    if (!file) {
-      logger.warn("File is missing in the request.");
-      return sendResponse({
-        res,
-        status: 400,
-        message: "File is required"
-      });
-    }
-
-    if (
-      typeof isxlsx === "undefined" ||
-      typeof request_for_bank === "undefined" ||
-      typeof request_for_aadhaar === "undefined"
-    ) {
-      logger.warn("Missing required fields in request body", {
-        isxlsx,
-        request_for_bank,
-        request_for_aadhaar,
-      });
-
-      return sendResponse({
-        res,
-        status: 400,
-        message: "Missing required fields: isxlsx, request_for_bank, request_for_aadhaar"
-      });
-    }
-
-    const rawRows = await parseExcelOrCsvFile(file, parseInt(isxlsx));
-    if (!rawRows.length) {
-      logger.warn("Uploaded file contains no data.");
-      return sendResponse({
-        res,
-        status: 400,
-        message: "No data found in file"
-      });
-    }
-
-    const formattedRows = await mapToVerifyFarmerModel(rawRows, request_for_bank, request_for_aadhaar);
-    await verfiyfarmer.insertMany(formattedRows);
-
-    logger.info(`Imported ${formattedRows.length} farmer records successfully.`);
-
-    return sendResponse({
-      res,
-      message: "Farmers imported successfully",
-      data: { count: formattedRows.length }
-    });
-  } catch (error) {
-    logger.error("Error during farmer data import", error);
-    return sendResponse({
-      res,
-      status: 500,
-      message: "Failed to import data",
-      errors: error.message
-    });
-  }
-};
-
-
 module.exports.farmerCount = async (req, res) => {
   try {
     logger.info(" Fetching farmer count and verification statistics");
@@ -5038,7 +4972,7 @@ module.exports.farmerVerfiedData = async (req, res) => {
           let: { farmerId: "$farmer_id" },
           pipeline: [
             { $match: { $expr: { $eq: ["$farmer_id", "$$farmerId"] } } },
-            { $sort: { createdAt: -1 } },
+            { $sort: { createdAt: -1 } }, 
             { $limit: 1 }
           ],
           as: "farmer_detailsCrop"
@@ -5150,47 +5084,12 @@ module.exports.farmerVerfiedData = async (req, res) => {
 
     return sendResponse({
       res,
-      status: 500,
-      message: "Failed to fetch farmer count",
-      errors: error.message
-    });
-  }
-  catch (error) {
-    logger.error("[farmerVerfiedData] Error fetching verified farmers", error);
-    return sendResponse({
-      res,
-      status: 500,
-      message: "Failed to fetch verified farmers",
-      errors: error.message
-    });
-  }
-};
-
-module.exports.verfiyedFarmer = async (req, res) => {
-  try {
-    logger.info(" Fetching farmer count and verification statistics");
-
-    let { associate_id, farmer_id } = req.query
-    const farmerTypeAgg = await verfiyfarmer.find({})
-
-
-    logger.info("✅ Farmer statistics fetched successfully");
-
-    return sendResponse({
-      res,
-      message: "Farmer count fetched successfully",
+      message: "Verified farmers fetched successfully",
       data: {
-        farmerTypes: farmerTypes[0] || {
-          totalFarmers: 0,
-          individualFarmers: 0,
-          associateFarmers: 0
-        },
-        verifiedFarmers: verifiedFarmers[0] || {
-          bankVerified: 0,
-          aadhaarVerified: 0,
-          bothVerified: 0
-        }
-
+        total,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        farmers: data
       }
     });
 
