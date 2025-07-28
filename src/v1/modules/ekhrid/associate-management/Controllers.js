@@ -26,7 +26,7 @@ const jformIds = require('../50kg-jformId');
 const checkJformIdsExist = require('../finalJformIds(02-07-2025)');
 // const checkJformIdsExist = require('../remainingJformIds(15-07-2025)');
 const needToUpdateAssociateJformIds = require('../needToUpdateAssociateJformIds');
-const jformIdDeleted = require('../jformIdDeleted');
+const jformIdDeleted = require('../jformidDeleted');
 const { AssociateMandiName } = require("@src/v1/models/app/eKharid/associateMandiName");
 const { error } = require('console');
 
