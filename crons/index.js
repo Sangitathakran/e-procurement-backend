@@ -273,7 +273,7 @@ async function callExternalFarmerAPI() {
       isExport: 0,
     }); 
 
-    console.log("✅ API Response:", response.data);
+    console.log("API Response:", response.data);
   } catch (error) {
     console.error("❌ Error calling API:", error.message);
   }

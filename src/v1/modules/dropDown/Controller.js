@@ -6,17 +6,13 @@ const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Commodity } = require("@src/v1/models/master/Commodity");
 const { Associate } = require("@src/v1/models/app/auth/Associate");
-const {
-  commodityStandard,
-} = require("@src/v1/models/master/commodityStandard");
+const {commodityStandard,} = require("@src/v1/models/master/commodityStandard");
 const { Scheme } = require("@src/v1/models/master/Scheme");
-const {
-  StateDistrictCity,
-} = require("@src/v1/models/master/StateDistrictCity");
+const {StateDistrictCity} = require("@src/v1/models/master/StateDistrictCity");
 const UserRole = require("@src/v1/models/master/UserRole");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { default: mongoose } = require("mongoose");
-
+const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 
 module.exports.scheme = async (req, res) => {
   const query = { deletedAt: null, status: "active" };
@@ -158,7 +154,7 @@ module.exports.sla_list = async (req, res) => {
     return sendResponse({ res, message: "", data: sla_lists });
   } catch (err) {
     console.log("ERROR: ", err);
-    return sendResponse({ status: 500, message: err.message });
+    return sendResponse({ res,status: 500, message: err.message });
   }
 };
 

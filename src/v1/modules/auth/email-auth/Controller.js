@@ -69,9 +69,7 @@ module.exports.login = async (req, res) => {
         })
       );
     }
-
     const validPassword = await bcrypt.compare(password, user.password);
-
     if (!validPassword) {
       const loginAttempt = await LoginAttempt.findOne({ master_id: user._id, userType: user.user_type });
 
@@ -100,7 +98,6 @@ module.exports.login = async (req, res) => {
         return res.status(400).send(
           new serviceResponse({
             status: 400,
-            // data: { remainingAttempts },
             errors: [{ message: _commonMessages.invaildCredentials }]
           })
         );
@@ -147,7 +144,6 @@ module.exports.login = async (req, res) => {
       portalId: user?.portalId?._id,
       user_type: user.user_type
     };
-    console.log(payload)
     const expiresIn = 24 * 60 * 60;
     const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
@@ -173,7 +169,7 @@ module.exports.login = async (req, res) => {
     return res.status(200).send(
       new serviceResponse({
         status: 200,
-        message: _auth_module.login('Account login successful.'),
+        message: _auth_module.login('Account'),
         data
       })
     );
