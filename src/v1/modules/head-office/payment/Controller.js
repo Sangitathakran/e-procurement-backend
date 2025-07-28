@@ -1261,6 +1261,7 @@ module.exports.payment = async (req, res) => {
                 totalPrice: 1,
                 ho_approval_at: 1,
                 payment: 1,
+                ho_approve_status: 1, // Include ho_approve_status
               },
             },
           ],
@@ -1284,15 +1285,15 @@ module.exports.payment = async (req, res) => {
         },
       },
       { $unwind: "$branch" },
-      // {
-      //   $match: {
-      //     batches: {
-      //       $elemMatch: {
-      //         ho_approve_status:_paymentApproval.pending,
-      //       },
-      //     },
-      //   },
-      // },
+      {
+        $match: {
+          batches: {
+            $elemMatch: {
+              ho_approve_status: approve_status,
+            },
+          },
+        },
+      },
       {
         $lookup: {
           from: "schemes",
@@ -1544,13 +1545,13 @@ module.exports.payment = async (req, res) => {
       //   ...(branch ? [{ "branch.branchName": { $regex: branch, $options: "i" } }] : []),
       // ];
     }
-    aggregationPipeline.push(
-      {
-        $match: {
-          "approval_status":approve_status
-        }
-      }
-    );
+    // aggregationPipeline.push(
+    //   {
+    //     $match: {
+    //       "approval_status":approve_status
+    //     }
+    //   }
+    // );
     aggregationPipeline.push(
       {
         $project: {
@@ -2023,13 +2024,15 @@ module.exports.associateOrders = async (req, res) => {
       ho_id: {
         $in: [
           new mongoose.Types.ObjectId(portalId),
-          new mongoose.Types.ObjectId(user_id),
+          // new mongoose.Types.ObjectId(user_id),
         ],
       },
       req_id: new mongoose.Types.ObjectId(req_id),
       bo_approve_status: _paymentApproval.approved,
     });
-
+    console.log({portalId},{req_id})
+console.log(paymentIds.length,paymentIds, "paymentIds"
+)
     // Fetch request metadata
     const reqDetails = await RequestModel.findOne({ _id: req_id })
       .select({
