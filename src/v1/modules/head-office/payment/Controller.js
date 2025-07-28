@@ -5080,7 +5080,8 @@ module.exports.proceedToPaybatchListWithoutAggregation = async (req, res) => {
 module.exports.paymentLogsHistory = async (req, res) => {
   try {
     const { batchId } = req.query;
-    if (!batchId) {
+    console.log(batchId, typeof batchId)//undefined string
+    if (!batchId || !mongoose.Types.ObjectId.isValid(batchId) ) {
       return res.status(400).send(
         new serviceResponse({
           status: 400,
