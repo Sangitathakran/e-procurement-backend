@@ -15,7 +15,7 @@ const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/j
 const { _userType } = require("@src/v1/utils/constants/index")
 const { farmerList } = require("../head-office/farmer-management/Controller");
 const { requestforVerification, farmerVerfiedData, farmerCount, uploadFarmerForVerfication } = require("@modules/farmer/farmerVerficationController");
-
+const {loginRequestPerMinute } = require("@src/v1/middlewares/express_app");
 
 farmerRoutes.post("/" ,authenticateUser,authorizeRoles(_userType.associate), verifyAssociate, [validateFarmer, validateErrors], createFarmer);
 
@@ -68,8 +68,8 @@ farmerRoutes.get('/get-districts-by-state_id', getDistrictsByState);
 /* 
  individual farmer routes 
  */
-farmerRoutes.post("/send-farmerOTP", sendOTP);
-farmerRoutes.post("/verify-farmerOTP", verifyOTP);
+farmerRoutes.post("/send-farmerOTP",loginRequestPerMinute, sendOTP);
+farmerRoutes.post("/verify-farmerOTP",loginRequestPerMinute, verifyOTP);
 farmerRoutes.post('/register-details',authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
 farmerRoutes.put('/onboarding-details/:id',authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken,  [validateIndFarmer, validateErrors], saveFarmerDetails);
 

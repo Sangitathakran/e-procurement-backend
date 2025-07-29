@@ -3,9 +3,10 @@ const { validateForm } = require("@src/v1/modules/associate/auth/Validation")
 const express = require("express");
 const { verifyAssociate } = require("../utils/verifyAssociate");
 const userAuthRoutes = express.Router();
+const {loginRequestPerMinute } = require("@src/v1/middlewares/express_app");
 
-userAuthRoutes.post("/send-otp", sendOtp);
-userAuthRoutes.post("/register-login", loginOrRegister);
+userAuthRoutes.post("/send-otp",loginRequestPerMinute, sendOtp);
+userAuthRoutes.post("/register-login",loginRequestPerMinute, loginOrRegister);
 userAuthRoutes.put("/onboarding", verifyAssociate, validateForm, saveAssociateDetails);
 userAuthRoutes.get("/onboarding", verifyAssociate, formPreview);
 userAuthRoutes.get("/onboarding-status", verifyAssociate, onboardingStatus);
