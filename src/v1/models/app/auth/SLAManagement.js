@@ -86,7 +86,7 @@ const SLASchema = new mongoose.Schema({
     status: { type: String, enum: Object.values(_status), default: _status.active },
     associatOrder_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers }],
     schemes: {
-        scheme: { type: mongoose.Schema.Types.ObjectId, ref: "Scheme" },
+        scheme: [{ type: mongoose.Schema.Types.ObjectId, ref: "Scheme" }],//not confirmed yet, need to discuss with ashita
         cna: { type: mongoose.Schema.Types.ObjectId, ref: "HeadOffice" },
         branch: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" }
     },
