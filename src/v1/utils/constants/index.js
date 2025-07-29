@@ -669,7 +669,7 @@ const _verificationStatus = {
     pending: 1,
     succeed: 2,
     failed: 3
-}
+};
 
 const dateRanges = ['currentMonth', 'lastMonth', 'last3Months', 'last6Months', 'custom'];
 const dateRangesObj = {
@@ -678,9 +678,14 @@ const dateRangesObj = {
     last3Months: "last3Months",
     last6Months:"last6Months",
     custom: "custom"
-}
+};
+const mailProviders = {
+    mailtrap: "mailtrap",
+    ses: "ses"
+};
 
 module.exports = {
+    mailProviders,
     _userAction,
     _farmerType,
     _collectionName,
