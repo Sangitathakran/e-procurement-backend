@@ -20,6 +20,8 @@ const { StorageFacility } = require('@src/v1/models/app/auth/storageFacility');
 const { StateDistrictCity } = require('@src/v1/models/master/StateDistrictCity');
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
+const { LoginAttempt } = require("@src/v1/models/master/loginAttempt");
+
 
 const findUser = async (input, type) => {
     return type === 'email'
@@ -60,6 +62,17 @@ module.exports.sendOtp = async (req, res) => {
             await sendEmailOtp(input);
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Email") }));
         } else if (inputType === 'mobile') {
+            const blockCheck = await LoginAttempt.findOne({ phone: input });
+            if (blockCheck?.lockUntil && blockCheck.lockUntil > new Date()) {
+                const remainingTime = Math.ceil((blockCheck.lockUntil - new Date()) / (1000 * 60));
+                return res.status(400).send(
+                    new serviceResponse({
+                        status: 400,
+                        data: { remainingTime },
+                        errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minutes.` }]
+                    })
+                );
+            }
             await sendSmsOtp(input);
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Mobile") }));
         } else {
@@ -72,11 +85,11 @@ module.exports.sendOtp = async (req, res) => {
 
 module.exports.reSendOtp = async (req, res) => {
     try {
-        const { input} = req.body;
+        const { input } = req.body;
         if (!input) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('input') }));
         }
-       
+
         let inputType;
         if (isEmail(input)) {
             inputType = 'email';
@@ -86,6 +99,17 @@ module.exports.reSendOtp = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("Invalid input format") }] }));
         }
         if (inputType === 'email') {
+            const blockCheck = await LoginAttempt.findOne({ phone: input });
+            if (blockCheck?.lockUntil && blockCheck.lockUntil > new Date()) {
+                const remainingTime = Math.ceil((blockCheck.lockUntil - new Date()) / (1000 * 60));
+                return res.status(400).send(
+                    new serviceResponse({
+                        status: 400,
+                        data: { remainingTime },
+                        errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minutes.` }]
+                    })
+                );
+            }
             await sendEmailOtp(input);
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Email") }));
         } else if (inputType === 'mobile') {
@@ -136,13 +160,13 @@ module.exports.loginOrRegister = async (req, res) => {
             } else {
                 newUser.is_mobile_verified = true;
             }
-            
-            newUser.is_approved= _userStatus.approved;
+
+            newUser.is_approved = _userStatus.approved;
 
             userExist = await Distiller.create(newUser);
-        }else{
+        } else {
             const distiller = await Distiller.findOne(query);
-            distiller.is_approved= _userStatus.approved;
+            distiller.is_approved = _userStatus.approved;
             await distiller.save();
         }
 
@@ -646,7 +670,7 @@ module.exports.getManufacturingUnit = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query
         const { organization_id } = req;
-       
+
         const query = { 'distiller_id': organization_id }
         const records = { count: 0 };
         const getState = async (stateId) => {
@@ -867,7 +891,7 @@ module.exports.getStorageFacility = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '' } = req.query;
         const { organization_id } = req;
-       
+
         const query = { distiller_id: organization_id };
         const records = { count: 0 };
 
@@ -1031,7 +1055,7 @@ module.exports.getPendingDistillers = async (req, res) => {
 module.exports.updateApprovalStatus = asyncErrorHandler(async (req, res) => {
     const { id } = req.query;
     const distiller = await Distiller.findOne({ _id: id });
-   
+
     if (!distiller) {
         return res.send(
             new serviceResponse({
@@ -1040,9 +1064,9 @@ module.exports.updateApprovalStatus = asyncErrorHandler(async (req, res) => {
             })
         );
     }
-    
-    distiller.is_approved= _userStatus.approved,
-    await distiller.save();
+
+    distiller.is_approved = _userStatus.approved,
+        await distiller.save();
     return res.send(
         new serviceResponse({
             status: 200,
@@ -1137,7 +1161,7 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                             },
                             point_of_contact: {
                                 name: name,
-                                email:null,
+                                email: null,
                                 mobile: authorized_contact_no,
                                 designation: null,
                                 aadhar_number: null,
@@ -1166,7 +1190,7 @@ module.exports.bulkUploadDistiller = async (req, res) => {
                             esyq4_maize_req,
                             q3q4_ethanol_alloc,
                             q3q4_maize_req,
-                          },
+                        },
                         address: {
                             registered: {
                                 line1: distillery_address,
