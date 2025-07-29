@@ -575,6 +575,15 @@ const _ccAvenuePaymentStatus = {
     FAILURE : "Failure"
 }
 
+const dateRanges = ['currentMonth', 'lastMonth', 'last3Months', 'last6Months', 'custom'];
+const dateRangesObj = {
+    currentMonth: "currentMonth",
+    lastMonth: "lastMonth",
+    last3Months: "last3Months",
+    last6Months:"last6Months",
+    custom: "custom"
+}
+
 module.exports = {
     _userAction,
     _farmerType,
@@ -646,5 +655,7 @@ module.exports = {
     _period,
     _centralNodalAgency,
     _schemeName,
-    _ccAvenuePaymentStatus
+    _ccAvenuePaymentStatus,
+    dateRanges,
+    dateRangesObj
 }

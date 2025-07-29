@@ -10,6 +10,7 @@ const {
 const {
   _query,
   _response_message,
+  _middleware,
 } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
@@ -20,6 +21,8 @@ const {
   _associateOfferStatus,
   _paymentApproval,
   received_qc_status,
+  dateRanges,
+  dateRangesObj,
 } = require("@src/v1/utils/constants");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 // const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
@@ -60,6 +63,7 @@ const {
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { Commodity } = require("@src/v1/models/master/Commodity");
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
+const { buildDateRange } = require("./Services");
 
 const validateMobileNumber = async (mobile) => {
   let pattern = /^[0-9]{10}$/;
@@ -1258,6 +1262,7 @@ module.exports.payment = async (req, res) => {
                 totalPrice: 1,
                 ho_approval_at: 1,
                 payment: 1,
+                ho_approve_status: 1, // Include ho_approve_status
               },
             },
           ],
@@ -1281,15 +1286,15 @@ module.exports.payment = async (req, res) => {
         },
       },
       { $unwind: "$branch" },
-      // {
-      //   $match: {
-      //     batches: {
-      //       $elemMatch: {
-      //         ho_approve_status:_paymentApproval.pending,
-      //       },
-      //     },
-      //   },
-      // },
+      {
+        $match: {
+          batches: {
+            $elemMatch: {
+              ho_approve_status: approve_status,
+            },
+          },
+        },
+      },
       {
         $lookup: {
           from: "schemes",
@@ -1541,13 +1546,13 @@ module.exports.payment = async (req, res) => {
       //   ...(branch ? [{ "branch.branchName": { $regex: branch, $options: "i" } }] : []),
       // ];
     }
-    aggregationPipeline.push(
-      {
-        $match: {
-          "approval_status":approve_status
-        }
-      }
-    );
+    // aggregationPipeline.push(
+    //   {
+    //     $match: {
+    //       "approval_status":approve_status
+    //     }
+    //   }
+    // );
     aggregationPipeline.push(
       {
         $project: {
@@ -2011,19 +2016,24 @@ module.exports.associateOrders = async (req, res) => {
         })
       );
     }
+    if(!req_id){
+      return res.json( { status: 400, message: _middleware.require('req_id')} );
+    }
 
     // Get payment-related offer IDs
     const paymentIds = await Payment.distinct("associateOffers_id", {
       ho_id: {
         $in: [
           new mongoose.Types.ObjectId(portalId),
-          new mongoose.Types.ObjectId(user_id),
+          // new mongoose.Types.ObjectId(user_id),
         ],
       },
       req_id: new mongoose.Types.ObjectId(req_id),
       bo_approve_status: _paymentApproval.approved,
     });
-
+    console.log({portalId},{req_id})
+console.log(paymentIds.length,paymentIds, "paymentIds"
+)
     // Fetch request metadata
     const reqDetails = await RequestModel.findOne({ _id: req_id })
       .select({
@@ -2036,6 +2046,12 @@ module.exports.associateOrders = async (req, res) => {
         status: 1,
       })
       .lean();
+      let batchObj = await Batch.find( { req_id}, { qty: 1}  ).lean();
+      console.log(batchObj.length, batchObj)
+      reqDetails.product.quantity = reqDetails.product.quantity = Number(
+        batchObj.reduce((acc, curr) => acc + (curr.qty || 0), 0)
+      ).toFixed(3);
+
 
     if (!reqDetails) {
       return res.status(404).send(
@@ -4092,12 +4108,27 @@ module.exports.proceedToPayPayment = async (req, res) => {
       schemeName = "",
       commodityName = "",
       paginate = 1,
+      dateFilterType="",
+      startDate='',
+      endDate=''
     } = req.query;
 
     limit = parseInt(limit) || 10;
     page = parseInt(page) || 1;
 
     const { portalId, user_id } = req;
+    let exportDates = {};
+    if(dateFilterType.trim() && !dateRanges.includes(dateFilterType)){
+      return res.status(400).json( { status: 400, message: _query.invalid(dateFilterType)} );
+    }
+
+    if(dateFilterType.trim()){
+      exportDates = buildDateRange(dateFilterType)
+    }else if(startDate && endDate){
+      exportDates = buildDateRange(dateRangesObj.custom, startDate, endDate);
+    }else{
+      exportDates = buildDateRange(dateRangesObj.currentMonth);
+    }
 
     // const cacheKey = `payment:${portalId}:${user_id}:${page}:${limit}:${search}:${payment_status}:${state}:${branch}:${schemeName}:${commodityName}:${paginate}:${isExport}`;
 
@@ -4116,16 +4147,16 @@ module.exports.proceedToPayPayment = async (req, res) => {
       isExport,
     });
 
-    const cachedData = getCache(cacheKey);
-    if (cachedData && isExport != 1) {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: cachedData,
-          message: "Payments found (cached)",
-        })
-      );
-    }
+    // const cachedData = getCache(cacheKey);
+    // if (cachedData && isExport != 1) {
+    //   return res.status(200).send(
+    //     new serviceResponse({
+    //       status: 200,
+    //       data: cachedData,
+    //       message: "Payments found (cached)",
+    //     })
+    //   );
+    // }
 
     // Ensure indexes (if not already present, ideally done at setup)
     await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
@@ -4143,10 +4174,22 @@ module.exports.proceedToPayPayment = async (req, res) => {
       _id: { $in: paymentIds },
     };
 
+    // // Apply the updatedAt filter only if you got a valid range
+    // if (isExport == 1) {
+    //   if (isExport == 1 && exportDates?.from && exportDates?.to) {
+    //   query.createdAt = {
+    //     $gte: exportDates.from,
+    //     $lte: exportDates.to,
+    //    };
+    //   }
+    // }
+
     if (search) {
       query.$or = [
         { reqNo: { $regex: search, $options: "i" } },
         { "product.name": { $regex: search, $options: "i" } },
+        { "branchDetails.branchId": {$regex: search, $options: "i"} }
+        
       ];
     }
 
@@ -4175,7 +4218,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
     }
 
     const aggregationPipeline = [
-      { $match: query },
+      // { $match: query },
       { $sort: { createdAt: -1 } },
       // {
       //   $lookup: {
@@ -4243,6 +4286,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           as: "branchDetails",
         },
       },
+       { $match: query },
       {
         $addFields: {
           branchDetails: {
@@ -4314,7 +4358,20 @@ module.exports.proceedToPayPayment = async (req, res) => {
           },
         },
       },
+      
     ];
+    if( isExport == 1){
+      aggregationPipeline.push(
+        {
+      $match: {
+        approval_date: {
+          $gte: exportDates.from,
+          $lte: exportDates.to,
+        },
+      },
+    }
+      )
+    }
 
     // Apply filters on already aggregated data
     if (state || commodityName || schemeName || branch) {
@@ -4374,7 +4431,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
       // { $limit: limit }
     );
 
-    if (paginate == 1) {
+    if (paginate == 1 && isExport !=1) {
       aggregationPipeline.push(
         { $skip: (page - 1) * limit },
         { $limit: limit }
@@ -4394,7 +4451,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
     response.limit = limit
 
     if (isExport != 1) {
-      setCache(cacheKey, response, 300); // 5 mins
+     // setCache(cacheKey, response, 300); // 5 mins
     }
 
     if (isExport == 1) {
@@ -4412,6 +4469,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
         "AMOUNT PAID": item?.amountPayable || "NA",
         "APPROVAL DATE": item?.approval_date || "NA",
       }));
+     // return res.json({ record});
       if (record.length > 0) {
         dumpJSONToExcel(req, res, {
           data: record,
@@ -5022,7 +5080,8 @@ module.exports.proceedToPaybatchListWithoutAggregation = async (req, res) => {
 module.exports.paymentLogsHistory = async (req, res) => {
   try {
     const { batchId } = req.query;
-    if (!batchId) {
+    console.log(batchId, typeof batchId)//undefined string
+    if (!batchId || !mongoose.Types.ObjectId.isValid(batchId) ) {
       return res.status(400).send(
         new serviceResponse({
           status: 400,
