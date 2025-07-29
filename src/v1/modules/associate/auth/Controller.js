@@ -12,7 +12,7 @@ const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { LoginAttempt } = require("@src/v1/models/master/loginAttempt");
-const {LoginHistory} = require("@src/v1/models/master/loginHistery");
+const { LoginHistory } = require("@src/v1/models/master/loginHistery");
 const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
@@ -52,6 +52,17 @@ module.exports.sendOtp = async (req, res) => {
             await sendEmailOtp(input);
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Email") }));
         } else if (inputType === 'mobile') {
+            const blockCheck = await LoginAttempt.findOne({ phone: input });
+            if (blockCheck?.lockUntil && blockCheck.lockUntil > new Date()) {
+                const remainingTime = Math.ceil((blockCheck.lockUntil - new Date()) / (1000 * 60));
+                return res.status(400).send(
+                    new serviceResponse({
+                        status: 400,
+                        data: { remainingTime },
+                        errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minutes.` }]
+                    })
+                );
+            }
             await sendSmsOtp(input);
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Mobile") }));
         } else {
@@ -161,7 +172,7 @@ module.exports.loginOrRegister = async (req, res) => {
         const expiresIn = 24 * 60 * 60; // 24 hour in seconds
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
         await LoginHistory.deleteMany({ master_id: userExist._id, user_type: _userType.associate });
-        await LoginHistory.create({ token: token,user_type: _userType.associate, master_id: userExist._id, ipAddress: getIpAddress(req) });
+        await LoginHistory.create({ token: token, user_type: _userType.associate, master_id: userExist._id, ipAddress: getIpAddress(req) });
 
         res.cookie('token', token, {
             httpOnly: true,

@@ -50,6 +50,17 @@ module.exports.sendOtp = async (req, res) => {
             await sendEmailOtp(input);
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Email") }));
         } else if (inputType === 'mobile') {
+            const blockCheck = await LoginAttempt.findOne({ phone: input });
+            if (blockCheck?.lockUntil && blockCheck.lockUntil > new Date()) {
+                const remainingTime = Math.ceil((blockCheck.lockUntil - new Date()) / (1000 * 60));
+                return res.status(400).send(
+                    new serviceResponse({
+                        status: 400,
+                        data: { remainingTime },
+                        errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minutes.` }]
+                    })
+                );
+            }
             await sendSmsOtp(input);
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Mobile") }));
         } else {
@@ -312,7 +323,7 @@ module.exports.loginOrRegisterDistiller = async (req, res) => {
 
             }
         } else {
-            await LoginAttempt.deleteMany({ phone: userInput});
+            await LoginAttempt.deleteMany({ phone: userInput });
         }
 
         const user = await MasterUser.findOne({ mobile: userInput.trim() })
