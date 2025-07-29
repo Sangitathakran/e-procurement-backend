@@ -82,6 +82,7 @@ const SLASchema = new mongoose.Schema({
     activity: {
         ..._commonKeys,
     },
+    
     // active: { type: Boolean, default: true },
     status: { type: String, enum: Object.values(_status), default: _status.active },
     associatOrder_id: [{ type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers }],
