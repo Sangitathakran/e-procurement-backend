@@ -21,7 +21,7 @@ const { mandiWiseProcurementRoute } = require("./mandiWiseProcurement/Routes");
 const agentRoutes = express.Router();
 
 agentRoutes.use('/request',authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), requestRoutes);
-agentRoutes.use('/scheme',authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), schemeRoutes);
+agentRoutes.use('/scheme', schemeRoutes);
 agentRoutes.use("/associate",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), associateMngmntRoutes);
 agentRoutes.use("/ho",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), hoMngmntRoutes);
 agentRoutes.use("/bo",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), boManagementRoutes);

@@ -166,7 +166,6 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   }
 });
 
-
 module.exports.getSchemeById = asyncErrorHandler(async (req, res) => {
   const { id } = req.params;
   // Validate ObjectId

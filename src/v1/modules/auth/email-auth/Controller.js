@@ -44,7 +44,7 @@ module.exports.login = async (req, res) => {
         new serviceResponse({
           status: 400,
           data: { remainingTime },
-          errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minute(s).` }]
+          errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minutes.` }]
         })
       );
     }
