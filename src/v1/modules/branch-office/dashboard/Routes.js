@@ -11,6 +11,6 @@ dashboardRoutes.get("/precurement-list",authenticateUser,authorizeRoles(_userTyp
 dashboardRoutes.get("/pending-precurement-list",authenticateUser,authorizeRoles(_userType.bo), Auth, getPendingOffersCountByRequestId);
 
 dashboardRoutes.get("/farmer-payment",authenticateUser,authorizeRoles(_userType.bo), Auth, farmerPayments);
-dashboardRoutes.get("/agent-req", agentPayments);
+dashboardRoutes.get("/agent-req",authenticateUser,authorizeRoles(_userType.bo), agentPayments);
 
 module.exports = { dashboardRoutes }; 
