@@ -1,11 +1,11 @@
 
 const { MasterUser } = require("@src/v1/models/master/MasterUser");
-const { _auth_module, _response_message, _commonMessages, _middleware } = require("@src/v1/utils/constants/messages");
+const { _auth_module, _response_message, _commonMessages, _middleware, _query } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
 const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const bcrypt = require('bcrypt');
 const jwt = require("jsonwebtoken");
-const { JWT_SECRET_KEY } = require('@config/index');
+const { JWT_SECRET_KEY, FRONTEND_URLS } = require('@config/index');
 const { TypesModel } = require("@src/v1/models/master/Types");
 const { _userTypeFrontendRouteMapping } = require("@src/v1/utils/constants");
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
@@ -193,6 +193,14 @@ module.exports.forgetPassword = async (req, res) => {
           errors: [{ message: _middleware.require('Email') }]
         })
       );
+    }
+    if(!Object.keys(FRONTEND_URLS).includes(portal_type)){
+       return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          errors: [{ message: _query.invalid('portal_type') }]
+        })
+      ); 
     }
 
     const user = await MasterUser.findOne({ email: email.trim() });

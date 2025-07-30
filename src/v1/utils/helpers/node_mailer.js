@@ -8,6 +8,7 @@ const {
 const { SESsendEmail } = require("@src/common/services/emailServices/AWS_SES");
 const { mailProviders, allowedEmailDomains } = require("../constants");
 const { _query } = require("../constants/messages");
+const logger = require("@src/common/logger/logger");
 
 const defaultMailConfig = {
   user: mailer.user,
@@ -52,6 +53,7 @@ const sendMail = async (
     }
 
     if (!isAllowedEmail(to)) {
+        logger.error(`Email domain not allowed for ${to}`);
       throw new Error(`Email domain not allowed for ${to}`);
     }
 
@@ -70,9 +72,11 @@ const sendMail = async (
         attachments: mailAttachments,
       });
     } else {
+        logger.error(`Unsupported email provider ${provider}`);
       throw new Error(`Unsupported email provider: ${provider}`);
     }
   } catch (err) {
+    logger.error(err.message);
     throw new Error(err.message);
   }
 };
