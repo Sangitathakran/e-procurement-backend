@@ -319,6 +319,7 @@ exports.resetPassword = async (req, res) => {
       user.password = hashedPassword;
       user.passwordChangedAt = new Date();
       await user.save();
+      await LoginAttempt.deleteMany({ email: decodedToken.email.trim() });
 
       // Invalidate all previous reset links for this user
       await ResetLinkHistory.deleteMany({ email: decodedToken.email });
