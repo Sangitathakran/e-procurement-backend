@@ -250,7 +250,7 @@ module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
     record.centralNodalAgency = centralNodalAgency || record.centralNodalAgency;
     record.procurement = procurement || record.procurement;
     record.procurementDuration = procurementDuration || record.procurementDuration;
-    record.schemeApprovalLetter = schemeApprovalLetter || record.schemeApprovalLetter;
+    record.schemeApprovalLetter = schemeApprovalLetter 
 
     await record.save();
     return res
