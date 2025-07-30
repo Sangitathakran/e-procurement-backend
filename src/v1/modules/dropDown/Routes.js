@@ -11,7 +11,7 @@ dropDownRoutes.get('/commodity-request',commonAuth, commodityRequest);
 
 dropDownRoutes.get('/commodity_standard',commonAuth, commodity_standard );
 dropDownRoutes.get('/bo',commonAuth, bo_list);
-dropDownRoutes.get('/cna',commonAuth, cna_list);
+dropDownRoutes.get('/cna', cna_list);
 dropDownRoutes.get('/sla',commonAuth, sla_list);
 dropDownRoutes.get('/state', getStates);
 dropDownRoutes.get('/districtsByState', getDistrictsByState);

@@ -9,7 +9,7 @@ const { whrRoutes } = require("./whr/Routes");
 const { dashbaordRoutes } = require("./dashboard/Routes");
 
 const associateRoutes = express.Router();
-const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/jwt")
+const { Auth ,authenticateUser,authorizeRoles} = require("@src/v1/middlewares/jwt")
 const { _userType } = require("@src/v1/utils/constants/index")
 
 associateRoutes.use("/request",authenticateUser,authorizeRoles(_userType.associate), requestRoutes);
