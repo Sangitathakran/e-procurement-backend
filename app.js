@@ -49,21 +49,21 @@ app.use(
 );
 
 
-
 app.use(helmet({
   contentSecurityPolicy: {
+    useDefaults: false,
     directives: {
-      defaultSrc: ["'self'"],
-      baseUri: ["'self'"],
-      fontSrc: ["'self'", "https:", "data:"],
-      formAction: ["'self'"],
-      frameAncestors: ["'self'"],
-      imgSrc: ["'self'", "data:"],
-      objectSrc: ["'none'"],
-      scriptSrc: ["'self'"],
-      scriptSrcAttr: ["'none'"],
-      styleSrc: ["'self'"],
-      upgradeInsecureRequests: [],
+      "default-src": ["'self'"],
+      "base-uri": ["'self'"],
+      "font-src": ["'self'", "https:", "data:"],
+      "form-action": ["'self'"],
+      "frame-ancestors": ["'self'"],
+      "img-src": ["'self'", "data:"],
+      "object-src": ["'none'"],
+      "script-src": ["'self'"],
+      "script-src-attr": ["'none'"],
+      "style-src": ["'self'"],
+      "upgrade-insecure-requests": [] // this directive is a boolean-like switch
     }
   },
   crossOriginOpenerPolicy: { policy: "same-origin" },
@@ -73,7 +73,6 @@ app.use(helmet({
   permittedCrossDomainPolicies: { permittedPolicies: "none" },
   hidePoweredBy: true,
 }));
-
 
 
 app.use(morgan('dev'));
