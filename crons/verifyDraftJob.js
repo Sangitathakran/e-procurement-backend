@@ -66,7 +66,7 @@ const runBankVerificationJob = async () => {
       await processSingleFarmerRecord(record);
     }
 
-    logger.info(` Completed processing ${records.length} verification record(s).`);
+    logger.info(` Completed processing ${records.length} verification records.`);
   } catch (error) {
     logger.error(" Cron error during verification process: " + error.message);
   }

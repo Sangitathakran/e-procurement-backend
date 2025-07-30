@@ -44,7 +44,7 @@ module.exports.login = async (req, res) => {
         new serviceResponse({
           status: 400,
           data: { remainingTime },
-          errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minute(s).` }]
+          errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minutes.` }]
         })
       );
     }
@@ -317,6 +317,7 @@ exports.resetPassword = async (req, res) => {
       user.password = hashedPassword;
       user.passwordChangedAt = new Date();
       await user.save();
+      await LoginAttempt.deleteMany({ email: decodedToken.email.trim() });
 
       // Invalidate all previous reset links for this user
       await ResetLinkHistory.deleteMany({ email: decodedToken.email });

@@ -90,6 +90,18 @@ module.exports.sendOTP = async (req, res) => {
       });
     }
 
+    const blockCheck = await LoginAttempt.findOne({ phone: mobileNumber });
+    if (blockCheck?.lockUntil && blockCheck.lockUntil > new Date()) {
+      const remainingTime = Math.ceil((blockCheck.lockUntil - new Date()) / (1000 * 60));
+      return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          data: { remainingTime },
+          errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minutes.` }]
+        })
+      );
+    }
+
     await smsService.sendOTPSMS(mobileNumber);
 
     return sendResponse({
@@ -125,7 +137,7 @@ module.exports.verifyOTP = async (req, res) => {
         new serviceResponse({
           status: 400,
           data: { remainingTime },
-          errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minute(s).` }]
+          errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minutes.` }]
         })
       );
     }

@@ -15,18 +15,18 @@ const { Auth, authenticateUser, authorizeRoles, } = require("@src/v1/middlewares
 const { _userType } = require("@src/v1/utils/constants/index")
 const { farmerList } = require("../head-office/farmer-management/Controller");
 const { requestforVerification, farmerVerfiedData, farmerCount, uploadFarmerForVerfication } = require("@modules/farmer/farmerVerficationController");
-
+const {loginRequestPerMinute } = require("@src/v1/middlewares/express_app");
 
 farmerRoutes.post("/", authenticateUser, authorizeRoles(_userType.associate), verifyAssociate, [validateFarmer, validateErrors], createFarmer);
 
 // common apis
 farmerRoutes.get("/", authenticateUser, authorizeRoles(_userType.admin, _userType.associate, _userType.bo, _userType.ho, _userType.agent), verifyJwtToken, getFarmers);
 
-farmerRoutes.get("/get-land", authenticateUser, authorizeRoles(_userType.farmer, _userType.associate, _userType.admin, _userType.bo, _userType.agent), verifyJwtToken, getLand);
-farmerRoutes.get("/get-crop-details", authenticateUser, authorizeRoles(_userType.farmer, _userType.associate, _userType.admin, _userType.bo, _userType.agent), verifyJwtToken, getIndCropDetails);
-farmerRoutes.get("/get-land-details/:id", authenticateUser, authorizeRoles(_userType.farmer, _userType.associate, _userType.admin, _userType.bo, _userType.agent), verifyJwtToken, getLandDetails);
-farmerRoutes.get("/get-crop", authenticateUser, authorizeRoles(_userType.farmer, _userType.associate, _userType.admin, _userType.bo, _userType.agent), verifyJwtToken, getCrop);
-farmerRoutes.get('/getFarmerDetails/:id', authenticateUser, authorizeRoles(_userType.farmer, _userType.associate, _userType.admin, _userType.bo, _userType.agent), verifyJwtToken, getFarmerDetails);
+farmerRoutes.get("/get-land",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin ,_userType.ho,_userType.bo,_userType.agent), verifyJwtToken, getLand);
+farmerRoutes.get("/get-crop-details",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin,_userType.ho ,_userType.bo,_userType.agent), verifyJwtToken, getIndCropDetails);
+farmerRoutes.get("/get-land-details/:id",authenticateUser,authorizeRoles(_userType.farmer ,_userType.associate ,_userType.admin,_userType.ho ,_userType.bo,_userType.agent), verifyJwtToken, getLandDetails);
+farmerRoutes.get("/get-crop",authenticateUser,authorizeRoles(_userType.farmer,_userType.ho ,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent), verifyJwtToken, getCrop);
+farmerRoutes.get('/getFarmerDetails/:id',authenticateUser,authorizeRoles(_userType.farmer ,_userType.ho,_userType.associate ,_userType.admin ,_userType.bo,_userType.agent),verifyJwtToken,getFarmerDetails);
 
 /// common apis end
 // farmerRoutes.put('/:id', verifyJwtToken, editFarmer);
@@ -72,10 +72,10 @@ farmerRoutes.get('/get-districts-by-state_id', getDistrictsByState);
 /* 
  individual farmer routes 
  */
-farmerRoutes.post("/send-farmerOTP", sendOTP);
-farmerRoutes.post("/verify-farmerOTP", verifyOTP);
-farmerRoutes.post('/register-details', authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
-farmerRoutes.put('/onboarding-details/:id', authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, [validateIndFarmer, validateErrors], saveFarmerDetails);
+farmerRoutes.post("/send-farmerOTP",loginRequestPerMinute, sendOTP);
+farmerRoutes.post("/verify-farmerOTP",loginRequestPerMinute, verifyOTP);
+farmerRoutes.post('/register-details',authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken, [validateRegisterDetail, validateErrors], registerName)
+farmerRoutes.put('/onboarding-details/:id',authenticateUser,authorizeRoles(_userType.farmer), verifyJwtToken,  [validateIndFarmer, validateErrors], saveFarmerDetails);
 
 farmerRoutes.put('/submit-form/:id', authenticateUser, authorizeRoles(_userType.farmer), verifyJwtToken, submitForm)
 
