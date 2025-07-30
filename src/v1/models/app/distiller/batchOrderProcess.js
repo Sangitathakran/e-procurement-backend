@@ -39,6 +39,7 @@ const batchOrderProcessSchema = new mongoose.Schema({
     placeOrder: { type: Boolean, default: false },
     viewDeliveryStatus: { type: Boolean, default: false }
   },
+  source_by: { type: String, default: "NCCF" },
   ..._commonKeys
 }, { timestamps: true });
 
