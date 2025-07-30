@@ -15,6 +15,9 @@ const procurement_partners = {
     NEML: "NEML",
     Others: "Others"
 };
+const {
+    HEADOFFICE, BRANCHOFFICE, ADMIN, DISTILLER, NCCF_DISTILLER, WAREHOUSE, FARMER, SLA, ASSOCIATE
+} = process.env;
 
 
 module.exports = {
@@ -85,6 +88,20 @@ module.exports = {
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     region: process.env.AWS_REGION,
     sourceEmail: process.env.AWS_SOURCE_EMAIL,
-    mailProvider: process.env.PROVIDER
+    mailProvider: process.env.PROVIDER,
+
+    // FRONTEND URLS
+    FRONTEND_URLS: {
+  'head-office': HEADOFFICE,
+  'branch-office': BRANCHOFFICE,
+  admin: ADMIN,
+  distiller: DISTILLER,
+  Nccfadmin: NCCF_DISTILLER,
+  warehouse: WAREHOUSE,
+  farmer: FARMER,
+  agent: SLA,
+  associate: ASSOCIATE,
+}
+
 
 }

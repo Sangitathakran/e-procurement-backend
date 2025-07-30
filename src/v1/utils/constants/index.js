@@ -684,7 +684,10 @@ const mailProviders = {
     ses: "ses"
 };
 
+const allowedEmailDomains = ['navankur', 'radiantinfonet'];
+
 module.exports = {
+    allowedEmailDomains,
     mailProviders,
     _userAction,
     _farmerType,

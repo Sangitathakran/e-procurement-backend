@@ -193,7 +193,6 @@ module.exports.forgetPassword = async (req, res) => {
         })
       );
     }
-
     const user = await MasterUser.findOne({ email: email.trim() });
 
     if (!user) {
