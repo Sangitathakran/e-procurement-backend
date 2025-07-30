@@ -667,7 +667,16 @@ const _verificationStatus = {
     failed: 3
 }
 
+const mailProviders = {
+    mailtrap: "mailtrap",
+    ses: "ses"
+};
+
+const allowedEmailDomains = ['navankur', 'radiantinfonet'];
+
 module.exports = {
+    mailProviders,
+    allowedEmailDomains,
     _userAction,
     _farmerType,
     _collectionName,

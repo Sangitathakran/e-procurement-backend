@@ -3,10 +3,12 @@ const fs = require("fs");
 const path = require("path");
 const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 const OTPModel = require('@src/v1/models/app/auth/OTP');
+const { FRONTEND_URLS } = require("@config/index");
+const { _query } = require("../constants/messages");
 process.env.SMS_SEND_API_KEY;
 APP_URL = process.env.APP_URL;
 const LOGO_URL = process.env.LOGO_URL;
-const FRONTEND_URL = process.env.FRONTEND_URL;
+let FRONTEND_URL = process.env.FRONTEND_URL;
 
 class EmailService {
     constructor() {
@@ -41,6 +43,11 @@ class EmailService {
 
     async sendForgotPasswordEmail(emailPaylod) {
         try {
+             // console.log(emailPaylod);
+        if(!Object.keys(FRONTEND_URLS).includes(emailPaylod.portal_type)){
+            throw new Error(_query.invalid('portal_type'));
+        }
+        FRONTEND_URL = FRONTEND_URLS[emailPaylod.portal_type];
             const template = await this.loadTemplate("forgotPassword");
             const resetPasswordLink = `${FRONTEND_URL}/${emailPaylod.portal_type}/reset-password/${emailPaylod.resetToken}`;
             console.log("Reset Password Link:", resetPasswordLink);
@@ -53,7 +60,7 @@ class EmailService {
             return { message: 'Forgot Password Link Send successfully' };
         } catch (error) {
             console.error("Error sending forgot password email:", error);
-            // throw error;
+             throw new Error(error.message);
         }
     }
 
