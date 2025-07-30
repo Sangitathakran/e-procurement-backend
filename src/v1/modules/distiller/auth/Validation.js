@@ -213,7 +213,7 @@ const bankDetailsSchema = Joi.object({
 function validateForm(req, res, next) {
     const { formName } = req.body;
     if (!formName) {
-        return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.require('formName') }));
+        return res.status(400).send(new serviceResponse({ status: 400, message: _middleware.require('formName') }));
     }
     let schema;
 
@@ -235,6 +235,7 @@ function validateForm(req, res, next) {
             break;
         case 'bank_details':
             schema = bankDetailsSchema;
+            break;
         case 'manufactoring_storage':
             schema = manufactoringStorageSchema;
             break;
