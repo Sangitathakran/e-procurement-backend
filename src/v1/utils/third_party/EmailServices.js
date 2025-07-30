@@ -5,6 +5,7 @@ const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 const OTPModel = require('@src/v1/models/app/auth/OTP');
 const { FRONTEND_URLS } = require("@config/index");
 const { _query } = require("../constants/messages");
+const logger = require("@src/common/logger/logger");
 process.env.SMS_SEND_API_KEY;
 APP_URL = process.env.APP_URL;
 const LOGO_URL = process.env.LOGO_URL;
@@ -44,9 +45,7 @@ class EmailService {
     async sendForgotPasswordEmail(emailPaylod) {
         try {
              // console.log(emailPaylod);
-        if(!Object.keys(FRONTEND_URLS).includes(emailPaylod.portal_type)){
-            throw new Error(_query.invalid('portal_type'));
-        }
+       
         FRONTEND_URL = FRONTEND_URLS[emailPaylod.portal_type];
             const template = await this.loadTemplate("forgotPassword");
             const resetPasswordLink = `${FRONTEND_URL}/${emailPaylod.portal_type}/reset-password/${emailPaylod.resetToken}`;
@@ -57,9 +56,11 @@ class EmailService {
                 .replace("{{logo_url}}", LOGO_URL);
 
             await sendMail(emailPaylod.email, '', 'Reset Your Password', html);
+            logger.info('Forgot Password Link Send successfully', emailPaylod);
             return { message: 'Forgot Password Link Send successfully' };
         } catch (error) {
             console.error("Error sending forgot password email:", error);
+            logger.error("Error sending forgot password email:", error);
              throw new Error(error.message);
         }
     }

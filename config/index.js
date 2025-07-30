@@ -6,9 +6,6 @@ dotenv.config({
     path: path.resolve(__dirname, `../.env`)
 });
 
-const {
-    HEADOFFICE, BRANCHOFFICE, ADMIN, DISTILLER, NCCF_DISTILLER, WAREHOUSE, FARMER, SLA, ASSOCIATE
-} = process.env;
 
 const procurement_partners = {
     Radiant: "Radiant",
@@ -93,15 +90,15 @@ module.exports = {
 
     // FRONTEND URLS
     FRONTEND_URLS: {
-  'head-office': HEADOFFICE,
-  'branch-office': BRANCHOFFICE,
-  admin: ADMIN,
-  distiller: DISTILLER,
-  Nccfadmin: NCCF_DISTILLER,
-  warehouse: WAREHOUSE,
-  farmer: FARMER,
-  agent: SLA,
-  associate: ASSOCIATE,
+  'head-office': process.env.HEADOFFICE,
+  'branch-office': process.env.BRANCHOFFICE,
+  admin: process.env.ADMIN,
+  distiller: process.env.DISTILLER,
+  Nccfadmin: process.env.NCCF_DISTILLER,
+  warehouse: process.env.WAREHOUSE,
+  farmer: process.env.FARMER,
+  agent: process.env.SLA,
+  associate: process.env.ASSOCIATE,
 }
 
 }
