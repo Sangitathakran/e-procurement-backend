@@ -197,6 +197,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                             { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
                             { "procurementCenter_id.center_name": { $regex: searchRegex } },
                             { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+                            { "req_id.product.name": { $regex: searchRegex } },
                         ]
                     }),
                     ...(status && { "final_quality_check.status": status }),
@@ -248,9 +249,11 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
             },
             // { $sort: { [sortBy]: 1 } },
             { $sort: { createdAt: - 1, _id: -1 } },
-            { $skip: (page - 1) * limit },
+           ...(isExport != 1 ? [
+            { $skip: (page - 1) * parseInt(limit) },
             { $limit: parseInt(limit) }
-        ];
+        ] : [])
+    ];
 
         //console.log(JSON.stringify(pipeline, null, 2)) 
         const rows = await Batch.aggregate(pipeline);
@@ -305,6 +308,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                             { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
                             { "procurementCenter_id.center_name": { $regex: searchRegex } },
                             { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+                            { "req_id.product.name": { $regex: searchRegex } },
                         ]
                     }),
                     ...(status && {
@@ -332,6 +336,7 @@ module.exports.getReceivedBatchesByWarehouse = asyncErrorHandler(async (req, res
                     { "seller_id.basic_details.associate_details.organization_name": { $regex: searchRegex } },
                     { "procurementCenter_id.center_name": { $regex: searchRegex } },
                     { "warehousedetails_id.wareHouse_code": { $regex: searchRegex } },
+                    { "req_id.product.name": { $regex: searchRegex } },
                 ]
             }),
             ...(status && {
@@ -1550,7 +1555,7 @@ module.exports.createExternalBatch = async (req, res) => {
 
 module.exports.listExternalBatchList = async (req, res) => {
     try {
-        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
+        const { page = 1, limit = 10, skip = 0, paginate = 1, isExport=0, sortBy = "_id", search = "" } = req.query;
 
         let matchQuery = {};
         if (search) {
@@ -1578,9 +1583,11 @@ module.exports.listExternalBatchList = async (req, res) => {
 
         const countPipeline = [...pipeline, { $count: "total" }];
 
-        if (paginate == 1) {
-            pipeline.push({ $skip: skipVal }, { $limit: parseInt(limit) });
-        }
+        if (parseInt(isExport) !== 1) {
+                    const skip = (parseInt(page) - 1) * parseInt(limit);
+                    pipeline.push({ $skip: skip });
+                    pipeline.push({ $limit: parseInt(limit) });
+                }
 
         const rows = await ExternalBatch.aggregate(pipeline);
 
@@ -1597,6 +1604,28 @@ module.exports.listExternalBatchList = async (req, res) => {
             limit: parseInt(limit),
             pages: limit != 0 ? Math.ceil(count / limit) : 0,
         };
+
+        if (isExport == 1) {
+            const exportData = rows.map(item => ({
+            "Organization Name": item.associate_name || item.seller_id?.basic_details?.associate_details?.organization_name || 'NA',
+            "Procurement Center": item.procurementCenter || item.procurementCenter_id?.center_name || 'NA',
+            "Batch Name": item.batchName || 'NA',
+            "Commodity": item.commodity || 'NA',
+            "Inward QTY": item.inward_quantity || 'NA',
+            "Outward QTY": item.outward_quantity || 'NA',
+            "Remaining QTY": item.remaining_quantity || 'NA',
+            "Created on": item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'NA'
+            }));
+
+                if (exportData.length) {
+                    return dumpJSONToExcel(req, res, {
+                        data: exportData,
+                        fileName: "External-Batches.xlsx",
+                        worksheetName: "Batches"
+                    });
+                }
+                return res.status(200).send(new serviceResponse({ status: 200, message: "No data available for export" }));
+            }
         //const records = { count: 0, rows: [] };
 
 
