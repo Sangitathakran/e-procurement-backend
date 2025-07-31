@@ -4,6 +4,7 @@ const {
   region,
   sourceEmail,
 } = require("@config/index");
+const logger = require("@src/common/logger/logger");
 
 const AWS = require("aws-sdk");
 const nodemailer = require("nodemailer");
@@ -52,9 +53,11 @@ const SESsendEmail = async ({
   try {
     const result = await transporter.sendMail(mailOptions);
     console.log("Email sent via SES :", result.messageId);
+    logger.info("Email sent via SES :", result.messageId);
     return result;
   } catch (error) {
     console.error("Failed to send email via SES + Nodemailer:", error);
+    logger.error("Failed to send email via SES + Nodemailer:", error);
     throw new Error(error.message);
   }
 };
@@ -90,4 +93,3 @@ module.exports = { SESsendEmail };
 // })
 //   .then((res) => console.log("Email Response:", res))
 //   .catch((err) => console.error("Email Error:", err.message));
-
