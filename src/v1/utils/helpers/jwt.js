@@ -5,7 +5,7 @@ const crypto = require("crypto");
 const { sendResponse } = require('@src/v1/utils/helpers/api_response');
 const { _auth_module } = require('@src/v1/utils/constants/messages');
 const { _userType } = require('@src/v1/utils/constants/index');
-
+const { LoginHistory } = require('@src/v1/models/master/loginHistery');
 const tokenBlacklist = [];
 /**
  * @param {String} inputHash
