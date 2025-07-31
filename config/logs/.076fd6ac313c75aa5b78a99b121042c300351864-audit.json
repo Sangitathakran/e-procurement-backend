@@ -34,6 +34,11 @@
             "date": 1753848475246,
             "name": "C:\\xampp\\htdocs\\procurement_backend\\procurement_admin_apis\\config\\logs\\app-2025-07-30.log",
             "hash": "c4d890894410486fc860b14b3c5fd7f185aa5eb8325c1af8cbb2c3db84339917"
+        },
+        {
+            "date": 1753959387157,
+            "name": "C:\\xampp\\htdocs\\procurement_backend\\procurement_admin_apis\\config\\logs\\app-2025-07-31.log",
+            "hash": "ebb4868c63d9a9b2c14a933ac8a45343a52be1b3024bd736cc399d7f20a51c77"
         }
     ],
     "hashType": "sha256"
