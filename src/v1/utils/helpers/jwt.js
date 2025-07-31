@@ -2,7 +2,9 @@ const { JWT_SECRET_KEY } = require('@config/index');
 const { compareSync } = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require("crypto");
-const { LoginHistory } = require("@models/master/loginHistery")
+const { sendResponse } = require('@src/v1/utils/helpers/api_response');
+const { _auth_module } = require('@src/v1/utils/constants/messages');
+const { _userType } = require('@src/v1/utils/constants/index');
 
 const tokenBlacklist = [];
 /**
