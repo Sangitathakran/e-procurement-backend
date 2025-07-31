@@ -46,7 +46,7 @@ class EmailService {
         try {
              // console.log(emailPaylod);
        
-        FRONTEND_URL = FRONTEND_URLS[emailPaylod.portal_type];
+            FRONTEND_URL = FRONTEND_URLS[emailPaylod.portal_type];
             const template = await this.loadTemplate("forgotPassword");
             const resetPasswordLink = `${FRONTEND_URL}/${emailPaylod.portal_type}/reset-password/${emailPaylod.resetToken}`;
             console.log("Reset Password Link:", resetPasswordLink);
