@@ -23,7 +23,7 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
 
     let loginHistory = await LoginHistory.findOne({ token: token, logged_out_at: null }).sort({ createdAt: -1 });
     if (!loginHistory) {
-        return sendResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
+        return serviceResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
     }
 
     jwt.verify(token, JWT_SECRET_KEY, async function (err, decodedToken) {

@@ -24,6 +24,7 @@ const { escapeRegex } = require("@src/v1/utils/helpers/regex");
 const logger = require("@src/common/logger/logger")
 const { getDistrict } = require("@src/v1/utils/helpers/index");
 const { exist } = require("joi");
+const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
 //widget listss
 
 // module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
@@ -89,6 +90,227 @@ const { exist } = require("joi");
 //   }
 // });
 
+// module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
+//   try {
+//     const { user_id } = req;
+//     console.log("user_id", user_id)
+//     const { schemeName, commodity, district = [] } = req.body;
+//     const userObjectId = new mongoose.Types.ObjectId(user_id);
+
+//     logger.info(`[WidgetList] user_id: ${user_id}`);
+//     logger.info(`[WidgetList] Query Params:`, { schemeName, commodity, district });
+
+//     const parseObjectIds = (input) => {
+//       if (!input) return [];
+//       const items = Array.isArray(input) ? input : JSON.parse(input);
+//       return items
+//         .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null)
+//         .filter(Boolean);
+//     };
+
+//     const schemeIds = parseObjectIds(schemeName);
+//     const commodityIds = parseObjectIds(commodity);
+//     const districtIds = parseObjectIds(district);
+
+//     const widgetDetails = {};
+
+//     // ========== Get district titles ==========
+//    let validDistrictTitles = [];
+
+// if (districtIds.length) {
+//   const filterdata = await Promise.all(
+//     districtIds.map(async (x) => {
+//       try {
+//         const districtData = await getDistrict(x);
+//         return districtData?.district_title || null;
+//       } catch (err) {
+//         logger.error(`[WidgetList] Error fetching district for ID ${x}: ${err.message}`);
+//         return null;
+//       }
+//     })
+//   );
+
+//   validDistrictTitles = filterdata.filter(Boolean);
+
+//   if (validDistrictTitles.length === 0) {
+//     logger.warn(`[WidgetList] No valid district titles found for given IDs:`, district);
+//     return sendResponse({
+//       res,
+//       status: 400,
+//       message: "Invalid district(s) provided. No matching districts found.",
+//       error: "Districts not found"
+//     });
+//   }
+// }
+
+
+//     // ========== Farmer Count ==========
+//     const requestFilter = {};
+//     if (commodityIds.length) requestFilter["product.commodity_id"] = { $in: commodityIds };
+//     if (schemeIds.length) requestFilter["product.schemeId"] = { $in: schemeIds };
+
+//     const requestIds = await RequestModel.find(requestFilter).distinct('_id');
+//     widgetDetails.farmertotal = await farmerCount(req);
+
+//     // ========== Procurement Center Count ==========
+//     const batchPOCIds = requestIds.length
+//       ? await Batch.find({ req_id: { $in: requestIds } }).distinct('procurementCenter_id')
+//       : [];
+
+//     const procurementCenterQuery = {
+//       user_id: userObjectId,
+//       // _id: { $in: batchPOCIds },
+//       active: true
+//     };
+//     if (validDistrictTitles.length) {
+//       procurementCenterQuery['address.district'] = { $in: validDistrictTitles };
+//     }
+
+//     widgetDetails.procurementCenter = await ProcurementCenter.countDocuments(procurementCenterQuery);
+
+//     // ========== Total Purchased Quantity ==========
+//     const purchasedMatch = {
+//       seller_id: userObjectId,
+//       req_id: { $in: requestIds },
+//     };
+//     if (validDistrictTitles.length) {
+//       purchasedMatch['$expr'] = {
+//         $in: [
+//           "$procurementCenter.address.district",
+//           validDistrictTitles
+//         ]
+//       };
+//     }
+
+//     const purchase = await Batch.aggregate([
+//       {
+//         $lookup: {
+//           from: "procurementcenters",
+//           localField: "procurementCenter_id",
+//           foreignField: "_id",
+//           as: "procurementCenter"
+//         }
+//       },
+//       { $unwind: "$procurementCenter" },
+//       { $match: purchasedMatch },
+//       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
+//     ]);
+//     widgetDetails.totalPurchased = purchase[0]?.totalQty ? Number(purchase[0].totalQty.toFixed(3)) : 0;
+
+//     // ========== Total Lifting Quantity ==========
+//     const liftingMatch = {
+//       seller_id: userObjectId,
+//       intransit: { $exists: true, $ne: null },
+//       req_id: { $in: requestIds },
+//     };
+//     if (validDistrictTitles.length) {
+//       liftingMatch['$expr'] = {
+//         $in: [
+//           "$procurementCenter.address.district",
+//           validDistrictTitles
+//         ]
+//       };
+//     }
+
+//     const lifting = await Batch.aggregate([
+//       {
+//         $lookup: {
+//           from: "procurementcenters",
+//           localField: "procurementCenter_id",
+//           foreignField: "_id",
+//           as: "procurementCenter"
+//         }
+//       },
+//       { $unwind: "$procurementCenter" },
+//       { $match: liftingMatch },
+//       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
+//     ]);
+//     widgetDetails.totalLifting = lifting[0]?.totalQty ? Number(lifting[0].totalQty.toFixed(3)) : 0;
+
+//     // ========== Today's Purchase & Lifting ==========
+//     const now = new Date();
+//     const istOffset = 5.5 * 60 * 60 * 1000;
+//     const startOfDayIST = new Date(now.setUTCHours(0, 0, 0, 0) - istOffset);
+//     const endOfDayIST = new Date(startOfDayIST.getTime() + 86400000 - 1);
+
+//     const dayPurchaseMatch = {
+//       seller_id: userObjectId,
+//       delivered: { $exists: true, $ne: null },
+//       updatedAt: { $gte: startOfDayIST, $lt: endOfDayIST },
+//       req_id: { $in: requestIds }
+//     };
+//     if (validDistrictTitles.length) {
+//       dayPurchaseMatch['$expr'] = {
+//         $in: [
+//           "$procurementCenter.address.district",
+//           validDistrictTitles
+//         ]
+//       };
+//     }
+
+//     const dayPurchase = await Batch.aggregate([
+//       {
+//         $lookup: {
+//           from: "procurementcenters",
+//           localField: "procurementCenter_id",
+//           foreignField: "_id",
+//           as: "procurementCenter"
+//         }
+//       },
+//       { $unwind: "$procurementCenter" },
+//       { $match: dayPurchaseMatch },
+//       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
+//     ]);
+//     widgetDetails.totalDayPurchase = dayPurchase[0]?.totalQty || 0;
+
+//     const dayLiftingMatch = {
+//       seller_id: userObjectId,
+//       intransit: { $exists: true, $ne: null },
+//       updatedAt: { $gte: startOfDayIST, $lt: endOfDayIST },
+//       req_id: { $in: requestIds }
+//     };
+//     if (validDistrictTitles.length) {
+//       dayLiftingMatch['$expr'] = {
+//         $in: [
+//           "$procurementCenter.address.district",
+//           validDistrictTitles
+//         ]
+//       };
+//     }
+
+//     const todayLifting = await Batch.aggregate([
+//       {
+//         $lookup: {
+//           from: "procurementcenters",
+//           localField: "procurementCenter_id",
+//           foreignField: "_id",
+//           as: "procurementCenter"
+//         }
+//       },
+//       { $unwind: "$procurementCenter" },
+//       { $match: dayLiftingMatch },
+//       { $group: { _id: null, totalQty: { $sum: "$qty" } } }
+//     ]);
+//     widgetDetails.totalDaysLifting = todayLifting[0]?.totalQty || 0;
+
+//     // ========== Final Response ==========
+//     return sendResponse({
+//       res,
+//       status: 200,
+//       message: _query.get("Widget List"),
+//       data: widgetDetails
+//     });
+
+//   } catch (error) {
+//     logger.error(`[WidgetList] Error: ${error.message}`, { stack: error.stack });
+//     return sendResponse({
+//       res,
+//       status: 500,
+//       message: "Internal Server Error",
+//       error: error.message
+//     });
+//   }
+// });
 module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
   try {
     const { user_id } = req;
@@ -309,84 +531,83 @@ if (districtIds.length) {
       error: error.message
     });
   }
-});
+})
 
 
 
+// async function farmerCount(req) {
+//   try {
+//     const { user_id } = req;
+//     const { schemeName, commodity, district } = req.body;
+//     const userObjectId = new mongoose.Types.ObjectId(user_id);
 
-async function farmerCount(req) {
-  try {
-    const { user_id } = req;
-    const { schemeName, commodity, district } = req.body;
-    const userObjectId = new mongoose.Types.ObjectId(user_id);
+//     logger.info(`[WidgetList] User ID: ${user_id}`);
+//     logger.info(`[WidgetList] Query Params:`, { schemeName, commodity, district });
 
-    logger.info(`[WidgetList] User ID: ${user_id}`);
-    logger.info(`[WidgetList] Query Params:`, { schemeName, commodity, district });
+//     // Utility: safely parse ObjectId arrays from query
+//     const parseObjectIds = (input) => {
+//       if (!input) return [];
+//       const values = Array.isArray(input) ? input : JSON.parse(input);
+//       return values
+//         .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null)
+//         .filter(Boolean);
+//     };
 
-    // Utility: safely parse ObjectId arrays from query
-    const parseObjectIds = (input) => {
-      if (!input) return [];
-      const values = Array.isArray(input) ? input : JSON.parse(input);
-      return values
-        .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null)
-        .filter(Boolean);
-    };
+//     const schemeIds = parseObjectIds(schemeName);
+//     const commodityIds = parseObjectIds(commodity);
+//     const districtIds = parseObjectIds(district);
 
-    const schemeIds = parseObjectIds(schemeName);
-    const commodityIds = parseObjectIds(commodity);
-    const districtIds = parseObjectIds(district);
+//     logger.info(`[WidgetList] Parsed Filters`, { schemeIds, commodityIds, districtIds });
 
-    logger.info(`[WidgetList] Parsed Filters`, { schemeIds, commodityIds, districtIds });
+//     let farmerQuery = { associate_id: userObjectId };
+//     const hasCommodityOrScheme = commodityIds.length || schemeIds.length;
 
-    let farmerQuery = { associate_id: userObjectId };
-    const hasCommodityOrScheme = commodityIds.length || schemeIds.length;
-
-    if (hasCommodityOrScheme > 0) {
-      const requestFilter = {};
-      if (commodityIds.length) requestFilter['product.commodity_id'] = { $in: commodityIds };
-      if (schemeIds.length) requestFilter['product.schemeId'] = { $in: schemeIds };
+//     if (hasCommodityOrScheme > 0) {
+//       const requestFilter = {};
+//       if (commodityIds.length) requestFilter['product.commodity_id'] = { $in: commodityIds };
+//       if (schemeIds.length) requestFilter['product.schemeId'] = { $in: schemeIds };
 
 
-      logger.info(`[WidgetList] Request filter:`, requestFilter);
+//       logger.info(`[WidgetList] Request filter:`, requestFilter);
 
-      const requestIds = await RequestModel.find(requestFilter).distinct('_id');
-      logger.info(`[WidgetList] Matching Request IDs: ${requestIds.length}`);
+//       const requestIds = await RequestModel.find(requestFilter).distinct('_id');
+//       logger.info(`[WidgetList] Matching Request IDs: ${requestIds.length}`);
 
-      if (requestIds.length) {
-        const paidFarmerIds = await Payment.find({ req_id: { $in: requestIds } }).distinct('farmer_id');
-        logger.info(`[WidgetList] Paid Farmer IDs: ${paidFarmerIds.length}`);
+//       if (requestIds.length) {
+//         const paidFarmerIds = await Payment.find({ req_id: { $in: requestIds } }).distinct('farmer_id');
+//         logger.info(`[WidgetList] Paid Farmer IDs: ${paidFarmerIds.length}`);
 
-        if (paidFarmerIds.length) {
-          const farmerFilter = { _id: { $in: paidFarmerIds } };
-          if (districtIds.length) {
-            farmerFilter['address.district_id'] = { $in: districtIds };
-          }
-          console.log(farmerFilter)
-          const finalFarmerIds = await farmer.find(farmerFilter).distinct('_id');
-          logger.info(`[WidgetList] Final Filtered Farmer IDs: ${finalFarmerIds.length}`);
-          farmerQuery._id = { $in: finalFarmerIds };
-        } else {
-          logger.warn(`[WidgetList] No farmers found after payment filtering.`);
-          farmerQuery._id = { $in: [] };
-        }
-      } else {
-        logger.warn(`[WidgetList] No request IDs matched filters.`);
-        farmerQuery._id = { $in: [] };
-      }
-    } else if (districtIds.length) {
-      farmerQuery['address.district_id'] = { $in: districtIds };
-      console.log(districtIds)
-      logger.info(`[WidgetList] Only District filter applied to farmer query.`);
-    }
-    console.log(farmerQuery)
-    const farmerCount = await farmer.countDocuments(farmerQuery);
-    logger.info(`[WidgetList] Farmer Count: ${farmerCount}`);
-    return farmerCount
-  } catch (error) {
-    logger.error(`[WidgetList] Error: ${error.message}`, { stack: error.stack });
-    return error.meesage
-  }
-}
+//         if (paidFarmerIds.length) {
+//           const farmerFilter = { _id: { $in: paidFarmerIds } };
+//           if (districtIds.length) {
+//             farmerFilter['address.district_id'] = { $in: districtIds };
+//           }
+//           console.log(farmerFilter)
+//           const finalFarmerIds = await farmer.find(farmerFilter).distinct('_id');
+//           logger.info(`[WidgetList] Final Filtered Farmer IDs: ${finalFarmerIds.length}`);
+//           farmerQuery._id = { $in: finalFarmerIds };
+//         } else {
+//           logger.warn(`[WidgetList] No farmers found after payment filtering.`);
+//           farmerQuery._id = { $in: [] };
+//         }
+//       } else {
+//         logger.warn(`[WidgetList] No request IDs matched filters.`);
+//         farmerQuery._id = { $in: [] };
+//       }
+//     } else if (districtIds.length) {
+//       farmerQuery['address.district_id'] = { $in: districtIds };
+//       console.log(districtIds)
+//       logger.info(`[WidgetList] Only District filter applied to farmer query.`);
+//     }
+//     console.log(farmerQuery)
+//     const farmerCount = await farmer.countDocuments(farmerQuery);
+//     logger.info(`[WidgetList] Farmer Count: ${farmerCount}`);
+//     return farmerCount
+//   } catch (error) {
+//     logger.error(`[WidgetList] Error: ${error.message}`, { stack: error.stack });
+//     return error.meesage
+//   }
+// }
 
 
 
@@ -924,7 +1145,69 @@ async function farmerCount(req) {
 //     });
 //   }
 // };
+async function farmerCount(req) {
+  try {
+    const { user_id } = req;
+    const { schemeName, commodity, district } = req.body;
+    const userObjectId = new mongoose.Types.ObjectId(user_id);
 
+    logger.info(`[WidgetList] User ID: ${user_id}`);
+    logger.info(`[WidgetList] Query Params:`, { schemeName, commodity, district });
+
+    // Utility: safely parse ObjectId arrays from query
+    const parseObjectIds = (input) => {
+      if (!input) return [];
+      const values = Array.isArray(input) ? input : JSON.parse(input);
+      return values
+        .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null)
+        .filter(Boolean);
+    };
+
+    const schemeIds = parseObjectIds(schemeName);
+    const commodityIds = parseObjectIds(commodity);
+    const districtIds = parseObjectIds(district);
+
+    logger.info(`[WidgetList] Parsed Filters`, { schemeIds, commodityIds, districtIds });
+
+    let farmerCount = 0;
+
+    if (commodityIds.length > 0) {
+      const cropFarmerIds = await Crop.distinct('farmer_id', {
+        commodity_id: { $in: commodityIds }
+      });
+
+      logger.info(`[WidgetList] Farmers from Crop with selected commodities: ${cropFarmerIds.length}`);
+
+      const farmerFilter = {
+        associate_id: userObjectId,
+        _id: { $in: cropFarmerIds }
+      };
+
+      if (districtIds.length > 0) {
+        farmerFilter['address.district_id'] = { $in: districtIds };
+      }
+
+      farmerCount = await farmer.countDocuments(farmerFilter);
+      logger.info(`[WidgetList] Farmer Count (via commodity crop match): ${farmerCount}`);
+    } else {
+      const farmerFilter = {
+        associate_id: userObjectId
+      };
+
+      if (districtIds.length > 0) {
+        farmerFilter['address.district_id'] = { $in: districtIds };
+      }
+
+      farmerCount = await farmer.countDocuments(farmerFilter);
+      logger.info(`[WidgetList] Farmer Count (via associate_id only): ${farmerCount}`);
+    }
+
+    return farmerCount
+  } catch (error) {
+    logger.error(`[WidgetList] Error: ${error.message}`, { stack: error.stack });
+    return error.meesage
+  }
+}
 module.exports.mandiWiseProcurement = async (req, res) => {
   try {
     logger.info("[mandiWiseProcurement] Request received", { body: req.body });
