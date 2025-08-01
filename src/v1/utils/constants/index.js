@@ -1,5 +1,5 @@
 const { NA } = require("xlsx-populate/lib/FormulaError")
-
+const { FRONTEND_URLS } = require("@config/index")
 
 const _collectionName = {
     emandi_orders: "emandi_orders",
@@ -672,6 +672,19 @@ const mailProviders = {
     ses: "ses"
 };
 
+const userTypeToURL = {
+    [_userType.ho]: `${FRONTEND_URLS["head-office"]}`,
+    [_userType.bo]: FRONTEND_URLS["branch-office"],
+    [_userType.admin]: FRONTEND_URLS.admin,
+    [_userType.distiller]: FRONTEND_URLS.distiller,
+    [_userType.nccf]: FRONTEND_URLS.Nccfadmin,
+    [_userType.warehouse]: FRONTEND_URLS.warehouse,
+    [_userType.farmer]: FRONTEND_URLS.farmer,
+    [_userType.agent]: FRONTEND_URLS.agent,
+    [_userType.associate]: FRONTEND_URLS.associate,
+};
+
+
 const allowedEmailDomains = ['navankur', 'radiantinfonet'];
 
 module.exports = {
@@ -751,5 +764,6 @@ module.exports = {
     _verfiycationStatus,
     _ccAvenuePaymentStatus,
     _statesAndUTs,
-    _verificationStatus
+    _verificationStatus,
+    userTypeToURL
 }

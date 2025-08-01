@@ -52,10 +52,10 @@ const sendMail = async (
       throw new Error(_query.invalid("provider"));
     }
 
-    if (!isAllowedEmail(to)) {
-        logger.error(`Email domain not allowed for ${to}`);
-       // throw new Error(`Email domain not allowed for ${to}`);
-    }
+    // if (!isAllowedEmail(to)) {
+    //     logger.error(`Email domain not allowed for ${to}`);
+    //    // throw new Error(`Email domain not allowed for ${to}`);
+    // }
 
     if (provider === mailProviders.mailtrap) {
       return await sendWithMailtrap({

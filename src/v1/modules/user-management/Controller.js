@@ -15,7 +15,7 @@ const HeadOffice = require("@src/v1/models/app/auth/HeadOffice");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { getPermission, mergeArrays } = require("./permission");
 const generateUserId = require("@src/v1/utils/helpers/generateUserId");
-
+const { userTypeToURL} = require("@utils/constants/index");
 
 
 
@@ -283,13 +283,12 @@ exports.createUser = async (req, res) => {
       Object.entries(_userType).map(([key, value]) => [value, key])
     );
 
-    const login_url = `${process.env.FRONTEND_URL}${_frontendLoginRoutes[reversedUserType[req.user.user_type]]}`
+    const login_url = `${userTypeToURL[req.user.user_type]}`
+    console.log("login_url", login_url)
     await emailService.sendUserCredentialsEmail({ email, firstName, password, login_url })
 
     delete savedUser.password
     return sendResponse({ res, status: 200, data: savedUser, message: "New user created successfully" })
-
-
 
   } catch (error) {
     _handleCatchErrors(error, res);
