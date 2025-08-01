@@ -25,7 +25,7 @@ const { upagRoutes } = require("./modules/upag/Routes");
 const {commonAuth} = require("@middlewares/jwt")
 const { slaRoutes } = require("./modules/sla/Routes");
 // const { agristackchRoutes } = require("./modules/agristack/Routes");
-
+const { bulkImport } = require("./modules/importServices/Routes");
 /* Define Your Routes */
 router.use(handlePagination)
 //router.use(handleRateLimit)
@@ -53,6 +53,6 @@ router.use("/ekhrid",commonAuth, ekhridRoutes);
 router.use("/upag", upagRoutes);
 //router.use("/agristack", agristackchRoutes);
 
-
+router.use('/', bulkImport)
 
 module.exports = { router };

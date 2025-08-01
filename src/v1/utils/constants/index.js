@@ -2,6 +2,7 @@ const { NA } = require("xlsx-populate/lib/FormulaError")
 const { FRONTEND_URLS } = require("@config/index")
 
 const _collectionName = {
+     statewisemanditax:"statewisemanditax",
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",

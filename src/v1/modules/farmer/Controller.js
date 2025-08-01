@@ -4640,7 +4640,7 @@ module.exports.farmerCount = async (req, res) => {
       verifiedFarmerAgg
     ]);
 
-    logger.info("âœ… Farmer statistics fetched successfully");
+    logger.info(" Farmer statistics fetched successfully");
 
     return sendResponse({
       res,
@@ -4660,7 +4660,7 @@ module.exports.farmerCount = async (req, res) => {
     });
 
   } catch (error) {
-    logger.error("âŒ Error while fetching farmer count", error);
+    logger.error(" Error while fetching farmer count", error);
     return sendResponse({
       res,
       status: 500,
@@ -4679,7 +4679,7 @@ module.exports.verfiyedFarmer = async (req, res) => {
     const farmerTypeAgg = await verfiyfarmer.find({})
 
 
-    logger.info("âœ… Farmer statistics fetched successfully");
+    logger.info("Farmer statistics fetched successfully");
 
     return sendResponse({
       res,
@@ -4699,7 +4699,7 @@ module.exports.verfiyedFarmer = async (req, res) => {
     });
 
   } catch (error) {
-    logger.error("âŒ Error while fetching farmer count", error);
+    logger.error(" Error while fetching farmer count", error);
     return sendResponse({
       res,
       status: 500,

@@ -11,23 +11,23 @@ const warehouseDetailsSchema = new mongoose.Schema(
       required: true,
     },
     basicDetails: {
-      warehouseName: { type: String, required: true, trim: true },
-      warehouseCapacity: { type: Number, required: true },
+      warehouseName: { type: String, required: false, trim: true },
+      warehouseCapacity: { type: Number, required: false },
       quantityType: {
         type: String,
         default: "MT",
         enum: ["MT", "KG", "L", "Units"],
       },
       weighBridge: { type: Boolean, default: false },
-      storageType: { type: String, enum: ["Dry", "Cold"], required: true },
+      storageType: { type: String, enum: ["Dry", "Cold"], required: false },
     },
     addressDetails: {
-      addressLine1: { type: String, required: true, trim: true },
-      addressLine2: { type: String, required: true, trim: true },
-      pincode: { type: String, required: true, trim: true },
-      city: { type: String, required: true, trim: true },
-      tehsil: { type: String, required: true, trim: true },
-      location_url: { type: String, required: true, trim: true },
+      addressLine1: { type: String, required: false, trim: true },
+      addressLine2: { type: String, required: false, trim: true },
+      pincode: { type: String, required: false, trim: true },
+      city: { type: String, required: false, trim: true },
+      tehsil: { type: String, required: false, trim: true },
+      location_url: { type: String, required: false, trim: true },
       lat: { type: String },
       long: { type: String },
       state: {
@@ -49,15 +49,16 @@ const warehouseDetailsSchema = new mongoose.Schema(
       warehouse_timing: { type: String },
     },
     documents: {
-      licenseNumber: { type: String, required: true, trim: true },
-      insuranceNumber: { type: String, required: true, trim: true },
+      licenseNumber: { type: String, required: false, trim: true },
+      insuranceNumber: { type: String, required: false, trim: true },
       insurancePhoto: { type: String, required: false },
       ownershipType: {
         type: String,
         enum: ["Owner", "Leasehold"],
-        required: true,
+        required: false,
+        default: "Owner"
       },
-      ownershipProof: { type: String, required: true }, // URL for proof document
+      ownershipProof: { type: String, required: false }, // URL for proof document
     },
     authorizedPerson: {
       name: { type: String, trim: true },
@@ -69,7 +70,7 @@ const warehouseDetailsSchema = new mongoose.Schema(
       aadhar_front: { type: String, trim: true },
       panNumber: { type: String, trim: true },
       panImage: { type: String, trim: true },
-      pointOfContactSame: { type: Boolean, required: true },
+      pointOfContactSame: { type: Boolean, required: false },
       pointOfContact: {
         name: { type: String, trim: true },
         designation: { type: String, trim: true },
@@ -87,19 +88,19 @@ const warehouseDetailsSchema = new mongoose.Schema(
       bankName: { type: String, trim: true },
       branchName: { type: String, trim: true },
       accountHolderName: { type: String, trim: true },
-      accountNumber: { type: String, trim: true },
-      ifscCode: { type: String, trim: true },
-      passbookProof: { type: String, trim: true }, // URL for proof document
+      accountNumber: { type: String, trim: false },
+      ifscCode: { type: String, trim: false },
+      passbookProof: { type: String, trim: false }, // URL for proof document
     },
     servicePricing: [
       {
-        area: { type: Number, required: true },
+        area: { type: Number, required: false },
         unit: {
           type: String,
           default: "Sq. Ft.",
           enum: ["Sq. Ft.", "Sq. M.", "Acres"],
         },
-        price: { type: Number, required: true },
+        price: { type: Number, required: false },
       },
     ],
     activity: {
@@ -122,7 +123,14 @@ warehouseDetailsSchema.pre("save", async function (next) {
         .model(_collectionName.WarehouseDetails)
         .aggregate([
           { $match: { wareHouse_code: { $regex: /^WH\d{3}$/ } } },
-          { $sort: { wareHouse_code: -1 } },
+          {
+            $addFields: {
+              codeNumber: {
+                $toInt: { $substr: ["$wareHouse_code", 2, 3] }
+              }
+            }
+          },
+          { $sort: { codeNumber: -1 } },
           { $limit: 1 },
         ]);
 
@@ -148,3 +156,4 @@ const wareHouseDetails = mongoose.model(
   warehouseDetailsSchema
 );
 module.exports = { wareHouseDetails };
+
