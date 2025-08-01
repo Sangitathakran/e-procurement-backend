@@ -6,7 +6,7 @@ const {
   _userStatus,
 } = require("@src/v1/utils/constants");
 const { _commonKeys } = require("@src/v1/utils/helpers/collection");
-const { string } = require("joi");
+const { string, required } = require("joi");
 
 const distillerSchema = new mongoose.Schema(
   {
@@ -20,7 +20,7 @@ const distillerSchema = new mongoose.Schema(
         },
         organization_name: { type: String, trim: true },
         email: { type: String, trim: true, lowercase: true },
-        phone: { type: String, trim: true },
+        phone: { type: String, trim: true,required :true },
         company_logo: { type: String, trim: true },
       },
       point_of_contact: {
